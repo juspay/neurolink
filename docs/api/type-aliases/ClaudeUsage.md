@@ -8,7 +8,7 @@
 
 > **ClaudeUsage** = `object`
 
-Defined in: [types/proxy.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L151)
+Defined in: [types/proxy.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L157)
 
 Usage counters returned in a Claude response.
 
@@ -18,7 +18,7 @@ Usage counters returned in a Claude response.
 
 > **input_tokens**: `number`
 
-Defined in: [types/proxy.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L152)
+Defined in: [types/proxy.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L158)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:152](https://github.com/juspay/neurolink/blob/releas
 
 > **output_tokens**: `number`
 
-Defined in: [types/proxy.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L153)
+Defined in: [types/proxy.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L159)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:153](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **cache_creation_input_tokens?**: `number`
 
-Defined in: [types/proxy.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L154)
+Defined in: [types/proxy.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L160)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:154](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **cache_read_input_tokens?**: `number`
 
-Defined in: [types/proxy.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L155)
+Defined in: [types/proxy.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L161)

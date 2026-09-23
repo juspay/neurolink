@@ -9,6 +9,7 @@ const checks = [
     "route-accounting",
     "fallback-parent",
     "update-staging",
+    "pressure-recovery",
     "token-budget",
     "capture-pipeline",
     "context-preflight",

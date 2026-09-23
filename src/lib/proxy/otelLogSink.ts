@@ -9,7 +9,10 @@ import { setImmediate as yieldToRequests } from "node:timers/promises";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ExportResult } from "@opentelemetry/core";
-import { createProxyOtlpLogTransport } from "./otlpLogTransport.js";
+import {
+  createProxyOtlpLogTransport,
+  getProxyOtlpRetryAfter,
+} from "./otlpLogTransport.js";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -43,6 +46,26 @@ const BODY_OTLP_CHUNK_SIZE = 128 * 1024;
 const OTLP_EXPORT_TIMEOUT_MS = 30_000;
 const OTLP_EXPORT_CALLBACK_DEADLINE_MS = OTLP_EXPORT_TIMEOUT_MS + 1_000;
 const BODY_PUBLICATION_ACTIVE_DEADLINE_MS = 20_000;
+const METADATA_RETENTION_MS = 120_000;
+const DIAGNOSTIC_KINDS = new Set(["console", "runtime", "telemetry_delivery"]);
+
+/** Payload accounting includes UTF-8 attributes and fixed per-record overhead. */
+function retainedRecordBytes(record: ReadableLogRecord): number {
+  try {
+    return (
+      512 +
+      Buffer.byteLength(
+        typeof record.body === "string"
+          ? record.body
+          : (JSON.stringify(record.body) ?? ""),
+        "utf8",
+      ) +
+      Buffer.byteLength(JSON.stringify(record.attributes), "utf8")
+    );
+  } catch {
+    return Infinity;
+  }
+}
 const bodyDelivery = {
   attempted: 0,
   transportAcknowledged: 0,
@@ -66,10 +89,15 @@ export function isProxyOtelOnly(): boolean {
 function createTrackedProcessor(
   url: string,
   capacity: number,
-  kind: "metadata" | "bodies",
+  kind: "metadata" | "indexes" | "bodies" | "diagnostics",
+  byteCapacity: number,
 ) {
   const unsettled = new Set<ReadableLogRecord>();
   const enqueuedAt = new WeakMap<ReadableLogRecord, number>();
+  const retainedBytes = new WeakMap<ReadableLogRecord, number>();
+  const stopRetentionWaiters = new Set<() => void>();
+  const retentionMs =
+    kind === "metadata" || kind === "indexes" ? METADATA_RETENTION_MS : 0;
   const capacityWaiters = new Set<() => void>();
   const flushWaiters = new Set<() => void>();
   const state = {
@@ -79,6 +107,13 @@ function createTrackedProcessor(
     exportUnconfirmed: 0,
     dropped: 0,
     outstanding: 0,
+    outstandingBytes: 0,
+    highWaterBytes: 0,
+    byteLimitDrops: 0,
+    retryingRecords: 0,
+    retriedBatches: 0,
+    retentionExpired: 0,
+    lastTransientFailureAt: undefined as string | undefined,
     lastAcknowledgedAt: undefined as string | undefined,
     lastFailureAt: undefined as string | undefined,
     highWaterOutstanding: 0,
@@ -157,21 +192,34 @@ function createTrackedProcessor(
         }
       }
       let settled = false;
-      const deadline = setTimeout(
-        () =>
-          settle({
-            code: ExportResultCode.FAILED,
-            error: new Error("OTLP export callback deadline exceeded"),
-          }),
-        OTLP_EXPORT_CALLBACK_DEADLINE_MS,
+      let retrying = false;
+      let retryTimer: NodeJS.Timeout | undefined;
+      let deadline: NodeJS.Timeout | undefined;
+      let lastFailure: ExportResult | undefined;
+      let attempt = 0;
+      const oldestEnqueuedAt = Math.min(
+        ...records.map((record) => enqueuedAt.get(record) ?? exportStartedAt),
       );
-      deadline.unref();
+      const retainUntil = oldestEnqueuedAt + retentionMs;
+      const stopRetention = (): void => {
+        // Only a waiting retry is settled early. An active HTTP export keeps
+        // ownership until its callback/deadline so capacity stays truthful.
+        if (retryTimer && lastFailure) {
+          settle(lastFailure);
+        }
+      };
+      stopRetentionWaiters.add(stopRetention);
       const settle = (result: ExportResult): void => {
         if (settled) {
           return;
         }
         settled = true;
         clearTimeout(deadline);
+        clearTimeout(retryTimer);
+        stopRetentionWaiters.delete(stopRetention);
+        if (retrying) {
+          state.retryingRecords -= records.length;
+        }
         state.outstanding -= records.length;
         if (result.code === ExportResultCode.SUCCESS) {
           state.transportAcknowledged += records.length;
@@ -184,6 +232,7 @@ function createTrackedProcessor(
         }
         for (const record of records) {
           unsettled.delete(record);
+          state.outstandingBytes -= retainedBytes.get(record) ?? 0;
           const id = record.attributes?.["body.capture_id"];
           const publication =
             typeof id === "string" ? bodyPublications.get(id) : undefined;
@@ -212,14 +261,71 @@ function createTrackedProcessor(
         }
         callback(result);
       };
-      try {
-        transport.export(records, settle);
-      } catch (error) {
-        settle({
-          code: ExportResultCode.FAILED,
-          error: error instanceof Error ? error : new Error(String(error)),
-        });
-      }
+      const send = (): void => {
+        retryTimer = undefined;
+        if (retentionMs && performance.now() >= retainUntil) {
+          state.retentionExpired += records.length;
+          settle({
+            code: ExportResultCode.FAILED,
+            error: new Error("OTLP metadata retention budget exceeded"),
+          });
+          return;
+        }
+        attempt++;
+        if (attempt > 1) {
+          state.retriedBatches++;
+        }
+        let attemptSettled = false;
+        const completed = (result: ExportResult): void => {
+          if (attemptSettled || settled) {
+            return;
+          }
+          attemptSettled = true;
+          clearTimeout(deadline);
+          const retryAfter =
+            result.code === ExportResultCode.FAILED
+              ? getProxyOtlpRetryAfter(result.error)
+              : undefined;
+          if (retentionMs && retryAfter !== undefined && !shuttingDown) {
+            state.lastTransientFailureAt = new Date().toISOString();
+            const wait = Math.max(
+              retryAfter,
+              Math.min(10_000, 1000 * 2 ** Math.min(attempt - 1, 4)) *
+                (0.8 + Math.random() * 0.4),
+            );
+            if (performance.now() + wait < retainUntil) {
+              if (!retrying) {
+                retrying = true;
+                state.retryingRecords += records.length;
+              }
+              lastFailure = result;
+              retryTimer = setTimeout(send, wait);
+              retryTimer.unref();
+              return;
+            }
+            state.retentionExpired += records.length;
+          }
+          settle(result);
+        };
+        deadline = setTimeout(
+          () =>
+            completed({
+              code: ExportResultCode.FAILED,
+              error: new Error("OTLP export callback deadline exceeded"),
+            }),
+          OTLP_EXPORT_CALLBACK_DEADLINE_MS,
+        );
+        deadline.unref();
+        try {
+          transport.export(records, completed);
+        } catch (error) {
+          completed({
+            code: ExportResultCode.FAILED,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
+      };
+      send();
     },
     shutdown: () => transport.shutdown(),
   };
@@ -227,7 +333,7 @@ function createTrackedProcessor(
     maxQueueSize: capacity,
     maxExportBatchSize: 64,
     scheduledDelayMillis: kind === "bodies" ? 25 : 1000,
-    exportTimeoutMillis: OTLP_EXPORT_CALLBACK_DEADLINE_MS,
+    exportTimeoutMillis: retentionMs + OTLP_EXPORT_CALLBACK_DEADLINE_MS + 1000,
   });
   const processor: LogRecordProcessor = {
     onEmit(record) {
@@ -239,8 +345,15 @@ function createTrackedProcessor(
       if (publication) {
         publication.emitted++;
       }
-      if (state.outstanding >= capacity) {
+      const bytes = retainedRecordBytes(record);
+      if (
+        state.outstanding >= capacity ||
+        state.outstandingBytes + bytes > byteCapacity
+      ) {
         state.dropped++;
+        if (state.outstandingBytes + bytes > byteCapacity) {
+          state.byteLimitDrops++;
+        }
         rememberFailure([record], "queue_full");
         if (publication) {
           publication.dropped++;
@@ -250,6 +363,12 @@ function createTrackedProcessor(
       }
       state.submitted++;
       state.outstanding++;
+      state.outstandingBytes += bytes;
+      state.highWaterBytes = Math.max(
+        state.highWaterBytes,
+        state.outstandingBytes,
+      );
+      retainedBytes.set(record, bytes);
       unsettled.add(record);
       enqueuedAt.set(record, performance.now());
       state.highWaterOutstanding = Math.max(
@@ -306,7 +425,28 @@ function createTrackedProcessor(
       capacityWaiters.add(check);
       check();
     });
-  return { state, processor, capacity, kind, waitForCapacity };
+  return {
+    state,
+    processor,
+    capacity,
+    byteCapacity,
+    retentionMs,
+    kind,
+    waitForCapacity,
+    abortPending: () => transport.abortPending(),
+    stopRetention: () => {
+      for (const stop of stopRetentionWaiters) {
+        stop();
+      }
+    },
+    oldestOutstandingAgeMs: () => {
+      let oldest = performance.now();
+      for (const record of unsettled) {
+        oldest = Math.min(oldest, enqueuedAt.get(record) ?? oldest);
+      }
+      return unsettled.size ? Math.max(0, performance.now() - oldest) : 0;
+    },
+  };
 }
 
 /**
@@ -528,10 +668,34 @@ export function initializeProxyOtelLogs(
       );
     }
   }
-  const metadata = createTrackedProcessor(endpoint, 2048, "metadata");
-  const bodies = createTrackedProcessor(bodyEndpoint, 256, "bodies");
-  queues.push(metadata, bodies);
+  const metadata = createTrackedProcessor(
+    endpoint,
+    2048,
+    "metadata",
+    8 * 1024 * 1024,
+  );
+  const bodies = createTrackedProcessor(
+    bodyEndpoint,
+    256,
+    "bodies",
+    40 * 1024 * 1024,
+  );
+  const diagnostics = createTrackedProcessor(
+    endpoint,
+    512,
+    "diagnostics",
+    2 * 1024 * 1024,
+  );
+  const indexes = createTrackedProcessor(
+    endpoint,
+    1024,
+    "indexes",
+    8 * 1024 * 1024,
+  );
+  queues.push(metadata, bodies, diagnostics, indexes);
   provider = new LoggerProvider({
+    forceFlushTimeoutMillis:
+      METADATA_RETENTION_MS + OTLP_EXPORT_CALLBACK_DEADLINE_MS + 2000,
     resource: resourceFromAttributes({
       "service.name": process.env.OTEL_SERVICE_NAME ?? "neurolink-proxy",
       "service.instance.id": `${role}-${process.pid}`,
@@ -543,7 +707,15 @@ export function initializeProxyOtelLogs(
         onEmit(record, context) {
           (record.attributes?.["proxy.record_kind"] === "body"
             ? bodies
-            : metadata
+            : record.attributes?.["proxy.record_kind"] === "body_capture_index"
+              ? indexes
+              : record.attributes?.["proxy.lifecycle.event"] ===
+                    "runtime_sample" ||
+                  DIAGNOSTIC_KINDS.has(
+                    String(record.attributes?.["proxy.record_kind"]),
+                  )
+                ? diagnostics
+                : metadata
           ).processor.onEmit(record, context);
         },
         forceFlush: async () => {
@@ -664,6 +836,9 @@ export function getProxyOtelLogSnapshot() {
     queues: queues.map((q) => ({
       kind: q.kind,
       capacity: q.capacity,
+      byteCapacity: q.byteCapacity,
+      retentionMs: q.retentionMs,
+      oldestOutstandingAgeMs: q.oldestOutstandingAgeMs(),
       ...q.state,
       recentFailures: q.state.recentFailures.map((failure) => ({
         ...failure,
@@ -682,10 +857,26 @@ export async function flushProxyOtelLogs(): Promise<void> {
 /** Release this process's exporter and restore console ownership. */
 export async function shutdownProxyOtelLogs(): Promise<void> {
   shuttingDown = true;
-  await Promise.allSettled([...bodyPublicationOperations]);
-  restoreConsole?.();
-  restoreConsole = undefined;
-  await provider?.shutdown();
+  for (const queue of queues) {
+    queue.stopRetention();
+  }
+  // Service cleanup gives telemetry five seconds. End waiting retries now,
+  // then let healthy exports drain; cancel unfinished HTTP work before that
+  // outer deadline. Cancellation remains unconfirmed, never acknowledged.
+  const deadline = setTimeout(() => {
+    for (const queue of queues) {
+      queue.abortPending();
+    }
+  }, 4000);
+  deadline.unref();
+  try {
+    await Promise.allSettled([...bodyPublicationOperations]);
+    restoreConsole?.();
+    restoreConsole = undefined;
+    await provider?.shutdown();
+  } finally {
+    clearTimeout(deadline);
+  }
   provider = undefined;
   queues.length = 0;
   invalidRecords = 0;
@@ -715,7 +906,6 @@ export function withProxyOtelLogShutdown<TArg>(
     try {
       await handler(arg);
     } finally {
-      await flushProxyOtelLogs().catch(() => undefined);
       await shutdownProxyOtelLogs().catch(() => undefined);
     }
   };

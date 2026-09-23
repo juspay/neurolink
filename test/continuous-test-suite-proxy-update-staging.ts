@@ -30,10 +30,18 @@ import {
   writeProxyPackageLauncher,
 } from "../src/lib/proxy/globalInstaller.js";
 import {
+  isSameProxyServingWorker,
+  parseProxyServingWorkerIdentity,
   parseProxyRuntimeActivity,
   isProxyUpdateOwnerCurrent,
   waitForProxyUpdateWindow,
 } from "../src/lib/proxy/updateCoordinator.js";
+import { checkForUpdate } from "../src/lib/proxy/updateChecker.js";
+import {
+  loadUpdateState,
+  recordCheck,
+  recordCheckFailure,
+} from "../src/lib/proxy/updateState.js";
 
 const root = await mkdtemp(join(tmpdir(), "neurolink-staged-update-"));
 let passed = 0;
@@ -56,7 +64,7 @@ const mode=${JSON.stringify(mode)};
 if(mode==='idle')setInterval(()=>{},1000);
 else if(mode==='forever')setInterval(()=>process.stderr.write('progress\\n'),20);
 else if(mode==='network'){process.stderr.write('npm ERR! EAI_AGAIN https://secret.example');process.exitCode=1;}
-else if(mode==='progress'){const t=setInterval(()=>process.stdout.write('progress\\n'),20);setTimeout(()=>{clearInterval(t);finish()},1100);}
+else if(mode==='progress'){const t=setInterval(()=>process.stdout.write('progress\\n'),20);setTimeout(()=>{clearInterval(t);finish()},2500);}
 else finish();
 `,
     { mode: 0o755 },
@@ -65,6 +73,162 @@ else finish();
   return { kind: "npm" as const, bin: path };
 }
 try {
+  await test("rolling update identity requires matching worker version, pid and generation", async () => {
+    const status = (version: string, pid: number, generation: number) => ({
+      version,
+      pid,
+      autoUpdate: {
+        rolling: { active: { version, pid, generation } },
+      },
+    });
+    const original = parseProxyServingWorkerIdentity(
+      status("12.20.0", 200, 7),
+      true,
+    );
+    assert.ok(original);
+    assert.equal(
+      isSameProxyServingWorker(
+        original,
+        parseProxyServingWorkerIdentity(status("12.20.0", 200, 7), true),
+      ),
+      true,
+    );
+    for (const changed of [
+      status("12.21.0", 201, 8),
+      status("12.20.0", 201, 8),
+      status("12.20.0", 200, 8),
+    ]) {
+      assert.equal(
+        isSameProxyServingWorker(
+          original,
+          parseProxyServingWorkerIdentity(changed, true),
+        ),
+        false,
+      );
+    }
+    assert.equal(
+      parseProxyServingWorkerIdentity(
+        {
+          ...status("12.20.0", 200, 7),
+          autoUpdate: {
+            rolling: {
+              active: { version: "12.20.0", pid: 201, generation: 7 },
+            },
+          },
+        },
+        true,
+      ),
+      null,
+    );
+  });
+  await test("failed registry checks preserve last known release and successful-check timestamp", async () => {
+    const previousPath = process.env.PATH;
+    const statePath = join(root, "registry-state.json");
+    const npm = join(root, "npm");
+    recordCheck("9.0.0", statePath);
+    const before = loadUpdateState(statePath)!;
+    try {
+      process.env.PATH = `${root}:${previousPath ?? ""}`;
+      for (const output of ["not-json", "[]", '"invalid-version"']) {
+        await writeFile(
+          npm,
+          `#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(output)});\n`,
+          { mode: 0o755 },
+        );
+        const result = await checkForUpdate("8.0.0");
+        assert.equal(result.checkSucceeded, false);
+        if (result.checkSucceeded) {
+          throw new Error("fixture registry unexpectedly succeeded");
+        }
+        recordCheckFailure(result.checkError, statePath);
+        const state = loadUpdateState(statePath)!;
+        assert.equal(state.lastCheckVersion, "9.0.0");
+        assert.equal(state.lastCheckAt, before.lastCheckAt);
+        assert.ok(state.lastCheckError);
+        assert.ok(state.lastCheckAttemptAt);
+      }
+      await writeFile(
+        npm,
+        `#!${process.execPath}\nprocess.stdout.write('"9.0.0"');\n`,
+        { mode: 0o755 },
+      );
+      assert.equal((await checkForUpdate("8.0.0")).updateAvailable, true);
+      assert.equal((await checkForUpdate("10.0.0")).updateAvailable, false);
+      recordCheck("9.0.0", statePath);
+      assert.equal(loadUpdateState(statePath)!.lastCheckError, null);
+    } finally {
+      if (previousPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = previousPath;
+      }
+    }
+  });
+  await test("automatic supervisor refresh never fences busy or unknown activity", async () => {
+    for (const activity of [
+      null,
+      { activeRequests: 1, lastActivityAt: null },
+      { activeRequests: 0, lastActivityAt: null, drainingWorkers: 1 },
+      { activeRequests: 0, lastActivityAt: null, pendingTransfers: 1 },
+    ]) {
+      let clock = 0;
+      let fences = 0;
+      const result = await waitForProxyUpdateWindow({
+        allowBusyDrain: false,
+        quietWaitMs: 5,
+        quietThresholdMs: 0,
+        drainWaitMs: 30_000,
+        pollIntervalMs: 1,
+        getActivity: async () => activity,
+        setDraining: async () => {
+          fences++;
+          return true;
+        },
+        isStopping: () => false,
+        isParentAlive: () => true,
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+      });
+      assert.deepEqual(result, {
+        ready: false,
+        draining: false,
+        reason: "busy",
+      });
+      assert.equal(fences, 0);
+      assert.equal(clock, 5);
+    }
+  });
+  await test("quiet supervisor refresh always fences and immediately resumes if another generation becomes busy", async () => {
+    for (const postFenceBusy of [false, true]) {
+      const controls: boolean[] = [];
+      const result = await waitForProxyUpdateWindow({
+        allowBusyDrain: false,
+        quietWaitMs: 10,
+        quietThresholdMs: 0,
+        drainWaitMs: 30_000,
+        pollIntervalMs: 1,
+        getActivity: async () => ({
+          activeRequests: 0,
+          lastActivityAt: null,
+          pendingTransfers: postFenceBusy && controls.includes(true) ? 1 : 0,
+        }),
+        setDraining: async (draining) => {
+          controls.push(draining);
+          return true;
+        },
+        isStopping: () => false,
+        isParentAlive: () => true,
+        sleep: async () => {
+          throw new Error("busy refresh waited behind admission fence");
+        },
+      });
+      assert.equal(result.ready, !postFenceBusy);
+      assert.deepEqual(controls, postFenceBusy ? [true, false] : [true]);
+      assert.equal(result.draining, !postFenceBusy);
+    }
+  });
   await test("installs immutable candidate without touching the selected or global package", async () => {
     const packagesDir = join(root, "packages");
     const selected = await installStagedProxyPackage({
@@ -124,8 +288,8 @@ try {
       version: "1.3.0",
       packagesDir: join(root, "progress"),
       installer: await manager("progress"),
-      idleTimeoutMs: 800,
-      maxDurationMs: 3_000,
+      idleTimeoutMs: 2_000,
+      maxDurationMs: 6_000,
     });
     assert.equal(candidate.version, "1.3.0");
   });
@@ -404,8 +568,8 @@ try {
       version: "7.0.2",
       packagesDir,
       installer: await manager("progress"),
-      idleTimeoutMs: 800,
-      maxDurationMs: 3000,
+      idleTimeoutMs: 2_000,
+      maxDurationMs: 6_000,
       onProgress: () => {
         if (!replacementWritten) {
           currentParent = 201;
@@ -465,6 +629,77 @@ try {
         false,
       );
     }
+  });
+  await test("staging cannot publish after only the serving worker changes", async () => {
+    const packagesDir = join(root, "worker-race");
+    const installer = await manager();
+    const previous = await installStagedProxyPackage({
+      version: "7.1.0",
+      packagesDir,
+      installer,
+    });
+    const replacement = await installStagedProxyPackage({
+      version: "7.1.1",
+      packagesDir,
+      installer,
+    });
+    selectProxyPackage(packagesDir, previous);
+    const launcher = join(root, "worker-race-launcher");
+    writeProxyPackageLauncher(launcher, previous);
+    const expectedWorker = {
+      version: "7.1.0",
+      pid: 301,
+      generation: 1,
+    };
+    let currentWorker = expectedWorker;
+    const ownsAttempt = () =>
+      isProxyUpdateOwnerCurrent({
+        stopping: false,
+        parentPid: 101,
+        updaterPid: 102,
+        parentStatus: "running",
+        runtimePid: 101,
+        runtimeUpdaterPid: 102,
+      }) && isSameProxyServingWorker(expectedWorker, currentWorker);
+    let workerRotated = false;
+    const staged = await installStagedProxyPackage({
+      version: "7.1.2",
+      packagesDir,
+      installer: await manager("progress"),
+      idleTimeoutMs: 2_000,
+      maxDurationMs: 6_000,
+      onProgress: () => {
+        if (!workerRotated) {
+          currentWorker = {
+            version: "7.1.1",
+            pid: 302,
+            generation: 2,
+          };
+          writeProxyPackageLauncher(launcher, replacement);
+          selectProxyPackage(packagesDir, replacement);
+          workerRotated = true;
+        }
+      },
+    });
+    assert.equal(workerRotated, true);
+    const launcherAfterRotation = await readFile(launcher, "utf8");
+    const selectionsAfterRotation = await readFile(
+      join(packagesDir, "selections.json"),
+      "utf8",
+    );
+    assert.throws(
+      () => writeProxyPackageLauncher(launcher, staged, ownsAttempt),
+      /owner changed/,
+    );
+    assert.throws(
+      () => selectProxyPackage(packagesDir, staged, ownsAttempt),
+      /owner changed/,
+    );
+    assert.equal(await readFile(launcher, "utf8"), launcherAfterRotation);
+    assert.equal(
+      await readFile(join(packagesDir, "selections.json"), "utf8"),
+      selectionsAfterRotation,
+    );
   });
   await test("worker recovery resolves active and rollback packages after the original global tree disappears", async () => {
     const packagesDir = join(root, "missing-global");

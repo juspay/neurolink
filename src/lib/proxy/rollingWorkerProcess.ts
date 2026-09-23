@@ -28,6 +28,8 @@ export function spawnProxySocketWorker(
 ): RollingWorkerHandle {
   const socketAckTimeoutMs = Math.max(1, options.socketAckTimeoutMs ?? 30_000);
   let nextSocketId = 0;
+  let controlBeforeHandle = false;
+  let workerCommitAcknowledgement = false;
   const pendingSockets = new Map<
     string,
     {
@@ -35,6 +37,8 @@ export function spawnProxySocketWorker(
       callback: (error?: Error | null) => void;
       timeout: NodeJS.Timeout;
       accepted: boolean;
+      deadlineAt: number;
+      descriptorSent: boolean;
     }
   >();
   const statusListeners = new Set<
@@ -161,6 +165,30 @@ export function spawnProxySocketWorker(
   const onInternalMessage = (message: unknown): void => {
     if (
       isProxyWorkerStatusMessage(message) &&
+      message.type === "proxy-worker:ready" &&
+      message.generation === options.generation &&
+      message.pid === childPid
+    ) {
+      controlBeforeHandle =
+        message.socketOfferProtocol === "control-before-handle";
+      workerCommitAcknowledgement =
+        message.socketCommitProtocol === "worker-ack";
+    }
+    if (
+      isProxyWorkerStatusMessage(message) &&
+      message.type === "proxy-worker:socket-committed" &&
+      message.generation === options.generation &&
+      message.pid === childPid
+    ) {
+      const pending = pendingSockets.get(message.socketId);
+      if (!pending || !pending.accepted || !pending.descriptorSent) {
+        return;
+      }
+      settleSocket(message.socketId);
+      return;
+    }
+    if (
+      isProxyWorkerStatusMessage(message) &&
       message.type === "proxy-worker:socket-accepted" &&
       message.generation === options.generation &&
       message.pid === childPid
@@ -169,27 +197,74 @@ export function spawnProxySocketWorker(
       if (!pending || pending.accepted) {
         return;
       }
+      if (Date.now() >= pending.deadlineAt) {
+        const error = Object.assign(
+          new Error("Socket admission deadline expired before commit"),
+          {
+            code: PROXY_SOCKET_OFFER_TIMEOUT,
+            socketNeverTransferred: !pending.descriptorSent,
+          },
+        );
+        settleSocket(message.socketId, error);
+        return;
+      }
+      const commitBudgetMs = Math.min(
+        socketAckTimeoutMs,
+        pending.deadlineAt - Date.now(),
+      );
+      const minimumCommitWindowMs = Math.min(socketAckTimeoutMs, 1_000);
+      if (commitBudgetMs < minimumCommitWindowMs) {
+        settleSocket(
+          message.socketId,
+          Object.assign(
+            new Error("Socket admission deadline too close for commit"),
+            {
+              code: PROXY_SOCKET_OFFER_TIMEOUT,
+              socketNeverTransferred: !pending.descriptorSent,
+            },
+          ),
+        );
+        return;
+      }
       pending.accepted = true;
       // Acceptance and commit are distinct phases. A late acceptance must not
       // inherit an almost-expired offer timer and kill established streams.
       clearTimeout(pending.timeout);
       pending.timeout = setTimeout(() => {
         const error: NodeJS.ErrnoException = new Error(
-          `proxy worker ${childPid} socket commit remained pending for ${socketAckTimeoutMs}ms`,
+          `proxy worker ${childPid} socket commit remained pending for ${commitBudgetMs}ms`,
         );
         error.code = PROXY_SOCKET_COMMIT_TIMEOUT;
         settleSocket(message.socketId, error);
-      }, socketAckTimeoutMs);
+      }, commitBudgetMs);
       pending.timeout.unref?.();
       try {
-        child.send(
-          {
-            type: "proxy-worker:socket-commit",
-            generation: options.generation,
-            socketId: message.socketId,
-          },
-          (error) => settleSocket(message.socketId, error ?? undefined),
-        );
+        const commit: ProxyWorkerControlMessage = {
+          type: "proxy-worker:socket-commit",
+          generation: options.generation,
+          socketId: message.socketId,
+        };
+        if (!pending.descriptorSent) {
+          // Mark ambiguous before calling IPC: even a thrown/send callback error
+          // cannot prove the descriptor was not delivered and consumed.
+          pending.descriptorSent = true;
+          child.send(
+            commit,
+            pending.socket as Socket,
+            { keepOpen: true },
+            (error) => {
+              if (error || !workerCommitAcknowledgement) {
+                settleSocket(message.socketId, error ?? undefined);
+              }
+            },
+          );
+        } else {
+          child.send(commit, (error) => {
+            if (error || !workerCommitAcknowledgement) {
+              settleSocket(message.socketId, error ?? undefined);
+            }
+          });
+        }
       } catch (error) {
         settleSocket(
           message.socketId,
@@ -265,8 +340,25 @@ export function spawnProxySocketWorker(
 
   return {
     pid: childPid,
+    socketTransferTimeoutMs: 2 * socketAckTimeoutMs,
     sendControl,
-    sendSocket: (generation, socket, callback) => {
+    sendSocket: (
+      generation,
+      socket,
+      callback,
+      deadlineAt = Date.now() + 2 * socketAckTimeoutMs,
+    ) => {
+      if (Date.now() >= deadlineAt) {
+        const error = Object.assign(
+          new Error("Socket admission deadline expired before offer"),
+          {
+            code: PROXY_SOCKET_OFFER_TIMEOUT,
+            socketNeverTransferred: true,
+          },
+        );
+        callback(error);
+        return;
+      }
       if (budgetResponseFailure) {
         callback(budgetResponseFailure);
         return;
@@ -276,31 +368,52 @@ export function spawnProxySocketWorker(
         return;
       }
       const socketId = `${generation}:${++nextSocketId}`;
-      const timeout = setTimeout(() => {
-        const error: NodeJS.ErrnoException = new Error(
-          `proxy worker ${childPid} did not accept socket within ${socketAckTimeoutMs}ms`,
-        );
-        error.code = PROXY_SOCKET_OFFER_TIMEOUT;
-        settleSocket(socketId, error);
-      }, socketAckTimeoutMs);
+      const timeout = setTimeout(
+        () => {
+          const error = Object.assign(
+            new Error(
+              `proxy worker ${childPid} did not accept socket within ${socketAckTimeoutMs}ms`,
+            ),
+            {
+              code: PROXY_SOCKET_OFFER_TIMEOUT,
+              socketNeverTransferred:
+                pendingSockets.get(socketId)?.descriptorSent === false,
+            },
+          );
+          settleSocket(socketId, error);
+        },
+        Math.max(0, Math.min(socketAckTimeoutMs, deadlineAt - Date.now())),
+      );
       timeout.unref?.();
       pendingSockets.set(socketId, {
         socket,
         callback,
         timeout,
         accepted: false,
+        deadlineAt,
+        descriptorSent: !controlBeforeHandle,
       });
       try {
-        child.send(
-          { type: "proxy-worker:socket", generation, socketId },
-          socket as Socket,
-          { keepOpen: true },
-          (error) => {
-            if (error) {
-              settleSocket(socketId, error);
-            }
-          },
-        );
+        const onSent = (error: Error | null): void => {
+          if (error) {
+            settleSocket(socketId, error);
+          }
+        };
+        if (controlBeforeHandle) {
+          child.send(
+            { type: "proxy-worker:socket-offer", generation, socketId },
+            onSent,
+          );
+        } else {
+          // Old workers require descriptor-first offers. They may buffer input
+          // before commit, so their timed-out offers are never safe to retry.
+          child.send(
+            { type: "proxy-worker:socket", generation, socketId },
+            socket as Socket,
+            { keepOpen: true },
+            onSent,
+          );
+        }
       } catch (error) {
         settleSocket(
           socketId,

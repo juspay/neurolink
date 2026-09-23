@@ -1,7 +1,6 @@
 import {
   initializeProxyOtelLogs,
   routeProxyConsoleToOtel,
-  flushProxyOtelLogs,
   shutdownProxyOtelLogs,
   isProxyOtelOnly,
   withProxyOtelLogShutdown,
@@ -82,6 +81,7 @@ import type {
   ProxyRuntimeConfigSnapshot,
   ProxyReadinessState,
   ProxyResponseTrackingObserver,
+  ProxyServingWorkerIdentity,
   RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
@@ -151,6 +151,8 @@ import {
 } from "../../lib/proxy/rollingWorkerProtocol.js";
 import { attachSocketWorkerProcess } from "../../lib/proxy/socketWorkerRuntime.js";
 import {
+  isSameProxyServingWorker,
+  parseProxyServingWorkerIdentity,
   parseProxyRuntimeActivity,
   isProxyUpdateOwnerCurrent,
   shouldRefreshStaleSupervisor,
@@ -162,6 +164,7 @@ import {
   isVersionSuppressed,
   loadUpdateState,
   recordCheck,
+  recordCheckFailure,
   recordSuccessfulUpdate,
   recordUpdateDeferred,
   recordUpdateFailure,
@@ -802,8 +805,10 @@ async function fetchProxyHealthVersion(
 async function fetchProxyRuntimeVersions(
   host: string,
   port: number,
+  rollingSupervisor: boolean = false,
 ): Promise<{
   workerVersion?: string;
+  workerIdentity?: ProxyServingWorkerIdentity;
   supervisorVersion?: string;
   supervisorPid?: number;
 }> {
@@ -816,16 +821,29 @@ async function fetchProxyRuntimeVersions(
       return {};
     }
     const data = (await response.json()) as {
+      pid?: number;
       version?: string;
       autoUpdate?: {
         supervisorVersion?: string | null;
         supervisorPid?: number | null;
+        rolling?: {
+          active?: {
+            version?: string;
+            pid?: number;
+            generation?: number;
+          } | null;
+        } | null;
       };
     };
+    const workerIdentity = parseProxyServingWorkerIdentity(
+      data,
+      rollingSupervisor,
+    );
     return {
       ...(typeof data.version === "string"
         ? { workerVersion: data.version }
         : {}),
+      ...(workerIdentity ? { workerIdentity } : {}),
       ...(typeof data.autoUpdate?.supervisorVersion === "string"
         ? { supervisorVersion: data.autoUpdate.supervisorVersion }
         : {}),
@@ -850,11 +868,18 @@ async function activateRollbackVersion(
   parentPid: number,
   runningVersion: string,
   timeoutMs: number,
+  isCurrentOwner: () => boolean,
 ): Promise<boolean> {
+  if (!isCurrentOwner()) {
+    return false;
+  }
   recordUpdateInstalled(runningVersion);
   try {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
+      if (!isCurrentOwner()) {
+        return false;
+      }
       try {
         process.kill(parentPid, "SIGUSR2");
       } catch {
@@ -909,7 +934,7 @@ async function setProxyUpdateDrain(
         body: JSON.stringify({
           action: draining
             ? supervisorRefresh
-              ? "drain_for_supervisor_refresh"
+              ? "fence_for_supervisor_refresh"
               : "drain"
             : "resume",
         }),
@@ -2089,14 +2114,16 @@ export async function createProxyStartApp(params: {
       .catch(() => ({ action: undefined }));
     if (
       payload.action === "drain" ||
-      payload.action === "drain_for_supervisor_refresh"
+      payload.action === "drain_for_supervisor_refresh" ||
+      payload.action === "fence_for_supervisor_refresh"
     ) {
       // A rolling worker must keep admitting until the supervisor has a ready
       // replacement. The legacy global drain can otherwise strand the listener
       // behind maintenance responses when its caller stalls or disappears.
       if (
         isProxySocketWorkerProcess() &&
-        payload.action !== "drain_for_supervisor_refresh"
+        payload.action !== "drain_for_supervisor_refresh" &&
+        payload.action !== "fence_for_supervisor_refresh"
       ) {
         return c.json(
           {
@@ -2107,10 +2134,22 @@ export async function createProxyStartApp(params: {
           409,
         );
       }
+      // No await between the activity check and fence: an HTTP request cannot
+      // enter this worker between the idle observation and admission closure.
+      // The updater separately verifies all supervisor generations are settled.
+      if (
+        payload.action === "fence_for_supervisor_refresh" &&
+        getProxyActivitySnapshot().activeRequests !== 0
+      ) {
+        return c.json({ error: "proxy_busy", draining: false }, 409);
+      }
       if (!markProxyDrainingForUpdate(readiness)) {
         return c.json({ error: "proxy_not_ready" }, 409);
       }
-      if (payload.action === "drain_for_supervisor_refresh") {
+      if (
+        payload.action === "drain_for_supervisor_refresh" ||
+        payload.action === "fence_for_supervisor_refresh"
+      ) {
         // A crashed updater must not strand the current rolling worker in
         // maintenance mode. A successful launchd refresh replaces this process.
         scheduleSupervisorRefreshResume(90 * 1000);
@@ -2951,6 +2990,8 @@ export async function createProxyStartApp(params: {
           : "restart",
         deferredUpdate: updateState?.deferredUpdate ?? null,
         lastCheckAt: updateState?.lastCheckAt ?? null,
+        lastCheckAttemptAt: updateState?.lastCheckAttemptAt ?? null,
+        lastCheckError: updateState?.lastCheckError ?? null,
         lastUpdateAt: updateState?.lastUpdateAt ?? null,
         lastUpdateVersion: updateState?.lastUpdateVersion ?? null,
         lastFailure: updateState?.lastFailure
@@ -3410,7 +3451,6 @@ function registerProxyShutdownHandlers(params: {
         await import("../../lib/services/server/ai/observability/instrumentation.js");
       await withShutdownDeadline(
         (async () => {
-          await flushProxyOtelLogs();
           await shutdownProxyOtelLogs();
           await flushOpenTelemetry();
           await shutdownOpenTelemetry();
@@ -3917,7 +3957,6 @@ async function runLaunchdProxySupervisor(
       await cleanup(
         async () => {
           await flushProxyLifecycleEvents().catch(reportCleanupFailure);
-          await flushProxyOtelLogs().catch(reportCleanupFailure);
           await shutdownProxyOtelLogs();
         },
         PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
@@ -4681,6 +4720,8 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         latestVersion: updateState?.lastCheckVersion || null,
         lastDetectedVersion: updateState?.lastCheckVersion || null,
         lastCheckAt: updateState?.lastCheckAt ?? null,
+        lastCheckAttemptAt: updateState?.lastCheckAttemptAt ?? null,
+        lastCheckError: updateState?.lastCheckError ?? null,
         installedVersion:
           updateState?.installedVersion ??
           updateState?.lastUpdateVersion ??
@@ -5273,18 +5314,85 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       updateInProgress = true;
       let updateVersion = runningVersion;
       let drainActive = false;
-      let previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR);
-      if (previousPackage?.version !== runningVersion) {
-        previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR, true);
-      }
+      let previousPackage: ProxyPackageSelection | null;
       let candidatePackage: ProxyPackageSelection | undefined;
+      let servingWorkerIdentity: ProxyServingWorkerIdentity | undefined;
+      let activatedWorkerIdentity: ProxyServingWorkerIdentity | undefined;
+      const readPersistedServingIdentity =
+        (): ProxyServingWorkerIdentity | null => {
+          if (!servingWorkerIdentity) {
+            return null;
+          }
+          if (rollingSupervisor) {
+            const active = loadProxySupervisorState()?.rolling?.active;
+            return active
+              ? {
+                  version: active.version,
+                  pid: active.pid,
+                  generation: active.generation,
+                }
+              : null;
+          }
+          const state = loadProxyState();
+          return state?.pid
+            ? {
+                version: servingWorkerIdentity.version,
+                pid: state.pid,
+                generation: null,
+              }
+            : null;
+        };
+      const isCurrentUpdateAttemptOwner = (): boolean => {
+        if (!isCurrentUpdateOwner() || !servingWorkerIdentity) {
+          return false;
+        }
+        const current = readPersistedServingIdentity();
+        return (
+          isSameProxyServingWorker(servingWorkerIdentity, current) ||
+          (activatedWorkerIdentity !== undefined &&
+            isSameProxyServingWorker(activatedWorkerIdentity, current))
+        );
+      };
       try {
+        // A rolling worker may have changed since this updater started. Never
+        // use startup identity to choose rollback or downgrade a serving worker.
+        const runtimeVersions = await fetchProxyRuntimeVersions(
+          host,
+          port,
+          rollingSupervisor,
+        );
+        servingWorkerIdentity = runtimeVersions.workerIdentity;
+        const observedVersion = servingWorkerIdentity?.version;
+        if (!observedVersion) {
+          persistUpdaterState("record unavailable runtime identity", () =>
+            recordCheckFailure("Serving worker version could not be verified"),
+          );
+          scheduleUpdateRetry(
+            "runtime version probe incomplete",
+            runningVersion,
+          );
+          return;
+        }
+        runningVersion = observedVersion;
+        updateVersion = runningVersion;
+        previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR);
+        if (previousPackage?.version !== runningVersion) {
+          previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR, true);
+        }
+
         // Lazy-load update modules so they're only imported at check time
         const { checkForUpdate } =
           await import("../../lib/proxy/updateChecker.js");
 
         // 1. Check for update
         let result = await checkForUpdate(runningVersion);
+        if (result.checkSucceeded === false) {
+          persistUpdaterState("record failed update check", () =>
+            recordCheckFailure(result.checkError ?? "Registry check failed"),
+          );
+          scheduleUpdateRetry("registry check failed", runningVersion);
+          return;
+        }
         updateVersion = result.latestVersion;
         persistUpdaterState("record update check", () =>
           recordCheck(result.latestVersion),
@@ -5325,6 +5433,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             );
             return;
           }
+          // A stale registry mirror can report a lower version. Reconcile the
+          // supervisor to the observed worker, never to that older registry row.
+          result = { ...result, latestVersion: runningVersion };
+          updateVersion = runningVersion;
           logger.always(
             `[updater] worker v${runningVersion} is current; reconciling stale supervisor v${activeVersions.supervisorVersion}`,
           );
@@ -5355,7 +5467,39 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         // Recheck the target before staging because discovery can be delayed.
         let pendingRestart = initiallyPendingRestart;
         if (!supervisorRefreshOnly) {
+          const refreshedRuntime = await fetchProxyRuntimeVersions(
+            host,
+            port,
+            rollingSupervisor,
+          );
+          if (
+            !servingWorkerIdentity ||
+            !isSameProxyServingWorker(
+              servingWorkerIdentity,
+              refreshedRuntime.workerIdentity,
+            )
+          ) {
+            // Another updater/manual rotation won while registry discovery was
+            // pending. Restart discovery using that worker on the next tick.
+            scheduleUpdateRetry(
+              "serving worker changed during discovery",
+              runningVersion,
+            );
+            return;
+          }
           const refreshedResult = await checkForUpdate(runningVersion);
+          if (refreshedResult.checkSucceeded === false) {
+            persistUpdaterState("record failed refreshed update check", () =>
+              recordCheckFailure(
+                refreshedResult.checkError ?? "Registry check failed",
+              ),
+            );
+            scheduleUpdateRetry(
+              "refreshed registry check failed",
+              runningVersion,
+            );
+            return;
+          }
           result = refreshedResult;
           updateVersion = result.latestVersion;
           persistUpdaterState("record refreshed update check", () =>
@@ -5479,6 +5623,25 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           return;
         }
 
+        const publicationRuntime = await fetchProxyRuntimeVersions(
+          host,
+          port,
+          rollingSupervisor,
+        );
+        if (
+          !servingWorkerIdentity ||
+          !isSameProxyServingWorker(
+            servingWorkerIdentity,
+            publicationRuntime.workerIdentity,
+          )
+        ) {
+          scheduleUpdateRetry(
+            "serving worker changed during staging",
+            result.latestVersion,
+          );
+          return;
+        }
+
         // 4. Refresh and validate the stable trampoline. The plist already
         // points at this path, so it must not be unloaded or rewritten here.
         if (!supervisorRefreshOnly) {
@@ -5503,10 +5666,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               selectProxyPackage(
                 PROXY_PACKAGES_DIR,
                 previousPackage,
-                isCurrentUpdateOwner,
+                isCurrentUpdateAttemptOwner,
               );
             }
-            writeTrampoline(candidatePackage, isCurrentUpdateOwner);
+            writeTrampoline(candidatePackage, isCurrentUpdateAttemptOwner);
 
             const validation = await validateInstalledVersion({
               binPath: TRAMPOLINE_PATH,
@@ -5529,7 +5692,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
                 abandonPendingUpdate(result.latestVersion),
               );
               if (previousPackage) {
-                writeTrampoline(previousPackage, isCurrentUpdateOwner);
+                writeTrampoline(previousPackage, isCurrentUpdateAttemptOwner);
               }
               scheduleUpdateRetry(
                 "transient candidate validation failure",
@@ -5562,7 +5725,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               abandonPendingUpdate(result.latestVersion),
             );
             if (previousPackage) {
-              writeTrampoline(previousPackage, isCurrentUpdateOwner);
+              writeTrampoline(previousPackage, isCurrentUpdateAttemptOwner);
             }
             scheduleUpdateRetry(
               "candidate validation failed; restaging permitted",
@@ -5656,9 +5819,46 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           return;
         }
 
+        const activationRuntime = await fetchProxyRuntimeVersions(
+          host,
+          port,
+          rollingSupervisor,
+        );
+        if (
+          !servingWorkerIdentity ||
+          !isSameProxyServingWorker(
+            servingWorkerIdentity,
+            activationRuntime.workerIdentity,
+          )
+        ) {
+          scheduleUpdateRetry(
+            "serving worker changed before activation",
+            result.latestVersion,
+          );
+          return;
+        }
+
         updateRestartInProgress = true;
         if (rollingSupervisor) {
-          const activeVersions = await fetchProxyRuntimeVersions(host, port);
+          const activeVersions = await fetchProxyRuntimeVersions(
+            host,
+            port,
+            true,
+          );
+          if (
+            !servingWorkerIdentity ||
+            !isSameProxyServingWorker(
+              servingWorkerIdentity,
+              activeVersions.workerIdentity,
+            )
+          ) {
+            updateRestartInProgress = false;
+            scheduleUpdateRetry(
+              "serving worker changed at activation boundary",
+              result.latestVersion,
+            );
+            return;
+          }
           if (activeVersions.workerVersion === result.latestVersion) {
             logger.always(
               `[updater] worker v${result.latestVersion} is already active; resuming supervisor refresh without another worker replacement`,
@@ -5668,7 +5868,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               `[updater] requesting rolling activation of v${result.latestVersion}`,
             );
             try {
-              if (!isCurrentUpdateOwner()) {
+              if (!isCurrentUpdateAttemptOwner()) {
                 updateRestartInProgress = false;
                 return;
               }
@@ -5732,6 +5932,23 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             if (resp.ok) {
               const data = (await resp.json()) as { version?: string };
               if (data.version === result.latestVersion) {
+                if (rollingSupervisor && servingWorkerIdentity) {
+                  const observedRuntime = await fetchProxyRuntimeVersions(
+                    host,
+                    port,
+                    true,
+                  );
+                  if (
+                    observedRuntime.workerIdentity?.version ===
+                      result.latestVersion &&
+                    !isSameProxyServingWorker(
+                      servingWorkerIdentity,
+                      observedRuntime.workerIdentity,
+                    )
+                  ) {
+                    activatedWorkerIdentity ??= observedRuntime.workerIdentity;
+                  }
+                }
                 healthy = true;
                 break;
               }
@@ -5740,6 +5957,22 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             /* retry */
           }
           if (rollingSupervisor) {
+            const observedRuntime = await fetchProxyRuntimeVersions(
+              host,
+              port,
+              true,
+            );
+            if (
+              observedRuntime.workerIdentity?.version ===
+                result.latestVersion &&
+              servingWorkerIdentity &&
+              !isSameProxyServingWorker(
+                servingWorkerIdentity,
+                observedRuntime.workerIdentity,
+              )
+            ) {
+              activatedWorkerIdentity ??= observedRuntime.workerIdentity;
+            }
             rollingFailure = await getRollingActivationFailure(
               host,
               port,
@@ -5760,6 +5993,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             let lastRefreshDeferral = "";
             const waitForSupervisorRefresh = async (quietWaitMs: number) => {
               const window = await waitForProxyUpdateWindow({
+                allowBusyDrain: false,
                 quietThresholdMs: QUIET_THRESHOLD_MS,
                 quietWaitMs,
                 drainWaitMs: UPDATE_DRAIN_TIMEOUT_MS,
@@ -5822,7 +6056,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
                   result.latestVersion,
                   refreshWindow.reason === "drain_timeout"
                     ? "drain_timeout"
-                    : "drain_unavailable",
+                    : refreshWindow.reason === "busy"
+                      ? "waiting_for_quiet"
+                      : "drain_unavailable",
                   null,
                 ),
               );
@@ -5838,9 +6074,37 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               updateRestartInProgress = false;
               return;
             }
+            const refreshIdentity = await fetchProxyRuntimeVersions(
+              host,
+              port,
+              true,
+            );
+            const allowedRefreshIdentity =
+              servingWorkerIdentity &&
+              (isSameProxyServingWorker(
+                servingWorkerIdentity,
+                refreshIdentity.workerIdentity,
+              ) ||
+                (activatedWorkerIdentity !== undefined &&
+                  isSameProxyServingWorker(
+                    activatedWorkerIdentity,
+                    refreshIdentity.workerIdentity,
+                  )));
+            if (!allowedRefreshIdentity) {
+              updateRestartInProgress = false;
+              scheduleUpdateRetry(
+                "serving worker changed before supervisor refresh",
+                result.latestVersion,
+              );
+              return;
+            }
             logger.always(
               `[updater] refreshing launchd supervisor at v${result.latestVersion}`,
             );
+            if (!isCurrentUpdateAttemptOwner()) {
+              updateRestartInProgress = false;
+              return;
+            }
             const uid = process.getuid?.() ?? 501;
             try {
               execFileSync(
@@ -5917,7 +6181,6 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           updateRetryAttempts = 0;
           updateRetryVersion = null;
           // The replacement proxy starts a worker running the new version.
-          await flushProxyOtelLogs().catch(() => undefined);
           await shutdownProxyOtelLogs().catch(() => undefined);
           process.exit(0);
         } else {
@@ -5933,6 +6196,27 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               return;
             }
             try {
+              const rollbackRuntime = await fetchProxyRuntimeVersions(
+                host,
+                port,
+                true,
+              );
+              const rollbackStillOwned =
+                servingWorkerIdentity &&
+                (isSameProxyServingWorker(
+                  servingWorkerIdentity,
+                  rollbackRuntime.workerIdentity,
+                ) ||
+                  (activatedWorkerIdentity !== undefined &&
+                    isSameProxyServingWorker(
+                      activatedWorkerIdentity,
+                      rollbackRuntime.workerIdentity,
+                    )));
+              if (!rollbackStillOwned) {
+                throw new Error(
+                  "Serving worker identity changed; stale updater refused rollback",
+                );
+              }
               if (
                 !previousPackage ||
                 previousPackage.version !== runningVersion
@@ -5944,7 +6228,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               logger.always(
                 `[updater] restoring immutable package selection v${runningVersion}`,
               );
-              writeTrampoline(previousPackage, isCurrentUpdateOwner);
+              writeTrampoline(previousPackage, isCurrentUpdateAttemptOwner);
               const rollbackValidation = await validateInstalledVersion({
                 binPath: TRAMPOLINE_PATH,
                 expectedVersion: runningVersion,
@@ -5970,6 +6254,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
                 parentPid,
                 runningVersion,
                 UPDATE_TIMEOUT_MS,
+                isCurrentUpdateAttemptOwner,
               );
               if (!rollbackActivated) {
                 throw new Error(

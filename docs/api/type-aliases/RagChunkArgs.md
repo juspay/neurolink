@@ -8,7 +8,7 @@
 
 > **RagChunkArgs** = [`RAGCommandArgs`](RAGCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1630](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1630)
+Defined in: [types/cli.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1650)
 
 Arguments for `neurolink rag chunk`.
 

@@ -8,7 +8,7 @@
 
 > **ClaudeThinkingBlock** = `object`
 
-Defined in: [types/proxy.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L94)
+Defined in: [types/proxy.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L100)
 
 A thinking/reasoning block in a Claude content array.
 
@@ -18,7 +18,7 @@ A thinking/reasoning block in a Claude content array.
 
 > **type**: `"thinking"`
 
-Defined in: [types/proxy.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L95)
+Defined in: [types/proxy.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L101)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:95](https://github.com/juspay/neurolink/blob/release
 
 > **thinking**: `string`
 
-Defined in: [types/proxy.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L96)
+Defined in: [types/proxy.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L102)

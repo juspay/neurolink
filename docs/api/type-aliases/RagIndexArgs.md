@@ -8,7 +8,7 @@
 
 > **RagIndexArgs** = [`RAGCommandArgs`](RAGCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1637](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1637)
+Defined in: [types/cli.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1657)
 
 Arguments for `neurolink rag index`.
 

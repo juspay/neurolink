@@ -8,7 +8,7 @@
 
 > **ProxyOtelExportFailure** = `object`
 
-Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L879)
+Defined in: [types/proxy.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L929)
 
 Bounded metadata-only evidence for an unconfirmed or locally rejected OTLP batch.
 
@@ -18,7 +18,7 @@ Bounded metadata-only evidence for an unconfirmed or locally rejected OTLP batch
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L880)
+Defined in: [types/proxy.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L930)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:880](https://github.com/juspay/neurolink/blob/releas
 
 > **at**: `string`
 
-Defined in: [types/proxy.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L881)
+Defined in: [types/proxy.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L931)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:881](https://github.com/juspay/neurolink/blob/releas
 
 > **reason**: `"export_unconfirmed"` \| `"queue_full"`
 
-Defined in: [types/proxy.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L882)
+Defined in: [types/proxy.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L932)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:882](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/proxy.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L883)
+Defined in: [types/proxy.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L933)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:883](https://github.com/juspay/neurolink/blob/releas
 
 > **records**: `object`[]
 
-Defined in: [types/proxy.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L884)
+Defined in: [types/proxy.ts:934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L934)
 
 #### eventId
 

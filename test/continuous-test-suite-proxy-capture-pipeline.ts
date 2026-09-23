@@ -9,10 +9,18 @@
  */
 import "./helpers/proxyTestIsolation.js";
 import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { IncomingMessage } from "node:http";
 import { gunzipSync } from "node:zlib";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -25,8 +33,11 @@ import {
 } from "@opentelemetry/sdk-logs";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ExportResult } from "@opentelemetry/core";
-import { createProxyOtlpLogTransport } from "../src/lib/proxy/otlpLogTransport.js";
-import { assertEqual, defineSuite, Skip } from "./helpers/harness.js";
+import {
+  createProxyOtlpLogTransport,
+  getProxyOtlpRetryAfter,
+} from "../src/lib/proxy/otlpLogTransport.js";
+import { assertEqual, defineSuite, runCLI, Skip } from "./helpers/harness.js";
 import {
   emitProxyOtelEvent,
   flushProxyOtelLogs,
@@ -36,6 +47,7 @@ import {
   shutdownProxyOtelLogs,
 } from "../src/lib/proxy/otelLogSink.js";
 import { processProxyBodyCapture } from "../src/lib/proxy/bodyCaptureProcessing.js";
+import { createProxyBodyCapturePolicy } from "../src/lib/proxy/bodyCapturePolicy.js";
 import { analyzeProxyLogs } from "../src/lib/proxy/proxyAnalysis.js";
 import {
   initRequestLogger,
@@ -45,7 +57,11 @@ import {
 import type { RequestLogEntry } from "../src/lib/types/index.js";
 import { resolveProxyTelemetryBackend } from "../scripts/observability/proxy-telemetry-backend.mjs";
 import { queryProxyHistory } from "../scripts/observability/query-proxy-history.mjs";
-import { reconcileProxyAdmissions } from "../scripts/observability/proxy-telemetry-check.mjs";
+import {
+  reconcileProxyAdmissions,
+  reconstructProxyBodyCapture,
+  resolveProxyBodyCaptureTarget,
+} from "../scripts/observability/proxy-telemetry-check.mjs";
 
 const { test, runSuite } = defineSuite("Proxy Capture Pipeline", {
   offline: true,
@@ -326,6 +342,214 @@ await test("doctor resolves separate streams from the collector environment prof
   assertEqual(backend.bodyStream, "neurolink_proxy_bodies");
   assertEqual(backend.organization, "fixture");
 });
+
+await test("shipped CLI stages private native migration without changing operator files or disclosing secrets", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "proxy-native-prepare-"));
+  const source = join(directory, "existing.yaml");
+  const output = join(directory, "stage");
+  const secret = "Basic fixture-private-credential";
+  const fixture = yaml.dump({
+    receivers: {
+      otlp: { protocols: { http: { endpoint: "127.0.0.1:24318" } } },
+    },
+    exporters: {
+      "otlphttp/openobserve": {
+        endpoint: "http://127.0.0.1:25080/api/fixture",
+        headers: { Authorization: secret, "stream-name": "operator_history" },
+      },
+    },
+    extensions: { health_check: { endpoint: "127.0.0.1:24333" } },
+    service: {
+      telemetry: {
+        metrics: {
+          readers: [
+            {
+              pull: {
+                exporter: { prometheus: { host: "127.0.0.1", port: 24388 } },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  await writeFile(source, fixture, { mode: 0o600 });
+  const args = [
+    "telemetry",
+    "native-prepare",
+    "--collector-config",
+    source,
+    "--output",
+    output,
+    "--queue-directory",
+    join(directory, "operator-queue"),
+    "--compaction-directory",
+    join(directory, "operator-compact"),
+    "--body-port",
+    "24319",
+    "--metadata-queue-mib",
+    "16",
+    "--body-queue-mib",
+    "128",
+    "--disk-quota-mib",
+    "512",
+  ];
+  try {
+    const result = await runCLI(args);
+    assertEqual(result.exitCode, 0, result.stderr);
+    assert(!`${result.stdout}${result.stderr}`.includes(secret));
+    assertEqual(await readFile(source, "utf8"), fixture);
+    assertEqual((await stat(output)).mode & 0o777, 0o700);
+    for (const file of [
+      "collector.yaml",
+      "collector.env.json",
+      "proxy.env",
+      "doctor.env",
+      "manifest.json",
+    ]) {
+      assertEqual((await stat(join(output, file))).mode & 0o777, 0o600);
+    }
+    await assert.rejects(stat(join(directory, "operator-queue")), {
+      code: "ENOENT",
+    });
+    await assert.rejects(stat(join(directory, "operator-compact")), {
+      code: "ENOENT",
+    });
+    const env = JSON.parse(
+      await readFile(join(output, "collector.env.json"), "utf8"),
+    );
+    assertEqual(env.NEUROLINK_OPENOBSERVE_BASIC_AUTH, secret);
+    assertEqual(env.NEUROLINK_PROXY_STREAM_HEADER, "operator_history");
+    assertEqual(
+      env.NEUROLINK_PROXY_BODY_STREAM_HEADER,
+      "operator_history_bodies",
+    );
+    assertEqual(
+      env.NEUROLINK_OTEL_METADATA_QUEUE_BYTES,
+      String(16 * 1024 * 1024),
+    );
+    assertEqual(env.NEUROLINK_OTEL_BODY_QUEUE_BYTES, String(128 * 1024 * 1024));
+    const doctor = await readFile(join(output, "doctor.env"), "utf8");
+    assert(
+      doctor.includes(
+        "NEUROLINK_PROXY_BODY_STREAM_HEADER=operator_history_bodies",
+      ),
+    );
+    assert(!doctor.includes(secret));
+    assert(
+      !(await readFile(join(output, "collector.yaml"), "utf8")).includes(
+        secret,
+      ),
+    );
+    const manifest = JSON.parse(
+      await readFile(join(output, "manifest.json"), "utf8"),
+    );
+    assertEqual(manifest.activationImplemented, false);
+    assertEqual(manifest.operatorPolicy.enforced, false);
+    assertEqual(manifest.operatorPolicy.diskQuotaBytes, 512 * 1024 * 1024);
+    const refused = await runCLI(args);
+    assert.notEqual(
+      refused.exitCode,
+      0,
+      "existing stage must never be overwritten",
+    );
+    assertEqual(await readFile(source, "utf8"), fixture);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+await test("native validation gates version, changed source and private diagnostics using only static collector commands", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "proxy-native-validate-"));
+  const source = join(directory, "existing.yaml");
+  const output = join(directory, "stage");
+  const binary = join(directory, "fixture-collector");
+  const calls = join(directory, "calls.jsonl");
+  const secret = "Basic fixture-validation-secret";
+  const fixture = yaml.dump({
+    receivers: {
+      otlp: { protocols: { http: { endpoint: "127.0.0.1:24318" } } },
+    },
+    exporters: {
+      "otlphttp/openobserve": {
+        endpoint: "http://127.0.0.1:25080/api/fixture",
+        headers: { Authorization: secret, "stream-name": "metadata" },
+      },
+    },
+    service: {},
+  });
+  await writeFile(source, fixture, { mode: 0o600 });
+  const writeCollector = async (version: string, reject = false) => {
+    await writeFile(
+      binary,
+      `#!${process.execPath}\nconst fs = require('node:fs');\nconst args = process.argv.slice(2);\nif(args[0] === '--version') { console.log('otelcol-contrib version ${version}'); process.exit(0); }\nfs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify({args, queue:process.env.NEUROLINK_OTEL_QUEUE_DIRECTORY})+'\\n');\nif(args[0] !== 'validate') process.exit(91);\nif(${reject}) { console.error(process.env.NEUROLINK_OPENOBSERVE_BASIC_AUTH); process.exit(2); }\n`,
+      { mode: 0o700 },
+    );
+    await chmod(binary, 0o700);
+  };
+  try {
+    const prepared = await runCLI([
+      "telemetry",
+      "native-prepare",
+      "--collector-config",
+      source,
+      "--output",
+      output,
+      "--queue-directory",
+      join(directory, "operator-queue"),
+      "--compaction-directory",
+      join(directory, "operator-compact"),
+    ]);
+    assertEqual(prepared.exitCode, 0, prepared.stderr);
+    const validate = () =>
+      runCLI([
+        "telemetry",
+        "native-validate",
+        "--directory",
+        output,
+        "--collector-bin",
+        binary,
+      ]);
+    await writeCollector("0.159.0");
+    const old = await validate();
+    assert.notEqual(old.exitCode, 0);
+    await assert.rejects(stat(calls), { code: "ENOENT" });
+    await writeCollector("0.160.0", true);
+    const rejected = await validate();
+    assert.notEqual(rejected.exitCode, 0);
+    assert(!`${rejected.stdout}${rejected.stderr}`.includes(secret));
+    await writeCollector("0.160.0");
+    const valid = await validate();
+    assertEqual(valid.exitCode, 0, valid.stderr);
+    assert(valid.stdout.includes('"activated": false'));
+    const invocations = (await readFile(calls, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    assertEqual(invocations.length, 2);
+    assert(
+      invocations.every(
+        (call) =>
+          call.args[0] === "validate" &&
+          call.queue.startsWith(`${output}/validation-`),
+      ),
+    );
+    await assert.rejects(stat(join(directory, "operator-queue")), {
+      code: "ENOENT",
+    });
+    await writeFile(source, `${fixture}\n# operator changed config\n`);
+    const stale = await validate();
+    assert.notEqual(stale.exitCode, 0);
+    assert(
+      `${stale.stdout}${stale.stderr}`.includes(
+        "Source collector configuration changed",
+      ),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 await test("persistent collector queues recover acknowledged records after test-owned process death", async () => {
   const binary = process.env.NEUROLINK_TEST_OTELCOL_BIN;
   if (!binary) {
@@ -341,7 +565,7 @@ await test("persistent collector queues recover acknowledged records after test-
   const config = yaml.load(await readFile(profile, "utf8")) as {
     exporters: Record<
       string,
-      { sending_queue: { sizer: string; queue_size: number; storage: string } }
+      { sending_queue: { sizer: string; queue_size: string; storage: string } }
     >;
   };
   assertEqual(
@@ -350,11 +574,12 @@ await test("persistent collector queues recover acknowledged records after test-
   );
   assertEqual(
     config.exporters["otlphttp/openobserve-bodies"].sending_queue.queue_size,
-    268435456,
+    "${env:NEUROLINK_OTEL_BODY_QUEUE_BYTES:-268435456}",
   );
   let available = false;
   let outageAttempts = 0;
   const delivered = new Set<string>();
+  const deliveredStreams = new Map<string, string | string[] | undefined>();
   const backend = createServer(async (request, response) => {
     const buffers: Buffer[] = [];
     for await (const chunk of request) {
@@ -376,6 +601,10 @@ await test("persistent collector queues recover acknowledged records after test-
       for (const scope of resource.scopeLogs ?? []) {
         for (const record of scope.logRecords ?? []) {
           delivered.add(record.body?.stringValue);
+          deliveredStreams.set(
+            record.body?.stringValue,
+            request.headers["stream-name"],
+          );
         }
       }
     }
@@ -415,10 +644,13 @@ await test("persistent collector queues recover acknowledged records after test-
     NEUROLINK_PROXY_STREAM_HEADER: "fixture_metadata",
     NEUROLINK_PROXY_BODY_STREAM_HEADER: "fixture_bodies",
   };
+  const stage = join(directory, "stage");
+  const sourceConfig = join(directory, "existing.yaml");
+  const stagedProfile = join(stage, "collector.yaml");
   let diagnostic = "";
   let collector: ReturnType<typeof spawn> | undefined;
   const start = () => {
-    collector = spawn(binary, ["--config", profile.pathname], {
+    collector = spawn(binary, ["--config", stagedProfile], {
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -456,6 +688,76 @@ await test("persistent collector queues recover acknowledged records after test-
     await exited;
   };
   try {
+    await writeFile(
+      sourceConfig,
+      yaml.dump({
+        receivers: {
+          otlp: {
+            protocols: {
+              http: { endpoint: env.NEUROLINK_OTEL_METADATA_LISTEN },
+            },
+          },
+        },
+        exporters: {
+          "otlphttp/openobserve": {
+            endpoint: env.NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT,
+            headers: {
+              Authorization: env.NEUROLINK_OPENOBSERVE_BASIC_AUTH,
+              "stream-name": env.NEUROLINK_PROXY_STREAM_HEADER,
+            },
+          },
+        },
+        extensions: {
+          health_check: { endpoint: env.NEUROLINK_OTEL_HEALTH_LISTEN },
+        },
+        service: {
+          telemetry: {
+            metrics: {
+              readers: [
+                {
+                  pull: {
+                    exporter: {
+                      prometheus: { host: "127.0.0.1", port: metricsPort },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    const prepared = await runCLI([
+      "telemetry",
+      "native-prepare",
+      "--collector-config",
+      sourceConfig,
+      "--output",
+      stage,
+      "--queue-directory",
+      env.NEUROLINK_OTEL_QUEUE_DIRECTORY,
+      "--compaction-directory",
+      env.NEUROLINK_OTEL_COMPACTION_DIRECTORY,
+      "--body-port",
+      String(bodiesPort),
+      "--body-stream",
+      env.NEUROLINK_PROXY_BODY_STREAM_HEADER,
+    ]);
+    assertEqual(prepared.exitCode, 0, prepared.stderr);
+    const validated = await runCLI([
+      "telemetry",
+      "native-validate",
+      "--directory",
+      stage,
+      "--collector-bin",
+      binary,
+    ]);
+    assertEqual(validated.exitCode, 0, validated.stderr);
+    Object.assign(
+      env,
+      JSON.parse(await readFile(join(stage, "collector.env.json"), "utf8")),
+    );
     start();
     await until(healthy, 20000);
     for (const [port, marker] of [
@@ -498,6 +800,8 @@ await test("persistent collector queues recover acknowledged records after test-
       15000,
     );
     assertEqual(delivered.size, 2);
+    assertEqual(deliveredStreams.get("persist-metadata"), "fixture_metadata");
+    assertEqual(deliveredStreams.get("persist-body"), "fixture_bodies");
     await writeFile(
       join(directory, "verification.json"),
       JSON.stringify({ delivered: [...delivered], outageAttempts }),
@@ -933,7 +1237,9 @@ await test("HTTP 200 partial, malformed and empty responses never acknowledge ei
         assertEqual(result.status, "export_unconfirmed");
         assertEqual(result.acknowledgedChunks, 0);
         const snapshot = getProxyOtelLogSnapshot();
-        for (const queue of snapshot.queues) {
+        for (const queue of snapshot.queues.filter((candidate) =>
+          ["metadata", "bodies"].includes(candidate.kind),
+        )) {
           assertEqual(queue.transportAcknowledged, 0);
           assertEqual(queue.exportUnconfirmed, 1);
           assertEqual(queue.outstanding, 0);
@@ -944,6 +1250,11 @@ await test("HTTP 200 partial, malformed and empty responses never acknowledge ei
             ),
           );
         }
+        const diagnostics = snapshot.queues.find(
+          (queue) => queue.kind === "diagnostics",
+        );
+        assertEqual(diagnostics?.transportAcknowledged, 0);
+        assertEqual(diagnostics?.exportUnconfirmed, 0);
         assertEqual(
           batches.length,
           2,
@@ -972,10 +1283,18 @@ await test("valid OTLP JSON full success and zero-rejection warnings acknowledge
         const body = publish("accepted");
         await flushProxyOtelLogs();
         assertEqual((await body).status, "transport_acknowledged");
-        for (const queue of getProxyOtelLogSnapshot().queues) {
+        const queues = getProxyOtelLogSnapshot().queues;
+        for (const queue of queues.filter((candidate) =>
+          ["metadata", "bodies"].includes(candidate.kind),
+        )) {
           assertEqual(queue.transportAcknowledged, 1);
           assertEqual(queue.exportUnconfirmed, 0);
         }
+        assertEqual(
+          queues.find((queue) => queue.kind === "diagnostics")
+            ?.transportAcknowledged,
+          0,
+        );
       },
       { responseBody },
     );
@@ -1016,10 +1335,18 @@ await test("transient retries preserve identical serialized event IDs in metadat
         const copies = payloads.get(key)!;
         assertEqual(copies[0], copies[1], "retry payload was re-created");
       }
-      for (const queue of getProxyOtelLogSnapshot().queues) {
+      const queues = getProxyOtelLogSnapshot().queues;
+      for (const queue of queues.filter((candidate) =>
+        ["metadata", "bodies"].includes(candidate.kind),
+      )) {
         assertEqual(queue.transportAcknowledged, 1);
         assertEqual(queue.exportUnconfirmed, 0);
       }
+      assertEqual(
+        queues.find((queue) => queue.kind === "diagnostics")
+          ?.transportAcknowledged,
+        0,
+      );
     },
     { responseHeaders: { "retry-after": "0" } },
   );
@@ -1130,6 +1457,11 @@ await test("interrupted and endless HTTP 200 responses stay unconfirmed and obey
       assertEqual(results.length, 1);
       assertEqual(results[0].code, ExportResultCode.FAILED);
       assertEqual(
+        getProxyOtlpRetryAfter(results[0].error),
+        undefined,
+        "ambiguous HTTP 200 response was classified as retryable",
+      );
+      assertEqual(
         requests,
         1,
         "ambiguous partial HTTP 200 response was replayed",
@@ -1168,6 +1500,294 @@ await test("repeated Retry-After zero cannot create a retry storm", async () => 
       },
     },
   );
+});
+
+await test("identical redacted phases share one acknowledged body and reconstruct Unicode and tools", async () => {
+  await withCollector(200, async (batches) => {
+    const policy = createProxyBodyCapturePolicy();
+    const body = {
+      messages: [{ role: "user", content: "नमस्ते 🌍" }],
+      tools: [{ name: "lookup", input_schema: { type: "object" } }],
+      api_key: "private-original",
+    };
+    const unchanged = JSON.stringify(body);
+    const entries = [
+      { requestId: "same-request", phase: "client_request", body },
+      { requestId: "same-request", phase: "upstream_request", body },
+      {
+        requestId: "same-request",
+        phase: "upstream_request",
+        body: { ...body, model: "transformed-model" },
+      },
+      { requestId: "different-request", phase: "client_request", body },
+    ].map((entry) => ({
+      ...entry,
+      timestamp: new Date().toISOString(),
+      captureId: randomUUID(),
+      model: "fixture",
+      stream: true,
+    }));
+    const stored = await Promise.all(
+      entries.map(
+        async (entry) => (await processProxyBodyCapture(entry, null)).stored,
+      ),
+    );
+    const outcomes = await Promise.all(
+      entries.map((entry, i) =>
+        policy.publish(entry, stored[i], () =>
+          publish(entry.captureId, stored[i].redactedBody),
+        ),
+      ),
+    );
+    assertEqual(outcomes[0].delivery?.status, "transport_acknowledged");
+    assertEqual(outcomes[1].delivery?.status, "reference");
+    assertEqual(outcomes[2].delivery?.status, "transport_acknowledged");
+    assertEqual(outcomes[3].delivery?.status, "transport_acknowledged");
+    assertEqual(batches.flat().length, 3);
+    assertEqual(JSON.stringify(body), unchanged, "inference input changed");
+    assertEqual(policy.snapshot().deduplicatedCaptures, 1);
+    assertEqual(
+      policy.snapshot().deduplicatedBytes,
+      stored[1].redactedBodyBytes,
+    );
+    const index = {
+      ...entries[1],
+      ...stored[1],
+      bodyDelivery: outcomes[1].delivery,
+      bodyReference: outcomes[1].reference,
+    };
+    const source = resolveProxyBodyCaptureTarget(index);
+    assertEqual(source.captureId, entries[0].captureId);
+    const rows = batches.flat().flatMap((record) => {
+      const attributes = Object.fromEntries(
+        (
+          record.attributes as Array<{
+            key: string;
+            value: { stringValue?: string; intValue?: string };
+          }>
+        ).map((attribute) => [
+          attribute.key.replaceAll(".", "_"),
+          attribute.value.stringValue ?? attribute.value.intValue,
+        ]),
+      );
+      if (attributes.body_capture_id !== source.captureId) {
+        return [];
+      }
+      return [
+        {
+          ...attributes,
+          _timestamp: 1,
+          request_id: entries[0].requestId,
+          body: (record.body as { stringValue: string }).stringValue,
+        },
+      ];
+    });
+    const reconstructed = reconstructProxyBodyCapture(index, rows);
+    assert(reconstructed.verified);
+    assertEqual(reconstructed.body, stored[1].redactedBody);
+    assert(!reconstructed.body.includes("private-original"));
+    assert(reconstructed.body.includes("नमस्ते 🌍"));
+    assertEqual(reconstructProxyBodyCapture(index, []).verified, false);
+    assertEqual(
+      reconstructProxyBodyCapture(
+        index,
+        rows.map((row) => ({ ...row, request_id: "wrong-request" })),
+      ).verified,
+      false,
+    );
+    const directIndex = {
+      ...entries[0],
+      ...stored[0],
+      bodyDelivery: outcomes[0].delivery,
+    };
+    assertEqual(
+      reconstructProxyBodyCapture(
+        directIndex,
+        rows.map((row) => ({ ...row, request_id: "wrong-request" })),
+      ).verified,
+      false,
+      "direct capture accepted chunks attributed to another request",
+    );
+    const requestConflict = reconstructProxyBodyCapture(directIndex, [
+      ...rows,
+      { ...rows[0], request_id: "wrong-request" },
+    ]);
+    assertEqual(
+      requestConflict.verified,
+      false,
+      "changed request attribution was collapsed as an exact retry",
+    );
+    assert(
+      requestConflict.identityConflicts.some(
+        (conflict) => conflict.reason === "event_identity_conflict",
+      ),
+      "request attribution conflict was not reported",
+    );
+    assert.throws(
+      () =>
+        resolveProxyBodyCaptureTarget({
+          ...index,
+          bodyReference: { ...index.bodyReference, bodySha256: "0".repeat(64) },
+        }),
+      /conflicting body reference/,
+    );
+    assert.throws(
+      () =>
+        resolveProxyBodyCaptureTarget({
+          ...index,
+          bodyReference: { ...index.bodyReference, captureId: index.captureId },
+        }),
+      /conflicting body reference/,
+    );
+  });
+});
+
+await test("uncertain exports never become dedup references and a later acknowledged copy can", async () => {
+  let exports = 0;
+  await withCollector(
+    () => (++exports === 1 ? 400 : 200),
+    async () => {
+      const policy = createProxyBodyCapturePolicy();
+      const base = {
+        timestamp: new Date().toISOString(),
+        requestId: "uncertain",
+        phase: "client_request",
+        model: "fixture",
+        stream: false,
+        body: "same retained bytes",
+      };
+      const stored = (await processProxyBodyCapture(base, null)).stored;
+      const entries = Array.from({ length: 3 }, () => ({
+        ...base,
+        captureId: randomUUID(),
+      }));
+      const results = await Promise.all(
+        entries
+          .slice(0, 2)
+          .map((entry) =>
+            policy.publish(entry, stored, () =>
+              publish(entry.captureId, stored.redactedBody),
+            ),
+          ),
+      );
+      assertEqual(results[0].delivery?.status, "export_unconfirmed");
+      assertEqual(results[1].delivery?.status, "transport_acknowledged");
+      assertEqual(results[0].reference, undefined);
+      assertEqual(results[1].reference, undefined);
+      const third = await policy.publish(entries[2], stored, () =>
+        publish(entries[2].captureId, stored.redactedBody),
+      );
+      assertEqual(third.delivery?.status, "reference");
+      assertEqual(third.reference?.captureId, entries[1].captureId);
+      assertEqual(exports, 2);
+    },
+  );
+});
+
+await test("body byte policy is explicit, charges unique bytes and refills without changing input", async () => {
+  await withCollector(200, async () => {
+    let now = 0;
+    const base = {
+      timestamp: new Date().toISOString(),
+      requestId: "budgeted",
+      phase: "client_request",
+      model: "fixture",
+      stream: false,
+      body: "🌍bounded",
+    };
+    const stored = (await processProxyBodyCapture(base, null)).stored;
+    const bytes = stored.redactedBodyBytes!;
+    const policy = createProxyBodyCapturePolicy({
+      bytesPerMinute: String(bytes),
+      now: () => now,
+    });
+    const send = (requestId: string) => {
+      const entry = { ...base, requestId, captureId: randomUUID() };
+      return policy.publish(entry, stored, () =>
+        publish(entry.captureId, stored.redactedBody),
+      );
+    };
+    assertEqual(
+      (await send("budgeted")).delivery?.status,
+      "transport_acknowledged",
+    );
+    assertEqual((await send("budgeted")).delivery?.status, "reference");
+    const omitted = await send("new-request");
+    assertEqual(omitted.delivery?.status, "policy_excluded");
+    assertEqual(omitted.delivery?.reason, "body_byte_budget_exhausted");
+    assertEqual(policy.snapshot().submittedBytes, bytes);
+    assertEqual(policy.snapshot().policyExcludedBytes, bytes);
+    now = 60_000;
+    assertEqual(
+      (await send("new-request")).delivery?.status,
+      "transport_acknowledged",
+    );
+    assertEqual(base.body, "🌍bounded");
+    const invalid = createProxyBodyCapturePolicy({ bytesPerMinute: "invalid" });
+    const outcome = await invalid.publish(
+      { ...base, captureId: randomUUID() },
+      stored,
+      async () => {
+        throw new Error("invalid policy published a body");
+      },
+    );
+    assertEqual(outcome.delivery?.reason, "body_byte_budget_invalid");
+    assertEqual(invalid.snapshot().invalidByteBudget, true);
+  });
+});
+
+await test("dedup retention is bounded and expired or disabled entries export their own payload", async () => {
+  // Fixed time and acknowledgments exercise eviction without sleeping for TTL.
+  let now = 0;
+  let exports = 0;
+  const policy = createProxyBodyCapturePolicy({ now: () => now });
+  const body = "fixed-redacted-payload";
+  const stored = {
+    redactedBody: body,
+    bodySha256: createHash("sha256").update(body).digest("hex"),
+    redactedBodyBytes: Buffer.byteLength(body),
+  };
+  const send = (requestId: string, active = policy) =>
+    active.publish(
+      {
+        timestamp: new Date().toISOString(),
+        requestId,
+        captureId: randomUUID(),
+        phase: "client_request",
+        model: "fixture",
+        stream: false,
+      },
+      stored,
+      async () => {
+        exports++;
+        return {
+          status: "transport_acknowledged",
+          expectedChunks: 1,
+          acknowledgedChunks: 1,
+          unconfirmedChunks: 0,
+          droppedChunks: 0,
+        };
+      },
+    );
+  for (let i = 0; i < 1100; i++) {
+    await send(`request-${i}`);
+  }
+  assertEqual(policy.snapshot().references, 1024);
+  assertEqual((await send("request-1099")).delivery?.status, "reference");
+  now = 5 * 60_000;
+  assertEqual(policy.snapshot().references, 0);
+  assertEqual(
+    (await send("request-1099")).delivery?.status,
+    "transport_acknowledged",
+  );
+  const disabled = createProxyBodyCapturePolicy({ deduplicate: false });
+  await send("disabled", disabled);
+  assertEqual(
+    (await send("disabled", disabled)).delivery?.status,
+    "transport_acknowledged",
+  );
+  assertEqual(disabled.snapshot().references, 0);
+  assertEqual(exports, 1103);
 });
 
 await runSuite();

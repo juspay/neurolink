@@ -146,6 +146,14 @@ export function loadUpdateState(stateFilePath?: string): UpdateState | null {
     return {
       ...getDefaultUpdateState(),
       ...candidate,
+      lastCheckAttemptAt:
+        typeof candidate.lastCheckAttemptAt === "string"
+          ? candidate.lastCheckAttemptAt
+          : undefined,
+      lastCheckError:
+        typeof candidate.lastCheckError === "string"
+          ? candidate.lastCheckError.slice(0, 1_000)
+          : null,
       suppressedVersions: candidate.suppressedVersions ?? {},
       // Backfill order matters for state files written before `installedVersion`
       // existed. Back then `recordUpdateInstalled()` set ONLY
@@ -376,6 +384,19 @@ export function recordCheck(
 ): void {
   const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
   state.lastCheckAt = new Date().toISOString();
+  state.lastCheckAttemptAt = state.lastCheckAt;
+  state.lastCheckError = null;
   state.lastCheckVersion = latestVersion;
+  saveUpdateState(state, stateFilePath);
+}
+
+/** Preserve the last successful registry version when discovery fails. */
+export function recordCheckFailure(
+  message: string,
+  stateFilePath?: string,
+): void {
+  const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
+  state.lastCheckAttemptAt = new Date().toISOString();
+  state.lastCheckError = message.slice(0, 1_000);
   saveUpdateState(state, stateFilePath);
 }

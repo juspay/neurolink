@@ -8,7 +8,7 @@
 
 > **SSEMessageStart** = `object`
 
-Defined in: [types/proxy.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L195)
+Defined in: [types/proxy.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L201)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:195](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"message_start"`
 
-Defined in: [types/proxy.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L196)
+Defined in: [types/proxy.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L202)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:196](https://github.com/juspay/neurolink/blob/releas
 
 > **message**: `Omit`\<[`ClaudeResponse`](ClaudeResponse.md), `"content"`\> & `object`
 
-Defined in: [types/proxy.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L197)
+Defined in: [types/proxy.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L203)
 
 #### Type Declaration
 

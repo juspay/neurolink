@@ -8,7 +8,7 @@
 
 > **ClaudeImageBlock** = `object`
 
-Defined in: [types/proxy.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L68)
+Defined in: [types/proxy.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L74)
 
 A single image block in a Claude content array.
 
@@ -18,7 +18,7 @@ A single image block in a Claude content array.
 
 > **type**: `"image"`
 
-Defined in: [types/proxy.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L69)
+Defined in: [types/proxy.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L75)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:69](https://github.com/juspay/neurolink/blob/release
 
 > **source**: `object`
 
-Defined in: [types/proxy.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L70)
+Defined in: [types/proxy.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L76)
 
 #### type
 

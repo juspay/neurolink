@@ -6,22 +6,12 @@
 
 # Type Alias: RollingQueuedSocket
 
-> **RollingQueuedSocket** = `object`
+> **RollingQueuedSocket** = [`RollingSocketAdmission`](RollingSocketAdmission.md) & `object`
 
-Defined in: [types/proxy.ts:3356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3356)
+Defined in: [types/proxy.ts:3452](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3452)
 
-## Properties
-
-### socket
-
-> **socket**: [`TransferableProxySocket`](TransferableProxySocket.md)
-
-Defined in: [types/proxy.ts:3357](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3357)
-
----
+## Type Declaration
 
 ### timeout
 
 > **timeout**: `NodeJS.Timeout`
-
-Defined in: [types/proxy.ts:3358](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3358)

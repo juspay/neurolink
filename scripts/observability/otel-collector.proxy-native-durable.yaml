@@ -31,7 +31,7 @@ exporters:
       enabled: true
       num_consumers: 2
       sizer: bytes
-      queue_size: 33554432
+      queue_size: ${env:NEUROLINK_OTEL_METADATA_QUEUE_BYTES:-33554432}
       storage: file_storage
   otlphttp/openobserve-bodies:
     endpoint: ${env:NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT}
@@ -48,7 +48,7 @@ exporters:
       enabled: true
       num_consumers: 2
       sizer: bytes
-      queue_size: 268435456
+      queue_size: ${env:NEUROLINK_OTEL_BODY_QUEUE_BYTES:-268435456}
       storage: file_storage
 extensions:
   file_storage:

@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryQueryBudget** = `object`
 
-Defined in: [types/proxy.ts:908](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L908)
+Defined in: [types/proxy.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L958)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:908](https://github.com/juspay/neurolink/blob/releas
 
 > **used**: `number`
 
-Defined in: [types/proxy.ts:908](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L908)
+Defined in: [types/proxy.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L958)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:908](https://github.com/juspay/neurolink/blob/releas
 
 > **limit**: `number`
 
-Defined in: [types/proxy.ts:908](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L908)
+Defined in: [types/proxy.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L958)

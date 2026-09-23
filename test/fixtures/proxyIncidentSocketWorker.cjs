@@ -18,9 +18,23 @@ async function main() {
   });
   const originalSend = process.send.bind(process);
   process.send = function (message, ...args) {
-    const delay = Number(process.env.NEUROLINK_INCIDENT_ACCEPT_DELAY_MS ?? 0);
-    if (delay && message.type === "proxy-worker:socket-accepted") {
-      setTimeout(() => originalSend(message, ...args), delay);
+    const acceptDelay = Number(
+      process.env.NEUROLINK_INCIDENT_ACCEPT_DELAY_MS ?? 0,
+    );
+    if (acceptDelay && message.type === "proxy-worker:socket-accepted") {
+      setTimeout(() => originalSend(message, ...args), acceptDelay);
+      return true;
+    }
+    const commitDelay = Number(
+      process.env.NEUROLINK_INCIDENT_COMMIT_ACK_DELAY_MS ?? 0,
+    );
+    const commitSocket = process.env.NEUROLINK_INCIDENT_COMMIT_ACK_SOCKET;
+    if (
+      commitDelay &&
+      message.type === "proxy-worker:socket-committed" &&
+      (!commitSocket || message.socketId === commitSocket)
+    ) {
+      setTimeout(() => originalSend(message, ...args), commitDelay);
       return true;
     }
     return originalSend(message, ...args);

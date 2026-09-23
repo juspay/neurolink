@@ -5,6 +5,74 @@
 Application logs remain OTLP-only. Collector retry storage writes a bounded
 queue to disk so records accepted into that queue survive a collector restart.
 
+## Prepare an existing native installation
+
+The shipped CLI stages a migration from the existing collector. It preserves
+the metadata stream (for example, `curator`), backend endpoint and authorization,
+metadata listener, health listener and metrics port. Its new body stream defaults
+to `<metadata stream>_bodies`. Other operator customizations need review against
+the staged standard profile, particularly filters, TLS, memory limits and
+exporter settings. The original collector YAML and all service settings stay
+unchanged.
+
+```sh
+neurolink telemetry native-prepare \
+  --collector-config "$HOME/.neurolink/telemetry-native/config/collector.yaml" \
+  --output "$HOME/neurolink-native-migration-review" \
+  --queue-directory "$HOME/.neurolink/telemetry-native/queue" \
+  --compaction-directory "$HOME/.neurolink/telemetry-native/compact" \
+  --disk-quota-mib 1024 \
+  --metadata-retention-days 14 \
+  --body-retention-days 3
+
+neurolink telemetry native-validate \
+  --directory "$HOME/neurolink-native-migration-review" \
+  --collector-bin "$HOME/.neurolink/telemetry-native/bin/otelcol-contrib"
+```
+
+The destination directory must not exist. It is created with mode `0700`, with
+`0600` files: `collector.yaml`, `collector.env.json`, `proxy.env`, `doctor.env`
+and `manifest.json`. The JSON environment contains the private backend
+authorization; keep it private and do not paste it into an issue. Command output
+and the profile do not contain that credential. The doctor snippet includes
+**both stream names** and the actual collector metrics port; supply backend
+authorization to the doctor's environment privately. Snippets are environment
+configuration to merge, not shell scripts to execute. Never replace an existing
+proxy environment wholesale with a snippet.
+
+`native-validate` checks private file permissions, staged file hashes, the source
+configuration hash, and stable collector version `>= 0.160.0`, then runs only
+`otelcol-contrib validate`. It uses temporary queue paths inside the stage and
+removes them afterward. It never starts a collector or connects to the backend.
+Binary diagnostics are suppressed because they can contain credentials. A
+successful validation proves profile acceptance, not delivery, backend retention,
+queue recovery or runtime adoption. Re-prepare into a new directory after any
+source or staged-file edits.
+
+The manifest records requested payload limits, planned volume quota, separate
+backend retention periods and remaining operator checks. `--metadata-queue-mib`
+(default 32) applies to each of three metadata signal queues;
+`--body-queue-mib` defaults to 256. These become collector environment byte
+limits. The quota must allow at least twice the sum of payload limits, but that
+is planning headroom, **not a guarantee that compaction fits**. No filesystem
+quota or backend retention setting is applied. The operator must provision both
+private storage directories on a quota-managed volume and apply/verify backend
+retention before activation.
+
+There is deliberately no activation command in this workflow. Service changes
+require an explicit operator action: first back up collector config, service
+definition and existing environments; then merge the reviewed settings using
+the service manager. On failed health, export or backend checks, restore those
+backups. Do not substitute `proxy install` for this review: it may regenerate
+existing launch settings. Verify fresh metadata **and** body records, queue
+failure counters and unchanged application-log files afterward. Package release
+and static validation do not establish that the live service adopted the stage.
+
+Host scheduling pressure is separate from queue durability. If the machine has
+many concurrent builds, MCP launches or other CPU consumers, review that
+concurrency independently. Preparation and validation do not stop processes,
+disable scanners or change host scheduling policy.
+
 Configure these variables in the collector service environment:
 
 - `NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT`: backend API endpoint, for example

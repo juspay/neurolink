@@ -138,6 +138,22 @@ export async function startProxyRestartControl(
     // its existing streams. Full quiescence is only required before replacing
     // the supervisor itself (updateCoordinator.isProxyRuntimeSettled).
   };
+  const readServingStatus = async (): Promise<z.infer<typeof statusSchema>> => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return statusSchema.parse(await options.getStatus());
+      } catch (error) {
+        lastError = error;
+        if (attempt < 3) {
+          await new Promise<void>((resolve) =>
+            setTimeout(resolve, attempt * 100),
+          );
+        }
+      }
+    }
+    throw lastError;
+  };
   const operate = async (restart: boolean): Promise<ProxyRestartResult> => {
     if (busy || closing) {
       return result(
@@ -172,7 +188,7 @@ export async function startProxyRestartControl(
         throw new Error("The serving worker exited during preflight.");
       }
       previousWorkerPid = active.pid;
-      const status = statusSchema.parse(await options.getStatus());
+      const status = await readServingStatus();
       assertSupervisorLogging(status, options.getTelemetry?.());
       if (
         status.pid !== previousWorkerPid ||
@@ -210,7 +226,7 @@ export async function startProxyRestartControl(
       handoffBaseline = options.server.snapshot();
       const after = await options.server.replace(version);
       activated = true;
-      const fresh = statusSchema.parse(await options.getStatus());
+      const fresh = await readServingStatus();
       if (
         fresh.pid !== after.active?.pid ||
         fresh.pid === previousWorkerPid ||
@@ -469,7 +485,7 @@ export async function requestProxyRestart(
             "Restart result timed out; outcome is unknown. Inspect proxy status before retrying.",
           ),
         ),
-      check ? 15_000 : 150_000,
+      check ? 30_000 : 150_000,
     );
     req.once("error", (error) => {
       clearTimeout(timeout);

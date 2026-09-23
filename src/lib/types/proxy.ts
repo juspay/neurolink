@@ -20,6 +20,12 @@ import type {
  */
 
 import type { Counter, Histogram, Span } from "@opentelemetry/api";
+import type { LogRecordExporter } from "@opentelemetry/sdk-logs";
+
+/** HTTP exporter with an explicit bounded-shutdown cancellation boundary. */
+export type ProxyOtlpLogTransport = LogRecordExporter & {
+  abortPending: () => void;
+};
 import type { Hono } from "hono";
 import type { Ora } from "ora";
 import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
@@ -864,6 +870,50 @@ export type ProxyBodyDeliveryResult = {
   reason?: string;
 };
 
+/** One-hop reference to identical redacted bytes from the same request. */
+export type ProxyBodyCaptureReference = {
+  captureId: string;
+  requestId: string;
+  bodySha256: string;
+  redactedBodyBytes: number;
+  /** Source export settlement time, used to bound backend reconstruction. */
+  exportedAt: string;
+};
+export type ProxyBodyCapturePublication = {
+  delivery?:
+    | ProxyBodyDeliveryResult
+    | { status: "reference"; reason: "identical_redacted_payload" }
+    | {
+        status: "policy_excluded";
+        reason: "body_byte_budget_exhausted" | "body_byte_budget_invalid";
+      };
+  reference?: ProxyBodyCaptureReference;
+};
+export type ProxyBodyCapturePolicyOptions = {
+  bytesPerMinute?: string;
+  deduplicate?: boolean;
+  now?: () => number;
+};
+export type ProxyBodyCapturePolicySnapshot = {
+  deduplicationEnabled: boolean;
+  maxReferences: number;
+  referenceTtlMs: number;
+  references: number;
+  byteBudgetPerMinute: number | null;
+  invalidByteBudget: boolean;
+  availableBytes: number | null;
+  submittedBytes: number;
+  deduplicatedCaptures: number;
+  deduplicatedBytes: number;
+  policyExcludedCaptures: number;
+  policyExcludedBytes: number;
+};
+export type ProxyBodyDeduplicationEntry = {
+  reference: ProxyBodyCaptureReference;
+  expiresAt: number;
+  acknowledged: Promise<boolean>;
+};
+
 /** One bounded body publication, tracked across exporter callbacks. */
 export type ProxyBodyPublicationProgress = {
   acknowledged: number;
@@ -970,6 +1020,7 @@ export type ProxyRequestLoggerSnapshot = {
     typeof import("../proxy/otelLogSink.js").getProxyOtelLogSnapshot
   >;
   bodyCapture?: ProxyBodyCaptureWorkerSnapshot;
+  bodyCapturePolicy?: ProxyBodyCapturePolicySnapshot;
   enabled: boolean;
   requests: ProxyRequestLogSinkSnapshot;
   attempts: ProxyRequestLogSinkSnapshot;
@@ -2963,6 +3014,17 @@ export type UpdateCheckResult = {
   currentVersion: string;
   latestVersion: string;
   updateAvailable: boolean;
+} & (
+  | { checkSucceeded: true; checkError?: never }
+  | { checkSucceeded: false; checkError: string; updateAvailable: false }
+);
+
+/** Immutable identity of the worker an update attempt is allowed to replace. */
+export type ProxyServingWorkerIdentity = {
+  version: string;
+  pid: number;
+  /** Rolling generation; null only for a legacy single-process service. */
+  generation: number | null;
 };
 
 /** Result of one local proxy health probe by the updater or fail-open guard. */
@@ -2991,6 +3053,9 @@ export type SuppressedVersion = {
 export type UpdateState = {
   lastCheckAt: string;
   lastCheckVersion: string;
+  /** Last attempt is distinct from the last successful registry observation. */
+  lastCheckAttemptAt?: string;
+  lastCheckError?: string | null;
   suppressedVersions: Record<string, SuppressedVersion>;
   /**
    * Last package version whose stable trampoline was successfully validated.
@@ -3031,7 +3096,12 @@ export type UpdateState = {
 export type ProxyUpdateWindowResult = {
   ready: boolean;
   draining: boolean;
-  reason?: "stopping" | "parent_stopped" | "drain_failed" | "drain_timeout";
+  reason?:
+    | "stopping"
+    | "parent_stopped"
+    | "drain_failed"
+    | "drain_timeout"
+    | "busy";
 };
 
 /** Dependencies and timing controls for the updater's safe-window coordinator. */
@@ -3040,6 +3110,8 @@ export type ProxyUpdateWindowOptions = {
   quietWaitMs: number;
   drainWaitMs: number;
   pollIntervalMs: number;
+  /** Automatic supervisor refresh must defer instead of draining busy traffic. */
+  allowBusyDrain?: boolean;
   getActivity: () => Promise<ProxyRuntimeActivity | null>;
   setDraining: (draining: boolean) => Promise<boolean>;
   isStopping: () => boolean;
@@ -3129,6 +3201,7 @@ export type ProxyWorkerControlMessage =
   | { type: "proxy-worker:activate"; generation: number }
   | { type: "proxy-worker:drain"; generation: number }
   | { type: "proxy-worker:shutdown"; generation: number }
+  | { type: "proxy-worker:socket-offer"; generation: number; socketId: string }
   | {
       type: "proxy-worker:socket-commit";
       generation: number;
@@ -3147,6 +3220,10 @@ export type ProxyWorkerStatusMessage =
       pid: number;
       version: string;
       processInstanceId?: string;
+      /** New supervisors defer sending descriptors until commit. */
+      socketOfferProtocol?: "control-before-handle";
+      /** New workers confirm descriptor adoption before a generation drains. */
+      socketCommitProtocol?: "worker-ack";
     }
   | {
       type: "proxy-worker:drained";
@@ -3166,6 +3243,12 @@ export type ProxyWorkerStatusMessage =
     }
   | {
       type: "proxy-worker:socket-accepted";
+      generation: number;
+      pid: number;
+      socketId: string;
+    }
+  | {
+      type: "proxy-worker:socket-committed";
       generation: number;
       pid: number;
       socketId: string;
@@ -3199,11 +3282,15 @@ export type DetachableTransferableProxySocket = TransferableProxySocket &
 
 export type RollingWorkerHandle = {
   pid: number;
+  /** Combined offer and commit budget, before any retry. Defaults to 60s. */
+  socketTransferTimeoutMs?: number;
   sendControl: (message: ProxyWorkerControlMessage) => void;
   sendSocket: (
     generation: number,
     socket: TransferableProxySocket,
     callback: (error?: Error | null) => void,
+    /** Absolute admission deadline shared by queueing and any safe retry. */
+    deadlineAt?: number,
   ) => void;
   terminate: (signal?: NodeJS.Signals) => void;
   onMessage: (
@@ -3324,6 +3411,9 @@ export type RollingProxyServerOptions = {
   shutdownTimeoutMs?: number;
   recoveryDelayMs?: number;
   maxRecoveryDelayMs?: number;
+  /** Backoff after failed pressure-induced replacement, while old worker serves. */
+  stallReplacementDelayMs?: number;
+  maxStallReplacementDelayMs?: number;
   onStateChange?: (snapshot: RollingWorkerSupervisorSnapshot) => void;
   onEvent?: (event: RollingWorkerSupervisorEvent) => void;
   log?: (message: string) => void;
@@ -3353,8 +3443,13 @@ export type RollingCandidateWorker = RollingManagedWorker & {
   settle: (error?: Error) => void;
 };
 
-export type RollingQueuedSocket = {
+export type RollingSocketAdmission = {
   socket: TransferableProxySocket;
+  deadlineAt: number;
+  retried: boolean;
+};
+
+export type RollingQueuedSocket = RollingSocketAdmission & {
   timeout: NodeJS.Timeout;
 };
 
@@ -3372,6 +3467,8 @@ export type SocketWorkerRuntime = {
 
 export type SocketWorkerRuntimeOptions = {
   onDrained?: () => void;
+  /** Bound for a committed socket's first HTTP request while draining. */
+  firstRequestGraceMs?: number;
 };
 
 // =============================================================================

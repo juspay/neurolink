@@ -8,6 +8,6 @@
 
 > **ProxyShareRefusedAdmission** = `Extract`\<[`ProxyShareAdmission`](ProxyShareAdmission.md), \{ `admitted`: `false`; \}\>
 
-Defined in: [types/proxy.ts:4070](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4070)
+Defined in: [types/proxy.ts:4167](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4167)
 
 The refusing half of [ProxyShareAdmission](ProxyShareAdmission.md).

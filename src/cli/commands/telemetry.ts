@@ -19,6 +19,10 @@ import { NeuroLink } from "../../lib/neurolink.js";
 import { flushOpenTelemetry } from "../../lib/services/server/ai/observability/instrumentation.js";
 import { formatRow, formatCost } from "../utils/formatters.js";
 import { redactUrlCredentials } from "../../lib/utils/logSanitize.js";
+import {
+  prepareNativeTelemetry,
+  validateNativeTelemetry,
+} from "../utils/nativeTelemetry.js";
 import type {
   ExporterName,
   TelemetryStatusArgs as StatusArgs,
@@ -26,6 +30,8 @@ import type {
   TelemetryListExportersArgs as ListExportersArgs,
   TelemetryFlushArgs as FlushArgs,
   TelemetryStatsArgs as StatsArgs,
+  TelemetryNativePrepareArgs,
+  TelemetryNativeValidateArgs,
 } from "../../lib/types/index.js";
 
 /**
@@ -62,11 +68,145 @@ export class TelemetryCommandFactory {
           .command(TelemetryCommandFactory.createListExportersCommand())
           .command(TelemetryCommandFactory.createFlushCommand())
           .command(TelemetryCommandFactory.createStatsCommand())
+          .command(TelemetryCommandFactory.createNativePrepareCommand())
+          .command(TelemetryCommandFactory.createNativeValidateCommand())
           .demandCommand(1, "Please specify a subcommand")
           .strict();
       },
       handler: () => {
         // This handler is not called directly due to demandCommand
+      },
+    };
+  }
+
+  /** Stage a native migration without modifying an installed service. */
+  static createNativePrepareCommand(): CommandModule<
+    object,
+    TelemetryNativePrepareArgs
+  > {
+    return {
+      command: "native-prepare",
+      describe:
+        "Stage private durable/split collector files; never activate a service",
+      builder: (yargs: Argv<object>) =>
+        yargs
+          .option("collectorConfig", {
+            alias: "collector-config",
+            type: "string",
+            demandOption: true,
+            describe: "Existing native collector YAML (read only)",
+          })
+          .option("output", {
+            type: "string",
+            demandOption: true,
+            describe:
+              "New absolute staging directory; existing paths are refused",
+          })
+          .option("queueDirectory", {
+            alias: "queue-directory",
+            type: "string",
+            demandOption: true,
+            describe: "Planned private durable queue directory (not created)",
+          })
+          .option("compactionDirectory", {
+            alias: "compaction-directory",
+            type: "string",
+            demandOption: true,
+            describe:
+              "Planned separate private compaction directory (not created)",
+          })
+          .option("bodyPort", {
+            alias: "body-port",
+            type: "number",
+            default: 14319,
+          })
+          .option("bodyStream", {
+            alias: "body-stream",
+            type: "string",
+            describe:
+              "Separate body stream; defaults to <existing metadata stream>_bodies",
+          })
+          .option("metadataQueueMib", {
+            alias: "metadata-queue-mib",
+            type: "number",
+            default: 32,
+            describe: "Payload limit per metadata signal (three queues)",
+          })
+          .option("bodyQueueMib", {
+            alias: "body-queue-mib",
+            type: "number",
+            default: 256,
+          })
+          .option("diskQuotaMib", {
+            alias: "disk-quota-mib",
+            type: "number",
+            default: 1024,
+            describe:
+              "Operator-managed volume quota to review; not applied by this command",
+          })
+          .option("metadataRetentionDays", {
+            alias: "metadata-retention-days",
+            type: "number",
+            default: 14,
+            describe: "Planned backend retention; not applied",
+          })
+          .option("bodyRetentionDays", {
+            alias: "body-retention-days",
+            type: "number",
+            default: 3,
+            describe: "Planned backend body retention; not applied",
+          }),
+      handler: async (args) => {
+        try {
+          logger.always(
+            JSON.stringify(await prepareNativeTelemetry(args), null, 2),
+          );
+        } catch (error) {
+          logger.error(
+            error instanceof Error
+              ? error.message
+              : "Native telemetry preparation failed",
+          );
+          process.exitCode = 1;
+        }
+      },
+    };
+  }
+
+  static createNativeValidateCommand(): CommandModule<
+    object,
+    TelemetryNativeValidateArgs
+  > {
+    return {
+      command: "native-validate",
+      describe:
+        "Validate staged profile using collector >= 0.160; never start or restart a service",
+      builder: (yargs: Argv<object>) =>
+        yargs
+          .option("directory", {
+            type: "string",
+            demandOption: true,
+            describe: "Private directory produced by native-prepare",
+          })
+          .option("collectorBin", {
+            alias: "collector-bin",
+            type: "string",
+            demandOption: true,
+            describe: "Absolute path to trusted otelcol-contrib executable",
+          }),
+      handler: async (args) => {
+        try {
+          logger.always(
+            JSON.stringify(await validateNativeTelemetry(args), null, 2),
+          );
+        } catch (error) {
+          logger.error(
+            error instanceof Error
+              ? error.message
+              : "Native telemetry validation failed",
+          );
+          process.exitCode = 1;
+        }
       },
     };
   }

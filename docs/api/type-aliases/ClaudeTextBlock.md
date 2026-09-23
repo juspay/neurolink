@@ -8,7 +8,7 @@
 
 > **ClaudeTextBlock** = `object`
 
-Defined in: [types/proxy.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L62)
+Defined in: [types/proxy.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L68)
 
 A single text block in a Claude content array.
 
@@ -18,7 +18,7 @@ A single text block in a Claude content array.
 
 > **type**: `"text"`
 
-Defined in: [types/proxy.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L63)
+Defined in: [types/proxy.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L69)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:63](https://github.com/juspay/neurolink/blob/release
 
 > **text**: `string`
 
-Defined in: [types/proxy.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L64)
+Defined in: [types/proxy.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L70)

@@ -6,32 +6,22 @@
 
 # Type Alias: UpdateCheckResult
 
-> **UpdateCheckResult** = `object`
+> **UpdateCheckResult** = `object` & \{ `checkSucceeded`: `true`; `checkError?`: `never`; \} \| \{ `checkSucceeded`: `false`; `checkError`: `string`; `updateAvailable`: `false`; \}
 
-Defined in: [types/proxy.ts:2962](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2962)
+Defined in: [types/proxy.ts:3013](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3013)
 
 Outcome of a proxy auto-update version check against npm.
 
-## Properties
+## Type Declaration
 
 ### currentVersion
 
 > **currentVersion**: `string`
 
-Defined in: [types/proxy.ts:2963](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2963)
-
----
-
 ### latestVersion
 
 > **latestVersion**: `string`
 
-Defined in: [types/proxy.ts:2964](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2964)
-
----
-
 ### updateAvailable
 
 > **updateAvailable**: `boolean`
-
-Defined in: [types/proxy.ts:2965](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2965)

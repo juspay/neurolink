@@ -1,8 +1,73 @@
 import type {
   ProxyRuntimeActivity,
+  ProxyServingWorkerIdentity,
   ProxyUpdateWindowOptions,
   ProxyUpdateWindowResult,
 } from "../types/index.js";
+
+/**
+ * Parse serving identity conservatively from `/status`. A rolling status is
+ * trusted only when the worker-local fields agree with the supervisor snapshot.
+ */
+export function parseProxyServingWorkerIdentity(
+  payload: unknown,
+  rollingSupervisor: boolean,
+): ProxyServingWorkerIdentity | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const value = payload as {
+    version?: unknown;
+    pid?: unknown;
+    autoUpdate?: {
+      rolling?: {
+        active?: {
+          version?: unknown;
+          pid?: unknown;
+          generation?: unknown;
+        } | null;
+      } | null;
+    };
+  };
+  if (
+    typeof value.version !== "string" ||
+    !/^\d+\.\d+\.\d+$/.test(value.version) ||
+    !Number.isSafeInteger(value.pid) ||
+    Number(value.pid) <= 0
+  ) {
+    return null;
+  }
+  if (!rollingSupervisor) {
+    return { version: value.version, pid: Number(value.pid), generation: null };
+  }
+  const active = value.autoUpdate?.rolling?.active;
+  if (
+    !active ||
+    active.version !== value.version ||
+    active.pid !== value.pid ||
+    !Number.isSafeInteger(active.generation) ||
+    Number(active.generation) <= 0
+  ) {
+    return null;
+  }
+  return {
+    version: value.version,
+    pid: Number(value.pid),
+    generation: Number(active.generation),
+  };
+}
+
+/** A long-running update may mutate live selection only for its original worker. */
+export function isSameProxyServingWorker(
+  expected: ProxyServingWorkerIdentity,
+  current: ProxyServingWorkerIdentity | null | undefined,
+): boolean {
+  return (
+    current?.version === expected.version &&
+    current.pid === expected.pid &&
+    current.generation === expected.generation
+  );
+}
 
 /**
  * A replacement updater starts from the newly installed package. The registry
@@ -116,6 +181,8 @@ function isQuiet(
 
 /**
  * Prefer a naturally quiet window, then briefly drain new inference traffic.
+ * Automatic supervisor refresh uses allowBusyDrain=false: it fences admission
+ * only after a quiet observation and never waits for busy workers behind it.
  * Existing requests are never interrupted; a bounded drain failure is returned
  * to the caller so admission can be reopened and retried later.
  */
@@ -137,16 +204,45 @@ export async function waitForProxyUpdateWindow(
     }
     const activity = await options.getActivity();
     if (activity && isQuiet(activity, options.quietThresholdMs, now())) {
-      return { ready: true, draining: false };
+      if (options.allowBusyDrain !== false) {
+        return { ready: true, draining: false };
+      }
+      break;
     }
     options.onPhase?.("waiting_for_quiet", activity);
     await wait(options.pollIntervalMs);
+  }
+
+  if (options.allowBusyDrain === false) {
+    if (options.isStopping()) {
+      return { ready: false, draining: false, reason: "stopping" };
+    }
+    if (!options.isParentAlive()) {
+      return { ready: false, draining: false, reason: "parent_stopped" };
+    }
+    const activity = await options.getActivity();
+    if (!activity || !isQuiet(activity, options.quietThresholdMs, now())) {
+      options.onPhase?.("waiting_for_quiet", activity);
+      return { ready: false, draining: false, reason: "busy" };
+    }
   }
 
   if (!(await options.setDraining(true))) {
     // The control response may have been lost after the parent applied it.
     // Treat state as unknown/draining so the caller always attempts resume.
     return { ready: false, draining: true, reason: "drain_failed" };
+  }
+
+  if (options.allowBusyDrain === false) {
+    // The worker's idle fence closes the observation/admission race. Any new
+    // cross-generation activity means resume immediately, never hold a busy
+    // service behind maintenance responses for the normal drain timeout.
+    const activity = await options.getActivity();
+    if (activity && isProxyRuntimeSettled(activity)) {
+      return { ready: true, draining: true };
+    }
+    const resumed = await options.setDraining(false);
+    return { ready: false, draining: !resumed, reason: "busy" };
   }
 
   const drainDeadline = now() + options.drainWaitMs;

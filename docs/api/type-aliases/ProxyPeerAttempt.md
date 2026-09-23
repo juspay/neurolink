@@ -8,6 +8,6 @@
 
 > **ProxyPeerAttempt** = \{ `ok`: `true`; `response`: `Response`; `peer`: [`ProxyPeer`](ProxyPeer.md); \} \| \{ `ok`: `false`; `peer`: [`ProxyPeer`](ProxyPeer.md); `status?`: `number`; `reason`: [`ProxyPeerCooldownReason`](ProxyPeerCooldownReason.md); `message`: `string`; `retryAfterSeconds?`: `number`; \}
 
-Defined in: [types/proxy.ts:4543](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4543)
+Defined in: [types/proxy.ts:4640](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4640)
 
 Outcome of forwarding one request to one peer.

@@ -8,7 +8,7 @@
 
 > **ClaudeMetadata** = `object`
 
-Defined in: [types/proxy.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L120)
+Defined in: [types/proxy.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L126)
 
 Metadata attached to a Claude Messages API request.
 
@@ -18,4 +18,4 @@ Metadata attached to a Claude Messages API request.
 
 > `optional` **user_id?**: `string`
 
-Defined in: [types/proxy.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L121)
+Defined in: [types/proxy.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L127)

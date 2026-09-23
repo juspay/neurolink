@@ -8,7 +8,7 @@
 
 > **ParsedClaudeRequest** = `object`
 
-Defined in: [types/proxy.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L279)
+Defined in: [types/proxy.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L285)
 
 Parsed representation of a Claude request, ready for NeuroLink's
 generate() / stream() pipeline.
@@ -19,7 +19,7 @@ generate() / stream() pipeline.
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L280)
+Defined in: [types/proxy.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L286)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/proxy.ts:280](https://github.com/juspay/neurolink/blob/releas
 
 > **maxTokens**: `number`
 
-Defined in: [types/proxy.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L281)
+Defined in: [types/proxy.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L287)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/proxy.ts:281](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/proxy.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L282)
+Defined in: [types/proxy.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L288)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/proxy.ts:282](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **topP?**: `number`
 
-Defined in: [types/proxy.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L283)
+Defined in: [types/proxy.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L289)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/proxy.ts:283](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/proxy.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L284)
+Defined in: [types/proxy.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L290)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/proxy.ts:284](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **systemPrompt?**: `string` \| `object`[]
 
-Defined in: [types/proxy.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L285)
+Defined in: [types/proxy.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L291)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/proxy.ts:285](https://github.com/juspay/neurolink/blob/releas
 
 > **stream**: `boolean`
 
-Defined in: [types/proxy.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L286)
+Defined in: [types/proxy.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L292)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/proxy.ts:286](https://github.com/juspay/neurolink/blob/releas
 
 > **prompt**: `string`
 
-Defined in: [types/proxy.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L289)
+Defined in: [types/proxy.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L295)
 
 Flat prompt string derived from the last user message.
 
@@ -85,7 +85,7 @@ Flat prompt string derived from the last user message.
 
 > **images**: `string`[]
 
-Defined in: [types/proxy.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L292)
+Defined in: [types/proxy.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L298)
 
 Images extracted from content blocks (base64 data URIs or URLs).
 
@@ -95,7 +95,7 @@ Images extracted from content blocks (base64 data URIs or URLs).
 
 > **conversationMessages**: `object`[]
 
-Defined in: [types/proxy.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L298)
+Defined in: [types/proxy.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L304)
 
 Full conversation history converted to NeuroLink's ChatMessage shape.
 Includes all messages, not just the last one.
@@ -114,7 +114,7 @@ Includes all messages, not just the last one.
 
 > **tools**: `Record`\<`string`, \{ `description?`: `string`; `inputSchema`: `unknown`; `execute?`: (...`args`) => `unknown`; \}\>
 
-Defined in: [types/proxy.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L301)
+Defined in: [types/proxy.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L307)
 
 Tools translated to AI SDK-compatible shape for provider fallback.
 
@@ -124,7 +124,7 @@ Tools translated to AI SDK-compatible shape for provider fallback.
 
 > `optional` **toolChoice?**: `"auto"` \| `"required"` \| `"none"`
 
-Defined in: [types/proxy.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L316)
+Defined in: [types/proxy.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L322)
 
 Tool choice mapping from Claude format.
 
@@ -138,7 +138,7 @@ Tool choice mapping from Claude format.
 
 > `optional` **toolChoiceName?**: `string`
 
-Defined in: [types/proxy.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L319)
+Defined in: [types/proxy.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L325)
 
 When toolChoice came from `{type: "tool", name: "..."}`, the tool name.
 
@@ -148,7 +148,7 @@ When toolChoice came from `{type: "tool", name: "..."}`, the tool name.
 
 > `optional` **thinkingConfig?**: `object`
 
-Defined in: [types/proxy.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L322)
+Defined in: [types/proxy.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L328)
 
 Thinking configuration parsed from the request.
 
@@ -170,7 +170,7 @@ Thinking configuration parsed from the request.
 
 > `optional` **metadata?**: [`ClaudeMetadata`](ClaudeMetadata.md)
 
-Defined in: [types/proxy.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L329)
+Defined in: [types/proxy.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L335)
 
 Original request metadata (if any).
 
@@ -180,6 +180,6 @@ Original request metadata (if any).
 
 > `optional` **stopSequences?**: `string`[]
 
-Defined in: [types/proxy.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L332)
+Defined in: [types/proxy.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L338)
 
 Stop sequences from the original request.

@@ -1748,6 +1748,10 @@ async function withIncidentProxy(
           ),
           NEUROLINK_INCIDENT_LOG_DIR: dir,
           NEUROLINK_INCIDENT_ACCEPT_DELAY_MS: String(timings.acceptanceMs ?? 0),
+          NEUROLINK_INCIDENT_COMMIT_ACK_DELAY_MS: String(
+            timings.commitErrorCode ? 700 : (timings.commitMs ?? 0),
+          ),
+          NEUROLINK_INCIDENT_COMMIT_ACK_SOCKET: timings.delayedSocket ?? "",
         },
         spawn: ((...args: Parameters<typeof spawn>) => {
           const child = spawn(...args);
@@ -4449,8 +4453,16 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
       runtimeQueues = getProxyOtelLogSnapshot().queues;
       assertEqual(
         runtimeQueues.length,
-        2,
-        "real sink did not initialize both queues",
+        4,
+        "real sink did not initialize all isolated queues",
+      );
+      assertEqual(
+        runtimeQueues
+          .map((queue) => queue.kind)
+          .sort()
+          .join(","),
+        "bodies,diagnostics,indexes,metadata",
+        "real sink queue roles changed",
       );
     },
   );
@@ -4545,7 +4557,18 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
                           ]
                         : queue.recentFailures,
                   }))
-                : runtimeQueues,
+                : ["byte_pressure", "retention_retry"].includes(mode)
+                  ? runtimeQueues.map((queue, index) => ({
+                      ...queue,
+                      outstanding: index === 0 ? 1 : 0,
+                      outstandingBytes:
+                        index === 0 && mode === "byte_pressure"
+                          ? queue.byteCapacity
+                          : 0,
+                      retryingRecords:
+                        index === 0 && mode === "retention_retry" ? 1 : 0,
+                    }))
+                  : runtimeQueues,
             },
             bodyCapture: {
               rejected: mode === "historical_runtime_failure" ? 4 : 0,
@@ -4627,7 +4650,25 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
           _timestamp: 2_000_000,
           proxy_event_id: "capture-event",
           request_id: "fixture",
-          body: JSON.stringify(index),
+          body: JSON.stringify(
+            mode === "body_reference"
+              ? {
+                  ...index,
+                  captureId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                  bodyDelivery: {
+                    status: "reference",
+                    reason: "identical_redacted_payload",
+                  },
+                  bodyReference: {
+                    captureId,
+                    requestId: index.requestId,
+                    bodySha256: index.bodySha256,
+                    redactedBodyBytes: index.redactedBodyBytes,
+                    exportedAt: "1970-01-01T00:00:02.000Z",
+                  },
+                }
+              : index,
+          ),
         };
         hits =
           mode === "missing_captures"
@@ -4706,6 +4747,7 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
         const row = {
           _timestamp: 2_000_000,
           proxy_event_id: "chunk-event",
+          request_id: "fixture",
           body_capture_id: captureId,
           body_chunk_index: 0,
           body_chunk_count: 1,
@@ -4766,6 +4808,14 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
   )?.evidence as { records?: number; rawRecords?: number };
   assertEqual(retryFinals.rawRecords, 2, "raw retry evidence was lost");
   assertEqual(retryFinals.records, 1, "the retry inflated request totals");
+  for (mode of ["byte_pressure", "retention_retry"]) {
+    const report = await checkProxyTelemetry(options);
+    assertEqual(
+      report.checks.find((check) => check.name === "producer_delivery")?.status,
+      "warn",
+      "byte saturation or retained retry did not warn about current pressure",
+    );
+  }
   for (mode of [
     "missing",
     "duplicate",
@@ -4804,6 +4854,7 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
     "sparse_collector",
     "historical_runtime_failure",
     "evicted_before_interval",
+    "body_reference",
   ]) {
     assertEqual(
       (await checkProxyTelemetry(options)).status,
@@ -5762,6 +5813,358 @@ await test("the shipped collector persists retries and OpenObserve has bounded r
         ?.ZO_COMPACT_DATA_RETENTION_DAYS,
     ).includes("NEUROLINK_OPENOBSERVE_RETENTION_DAYS"),
     "OpenObserve retention is not configurable",
+  );
+});
+
+await test("diagnostic saturation cannot consume critical evidence capacity and metadata is byte bounded", async () => {
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      const {
+        emitProxyOtelEvent,
+        getProxyOtelLogSnapshot,
+        flushProxyOtelLogs,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      for (let i = 0; i < 700; i++) {
+        emitProxyOtelEvent("console", { message: "noise", i });
+      }
+      emitProxyOtelEvent("lifecycle", {
+        requestId: "protected",
+        event: "request_accepted",
+      });
+      emitProxyOtelEvent("attempt", { requestId: "protected" });
+      emitProxyOtelEvent("request_final", {
+        requestId: "protected",
+        terminalOutcome: "completed",
+      });
+      emitProxyOtelEvent("body_capture_index", {
+        requestId: "protected",
+        captureId: "protected-capture",
+        bodyDelivery: { status: "transport_acknowledged" },
+      });
+      const queues = getProxyOtelLogSnapshot().queues;
+      const critical = queues.find((q) => q.kind === "metadata")!;
+      const diagnostics = queues.find((q) => q.kind === "diagnostics")!;
+      const indexes = queues.find((q) => q.kind === "indexes")!;
+      assertEqual(
+        diagnostics.outstanding,
+        512,
+        "diagnostic count bound changed",
+      );
+      assertEqual(diagnostics.dropped, 188, "diagnostic loss was hidden");
+      assertEqual(
+        critical.outstanding,
+        3,
+        "diagnostics displaced critical events",
+      );
+      assertEqual(critical.dropped, 0, "critical events were dropped");
+      assertEqual(indexes.outstanding, 1, "capture index was not isolated");
+      assertEqual(indexes.dropped, 0, "capture index was dropped");
+      assert(critical.oldestOutstandingAgeMs >= 0, "queue age is unavailable");
+      // Three individually valid records exceed the byte ceiling long before
+      // the record-count ceiling. UTF-8 bytes, not JS character count, matter.
+      for (let i = 0; i < 3; i++) {
+        emitProxyOtelEvent("fixture", { text: "界".repeat(1024 * 1024), i });
+      }
+      const bounded = getProxyOtelLogSnapshot().queues[0];
+      assertEqual(
+        bounded.byteLimitDrops,
+        1,
+        "byte admission bound did not reject overflow",
+      );
+      assert(
+        bounded.outstandingBytes <= bounded.byteCapacity,
+        "byte ceiling was exceeded",
+      );
+      assertEqual(
+        bounded.outstanding,
+        5,
+        "byte rejection changed admitted ownership",
+      );
+      await flushProxyOtelLogs();
+      assertEqual(
+        getProxyOtelLogSnapshot().queues[0].outstandingBytes,
+        0,
+        "settled bytes leaked",
+      );
+      assertEqual(
+        received.filter((r) => otelAttribute(r, "request.id") === "protected")
+          .length,
+        4,
+        "protected evidence did not reach collector",
+      );
+      assertEqual(
+        received.filter(
+          (r) =>
+            otelAttribute(r, "request.id") === "protected" &&
+            otelAttribute(r, "proxy.record_kind") === "body_capture_index",
+        ).length,
+        1,
+        "capture index did not survive diagnostic saturation",
+      );
+    },
+  );
+});
+
+await test("critical evidence survives a transient outage beyond one export window with stable event identities", async () => {
+  let calls = 0;
+  let firstAt = 0;
+  await withBodyCollector(
+    (records, res) => {
+      if (
+        !records.some(
+          (record) => otelAttribute(record, "request.id") === "retained-final",
+        )
+      ) {
+        res.writeHead(200).end("{}");
+        return;
+      }
+      calls++;
+      if (calls === 1) {
+        firstAt = Date.now();
+        res.writeHead(503, { "retry-after": "31" }).end("{}");
+      } else {
+        res.writeHead(200).end("{}");
+      }
+    },
+    async (received) => {
+      const {
+        emitProxyOtelEvent,
+        flushProxyOtelLogs,
+        getProxyOtelLogSnapshot,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      emitProxyOtelEvent("request_final", {
+        requestId: "retained-final",
+        terminalOutcome: "completed",
+      });
+      const flushed = flushProxyOtelLogs();
+      await eventually(
+        () => getProxyOtelLogSnapshot().queues[0].retryingRecords === 1,
+      );
+      const retained = getProxyOtelLogSnapshot().queues[0];
+      assertEqual(
+        retained.outstanding,
+        1,
+        "transient failure released ownership",
+      );
+      assertEqual(
+        retained.exportUnconfirmed,
+        0,
+        "retained event was prematurely finalized",
+      );
+      assertEqual(
+        retained.transportAcknowledged,
+        0,
+        "uncertainty was reported as delivery",
+      );
+      await flushed;
+      assert(
+        Date.now() - firstAt >= 30_000,
+        "export did not respect collector delay",
+      );
+      assertEqual(calls, 2, "transient recovery sent unexpected batches");
+      const attempts = received.filter(
+        (record) => otelAttribute(record, "request.id") === "retained-final",
+      );
+      assertEqual(
+        attempts.length,
+        2,
+        "logical record had unexpected transport attempts",
+      );
+      assertEqual(
+        otelAttribute(attempts[0], "proxy.event_id"),
+        otelAttribute(attempts[1], "proxy.event_id"),
+        "retry changed event identity",
+      );
+      const recovered = getProxyOtelLogSnapshot().queues[0];
+      assertEqual(
+        recovered.transportAcknowledged,
+        1,
+        "recovery did not acknowledge the logical record",
+      );
+      assertEqual(
+        recovered.retriedBatches,
+        1,
+        "retention retry was not observable",
+      );
+      assertEqual(recovered.retryingRecords, 0, "retry ownership leaked");
+      assertEqual(recovered.outstandingBytes, 0, "retained bytes leaked");
+    },
+  );
+});
+
+await test("critical retention respects partial rejection and its finite outage budget", async () => {
+  for (const mode of ["partial", "long-delay"] as const) {
+    let calls = 0;
+    await withBodyCollector(
+      (_records, res) => {
+        calls++;
+        if (mode === "partial") {
+          res.writeHead(200).end('{"partialSuccess":{"rejectedLogRecords":1}}');
+        } else {
+          res.writeHead(503, { "retry-after": "121" }).end("{}");
+        }
+      },
+      async () => {
+        const {
+          emitProxyOtelEvent,
+          flushProxyOtelLogs,
+          getProxyOtelLogSnapshot,
+        } = await import("../src/lib/proxy/otelLogSink.js");
+        emitProxyOtelEvent("request_final", { requestId: mode });
+        await flushProxyOtelLogs();
+        const queue = getProxyOtelLogSnapshot().queues[0];
+        assertEqual(calls, 1, "non-replayable outcome was replayed");
+        assertEqual(
+          queue.transportAcknowledged,
+          0,
+          "uncertain batch counted as delivery",
+        );
+        assertEqual(queue.exportUnconfirmed, 1, "unconfirmed outcome was lost");
+        assertEqual(queue.outstandingBytes, 0, "failed batch retained bytes");
+        assertEqual(
+          queue.retentionExpired,
+          mode === "long-delay" ? 1 : 0,
+          "outage budget was not reported",
+        );
+      },
+    );
+  }
+});
+
+await test("shutdown ends waiting critical retries without waiting through the outage budget", async () => {
+  let calls = 0;
+  await withBodyCollector(
+    (_records, res) => {
+      calls++;
+      res.writeHead(503, { "retry-after": "60" }).end("{}");
+    },
+    async () => {
+      const {
+        emitProxyOtelEvent,
+        flushProxyOtelLogs,
+        withProxyOtelLogShutdown,
+        getProxyOtelLogSnapshot,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      emitProxyOtelEvent("lifecycle", { requestId: "shutdown-waiting" });
+      const flushing = flushProxyOtelLogs();
+      await eventually(
+        () => getProxyOtelLogSnapshot().queues[0].retryingRecords === 1,
+      );
+      const started = Date.now();
+      await withProxyOtelLogShutdown(async () => {})(undefined);
+      await flushing;
+      assert(
+        Date.now() - started < 4000,
+        "shutdown waited through retry retention",
+      );
+      assertEqual(calls, 1, "shutdown replayed a waiting batch");
+    },
+  );
+});
+
+await test("shipped command cleanup cancels a stalled collector within the service shutdown budget", async () => {
+  await withBodyCollector(
+    () => {},
+    async (received) => {
+      const {
+        emitProxyOtelEvent,
+        withProxyOtelLogShutdown,
+        getProxyOtelLogSnapshot,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      const started = Date.now();
+      await withProxyOtelLogShutdown(async () => {
+        emitProxyOtelEvent("lifecycle", { requestId: "stalled-shutdown" });
+      })(undefined);
+      assert(received.length > 0, "fixture never reached the collector");
+      assert(
+        Date.now() - started < 4900,
+        "command cleanup exceeded the service telemetry budget",
+      );
+      assertEqual(
+        getProxyOtelLogSnapshot().initialized,
+        false,
+        "shutdown left the exporter running",
+      );
+    },
+  );
+});
+
+await test("the request logger exports identical redacted phases once while retaining every capture index", async () => {
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      const { flushProxyOtelLogs, getProxyOtelLogSnapshot } =
+        await import("../src/lib/proxy/otelLogSink.js");
+      await Promise.all(
+        (["client_request", "upstream_request"] as const).map((phase, i) =>
+          logBodyCapture({
+            timestamp: new Date().toISOString(),
+            requestId: "same-request-phases",
+            phase,
+            model: "fixture",
+            stream: true,
+            body: { content: "same Unicode 界", api_key: `private-${i}` },
+          }),
+        ),
+      );
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+      const bodies = received.filter(
+        (r) => otelAttribute(r, "proxy.record_kind") === "body",
+      );
+      const indexes = received
+        .filter(
+          (r) => otelAttribute(r, "proxy.record_kind") === "body_capture_index",
+        )
+        .map((r) => JSON.parse(r.body.stringValue));
+      assertEqual(
+        bodies.length,
+        1,
+        "duplicate redacted payloads were exported",
+      );
+      assertEqual(indexes.length, 2, "phase indexes were lost");
+      assertEqual(
+        new Set(indexes.map((row) => row.captureId)).size,
+        2,
+        "phase capture identities collapsed",
+      );
+      const original = indexes.find(
+        (row) => row.bodyDelivery.status === "transport_acknowledged",
+      );
+      const reference = indexes.find(
+        (row) => row.bodyDelivery.status === "reference",
+      );
+      assert(original && reference, "reference was emitted without a source");
+      assertEqual(
+        reference.bodyReference.captureId,
+        original.captureId,
+        "reference points at another capture",
+      );
+      assertEqual(
+        reference.bodySha256,
+        original.bodySha256,
+        "redacted digest changed between phases",
+      );
+      assert(
+        !bodies[0].body.stringValue.includes("private-"),
+        "redaction was bypassed",
+      );
+      assertEqual(
+        getRequestLoggerSnapshot().bodyCapturePolicy?.deduplicatedCaptures,
+        1,
+        "dedup volume was not reported",
+      );
+      assertEqual(
+        getProxyOtelLogSnapshot().bodyDelivery.transportAcknowledged,
+        1,
+        "reference invented a second body export",
+      );
+    },
   );
 });
 

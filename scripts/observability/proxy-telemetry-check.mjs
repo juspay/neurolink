@@ -144,6 +144,89 @@ function normalizeMetadataRows(kind, rows) {
   };
 }
 
+/**
+ * Resolve a single exported source, never a reference chain. References retain
+ * the current phase identity and prove only transport acceptance until queried.
+ * @param {Record<string, any>} index
+ */
+export function resolveProxyBodyCaptureTarget(index) {
+  if (!/^[a-f0-9-]{36}$/i.test(index.captureId ?? "")) {
+    throw new Error("Invalid capture identifier");
+  }
+  if (index.bodyDelivery?.status !== "reference") {
+    if (index.bodyReference !== undefined) {
+      throw new Error("Unexpected body reference on a non-reference capture");
+    }
+    return { captureId: index.captureId, exportedAt: undefined };
+  }
+  const reference = index.bodyReference;
+  if (
+    !reference ||
+    !/^[a-f0-9-]{36}$/i.test(reference.captureId ?? "") ||
+    reference.captureId === index.captureId ||
+    typeof index.requestId !== "string" ||
+    reference.requestId !== index.requestId ||
+    !/^[a-f0-9]{64}$/i.test(index.bodySha256 ?? "") ||
+    reference.bodySha256 !== index.bodySha256 ||
+    reference.redactedBodyBytes !== index.redactedBodyBytes ||
+    !Number.isFinite(Date.parse(reference.exportedAt))
+  ) {
+    throw new Error("Invalid or conflicting body reference");
+  }
+  return {
+    captureId: reference.captureId,
+    exportedAt: Date.parse(reference.exportedAt),
+  };
+}
+
+/**
+ * Reconstruct exact retained bytes, including reference captures, using the
+ * same event identity and chunk integrity checks as the telemetry doctor.
+ * @param {Record<string, any>} index
+ * @param {Array<Record<string, any>>} rawChunks
+ */
+export function reconstructProxyBodyCapture(index, rawChunks) {
+  const target = resolveProxyBodyCaptureTarget(index);
+  const normalized = normalizeBodyChunkRows(rawChunks);
+  const chunks = normalized.chunks;
+  const bytes = chunks.reduce(
+    (sum, row) =>
+      sum + (typeof row.body === "string" ? Buffer.byteLength(row.body) : Infinity),
+    0,
+  );
+  if (bytes > 8 * 1024 * 1024) {
+    throw new Error("Stored capture exceeds the 8 MiB verification bound");
+  }
+  const body = chunks.map((row) => row.body).join("");
+  const expected = Number(chunks[0]?.body_chunk_count ?? 0);
+  const verified =
+    expected > 0 &&
+    expected === chunks.length &&
+    chunks.every(
+      (row, i) =>
+        Number(row.body_chunk_index) === i &&
+        Number(row.body_chunk_count) === expected &&
+        row.body_capture_id === target.captureId &&
+        row.request_id === index.requestId,
+    ) &&
+    normalized.diagnostics.missingEventIds === 0 &&
+    normalized.diagnostics.conflicts.length === 0 &&
+    bytes === index.redactedBodyBytes &&
+    createHash("sha256").update(body).digest("hex") === index.bodySha256;
+  return {
+    body,
+    captureId: index.captureId,
+    sourceCaptureId: target.captureId,
+    expectedChunks: expected,
+    storedChunks: chunks.length,
+    rawStoredChunks: rawChunks.length,
+    exactRetryDuplicates: normalized.diagnostics.exactRetryDuplicates,
+    missingEventIds: normalized.diagnostics.missingEventIds,
+    identityConflicts: normalized.diagnostics.conflicts,
+    verified,
+  };
+}
+
 /** @param {Array<Record<string, unknown>>} rows */
 function normalizeBodyChunkRows(rows) {
   const byEvent = new Map();
@@ -159,6 +242,7 @@ function normalizeBodyChunkRows(rows) {
         : undefined;
     const physicalIdentity = JSON.stringify([
       row._timestamp,
+      row.request_id,
       row.body_capture_id,
       row.body_chunk_index,
       row.body_chunk_count,
@@ -576,16 +660,19 @@ export async function checkProxyTelemetry({
       reason: "supervisor_telemetry_missing",
     },
   );
-  /** @type {Array<{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, recentFailures?: unknown, failureHistoryEvicted?: number}>} */
+  /** @type {Array<{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, byteCapacity?: number, outstandingBytes?: number, retryingRecords?: number, recentFailures?: unknown, failureHistoryEvicted?: number}>} */
   const failures = (logs?.otel?.queues ?? []).map(
     (
-      /** @type {{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, recentFailures?: unknown, failureHistoryEvicted?: number}} */ q,
+      /** @type {{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, byteCapacity?: number, outstandingBytes?: number, retryingRecords?: number, recentFailures?: unknown, failureHistoryEvicted?: number}} */ q,
     ) => ({
       kind: q.kind,
       dropped: q.dropped,
       exportUnconfirmed: q.exportUnconfirmed,
       outstanding: q.outstanding,
       capacity: q.capacity,
+      byteCapacity: q.byteCapacity,
+      outstandingBytes: q.outstandingBytes,
+      retryingRecords: q.retryingRecords,
       recentFailures: q.recentFailures,
       failureHistoryEvicted: q.failureHistoryEvicted,
     }),
@@ -702,7 +789,13 @@ export async function checkProxyTelemetry({
     ).values(),
   ];
   const currentProducerPressure = failures.some(
-    (queue) => queue.outstanding >= queue.capacity,
+    (queue) =>
+      queue.outstanding >= queue.capacity ||
+      (typeof queue.byteCapacity === "number" &&
+        Number.isFinite(queue.byteCapacity) &&
+        queue.byteCapacity > 0 &&
+        (queue.outstandingBytes ?? 0) >= queue.byteCapacity) ||
+      (queue.retryingRecords ?? 0) > 0,
   );
   const runtimeFailureHistoryIncomplete = failures.some((queue) => {
     if (!(Number(queue.failureHistoryEvicted) > 0)) {
@@ -767,7 +860,7 @@ export async function checkProxyTelemetry({
   const unhealthyCaptures = captureIndexes.filter(
     (row) =>
       row.captureError !== undefined ||
-      !["transport_acknowledged", "no_body", "policy_excluded"].includes(
+      !["transport_acknowledged", "reference", "no_body", "policy_excluded"].includes(
         row.bodyDelivery?.status ?? "",
       ),
   );
@@ -1014,9 +1107,25 @@ export async function checkProxyTelemetry({
     (row) =>
       row.captureError ||
       row.bodyTruncated ||
-      !["transport_acknowledged", "policy_excluded", "no_body"].includes(
+      (row.bodyDelivery &&
+        "reason" in row.bodyDelivery &&
+        row.bodyDelivery.reason === "body_byte_budget_invalid") ||
+      !["transport_acknowledged", "reference", "policy_excluded", "no_body"].includes(
         row.bodyDelivery?.status ?? "",
-      ),
+      ) ||
+      (() => {
+        try {
+          if (
+            row.bodyDelivery?.status === "reference" ||
+            ("bodyReference" in row && row.bodyReference)
+          ) {
+            resolveProxyBodyCaptureTarget(row);
+          }
+          return false;
+        } catch {
+          return true;
+        }
+      })(),
   );
   add(
     "capture_delivery",
@@ -1039,12 +1148,21 @@ export async function checkProxyTelemetry({
   const lossyCaptures = indexes.filter(
     (row) => row.bodyTruncated || row.redactionLossy,
   );
+  const omittedCaptures = indexes.filter(
+    (row) =>
+      row.bodyDelivery?.status === "policy_excluded" &&
+      (!("reason" in row.bodyDelivery) ||
+        row.bodyDelivery.reason !== "borrowed_traffic"),
+  );
   add(
     "capture_content_completeness",
-    lossyCaptures.length ? "warn" : indexes.length ? "pass" : "unverified",
+    lossyCaptures.length || omittedCaptures.length
+      ? "warn"
+      : indexes.length ? "pass" : "unverified",
     {
       captures: indexes.length,
       truncatedOrUnparseable: lossyCaptures.length,
+      policyExcluded: omittedCaptures.length,
       captureIds: lossyCaptures.slice(0, 50).map((row) => row.captureId),
       boundary:
         "Transport acknowledgement does not restore source truncation, processing limits, or invalid frames removed by redaction",
@@ -1054,13 +1172,14 @@ export async function checkProxyTelemetry({
   for (const index of indexes
     .filter(
       (row) =>
-        row.bodySha256 && row.bodyDelivery?.status === "transport_acknowledged",
+        row.bodySha256 &&
+        ["transport_acknowledged", "reference"].includes(
+          row.bodyDelivery?.status ?? "",
+        ),
     )
     .sort((a, b) => (b.redactedBodyBytes ?? 0) - (a.redactedBodyBytes ?? 0))
     .slice(0, 3)) {
-    if (!/^[a-f0-9-]{36}$/i.test(index.captureId ?? "")) {
-      throw new Error("Invalid capture identifier");
-    }
+    const target = resolveProxyBodyCaptureTarget(index);
     if (
       !Number.isSafeInteger(index.redactedBodyBytes) ||
       (index.redactedBodyBytes ?? -1) < 0 ||
@@ -1069,53 +1188,19 @@ export async function checkProxyTelemetry({
       throw new Error("Capture verification exceeds the 8 MiB per-body bound");
     }
     const rawChunks = await query(
-      `SELECT _timestamp, proxy_event_id, body_capture_id, body_chunk_index, body_chunk_count, body FROM "${backend.bodyStream ?? backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${index.captureId}' ORDER BY body_chunk_index ASC, proxy_event_id ASC`,
+      `SELECT _timestamp, proxy_event_id, request_id, body_capture_id, body_chunk_index, body_chunk_count, body FROM "${backend.bodyStream ?? backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${target.captureId}' ORDER BY body_chunk_index ASC, proxy_event_id ASC`,
       "logs",
       {
-        startTime: startTime - 120e6,
-        endTime: Math.min(Date.now() * 1000, endTime + 120e6),
+        startTime: (target.exportedAt === undefined ? startTime : target.exportedAt * 1000) - 120e6,
+        endTime: Math.min(Date.now() * 1000, (target.exportedAt === undefined ? endTime : target.exportedAt * 1000) + 120e6),
         size: 1000,
       },
     );
     if (rawChunks.length >= 1000) {
       throw new Error("Capture verification exceeded its chunk budget");
     }
-    const normalizedChunks = normalizeBodyChunkRows(rawChunks);
-    const chunks = normalizedChunks.chunks;
-    const bytes = chunks.reduce(
-      (sum, r) =>
-        sum +
-        (typeof r.body === "string" ? Buffer.byteLength(r.body) : Infinity),
-      0,
-    );
-    if (bytes > 8 * 1024 * 1024) {
-      throw new Error("Stored capture exceeds the 8 MiB verification bound");
-    }
-    const raw = chunks.map((r) => r.body).join(""),
-      expected = Number(chunks[0]?.body_chunk_count ?? 0);
-    const contiguous = chunks.every(
-      (row, i) =>
-        Number(row.body_chunk_index) === i &&
-        Number(row.body_chunk_count) === expected,
-    );
-    const actualSha256 = createHash("sha256").update(raw).digest("hex");
-    bodyChecks.push({
-      captureId: index.captureId,
-      expectedChunks: expected,
-      storedChunks: chunks.length,
-      rawStoredChunks: rawChunks.length,
-      exactRetryDuplicates: normalizedChunks.diagnostics.exactRetryDuplicates,
-      missingEventIds: normalizedChunks.diagnostics.missingEventIds,
-      identityConflicts: normalizedChunks.diagnostics.conflicts,
-      verified:
-        expected > 0 &&
-        expected === chunks.length &&
-        contiguous &&
-        normalizedChunks.diagnostics.missingEventIds === 0 &&
-        normalizedChunks.diagnostics.conflicts.length === 0 &&
-        Buffer.byteLength(raw) === index.redactedBodyBytes &&
-        actualSha256 === index.bodySha256,
-    });
+    const { body: _body, ...checked } = reconstructProxyBodyCapture(index, rawChunks);
+    bodyChecks.push(checked);
   }
   add(
     "sample_body_integrity",

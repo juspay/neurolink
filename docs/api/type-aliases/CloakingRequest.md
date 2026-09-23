@@ -8,7 +8,7 @@
 
 > **CloakingRequest** = `object`
 
-Defined in: [types/proxy.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L357)
+Defined in: [types/proxy.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L363)
 
 Request envelope for cloaking pipeline.
 
@@ -18,7 +18,7 @@ Request envelope for cloaking pipeline.
 
 > **headers**: `Record`\<`string`, `string` \| `undefined`\>
 
-Defined in: [types/proxy.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L358)
+Defined in: [types/proxy.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L364)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:358](https://github.com/juspay/neurolink/blob/releas
 
 > **body**: `object`
 
-Defined in: [types/proxy.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L359)
+Defined in: [types/proxy.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L365)
 
 #### Index Signature
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:359](https://github.com/juspay/neurolink/blob/releas
 
 > **url**: `string`
 
-Defined in: [types/proxy.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L368)
+Defined in: [types/proxy.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L374)

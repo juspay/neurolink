@@ -8,7 +8,7 @@
 
 > **HeaderScrubberOptions** = `object`
 
-Defined in: [types/proxy.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L421)
+Defined in: [types/proxy.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L427)
 
 Options for the HeaderScrubber cloaking plugin.
 
@@ -18,6 +18,6 @@ Options for the HeaderScrubber cloaking plugin.
 
 > `optional` **extraHeaders?**: `string`[]
 
-Defined in: [types/proxy.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L423)
+Defined in: [types/proxy.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L429)
 
 Additional header names (lower-cased) to strip.
