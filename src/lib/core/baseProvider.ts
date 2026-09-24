@@ -2,7 +2,10 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { defaultProviderFor } from "../factories/mediaHandlerCatalog.js";
-import { PROVIDER_DESCRIPTORS_BY_NAME } from "../factories/providerDescriptors.js";
+import {
+  DECISION_PROVIDERS,
+  PROVIDER_DESCRIPTORS_BY_NAME,
+} from "../factories/providerDescriptors.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
@@ -2398,7 +2401,7 @@ export abstract class BaseProvider implements AIProvider {
     );
     throw new Error(
       `The decide inference type is not supported by the ${this.providerName} provider. ` +
-        `Supported providers: typesafe. A provider declares this capability with ` +
+        `Supported providers: ${DECISION_PROVIDERS.map((d) => d.name).join(", ")}. A provider declares this capability with ` +
         `"decide" in its descriptor's inferenceKinds.`,
     );
   }

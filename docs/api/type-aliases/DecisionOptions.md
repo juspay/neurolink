@@ -8,7 +8,7 @@
 
 > **DecisionOptions** = [`DecisionRequest`](DecisionRequest.md) & `object`
 
-Defined in: [types/decision.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L202)
+Defined in: [types/decision.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L231)
 
 What `NeuroLink.decide()` accepts: a decision request plus the usual
 provider/credential selection every inference type shares.

@@ -79,11 +79,11 @@ const result = await neurolink.generate({
 
 ### Precedence Rules
 
-| Level       | Scope                 | Set on                                                   |
-| ----------- | --------------------- | -------------------------------------------------------- |
-| Per-call    | Single request only   | `generate({ credentials })` or `stream({ credentials })` |
-| Instance    | All calls on instance | `new NeuroLink({ credentials })`                         |
-| Environment | Process-wide fallback | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …                 |
+| Level       | Scope                 | Set on                                                                              |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------- |
+| Per-call    | Single request only   | `generate({ credentials })`, `stream({ credentials })` or `decide({ credentials })` |
+| Instance    | All calls on instance | `new NeuroLink({ credentials })`                                                    |
+| Environment | Process-wide fallback | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …                                            |
 
 Unset providers at any level fall through to the next. You never need to repeat a credential at the per-call level if the instance default is correct.
 
@@ -108,6 +108,8 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Cerebras          | `cerebras`         | `apiKey`, `baseURL`                                                                                |
 | SambaNova         | `sambanova`        | `apiKey`, `baseURL`                                                                                |
 | Ollama            | `ollama`           | `baseURL`                                                                                          |
+| TypeSafe (Jev)    | `typesafe`         | `apiKey`, `baseURL`, `transport`, `gatewayApiKey`, `gatewayURL`                                    |
+| Laya              | `laya`             | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                      |
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.
 

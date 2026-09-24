@@ -84,24 +84,49 @@ const HAS_KEY = typeof REAL_KEY === "string" && REAL_KEY.trim() !== "";
 // otherwise find a working provider in exactly the tests asserting there
 // isn't one, and eight degradation tests would fail for the wrong reason.
 const REAL_GATEWAY_KEY = process.env.AI_GATEWAY_API_KEY;
+// Laya is a third key that configures a decision provider. A developer's .env
+// holding it would otherwise hand every "nothing is configured" test a working
+// provider, exactly as the gateway key would.
+const REAL_LAYA_KEY = process.env.LAYA_API_KEY;
+const HAS_LAYA_KEY =
+  typeof REAL_LAYA_KEY === "string" && REAL_LAYA_KEY.trim() !== "";
+// Laya has no built-in endpoint, so its live tests also need LAYA_BASE_URL.
+const REAL_LAYA_BASE_URL = process.env.LAYA_BASE_URL;
+const HAS_LAYA_BASE_URL =
+  typeof REAL_LAYA_BASE_URL === "string" && REAL_LAYA_BASE_URL.trim() !== "";
 
 function restoreEnv(): void {
   if (HAS_KEY) {
     process.env.TYPESAFE_API_KEY = REAL_KEY;
   } else {
-    clearDecisionKeys();
+    delete process.env.TYPESAFE_API_KEY;
   }
   if (REAL_GATEWAY_KEY !== undefined) {
     process.env.AI_GATEWAY_API_KEY = REAL_GATEWAY_KEY;
   } else {
     delete process.env.AI_GATEWAY_API_KEY;
   }
+  if (REAL_LAYA_KEY !== undefined) {
+    process.env.LAYA_API_KEY = REAL_LAYA_KEY;
+  } else {
+    delete process.env.LAYA_API_KEY;
+  }
+  if (REAL_LAYA_BASE_URL !== undefined) {
+    process.env.LAYA_BASE_URL = REAL_LAYA_BASE_URL;
+  } else {
+    delete process.env.LAYA_BASE_URL;
+  }
 }
 
-/** Remove every credential that would configure a decision provider. */
+/**
+ * Remove every setting that would configure a decision provider, including
+ * LAYA_BASE_URL, which Laya needs alongside its key.
+ */
 function clearDecisionKeys(): void {
   delete process.env.TYPESAFE_API_KEY;
   delete process.env.AI_GATEWAY_API_KEY;
+  delete process.env.LAYA_API_KEY;
+  delete process.env.LAYA_BASE_URL;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -113,6 +138,15 @@ function assert(condition: boolean, message: string): asserts condition {
 function requireKey(): void {
   if (!HAS_KEY) {
     throw new Error("SKIP: TYPESAFE_API_KEY not set");
+  }
+}
+
+function requireLayaKey(): void {
+  if (!HAS_LAYA_KEY) {
+    throw new Error("SKIP: LAYA_API_KEY not set");
+  }
+  if (!HAS_LAYA_BASE_URL) {
+    throw new Error("SKIP: LAYA_BASE_URL not set");
   }
 }
 
@@ -1915,10 +1949,15 @@ function looksLikeStackTrace(output: string): boolean {
   return output.split("\n").some((line) => /^\s*at\s+\S/.test(line));
 }
 
-// Deterministic: both decision-provider env vars are blanked for the child
+// Deterministic: every decision-provider env var is blanked for the child
 // regardless of what the parent process has ambient, so this behaves the
 // same in a shell with TYPESAFE_API_KEY exported and one without.
-const NO_PROVIDER_ENV = { TYPESAFE_API_KEY: "", AI_GATEWAY_API_KEY: "" };
+const NO_PROVIDER_ENV = {
+  TYPESAFE_API_KEY: "",
+  AI_GATEWAY_API_KEY: "",
+  LAYA_API_KEY: "",
+  LAYA_BASE_URL: "",
+};
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
   const result = await runCLI(
@@ -1938,7 +1977,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY, or AI_GATEWAY_API_KEY for the Vercel AI Gateway route.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2098,6 +2137,347 @@ await test("15.5 — a provider error keeps the provider's own detail", async ()
   assert(
     !looksLikeStackTrace(result.stdout + result.stderr),
     "the rejected-credential message printed a stack trace",
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection("16. Laya — the second decision provider");
+// ───────────────────────────────────────────────────────────────────────────
+
+await test("16.1 — laya declares decide and only decide, and no generation rank", async () => {
+  const laya = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LAYA);
+  assert(laya !== undefined, "laya has no registered descriptor");
+  assert(servesInferenceKind(laya!, "decide"), "laya must declare decide");
+  assert(
+    !servesInferenceKind(laya!, "generate") &&
+      !servesInferenceKind(laya!, "stream"),
+    "a model that emits no text must not declare generate or stream",
+  );
+  assert(
+    laya!.autoSelectPriority === undefined &&
+      laya!.autoSelectPreference === undefined &&
+      laya!.defaultHealthSweepPriority === undefined,
+    "a decision provider must stay out of every generation fallback chain",
+  );
+});
+
+// Every section-16 test that swaps in placeholder credentials restores the real
+// ones in `finally`: the harness records a failed test and moves on, so an
+// early throw would otherwise run every later live test with a placeholder key.
+await test("16.2 — typesafe wins when both are configured; laya when alone", async () => {
+  try {
+    clearDecisionKeys();
+    process.env.TYPESAFE_API_KEY = "apikey_placeholder_for_resolution";
+    process.env.LAYA_API_KEY = "sk-placeholder-for-resolution";
+    process.env.LAYA_BASE_URL = "https://laya.placeholder.invalid";
+    const both = resolveDefaultDecisionProvider();
+    delete process.env.TYPESAFE_API_KEY;
+    const alone = resolveDefaultDecisionProvider();
+    delete process.env.LAYA_BASE_URL;
+    const keyOnly = resolveDefaultDecisionProvider();
+    process.env.LAYA_BASE_URL = "https://laya.placeholder.invalid";
+    process.env.LAYA_API_KEY = "   ";
+    const blank = resolveDefaultDecisionProvider();
+    assert(
+      both === "typesafe",
+      "with both configured, typesafe must stay the default",
+    );
+    assert(
+      alone === "laya",
+      "with only laya configured, laya must become the default",
+    );
+    assert(
+      keyOnly === undefined,
+      "a laya key without LAYA_BASE_URL must not count as configured",
+    );
+    assert(
+      blank === undefined,
+      "a whitespace-only laya credential must not count as configured",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("16.3 — descriptor order is the precedence: typesafe before laya", async () => {
+  const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
+  assert(
+    names.indexOf("typesafe") !== -1 &&
+      names.indexOf("laya") !== -1 &&
+      names.indexOf("typesafe") < names.indexOf("laya"),
+    "typesafe must precede laya in the derived decision-provider list",
+  );
+});
+
+await test("16.4 — an ambient laya credential cannot leak into a keyless test", async () => {
+  try {
+    process.env.LAYA_API_KEY = "sk-ambient-placeholder";
+    clearDecisionKeys();
+    const resolved = resolveDefaultDecisionProvider();
+    assert(
+      resolved === undefined,
+      "clearDecisionKeys must clear the laya credential too",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("16.5 — only a laya credential + a long prompt ⇒ heuristic, nothing sent", async () => {
+  // Laya points at a dead local address, so a request that escaped would be
+  // recorded (and fail) instead of reaching a real server, whatever
+  // LAYA_BASE_URL a developer's .env holds.
+  try {
+    clearDecisionKeys();
+    process.env.LAYA_BASE_URL = "http://127.0.0.1:9/laya";
+    process.env.LAYA_API_KEY = "sk-placeholder-for-routing";
+    fetchCapture.reset();
+    const nl = new NeuroLink();
+    const router = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => nl.tryDecide(o) },
+    );
+    // ~4,500 characters of state: far past laya's window, so the decision must
+    // be refused locally and routing must fall back without a round trip.
+    const decision = await router.route({ prompt: HARD_PROMPT.repeat(30) });
+    const sent = fetchCapture
+      .list()
+      .filter((c) => c.url.endsWith("/predict")).length;
+    assert(decision !== null, "the router must still produce a decision");
+    assert(
+      decision!.reason?.startsWith("heuristic") === true,
+      "an over-window prompt must fall back to the heuristic strategy",
+    );
+    assert(sent === 0, "a refused decision must never reach the proxy");
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("16.6 — the SDK's nothing-configured error names every provider's variable", async () => {
+  clearDecisionKeys();
+  let message = "";
+  try {
+    await new NeuroLink().decide({
+      state: "x",
+      questions: { q: { type: "boolean", instructions: "?" } },
+    });
+  } catch (error) {
+    message = error instanceof Error ? error.message : "";
+  }
+  restoreEnv();
+  assert(
+    message.includes("LAYA_") && message.includes("TYPESAFE_"),
+    "the error must name the variable for each decision provider",
+  );
+});
+
+await test("16.7 — decide --provider laya with no credential ⇒ one clean line", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "Refund request for a damaged item",
+      "--provider",
+      "laya",
+      "--questions",
+      JSON.stringify({
+        urgent: { type: "boolean", instructions: "Is this urgent?" },
+      }),
+    ],
+    { env: NO_PROVIDER_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "decide must fail without a laya credential");
+  assert(
+    result.stderr.includes("LAYA_"),
+    "the failure line must say which variable to set",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace instead of a clean message",
+  );
+});
+
+/**
+ * Transient service replies mean "could not test", not "failed". A `server`
+ * kind only counts when the service actually answered 5xx: the provider also
+ * reports `server` for a 200 with no answers map, which is a changed response
+ * format — exactly what these live tests exist to catch.
+ */
+const LAYA_TRANSIENT_KINDS = new Set([
+  "timeout",
+  "rate_limit",
+  "overloaded",
+  "network",
+]);
+const LAYA_TRANSIENT_PHRASES = [
+  "timed out",
+  "rate-limiting",
+  "overloaded",
+  "network error",
+  "server error",
+];
+
+function isTransientLayaFailure(error: unknown): boolean {
+  const cause = (error as { cause?: { kind?: string; status?: number } }).cause;
+  if (!cause?.kind) {
+    return false;
+  }
+  return (
+    LAYA_TRANSIENT_KINDS.has(cause.kind) ||
+    (cause.kind === "server" && (cause.status ?? 0) >= 500)
+  );
+}
+
+/** The CLI prints no status, so a 200-without-answers is told apart by its text. */
+function isTransientLayaCliFailure(stderr: string): boolean {
+  return (
+    LAYA_TRANSIENT_PHRASES.some((p) => stderr.includes(p)) &&
+    !stderr.includes("answers map")
+  );
+}
+
+await test("16.8 — live: laya answers boolean, choice and score", async () => {
+  requireLayaKey();
+  restoreEnv();
+  const result = await new NeuroLink()
+    .decide({ provider: "laya", state: SUPPORT_TICKET, questions: ALL_THREE })
+    .catch((error: unknown) => {
+      throw isTransientLayaFailure(error)
+        ? new Error("SKIP: the laya service returned a transient reply")
+        : error;
+    });
+  assert(result.provider === "laya", "the result must come from laya");
+  assert(
+    result.answers.urgent?.type === "boolean",
+    "urgent must be a boolean answer",
+  );
+  assert(
+    result.answers.team?.type === "choice",
+    "team must be a choice answer",
+  );
+  assert(
+    result.answers.frustration?.type === "score",
+    "frustration must be a score answer",
+  );
+  assert(
+    ["typed-decisions", "english", "multilingual"].includes(result.model),
+    "the reported model must be a laya checkpoint",
+  );
+  assert(result.latencyMs > 0, "latency must be measured");
+});
+
+await test("16.9 — live: decide --provider laya --format json is clean JSON", async () => {
+  requireLayaKey();
+  const result = await runCLI(
+    [
+      "decide",
+      SUPPORT_TICKET,
+      "--provider",
+      "laya",
+      "--format",
+      "json",
+      "--questions",
+      JSON.stringify(ALL_THREE),
+    ],
+    {
+      env: {
+        TYPESAFE_API_KEY: "",
+        AI_GATEWAY_API_KEY: "",
+        LAYA_API_KEY: REAL_LAYA_KEY ?? "",
+        LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+      },
+      timeoutMs: 60_000,
+    },
+  );
+  if (isTransientLayaCliFailure(result.stderr)) {
+    throw new Error("SKIP: the laya service returned a transient reply");
+  }
+  assert(result.exitCode === 0, "the live laya CLI call must exit zero");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    parsed = undefined;
+  }
+  assert(isRecordLike(parsed), "stdout must be one JSON object");
+  assert(parsed.provider === "laya", "the JSON must report the laya provider");
+});
+
+await test("16.10 — live: a rejected laya credential keeps the reason, drops the key echo", async () => {
+  requireLayaKey();
+  const result = await runCLI(
+    [
+      "decide",
+      "Refund request for a damaged item",
+      "--provider",
+      "laya",
+      "--questions",
+      JSON.stringify({
+        urgent: { type: "boolean", instructions: "Is this urgent?" },
+      }),
+    ],
+    {
+      env: {
+        TYPESAFE_API_KEY: "",
+        AI_GATEWAY_API_KEY: "",
+        LAYA_API_KEY: "sk-definitely-not-valid",
+        LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  if (isTransientLayaCliFailure(result.stderr)) {
+    throw new Error("SKIP: the laya service returned a transient reply");
+  }
+  assert(result.exitCode !== 0, "a rejected credential must exit non-zero");
+  assert(
+    /\(.+\)/.test(result.stderr),
+    "the proxy's own reason must be kept in parentheses",
+  );
+  assert(
+    !result.stderr.includes("Received API"),
+    "the masked key echo must be dropped",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the rejection printed a stack trace",
+  );
+});
+
+await test("16.11 — live: decide --provider laya prints readable text by default", async () => {
+  requireLayaKey();
+  const result = await runCLI(
+    [
+      "decide",
+      SUPPORT_TICKET,
+      "--provider",
+      "laya",
+      "--questions",
+      JSON.stringify(ALL_THREE),
+    ],
+    {
+      env: {
+        TYPESAFE_API_KEY: "",
+        AI_GATEWAY_API_KEY: "",
+        LAYA_API_KEY: REAL_LAYA_KEY ?? "",
+        LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+      },
+      timeoutMs: 60_000,
+    },
+  );
+  if (isTransientLayaCliFailure(result.stderr)) {
+    throw new Error("SKIP: the laya service returned a transient reply");
+  }
+  assert(result.exitCode === 0, "the live laya CLI call must exit zero");
+  assert(
+    result.stdout.includes("urgent: probability") &&
+      result.stdout.includes("team: choice") &&
+      result.stdout.includes("Model:"),
+    "text output must show one line per question and the model",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the text output printed a stack trace",
   );
 });
 

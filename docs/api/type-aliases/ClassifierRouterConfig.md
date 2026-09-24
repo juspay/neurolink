@@ -8,7 +8,7 @@
 
 > **ClassifierRouterConfig** = `object`
 
-Defined in: [types/classifierRouter.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L200)
+Defined in: [types/classifierRouter.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L202)
 
 Constructor-level configuration for the classifier router.
 
@@ -18,7 +18,7 @@ Constructor-level configuration for the classifier router.
 
 > **enabled**: `boolean`
 
-Defined in: [types/classifierRouter.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L202)
+Defined in: [types/classifierRouter.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L204)
 
 Master switch. When false/absent, the router is never built.
 
@@ -28,10 +28,12 @@ Master switch. When false/absent, the router is never built.
 
 > `optional` **classifier?**: [`ClassifierStrategyKind`](ClassifierStrategyKind.md)
 
-Defined in: [types/classifierRouter.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L209)
+Defined in: [types/classifierRouter.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L213)
 
-Classification strategy. Default: "auto" — which resolves to "jev" when
-`TYPESAFE_API_KEY` is set and "heuristic" otherwise, so configuring a key
+Classification strategy. Default: "auto" — which resolves to "jev" when a
+decision provider is configured, in the environment or in SDK credentials
+(`TYPESAFE_API_KEY`, or `LAYA_API_KEY` with `LAYA_BASE_URL`) and
+"heuristic" otherwise, so configuring one
 upgrades routing without any code change. Behaviour for callers with no
 key is unchanged.
 
@@ -41,7 +43,7 @@ key is unchanged.
 
 > `optional` **classifierModel?**: [`ClassifierModelRef`](ClassifierModelRef.md)
 
-Defined in: [types/classifierRouter.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L211)
+Defined in: [types/classifierRouter.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L215)
 
 Model used by the "llm" strategy. Defaults to provider/model auto.
 
@@ -51,7 +53,7 @@ Model used by the "llm" strategy. Defaults to provider/model auto.
 
 > `optional` **minUpgradeConfidence?**: `number`
 
-Defined in: [types/classifierRouter.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L217)
+Defined in: [types/classifierRouter.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L221)
 
 How sure the classifier must be to route a request UP to a more capable
 (costlier) model. Being wrong here costs money, so the bar is low.
@@ -63,7 +65,7 @@ Only meaningful for "jev", whose confidence is calibrated. Default: 0.3.
 
 > `optional` **minDowngradeConfidence?**: `number`
 
-Defined in: [types/classifierRouter.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L223)
+Defined in: [types/classifierRouter.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L227)
 
 How sure it must be to route DOWN to a cheaper model. Being wrong here
 means a task handled by too small a model, so the bar is high.
@@ -75,7 +77,7 @@ Default: 0.6.
 
 > **pool**: [`ClassifierRouterPoolMember`](ClassifierRouterPoolMember.md)[]
 
-Defined in: [types/classifierRouter.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L225)
+Defined in: [types/classifierRouter.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L229)
 
 The available base pool the router selects a model from.
 
@@ -85,7 +87,7 @@ The available base pool the router selects a model from.
 
 > `optional` **tierMap?**: `Partial`\<`Record`\<[`ClassifierDifficulty`](ClassifierDifficulty.md), [`ClassifierRouterPoolMember`](ClassifierRouterPoolMember.md)[]\>\>
 
-Defined in: [types/classifierRouter.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L230)
+Defined in: [types/classifierRouter.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L234)
 
 Explicit difficulty → members map. When a difficulty has entries here they
 take precedence over metadata scoring of `pool`.
@@ -96,7 +98,7 @@ take precedence over metadata scoring of `pool`.
 
 > `optional` **toolDirectives?**: `Partial`\<`Record`\<[`ClassifierDifficulty`](ClassifierDifficulty.md), [`ClassifierToolDirective`](ClassifierToolDirective.md)\>\>
 
-Defined in: [types/classifierRouter.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L232)
+Defined in: [types/classifierRouter.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L236)
 
 Per-difficulty tool directives applied to the request.
 
@@ -106,7 +108,7 @@ Per-difficulty tool directives applied to the request.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/classifierRouter.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L236)
+Defined in: [types/classifierRouter.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L240)
 
 Hard timeout (ms) for the LLM classifier call. Default: 8000.
 
@@ -116,7 +118,7 @@ Hard timeout (ms) for the LLM classifier call. Default: 8000.
 
 > `optional` **catalog?**: [`ClassifierCatalogConfig`](ClassifierCatalogConfig.md)
 
-Defined in: [types/classifierRouter.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L247)
+Defined in: [types/classifierRouter.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L251)
 
 Widen the pool with every model the registry knows about that this host
 actually has credentials for.
@@ -133,7 +135,7 @@ service with a negotiated model list.
 
 > `optional` **contextBudget?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L254)
+Defined in: [types/classifierRouter.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L258)
 
 Ask the classifier how much context the request needs and use the answer
 to lower the compaction threshold. Default: true when the strategy

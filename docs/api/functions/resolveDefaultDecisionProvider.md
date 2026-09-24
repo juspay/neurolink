@@ -6,16 +6,23 @@
 
 # Function: resolveDefaultDecisionProvider()
 
-> **resolveDefaultDecisionProvider**(): `string` \| `undefined`
+> **resolveDefaultDecisionProvider**(`credentials?`): `string` \| `undefined`
 
-Defined in: [factories/providerDescriptors.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L613)
+Defined in: [factories/providerDescriptors.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L702)
 
-The decision provider to use when a caller names none: the first one whose
-primary credential env var is actually set.
+The decision provider to use when a caller names none: the first
+DECISION_PROVIDERS entry that is fully configured, from the environment or
+from `credentials`.
 
-This is where "if somebody sets the key, we start using it" is implemented.
-Returns undefined when none is configured, which every internal consumer
-treats as "carry on exactly as before".
+This is where "if somebody configures it, we start using it" is
+implemented. Returns undefined when none is configured, which every
+internal consumer treats as "carry on exactly as before".
+
+## Parameters
+
+### credentials?
+
+[`NeurolinkCredentials`](../type-aliases/NeurolinkCredentials.md)
 
 ## Returns
 

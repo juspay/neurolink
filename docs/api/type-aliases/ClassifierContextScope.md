@@ -8,7 +8,7 @@
 
 > **ClassifierContextScope** = `"current-message"` \| `"recent-turns"` \| `"full-conversation"` \| `"everything"`
 
-Defined in: [types/classifierRouter.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L48)
+Defined in: [types/classifierRouter.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L50)
 
 How much of the available context a request actually needs, ordered
 narrowest → widest. This is a _rubric_, not a token count: a decision model

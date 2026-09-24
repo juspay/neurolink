@@ -1088,6 +1088,7 @@ console.log(result.content);
 - [DecisionUsage](type-aliases/DecisionUsage.md)
 - [DecisionRequest](type-aliases/DecisionRequest.md)
 - [DecisionResult](type-aliases/DecisionResult.md)
+- [DecisionLimits](type-aliases/DecisionLimits.md)
 - [DecisionErrorKind](type-aliases/DecisionErrorKind.md)
 - [DecisionError](type-aliases/DecisionError.md)
 - [DecisionModelCard](type-aliases/DecisionModelCard.md)

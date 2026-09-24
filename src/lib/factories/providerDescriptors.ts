@@ -11,6 +11,7 @@ import {
   CohereModels,
   VoyageModels,
   TypeSafeModels,
+  LayaModels,
   JinaModels,
   StabilityModels,
   IdeogramModels,
@@ -24,6 +25,7 @@ import {
   catalogEnvVar,
 } from "../providers/catalog/loader.js";
 import type {
+  NeurolinkCredentials,
   ProviderDescriptor,
   ProviderCatalogJson,
 } from "../types/index.js";
@@ -477,6 +479,56 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { decideMs: 5000 },
     setupUrl: "https://console.typesafe.ai/keys",
   },
+  // Laya MUST stay after TypeSafe. resolveDefaultDecisionProvider() returns
+  // the first configured DECISION_PROVIDERS entry, in this order, so a host
+  // configured for both keeps Jev for every built-in consumer and reaches
+  // Laya only by naming it. Reordering these two silently changes which model
+  // routes, compacts and plans for every such host.
+  {
+    name: AIProviderName.LAYA,
+    aliases: [],
+    credentialsKey: "laya",
+    envVars: {
+      apiKey: "LAYA_API_KEY",
+      baseURL: "LAYA_BASE_URL",
+      // Laya has no built-in endpoint (it is self-hosted or behind a proxy),
+      // so a key is useless without a base URL. Both are required for it to
+      // count as configured, from the environment or credentials.laya.
+      extraRequired: ["LAYA_BASE_URL"],
+      model: "LAYA_MODEL",
+    },
+    defaultModel: LayaModels.TYPED_DECISIONS,
+    // Serves only `decide`, like TypeSafe — the one declaration that keeps it
+    // out of every generation code path.
+    inferenceKinds: ["decide"],
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    // Deliberately NO autoSelectPriority / autoSelectPreference /
+    // defaultHealthSweepPriority, for the same reason as TypeSafe above.
+    timeouts: { decideMs: 5000 },
+    // Laya's encoders cut the state off silently past their window (measured
+    // live: a 60,000-character state answered 200 on 1,024 tokens). 768 is
+    // the 1,024-token window minus the 256-token budget Laya reserves for a
+    // question and its options; 320 is the English checkpoint's 512 minus
+    // 192. `auto` may route to English, and an unlisted name (Laya's server
+    // accepts aliases such as `en`) could be any checkpoint, so both get 320.
+    // 64 is the question cap in Laya's own server. Non-ASCII rates were
+    // measured live: Chinese is ~1.4 tokens per character on the English
+    // tokenizer (typed-decisions, english) and ~0.56 on multilingual.
+    decisionLimits: {
+      maxStateTokens: 320,
+      maxQuestions: 64,
+      nonAsciiTokensPerChar: 1.5,
+      models: {
+        "typed-decisions": { maxStateTokens: 768 },
+        multilingual: { maxStateTokens: 768, nonAsciiTokensPerChar: 0.6 },
+        english: { maxStateTokens: 320 },
+        auto: { maxStateTokens: 320 },
+      },
+    },
+    setupUrl: "https://github.com/NandhaKishorM/laya",
+  },
 ];
 
 /**
@@ -603,20 +655,72 @@ export const DECISION_PROVIDERS: readonly ProviderDescriptor[] =
   );
 
 /**
- * The decision provider to use when a caller names none: the first one whose
- * primary credential env var is actually set.
- *
- * This is where "if somebody sets the key, we start using it" is implemented.
- * Returns undefined when none is configured, which every internal consumer
- * treats as "carry on exactly as before".
+ * Whether a decision provider is fully configured: its key and every
+ * extraRequired variable are set, each either in the environment or in
+ * `credentials` — the same config a caller passes to
+ * `new NeuroLink({ credentials })` or per call. Whitespace counts as unset.
  */
-export function resolveDefaultDecisionProvider(): string | undefined {
-  for (const descriptor of DECISION_PROVIDERS) {
-    const primary = descriptor.envVars.apiKey;
-    const candidates = [primary, ...(descriptor.envVars.fallbacks ?? [])];
-    if (candidates.some((v) => v && (process.env[v] ?? "").trim() !== "")) {
-      return descriptor.name;
-    }
-  }
-  return undefined;
+function isDecisionProviderConfigured(
+  descriptor: ProviderDescriptor,
+  credentials: NeurolinkCredentials | undefined,
+): boolean {
+  const isSet = (value: unknown): boolean =>
+    typeof value === "string" && value.trim() !== "";
+  const inEnv = (name: string | undefined): boolean =>
+    name !== undefined && isSet(process.env[name]);
+  const slice = descriptor.credentialsKey
+    ? (credentials as Record<string, Record<string, unknown> | undefined>)?.[
+        descriptor.credentialsKey
+      ]
+    : undefined;
+
+  // `gatewayApiKey` is TypeSafe's config form of AI_GATEWAY_API_KEY.
+  const hasKey =
+    [descriptor.envVars.apiKey, ...(descriptor.envVars.fallbacks ?? [])].some(
+      inEnv,
+    ) ||
+    isSet(slice?.apiKey) ||
+    isSet(slice?.gatewayApiKey);
+  // A required base URL can also come from credentials.<key>.baseURL.
+  const hasRequired = (descriptor.envVars.extraRequired ?? []).every(
+    (name) =>
+      inEnv(name) ||
+      (name === descriptor.envVars.baseURL && isSet(slice?.baseURL)),
+  );
+  return hasKey && hasRequired;
+}
+
+/**
+ * The decision provider to use when a caller names none: the first
+ * DECISION_PROVIDERS entry that is fully configured, from the environment or
+ * from `credentials`.
+ *
+ * This is where "if somebody configures it, we start using it" is
+ * implemented. Returns undefined when none is configured, which every
+ * internal consumer treats as "carry on exactly as before".
+ */
+export function resolveDefaultDecisionProvider(
+  credentials?: NeurolinkCredentials,
+): string | undefined {
+  return DECISION_PROVIDERS.find((descriptor) =>
+    isDecisionProviderConfigured(descriptor, credentials),
+  )?.name;
+}
+
+/**
+ * The variables that would configure each decision provider, one clause per
+ * provider in precedence order, e.g. "TYPESAFE_API_KEY or AI_GATEWAY_API_KEY
+ * for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya". Derived from
+ * DECISION_PROVIDERS so a new decision provider appears in every "nothing is
+ * configured" message without anyone editing one.
+ */
+export function describeDecisionProviderKeys(): string {
+  return DECISION_PROVIDERS.map((descriptor) => {
+    const keys = [
+      descriptor.envVars.apiKey,
+      ...(descriptor.envVars.fallbacks ?? []),
+    ].filter((name): name is string => typeof name === "string" && name !== "");
+    const required = descriptor.envVars.extraRequired ?? [];
+    return `${[keys.join(" or "), ...required].join(" and ")} for ${descriptor.name}`;
+  }).join(", or ");
 }

@@ -2066,8 +2066,9 @@ export type CliClassifierRouterFlags = {
   classifierRouter?: boolean;
   /**
    * Strategy: "auto" (default), "heuristic", "llm" or "jev"
-   * (--classifier-strategy). "auto" resolves to "jev" when TYPESAFE_API_KEY
-   * is set and "heuristic" otherwise.
+   * (--classifier-strategy). "auto" resolves to "jev" when a decision
+   * provider is configured (TYPESAFE_API_KEY, or LAYA_API_KEY with
+   * LAYA_BASE_URL) and "heuristic" otherwise.
    */
   classifierStrategy?: string;
   /**

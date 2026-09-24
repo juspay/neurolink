@@ -50,6 +50,8 @@ export enum AIProviderName {
   RECRAFT = "recraft",
   /** TypeSafe (Jev) — serves the `decide` inference type only. */
   TYPESAFE = "typesafe",
+  /** Laya (Convai, open weights) — serves the `decide` inference type only. */
+  LAYA = "laya",
   AUTO = "auto",
 }
 
@@ -1428,4 +1430,18 @@ export enum XaiModels {
 export enum TypeSafeModels {
   JEV_LATEST = "jev-latest",
   JEV_PREVIEW = "jev-preview",
+}
+
+/**
+ * Laya checkpoints. Hand-written: Laya is a Tier-3 provider, so it is not in
+ * the provider catalog and codegen never touches this.
+ *
+ * `auto` sends no model, which lets Laya's own router pick a checkpoint by
+ * the detected language of the state.
+ */
+export enum LayaModels {
+  TYPED_DECISIONS = "typed-decisions",
+  ENGLISH = "english",
+  MULTILINGUAL = "multilingual",
+  AUTO = "auto",
 }

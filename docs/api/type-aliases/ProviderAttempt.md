@@ -8,7 +8,7 @@
 
 > **ProviderAttempt** = `object`
 
-Defined in: [types/providers.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L974)
+Defined in: [types/providers.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L989)
 
 Provider attempt result for iteration tracking (converted from interface)
 
@@ -18,7 +18,7 @@ Provider attempt result for iteration tracking (converted from interface)
 
 > **provider**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/providers.ts:975](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L975)
+Defined in: [types/providers.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L990)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:975](https://github.com/juspay/neurolink/blob/re
 
 > **model**: [`SupportedModelName`](SupportedModelName.md)
 
-Defined in: [types/providers.ts:976](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L976)
+Defined in: [types/providers.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L991)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:976](https://github.com/juspay/neurolink/blob/re
 
 > **success**: `boolean`
 
-Defined in: [types/providers.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L977)
+Defined in: [types/providers.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L992)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:977](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L978)
+Defined in: [types/providers.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L993)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/providers.ts:978](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **stack?**: `string`
 
-Defined in: [types/providers.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L979)
+Defined in: [types/providers.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L994)

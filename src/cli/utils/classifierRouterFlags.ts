@@ -52,7 +52,7 @@ export function buildClassifierRouterConfigFromCli(
     return undefined;
   }
 
-  // Defaults to "auto", which resolves to "jev" when TYPESAFE_API_KEY is set
+  // Defaults to "auto", which resolves to "jev" when a decision provider's key is set
   // and "heuristic" otherwise — so a configured key upgrades CLI routing with
   // no flag change, and an unset one behaves exactly as before.
   const strategy: ClassifierStrategyKind = isStrategyKind(

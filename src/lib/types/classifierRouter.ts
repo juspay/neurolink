@@ -32,7 +32,9 @@ export type ClassifierDifficulty =
  * - `llm` — a cheap classifier model via the injected `generate`.
  * - `jev` — TypeSafe's System One model; one ~400ms round trip that returns a
  *   *calibrated* confidence rather than a self-reported one.
- * - `auto` — `jev` when `TYPESAFE_API_KEY` is set, otherwise `heuristic`.
+ * - `auto` — `jev` when a decision provider is configured, in the environment
+ *   or in SDK credentials (`TYPESAFE_API_KEY`, or `LAYA_API_KEY` with
+ *   `LAYA_BASE_URL`), otherwise `heuristic`.
  */
 export type ClassifierStrategyKind = "heuristic" | "llm" | "jev" | "auto";
 
@@ -201,8 +203,10 @@ export type ClassifierRouterConfig = {
   /** Master switch. When false/absent, the router is never built. */
   enabled: boolean;
   /**
-   * Classification strategy. Default: "auto" — which resolves to "jev" when
-   * `TYPESAFE_API_KEY` is set and "heuristic" otherwise, so configuring a key
+   * Classification strategy. Default: "auto" — which resolves to "jev" when a
+   * decision provider is configured, in the environment or in SDK credentials
+   * (`TYPESAFE_API_KEY`, or `LAYA_API_KEY` with `LAYA_BASE_URL`) and
+   * "heuristic" otherwise, so configuring one
    * upgrades routing without any code change. Behaviour for callers with no
    * key is unchanged.
    */
@@ -381,5 +385,11 @@ export type ClassifierRouterDeps = {
   generate?: ClassifierGenerateFn;
   /** Decision caller for the "jev" strategy. Omit to disable it. */
   decide?: ClassifierDecideFn;
+  /**
+   * Whether a decision provider is configured for this caller, counting the
+   * credentials it was given as well as the environment. Omit to check the
+   * environment alone.
+   */
+  hasDecisionProvider?: () => boolean;
   logger?: ClassifierLogger;
 };

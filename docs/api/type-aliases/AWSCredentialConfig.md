@@ -8,7 +8,7 @@
 
 > **AWSCredentialConfig** = `object`
 
-Defined in: [types/providers.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L154)
+Defined in: [types/providers.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L158)
 
 AWS Credential Configuration for Bedrock provider
 
@@ -18,7 +18,7 @@ AWS Credential Configuration for Bedrock provider
 
 > `optional` **region?**: `string`
 
-Defined in: [types/providers.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L155)
+Defined in: [types/providers.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L159)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:155](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **profile?**: `string`
 
-Defined in: [types/providers.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L156)
+Defined in: [types/providers.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L160)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:156](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **roleArn?**: `string`
 
-Defined in: [types/providers.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L157)
+Defined in: [types/providers.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L161)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:157](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **roleSessionName?**: `string`
 
-Defined in: [types/providers.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L158)
+Defined in: [types/providers.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L162)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:158](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L159)
+Defined in: [types/providers.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L163)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:159](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/providers.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L161)
+Defined in: [types/providers.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L165)
 
 #### Deprecated
 
@@ -70,7 +70,7 @@ Prefer maxAttempts to match AWS SDK v3 config
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/providers.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L163)
+Defined in: [types/providers.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L167)
 
 Number of attempts as per AWS SDK v3 ("retry-mode")
 
@@ -80,7 +80,7 @@ Number of attempts as per AWS SDK v3 ("retry-mode")
 
 > `optional` **enableDebugLogging?**: `boolean`
 
-Defined in: [types/providers.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L164)
+Defined in: [types/providers.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L168)
 
 ---
 
@@ -88,6 +88,6 @@ Defined in: [types/providers.ts:164](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/providers.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L166)
+Defined in: [types/providers.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L170)
 
 Optional service endpoint override (e.g., VPC/Gov endpoints)

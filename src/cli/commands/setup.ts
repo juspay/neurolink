@@ -41,6 +41,7 @@ import {
   createStabilityConfig,
   createVoyageConfig,
   createTypeSafeConfig,
+  createLayaConfig,
   satisfiesFallbacks,
 } from "../../lib/utils/providerConfig.js";
 import {
@@ -196,6 +197,7 @@ export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   ideogram: createIdeogramConfig(),
   recraft: createRecraftConfig(),
   typesafe: createTypeSafeConfig(),
+  laya: createLayaConfig(),
   ...Object.fromEntries(
     getCatalogJsonEntries()
       .filter((e) => e.id !== "mistral")

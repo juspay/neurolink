@@ -178,7 +178,10 @@ import {
   KnowledgeGroundingEngine,
 } from "./knowledge/index.js";
 import { AIProviderFactory } from "./core/factory.js";
-import { resolveDefaultDecisionProvider } from "./factories/providerDescriptors.js";
+import {
+  describeDecisionProviderKeys,
+  resolveDefaultDecisionProvider,
+} from "./factories/providerDescriptors.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { resolveRequestKind } from "./core/resolveRequestKind.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -1465,6 +1468,9 @@ export class NeuroLink {
           // throwing, so an absent or broken decision provider leaves routing
           // exactly as it was.
           decide: (decideOptions) => this.tryDecide(decideOptions),
+          // Read lazily: `this.credentials` is assigned later in the constructor.
+          hasDecisionProvider: () =>
+            resolveDefaultDecisionProvider(this.credentials) !== undefined,
           logger: {
             debug: (message, meta) =>
               logger.debug(message, meta as Record<string, unknown>),
@@ -17406,10 +17412,16 @@ Current user's request: ${currentInput}`;
    * @throws when no decision provider is configured, or the call fails
    */
   async decide(options: DecisionOptions): Promise<DecisionResult> {
-    const providerName = options.provider ?? resolveDefaultDecisionProvider();
+    // SDK config counts as much as the environment: credentials given to the
+    // constructor or to this call can configure a provider on their own.
+    const providerName =
+      options.provider ??
+      resolveDefaultDecisionProvider(
+        this.resolveCredentials(options.credentials),
+      );
     if (!providerName) {
       throw new Error(
-        "No decision provider is configured. Set TYPESAFE_API_KEY, or pass `provider` explicitly.",
+        `No decision provider is configured. Set ${describeDecisionProviderKeys()} (in the environment or in \`credentials\`), or pass \`provider\` explicitly.`,
       );
     }
 

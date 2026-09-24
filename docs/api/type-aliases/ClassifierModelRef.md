@@ -8,7 +8,7 @@
 
 > **ClassifierModelRef** = `object`
 
-Defined in: [types/classifierRouter.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L192)
+Defined in: [types/classifierRouter.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L194)
 
 Provider/model the LLM classifier strategy itself runs on.
 
@@ -18,7 +18,7 @@ Provider/model the LLM classifier strategy itself runs on.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/classifierRouter.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L193)
+Defined in: [types/classifierRouter.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L195)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/classifierRouter.ts:193](https://github.com/juspay/neurolink/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L194)
+Defined in: [types/classifierRouter.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L196)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/classifierRouter.ts:194](https://github.com/juspay/neurolink/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L195)
+Defined in: [types/classifierRouter.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L197)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/classifierRouter.ts:195](https://github.com/juspay/neurolink/
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/classifierRouter.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L196)
+Defined in: [types/classifierRouter.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L198)

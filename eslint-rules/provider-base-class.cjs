@@ -13,6 +13,8 @@ const ALLOWED_SUPER_CLASSES = new Set([
   "BaseProvider",
   "OpenAIChatCompletionsProvider",
   "AnthropicBaseProvider",
+  // The abstract base of the `decide` providers (typesafe, laya).
+  "SystemOneDecisionProvider",
 ]);
 
 /** @type {import("eslint").Rule.RuleModule} */

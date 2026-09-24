@@ -15,7 +15,8 @@ NeuroLink recognises three inference types. Two of them produce text:
 A **decision model** takes one `state` plus a map of named, typed questions and
 returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
-of prose. TypeSafe's **Jev** is the first such model.
+of prose. TypeSafe's **Jev** was the first such model; Convai Innovations' open-weights
+**Laya** is the second.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -66,6 +67,25 @@ export TYPESAFE_BASE_URL=https://api.typesafe.ai  # optional
 ```
 
 Get a key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
+
+### Laya, at a Laya server or a LiteLLM proxy route
+
+```bash
+export LAYA_BASE_URL=https://your-proxy.example.com/laya  # required: any server exposing <base>/predict
+export LAYA_API_KEY=sk-...                                # the key that endpoint accepts
+export LAYA_MODEL=typed-decisions                         # optional: english | multilingual | typed-decisions | auto
+```
+
+Laya has no built-in endpoint. The base URL and key can equally come from the
+config passed to the SDK, `new NeuroLink({ credentials: { laya: { baseURL, apiKey } } })`,
+or per call; config set there counts when NeuroLink picks the default decision
+provider, exactly as the environment does.
+
+When a TypeSafe key (`TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`) is configured
+alongside Laya, TypeSafe is the default; Laya runs where a caller names it
+(`provider: "laya"`) or when neither TypeSafe key is set. Laya counts as
+configured only with both its key and its base URL. See the
+[Laya provider guide](../getting-started/providers/laya.md).
 
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider has its key set, and `tryDecide()` returns
@@ -345,6 +365,15 @@ tool routing's or compaction's.
 ---
 
 ## Limits and gotchas
+
+**Laya reads far less than Jev.** About 768 tokens of state on
+`typed-decisions` and `multilingual`, and 320 on `english`, `auto` or an
+unrecognised model name, against Jev's ~33,000. Laya's server does not refuse a
+longer state; it answers from the first 1,024 tokens (512 on `english`). So the
+provider estimates the state's size — counting non-Latin characters at a rate
+measured per checkpoint — and refuses anything over the limit locally with
+`max_tokens_exceeded`, before any network call. The estimate errs toward
+refusing.
 
 **Two separate size ceilings**, both enforced:
 

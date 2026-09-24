@@ -1,7 +1,11 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 import { jsonSchema } from "../dist/index.js";
-import type { NeurolinkCredentials } from "../dist/index.js";
+import type {
+  DecisionQuestionMap,
+  DecisionState,
+  NeurolinkCredentials,
+} from "../dist/index.js";
 import { spawnSync } from "node:child_process";
 import dnsPromises from "node:dns/promises";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -1507,6 +1511,119 @@ async function runTypeSafeDecide(): Promise<void> {
   }
 
   await runTypeSafeGatewayDecide();
+  await runTypeSafeGatewayUrlOverride();
+}
+
+/**
+ * The gateway route is configurable like every other endpoint:
+ * `credentials.typesafe.gatewayURL` first, then `TYPESAFE_GATEWAY_URL`, then
+ * Vercel's route.
+ */
+async function runTypeSafeGatewayUrlOverride(): Promise<void> {
+  const gatewayBody = {
+    answers: { urgent: { type: "boolean", probability: 0.9 } },
+    usage: { inputTokens: 10, outputTokens: 2 },
+  };
+  const questions = {
+    urgent: { type: "boolean", instructions: "Is this urgent?" },
+  } as const;
+
+  {
+    const name = "DECIDE typesafe gateway: TYPESAFE_GATEWAY_URL sets the route";
+    try {
+      setEnv("TYPESAFE_API_KEY", undefined);
+      setEnv("AI_GATEWAY_API_KEY", "test-fake-gateway-credential");
+      setEnv(
+        "TYPESAFE_GATEWAY_URL",
+        "https://gateway.internal.example/v4/ai/evaluation-model/",
+      );
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "evaluation-model",
+            respond: { status: 200, json: gatewayBody },
+          },
+        ],
+        async ({ calls }) => {
+          const { ProviderFactory } =
+            await import("../dist/factories/providerFactory.js");
+          const provider = await ProviderFactory.createProvider("typesafe");
+          await provider.decide!({ state: "payouts failed", questions });
+          expectEq(
+            calls[0]?.url,
+            "https://gateway.internal.example/v4/ai/evaluation-model",
+            "the configured route, trailing slash trimmed",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setEnv("TYPESAFE_GATEWAY_URL", undefined);
+      setEnv("AI_GATEWAY_API_KEY", undefined);
+    }
+  }
+
+  {
+    const name =
+      "DECIDE typesafe gateway: credentials.typesafe.gatewayURL wins over the env";
+    try {
+      setEnv("TYPESAFE_API_KEY", undefined);
+      setEnv("AI_GATEWAY_API_KEY", undefined);
+      setEnv("TYPESAFE_GATEWAY_URL", "https://env-gateway.example/route");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "gateway.example/route",
+            respond: { status: 200, json: gatewayBody },
+          },
+        ],
+        async ({ calls }) => {
+          const { NeuroLink } = await import("../dist/index.js");
+          const nl = new NeuroLink({
+            credentials: {
+              typesafe: {
+                transport: "gateway",
+                gatewayApiKey: "test-fake-config-gateway-credential",
+                gatewayURL: "https://config-gateway.example/route",
+              },
+            },
+          });
+          await nl.decide({
+            provider: "typesafe",
+            state: "payouts failed",
+            questions,
+          });
+          // A NeuroLink instance may also fetch its model config in the
+          // background; only the decision is a POST.
+          const post = calls.find((c) => c.method === "POST");
+          expectEq(
+            post?.url,
+            "https://config-gateway.example/route",
+            "SDK config wins over TYPESAFE_GATEWAY_URL",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setEnv("TYPESAFE_GATEWAY_URL", undefined);
+    }
+  }
 }
 
 /**
@@ -2400,9 +2517,1174 @@ async function runRecraftImageGen(): Promise<void> {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: Laya (decide-only)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Laya answers on the same System One wire as TypeSafe's direct API, so the
+ * `boolean`↔`noul` translation is shared. What this section pins is what is
+ * Laya's own: the route (`<LAYA_BASE_URL>/predict`, no built-in endpoint), the
+ * checkpoint reported under `routing.model`, the `auto` body rule, and the two
+ * envelopes a failure can arrive in — LiteLLM's `{"error":{...}}` for anything
+ * the proxy rejects, and FastAPI's `{"detail": ...}` for anything Laya's own
+ * server rejects. The fixtures are the bodies a live deployment returned when
+ * probed live.
+ */
+// Laya has no built-in endpoint: the base URL always comes from config, so the
+// section sets LAYA_BASE_URL itself.
+const LAYA_DECIDE_SPEC = {
+  provider: "laya",
+  envVar: "LAYA_API_KEY",
+  baseURL: "https://laya.test.example/base",
+  urlMatch: "laya.test.example/base/predict",
+  model: "typed-decisions",
+};
+
+const LAYA_QUESTIONS = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+  team: {
+    type: "choice",
+    instructions: "Which team?",
+    criteria: { billing: "money", technical: "bugs", sales: "pricing" },
+  },
+  mood: {
+    type: "score",
+    instructions: "How angry?",
+    criteria: ["calm", "annoyed", "angry"],
+  },
+} satisfies DecisionQuestionMap;
+
+/**
+ * A success body in the shape Laya's servers return. A LiteLLM-proxied one puts the
+ * checkpoint at the top level too; Laya's own laya-serve puts its agent class
+ * there (`laya-rl-agent`), so only `routing.model` is reliable.
+ */
+function layaSuccessBody(
+  checkpoint: string,
+  topLevelModel: string = checkpoint,
+): unknown {
+  return {
+    model: topLevelModel,
+    answers: {
+      urgent: {
+        type: "noul",
+        noul: 0.91,
+        confidence: 0.91,
+        action: { act_probability: 0.5 },
+      },
+      team: {
+        type: "choice",
+        choice: "billing",
+        probabilities: { billing: 0.84, technical: 0.1, sales: 0.06 },
+        confidence: 0.79,
+        action: { act_probability: 0.5 },
+      },
+      mood: {
+        type: "score",
+        score: 1.7,
+        legend: { "0": "calm", "1": "annoyed", "2": "angry" },
+        probabilities: { "0": 0.1, "1": 0.1, "2": 0.8 },
+        confidence: 0.7,
+        action: { act_probability: 0.5 },
+      },
+    },
+    usage: { input_tokens: 96, output_tokens: 0 },
+    routing: {
+      model: checkpoint,
+      reason: `explicit model='${checkpoint}'`,
+    },
+  };
+}
+
+/** Run one decision expected to fail; return how it was classified. */
+async function captureDecisionFailure(
+  run: () => Promise<unknown>,
+): Promise<{ kind: string | undefined; message: string }> {
+  try {
+    await run();
+  } catch (error) {
+    return {
+      kind: (error as { cause?: { kind?: string } }).cause?.kind,
+      message: error instanceof Error ? error.message : "",
+    };
+  }
+  return { kind: undefined, message: "" };
+}
+
+async function createLaya(model?: string) {
+  const { ProviderFactory } =
+    await import("../dist/factories/providerFactory.js");
+  return ProviderFactory.createProvider(LAYA_DECIDE_SPEC.provider, model);
+}
+
+async function runLayaDecide(): Promise<void> {
+  setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+
+  // ── L0: no key — refused as authentication, and nothing is sent ──
+  {
+    const name = "DECIDE laya: no key, no request";
+    try {
+      setEnv(LAYA_DECIDE_SPEC.envVar, undefined);
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(failure.kind, "authentication", "missing key classified");
+          expect(
+            failure.message.includes("LAYA_API_KEY"),
+            "names the variable to set",
+          );
+          expectEq(calls.length, 0, "no network call without a key");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  setEnv(LAYA_DECIDE_SPEC.envVar, "test-fake-laya-credential");
+
+  // ── L1: happy path — route, bearer, body, answers, checkpoint, request id ──
+  {
+    const name = "DECIDE laya: wire, answers and checkpoint";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 200,
+              json: layaSuccessBody("typed-decisions"),
+              headers: { "x-litellm-call-id": "call-laya-1" },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          const result = await provider.decide!({
+            state: "payouts have failed for three days",
+            questions: LAYA_QUESTIONS,
+          });
+          expect(calls.length === 1, "single POST to /laya/predict");
+          expectEq(
+            calls[0].url,
+            `${LAYA_DECIDE_SPEC.baseURL}/predict`,
+            "endpoint from LAYA_BASE_URL",
+          );
+          const headers = calls[0].headers as Record<string, string>;
+          expectEq(
+            headers.Authorization ?? headers.authorization,
+            "Bearer test-fake-laya-credential",
+            "bearer credential",
+          );
+          const body = calls[0].bodyJson as {
+            model?: string;
+            questions: Record<string, { type: string }>;
+          };
+          expectEq(
+            body.model,
+            LAYA_DECIDE_SPEC.model,
+            "default checkpoint sent",
+          );
+          expectEq(body.questions.urgent.type, "noul", "boolean sent as noul");
+          const urgent = result.answers.urgent;
+          expectEq(
+            urgent.type === "boolean" ? urgent.probability : -1,
+            0.91,
+            "noul mapped to probability",
+          );
+          const team = result.answers.team;
+          expectEq(
+            team.type === "choice" ? team.choice : "",
+            "billing",
+            "choice",
+          );
+          expectEq(
+            team.type === "choice" ? team.confidence : -1,
+            0.79,
+            "vendor confidence kept",
+          );
+          const mood = result.answers.mood;
+          expectEq(mood.type === "score" ? mood.score : -1, 1.7, "score");
+          expectEq(
+            result.model,
+            "typed-decisions",
+            "checkpoint from routing.model",
+          );
+          expectEq(result.provider, "laya", "provider name");
+          expectEq(result.usage.inputTokens, 96, "usage.input_tokens mapped");
+          expectEq(result.requestId, "call-laya-1", "LiteLLM call id kept");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L2: `auto` sends no model, so Laya's own router picks ──
+  {
+    const name = "DECIDE laya: auto leaves the checkpoint to Laya";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 200,
+              json: layaSuccessBody("english", "laya-rl-agent"),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya("auto");
+          const result = await provider.decide!({
+            state: "short",
+            questions: { urgent: LAYA_QUESTIONS.urgent },
+          });
+          const body = calls[0].bodyJson as Record<string, unknown>;
+          expect(!("model" in body), "auto must not send a model field");
+          expectEq(
+            result.model,
+            "english",
+            "the checkpoint Laya chose is reported",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L3: LAYA_BASE_URL override, trailing slash trimmed ──
+  {
+    const name = "DECIDE laya: LAYA_BASE_URL override";
+    try {
+      setEnv("LAYA_BASE_URL", "https://laya.internal.example/");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "laya.internal.example/predict",
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          await provider.decide!({
+            state: "short",
+            questions: { urgent: LAYA_QUESTIONS.urgent },
+          });
+          expectEq(
+            calls[0]?.url,
+            "https://laya.internal.example/predict",
+            "self-hosted endpoint, no doubled slash",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+    }
+  }
+
+  // ── L3b: no base URL — unset or blank — is refused before any request ──
+  {
+    const name = "DECIDE laya: no base URL, no request";
+    try {
+      for (const unset of [undefined, "   "]) {
+        setEnv("LAYA_BASE_URL", unset);
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: "/predict",
+              respond: {
+                status: 200,
+                json: layaSuccessBody("typed-decisions"),
+              },
+            },
+          ],
+          async ({ calls }) => {
+            const provider = await createLaya();
+            const failure = await captureDecisionFailure(() =>
+              provider.decide!({
+                state: "short",
+                questions: { urgent: LAYA_QUESTIONS.urgent },
+              }),
+            );
+            expectEq(
+              failure.kind,
+              "invalid_request",
+              "missing base URL classified",
+            );
+            expect(
+              failure.message.includes("LAYA_BASE_URL") &&
+                failure.message.includes("credentials.laya.baseURL"),
+              "names both ways to set it",
+            );
+            expectEq(calls.length, 0, "no network call without a base URL");
+          },
+        );
+      }
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+    }
+  }
+
+  // ── L3c: a LAYA_BASE_URL's credentials never reach the debug log ──
+  {
+    const name = "DECIDE laya: base URL credentials stay out of the debug log";
+    const { logger } = await import("../dist/index.js");
+    const originalDebug = console.debug;
+    const priorDebugFlag = process.env.NEUROLINK_DEBUG;
+    // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+    const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+    const priorLogLevel =
+      loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+        ? loadLevel
+        : "info";
+    const lines: string[] = [];
+    try {
+      setEnv(
+        "LAYA_BASE_URL",
+        "https://ops:hunter2-basic@laya.internal.test/laya?token=hunter2-query",
+      );
+      setEnv("NEUROLINK_DEBUG", "true");
+      logger.setLogLevel("debug");
+      console.debug = (...args: unknown[]) => {
+        lines.push(
+          args
+            .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+            .join(" "),
+        );
+      };
+      await createLaya();
+      const init = lines.filter((l) => l.includes("Laya Provider initialized"));
+      expect(init.length > 0, "the construction log line is captured");
+      expect(
+        !init.some((l) => l.includes("hunter2")),
+        "no credential from the base URL is logged",
+      );
+      expect(
+        init.some((l) => l.includes("laya.internal.test/laya")),
+        "the host and path stay in the log for diagnostics",
+      );
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      console.debug = originalDebug;
+      logger.setLogLevel(priorLogLevel);
+      setEnv("NEUROLINK_DEBUG", priorDebugFlag);
+      setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+    }
+  }
+
+  // The next three run with no decision provider in the environment at all,
+  // so anything they reach came from the config passed to the SDK.
+  const decisionEnv = [
+    "TYPESAFE_API_KEY",
+    "AI_GATEWAY_API_KEY",
+    "LAYA_API_KEY",
+    "LAYA_BASE_URL",
+  ];
+  const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
+  const clearDecisionEnv = () => {
+    for (const v of decisionEnv) {
+      setEnv(v, undefined);
+    }
+  };
+  const restoreDecisionEnv = () => {
+    decisionEnv.forEach((v, i) => setEnv(v, priorDecisionEnv[i]));
+  };
+  const configuredLaya = {
+    laya: {
+      apiKey: "test-fake-config-credential",
+      baseURL: "https://laya.config.example/proxy/",
+    },
+  };
+
+  // ── L3d: SDK credentials alone reach the configured server ──
+  {
+    const name = "DECIDE laya: SDK credentials alone set the key and endpoint";
+    try {
+      clearDecisionEnv();
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "laya.config.example/proxy/predict",
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const { NeuroLink } = await import("../dist/index.js");
+          const nl = new NeuroLink({ credentials: configuredLaya });
+          await nl.decide({
+            provider: "laya",
+            state: "short",
+            questions: { urgent: LAYA_QUESTIONS.urgent },
+          });
+          // A NeuroLink instance may also fetch its model config in the
+          // background; only the decision is a POST.
+          const post = calls.find((c) => c.method === "POST");
+          expectEq(
+            post?.url,
+            "https://laya.config.example/proxy/predict",
+            "endpoint from credentials.laya.baseURL",
+          );
+          const headers = (post?.headers ?? {}) as Record<string, string>;
+          expectEq(
+            headers.Authorization ?? headers.authorization,
+            "Bearer test-fake-config-credential",
+            "key from credentials.laya.apiKey",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      restoreDecisionEnv();
+    }
+  }
+
+  // ── L3e: SDK credentials alone make laya the default decision provider ──
+  {
+    const name = "DECIDE laya: SDK credentials alone make laya the default";
+    try {
+      clearDecisionEnv();
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "laya.config.example/proxy/predict",
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const { NeuroLink } = await import("../dist/index.js");
+          const nl = new NeuroLink({ credentials: configuredLaya });
+          const result = await nl.tryDecide({
+            state: "short",
+            questions: { urgent: LAYA_QUESTIONS.urgent },
+          });
+          expect(result !== null, "a bare decide() runs on the SDK config");
+          expectEq(result?.provider, "laya", "laya chosen from SDK config");
+          expectEq(
+            calls.filter((c) => c.method === "POST").length,
+            1,
+            "one decision request, to the configured server",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      restoreDecisionEnv();
+    }
+  }
+
+  // ── L3f: a key without a base URL does not count as configured ──
+  {
+    const name = "DECIDE laya: a key without a base URL is not configured";
+    try {
+      const { resolveDefaultDecisionProvider } =
+        await import("../dist/index.js");
+      clearDecisionEnv();
+      setEnv("LAYA_API_KEY", "test-fake-laya-credential");
+      expectEq(
+        resolveDefaultDecisionProvider(),
+        undefined,
+        "LAYA_API_KEY alone selects nothing",
+      );
+      setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+      expectEq(
+        resolveDefaultDecisionProvider(),
+        "laya",
+        "LAYA_API_KEY with LAYA_BASE_URL selects laya",
+      );
+      clearDecisionEnv();
+      expectEq(
+        resolveDefaultDecisionProvider({
+          laya: { apiKey: "test-fake-config-credential" },
+        }),
+        undefined,
+        "credentials.laya.apiKey alone selects nothing",
+      );
+      expectEq(
+        resolveDefaultDecisionProvider(configuredLaya),
+        "laya",
+        "credentials.laya with both fields selects laya",
+      );
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      restoreDecisionEnv();
+    }
+  }
+
+  // ── L4: LiteLLM 401 — classified, redacted, and the breaker trips ──
+  {
+    const name = "DECIDE laya: proxy 401 trips the breaker, key echo dropped";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 401,
+              json: {
+                error: {
+                  message:
+                    "Authentication Error, Invalid proxy server token passed. Received API Key = sk-...cred, Key Hash (Token) =9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566. Unable to find token in cache or `LiteLLM_VerificationTokenTable`",
+                  type: "token_not_found_in_db",
+                  param: "key",
+                  code: "401",
+                },
+              },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          const first = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(first.kind, "authentication", "401 classified");
+          expect(
+            first.message.includes("Invalid proxy server token"),
+            "reason kept",
+          );
+          expect(
+            !first.message.includes("Received API Key"),
+            "masked key echo dropped",
+          );
+          expect(!first.message.includes("9f2c0e41"), "key hash dropped");
+          const second = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(second.kind, "authentication", "breaker refuses the retry");
+          expectEq(calls.length, 1, "no second round trip after a rejection");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L4b: LiteLLM's other key echo — the whole key, unmasked ──
+  {
+    const name = "DECIDE laya: an unmasked key echo is never surfaced";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 401,
+              json: {
+                error: {
+                  message:
+                    "LiteLLM Virtual Key expected. Received=test-fake-laya-credential, expected to start with 'sk-'.",
+                  type: "auth_error",
+                  param: "None",
+                  code: "401",
+                },
+              },
+            },
+          },
+        ],
+        async () => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(failure.kind, "authentication", "401 classified");
+          expect(
+            failure.message.includes("Virtual Key expected"),
+            "the explanation is kept",
+          );
+          expect(
+            !failure.message.includes("test-fake-laya-credential"),
+            "the configured key never appears in the message",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L4c: a key hash in a rate-limit reply is dropped too ──
+  {
+    const name = "DECIDE laya: a key hash in a 429 is never surfaced";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 429,
+              json: {
+                error: {
+                  message:
+                    "Max parallel request limit reached. Hashed API key: 9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566. Try again later.",
+                  type: "rate_limit_error",
+                  code: "429",
+                },
+              },
+            },
+          },
+        ],
+        async () => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(failure.kind, "rate_limit", "429 classified");
+          expect(
+            failure.message.includes("parallel request limit"),
+            "the explanation is kept",
+          );
+          expect(!failure.message.includes("9f2c0e41"), "key hash dropped");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L5: Laya's own string `detail` (its server returns validation as 400) ──
+  {
+    const name = "DECIDE laya: server detail string kept";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 400,
+              json: {
+                detail:
+                  "question 'q': type must be one of ['choice', 'noul', 'score']",
+              },
+            },
+          },
+        ],
+        async () => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(
+            failure.kind,
+            "invalid_request",
+            "400 string detail classified",
+          );
+          expect(
+            failure.message.includes("type must be one of"),
+            "Laya's reason kept",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L6: FastAPI validation array — fields named, echoed input never ──
+  {
+    const name = "DECIDE laya: validation array envelope";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 422,
+              json: {
+                detail: [
+                  {
+                    type: "value_error",
+                    loc: ["body", "questions", "team"],
+                    msg: "Value error, 'choice' questions require non-empty `criteria`",
+                    input: { secret: "state text must never be logged" },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        async () => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { team: LAYA_QUESTIONS.team },
+            }),
+          );
+          expectEq(
+            failure.kind,
+            "invalid_request",
+            "array envelope classified",
+          );
+          expect(failure.message.includes("questions.team"), "names the field");
+          expect(
+            !failure.message.includes("secret"),
+            "echoed input is not surfaced",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L7: 413 from a self-hosted Laya server's size limits ──
+  {
+    const name = "DECIDE laya: 413 is a size error";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 413,
+              json: { detail: "state too large (50001 > 50000 chars)" },
+            },
+          },
+        ],
+        async () => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(failure.kind, "max_tokens_exceeded", "413 classified");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L8: a 503 is retried once, and a recovered retry succeeds ──
+  {
+    const name = "DECIDE laya: 503 retried then recovered";
+    try {
+      let attempts = 0;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: () => {
+              attempts += 1;
+              return attempts === 1
+                ? { status: 503, json: { detail: "upstream unavailable" } }
+                : { status: 200, json: layaSuccessBody("typed-decisions") };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          const result = await provider.decide!({
+            state: "x",
+            questions: { urgent: LAYA_QUESTIONS.urgent },
+          });
+          expectEq(calls.length, 2, "one retry");
+          expectEq(
+            result.answers.urgent?.type,
+            "boolean",
+            "retry answer parsed",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── L9: a 503 that persists is reported as overloaded ──
+  {
+    const name = "DECIDE laya: persistent 503 is overloaded";
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 503, json: { detail: "upstream unavailable" } },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya();
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({
+              state: "x",
+              questions: { q: LAYA_QUESTIONS.urgent },
+            }),
+          );
+          expectEq(failure.kind, "overloaded", "503 classified");
+          expectEq(calls.length, 2, "retried exactly once");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── M1–M6: decisionLimits — refused before any network call ──
+  // Token arithmetic follows estimateTokens(): ceil(ceil(chars / 4) × 1.05).
+  const refusedLocally = async (
+    name: string,
+    model: string | undefined,
+    state: DecisionState,
+    questionCount: number,
+    mentions: string,
+  ): Promise<void> => {
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya(model);
+          const questions = Object.fromEntries(
+            Array.from({ length: questionCount }, (_, i) => [
+              `q${i}`,
+              LAYA_QUESTIONS.urgent,
+            ]),
+          );
+          const failure = await captureDecisionFailure(() =>
+            provider.decide!({ state, questions }),
+          );
+          expectEq(failure.kind, "max_tokens_exceeded", "refused as too large");
+          expect(failure.message.includes(mentions), "the limit is named");
+          expectEq(calls.length, 0, "no network call for a refused request");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  };
+
+  const sentUpstream = async (
+    name: string,
+    model: string | undefined,
+    state: string,
+  ): Promise<void> => {
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 200, json: layaSuccessBody("typed-decisions") },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createLaya(model);
+          await provider.decide!({
+            state,
+            questions: { q: LAYA_QUESTIONS.urgent },
+          });
+          expectEq(calls.length, 1, "a request within the limit is sent");
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  };
+
+  // 2,925 chars → ceil(732 × 1.05) = 769 tokens, one over 768.
+  await refusedLocally(
+    "DECIDE laya: M1 oversized state refused locally",
+    undefined,
+    "a".repeat(2925),
+    1,
+    "768",
+  );
+  // 2,924 chars → ceil(731 × 1.05) = 768 tokens, exactly at the limit.
+  await sentUpstream(
+    "DECIDE laya: M2 state at the limit is sent",
+    undefined,
+    "a".repeat(2924),
+  );
+  // 1,300 chars → 342 tokens: over english's 320, under typed-decisions' 768.
+  await refusedLocally(
+    "DECIDE laya: M3a english has the smaller window",
+    "english",
+    "a".repeat(1300),
+    1,
+    "320",
+  );
+  await refusedLocally(
+    "DECIDE laya: M3b auto assumes the smaller window",
+    "auto",
+    "a".repeat(1300),
+    1,
+    "320",
+  );
+  await sentUpstream(
+    "DECIDE laya: M3c the same state fits typed-decisions",
+    "typed-decisions",
+    "a".repeat(1300),
+  );
+  // An object state is measured serialized, not skipped.
+  await refusedLocally(
+    "DECIDE laya: M4 object state measured serialized",
+    undefined,
+    { notes: "a".repeat(3000) },
+    1,
+    "768",
+  );
+  await refusedLocally(
+    "DECIDE laya: M5 more than 64 questions refused",
+    undefined,
+    "short",
+    65,
+    "64",
+  );
+
+  // Non-Latin text tokenizes far finer than English. Measured live: Chinese
+  // is ~1.4 tokens per character on typed-decisions and ~0.56 on multilingual.
+  const chinese = "付款再次失败客户今天就要求退款请尽快处理这个问题"
+    .repeat(30)
+    .slice(0, 600);
+  // 600 CJK characters × 1.5 = 900 estimated tokens > 768.
+  await refusedLocally(
+    "DECIDE laya: M7a non-Latin state measured per character",
+    undefined,
+    chinese,
+    1,
+    "768",
+  );
+  // The same state is 600 × 0.6 = 360 tokens on the multilingual checkpoint.
+  await sentUpstream(
+    "DECIDE laya: M7b multilingual reads more non-Latin text",
+    "multilingual",
+    chinese,
+  );
+  // A name Laya accepts but the descriptor does not list (Laya's `en` alias
+  // for the 512-token English checkpoint) gets the tightest window, not 768.
+  await refusedLocally(
+    "DECIDE laya: M8 an unlisted model name gets the tightest window",
+    "en",
+    "a".repeat(1300),
+    1,
+    "320",
+  );
+
+  // ── M6: TypeSafe declares no limits, so a large state still goes out ──
+  {
+    const name = "DECIDE typesafe: no client-side limit";
+    try {
+      setEnv(TYPESAFE_DECIDE_SPEC.envVar, "test-fake-typesafe-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TYPESAFE_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 200,
+              json: {
+                model: "jev-1.13.0",
+                answers: { q: { type: "noul", noul: 0.5 } },
+                usage: { input_tokens: 50_000, output_tokens: 0 },
+              },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const { ProviderFactory } =
+            await import("../dist/factories/providerFactory.js");
+          const provider = await ProviderFactory.createProvider("typesafe");
+          await provider.decide!({
+            state: "a".repeat(200_000),
+            questions: { q: { type: "boolean", instructions: "?" } },
+          });
+          expectEq(
+            calls.length,
+            1,
+            "typesafe leaves the size check to its server",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
 async function runDecideSection(): Promise<void> {
-  console.log("\n=== Decision providers (TypeSafe) ===");
+  console.log("\n=== Decision providers (TypeSafe, Laya) ===");
   await runTypeSafeDecide();
+  await runLayaDecide();
 }
 
 async function runImageGenSection(): Promise<void> {
@@ -4899,6 +6181,14 @@ async function runCatalogMutableArraySection(): Promise<void> {
 
 async function main(): Promise<void> {
   console.log("=== Mocked Contract Test Suite (New Providers) ===");
+
+  // A developer's .env may set LAYA_MODEL / LAYA_BASE_URL /
+  // TYPESAFE_GATEWAY_URL. The registry captures each provider's default model
+  // when it registers, so they are cleared first; each section sets whatever
+  // it needs itself.
+  setEnv("LAYA_MODEL", undefined);
+  setEnv("LAYA_BASE_URL", undefined);
+  setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.
   const { ProviderRegistry } = await import("../dist/index.js");

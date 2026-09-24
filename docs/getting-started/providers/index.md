@@ -472,6 +472,17 @@ generation fallback chains or the health sweep.
 
 [Setup Guide →](typesafe.md)
 
+### [Laya](laya.md)
+
+**Open-weights decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from Convai Innovations' Apache-2.0 checkpoints, at a Laya server or LiteLLM proxy route you configure
+
+- 🧭 Serves `decide` only; built-in features use it when its key and base URL are set and neither `TYPESAFE_API_KEY` nor `AI_GATEWAY_API_KEY` is
+- 📏 Refuses more than ~768 tokens of state (320 on `english`) before any network call, since its encoders read only 1,024 (512)
+- 🔌 No built-in endpoint: `LAYA_BASE_URL` (or `credentials.laya.baseURL`) names a Laya server or a LiteLLM pass-through route to one
+- 🔑 `LAYA_API_KEY` is the key that endpoint accepts; on LiteLLM, the route must be in the key's Allowed Routes
+
+[Setup Guide →](laya.md)
+
 ## 🧩 Additional Catalog Providers
 
 Every provider below is a **Tier-2 catalog entry** — OpenAI-wire-compatible

@@ -130,19 +130,23 @@ than paying a round trip on every later call to be told so again.
 The same model is reachable two ways, and the choice is made once in the
 constructor.
 
-|                     | Direct             | Vercel AI Gateway                             |
-| ------------------- | ------------------ | --------------------------------------------- |
-| Key                 | `TYPESAFE_API_KEY` | `AI_GATEWAY_API_KEY`                          |
-| Endpoint            | `api.typesafe.ai`  | `ai-gateway.vercel.sh/v4/ai/evaluation-model` |
-| Model named in      | request body       | `ai-model-id` header                          |
-| Question vocabulary | `noul`             | `boolean`                                     |
-| `confidence`        | on each answer     | on `providerMetadata`                         |
-| Billed by           | TypeSafe           | Vercel                                        |
+|                     | Direct              | Vercel AI Gateway                             |
+| ------------------- | ------------------- | --------------------------------------------- |
+| Key                 | `TYPESAFE_API_KEY`  | `AI_GATEWAY_API_KEY`                          |
+| Endpoint            | `api.typesafe.ai`   | `ai-gateway.vercel.sh/v4/ai/evaluation-model` |
+| Endpoint override   | `TYPESAFE_BASE_URL` | `TYPESAFE_GATEWAY_URL`                        |
+| Model named in      | request body        | `ai-model-id` header                          |
+| Question vocabulary | `noul`              | `boolean`                                     |
+| `confidence`        | on each answer      | on `providerMetadata`                         |
+| Billed by           | TypeSafe            | Vercel                                        |
 
 **Holding both keys keeps the direct transport**, so the confidence figures a
 host already sees do not shift underneath it when a second key appears. Force
 one with `TYPESAFE_TRANSPORT=direct|gateway` or
-`credentials.typesafe.transport`.
+`credentials.typesafe.transport`. Either endpoint can be moved without a
+release: `credentials.typesafe.baseURL` / `TYPESAFE_BASE_URL` for the direct
+one, `credentials.typesafe.gatewayURL` / `TYPESAFE_GATEWAY_URL` for the
+gateway route.
 
 ⚠️ **The gateway refuses every request — free credits included — until the
 Vercel team has a credit card on file**, returning `403

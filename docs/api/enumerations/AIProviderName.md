@@ -342,8 +342,18 @@ TypeSafe (Jev) — serves the `decide` inference type only.
 
 ---
 
+### LAYA
+
+> **LAYA**: `"laya"`
+
+Defined in: [constants/enums.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L54)
+
+Laya (Convai, open weights) — serves the `decide` inference type only.
+
+---
+
 ### AUTO
 
 > **AUTO**: `"auto"`
 
-Defined in: [constants/enums.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L53)
+Defined in: [constants/enums.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L55)

@@ -8,7 +8,7 @@
 
 > **DecisionScoreReading** = `object`
 
-Defined in: [types/decision.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L191)
+Defined in: [types/decision.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L220)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/decision.ts:191](https://github.com/juspay/neurolink/blob/rel
 
 > **score**: `number`
 
-Defined in: [types/decision.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L192)
+Defined in: [types/decision.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L221)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/decision.ts:192](https://github.com/juspay/neurolink/blob/rel
 
 > **confidence**: `number`
 
-Defined in: [types/decision.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L193)
+Defined in: [types/decision.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L222)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/decision.ts:193](https://github.com/juspay/neurolink/blob/rel
 
 > **legend**: `Readonly`\<`Record`\<`string`, `string`\>\>
 
-Defined in: [types/decision.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L194)
+Defined in: [types/decision.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L223)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/decision.ts:194](https://github.com/juspay/neurolink/blob/rel
 
 > **probabilities**: `Readonly`\<`Record`\<`string`, `number`\>\>
 
-Defined in: [types/decision.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L195)
+Defined in: [types/decision.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L224)

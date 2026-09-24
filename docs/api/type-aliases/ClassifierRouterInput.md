@@ -8,7 +8,7 @@
 
 > **ClassifierRouterInput** = `object`
 
-Defined in: [types/classifierRouter.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L316)
+Defined in: [types/classifierRouter.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L320)
 
 Lightweight request snapshot handed to the router.
 
@@ -18,7 +18,7 @@ Lightweight request snapshot handed to the router.
 
 > **prompt**: `string`
 
-Defined in: [types/classifierRouter.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L317)
+Defined in: [types/classifierRouter.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L321)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/classifierRouter.ts:317](https://github.com/juspay/neurolink/
 
 > `optional` **estimatedInputTokens?**: `number`
 
-Defined in: [types/classifierRouter.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L318)
+Defined in: [types/classifierRouter.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L322)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/classifierRouter.ts:318](https://github.com/juspay/neurolink/
 
 > `optional` **hasTools?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L319)
+Defined in: [types/classifierRouter.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L323)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/classifierRouter.ts:319](https://github.com/juspay/neurolink/
 
 > `optional` **requiresVision?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L320)
+Defined in: [types/classifierRouter.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L324)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/classifierRouter.ts:320](https://github.com/juspay/neurolink/
 
 > `optional` **thinkingLevel?**: `string`
 
-Defined in: [types/classifierRouter.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L321)
+Defined in: [types/classifierRouter.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L325)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/classifierRouter.ts:321](https://github.com/juspay/neurolink/
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/classifierRouter.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L322)
+Defined in: [types/classifierRouter.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L326)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/classifierRouter.ts:322](https://github.com/juspay/neurolink/
 
 > `optional` **sessionBound?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L324)
+Defined in: [types/classifierRouter.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L328)
 
 Whether this request is tied to a session, independent of the (withheld) session id itself.
 
@@ -76,6 +76,6 @@ Whether this request is tied to a session, independent of the (withheld) session
 
 > `optional` **priorMessageCount?**: `number`
 
-Defined in: [types/classifierRouter.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L326)
+Defined in: [types/classifierRouter.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L330)
 
 Number of prior conversation messages the caller supplied, when known.

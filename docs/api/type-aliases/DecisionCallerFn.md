@@ -8,7 +8,7 @@
 
 > **DecisionCallerFn** = (`options`) => `Promise`\<[`DecisionResult`](DecisionResult.md) \| `null`\>
 
-Defined in: [types/decision.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L223)
+Defined in: [types/decision.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L252)
 
 Injected fail-open decision caller — typically a bound `NeuroLink.tryDecide`,
 which returns `null` on any failure rather than throwing.

@@ -8,7 +8,7 @@
 
 > **DecisionBooleanGate** = `object`
 
-Defined in: [types/decision.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L235)
+Defined in: [types/decision.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L264)
 
 Shared gate for acting on a yes/no answer.
 
@@ -23,7 +23,7 @@ as a yes.
 
 > `optional` **minProbability?**: `number`
 
-Defined in: [types/decision.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L237)
+Defined in: [types/decision.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L266)
 
 Minimum probability to read the answer as "yes". Default 0.5.
 
@@ -33,6 +33,6 @@ Minimum probability to read the answer as "yes". Default 0.5.
 
 > `optional` **minConfidence?**: `number`
 
-Defined in: [types/decision.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L239)
+Defined in: [types/decision.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L268)
 
 Minimum [decisionBooleanConfidence](../functions/decisionBooleanConfidence.md) to act at all. Default 0.4.

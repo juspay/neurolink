@@ -8,7 +8,7 @@
 
 > **ClassifierGenerateOptions** = `object`
 
-Defined in: [types/classifierRouter.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L337)
+Defined in: [types/classifierRouter.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L341)
 
 Minimal options accepted by the injected LLM-classifier `generate` fn.
 
@@ -18,7 +18,7 @@ Minimal options accepted by the injected LLM-classifier `generate` fn.
 
 > **input**: `object`
 
-Defined in: [types/classifierRouter.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L338)
+Defined in: [types/classifierRouter.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L342)
 
 #### text
 
@@ -30,7 +30,7 @@ Defined in: [types/classifierRouter.ts:338](https://github.com/juspay/neurolink/
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/classifierRouter.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L339)
+Defined in: [types/classifierRouter.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L343)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/classifierRouter.ts:339](https://github.com/juspay/neurolink/
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/classifierRouter.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L340)
+Defined in: [types/classifierRouter.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L344)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/classifierRouter.ts:340](https://github.com/juspay/neurolink/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L341)
+Defined in: [types/classifierRouter.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L345)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/classifierRouter.ts:341](https://github.com/juspay/neurolink/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L342)
+Defined in: [types/classifierRouter.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L346)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/classifierRouter.ts:342](https://github.com/juspay/neurolink/
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/classifierRouter.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L343)
+Defined in: [types/classifierRouter.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L347)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/classifierRouter.ts:343](https://github.com/juspay/neurolink/
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/classifierRouter.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L344)
+Defined in: [types/classifierRouter.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L348)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [types/classifierRouter.ts:344](https://github.com/juspay/neurolink/
 
 > `optional` **disableTools?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L345)
+Defined in: [types/classifierRouter.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L349)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [types/classifierRouter.ts:345](https://github.com/juspay/neurolink/
 
 > `optional` **schema?**: [`ValidationSchema`](ValidationSchema.md)
 
-Defined in: [types/classifierRouter.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L346)
+Defined in: [types/classifierRouter.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L350)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/classifierRouter.ts:346](https://github.com/juspay/neurolink/
 
 > `optional` **timeout?**: `number` \| `string`
 
-Defined in: [types/classifierRouter.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L347)
+Defined in: [types/classifierRouter.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L351)
 
 ---
 
@@ -102,4 +102,4 @@ Defined in: [types/classifierRouter.ts:347](https://github.com/juspay/neurolink/
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/classifierRouter.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L348)
+Defined in: [types/classifierRouter.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L352)

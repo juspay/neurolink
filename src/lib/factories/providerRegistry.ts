@@ -26,6 +26,7 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
+  LayaModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
@@ -631,6 +632,27 @@ export class ProviderRegistry {
         process.env.TYPESAFE_MODEL || TypeSafeModels.JEV_LATEST,
         ["jev", "typesafe-ai"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TYPESAFE),
+      );
+
+      // Register Laya — the second `decide` provider, reached at whatever base
+      // URL its config names. Its descriptor declares inferenceKinds:
+      // ["decide"], so nothing in the generation fallback chain can reach it.
+      ProviderFactory.registerProvider(
+        AIProviderName.LAYA,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: NeuroLink,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const layaCreds = credentials as NeurolinkCredentials["laya"];
+          const { LayaProvider } = await import("../providers/laya.js");
+          return new LayaProvider(modelName, sdk, undefined, layaCreds);
+        },
+        process.env.LAYA_MODEL || LayaModels.TYPED_DECISIONS,
+        [],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LAYA),
       );
 
       logger.debug("All AI providers registered successfully");
