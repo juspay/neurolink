@@ -110,7 +110,17 @@ import {
   isCaseTimeout,
 } from "./helpers/harness.js";
 
-import type { AccountQuota } from "../src/lib/types/index.js";
+import type {
+  AccountQuota,
+  ProxyAccountRoutingReason,
+  ProxyAccountSortMetrics,
+  ProxyPassthroughAccount,
+  ProxyQuotaFreshness,
+} from "../src/lib/types/index.js";
+import {
+  compareExpiryFirst,
+  rankAccounts,
+} from "../src/lib/proxy/accountRanking.js";
 
 const { recordTest, runSuite } = defineSuite("Claude Proxy");
 
@@ -7209,6 +7219,818 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: accountRanking.ts — compareExpiryFirst (extracted comparator)
+// ============================================================================
+
+function makeSortMetrics(
+  over: Partial<ProxyAccountSortMetrics> = {},
+): ProxyAccountSortMetrics {
+  return {
+    usable: true,
+    saturated: false,
+    hasQuota: true,
+    quotaEvidenceRank: 0,
+    quotaStale: false,
+    quotaFreshness: "fresh",
+    refreshNeeded: false,
+    refreshReason: null,
+    refreshInFlight: false,
+    lastRefreshAttemptAt: null,
+    lastRefreshSuccessAt: null,
+    nextRefreshEligibleAt: null,
+    saturationKind: "none",
+    softLimitOverrideReason: null,
+    quotaLastUpdated: null,
+    quotaAgeMs: null,
+    coolingActive: false,
+    coolingReason: null,
+    coolingUntil: 0,
+    unifiedStatus: null,
+    overageStatus: null,
+    sessionStatus: "allowed",
+    sessionUsed: 0,
+    sessionResetBucket: Number.POSITIVE_INFINITY,
+    sessionReset: Number.POSITIVE_INFINITY,
+    weeklyStatus: "allowed",
+    weeklyReset: Number.POSITIVE_INFINITY,
+    weeklyUsed: 0,
+    weeklyUsedForSort: 0,
+    scopedModel: null,
+    scopedStatus: null,
+    scopedUsed: null,
+    scopedReset: Number.POSITIVE_INFINITY,
+    scopedUsedForSort: -1,
+    scopedSaturated: false,
+    ...over,
+  };
+}
+
+async function testCompareExpiryFirstAvailability(): Promise<boolean> {
+  const usable: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const cooling: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [usable.key, makeSortMetrics({ usable: true })],
+    [
+      cooling.key,
+      makeSortMetrics({ usable: false, coolingUntil: Date.now() + 60_000 }),
+    ],
+  ]);
+  const [sign, reason] = compareExpiryFirst(
+    cooling,
+    usable,
+    metricsByKey,
+    undefined,
+  );
+  if (sign <= 0 || reason !== "availability") {
+    log(
+      `compareExpiryFirst availability branch wrong — sign=${sign} reason=${reason}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+function buildRankingFixtureAccounts(): ProxyPassthroughAccount[] {
+  return [
+    { key: "anthropic:cooling", label: "cooling", type: "oauth" },
+    { key: "anthropic:stale", label: "stale", type: "oauth" },
+    { key: "anthropic:saturated", label: "saturated", type: "oauth" },
+    {
+      key: "anthropic:scoped-saturated",
+      label: "scoped-saturated",
+      type: "oauth",
+    },
+    { key: "anthropic:home", label: "home", type: "oauth" },
+    { key: "anthropic:soonest", label: "soonest", type: "oauth" },
+  ] as ProxyPassthroughAccount[];
+}
+
+/**
+ * `now` and `sessionResetToleranceMs` are threaded in (rather than each
+ * fixture account calling Date.now() independently) so the direct-side
+ * fabrication and the wrapper's quota-derived state below are built from the
+ * exact same instant — sessionResetBucket is a tolerance-bucket floor-divide
+ * and a few milliseconds of drift between two separate Date.now() calls could
+ * flip it across a bucket boundary.
+ */
+function buildRankingFixtureMetrics(
+  now: number,
+  sessionResetToleranceMs: number,
+): Map<string, ProxyAccountSortMetrics> {
+  // Inside the 5h session window, so accountSortMetrics treats it as ticking.
+  const saturatedSessionReset = now + 2 * 3600_000;
+  return new Map([
+    [
+      "anthropic:cooling",
+      makeSortMetrics({ usable: false, coolingUntil: now + 120_000 }),
+    ],
+    [
+      "anthropic:stale",
+      // accountSortMetrics only derives quotaFreshness: "unknown" (rank 2)
+      // when the account has NO recorded quota at all — every other field
+      // routingQuota would otherwise populate (sessionUsed, weeklyUsed, ...)
+      // is null in that state too, so this fixture records no runtime state
+      // for this account at all (see the loop below) rather than a quota.
+      makeSortMetrics({
+        quotaEvidenceRank: 2,
+        quotaFreshness: "unknown",
+        hasQuota: false,
+        refreshNeeded: true,
+        refreshReason: "startup_unknown",
+        sessionUsed: null,
+        weeklyUsed: null,
+        weeklyUsedForSort: -1,
+      }),
+    ],
+    [
+      "anthropic:saturated",
+      makeSortMetrics({
+        saturated: true,
+        saturationKind: "soft",
+        // >= sessionSoftLimit (0.97) and a live sessionReset — a saturated
+        // account whose session window never ticks is forced to
+        // sessionUsed: 0 by accountSortMetrics, which is exactly the mismatch
+        // this fixture used to have.
+        sessionUsed: 0.99,
+        sessionReset: saturatedSessionReset,
+        sessionResetBucket: Math.floor(
+          saturatedSessionReset / sessionResetToleranceMs,
+        ),
+      }),
+    ],
+    [
+      "anthropic:scoped-saturated",
+      makeSortMetrics({
+        scopedSaturated: true,
+        scopedUsed: 0.99,
+        scopedUsedForSort: 0.99,
+      }),
+    ],
+    ["anthropic:home", makeSortMetrics({ weeklyReset: now + 3_600_000 })],
+    ["anthropic:soonest", makeSortMetrics({ weeklyReset: now + 60_000 })],
+  ]);
+}
+
+/**
+ * The fixture's order, derived by hand from buildRankingFixtureMetrics and
+ * never from rankAccounts: both ranking entry points share compareExpiryFirst,
+ * so a reordered or inverted rung moves them together and only a fixed
+ * expectation can see it. `decidedBy` is the rung that places each account
+ * ahead of the next one, which is also the reason rankAccounts must report
+ * for a list that starts at that account.
+ */
+const RANKING_FIXTURE_EXPECTED_ORDER: readonly {
+  key: string;
+  decidedBy: ProxyAccountRoutingReason;
+}[] = [
+  // soonest > home: weekly_reset (resets at now+60s, home at now+1h)
+  { key: "anthropic:soonest", decidedBy: "weekly_reset" },
+  // home > scoped-saturated: scoped_headroom (only the latter's model cap is spent)
+  { key: "anthropic:home", decidedBy: "scoped_headroom" },
+  // scoped-saturated > saturated: session_headroom (the latter is past the 5h soft limit)
+  { key: "anthropic:scoped-saturated", decidedBy: "session_headroom" },
+  // saturated > stale: quota_evidence (stale has no quota at all, rank 2)
+  { key: "anthropic:saturated", decidedBy: "quota_evidence" },
+  // stale > cooling: availability (cooling is in a cooldown)
+  { key: "anthropic:stale", decidedBy: "availability" },
+  // cooling is last, so a list holding only cooling reports single_account
+  { key: "anthropic:cooling", decidedBy: "single_account" },
+];
+
+/**
+ * Cross-checks the pure accountRanking module against the still-live route
+ * surface, on two levels:
+ *
+ *  - field level: for every account, every order-deciding field the direct
+ *    side fabricates must equal what the route's real accountSortMetrics
+ *    derives from the quota this fixture hands it (via
+ *    __testHooks.buildQuotaRoutingDecision's candidates, and the route's own
+ *    metrics for the three fields a candidate does not carry) — so a future
+ *    fixture/production drift fails with a named account+field instead of a
+ *    silently-coincidental order match.
+ *  - order level: rankAccounts must produce RANKING_FIXTURE_EXPECTED_ORDER
+ *    and its reason, and __testHooks.orderAccountsByQuota must agree with it
+ *    on the final order for these six accounts.
+ */
+async function testAccountRankingMatchesRouteWrapper(): Promise<boolean> {
+  const accounts = buildRankingFixtureAccounts();
+  const now = Date.now();
+  const sessionSoftLimit = 0.97;
+  const sessionResetToleranceMs = 5 * 60 * 1000;
+  const metricsByKey = buildRankingFixtureMetrics(now, sessionResetToleranceMs);
+  const direct = rankAccounts({
+    accounts,
+    metricsByKey,
+    primaryKey: "anthropic:home",
+  });
+
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  // Matches "anthropic:scoped-saturated"'s fabricated scopedSaturated: true
+  // below to a real quota window (matchScopedQuotaWindow / accountSortMetrics
+  // in claudeProxyRoutes.ts), rather than fabricating the metric on the
+  // direct side with nothing on the wrapper side to derive it from — passing
+  // requestedModel with no matching window would leave the wrapper computing
+  // scopedSaturated: false for every account and the parity check would
+  // still pass, comparing two different metric shapes.
+  const requestedModel = "claude-fable-5-20260115";
+  for (const account of accounts) {
+    const m = metricsByKey.get(account.key);
+    if (!m) {
+      continue;
+    }
+    if (account.key === "anthropic:stale") {
+      // No runtime state at all — see the comment on its fixture metrics.
+      continue;
+    }
+    const baseQuota = makeQuota({
+      lastUpdated: now,
+      weeklyResetAt: Number.isFinite(m.weeklyReset) ? m.weeklyReset : undefined,
+      sessionResetAt: Number.isFinite(m.sessionReset)
+        ? m.sessionReset
+        : undefined,
+      sessionUsed: m.sessionUsed ?? 0,
+      weeklyUsed: m.weeklyUsed ?? 0,
+    });
+    __testHooks.setAccountRuntimeState(account.key, {
+      coolingUntil: m.coolingUntil > 0 ? m.coolingUntil : undefined,
+      quota: m.scopedSaturated
+        ? {
+            ...baseQuota,
+            windows: [
+              {
+                kind: "weekly_scoped",
+                group: "weekly",
+                used: m.scopedUsed ?? 0.99,
+                // "allowed", not "rejected": accountSortMetrics only
+                // withholds `usable` for a REJECTED scoped window (see its
+                // doc comment) — a scoped window can be saturated while the
+                // account stays usable, which is exactly the scoped_headroom
+                // comparator rung this fixture targets.
+                status: "allowed",
+                resetsAt: Math.floor(now / 1000) + 3 * 24 * 3600,
+                scopeModel: "claude-fable-5",
+                source: "headers",
+                updatedAt: now,
+              },
+            ],
+          }
+        : baseQuota,
+    });
+  }
+  const viaWrapper = __testHooks.orderAccountsByQuota(
+    accounts,
+    now,
+    "anthropic:home",
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    requestedModel,
+  );
+  const decision = __testHooks.buildQuotaRoutingDecision(
+    accounts,
+    now,
+    "anthropic:home",
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    requestedModel,
+  );
+  const { metricsByKey: wrapperMetricsByKey } =
+    __testHooks.orderAccountsByQuotaWithMetrics(
+      accounts,
+      now,
+      "anthropic:home",
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+      requestedModel,
+    );
+  __testHooks.resetAllRuntimeState();
+
+  if (!decision) {
+    log(
+      "ranking fixture parity: buildQuotaRoutingDecision returned no decision",
+      "red",
+    );
+    return false;
+  }
+  const candidatesByLabel = new Map(
+    decision.candidates.map((candidate) => [candidate.account, candidate]),
+  );
+  // quotaEvidenceRank itself isn't on ProxyAccountRoutingCandidate, but it is
+  // a pure function of the quotaFreshness string that is — same mapping
+  // accountSortMetrics uses, so this doesn't re-derive the ranking decision,
+  // only its enum encoding.
+  const freshnessRank = (freshness: ProxyQuotaFreshness | undefined): number =>
+    freshness === "fresh" || freshness === "stale_known"
+      ? 0
+      : freshness === "refresh_due"
+        ? 1
+        : 2;
+  let fieldsOk = true;
+  for (const account of accounts) {
+    const expected = metricsByKey.get(account.key);
+    const actual = candidatesByLabel.get(account.label);
+    const derived = wrapperMetricsByKey.get(account.key);
+    if (!expected || !actual || !derived) {
+      log(
+        `ranking fixture parity: account=${account.label} missing expected metrics, wrapper candidate or wrapper metrics`,
+        "red",
+      );
+      fieldsOk = false;
+      continue;
+    }
+    const expectedCoolingUntil =
+      expected.coolingUntil > 0 && Number.isFinite(expected.coolingUntil)
+        ? expected.coolingUntil
+        : null;
+    const expectedSessionResetBucket = Number.isFinite(
+      expected.sessionResetBucket,
+    )
+      ? expected.sessionResetBucket
+      : null;
+    const expectedWeeklyResetAt = Number.isFinite(expected.weeklyReset)
+      ? expected.weeklyReset
+      : null;
+    const checks: [string, boolean][] = [
+      ["usable", actual.usable === expected.usable],
+      ["coolingUntil", actual.coolingUntil === expectedCoolingUntil],
+      [
+        "quotaEvidenceRank",
+        freshnessRank(actual.quotaFreshness) === expected.quotaEvidenceRank,
+      ],
+      ["saturated", actual.saturated === expected.saturated],
+      [
+        "sessionResetBucket",
+        actual.sessionResetBucket === expectedSessionResetBucket,
+      ],
+      ["weeklyResetAt", actual.weeklyResetAt === expectedWeeklyResetAt],
+      ["scopedUsed", (actual.scopedUsed ?? null) === expected.scopedUsed],
+      ["weeklyUsed", (actual.weeklyUsed ?? null) === expected.weeklyUsed],
+      // Not on ProxyAccountRoutingCandidate, so read from the route's metrics.
+      ["scopedSaturated", derived.scopedSaturated === expected.scopedSaturated],
+      [
+        "scopedUsedForSort",
+        derived.scopedUsedForSort === expected.scopedUsedForSort,
+      ],
+      [
+        "weeklyUsedForSort",
+        derived.weeklyUsedForSort === expected.weeklyUsedForSort,
+      ],
+    ];
+    for (const [field, ok] of checks) {
+      if (!ok) {
+        log(
+          `ranking fixture parity: account=${account.label} field=${field} mismatch between fabricated and wrapper-derived metrics`,
+          "red",
+        );
+        fieldsOk = false;
+      }
+    }
+  }
+  if (!fieldsOk) {
+    return false;
+  }
+
+  const directKeys = direct.orderedAccounts.map((a) => a.key);
+  const expectedKeys = RANKING_FIXTURE_EXPECTED_ORDER.map((entry) => entry.key);
+  const mismatchAt = expectedKeys.findIndex(
+    (key, index) => directKeys[index] !== key,
+  );
+  if (mismatchAt >= 0 || directKeys.length !== expectedKeys.length) {
+    log(
+      `rankAccounts departs from the hand-derived fixture order at position ${mismatchAt >= 0 ? mismatchAt : expectedKeys.length}`,
+      "red",
+    );
+    return false;
+  }
+  if (direct.reason !== RANKING_FIXTURE_EXPECTED_ORDER[0].decidedBy) {
+    log(
+      `rankAccounts reported reason ${direct.reason} for the fixture, expected ${RANKING_FIXTURE_EXPECTED_ORDER[0].decidedBy}`,
+      "red",
+    );
+    return false;
+  }
+  const wrapperKeys = viaWrapper.map((a) => a.key);
+  const matches =
+    directKeys.length === wrapperKeys.length &&
+    directKeys.every((key, index) => key === wrapperKeys[index]);
+  if (!matches) {
+    log(
+      "rankAccounts and the route's orderAccountsByQuota disagree on order",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The reason must come from the pair the sort produced (rank 0 against rank
+ * 1), not the pair it was given. Each suffix of the hand-derived order starts
+ * at a different account, so together they cover five deciding rungs plus the
+ * single-account case.
+ */
+async function testRankAccountsReasonNamesDecidingRung(): Promise<boolean> {
+  const accounts = buildRankingFixtureAccounts();
+  const metricsByKey = buildRankingFixtureMetrics(Date.now(), 5 * 60 * 1000);
+  let ok = true;
+  for (const [index, expected] of RANKING_FIXTURE_EXPECTED_ORDER.entries()) {
+    const remaining = new Set(
+      RANKING_FIXTURE_EXPECTED_ORDER.slice(index).map((entry) => entry.key),
+    );
+    const { orderedAccounts, reason } = rankAccounts({
+      // Fixture insertion order, so the sort still has to reorder the input.
+      accounts: accounts.filter((account) => remaining.has(account.key)),
+      metricsByKey,
+      primaryKey: "anthropic:home",
+    });
+    if (
+      orderedAccounts[0]?.key !== expected.key ||
+      reason !== expected.decidedBy
+    ) {
+      log(
+        `rankAccounts over the last ${remaining.size} fixture accounts: expected ${expected.key} first by ${expected.decidedBy}, got ${orderedAccounts[0]?.key ?? "none"} first by ${reason}`,
+        "red",
+      );
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+// ============================================================================
+// Tests: account admission counts in-flight leases on unlimited accounts
+// ============================================================================
+
+async function testUnlimitedAccountInflightCounting(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const before = __testHooks.getAccountInflight("anthropic:unlimited-test");
+  if (before !== 0) {
+    log(`expected 0 in-flight before any lease, got ${before}`, "red");
+    return false;
+  }
+  const lease = __testHooks.tryAcquireAccountAdmission(
+    "anthropic:unlimited-test",
+    undefined,
+  );
+  if (!lease) {
+    log("expected an unlimited-capacity lease to be granted", "red");
+    return false;
+  }
+  const during = __testHooks.getAccountInflight("anthropic:unlimited-test");
+  if (during !== 1) {
+    log(`expected 1 in-flight while lease is held, got ${during}`, "red");
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+  lease.release();
+  const after = __testHooks.getAccountInflight("anthropic:unlimited-test");
+  if (after !== 0) {
+    log(`expected 0 in-flight after release, got ${after}`, "red");
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+  // Needs two leases: with only one, a second release that skipped the
+  // idempotency guard would also land on 0, because the decrement floors there.
+  const first = __testHooks.tryAcquireAccountAdmission(
+    "anthropic:unlimited-test",
+    undefined,
+  );
+  const second = __testHooks.tryAcquireAccountAdmission(
+    "anthropic:unlimited-test",
+    undefined,
+  );
+  first?.release();
+  first?.release();
+  const afterDoubleRelease = __testHooks.getAccountInflight(
+    "anthropic:unlimited-test",
+  );
+  second?.release();
+  __testHooks.resetAllRuntimeState();
+  if (!first || !second) {
+    log("expected both unlimited-capacity leases to be granted", "red");
+    return false;
+  }
+  if (afterDoubleRelease !== 1) {
+    log(
+      `expected 1 in-flight after releasing one of two leases twice, got ${afterDoubleRelease}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// Each request reads the cap from the config snapshot it arrived with, so an
+// uncapped acquire proves the cap was removed only when its snapshot is newer
+// than the one a waiter queued under. Uncapped arrivals count toward `active`,
+// so a waiter still holding that removed cap would never drain and would fail
+// at its queue timeout.
+async function testUncappedAcquireAdmitsWaitersOfRemovedCap(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const accountKey = "anthropic:cap-removed@example.test";
+  const cappedGeneration = 1;
+  const uncappedGeneration = 2;
+  const held = [
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, cappedGeneration),
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, cappedGeneration),
+  ];
+  const waiters = [
+    __testHooks.enqueueAccountAdmission(accountKey, 2, cappedGeneration),
+    __testHooks.enqueueAccountAdmission(accountKey, 2, cappedGeneration),
+  ];
+  const queued = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  const admissionOrder: number[] = [];
+  const admitted = Promise.all(
+    waiters.map((waiter, index) =>
+      waiter.promise.then(() => {
+        admissionOrder.push(index);
+      }),
+    ),
+  ).then(() => "admitted" as const);
+  const uncapped = __testHooks.tryAcquireAccountAdmission(
+    accountKey,
+    undefined,
+    uncappedGeneration,
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Far below the queue timeout: admission is synchronous, so anything still
+  // pending after this is waiting for a slot that will never come.
+  const outcome = await Promise.race([
+    admitted,
+    new Promise<"pending">((resolve) => {
+      timer = setTimeout(() => resolve("pending"), 1_000);
+    }),
+  ]);
+  clearTimeout(timer);
+  const after = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  waiters.forEach((waiter) => waiter.cancel());
+  uncapped?.release();
+  held.forEach((lease) => lease?.release());
+  __testHooks.resetAllRuntimeState();
+
+  if (held.some((lease) => !lease) || queued.active !== 2) {
+    log("setup: expected both capped leases to be granted", "red");
+    return false;
+  }
+  if (queued.waiting !== 2) {
+    log(`setup: expected 2 queued waiters, got ${queued.waiting}`, "red");
+    return false;
+  }
+  if (!uncapped) {
+    log("expected the uncapped acquire to be granted", "red");
+    return false;
+  }
+  if (outcome !== "admitted") {
+    log(
+      "queued waiters were not admitted after the cap was removed; they would wait out the queue timeout",
+      "red",
+    );
+    return false;
+  }
+  if (admissionOrder.join(",") !== "0,1") {
+    log("queued waiters were admitted out of FIFO order", "red");
+    return false;
+  }
+  if (after.active !== 5 || after.waiting !== 0) {
+    log(
+      `expected active=5 waiting=0 (2 held + 2 waiters + 1 uncapped), got active=${after.active} waiting=${after.waiting}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// The mirror case: a request whose snapshot predates a reload that ADDED the
+// cap reaches admission late (a long queue wait, retries or failover) still
+// reading "uncapped". The waiters' cap is then the current one, so the stale
+// request may admit itself but must not release them. A request from their own
+// generation, or one with no generation at all (no runtime config store, so the
+// cap cannot change), must not release them either.
+async function testStaleUncappedAcquireKeepsWaitersOfAddedCap(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const accountKey = "anthropic:cap-added@example.test";
+  const uncappedGeneration = 1;
+  const cappedGeneration = 2;
+  const held = [
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, cappedGeneration),
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, cappedGeneration),
+  ];
+  const waiters = Array.from({ length: 10 }, () =>
+    __testHooks.enqueueAccountAdmission(accountKey, 2, cappedGeneration),
+  );
+  let admittedCount = 0;
+  waiters.forEach((waiter) => {
+    void waiter.promise.then(() => {
+      admittedCount += 1;
+    });
+  });
+  const queued = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  const stale = __testHooks.tryAcquireAccountAdmission(
+    accountKey,
+    undefined,
+    uncappedGeneration,
+  );
+  const afterStale = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  const sameGeneration = __testHooks.tryAcquireAccountAdmission(
+    accountKey,
+    undefined,
+    cappedGeneration,
+  );
+  const noGeneration = __testHooks.tryAcquireAccountAdmission(
+    accountKey,
+    undefined,
+  );
+  // Admission resolves synchronously; the wait only lets any resolution that
+  // did happen reach the `then` counters above.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const after = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  waiters.forEach((waiter) => waiter.cancel());
+  [stale, sameGeneration, noGeneration, ...held].forEach((lease) =>
+    lease?.release(),
+  );
+  __testHooks.resetAllRuntimeState();
+
+  if (held.some((lease) => !lease) || queued.active !== 2) {
+    log("setup: expected both capped leases to be granted", "red");
+    return false;
+  }
+  if (queued.waiting !== 10) {
+    log(`setup: expected 10 queued waiters, got ${queued.waiting}`, "red");
+    return false;
+  }
+  if (!stale || !sameGeneration || !noGeneration) {
+    log("expected every uncapped acquire to be granted", "red");
+    return false;
+  }
+  if (afterStale.active !== 3 || afterStale.waiting !== 10) {
+    log(
+      `stale uncapped acquire: expected active=3 waiting=10 (2 held + itself), got active=${afterStale.active} waiting=${afterStale.waiting}`,
+      "red",
+    );
+    return false;
+  }
+  if (after.active !== 5 || after.waiting !== 10 || admittedCount !== 0) {
+    log(
+      `same- and no-generation acquires: expected active=5 waiting=10 admitted=0, got active=${after.active} waiting=${after.waiting} admitted=${admittedCount}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// Ownership of the lease passes to the streaming response, so only the
+// stream's terminal (end or client cancel) may release it — and exactly once.
+async function testUnlimitedStreamLeaseReleasedOnTerminal(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const encoder = new TextEncoder();
+  const messageStart = encoder.encode(
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+  );
+  const messageStop = encoder.encode(
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  );
+
+  const runCase = async (terminal: "end" | "cancel"): Promise<boolean> => {
+    const accountKey = `anthropic:unlimited-stream-${terminal}@example.test`;
+    let resolvePull: (() => void) | undefined;
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(messageStart);
+        if (terminal === "end") {
+          controller.enqueue(messageStop);
+          controller.close();
+        }
+      },
+      pull() {
+        return new Promise<void>((resolve) => {
+          resolvePull = resolve;
+        });
+      },
+      cancel() {
+        resolvePull?.();
+      },
+    });
+    const lease = __testHooks.tryAcquireAccountAdmission(accountKey, undefined);
+    if (!lease) {
+      log(`${terminal}: expected an unlimited-capacity lease`, "red");
+      return false;
+    }
+    let terminalCalls = 0;
+    const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ctx: { metadata: {} } as never,
+      body: {
+        model: "claude-opus-4-8",
+        messages: [],
+        max_tokens: 16,
+        stream: true,
+      },
+      account: {
+        key: accountKey,
+        label: `unlimited-stream-${terminal}@example.test`,
+        token: "test-token",
+        type: "oauth" as const,
+      },
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      response: new Response(upstream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+      responseHeaders: { "content-type": "text/event-stream" },
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      finalBodyStr: "{}",
+      logAttempt: () => undefined,
+      logProxyBody: () => undefined,
+      logFinalRequest: () => undefined,
+      onStreamTerminal: () => {
+        terminalCalls += 1;
+        lease.release();
+      },
+    });
+    if (!("response" in result) || result.holdsAccountAdmission !== true) {
+      log(`${terminal}: the stream did not take ownership of the lease`, "red");
+      return false;
+    }
+    const body =
+      result.response instanceof Response ? result.response.body : null;
+    if (!body) {
+      log(`${terminal}: expected a streaming response body`, "red");
+      return false;
+    }
+    const whileOpen = __testHooks.getAccountInflight(accountKey);
+    if (whileOpen !== 1) {
+      log(
+        `${terminal}: expected 1 in-flight while open, got ${whileOpen}`,
+        "red",
+      );
+      return false;
+    }
+    const reader = body.getReader();
+    if (terminal === "end") {
+      while (!(await reader.read()).done) {
+        // Drain to the natural end of the stream.
+      }
+    } else {
+      await reader.read();
+      await reader.cancel("client disconnected");
+    }
+    for (
+      let turn = 0;
+      turn < 50 && __testHooks.getAccountInflight(accountKey) > 0;
+      turn++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    lease.release();
+    const after = __testHooks.getAccountInflight(accountKey);
+    if (
+      after !== 0 ||
+      terminalCalls !== 1 ||
+      __testHooks.hasAccountAdmissionState(accountKey)
+    ) {
+      log(
+        `${terminal}: expected release exactly once to 0 in-flight, got in-flight ${after} after ${terminalCalls} terminal call(s)`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  try {
+    const ended = await runCase("end");
+    const cancelled = await runCase("cancel");
+    return ended && cancelled;
+  } finally {
+    __testHooks.resetAllRuntimeState();
+  }
+}
+
+// ============================================================================
 // Tests: weekly-expiry-first ordering, soft limit, and reset freshening
 // ============================================================================
 
@@ -9035,6 +9857,41 @@ const tests: TestFunction[] = [
     name: "Quota: orderAccountsByQuota (soonest-reset-first)",
     fn: testOrderAccountsByQuota,
     category: "proxy-primary",
+  },
+  {
+    name: "compareExpiryFirst: availability branch",
+    fn: testCompareExpiryFirstAvailability,
+    category: "proxy-primary",
+  },
+  {
+    name: "accountRanking: matches route wrapper order",
+    fn: testAccountRankingMatchesRouteWrapper,
+    category: "proxy-primary",
+  },
+  {
+    name: "accountRanking: rankAccounts reason names the deciding rung",
+    fn: testRankAccountsReasonNamesDecidingRung,
+    category: "proxy-primary",
+  },
+  {
+    name: "admission: unlimited account in-flight counting",
+    fn: testUnlimitedAccountInflightCounting,
+    category: "proxy-infra",
+  },
+  {
+    name: "admission: uncapped acquire admits waiters queued under a removed cap",
+    fn: testUncappedAcquireAdmitsWaitersOfRemovedCap,
+    category: "proxy-primary",
+  },
+  {
+    name: "admission: stale uncapped acquire keeps waiters of a newly added cap queued",
+    fn: testStaleUncappedAcquireKeepsWaitersOfAddedCap,
+    category: "proxy-primary",
+  },
+  {
+    name: "admission: unlimited stream lease released on end and cancel",
+    fn: testUnlimitedStreamLeaseReleasedOnTerminal,
+    category: "proxy-infra",
   },
   {
     name: "Quota: weekly-expiry ordering + soft limit + freshening",
