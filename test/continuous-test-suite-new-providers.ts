@@ -253,11 +253,11 @@ const PROVIDERS: readonly ProviderUnderTest[] = [
     available: HAS_DEEPSEEK,
     unavailableReason: "DEEPSEEK_API_KEY not set",
     reasoningModel: "deepseek-reasoner",
-    // DeepSeek's vision API now serves only `deepseek-v4-pro` / `deepseek-v4-flash`.
-    // The previous `deepseek-vl2-tiny` was retired and now 400s with
-    // "The supported API model names are deepseek-v4-pro or deepseek-v4-flash".
-    // Pin to the cheaper flash variant for smoke tests.
-    visionModel: "deepseek-v4-flash",
+    // DeepSeek serves only `deepseek-flash` / `deepseek-v4-pro`; unknown ids
+    // 400 with "The supported API model names are deepseek-flash,
+    // deepseek-v4-pro". Only flash reads images — v4-pro answers 200 but
+    // describes a scene that isn't there.
+    visionModel: "deepseek-flash",
     fastModel: "deepseek-chat",
   },
   {

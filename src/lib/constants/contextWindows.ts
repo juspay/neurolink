@@ -61,11 +61,6 @@ export const DEFAULT_OUTPUT_RESERVE_RATIO = 0.35;
  * The "_default" key is the fallback for unknown models within a provider.
  */
 export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
-  deepseek: {
-    _default: 64_000,
-    "deepseek-chat": 64_000,
-    "deepseek-reasoner": 64_000,
-  },
   "nvidia-nim": {
     _default: 128_000,
     "meta/llama-3.3-70b-instruct": 128_000,

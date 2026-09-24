@@ -1163,6 +1163,8 @@ export enum CloudflareModels {
 export enum DeepSeekModels {
   DEEPSEEK_CHAT = "deepseek-chat",
   DEEPSEEK_REASONER = "deepseek-reasoner",
+  DEEPSEEK_FLASH = "deepseek-flash",
+  DEEPSEEK_V4_PRO = "deepseek-v4-pro",
 }
 
 export enum FireworksModels {

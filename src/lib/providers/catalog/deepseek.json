@@ -10,23 +10,37 @@
   },
   "models": {
     "default": "deepseek-chat",
-    "fallbacks": ["deepseek-chat", "deepseek-reasoner"],
-    "defaultContextWindow": 64000,
-    "defaultMaxOutputTokens": 64000,
+    "fallbacks": ["deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 393216,
     "catalog": {
       "deepseek-chat": {
-        "contextWindow": 64000,
-        "maxOutputTokens": 64000,
-        "vision": false,
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "vision": true,
         "status": "production",
-        "description": "DeepSeek-V3 general chat"
+        "description": "Alias of deepseek-flash with thinking off (DeepSeek-V4.1-Flash)"
       },
       "deepseek-reasoner": {
-        "contextWindow": 64000,
-        "maxOutputTokens": 64000,
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "vision": true,
+        "status": "production",
+        "description": "Alias of deepseek-flash with thinking on (DeepSeek-V4.1-Flash)"
+      },
+      "deepseek-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek-V4.1-Flash — thinking on by default, image input"
+      },
+      "deepseek-v4-pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
         "vision": false,
         "status": "production",
-        "description": "DeepSeek-R1 reasoning (slower, deeper)"
+        "description": "DeepSeek-V4-Pro-0813 — thinking on by default, text only"
       }
     }
   },
@@ -54,9 +68,9 @@
       "message": "DeepSeek account has insufficient balance. Top up at https://platform.deepseek.com/usage"
     },
     {
-      "pattern": "model_not_found",
+      "pattern": "supported API model names|model_not_found",
       "class": "invalid-model",
-      "message": "DeepSeek model '{model}' not found. Use 'deepseek-chat' or 'deepseek-reasoner'."
+      "message": "DeepSeek model '{model}' not found. Use 'deepseek-flash' or 'deepseek-v4-pro'."
     }
   ],
   "quirks": {
@@ -75,8 +89,8 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-09-22",
-      "method": "Ported from already-committed repo data (DeepSeekModels enum, deepseekManifest.ts, deepseek.ts's own error-rule and quirk comments) on origin/release @ a7fd9bf04 — no live vendor probe performed, per this migration's no-vendor-call constraint. billingPolicy is carried over from general knowledge, not independently re-verified live; flagged for confirmation before merge. The capability flags mirror the hand-written live-matrix row this entry replaces (test/helpers/providerMatrix.ts on origin/release), so the migration leaves the set of live-matrix cells unchanged."
+      "date": "2026-09-24",
+      "method": "Live against api.deepseek.com on 2026-09-24. GET /models lists only deepseek-flash and deepseek-v4-pro, with context_window 1048576 and max_output_tokens 393216 (the pricing page's 1M / 384K). deepseek-chat and deepseek-reasoner still answer 200 but report model deepseek-flash — deepseek-chat without reasoning_content, deepseek-reasoner with it — so both stay production as aliases rather than being marked retired. Vision was probed with a solid-blue PNG: deepseek-flash, deepseek-chat and deepseek-reasoner all named the colour; deepseek-v4-pro answered 200 but described a scene that was not in the image, so it keeps vision false, matching the pricing page. An unknown model id returns 400 'The supported API model names are …' with code invalid_request_error — never 'model_not_found' — so the invalid-model rule now matches that text. tools plus response_format json_object in one request returned 200 with tool_calls, confirming structuredOutputWithTools. billingPolicy is not re-verified."
     },
     "liveMatrix": null,
     "addedInPR": "TBD — integration-tested in a worktree before a PR was opened"

@@ -7,12 +7,12 @@ import type { ProviderModelManifest } from "../../types/index.js";
  * metadata consolidation plan.
  */
 export const deepseekManifest: ProviderModelManifest = {
-  defaultContextWindow: 64000,
+  defaultContextWindow: 1048576,
   models: {
     _default: {
       aliases: [],
-      contextWindow: 64000,
-      maxOutputTokens: 64000,
+      contextWindow: 1048576,
+      maxOutputTokens: 393216,
       vision: false,
       functionCalling: false,
     },

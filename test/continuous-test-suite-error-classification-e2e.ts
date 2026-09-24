@@ -761,6 +761,31 @@ async function main(): Promise<void> {
       messageIncludes: ["console.groq.com/docs/models"],
     });
 
+    // -- deepseek: its real unknown-model body ---------------------------------
+    // Recorded live on 2026-09-24. DeepSeek never says "model_not_found": an
+    // unknown id is a 400 whose only model-specific text is the list of
+    // names it does accept.
+    setEnv("DEEPSEEK_API_KEY", "test-fake-deepseek-credential");
+    setEnv("DEEPSEEK_BASE_URL", mockOrigin);
+    setHandler(() => ({
+      status: 400,
+      body: JSON.stringify({
+        error: {
+          message:
+            "The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v3.",
+          type: "invalid_request_error",
+          param: null,
+          code: "invalid_request_error",
+        },
+      }),
+    }));
+    await expectGenerateError({
+      name: "deepseek: real unknown-model 400 -> InvalidModelError naming the live models",
+      run: () => gen({ provider: "deepseek", model: "deepseek-v3" }),
+      expectClass: InvalidModelError,
+      messageIncludes: ["deepseek-flash"],
+    });
+
     // -- openai-compatible: ECONNREFUSED + 'does not exist' phrasing ----------
     setEnv(
       "OPENAI_COMPATIBLE_API_KEY",
@@ -1029,7 +1054,7 @@ async function main(): Promise<void> {
           model: "meta-llama/Llama-3.1-8B-Instruct",
         }),
       notClasses: [AuthenticationError, RateLimitError, InvalidModelError],
-      messageIncludes: ["Hermes"],
+      messageIncludes: ["meta-llama/Llama-3.3-70B-Instruct"],
     });
 
     // -- llamacpp: local-runtime quirks ------------------------------------------
