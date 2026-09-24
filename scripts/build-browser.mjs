@@ -22,7 +22,7 @@ const npmStubs = [
   'pptxgenjs','csv-parser','@juspay/hippocampus','@aws-sdk/client-bedrock',
   '@aws-sdk/client-bedrock-runtime','@aws-sdk/client-sagemaker-runtime','@hapi/bourne',
   'ajv','ajv-formats','chardet','debug','iconv-lite','inherits','ip-address','pkce-challenge','qs',
-  'which','pdf-to-img','express-rate-limit','@hono/node-server','powershell-utils',
+  'which','express-rate-limit','@hono/node-server','powershell-utils',
   'wsl-utils','default-browser','default-browser-id','run-applescript',
   '@langfuse/langfuse','undici','bullmq','croner','ioredis',
   // Optional peer of @anthropic-ai/sdk's beta webhooks module (server-only

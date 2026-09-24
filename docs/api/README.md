@@ -1260,6 +1260,7 @@ console.log(result.content);
 - [PDFImageConversionOptions](type-aliases/PDFImageConversionOptions.md)
 - [PDFImageConversionProgress](type-aliases/PDFImageConversionProgress.md)
 - [PDFImagePage](type-aliases/PDFImagePage.md)
+- [PDFRenderDocument](type-aliases/PDFRenderDocument.md)
 - [MultimodalPdfEntry](type-aliases/MultimodalPdfEntry.md)
 - [PDFImageConversionResult](type-aliases/PDFImageConversionResult.md)
 - [SanitizeFileNameOptions](type-aliases/SanitizeFileNameOptions.md)

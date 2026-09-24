@@ -626,6 +626,20 @@ export type PDFImagePage = {
 };
 
 /**
+ * A PDF opened for page rendering. Rendering goes through pdf-parse so the
+ * process loads exactly one pdfjs-dist copy — a second copy fails pdfjs's
+ * API-vs-Worker version check for whichever library loads second.
+ */
+export type PDFRenderDocument = {
+  /** Total pages in the document. */
+  length: number;
+  /** Render a 1-based page to a PNG buffer. */
+  getPage: (pageNumber: number) => Promise<Buffer>;
+  /** Release pdfjs resources held by the document. */
+  destroy: () => Promise<void>;
+};
+
+/**
  * A single PDF queued for multimodal message building, normalised from either
  * submission surface — `input.pdfFiles` or `input.content` with `type: "pdf"`
  * — so both can share the aggregate page/size guard (#309).

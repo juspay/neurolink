@@ -25,7 +25,7 @@ provider module executes — the other 39 never get evaluated.
 ## Heavy media/document deps are optional and lazy
 
 The 35 packages that do real work in image, video, audio, and document processing —
-`sharp`, `ffmpeg-static`/`fluent-ffmpeg`, `pdf-parse`, `pdf-to-img`, `mammoth`, `exceljs`,
+`sharp`, `ffmpeg-static`/`fluent-ffmpeg`, `pdf-parse`, `mammoth`, `exceljs`,
 `pptxgenjs`, the LiveKit voice-agent plugins, `bullmq`, `fastify`/`koa`/`express` server adapters —
 are declared in `optionalDependencies`, not `dependencies`, in `package.json`. Being optional means
 a package manager can skip them entirely if install fails or if you opt out; being _lazy_ on top of
