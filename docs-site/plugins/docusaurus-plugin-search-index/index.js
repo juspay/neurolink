@@ -335,7 +335,15 @@ async function generateIndex(docsDir, outDir, isExcluded) {
   // Write index
   const indexPath = path.join(outDir, "search-index.json");
   fs.mkdirSync(path.dirname(indexPath), { recursive: true });
-  fs.writeFileSync(indexPath, JSON.stringify(documents));
+  // One entry per line. The file is committed and every docs change
+  // regenerates it; as a single line, any two such PRs conflicted on the
+  // whole 8 MB file. With per-URL ids and a sorted traversal, two PRs that
+  // touch different pages now change different lines and git merges them.
+  // Readers JSON.parse the file, so the layout is invisible to them.
+  fs.writeFileSync(
+    indexPath,
+    `[\n${documents.map((doc) => JSON.stringify(doc)).join(",\n")}\n]\n`,
+  );
   console.log(
     `[search-index] Generated ${documents.length} entries from ${files.length} files (${skipped} excluded)`,
   );
