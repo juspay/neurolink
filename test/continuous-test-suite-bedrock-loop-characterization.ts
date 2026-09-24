@@ -522,6 +522,71 @@ await test("a text-only generate emits generation:end exactly once", async () =>
   }
 });
 
+// #1741 / #1762: the success-path test above only pins the RESULT branch of
+// `conversationLoop`'s dedup marking (client.ts sets `_generationEndEmitted`
+// on the returned `generateResult`). The CATCH branch marks the thrown ERROR
+// instead — there was no result object to carry it — and had no coverage:
+// a persistently failing generate call still emitted its own manual
+// "generation:end" (for Pipeline B / Langfuse) from inside the catch block,
+// and then, without the marker, `NeuroLink.generate()`'s outer catch
+// (`emitGenerateErrorEvent`) would emit a SECOND one for the same failure.
+await test("a failed Bedrock generate emits generation:end exactly once", async () => {
+  // Every request gets a retryable 503, so the AWS SDK's own retry policy
+  // exhausts and `conversationLoop` rejects — exercising the catch branch.
+  //
+  // `disableTools: true` is deliberate, not incidental. Without it this
+  // scenario is confounded by an entirely separate, correct behaviour:
+  // `NeuroLink.generate()` first tries the MCP-tool-enabled path
+  // (`performMCPGenerationRetries`, which itself retries a transient
+  // failure) and, on that path's exhaustion, falls back to
+  // `directProviderGeneration` for one more attempt — three real calls
+  // into `AmazonBedrockProvider.generate()` for one `nl.generate()` call,
+  // confirmed by instrumenting `conversationLoop`'s catch and inspecting
+  // the call stack of each invocation. Each of those attempts legitimately
+  // emits its own `generation:end` (three real attempts against the
+  // provider, three real Pipeline B observations) — that is not the
+  // #1741/#1762 double-emit bug, and asserting "exactly one" across all
+  // three would fail for a reason unrelated to the fix under test.
+  // `disableTools: true` skips the MCP path entirely (see
+  // `attemptMCPGeneration`'s guard), so `directProviderGeneration` runs
+  // its single, non-retried attempt and this test isolates exactly the
+  // invariant the fix provides: one generate ATTEMPT, one
+  // `generation:end`, whether it succeeds (see the test above) or fails.
+  const server = await startStandIn(() => "RETRYABLE_503");
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  const events: unknown[] = [];
+  nl.getEventEmitter().on("generation:end", (event: unknown) =>
+    events.push(event),
+  );
+  try {
+    let threw = false;
+    try {
+      await nl.generate({
+        input: { text: "hi" },
+        provider: "bedrock",
+        model: MODEL,
+        maxTokens: 32,
+        disableTools: true,
+      });
+    } catch {
+      threw = true;
+    }
+    assert(
+      threw,
+      "precondition: a persistently failing Bedrock generate call did not reject",
+    );
+    assert(
+      events.length === 1,
+      `one failed Bedrock generate must emit generation:end exactly once, emitted ${events.length}`,
+    );
+  } finally {
+    await nl.dispose();
+    restore();
+    await server.close();
+  }
+});
+
 await test("a generate tool_use turn runs the tool and finishes on the following turn", async () => {
   const server = await startStandIn((i) =>
     i === 0
