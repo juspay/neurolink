@@ -98,6 +98,7 @@
     "test:openai-compat-streaming-retry": "pnpm exec tsx test/continuous-test-suite-openai-compat-streaming-retry.ts",
     "test:anthropic-streaming-retry": "pnpm exec tsx test/continuous-test-suite-anthropic-streaming-retry.ts",
     "test:anthropic-silent-truncation": "pnpm exec tsx test/continuous-test-suite-anthropic-silent-truncation.ts",
+    "test:cache-cost-accounting": "pnpm exec tsx test/continuous-test-suite-cache-cost-accounting.ts",
     "test:adjust-body-after-400": "pnpm exec tsx test/continuous-test-suite-adjust-body-after-400.ts",
     "test:zod3-schema-native-path": "pnpm exec tsx test/continuous-test-suite-zod3-schema-native-path.ts",
     "test:error-classification-e2e": "pnpm exec tsx test/continuous-test-suite-error-classification-e2e.ts",
