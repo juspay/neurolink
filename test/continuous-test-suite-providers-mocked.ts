@@ -4,7 +4,7 @@ import { jsonSchema } from "../dist/index.js";
 import type { NeurolinkCredentials } from "../dist/index.js";
 import { spawnSync } from "node:child_process";
 import dnsPromises from "node:dns/promises";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -3717,6 +3717,94 @@ async function runStructuredReaskBillingSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: DeepSeek image input follows the catalog's per-model vision flag.
+// deepseek-flash reads images (live-probed 2026-09-24); deepseek-v4-pro
+// answers 200 to an image but describes a scene that isn't there, so the SDK
+// must refuse to send it one rather than let the model make something up.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runDeepSeekImageInputSection(): Promise<void> {
+  const section = "LLM deepseek (image input)";
+  console.log(`\n=== ${section} ===`);
+  setEnv("DEEPSEEK_API_KEY", "test-fake-deepseek-credential");
+  setEnv("DEEPSEEK_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const png = readFileSync(
+    join(import.meta.dirname, "fixtures", "sample-screenshot.png"),
+  );
+  const routes = [
+    {
+      method: "POST",
+      url: "api.deepseek.com",
+      respond: {
+        status: 200,
+        json: billedChatReply(
+          "deepseek-flash",
+          { role: "assistant", content: "Blue." },
+          "stop",
+        ),
+      },
+    },
+  ];
+  const sentAnImage = (bodyJson: unknown): boolean =>
+    JSON.stringify(bodyJson ?? null).includes('"image_url"');
+
+  try {
+    await withMocks(routes, async ({ calls }) => {
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      await nl.generate({
+        provider: "deepseek",
+        model: "deepseek-flash",
+        input: { text: "What colour is this?", images: [png] },
+      });
+      expect(calls.length > 0, "deepseek-flash made no upstream request");
+      expect(
+        sentAnImage(calls[0].bodyJson),
+        "deepseek-flash request carried no image_url part",
+      );
+    });
+    record(results, `${section}: deepseek-flash sends the image`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: deepseek-flash sends the image`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  try {
+    await withMocks(routes, async ({ calls }) => {
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      const threw = await nl
+        .generate({
+          provider: "deepseek",
+          model: "deepseek-v4-pro",
+          input: { text: "What colour is this?", images: [png] },
+        })
+        .then(
+          () => false,
+          () => true,
+        );
+      expect(
+        !calls.some((call) => sentAnImage(call.bodyJson)),
+        "an image reached deepseek-v4-pro",
+      );
+      expect(threw, "generate() accepted an image for deepseek-v4-pro");
+    });
+    record(results, `${section}: deepseek-v4-pro refuses the image`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: deepseek-v4-pro refuses the image`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: the schema-in-the-prompt retry is billed on top of the turn.
 //
 // The sibling of the section above, on the branch taken by the providers
@@ -4828,6 +4916,7 @@ async function main(): Promise<void> {
     await runAnthropicSection();
     await runCloudflareContentFormatSection();
     await runStructuredReaskBillingSection();
+    await runDeepSeekImageInputSection();
     await runSchemaRetryBillingSection();
     await runInvalidModelFallbackSection();
     await runVertexSection();

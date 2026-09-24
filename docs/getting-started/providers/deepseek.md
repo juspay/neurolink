@@ -1,31 +1,33 @@
 ---
 title: DeepSeek Provider Guide
-description: Access DeepSeek-V3 (chat) and DeepSeek-R1 (reasoning) through NeuroLink's OpenAI-compatible DeepSeek provider
-keywords: deepseek, deepseek-chat, deepseek-reasoner, deepseek-r1, reasoning, chain-of-thought
+description: Access DeepSeek-V4.1-Flash and DeepSeek-V4-Pro through NeuroLink's OpenAI-compatible DeepSeek provider
+keywords: deepseek, deepseek-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner, reasoning, chain-of-thought
 ---
 
 # DeepSeek Provider Guide
 
-**Text generation with DeepSeek-V3 (chat) and DeepSeek-R1 (reasoning) through a single API**
+**Text and image input with DeepSeek-V4.1-Flash and DeepSeek-V4-Pro through a single API**
 
 ---
 
 ## Overview
 
-DeepSeek is a Chinese AI research lab offering highly capable open-weight models via a hosted cloud API. NeuroLink wraps their OpenAI-compatible endpoint, giving you access to two model families:
+DeepSeek is a Chinese AI research lab offering highly capable open-weight models via a hosted cloud API. NeuroLink wraps their OpenAI-compatible endpoint. The API serves two models:
 
-- **`deepseek-chat`** — DeepSeek-V3, a 671B mixture-of-experts model optimised for everyday chat and code tasks. Supports tool calling and structured output.
-- **`deepseek-reasoner`** — DeepSeek-R1, a reasoning model that performs extended chain-of-thought before producing an answer. The AI SDK surfaces the reasoning trace separately so you can inspect it.
+- **`deepseek-flash`** — DeepSeek-V4.1-Flash. Reads images as well as text.
+- **`deepseek-v4-pro`** — DeepSeek-V4-Pro-0813. Text only.
+
+The older ids still work as aliases of `deepseek-flash`: **`deepseek-chat`** answers with thinking off, and **`deepseek-reasoner`** answers with thinking on and returns a reasoning trace.
 
 ### Key Facts
 
 - **Protocol**: OpenAI-compatible (`/v1/chat/completions`)
 - **Default base URL**: `https://api.deepseek.com`
-- **Context window**: 64K tokens (both models)
-- **Vision**: Not supported — text-only
+- **Context window**: 1M tokens (1,048,576), with up to 384K (393,216) output tokens
+- **Vision**: `deepseek-flash` and its aliases; not `deepseek-v4-pro'
 - **Streaming**: Supported
-- **Tool calling**: Supported on `deepseek-chat`; limited on `deepseek-reasoner`
-- **Reasoning trace**: `deepseek-reasoner` exposes `reasoning_content` (surfaced as `reasoning` parts in the AI SDK response)
+- **Tool calling**: Supported. Tools and JSON output work in the same request.
+- **Reasoning trace**: returned as `reasoning_content` when thinking is on (`deepseek-reasoner`)
 
 ---
 
@@ -79,12 +81,14 @@ console.log(result.content);
 
 ## Supported Models
 
-| Model ID            | Family      | Context | Tool Calling | Notes                                       |
-| ------------------- | ----------- | ------- | ------------ | ------------------------------------------- |
-| `deepseek-chat`     | DeepSeek-V3 | 64K     | Yes          | Default; best for chat and code tasks       |
-| `deepseek-reasoner` | DeepSeek-R1 | 64K     | Limited      | Extended reasoning; exposes reasoning trace |
+| Model ID            | Serves              | Context | Images | Notes                                            |
+| ------------------- | ------------------- | ------- | ------ | ------------------------------------------------ |
+| `deepseek-chat`     | DeepSeek-V4.1-Flash | 1M      | Yes    | Default; alias of `deepseek-flash`, thinking off |
+| `deepseek-reasoner` | DeepSeek-V4.1-Flash | 1M      | Yes    | Alias of `deepseek-flash`, thinking on           |
+| `deepseek-flash`    | DeepSeek-V4.1-Flash | 1M      | Yes    | Thinking on by default                           |
+| `deepseek-v4-pro`   | DeepSeek-V4-Pro     | 1M      | No     | Thinking on by default                           |
 
-Pass any model ID via `--model` (CLI) or `model:` (SDK). Only these two models are officially hosted on `api.deepseek.com`.
+Pass any model ID via `--model` (CLI) or `model:` (SDK). `GET /models` on `api.deepseek.com` lists only `deepseek-flash` and `deepseek-v4-pro`; the two older ids are accepted as aliases.
 
 ---
 
@@ -118,7 +122,7 @@ const result = await ai.generate({
 console.log(result.content);
 ```
 
-Note: `deepseek-reasoner` produces a longer response latency because it thinks before answering.
+Note: with thinking on, responses take longer because the model reasons before answering.
 
 ### Streaming
 
@@ -221,15 +225,15 @@ The DeepSeek provider can be referenced by any of the following names:
 
 ## Feature Support Matrix
 
-| Feature           | `deepseek-chat` | `deepseek-reasoner` |
-| ----------------- | --------------- | ------------------- |
-| Text generation   | Yes             | Yes                 |
-| Streaming         | Yes             | Yes                 |
-| Tool calling      | Yes             | Limited             |
-| Structured output | Yes             | Limited             |
-| Vision / images   | No              | No                  |
-| Embeddings        | No              | No                  |
-| Reasoning trace   | No              | Yes                 |
+| Feature           | `deepseek-chat` | `deepseek-reasoner` | `deepseek-flash` | `deepseek-v4-pro` |
+| ----------------- | --------------- | ------------------- | ---------------- | ----------------- |
+| Text generation   | Yes             | Yes                 | Yes              | Yes               |
+| Streaming         | Yes             | Yes                 | Yes              | Yes               |
+| Tool calling      | Yes             | See below           | See below        | See below         |
+| Structured output | Yes             | Not tested          | Not tested       | Not tested        |
+| Vision / images   | Yes             | Yes                 | Yes              | No                |
+| Embeddings        | No              | No                  | No               | No                |
+| Reasoning trace   | No              | Yes                 | Yes              | Yes               |
 
 ---
 
@@ -259,15 +263,15 @@ Too many requests in a short window. Implement exponential backoff or reduce req
 
 ### "Model not found"
 
-Only `deepseek-chat` and `deepseek-reasoner` are hosted on `api.deepseek.com`. Check the model name for typos.
+DeepSeek answers an unknown id with `400` and "The supported API model names are deepseek-flash, deepseek-v4-pro". Use one of those, or the `deepseek-chat` / `deepseek-reasoner` aliases.
 
-### Slow responses on `deepseek-reasoner`
+### Slow responses with thinking on
 
-Expected. R1 performs extended chain-of-thought reasoning before producing its final answer, which adds latency proportional to reasoning complexity. Use `deepseek-chat` for latency-sensitive paths.
+Expected. `deepseek-reasoner`, `deepseek-flash` and `deepseek-v4-pro` reason before answering, which adds latency. Use `deepseek-chat` for latency-sensitive paths.
 
-### Tool calls failing on `deepseek-reasoner`
+### Tool calls failing with thinking on
 
-DeepSeek documents limited tool support on R1. For tool-heavy workflows, use `deepseek-chat`.
+DeepSeek requires `reasoning_content` to be sent back on every later request once tools are in play, and returns `400` otherwise ([thinking mode guide](https://api-docs.deepseek.com/guides/thinking_mode)). For tool-heavy workflows, use `deepseek-chat`, which keeps thinking off.
 
 ---
 

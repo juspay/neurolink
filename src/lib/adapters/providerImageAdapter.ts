@@ -532,8 +532,6 @@ const VISION_CAPABILITIES: Record<string, readonly string[]> = {
     "meta-llama-4-maverick-17b-128e-instruct",
     "meta-llama-4-scout-17b-16e-instruct",
   ],
-  // DeepSeek has no vision support — empty list
-  deepseek: [] as readonly string[],
   "nvidia-nim": [
     "meta/llama-3.2-90b-vision-instruct",
     "meta/llama-3.2-11b-vision-instruct",
@@ -741,7 +739,7 @@ export class ProviderImageAdapter {
         return false;
       }
 
-      // An empty list means the provider has NO vision support (e.g. deepseek).
+      // An empty list means the provider has NO vision support.
       // Without this guard, the no-model branch below would return `true` for
       // every provider that has an entry in VISION_CAPABILITIES — even an empty
       // one — letting vision requests through to a text-only API.
@@ -794,7 +792,7 @@ export class ProviderImageAdapter {
    * Get all vision-capable providers
    */
   static getVisionProviders(): string[] {
-    // Filter out providers whose allowlist is empty (e.g. deepseek). They're
+    // Filter out providers whose allowlist is empty. They're
     // listed in VISION_CAPABILITIES so supportsVision can return false for
     // them, but they should not be advertised as vision-capable.
     return Object.entries(VISION_CAPABILITIES)

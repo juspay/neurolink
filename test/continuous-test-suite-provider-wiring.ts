@@ -118,6 +118,35 @@ await test("every registered AIProviderName resolves to a real NeurolinkCredenti
   }
 });
 
+await test("no catalog's error guidance recommends a model it has retired", async () => {
+  const { CATALOG_JSON_ENTRIES } =
+    await import("../dist/providers/catalog/index.generated.js");
+  const escape = (text: string): string =>
+    text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const offenders = CATALOG_JSON_ENTRIES.flatMap((entry) => {
+    const retired = Object.entries(entry.models.catalog)
+      .filter(([, spec]) => spec.status === "retired")
+      .map(([id]) => id);
+    return entry.errorRules.flatMap((rule) =>
+      retired
+        .filter((id) => {
+          // Bare names count too ("CodeLlama-34b-Instruct-hf"), but only as a
+          // whole name: retired "Llama-3.1-8B" must not match the live
+          // "Llama-3.1-8B-Instruct".
+          const name = id.slice(id.lastIndexOf("/") + 1);
+          return new RegExp(`(?<![\\w./-])${escape(name)}(?![\\w.-])`).test(
+            rule.message,
+          );
+        })
+        .map((id) => `${entry.id}: ${id}`),
+    );
+  });
+  assert(
+    offenders.length === 0,
+    `error guidance names retired models: ${offenders.join(", ")}`,
+  );
+});
+
 await test("HuggingFace factory forwards the sdk instance through to BaseProvider", async () => {
   const { ProviderRegistry } = await import("../dist/index.js");
   await ProviderRegistry.registerAllProviders();

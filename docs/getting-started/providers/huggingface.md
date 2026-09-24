@@ -6,21 +6,21 @@ keywords: hugging face, inference api, open source, AI models, provider setup
 
 # Hugging Face Provider Guide
 
-**Access 100,000+ open-source AI models through Hugging Face's free inference API**
+**Access open-source AI models through Hugging Face Inference Providers**
 
 ---
 
 ## Overview
 
-Hugging Face is the world's largest platform for open-source AI models, hosting over 100,000 models spanning text generation, code generation, translation, summarization, and more. NeuroLink's Hugging Face provider gives you free access to this vast ecosystem through a unified interface.
+Hugging Face is the world's largest platform for open-source AI models, hosting over 100,000 models spanning text generation, code generation, translation, summarization, and more. NeuroLink's Hugging Face provider reaches the chat models the Inference Providers router serves, through a unified interface.
 
-:::tip[Free Tier Advantage]
-Hugging Face's inference API is completely free for most models, with a generous daily cap (~1,000 requests/day per model). Perfect for development, testing, and low-to-medium production workloads without any cost concerns.
+:::tip[Free credits]
+Free accounts get a small monthly credit for Inference Providers, with no card required ([pricing](https://huggingface.co/docs/inference-providers/pricing)). Once it is spent, requests return `402` until you buy pre-paid credits or subscribe to PRO.
 :::
 
 ### Key Benefits
 
-- **🆓 Free Access**: No API costs - completely free to use
+- **🆓 Free Credits**: A small monthly allowance to start with
 - **🌍 100,000+ Models**: Largest collection of open-source models
 - **🔓 Open Source**: All models are open and transparent
 - **⚡ Quick Start**: No credit card required
@@ -92,30 +92,25 @@ const { NeuroLink } = require('@juspay/neurolink');
 
 #### 1. **General Text Generation**
 
-| Model                                           | Size    | Description                          | Best For                        |
-| ----------------------------------------------- | ------- | ------------------------------------ | ------------------------------- |
-| `Qwen/Qwen2.5-72B-Instruct`                     | 72B     | Qwen 2.5 instruction-tuned (default) | General tasks, high quality     |
-| `Qwen/Qwen3-235B-A22B`                          | 235B    | Latest Qwen 3 MoE flagship           | Complex reasoning, multilingual |
-| `Qwen/Qwen3-32B`                                | 32B     | Qwen 3 dense model                   | Balanced quality and speed      |
-| `Qwen/Qwen3-8B`                                 | 8B      | Qwen 3 efficient model               | Fast responses, low cost        |
-| `meta-llama/Llama-3.3-70B-Instruct`             | 70B     | Meta Llama 3.3 instruction-tuned     | Conversational AI, reasoning    |
-| `meta-llama/Llama-4-Scout-17B-16E-Instruct`     | 17B MoE | Meta Llama 4 Scout                   | Efficient multimodal tasks      |
-| `meta-llama/Llama-4-Maverick-17B-128E-Instruct` | 17B MoE | Meta Llama 4 Maverick                | Advanced multimodal reasoning   |
-| `deepseek-ai/DeepSeek-R1`                       | 671B    | DeepSeek reasoning model             | Math, logic, step-by-step       |
-| `deepseek-ai/DeepSeek-V3-0324`                  | 671B    | DeepSeek V3 general-purpose          | General tasks, coding           |
-| `mistralai/Mistral-Large-2501`                  | 123B    | Mistral Large 3                      | Enterprise, multilingual        |
-| `mistralai/Mistral-Small-3.1-24B-Instruct`      | 24B     | Mistral Small 3.1                    | Fast, cost-effective            |
-| `google/gemma-3-27b-it`                         | 27B     | Google Gemma 3 instruction-tuned     | General tasks, research         |
-| `google/gemma-3-12b-it`                         | 12B     | Google Gemma 3 mid-size              | Balanced performance            |
-| `google/gemma-3-4b-it`                          | 4B      | Google Gemma 3 lightweight           | Edge deployment, fast           |
-| `microsoft/phi-4`                               | 14B     | Microsoft Phi-4                      | Reasoning, STEM tasks           |
-| `microsoft/Phi-4-mini-instruct`                 | 3.8B    | Microsoft Phi-4-mini                 | Lightweight, on-device          |
+| Model                                       | Size    | Description                          | Best For                        |
+| ------------------------------------------- | ------- | ------------------------------------ | ------------------------------- |
+| `Qwen/Qwen2.5-72B-Instruct`                 | 72B     | Qwen 2.5 instruction-tuned (default) | General tasks, high quality     |
+| `Qwen/Qwen3-235B-A22B`                      | 235B    | Latest Qwen 3 MoE flagship           | Complex reasoning, multilingual |
+| `Qwen/Qwen3-32B`                            | 32B     | Qwen 3 dense model                   | Balanced quality and speed      |
+| `Qwen/Qwen3-8B`                             | 8B      | Qwen 3 efficient model               | Fast responses, low cost        |
+| `meta-llama/Llama-3.3-70B-Instruct`         | 70B     | Meta Llama 3.3 instruction-tuned     | Conversational AI, reasoning    |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct` | 17B MoE | Meta Llama 4 Scout                   | Efficient multimodal tasks      |
+| `deepseek-ai/DeepSeek-R1`                   | 671B    | DeepSeek reasoning model             | Math, logic, step-by-step       |
+| `deepseek-ai/DeepSeek-V3-0324`              | 671B    | DeepSeek V3 general-purpose          | General tasks, coding           |
+| `google/gemma-3-27b-it`                     | 27B     | Google Gemma 3 instruction-tuned     | General tasks, research         |
+| `google/gemma-3-12b-it`                     | 12B     | Google Gemma 3 mid-size              | Balanced performance            |
+| `google/gemma-3-4b-it`                      | 4B      | Google Gemma 3 lightweight           | Edge deployment, fast           |
+| `microsoft/phi-4`                           | 14B     | Microsoft Phi-4                      | Reasoning, STEM tasks           |
 
 #### 2. **Code Generation**
 
 | Model                               | Description                       | Best For               |
 | ----------------------------------- | --------------------------------- | ---------------------- |
-| `mistralai/Devstral-Small-2507`     | Mistral Devstral 2 code model     | Code generation, IDE   |
 | `Qwen/Qwen2.5-Coder-32B-Instruct`   | Qwen 2.5 code specialist          | Complex coding tasks   |
 | `deepseek-ai/DeepSeek-V3-0324`      | DeepSeek V3 with strong code perf | Full-stack development |
 | `meta-llama/Llama-3.3-70B-Instruct` | Llama 3.3 with code capabilities  | Code review, refactor  |
@@ -156,7 +151,7 @@ const general = await ai.generate({
 const code = await ai.generate({
   input: { text: "Write a Python function to sort a list" },
   provider: "huggingface",
-  model: "mistralai/Devstral-Small-2507",
+  model: "Qwen/Qwen2.5-Coder-32B-Instruct",
 });
 
 // Summarization
@@ -180,17 +175,15 @@ const translation = await ai.generate({
 
 ### What's Included
 
-- ✅ **Unlimited requests** to public models
-- ✅ **No cost** - completely free
-- ✅ **No credit card** required
-- ✅ **Rate limits**: 1,000 requests/day per model (generous)
-- ✅ **Access to 100,000+** public models
+- ✅ **Monthly credits** for Inference Providers on a free account
+- ✅ **No credit card** required for the free credits
+- ⚠️ **`402` once the credits are spent** — buy pre-paid credits or subscribe to PRO to continue
 
-### Rate Limits
+See [Hugging Face's pricing page](https://huggingface.co/docs/inference-providers/pricing) for the current allowance.
 
-- **Per Model**: ~1,000 requests/day
-- **Strategy**: Use different models to scale
-- **Best Practice**: Combine with other providers for production
+### Spending the credits
+
+- **Best Practice**: Combine with other providers so a spent allowance falls back instead of failing
 
 ```typescript
 // Rate limit friendly approach
@@ -426,7 +419,7 @@ npx @juspay/neurolink gen "test" \
 
 #### 2. "Rate limit exceeded"
 
-**Problem**: Hit the ~1,000 requests/day limit for a model.
+**Problem**: Too many requests in a short window. A `402` instead means the monthly credits are spent — see [Free credits](#spending-the-credits).
 
 **Solution**:
 

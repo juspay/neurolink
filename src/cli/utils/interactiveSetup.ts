@@ -215,7 +215,7 @@ export const PROVIDER_CONFIGS: InteractiveProviderConfig[] = [
     id: AIProviderName.DEEPSEEK,
     name: "DeepSeek",
     description:
-      "Cost-efficient frontier models (deepseek-chat V3, deepseek-reasoner R1)",
+      "Cost-efficient frontier models (deepseek-flash V4.1, deepseek-v4-pro)",
     envVars: [
       {
         key: "DEEPSEEK_API_KEY",

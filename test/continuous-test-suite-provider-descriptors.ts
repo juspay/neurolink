@@ -648,6 +648,27 @@ await runSuite(async () => {
     );
   });
 
+  await test("huggingface format check accepts a token shaped like a real one", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    // A real token issued in 2026 is hf_ plus 34 letters; the catalog's
+    // earlier hf_ plus 37 pattern flagged every such token as malformed.
+    assert(
+      ProviderHealthChecker.validateApiKeyFormat(
+        "huggingface",
+        `hf_${"Ab".repeat(17)}`,
+      ),
+      "huggingface rejected an hf_ + 34 character token",
+    );
+    assert(
+      !ProviderHealthChecker.validateApiKeyFormat(
+        "huggingface",
+        "sk-not-a-huggingface-token",
+      ),
+      "huggingface accepted a token without the hf_ prefix",
+    );
+  });
+
   await test("getProviderHealthEndpoint still returns null for env-only providers and non-null for models-probe providers", async () => {
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
