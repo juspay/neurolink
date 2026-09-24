@@ -219,19 +219,19 @@ npx @juspay/neurolink decide --state-file ticket.json \
   --questions-file questions.json --format json
 ```
 
-| Option                      | Description                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------- |
-| `state`                     | The content to judge, as a positional argument (or use `--state-file`).       |
-| `--state-file <path>`       | Path to a file holding the state (plain text or JSON).                        |
-| `--questions <json>`        | Inline JSON map of questions. Exactly one of this or `--questions-file`.      |
-| `--questions-file <path>`   | Path to a JSON file holding the questions map.                                |
-| `--provider <name>`         | Decision provider to use.                                                     |
-| `--model <name>`            | Overrides the provider's configured model for this call.                      |
-| `--timeout <ms>`            | Timeout in milliseconds.                                                      |
-| `--format text\|json`, `-f` | Output format (default: `text`). With `json`, stdout carries only the result. |
-| `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                |
+| Option                      | Description                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state`                     | The content to judge, as a positional argument (or use `--state-file`).                                                                                 |
+| `--state-file <path>`       | Path to a file holding the state (plain text or JSON).                                                                                                  |
+| `--questions <json>`        | Inline JSON map of questions. Exactly one of this or `--questions-file`.                                                                                |
+| `--questions-file <path>`   | Path to a JSON file holding the questions map.                                                                                                          |
+| `--provider <name>`         | Decision provider to use: `typesafe` or `laya`. Defaults to the first with a key set: TypeSafe (`TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`), then Laya. |
+| `--model <name>`            | Overrides the provider's configured model for this call.                                                                                                |
+| `--timeout <ms>`            | Timeout in milliseconds.                                                                                                                                |
+| `--format text\|json`, `-f` | Output format (default: `text`). With `json`, stdout carries only the result.                                                                           |
+| `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                                                                                          |
 
-Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command — the decision provider (TypeSafe) reads `TYPESAFE_API_KEY`, or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route, from the environment. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
+Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command: TypeSafe reads `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route) and Laya reads `LAYA_API_KEY` and `LAYA_BASE_URL` (required: Laya has no built-in endpoint), from the environment. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
 
 ### `batch <file>` {#batch}
 

@@ -8,7 +8,7 @@
 
 > **DecisionError** = `object`
 
-Defined in: [types/decision.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L160)
+Defined in: [types/decision.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L189)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/decision.ts:160](https://github.com/juspay/neurolink/blob/rel
 
 > **kind**: [`DecisionErrorKind`](DecisionErrorKind.md)
 
-Defined in: [types/decision.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L161)
+Defined in: [types/decision.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L190)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/decision.ts:161](https://github.com/juspay/neurolink/blob/rel
 
 > **message**: `string`
 
-Defined in: [types/decision.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L162)
+Defined in: [types/decision.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L191)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/decision.ts:162](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **status?**: `number`
 
-Defined in: [types/decision.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L163)
+Defined in: [types/decision.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L192)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/decision.ts:163](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/decision.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L164)
+Defined in: [types/decision.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L193)
 
 ---
 
@@ -48,6 +48,6 @@ Defined in: [types/decision.ts:164](https://github.com/juspay/neurolink/blob/rel
 
 > **retryable**: `boolean`
 
-Defined in: [types/decision.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L166)
+Defined in: [types/decision.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L195)
 
 True when a retry could plausibly succeed.

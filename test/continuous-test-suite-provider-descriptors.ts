@@ -50,10 +50,10 @@ await runSuite(async () => {
     // hand-registered non-catalog providers (openai, anthropic, google-ai,
     // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
     // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-    // voyage, jina, stability, ideogram, recraft, typesafe).
+    // voyage, jina, stability, ideogram, recraft, typesafe, laya).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 22;
+    const NON_CATALOG_PROVIDER_COUNT = 23;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -357,7 +357,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 22;
+    const NON_CATALOG_PROVIDER_COUNT = 23;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -812,6 +812,8 @@ await runSuite(async () => {
       // typesafe serves only the `decide` inference type, so it has no tools
       // at all — the same reason voyage/jina (embedding-only) are here.
       "typesafe",
+      // laya is the second decide-only provider: no tools for the same reason.
+      "laya",
     ]);
     // A catalog entry with capabilities.tools: false derives toolSupport
     // "none" (buildCatalogDescriptor), which the runtime treats exactly like

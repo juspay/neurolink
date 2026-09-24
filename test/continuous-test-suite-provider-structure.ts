@@ -67,6 +67,10 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   "anthropicImageBlocks",
   "openaiChatCompletionsBase",
   "openaiChatCompletionsClient",
+  // The abstract base the decision providers (typesafe, laya) extend. Like
+  // openaiChatCompletionsBase, it is imported by providers and never itself
+  // registered.
+  "systemOneDecision",
   // Pure data: the catalog of OpenAI-compatible provider entries. It exports
   // a const array, not a provider class, so it is a non-provider file in the
   // first sense above.

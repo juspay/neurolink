@@ -8,7 +8,7 @@
 
 > **DecisionModelCard** = `object`
 
-Defined in: [types/decision.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L170)
+Defined in: [types/decision.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L199)
 
 One entry from a decision provider's model listing.
 
@@ -18,7 +18,7 @@ One entry from a decision provider's model listing.
 
 > **name**: `string`
 
-Defined in: [types/decision.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L171)
+Defined in: [types/decision.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L200)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/decision.ts:171](https://github.com/juspay/neurolink/blob/rel
 
 > **description**: `string`
 
-Defined in: [types/decision.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L172)
+Defined in: [types/decision.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L201)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/decision.ts:172](https://github.com/juspay/neurolink/blob/rel
 
 > **releaseDate**: `string`
 
-Defined in: [types/decision.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L173)
+Defined in: [types/decision.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/decision.ts#L202)

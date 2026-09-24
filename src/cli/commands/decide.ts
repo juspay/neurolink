@@ -9,13 +9,15 @@
  * for the full vocabulary.
  *
  * Credentials are env-only here, exactly as every other CLI command: the
- * decision provider (TypeSafe) reads `TYPESAFE_API_KEY` itself.
+ * decision provider reads its own settings (TYPESAFE_API_KEY, or LAYA_API_KEY
+ * and LAYA_BASE_URL) itself.
  */
 
 import chalk from "chalk";
 import ora from "ora";
 import fs from "node:fs";
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
+import { describeDecisionProviderKeys } from "../../lib/factories/providerDescriptors.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import { readDecisionChoice } from "../../lib/utils/decisionAnswers.js";
 import { calculateCost, hasPricing } from "../../lib/utils/pricing.js";
@@ -117,7 +119,7 @@ function describeDecideError(error: unknown): string {
   }
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("No decision provider is configured")) {
-    return "No decision provider is configured. Set TYPESAFE_API_KEY, or AI_GATEWAY_API_KEY for the Vercel AI Gateway route.";
+    return `No decision provider is configured. Set ${describeDecisionProviderKeys()}.`;
   }
   return message;
 }

@@ -728,6 +728,30 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       decide: true,
     },
   ],
+  [
+    "laya",
+    {
+      name: "laya",
+      defaultModel: "typed-decisions",
+      // No built-in endpoint: the base URL is as required as the key.
+      envVars: ["LAYA_API_KEY", "LAYA_BASE_URL"],
+      // Laya serves only `decide`, like typesafe: every generation capability
+      // is false because it emits no text at all.
+      text: false,
+      streaming: false,
+      tools: false,
+      toolsWithStreaming: false,
+      structuredOutput: false,
+      structuredOutputWithTools: false,
+      vision: false,
+      embeddings: false,
+      thinking: false,
+      imageGeneration: false,
+      videoGeneration: false,
+      tts: false,
+      decide: true,
+    },
+  ],
 ];
 
 export const PROVIDERS: Record<string, ProviderEntry> =

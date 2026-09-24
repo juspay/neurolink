@@ -21,7 +21,11 @@ import {
   VertexModels,
 } from "../constants/enums.js";
 import type { ValidationSchema } from "./aliases.js";
-import type { DecisionRequest, DecisionResult } from "./decision.js";
+import type {
+  DecisionLimits,
+  DecisionRequest,
+  DecisionResult,
+} from "./decision.js";
 import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -277,7 +281,18 @@ export type NeurolinkCredentials = {
     transport?: "direct" | "gateway";
     /** Vercel AI Gateway key. Defaults to `AI_GATEWAY_API_KEY`. */
     gatewayApiKey?: string;
+    /**
+     * The gateway transport's evaluation-model route. Defaults to
+     * `TYPESAFE_GATEWAY_URL`, then Vercel's own route.
+     */
+    gatewayURL?: string;
   };
+  /**
+   * Laya (Convai, open weights) — the `decide` inference type. There is no
+   * built-in endpoint: `baseURL` (or LAYA_BASE_URL) is required, pointing at a
+   * Laya server or a proxy route to one; requests go to `<baseURL>/predict`.
+   */
+  laya?: { apiKey?: string; baseURL?: string };
 };
 
 /**
@@ -2312,6 +2327,11 @@ export type ProviderDescriptor = {
   autoSelectPreference?: number;
   setupUrl?: string;
   timeouts?: { generateMs?: number; streamMs?: number; decideMs?: number };
+  /**
+   * What a `decide` provider can read. Absent means the provider leaves size
+   * checks to its own server (TypeSafe). See {@link DecisionLimits}.
+   */
+  decisionLimits?: DecisionLimits;
   /** Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain. */
   autoSelectPriority?: number;
   /** Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider. */

@@ -110,6 +110,29 @@ default, exactly as `embed()` does. Public surface is `neurolink.decide()` and
 failure and is what every internal consumer uses — plus the CLI's
 `neurolink decide [state]`, a thin wrapper over `decide()` (`src/cli/commands/decide.ts`).
 
+**Two decision providers; descriptor order is precedence.** TypeSafe (Jev,
+hosted) and Laya (open weights, at a configured base URL — there is no default) both
+extend `SystemOneDecisionProvider` in `src/lib/providers/systemOneDecision.ts`,
+which owns the request loop, retries, the auth circuit breaker and answer
+parsing; each provider supplies only its endpoint, headers, body and error
+parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
+entry with a key set, in descriptor order, so TypeSafe's entry sitting before
+Laya's is what makes TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`,
+`AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY`. Reordering them
+changes which model every built-in consumer uses.
+
+**`decisionLimits` refuses what a model cannot read.** A descriptor may declare
+`decisionLimits: { maxStateTokens, maxQuestions, models }`; the base refuses an
+over-limit request with `max_tokens_exceeded` before any network call, and every
+internal consumer then fails open as usual. Laya declares 768 state tokens on
+`typed-decisions` and `multilingual`, 320 on `english`, `auto` and any unlisted
+name, and 64 questions, because its server answers a longer state from the
+first 1,024 tokens without saying so. Non-ASCII characters are charged at a
+measured per-checkpoint rate (`nonAsciiTokensPerChar`: 1.5, or 0.6 on
+`multilingual`), since the ~4-characters-per-token estimate is several times
+too generous for non-Latin scripts. TypeSafe declares none and relies on its
+server.
+
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20
 `Evaluation*` types already taken.
@@ -235,6 +258,7 @@ list: `relevance | prune | deduplicate | summarize | truncate`.
 | `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                                                                                 |
 | `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)                                                                         |
 | `src/lib/providers/catalog/`                       | One JSON per Tier-2 provider — the source of truth for its whole integration (`schema.ts` validates, `loader.ts` builds) |
+| `src/lib/providers/systemOneDecision.ts`           | Shared base for `decide` providers: request loop, retries, auth breaker, answer parsing, `decisionLimits`                |
 | `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge                                                           |
 | `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                                                                              |
 | `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map                                                               |

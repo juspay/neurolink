@@ -8,7 +8,7 @@
 
 > **VertexAnthropicTool** = `object`
 
-Defined in: [types/providers.ts:2594](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2594)
+Defined in: [types/providers.ts:2614](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2614)
 
 Tool definition accepted by the Anthropic Vertex SDK.
 
@@ -18,7 +18,7 @@ Tool definition accepted by the Anthropic Vertex SDK.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:2595](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2595)
+Defined in: [types/providers.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2615)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2595](https://github.com/juspay/neurolink/blob/r
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:2596](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2596)
+Defined in: [types/providers.ts:2616](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2616)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2596](https://github.com/juspay/neurolink/blob/r
 
 > **input_schema**: `object`
 
-Defined in: [types/providers.ts:2597](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2597)
+Defined in: [types/providers.ts:2617](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2617)
 
 #### type
 
@@ -54,4 +54,4 @@ Defined in: [types/providers.ts:2597](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cache_control?**: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md)
 
-Defined in: [types/providers.ts:2602](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2602)
+Defined in: [types/providers.ts:2622](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2622)

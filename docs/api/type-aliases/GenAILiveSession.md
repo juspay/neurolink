@@ -8,7 +8,7 @@
 
 > **GenAILiveSession** = `object`
 
-Defined in: [types/providers.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1188)
+Defined in: [types/providers.ts:1203](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1203)
 
 Google AI Live session interface
 
@@ -18,7 +18,7 @@ Google AI Live session interface
 
 > `optional` **sendRealtimeInput?**: (`payload`) => `Promise`\<`void`\> \| `void`
 
-Defined in: [types/providers.ts:1189](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1189)
+Defined in: [types/providers.ts:1204](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1204)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:1189](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **sendInput?**: (`payload`) => `Promise`\<`void`\> \| `void`
 
-Defined in: [types/providers.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1193)
+Defined in: [types/providers.ts:1208](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1208)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: [types/providers.ts:1193](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **close?**: (`code?`, `reason?`) => `Promise`\<`void`\> \| `void`
 
-Defined in: [types/providers.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1197)
+Defined in: [types/providers.ts:1212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1212)
 
 #### Parameters
 

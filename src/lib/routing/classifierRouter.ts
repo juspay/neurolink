@@ -190,20 +190,22 @@ export class ClassifierRouter {
 
   /**
    * Resolve "auto" (the default) to a concrete strategy. Jev is preferred the
-   * moment a TypeSafe key is present; without one the behaviour is exactly
-   * what it was before Jev existed.
+   * moment a decision provider is configured; without one the behaviour is
+   * exactly what it was before Jev existed.
    */
   private resolveStrategy(): ClassifierStrategyKind {
     const configured = this.config.classifier ?? "auto";
     if (configured !== "auto") {
       return configured;
     }
-    // A decision provider that is both registered AND has its key set is the
-    // whole activation condition — this is where "if somebody sets it we
-    // start using it" lives for routing.
-    return this.deps.decide && resolveDefaultDecisionProvider()
-      ? "jev"
-      : "heuristic";
+    // A decision provider that is both registered AND configured is the whole
+    // activation condition — this is where "if somebody sets it we start
+    // using it" lives for routing. The caller's check also counts the
+    // credentials it was constructed with.
+    const hasProvider = this.deps.hasDecisionProvider
+      ? this.deps.hasDecisionProvider()
+      : resolveDefaultDecisionProvider() !== undefined;
+    return this.deps.decide && hasProvider ? "jev" : "heuristic";
   }
 
   /** Run the chosen strategy; every one falls back to heuristic on failure. */

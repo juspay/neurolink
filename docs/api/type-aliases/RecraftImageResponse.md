@@ -8,7 +8,7 @@
 
 > **RecraftImageResponse** = `object`
 
-Defined in: [types/providers.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L345)
+Defined in: [types/providers.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L360)
 
 Recraft /v1/images/generations response shape.
 
@@ -18,7 +18,7 @@ Recraft /v1/images/generations response shape.
 
 > `optional` **created?**: `number`
 
-Defined in: [types/providers.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L346)
+Defined in: [types/providers.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L361)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:346](https://github.com/juspay/neurolink/blob/re
 
 > **data**: `object`[]
 
-Defined in: [types/providers.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L347)
+Defined in: [types/providers.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L362)
 
 #### url?
 

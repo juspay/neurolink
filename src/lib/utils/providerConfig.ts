@@ -1535,3 +1535,21 @@ export function createTypeSafeConfig(): ProviderConfigOptions {
     ],
   };
 }
+
+/**
+ * Laya — the `decide` inference type. Not a text provider, and it has no
+ * built-in endpoint: LAYA_BASE_URL is required alongside the key.
+ */
+export function createLayaConfig(): ProviderConfigOptions {
+  return {
+    providerName: "Laya",
+    envVarName: "LAYA_API_KEY",
+    setupUrl: "https://github.com/NandhaKishorM/laya",
+    description: "API key for your Laya endpoint",
+    instructions: [
+      "1. Run a Laya server, or use a LiteLLM proxy with a pass-through route to one",
+      "2. Set LAYA_BASE_URL to its base URL (NeuroLink calls <LAYA_BASE_URL>/predict)",
+      "3. Set LAYA_API_KEY to the key it accepts (on LiteLLM, a virtual key with that route in its Allowed Routes)",
+    ],
+  };
+}

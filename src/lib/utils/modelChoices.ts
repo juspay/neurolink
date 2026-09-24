@@ -23,6 +23,7 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
+  LayaModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
@@ -416,6 +417,24 @@ const TOP_MODELS_CONFIG: Record<
       description: "Preview build of Jev",
     },
   ],
+  [AIProviderName.LAYA]: [
+    {
+      model: LayaModels.TYPED_DECISIONS,
+      description: "Recommended - Laya fine-tuned for typed decisions",
+    },
+    {
+      model: LayaModels.MULTILINGUAL,
+      description: "Laya, 100+ languages",
+    },
+    {
+      model: LayaModels.ENGLISH,
+      description: "Laya, English base checkpoint (512-token window)",
+    },
+    {
+      model: LayaModels.AUTO,
+      description: "Let Laya pick a checkpoint by language",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -458,6 +477,7 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels.IDEOGRAM_V3,
   [AIProviderName.RECRAFT]: RecraftModels.RECRAFT_V3,
   [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
+  [AIProviderName.LAYA]: LayaModels.TYPED_DECISIONS,
 };
 
 /**
@@ -493,6 +513,7 @@ const MODEL_ENUMS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels,
   [AIProviderName.RECRAFT]: RecraftModels,
   [AIProviderName.TYPESAFE]: TypeSafeModels,
+  [AIProviderName.LAYA]: LayaModels,
   [AIProviderName.AUTO]: null,
 };
 

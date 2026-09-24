@@ -144,6 +144,35 @@ export type DecisionResult = {
 };
 
 /**
+ * Input a decision provider can actually read, declared on its descriptor.
+ *
+ * A request over either limit is refused before any network call with
+ * `max_tokens_exceeded`, so no decision is ever made on input the model
+ * silently cut off. Every internal consumer already treats that error as
+ * "carry on as before".
+ */
+export type DecisionLimits = {
+  /**
+   * Estimated tokens of `state` (serialized first when it is not a string)
+   * for any model NOT listed in `models` — an alias, a typo, a self-hosted
+   * name — so it should be the tightest window the provider has.
+   */
+  maxStateTokens: number;
+  maxQuestions: number;
+  /**
+   * Tokens charged per non-ASCII character. The default estimate assumes ~4
+   * characters per token, which holds for English and is several times too
+   * generous for other scripts on an English tokenizer. Absent = default
+   * estimate for every character.
+   */
+  nonAsciiTokensPerChar?: number;
+  /** Per-model limits, keyed by model id; each field overrides the one above. */
+  models?: Readonly<
+    Record<string, { maxStateTokens: number; nonAsciiTokensPerChar?: number }>
+  >;
+};
+
+/**
  * Why a decision call failed, normalised across vendors. TypeSafe alone
  * returns two different error envelopes, so a provider must flatten them.
  */

@@ -8,7 +8,7 @@
 
 > **VertexAnthropicSystemBlock** = `object`
 
-Defined in: [types/providers.ts:2587](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2587)
+Defined in: [types/providers.ts:2607](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2607)
 
 System prompt block form accepted by the Anthropic Vertex SDK. Used instead
 of a bare string when a `cache_control` breakpoint must ride on the system
@@ -20,7 +20,7 @@ prompt (a string `system` cannot carry one).
 
 > **type**: `"text"`
 
-Defined in: [types/providers.ts:2588](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2588)
+Defined in: [types/providers.ts:2608](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2608)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/providers.ts:2588](https://github.com/juspay/neurolink/blob/r
 
 > **text**: `string`
 
-Defined in: [types/providers.ts:2589](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2589)
+Defined in: [types/providers.ts:2609](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2609)
 
 ---
 
@@ -36,4 +36,4 @@ Defined in: [types/providers.ts:2589](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cache_control?**: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md)
 
-Defined in: [types/providers.ts:2590](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2590)
+Defined in: [types/providers.ts:2610](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2610)
