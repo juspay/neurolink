@@ -8,7 +8,7 @@
 
 > **ProxyPackageSelection** = `object`
 
-Defined in: [types/proxy.ts:4910](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4910)
+Defined in: [types/proxy.ts:4913](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4913)
 
 Immutable package selection used by the proxy launcher, never by global npm.
 
@@ -18,7 +18,7 @@ Immutable package selection used by the proxy launcher, never by global npm.
 
 > **version**: `string`
 
-Defined in: [types/proxy.ts:4911](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4911)
+Defined in: [types/proxy.ts:4914](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4914)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4911](https://github.com/juspay/neurolink/blob/relea
 
 > **entryScript**: `string`
 
-Defined in: [types/proxy.ts:4912](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4912)
+Defined in: [types/proxy.ts:4915](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4915)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:4912](https://github.com/juspay/neurolink/blob/relea
 
 > **nodePath**: `string`
 
-Defined in: [types/proxy.ts:4913](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4913)
+Defined in: [types/proxy.ts:4916](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4916)

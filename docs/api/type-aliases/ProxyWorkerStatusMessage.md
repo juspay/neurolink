@@ -8,7 +8,7 @@
 
 > **ProxyWorkerStatusMessage** = \{ `type`: `"proxy-worker:ready"`; `generation`: `number`; `pid`: `number`; `version`: `string`; `processInstanceId?`: `string`; `socketOfferProtocol?`: `"control-before-handle"`; `socketCommitProtocol?`: `"worker-ack"`; \} \| \{ `type`: `"proxy-worker:drained"`; `generation`: `number`; `pid`: `number`; \} \| \{ `type`: `"proxy-worker:activated"`; `generation`: `number`; `pid`: `number`; \} \| \{ `type`: `"proxy-worker:fatal"`; `generation`: `number`; `pid`: `number`; `message`: `string`; \} \| \{ `type`: `"proxy-worker:socket-accepted"`; `generation`: `number`; `pid`: `number`; `socketId`: `string`; \} \| \{ `type`: `"proxy-worker:socket-committed"`; `generation`: `number`; `pid`: `number`; `socketId`: `string`; \} \| \{ `type`: `"proxy-worker:replacement-requested"`; `generation`: `number`; `pid`: `number`; `reason`: `"environment"`; \}
 
-Defined in: [types/proxy.ts:3236](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3236)
+Defined in: [types/proxy.ts:3239](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3239)
 
 ## Union Members
 

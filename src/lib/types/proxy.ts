@@ -1317,6 +1317,9 @@ export type QueuedAccountAdmission = {
 /** One queued request waiting for per-account admission capacity. */
 export type AccountAdmissionWaiter = {
   capacity: number;
+  /** Runtime-config generation of the snapshot the request queued under;
+   *  absent when no runtime config store publishes one. */
+  generation?: number;
   resolve: (lease: AccountAdmissionLease) => void;
 };
 

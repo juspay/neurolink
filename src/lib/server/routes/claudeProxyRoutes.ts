@@ -63,6 +63,10 @@ import { AccountQuotaRefreshCoordinator } from "../../proxy/accountQuotaRefreshC
 import { ProviderTransportCoordinator } from "../../proxy/providerTransportCoordinator.js";
 import { MAX_COOLDOWN_MS_BY_REASON } from "../../proxy/routingEvidence.js";
 import {
+  compareExpiryFirst,
+  rankAccounts,
+} from "../../proxy/accountRanking.js";
+import {
   buildProxyLimitHeaders,
   summarizePoolHeadroom,
 } from "../../proxy/quotaHeaders.js";
@@ -201,6 +205,7 @@ import type {
   CliAccountsRow,
   JsonObject,
   AccountAdmissionState,
+  AccountAdmissionWaiter,
   AccountCooldownPlan,
   AccountCoolingReason,
   AccountQuota,
@@ -518,9 +523,6 @@ const transientCooldownAdmissionSchedules = new Map<
  * make room for another stream on the same account.
  */
 const accountAdmissionStates = new Map<string, AccountAdmissionState>();
-const unlimitedAccountAdmissionLease: AccountAdmissionLease = {
-  release: () => undefined,
-};
 
 function getAccountAdmissionState(accountKey: string): AccountAdmissionState {
   let state = accountAdmissionStates.get(accountKey);
@@ -540,6 +542,40 @@ function drainAccountAdmissionWaiters(
     if (!waiter) {
       return;
     }
+    state.active += 1;
+    waiter.resolve(createAccountAdmissionLease(accountKey, state));
+  }
+}
+
+/**
+ * Admits, in FIFO order and ignoring the capacity each one queued with, every
+ * waiter that queued under an older runtime-config generation than the
+ * uncapped request now acquiring. Each request reads the cap from the snapshot
+ * it arrived with, so only a NEWER uncapped snapshot shows that a reload
+ * removed the waiter's cap — and uncapped arrivals count toward `active`, so
+ * that waiter would otherwise never drain. An uncapped request from an older
+ * snapshot (one that predates a reload adding the cap) or from the same one
+ * leaves waiters queued: their cap is still current. With no generation there
+ * is no runtime config store, the cap cannot change, and nothing is admitted.
+ */
+function admitWaitersOfRemovedCap(
+  accountKey: string,
+  state: AccountAdmissionState,
+  generation: number | undefined,
+): void {
+  if (generation === undefined) {
+    return;
+  }
+  const queuedUnderOlderSnapshot = (waiter: AccountAdmissionWaiter): boolean =>
+    waiter.generation !== undefined && waiter.generation < generation;
+  const admitted = state.waiters.filter(queuedUnderOlderSnapshot);
+  if (admitted.length === 0) {
+    return;
+  }
+  state.waiters = state.waiters.filter(
+    (waiter) => !queuedUnderOlderSnapshot(waiter),
+  );
+  for (const waiter of admitted) {
     state.active += 1;
     waiter.resolve(createAccountAdmissionLease(accountKey, state));
   }
@@ -575,17 +611,25 @@ function discardAccountAdmissionState(
 function tryAcquireAccountAdmission(
   accountKey: string,
   capacity: number | undefined,
+  generation?: number,
 ): AccountAdmissionLease | undefined {
   const normalizedCapacity = normalizeMaxInflightPerAccount(capacity);
-  if (normalizedCapacity === undefined) {
-    return unlimitedAccountAdmissionLease;
-  }
   const state = getAccountAdmissionState(accountKey);
+  if (normalizedCapacity === undefined) {
+    admitWaitersOfRemovedCap(accountKey, state, generation);
+    state.active += 1;
+    return createAccountAdmissionLease(accountKey, state);
+  }
   if (state.waiters.length > 0 || state.active >= normalizedCapacity) {
     return undefined;
   }
   state.active += 1;
   return createAccountAdmissionLease(accountKey, state);
+}
+
+/** Current in-flight request count for one account, unlimited or capped. */
+function getAccountInflight(accountKey: string): number {
+  return accountAdmissionStates.get(accountKey)?.active ?? 0;
 }
 
 function isAccountAdmissionAvailable(
@@ -605,6 +649,7 @@ function isAccountAdmissionAvailable(
 function enqueueAccountAdmission(
   accountKey: string,
   capacity: number,
+  generation?: number,
 ): QueuedAccountAdmission {
   // Validate BEFORE getAccountAdmissionState(), which inserts into the map as a
   // side effect. Throwing after it would strand an empty entry for an account
@@ -621,8 +666,9 @@ function enqueueAccountAdmission(
   const promise = new Promise<AccountAdmissionLease>((resolve) => {
     resolveAdmission = resolve;
   });
-  const waiter = {
+  const waiter: AccountAdmissionWaiter = {
     capacity: normalizedCapacity,
+    generation,
     resolve: (lease: AccountAdmissionLease) => {
       queued = false;
       grantedLease = lease;
@@ -661,8 +707,9 @@ async function acquireAccountAdmission(
   capacity: number,
   abortSignal?: AbortSignal,
   timeoutMs: number = MAX_TRANSIENT_QUEUE_WAIT_MS,
+  generation?: number,
 ): Promise<AccountAdmissionLease | undefined> {
-  const queued = enqueueAccountAdmission(accountKey, capacity);
+  const queued = enqueueAccountAdmission(accountKey, capacity, generation);
   try {
     return await withTimeout(
       raceWithAbort(queued.promise, abortSignal),
@@ -683,9 +730,10 @@ async function acquireFirstAvailableAccountAdmission(
   capacity: number,
   abortSignal?: AbortSignal,
   timeoutMs: number = MAX_TRANSIENT_QUEUE_WAIT_MS,
+  generation?: number,
 ): Promise<{ accountKey: string; lease: AccountAdmissionLease } | undefined> {
   const queuedAdmissions = [...new Set(accountKeys)].map((accountKey) =>
-    enqueueAccountAdmission(accountKey, capacity),
+    enqueueAccountAdmission(accountKey, capacity, generation),
   );
   let winnerKey: string | undefined;
   try {
@@ -2135,79 +2183,6 @@ function accountSortMetrics(
   };
 }
 
-function compareAccountRoutingFactors(
-  a: ProxyPassthroughAccount,
-  b: ProxyPassthroughAccount,
-  metricsByKey: ReadonlyMap<string, ProxyAccountSortMetrics>,
-  primaryKey: string | undefined,
-): [number, ProxyAccountRoutingReason] {
-  const ma = metricsByKey.get(a.key);
-  const mb = metricsByKey.get(b.key);
-  if (!ma || !mb) {
-    return [0, "insertion_order"];
-  }
-  if (ma.usable !== mb.usable) {
-    return [ma.usable ? -1 : 1, "availability"];
-  }
-  if (!ma.usable && !mb.usable) {
-    const au = ma.coolingUntil || Number.POSITIVE_INFINITY;
-    const bu = mb.coolingUntil || Number.POSITIVE_INFINITY;
-    return [
-      au === bu ? 0 : au - bu,
-      au === bu ? "insertion_order" : "cooldown_recovery",
-    ];
-  }
-  if (ma.quotaEvidenceRank !== mb.quotaEvidenceRank) {
-    return [ma.quotaEvidenceRank - mb.quotaEvidenceRank, "quota_evidence"];
-  }
-  if (ma.saturated !== mb.saturated) {
-    return [ma.saturated ? 1 : -1, "session_headroom"];
-  }
-  // Per-model headroom, after overall session capacity: an account whose cap
-  // for THIS model is nearly spent is demoted even when its 5h/7d are healthy.
-  // No-op when neither account reports a scoped window for the model.
-  if (ma.scopedSaturated !== mb.scopedSaturated) {
-    return [ma.scopedSaturated ? 1 : -1, "scoped_headroom"];
-  }
-  if (ma.saturated && mb.saturated) {
-    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
-      return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
-    }
-    if (ma.weeklyReset !== mb.weeklyReset) {
-      return [ma.weeklyReset - mb.weeklyReset, "weekly_reset"];
-    }
-  } else {
-    if (ma.weeklyReset !== mb.weeklyReset) {
-      return [ma.weeklyReset - mb.weeklyReset, "weekly_reset"];
-    }
-    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
-      return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
-    }
-  }
-  // Fill-first within the per-model allowance: finish off the account closest
-  // to spending its cap for this model before opening a fresher one. Ranked
-  // above overall weekly utilization because it is the tighter constraint.
-  // Both sides must actually report a scoped window. Comparing a real
-  // utilization against the "absent" sentinel would rank the account that has a
-  // window above one that does not — and since only the account serving a model
-  // gets that model's window, it would funnel all of a model's traffic onto
-  // whichever account happened to serve it first.
-  if (
-    ma.scopedUsed !== null &&
-    mb.scopedUsed !== null &&
-    ma.scopedUsedForSort !== mb.scopedUsedForSort
-  ) {
-    return [mb.scopedUsedForSort - ma.scopedUsedForSort, "scoped_utilization"];
-  }
-  if (ma.weeklyUsedForSort !== mb.weeklyUsedForSort) {
-    return [mb.weeklyUsedForSort - ma.weeklyUsedForSort, "weekly_utilization"];
-  }
-  if (primaryKey && (a.key === primaryKey) !== (b.key === primaryKey)) {
-    return [a.key === primaryKey ? -1 : 1, "configured_primary"];
-  }
-  return [0, "insertion_order"];
-}
-
 function orderAccountsByQuotaWithMetrics(
   accounts: ProxyPassthroughAccount[],
   now: number,
@@ -2231,12 +2206,12 @@ function orderAccountsByQuotaWithMetrics(
       ),
     ]),
   );
-  return {
-    orderedAccounts: [...accounts].sort(
-      (a, b) => compareAccountRoutingFactors(a, b, metricsByKey, primaryKey)[0],
-    ),
+  const { orderedAccounts } = rankAccounts({
+    accounts,
     metricsByKey,
-  };
+    primaryKey,
+  });
+  return { orderedAccounts, metricsByKey };
 }
 
 /**
@@ -2479,7 +2454,7 @@ function buildRoutingDecision(args: {
     selectionReason = "single_account";
   } else if (quotaOrdered) {
     mode = "quota";
-    selectionReason = compareAccountRoutingFactors(
+    selectionReason = compareExpiryFirst(
       orderedAccounts[0],
       orderedAccounts[1],
       metricsByKey,
@@ -9750,6 +9725,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   modelRouter?: ModelRouterInterface;
+  /** Generation of the runtime-config snapshot `modelRouter` came from. */
+  configGeneration: number;
   tracer?: ProxyTracer;
   requestStartTime: number;
   accountStrategy: "round-robin" | "fill-first";
@@ -9767,6 +9744,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     ctx,
     body,
     modelRouter,
+    configGeneration,
     tracer,
     requestStartTime,
     accountStrategy,
@@ -9972,6 +9950,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         effectiveAccounts.map((account) => account.key),
         accountAdmissionCapacity,
         ctx.abortSignal,
+        MAX_TRANSIENT_QUEUE_WAIT_MS,
+        configGeneration,
       );
     }
 
@@ -10074,6 +10054,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           admissionLease = tryAcquireAccountAdmission(
             account.key,
             accountAdmissionCapacity,
+            configGeneration,
           );
           if (admissionLease && queuedAccountAdmission) {
             // A preferred account became available while the race was being
@@ -10830,6 +10811,7 @@ export function createClaudeProxyRoutes(
                 ctx,
                 body,
                 modelRouter: requestModelRouter,
+                configGeneration: requestRouting.generation,
                 tracer,
                 requestStartTime,
                 accountStrategy: requestRouting.strategy,
@@ -12318,6 +12300,7 @@ export const __testHooks = {
   getStreamFailureDetails,
   trackUpstreamReadableStream,
   orderAccountsByQuota,
+  orderAccountsByQuotaWithMetrics,
   scheduleAdaptiveQuotaRefreshes,
   scheduleHandoffQuotaRefresh,
   getQuotaRefreshState: (key: string) =>
@@ -12406,6 +12389,7 @@ export const __testHooks = {
   acquireFirstAvailableAccountAdmission,
   tryAcquireAccountAdmission,
   enqueueAccountAdmission,
+  getAccountInflight,
   getAccountAdmissionSnapshot: (accountKey: string) => {
     const state = accountAdmissionStates.get(accountKey);
     return state

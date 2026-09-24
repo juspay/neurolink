@@ -10323,9 +10323,10 @@ exit 127
     },
   },
   {
-    // With no cap configured, admission must not allocate queue state at all —
-    // every request is granted a lease immediately.
-    name: "proxy admission: no queue state is created when no cap is configured",
+    // With no cap configured there is no implicit bound and no queue: every
+    // request is granted a lease immediately. Each held lease still counts as
+    // in flight, and releasing the last one leaves no admission state behind.
+    name: "proxy admission: uncapped admission never queues and counts in-flight",
     category: "proxy",
     fn: async () => {
       const accountKey = "anthropic:unlimited@example.com";
@@ -10334,17 +10335,18 @@ exit 127
         claudeProxyTestHooks.tryAcquireAccountAdmission(accountKey, undefined),
         claudeProxyTestHooks.tryAcquireAccountAdmission(accountKey, undefined),
       ];
+      let snapshot: { active: number; waiting: number };
       try {
-        const snapshot =
-          claudeProxyTestHooks.getAccountAdmissionSnapshot(accountKey);
-        return (
-          leases.every((lease) => lease !== undefined) &&
-          snapshot.active === 0 &&
-          snapshot.waiting === 0
-        );
+        snapshot = claudeProxyTestHooks.getAccountAdmissionSnapshot(accountKey);
       } finally {
         leases.forEach((lease) => lease?.release());
       }
+      return (
+        leases.every((lease) => lease !== undefined) &&
+        snapshot.active === 3 &&
+        snapshot.waiting === 0 &&
+        !claudeProxyTestHooks.hasAccountAdmissionState(accountKey)
+      );
     },
   },
   {

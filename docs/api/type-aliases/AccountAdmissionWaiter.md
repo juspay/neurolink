@@ -22,11 +22,22 @@ Defined in: [types/proxy.ts:1319](https://github.com/juspay/neurolink/blob/relea
 
 ---
 
+### generation?
+
+> `optional` **generation?**: `number`
+
+Defined in: [types/proxy.ts:1322](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1322)
+
+Runtime-config generation of the snapshot the request queued under;
+absent when no runtime config store publishes one.
+
+---
+
 ### resolve
 
 > **resolve**: (`lease`) => `void`
 
-Defined in: [types/proxy.ts:1320](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1320)
+Defined in: [types/proxy.ts:1323](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1323)
 
 #### Parameters
 

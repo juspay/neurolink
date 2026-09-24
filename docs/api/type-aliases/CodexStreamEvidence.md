@@ -8,7 +8,7 @@
 
 > **CodexStreamEvidence** = `object`
 
-Defined in: [types/proxy.ts:2668](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2668)
+Defined in: [types/proxy.ts:2671](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2671)
 
 Semantic completion evidence observed in native Codex SSE bytes.
 
@@ -18,7 +18,7 @@ Semantic completion evidence observed in native Codex SSE bytes.
 
 > **completed**: `boolean`
 
-Defined in: [types/proxy.ts:2669](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2669)
+Defined in: [types/proxy.ts:2672](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2672)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2669](https://github.com/juspay/neurolink/blob/relea
 
 > **terminalBytes**: `number`
 
-Defined in: [types/proxy.ts:2670](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2670)
+Defined in: [types/proxy.ts:2673](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2673)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2670](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **observationIncomplete?**: `boolean`
 
-Defined in: [types/proxy.ts:2672](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2672)
+Defined in: [types/proxy.ts:2675](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2675)
 
 Malformed, oversized or undispatched frames prevent proving output absence.
 
@@ -44,7 +44,7 @@ Malformed, oversized or undispatched frames prevent proving output absence.
 
 > `optional` **firstUsefulOutputAt?**: `number`
 
-Defined in: [types/proxy.ts:2673](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2673)
+Defined in: [types/proxy.ts:2676](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2676)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:2673](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **firstUsefulOutputEvent?**: `string`
 
-Defined in: [types/proxy.ts:2674](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2674)
+Defined in: [types/proxy.ts:2677](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2677)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxy.ts:2674](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorType?**: `string`
 
-Defined in: [types/proxy.ts:2675](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2675)
+Defined in: [types/proxy.ts:2678](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2678)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/proxy.ts:2675](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorMessage?**: `string`
 
-Defined in: [types/proxy.ts:2676](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2676)
+Defined in: [types/proxy.ts:2679](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2679)
 
 ---
 
@@ -76,4 +76,4 @@ Defined in: [types/proxy.ts:2676](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorCode?**: `string`
 
-Defined in: [types/proxy.ts:2677](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2677)
+Defined in: [types/proxy.ts:2680](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2680)
