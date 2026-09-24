@@ -5,9 +5,14 @@
  * - Native PDF support for providers that accept PDF directly (Google AI, Vertex, OpenAI, Anthropic, Bedrock)
  * - PDF → Image conversion for providers that don't support native PDF (Azure, Mistral, Ollama)
  *
- * The conversion uses pdf-to-img package (MuPDF-based) for high-quality conversion.
+ * Page counting, text extraction and page rendering all go through pdf-parse,
+ * so the process only ever loads pdf-parse's pdfjs-dist. pdfjs keeps its Node
+ * worker in a process-wide global, and a second pdfjs version fails its
+ * API-vs-Worker version check against whichever copy loaded first.
  */
 
+import { createRequire } from "node:module";
+import path from "node:path";
 import { PDF_LIMITS } from "../core/constants.js";
 import type {
   FileProcessingResult,
@@ -16,6 +21,7 @@ import type {
   PDFImageConversionOptions,
   PDFImageConversionResult,
   PDFImagePage,
+  PDFRenderDocument,
 } from "../types/index.js";
 import { ErrorFactory } from "./errorHandling.js";
 import { logger } from "./logger.js";
@@ -357,6 +363,95 @@ export class PDFProcessor {
     }
   }
 
+  /**
+   * Font and CMap directories of the pdfjs-dist copy pdf-parse itself loads,
+   * so non-embedded standard fonts and CJK text render instead of dropping
+   * out. Resolved from pdf-parse's location, never our own, to stay on that
+   * single copy. Undefined when resolution fails; rendering still works, with
+   * pdfjs falling back to its built-in font substitution.
+   */
+  private static pdfjsAssetDirs:
+    | { standardFontDataUrl: string; cMapUrl: string }
+    | null
+    | undefined;
+
+  private static resolvePdfjsAssetDirs():
+    | { standardFontDataUrl: string; cMapUrl: string }
+    | undefined {
+    if (PDFProcessor.pdfjsAssetDirs === undefined) {
+      try {
+        const pdfParseEntry = createRequire(import.meta.url).resolve(
+          "pdf-parse",
+        );
+        const pdfjsRoot = path.dirname(
+          createRequire(pdfParseEntry).resolve("pdfjs-dist/package.json"),
+        );
+        PDFProcessor.pdfjsAssetDirs = {
+          standardFontDataUrl:
+            path.join(pdfjsRoot, "standard_fonts") + path.sep,
+          cMapUrl: path.join(pdfjsRoot, "cmaps") + path.sep,
+        };
+      } catch (error) {
+        logger.debug(
+          `[PDF→Image] pdfjs font/CMap directories unavailable: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        PDFProcessor.pdfjsAssetDirs = null;
+      }
+    }
+    return PDFProcessor.pdfjsAssetDirs ?? undefined;
+  }
+
+  /**
+   * Open a PDF for page-by-page PNG rendering through pdf-parse. Rejects with
+   * pdf-parse's PasswordException for encrypted PDFs (#258), which the callers
+   * map to typed errors.
+   */
+  private static async openForRendering(
+    pdfBuffer: Buffer,
+    scale: number,
+    password?: string,
+  ): Promise<PDFRenderDocument> {
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({
+      data: new Uint8Array(pdfBuffer),
+      isEvalSupported: false,
+      cMapPacked: true,
+      ...PDFProcessor.resolvePdfjsAssetDirs(),
+      ...(password ? { password } : {}),
+    });
+    try {
+      const { total } = await parser.getInfo();
+      return {
+        length: total,
+        getPage: async (pageNumber: number): Promise<Buffer> => {
+          const shot = await parser.getScreenshot({
+            partial: [pageNumber],
+            scale,
+            imageBuffer: true,
+            imageDataUrl: false,
+          });
+          const page = shot.pages[0];
+          if (!page || page.data.length === 0) {
+            throw new Error(`page ${pageNumber} rendered no image data`);
+          }
+          return Buffer.from(page.data);
+        },
+        destroy: async (): Promise<void> => {
+          await parser.destroy().catch(() => {
+            /* cleanup - ignore destroy errors */
+          });
+        },
+      };
+    } catch (error) {
+      await parser.destroy().catch(() => {
+        /* cleanup - ignore destroy errors */
+      });
+      throw error;
+    }
+  }
+
   static estimateTokens(
     pageCount: number,
     mode: "text-only" | "visual" = "visual",
@@ -482,18 +577,15 @@ export class PDFProcessor {
       sizeMB: Number(sizeMB.toFixed(2)),
     });
 
+    let document: PDFRenderDocument | undefined;
     try {
-      // Dynamic import to avoid loading MuPDF binaries until needed
-      const pdfToImgModule = await import("pdf-to-img");
-      const pdf = pdfToImgModule.pdf;
-
       logger.debug("[PDF→Image] Starting PDF to image conversion", {
         bufferSize: pdfBuffer.length,
         scale,
         maxPages: maxPages || "all",
       });
 
-      // #260: pre-flight page-size check WITHOUT rendering. pdf-to-img applies
+      // #260: pre-flight page-size check WITHOUT rendering. The renderer applies
       // `scale` uniformly with no per-page hook and no pixel guard, so a very
       // large page (e.g. an architectural drawing with a huge MediaBox) can
       // allocate gigabytes of canvas. Read the largest MediaBox from the PDF
@@ -505,7 +597,7 @@ export class PDFProcessor {
         const downscale = Math.sqrt(maxCanvasPixels / largestPixels);
         // Floor the result: an astronomically large (but now finite, see
         // `largestPagePixels`) pixel estimate would otherwise push `downscale`
-        // — and therefore `effectiveScale` — toward 0, handing `pdf-to-img` a
+        // — and therefore `effectiveScale` — toward 0, handing the renderer a
         // degenerate viewport instead of a small-but-renderable page.
         effectiveScale = Math.max(
           PDF_LIMITS.MIN_EFFECTIVE_SCALE,
@@ -526,14 +618,13 @@ export class PDFProcessor {
         warnings.push(msg);
       }
 
-      // Create PDF document (password forwarded for encrypted PDFs, #258).
-      // pdf-to-img resolves `.length` (numPages) synchronously here and exposes
-      // `.getPage(n)`, so we drive an indexed loop rather than the async
-      // iterator — that lets one bad page be isolated instead of aborting all.
-      const document = await pdf(pdfBuffer, {
-        scale: effectiveScale,
-        ...(password ? { password } : {}),
-      });
+      // Password forwarded for encrypted PDFs (#258). An indexed getPage()
+      // loop lets one bad page be isolated instead of aborting all.
+      document = await PDFProcessor.openForRendering(
+        pdfBuffer,
+        effectiveScale,
+        password,
+      );
 
       const totalPages: number = document.length;
 
@@ -630,6 +721,8 @@ export class PDFProcessor {
       throw new Error(`PDF to image conversion failed: ${errorMessage}`, {
         cause: error,
       });
+    } finally {
+      await document?.destroy();
     }
   }
 
@@ -709,7 +802,7 @@ export class PDFProcessor {
    *
    * NOT a wrapper of/over {@link convertToImages}, despite the similar
    * contract — the two are independent, parallel implementations (each does
-   * its own `pdf-to-img` import, downscale calculation, and page loop)
+   * its own document open, downscale calculation, and page loop)
    * rather than one delegating to the other. Keep behavior changes (page
    * isolation, downscale, password handling) in sync across both by hand.
    */
@@ -734,9 +827,6 @@ export class PDFProcessor {
       maxPages,
     });
 
-    const pdfToImgModule = await import("pdf-to-img");
-    const pdf = pdfToImgModule.pdf;
-
     // #260: uniform downscale so the largest page stays under maxCanvasPixels.
     let effectiveScale = scale;
     const largestPixels = PDFProcessor.largestPagePixels(pdfBuffer, scale);
@@ -749,12 +839,13 @@ export class PDFProcessor {
     // Unlike the per-page loop below, a failure here happens before any page
     // can be isolated, so it must reject the generator outright rather than
     // being yielded as a page error.
-    let document: Awaited<ReturnType<typeof pdf>>;
+    let document: PDFRenderDocument;
     try {
-      document = await pdf(pdfBuffer, {
-        scale: effectiveScale,
-        ...(password ? { password } : {}),
-      });
+      document = await PDFProcessor.openForRendering(
+        pdfBuffer,
+        effectiveScale,
+        password,
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -776,34 +867,43 @@ export class PDFProcessor {
     const totalPages: number = document.length;
     let converted = 0;
 
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      if (maxPages !== undefined && pageNum - 1 >= maxPages) {
-        break;
-      }
-      try {
-        const page = await document.getPage(pageNum);
-        const base64Image = page.toString("base64");
-        converted++;
-        if (onProgress) {
-          await onProgress({
-            pagesConverted: converted,
-            totalPages,
-            elapsedMs: Date.now() - startTime,
-          });
+    try {
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        if (maxPages !== undefined && pageNum - 1 >= maxPages) {
+          break;
         }
-        yield {
-          pageIndex: pageNum,
-          image: base64Image,
-          imageSizeBytes: page.length,
-        };
-      } catch (pageError) {
-        const msg =
-          pageError instanceof Error ? pageError.message : String(pageError);
-        logger.warn(
-          `[PDF→Image] ⚠️ page ${pageNum} failed to render (stream): ${msg}`,
-        );
-        yield { pageIndex: pageNum, image: "", imageSizeBytes: 0, error: msg };
+        try {
+          const page = await document.getPage(pageNum);
+          const base64Image = page.toString("base64");
+          converted++;
+          if (onProgress) {
+            await onProgress({
+              pagesConverted: converted,
+              totalPages,
+              elapsedMs: Date.now() - startTime,
+            });
+          }
+          yield {
+            pageIndex: pageNum,
+            image: base64Image,
+            imageSizeBytes: page.length,
+          };
+        } catch (pageError) {
+          const msg =
+            pageError instanceof Error ? pageError.message : String(pageError);
+          logger.warn(
+            `[PDF→Image] ⚠️ page ${pageNum} failed to render (stream): ${msg}`,
+          );
+          yield {
+            pageIndex: pageNum,
+            image: "",
+            imageSizeBytes: 0,
+            error: msg,
+          };
+        }
       }
+    } finally {
+      await document.destroy();
     }
   }
 
@@ -827,11 +927,11 @@ export class PDFProcessor {
    * Check if PDF to image conversion is available
    * Useful for feature detection
    *
-   * @returns true if pdf-to-img package is available
+   * @returns true if the pdf-parse renderer is available
    */
   static async isImageConversionAvailable(): Promise<boolean> {
     try {
-      await import("pdf-to-img");
+      await import("pdf-parse");
       return true;
     } catch {
       return false;
@@ -853,7 +953,7 @@ export class PDFProcessor {
   ): number {
     // Rough estimation:
     // - Each page at scale 2 produces ~1-3MB PNG
-    // - MuPDF needs ~2x PDF size for processing
+    // - pdfjs needs ~2x PDF size for processing
     // - Output images need ~2MB per page on average
 
     const pdfProcessingMB = (pdfSizeBytes / (1024 * 1024)) * 2;

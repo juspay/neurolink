@@ -342,7 +342,7 @@ export const PDF_LIMITS = {
   DEFAULT_MAX_CANVAS_PIXELS: 16_777_216,
   // Floor for the downscaled render scale (#260 follow-up). A crafted/malformed
   // MediaBox can drive the estimated pixel count toward Infinity, which would
-  // otherwise collapse `effectiveScale` to 0 and hand `pdf-to-img` a degenerate
+  // otherwise collapse `effectiveScale` to 0 and hand the renderer a degenerate
   // viewport. Never let the downscale branch go below this.
   MIN_EFFECTIVE_SCALE: 0.1,
 };

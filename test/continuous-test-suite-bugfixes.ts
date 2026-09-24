@@ -90,6 +90,7 @@ import fs, {
   chmodSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -1838,11 +1839,10 @@ const tests: TestFunction[] = [
     category: "pdf-processor",
     fn: async () => {
       // Regression guard for the pdf-parse (pdfjs-dist@5.4.296) vs pdf-to-img
-      // version skew: once convertToImages() had loaded a *different* pdfjs
-      // worker version, every later getAccuratePageCount() failed pdfjs's
-      // API-vs-Worker equality check and silently degraded to null for the rest
-      // of the process. With both libraries pinned to one pdfjs-dist version
-      // (pnpm.overrides), counting must survive an image conversion in the same
+      // (pdfjs-dist@5.4.624) version skew: once one copy's worker was loaded,
+      // the other failed pdfjs's API-vs-Worker equality check for the rest of
+      // the process. Rendering now goes through pdf-parse, so only one pdfjs
+      // copy exists; counting must survive an image conversion in the same
       // process.
       const pdf = readFileSync("test/fixtures/valid-sample.pdf");
       // Baseline count BEFORE any image conversion loads a pdfjs worker.
@@ -1855,6 +1855,67 @@ const tests: TestFunction[] = [
       // The count must survive the conversion (the skew made `after` null) and
       // stay identical to the pre-conversion count — not merely be positive.
       return before !== null && after !== null && after === before;
+    },
+  },
+  {
+    name: "PDFProcessor: the dependency tree ships exactly one pdfjs-dist, with no override masking a second",
+    category: "pdf-processor",
+    fn: async () => {
+      // pdfjs keeps its Node worker in a process-wide global, so two pdfjs-dist
+      // versions in one process fail "The API version X does not match the
+      // Worker version Y" for whichever loads second. A pnpm override only
+      // collapses the copies in THIS repo's install — consumers never see it —
+      // which is how the #1212 pin hid the skew here while every pnpm consumer
+      // got two copies. Guard both halves: no override, and one version.
+      const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
+        pnpm?: { overrides?: Record<string, string> };
+        overrides?: Record<string, string>;
+      };
+      const overrideKeys = [
+        ...Object.keys(pkg.pnpm?.overrides ?? {}),
+        ...Object.keys(pkg.overrides ?? {}),
+      ];
+      if (overrideKeys.some((key) => key.startsWith("pdfjs-dist"))) {
+        return false;
+      }
+      const versions = readdirSync("node_modules/.pnpm").filter((dir) =>
+        dir.startsWith("pdfjs-dist@"),
+      );
+      return versions.length === 1;
+    },
+  },
+  {
+    name: "PDFProcessor: image conversion succeeds after a page count, and streaming matches batch",
+    category: "pdf-processor",
+    fn: async () => {
+      // The order a non-native provider (litellm, azure, mistral, …) runs in:
+      // process() counts pages first, then messageBuilder converts. With two
+      // pdfjs copies this conversion is what threw the version mismatch.
+      const pdf = readFileSync("test/fixtures/multi-page.pdf");
+      const count = await PDFProcessor["getAccuratePageCount"](pdf);
+      const batch = await PDFProcessor.convertToImages(pdf, { maxPages: 5 });
+      const streamed: string[] = [];
+      for await (const page of PDFProcessor.convertToImagesStream(pdf, {
+        maxPages: 5,
+      })) {
+        if (page.error) {
+          return false;
+        }
+        streamed.push(page.image);
+      }
+      const isPng = (b64: string): boolean =>
+        Buffer.from(b64, "base64")
+          .subarray(0, 8)
+          .equals(
+            Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+          );
+      return (
+        count === 3 &&
+        batch.pageCount === 3 &&
+        batch.images.every(isPng) &&
+        streamed.length === 3 &&
+        streamed.every(isPng)
+      );
     },
   },
   {
@@ -9511,19 +9572,8 @@ exit 127
     // otherwise-valid page count.
     //
     // getInfo()'s resolution is driven via a `PDFParse.prototype.getInfo`
-    // patch rather than a real multi-page.pdf parse: pdf-parse's bundled
-    // pdfjs-dist (5.4.296, exact-pinned) and pdf-to-img's bundled pdfjs-dist
-    // (~5.4.0, independently resolved to 5.4.624 by pnpm) are two separate
-    // installs. Once anything in the process calls PDFProcessor.convertToImages
-    // (pdf-to-img) — which the pre-existing convertToImages test block above
-    // does many times over — every subsequent *real* pdf-parse getInfo() call
-    // in that same process starts rejecting with a pdfjs "API version does not
-    // match the Worker version" error and getAccuratePageCount silently
-    // degrades to null (its documented, correct behavior for a genuinely
-    // failing parse). That's a pre-existing, order-dependent cross-package
-    // quirk unrelated to the two behaviors this test verifies, so getInfo()
-    // is stubbed to keep this test deterministic regardless of what ran
-    // before it in the suite.
+    // patch rather than a real multi-page.pdf parse, so the test controls
+    // exactly when getInfo() settles relative to the race timer.
     name: "PDFProcessor.getAccuratePageCount (review): clears its race timer when getInfo() wins, and a throwing destroy() doesn't discard a valid page count",
     category: "pdf-processor",
     fn: async () => {

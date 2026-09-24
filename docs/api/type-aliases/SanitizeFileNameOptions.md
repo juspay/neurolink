@@ -8,7 +8,7 @@
 
 > **SanitizeFileNameOptions** = `object`
 
-Defined in: [types/file.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L673)
+Defined in: [types/file.ts:687](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L687)
 
 Options for filename sanitization.
 
@@ -18,7 +18,7 @@ Options for filename sanitization.
 
 > `optional` **maxLength?**: `number`
 
-Defined in: [types/file.ts:675](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L675)
+Defined in: [types/file.ts:689](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L689)
 
 Maximum length for the filename (default: 255)
 
@@ -28,7 +28,7 @@ Maximum length for the filename (default: 255)
 
 > `optional` **replacement?**: `string`
 
-Defined in: [types/file.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L677)
+Defined in: [types/file.ts:691](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L691)
 
 Replacement character for invalid chars (default: '\_')
 
@@ -38,7 +38,7 @@ Replacement character for invalid chars (default: '\_')
 
 > `optional` **blockDangerousExtensions?**: `boolean`
 
-Defined in: [types/file.ts:679](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L679)
+Defined in: [types/file.ts:693](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L693)
 
 Whether to block dangerous extensions (default: true)
 
@@ -48,6 +48,6 @@ Whether to block dangerous extensions (default: true)
 
 > `optional` **allowHiddenFiles?**: `boolean`
 
-Defined in: [types/file.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L681)
+Defined in: [types/file.ts:695](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L695)
 
 Whether to allow hidden files starting with dot (default: false)

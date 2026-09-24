@@ -42,6 +42,7 @@ import {
 } from "../utils/schemaConversion.js";
 import {
   estimateTokens,
+  IMAGE_TOKEN_ESTIMATE,
   TOKENS_PER_MESSAGE,
 } from "../utils/tokenEstimation.js";
 
@@ -107,6 +108,10 @@ export const buildWireToolNameMaps = (
  * tool definitions). Used by the per-request max_tokens fit against a
  * RUNTIME-DISCOVERED context window — deliberately the same char-based
  * estimator the budget pipeline uses, so both layers agree.
+ *
+ * Image parts are billed at the flat IMAGE_TOKEN_ESTIMATE, never by the length
+ * of their base64 data URL: a PDF rendered to 10 page images otherwise
+ * stringifies to ~1.2M "tokens" and is rejected before it is ever sent.
  */
 export const estimateWireTokens = (
   messages: ReadonlyArray<OpenAICompatChatMessage>,
@@ -115,11 +120,21 @@ export const estimateWireTokens = (
 ): number => {
   let total = 0;
   for (const message of messages) {
-    const content =
-      typeof message.content === "string"
-        ? message.content
-        : safeStringify(message.content);
-    total += estimateTokens(content, provider) + TOKENS_PER_MESSAGE;
+    if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        total +=
+          part.type === "image_url"
+            ? IMAGE_TOKEN_ESTIMATE
+            : estimateTokens(part.text, provider);
+      }
+      total += TOKENS_PER_MESSAGE;
+    } else {
+      const content =
+        typeof message.content === "string"
+          ? message.content
+          : safeStringify(message.content);
+      total += estimateTokens(content, provider) + TOKENS_PER_MESSAGE;
+    }
     // tool_calls only exists on the assistant variant of the message union.
     const toolCalls = (message as { tool_calls?: unknown }).tool_calls;
     if (toolCalls) {
