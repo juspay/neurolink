@@ -18,6 +18,7 @@ import type {
   NeuroLinkMiddleware,
   LanguageModelV3StreamPart,
   StreamResult,
+  AnalyticsData,
 } from "../src/lib/types/index.js";
 import { defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -348,6 +349,93 @@ await test("a synthetic blocking stream delivers text and settles analytics with
     );
     assert.ok(result.analytics, "analytics were not exposed");
     await bounded(Promise.resolve(result.analytics));
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
+await test("a synthetic blocking stream with cache-inclusive usage bills the cached portion at the cache-read rate", async () => {
+  // Same mechanism as "a synthetic blocking stream ... without HTTP" above —
+  // a wrapStream that never calls the given doStream() is the only way the
+  // OpenAI-compatible provider's executeStream() reaches its `!loopPromise`
+  // usage branch — but this time with realistic OpenAI-style cache-inclusive
+  // usage (`inputTokens.total` includes the cached portion) instead of all
+  // zero, so the branch's cache split is actually exercised. gpt-4o-mini's
+  // published rates (src/lib/models/manifests/openai.ts) are input
+  // $0.15/MTok, output $0.60/MTok, cacheRead $0.0375/MTok: 200 uncached +
+  // 800 cached + 100 output tokens price to 0.00003 + 0.00003 + 0.00006.
+  const server = await startMockChatServer();
+  const sdk = new NeuroLink();
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "cache-usage-stream", name: "Cache usage stream" },
+    wrapStream: async () => ({
+      stream: new ReadableStream<LanguageModelV3StreamPart>({
+        start(controller) {
+          controller.enqueue({ type: "text-start", id: "cached" });
+          controller.enqueue({
+            type: "text-delta",
+            id: "cached",
+            delta: "cached reply",
+          });
+          controller.enqueue({ type: "text-end", id: "cached" });
+          controller.enqueue({
+            type: "finish",
+            finishReason: { unified: "stop" },
+            usage: {
+              inputTokens: { total: 1000, cacheRead: 800 },
+              outputTokens: { total: 100 },
+            },
+          });
+          controller.close();
+        },
+      }),
+    }),
+  };
+  try {
+    const result = await sdk.stream({
+      input: { text: "hello" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      disableInternalFallback: true,
+      enableAnalytics: true,
+      credentials: mockOpenAICredentials(server),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["cache-usage-stream"],
+      },
+    });
+    await bounded(readText(result));
+    assert.equal(
+      server.getAllRequestBodies().length,
+      0,
+      "synthetic stream did not stay off the wire",
+    );
+    assert.ok(result.analytics, "analytics were not exposed");
+    const analytics = await bounded(Promise.resolve(result.analytics));
+    const { tokenUsage, cost } = analytics as AnalyticsData;
+    assert.equal(
+      tokenUsage.input,
+      200,
+      "uncached input was not separated out of the cache-inclusive total",
+    );
+    assert.equal(
+      tokenUsage.cacheReadTokens,
+      800,
+      "cache-read tokens were not reported on the streaming no-tool-call path",
+    );
+    assert.equal(
+      tokenUsage.total,
+      1100,
+      "the reported total drifted when the cache split was introduced",
+    );
+    assert.equal(
+      cost,
+      0.00012,
+      "the cached portion was not billed at the discounted cache-read rate",
+    );
   } finally {
     await sdk.shutdown();
     await server.close();

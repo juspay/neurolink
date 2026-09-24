@@ -1945,10 +1945,21 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         if (!loopPromise) {
           const input = part.usage.inputTokens.total ?? 0;
           const output = part.usage.outputTokens.total ?? 0;
+          // `total` is cache-INCLUSIVE (OpenAI-style prompt_tokens), so the
+          // cached portion has to be split out here the same way
+          // doGenerate/toDeferredUsage do — otherwise this branch bills the
+          // cached tokens at the full input rate instead of the cheaper
+          // cacheRead rate. Clamped like the other call sites in this file
+          // in case a gateway reports cacheRead > total.
+          const cacheRead = Math.min(
+            part.usage.inputTokens.cacheRead ?? 0,
+            input,
+          );
           resolveUsage({
-            promptTokens: input,
+            promptTokens: input - cacheRead,
             completionTokens: output,
             totalTokens: input + output,
+            ...(cacheRead > 0 ? { cacheReadTokens: cacheRead } : {}),
           });
           resolveFinish(part.finishReason.unified);
         }
