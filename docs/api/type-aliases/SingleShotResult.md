@@ -8,7 +8,7 @@
 
 > **SingleShotResult** = `object`
 
-Defined in: [types/generate.ts:1912](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1912)
+Defined in: [types/generate.ts:1918](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1918)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/generate.ts:1912](https://github.com/juspay/neurolink/blob/re
 
 > **text**: `string`
 
-Defined in: [types/generate.ts:1913](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1913)
+Defined in: [types/generate.ts:1919](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1919)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/generate.ts:1913](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/generate.ts:1914](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1914)
+Defined in: [types/generate.ts:1920](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1920)
 
 #### inputTokens?
 
@@ -44,4 +44,4 @@ Defined in: [types/generate.ts:1914](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/generate.ts:1915](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1915)
+Defined in: [types/generate.ts:1921](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1921)

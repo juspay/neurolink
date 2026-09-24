@@ -48,6 +48,7 @@ import {
   generateToolOutputPreview,
 } from "../src/lib/context/toolOutputLimits.js";
 import { AIProviderName } from "../src/lib/constants/enums.js";
+import { logger } from "../src/lib/utils/logger.js";
 import type { NeuroLink } from "../src/lib/neurolink.js";
 import type { ToolConfig } from "../src/lib/types/index.js";
 
@@ -562,6 +563,64 @@ await test("a plain oversized object with no MCP envelope shape still gets the l
   assert(
     typeof result._preview === "string",
     "sentinel carries a preview string",
+  );
+});
+
+// Multi-pass trigger recipe (verified empirically against
+// src/lib/core/modules/ToolsManager.ts): 5% double-quote characters
+// interleaved with plain ASCII inflate the serialized (JSON-escaped) size
+// just enough that pass 0's water-filled allocation — computed from raw byte
+// length, which can't see the escaping — overshoots maxBytes once
+// serialized, so the loop tightens textBudget and pass 1 lands under budget.
+await test("envelope tightening across multiple passes logs only the winning pass, guarded by shouldLog('debug') (#1622 follow-up)", async () => {
+  const unit = '"' + "A".repeat(19);
+  const mixedText = unit.repeat(3000); // 60,000 chars, 3,000 quotes
+  const stub = stubNeuroLink({ outputTruncationMaxBytes: 20000 });
+
+  const debugCalls: unknown[][] = [];
+  const originalDebug = logger.debug;
+  const originalShouldLog = logger.shouldLog;
+  logger.debug = ((...args: unknown[]) => {
+    debugCalls.push(args);
+  }) as typeof logger.debug;
+  logger.shouldLog = ((level: Parameters<typeof logger.shouldLog>[0]) =>
+    level === "debug"
+      ? true
+      : originalShouldLog(level)) as typeof logger.shouldLog;
+
+  let result: Envelope;
+  try {
+    result = (await runProbe(
+      async () => ({ content: [textItem(mixedText)], isError: false }),
+      stub,
+    )) as Envelope;
+  } finally {
+    logger.debug = originalDebug;
+    logger.shouldLog = originalShouldLog;
+  }
+
+  assert(
+    Array.isArray(result.content),
+    "envelope content array preserved across multiple tightening passes",
+  );
+  const text = result.content[0]?.text as string;
+  assert(
+    typeof text === "string" &&
+      Buffer.byteLength(text, "utf-8") < mixedText.length,
+    "content still truncated after multiple tightening passes",
+  );
+  // ToolsManager also logs unrelated debug lines on this path ("Loading N
+  // direct tools", "getAllTools called/complete"); isolate the
+  // envelope-tightening ones so an unrelated log line can't hide a
+  // regression here (or a change elsewhere from failing this test).
+  const truncationLogCalls = debugCalls.filter(
+    (args) =>
+      typeof args[0] === "string" && args[0].includes("MCP content text"),
+  );
+  assertEqual(
+    truncationLogCalls.length,
+    1,
+    "truncation debug log must fire exactly once — for the pass that survives only, never for a rejected pass",
   );
 });
 
