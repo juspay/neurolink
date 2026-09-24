@@ -132,24 +132,17 @@ function skipIfProviderError(err: unknown): never {
 }
 
 /**
- * WHY THE PAYLOAD IN THE FINAL THROW IS SAFE HERE, AND WHAT WOULD BREAK IT.
- *
- * CLAUDE.md warns that quoting provider output into a thrown message can turn
- * a real failure into a silent SKIP, because `isExpectedProviderError()` is
- * applied to the message text. That hazard is real in general and does not
- * bite here, for two reasons worth stating so nobody "fixes" it by guesswork:
- *
- *   1. The check below runs first on the FULL `combined` text. By the time the
- *      payload is embedded, the predicate has already answered false for a
- *      superset of what gets embedded.
- *   2. `slice()` produces a prefix, and none of the predicate's patterns use
- *      an end anchor or a lookahead, so truncation can only remove a match,
- *      never create one. Verified: a marker past 400 chars matches the full
- *      string and not the slice — the safe direction.
- *
- * What would break it: a future pattern anchored with `$`, or embedding text
- * the earlier check never saw. If either happens, drop the payload and report
- * byte counts instead.
+ * The final throw below deliberately does NOT embed any of `combined` (CLI
+ * stdout/stderr). CLAUDE.md warns that quoting provider output into a thrown
+ * message can turn a real failure into a silent SKIP, because
+ * `isExpectedProviderError()` re-applies to the message text in
+ * `defineSuite`'s `test()`. A truncated prefix does not make that safe:
+ * `API_KEY_PATTERN` in `test/helpers/envGuard.ts` ends with a
+ * `(?=$|[^A-Za-z0-9])` lookahead, so cutting the string can itself create a
+ * match — e.g. text ending "...api_key" is a non-match in the full string
+ * when followed by another alphanumeric character, but becomes a match once
+ * truncated right after "api_key", because `$` now sits there. Describe the
+ * discrepancy without quoting the payload instead.
  */
 function classifyCliFailure(args: string[], result: CliResult): never {
   const combined = `${result.stdout}\n${result.stderr}`;
@@ -163,7 +156,10 @@ function classifyCliFailure(args: string[], result: CliResult): never {
       `provider unavailable — ${combined.slice(0, 120).replace(/\s+/g, " ")}`,
     );
   }
-  throw new Error(`CLI exited ${result.exitCode}\n${combined.slice(0, 400)}`);
+  throw new Error(
+    `CLI ${args.join(" ")} exited ${result.exitCode} with unexpected output ` +
+      `(stdout ${result.stdout.length} chars, stderr ${result.stderr.length} chars)`,
+  );
 }
 
 async function runMatrix(): Promise<void> {
