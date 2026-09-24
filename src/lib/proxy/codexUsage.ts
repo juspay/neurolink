@@ -55,6 +55,14 @@ const nonNegativeInt = (value: unknown): number =>
     ? Math.floor(value)
     : 0;
 
+/**
+ * Whether a count was actually reported, matching what `nonNegativeInt` will
+ * keep. A negative or non-finite value is floored to zero there, so treating
+ * it as observed would record it as a real zero.
+ */
+const observedCount = (value: unknown): boolean =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0;
+
 function usefulOutputItem(item: unknown): boolean {
   if (!item || typeof item !== "object") {
     return false;
@@ -142,6 +150,10 @@ export function extractCodexUsage(payload: unknown): CodexStreamUsage | null {
       typeof output === "number" && Number.isFinite(output) && output >= 0,
     cacheReadTokens: nonNegativeInt(inputDetails?.cached_tokens),
     cacheCreationTokens: nonNegativeInt(inputDetails?.cache_write_tokens),
+    cacheReadTokensObserved: observedCount(inputDetails?.cached_tokens),
+    cacheCreationTokensObserved: observedCount(
+      inputDetails?.cache_write_tokens,
+    ),
     reasoningTokens: nonNegativeInt(outputDetails?.reasoning_tokens),
     reasoningTokensObserved:
       typeof outputDetails?.reasoning_tokens === "number" &&

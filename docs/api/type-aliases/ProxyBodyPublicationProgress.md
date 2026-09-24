@@ -8,7 +8,7 @@
 
 > **ProxyBodyPublicationProgress** = `object`
 
-Defined in: [types/proxy.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L990)
+Defined in: [types/proxy.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L999)
 
 One bounded body publication, tracked across exporter callbacks.
 
@@ -18,7 +18,7 @@ One bounded body publication, tracked across exporter callbacks.
 
 > **acknowledged**: `number`
 
-Defined in: [types/proxy.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L991)
+Defined in: [types/proxy.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1000)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:991](https://github.com/juspay/neurolink/blob/releas
 
 > **unconfirmed**: `number`
 
-Defined in: [types/proxy.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L992)
+Defined in: [types/proxy.ts:1001](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1001)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:992](https://github.com/juspay/neurolink/blob/releas
 
 > **dropped**: `number`
 
-Defined in: [types/proxy.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L993)
+Defined in: [types/proxy.ts:1002](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1002)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:993](https://github.com/juspay/neurolink/blob/releas
 
 > **emitted**: `number`
 
-Defined in: [types/proxy.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L994)
+Defined in: [types/proxy.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1003)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:994](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxChunkQueueWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L995)
+Defined in: [types/proxy.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1004)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:995](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxChunkExportMs?**: `number`
 
-Defined in: [types/proxy.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L996)
+Defined in: [types/proxy.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1005)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:996](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **notify?**: () => `void`
 
-Defined in: [types/proxy.ts:997](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L997)
+Defined in: [types/proxy.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1006)
 
 #### Returns
 

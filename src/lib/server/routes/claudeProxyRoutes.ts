@@ -5581,8 +5581,16 @@ async function executeClaudeCodexFallback(args: {
           {
             inputTokens: result.usage.input,
             outputTokens: result.usage.output,
+            // `?? 0` alone would record a Codex reply that carried no
+            // `input_tokens_details` as an observed cache miss. This is the
+            // leg most fallback traffic actually takes, so it is the one that
+            // skews the measured Codex cache rate.
             cacheReadTokens: result.usage.cacheReadTokens ?? 0,
             cacheCreationTokens: result.usage.cacheCreationTokens ?? 0,
+            cacheReadTokensObserved:
+              result.usage.cacheReadTokensObserved === true,
+            cacheCreationTokensObserved:
+              result.usage.cacheCreationTokensObserved === true,
             reasoningTokens: result.usage.reasoning,
           },
           { recordMetrics: false },
@@ -5632,8 +5640,16 @@ async function executeClaudeCodexFallback(args: {
         outputTokens: result?.usage?.outputTokensObserved
           ? result.usage.output
           : undefined,
-        cacheCreationTokens: result?.usage?.cacheCreationTokens,
-        cacheReadTokens: result?.usage?.cacheReadTokens,
+        cacheCreationTokens: result?.usage?.cacheCreationTokensObserved
+          ? result.usage.cacheCreationTokens
+          : undefined,
+        cacheReadTokens: result?.usage?.cacheReadTokensObserved
+          ? result.usage.cacheReadTokens
+          : undefined,
+        cacheReadTokensObserved:
+          result?.usage?.cacheReadTokensObserved === true,
+        cacheCreationTokensObserved:
+          result?.usage?.cacheCreationTokensObserved === true,
         reasoningTokens: result?.usage?.reasoning,
         errorCode: failure?.code,
         retryable: failure?.retryable,
@@ -9281,8 +9297,16 @@ function createClaudeRequestRuntimeContext(args: {
         outputTokens: fallbackFailureUsage.outputTokensObserved
           ? fallbackFailureUsage.output
           : undefined,
-        cacheReadTokens: fallbackFailureUsage.cacheReadTokens,
-        cacheCreationTokens: fallbackFailureUsage.cacheCreationTokens,
+        cacheReadTokens: fallbackFailureUsage.cacheReadTokensObserved
+          ? fallbackFailureUsage.cacheReadTokens
+          : undefined,
+        cacheCreationTokens: fallbackFailureUsage.cacheCreationTokensObserved
+          ? fallbackFailureUsage.cacheCreationTokens
+          : undefined,
+        cacheReadTokensObserved:
+          fallbackFailureUsage.cacheReadTokensObserved === true,
+        cacheCreationTokensObserved:
+          fallbackFailureUsage.cacheCreationTokensObserved === true,
         reasoningTokens: fallbackFailureUsage.reasoning,
         ...extra,
       };
@@ -9318,6 +9342,10 @@ function createClaudeRequestRuntimeContext(args: {
             outputTokens: fallbackFailureUsage.output,
             cacheReadTokens: fallbackFailureUsage.cacheReadTokens ?? 0,
             cacheCreationTokens: fallbackFailureUsage.cacheCreationTokens ?? 0,
+            cacheReadTokensObserved:
+              fallbackFailureUsage.cacheReadTokensObserved === true,
+            cacheCreationTokensObserved:
+              fallbackFailureUsage.cacheCreationTokensObserved === true,
             reasoningTokens: fallbackFailureUsage.reasoning,
           },
           { recordMetrics: false },

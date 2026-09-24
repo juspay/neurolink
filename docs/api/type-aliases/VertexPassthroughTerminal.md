@@ -8,7 +8,7 @@
 
 > **VertexPassthroughTerminal** = `object`
 
-Defined in: [types/proxy.ts:5038](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5038)
+Defined in: [types/proxy.ts:5088](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5088)
 
 How a Claude-on-Vertex passthrough ended, so the hop can be finalized once.
 
@@ -18,7 +18,7 @@ How a Claude-on-Vertex passthrough ended, so the hop can be finalized once.
 
 > **usage**: [`UsageContext`](UsageContext.md)
 
-Defined in: [types/proxy.ts:5039](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5039)
+Defined in: [types/proxy.ts:5089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5089)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:5039](https://github.com/juspay/neurolink/blob/relea
 
 > **status**: `number`
 
-Defined in: [types/proxy.ts:5041](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5041)
+Defined in: [types/proxy.ts:5091](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5091)
 
 200 served, 499 client cancelled, 502 upstream stream failure.
 
@@ -36,4 +36,4 @@ Defined in: [types/proxy.ts:5041](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorMessage?**: `string`
 
-Defined in: [types/proxy.ts:5042](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5042)
+Defined in: [types/proxy.ts:5092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5092)

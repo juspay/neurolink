@@ -825,6 +825,15 @@ export type RequestLogEntry = {
   outputTokens?: number;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /**
+   * Whether the provider reported each cache count. Omitted means observed,
+   * so every path that genuinely reports a breakdown is unchanged. When
+   * false the count is absent rather than zero, and the reporting and
+   * pricing paths must not read it as a cache miss: a zero folded into a
+   * hit-rate denominator biases every rate built on these records down.
+   */
+  cacheReadTokensObserved?: boolean;
+  cacheCreationTokensObserved?: boolean;
   /** Reasoning tokens are a subset of output, never additional usage. */
   reasoningTokens?: number;
   /**
@@ -1250,6 +1259,9 @@ export type ClaudeFinalRequestLogger = (
     outputTokens?: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    /** False when the provider reported no cache breakdown; see RequestLogEntry. */
+    cacheReadTokensObserved?: boolean;
+    cacheCreationTokensObserved?: boolean;
     reasoningTokens?: number;
     errorCode?: string;
     retryable?: boolean;
@@ -2236,6 +2248,15 @@ export type UsageContext = {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  /**
+   * Whether the provider actually reported each cache count. Omitted means
+   * observed, so every path that genuinely reports a breakdown is unchanged.
+   * When false the count is not recorded at all, because a zero written into
+   * `proxy_tokens_cache_read` is indistinguishable from a real cache miss and
+   * biases every rate built on that counter downward.
+   */
+  cacheReadTokensObserved?: boolean;
+  cacheCreationTokensObserved?: boolean;
   reasoningTokens?: number;
   rateLimitAfter5h?: number;
   rateLimitAfter7d?: number;
@@ -2619,6 +2640,12 @@ export type ProxyAnalysisReport = {
   cache: {
     requestsWithUsage: number;
     requestsWithCacheRead: number;
+    /**
+     * Turns whose cache breakdown the provider actually reported, and the
+     * denominator of `requestHitRate`. A turn that reported none is not a
+     * miss, so counting it would bias the rate down.
+     */
+    requestsWithCacheObservation: number;
     cacheReadTokens: number;
     cacheCreationTokens: number;
     /** Ordinary input, excluding the separately reported cache read/write buckets. */
@@ -2693,6 +2720,13 @@ export type ProxyAnalysisFinalRequestRecord = {
   outputTokens: number | null;
   cacheReadTokens: number | null;
   cacheCreationTokens: number | null;
+  /**
+   * False when the provider reported no cache breakdown. Such a turn is not a
+   * cache miss, so it is excluded from the hit-rate denominator rather than
+   * counted as a zero.
+   */
+  cacheReadTokensObserved?: boolean;
+  cacheCreationTokensObserved?: boolean;
   errorType: string | null;
   errorCode: string | null;
   routingDecision: ProxyAccountRoutingDecision | null;
@@ -2729,6 +2763,22 @@ export type CodexStreamUsage = {
   cacheReadTokens: number;
   /** Cache writes, which bill at a premium over both reads and plain input. */
   cacheCreationTokens: number;
+  /**
+   * Whether the provider supplied each cache count, tracked per field.
+   *
+   * Without this a reply that omits `input_tokens_details` is recorded as a
+   * total cache miss rather than as unknown, which biases every measured cache
+   * rate downward. Input, output and reasoning already carry this distinction.
+   *
+   * The two fields are tracked separately because a reply can carry one and
+   * not the other: a single flag covering both would let a missing
+   * `cache_write_tokens` ride in on an observed `cached_tokens` and be
+   * recorded as a real zero. A count that is present but not a finite,
+   * non-negative number is not observed either — `nonNegativeInt` floors it to
+   * zero, which is indistinguishable from a genuine zero once recorded.
+   */
+  cacheReadTokensObserved?: boolean;
+  cacheCreationTokensObserved?: boolean;
   reasoningTokens: number;
   /** Whether the provider supplied a valid reasoning breakdown. */
   reasoningTokensObserved?: boolean;

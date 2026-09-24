@@ -611,6 +611,15 @@ function captureCodexResponse(
   });
 }
 
+/**
+ * Serve one native `/backend-api/codex/responses` turn.
+ *
+ * Owns the whole hop: account selection and rotation, the upstream request,
+ * the SSE relay back to the caller, and the terminal accounting that turns the
+ * observed wire usage into request-log and tracer records. Usage counts the
+ * provider did not report are carried as unobserved rather than zero, so a
+ * silent cache breakdown is never recorded as a cache miss.
+ */
 async function executeCodexResponsesRequest(
   ctx: ServerContext,
 ): Promise<Response> {
@@ -1149,8 +1158,12 @@ async function executeCodexResponsesRequest(
                         outputTokens: usage.outputTokensObserved
                           ? usage.outputTokens
                           : undefined,
-                        cacheReadTokens: usage.cacheReadTokens,
-                        cacheCreationTokens: usage.cacheCreationTokens,
+                        cacheReadTokens: usage.cacheReadTokensObserved
+                          ? usage.cacheReadTokens
+                          : undefined,
+                        cacheCreationTokens: usage.cacheCreationTokensObserved
+                          ? usage.cacheCreationTokens
+                          : undefined,
                         reasoningTokens: usage.reasoningTokensObserved
                           ? usage.reasoningTokens
                           : undefined,
@@ -1166,6 +1179,10 @@ async function executeCodexResponsesRequest(
                         reasoningTokens: usage.reasoningTokensObserved
                           ? usage.reasoningTokens
                           : undefined,
+                        cacheReadTokensObserved:
+                          usage.cacheReadTokensObserved === true,
+                        cacheCreationTokensObserved:
+                          usage.cacheCreationTokensObserved === true,
                         inputIncludesCachedTokens: true,
                       });
                     } catch {

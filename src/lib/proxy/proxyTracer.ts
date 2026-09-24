@@ -525,8 +525,14 @@ class ProxyTracer {
       "ai.tokens.input": billingUsage.input,
       "ai.tokens.output": ctx.outputTokens,
       "ai.tokens.total": totalTokens,
-      "ai.tokens.cache_creation": ctx.cacheCreationTokens,
-      "ai.tokens.cache_read": ctx.cacheReadTokens,
+      // An unreported cache count is left off the span rather than written as
+      // zero, which would read back as an observed cache miss.
+      ...(ctx.cacheCreationTokensObserved === false
+        ? {}
+        : { "ai.tokens.cache_creation": ctx.cacheCreationTokens }),
+      ...(ctx.cacheReadTokensObserved === false
+        ? {}
+        : { "ai.tokens.cache_read": ctx.cacheReadTokens }),
     });
 
     if (ctx.reasoningTokens !== undefined) {
@@ -889,8 +895,15 @@ class ProxyTracer {
 
       m.tokensInput.add(proxyTokenUsage(this.usage).input, tokenLabels);
       m.tokensOutput.add(this.usage.outputTokens, tokenLabels);
-      m.tokensCacheRead.add(this.usage.cacheReadTokens, tokenLabels);
-      m.tokensCacheCreation.add(this.usage.cacheCreationTokens, tokenLabels);
+      // Skipped, not zeroed, when the provider reported no breakdown: a zero
+      // here is read back as an observed cache miss and drags the measured
+      // cache rate down by however many such replies arrive.
+      if (this.usage.cacheReadTokensObserved !== false) {
+        m.tokensCacheRead.add(this.usage.cacheReadTokens, tokenLabels);
+      }
+      if (this.usage.cacheCreationTokensObserved !== false) {
+        m.tokensCacheCreation.add(this.usage.cacheCreationTokens, tokenLabels);
+      }
 
       if (this.usage.reasoningTokens) {
         m.tokensReasoning.add(this.usage.reasoningTokens, tokenLabels);

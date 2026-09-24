@@ -8,7 +8,7 @@
 
 > **ProxyPeerObservation** = `object`
 
-Defined in: [types/proxy.ts:4696](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4696)
+Defined in: [types/proxy.ts:4746](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4746)
 
 Last thing a peer told us, kept so `peer status` can answer offline.
 
@@ -18,7 +18,7 @@ Last thing a peer told us, kept so `peer status` can answer offline.
 
 > `optional` **grantStatus?**: `string`
 
-Defined in: [types/proxy.ts:4697](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4697)
+Defined in: [types/proxy.ts:4747](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4747)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4697](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **grantReason?**: `string`
 
-Defined in: [types/proxy.ts:4698](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4698)
+Defined in: [types/proxy.ts:4748](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4748)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4698](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **remainingCoins?**: `number`
 
-Defined in: [types/proxy.ts:4699](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4699)
+Defined in: [types/proxy.ts:4749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4749)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:4699](https://github.com/juspay/neurolink/blob/relea
 
 > **observedAt**: `number`
 
-Defined in: [types/proxy.ts:4700](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4700)
+Defined in: [types/proxy.ts:4750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4750)

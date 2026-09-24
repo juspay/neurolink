@@ -8,7 +8,7 @@
 
 > **ProxyBodyDeduplicationEntry** = `object`
 
-Defined in: [types/proxy.ts:983](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L983)
+Defined in: [types/proxy.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L992)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:983](https://github.com/juspay/neurolink/blob/releas
 
 > **reference**: [`ProxyBodyCaptureReference`](ProxyBodyCaptureReference.md)
 
-Defined in: [types/proxy.ts:984](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L984)
+Defined in: [types/proxy.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L993)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:984](https://github.com/juspay/neurolink/blob/releas
 
 > **expiresAt**: `number`
 
-Defined in: [types/proxy.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L985)
+Defined in: [types/proxy.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L994)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:985](https://github.com/juspay/neurolink/blob/releas
 
 > **acknowledged**: `Promise`\<`boolean`\>
 
-Defined in: [types/proxy.ts:986](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L986)
+Defined in: [types/proxy.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L995)

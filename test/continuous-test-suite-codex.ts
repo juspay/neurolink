@@ -1391,6 +1391,156 @@ await test("codex usage tap records cache-creation tokens", async () => {
   assertEqual(usage?.cacheReadTokens, 40, "cache-read token count mismatch");
 });
 
+await test("an unreported Codex cache count is unknown, not a zero cache hit", async () => {
+  const { extractCodexUsage } = await import("../src/lib/proxy/codexUsage.js");
+  // Input, output and reasoning each distinguish "the provider said nothing"
+  // from "the provider said zero". Cache tokens did not, so a reply that
+  // omits input_tokens_details was booked as a total cache miss — which drags
+  // every measured cache rate down by however many such replies arrive.
+  const silent = extractCodexUsage({
+    type: "response.completed",
+    response: { usage: { input_tokens: 100, output_tokens: 10 } },
+  });
+  assert(silent !== null, "usage was not recognised");
+  assertEqual(
+    silent?.cacheReadTokensObserved,
+    false,
+    "a missing cache breakdown must not read as observed",
+  );
+  assertEqual(
+    silent?.cacheCreationTokensObserved,
+    false,
+    "a missing cache-write count must not read as observed",
+  );
+
+  // A provider that genuinely reports zero is a different fact, and stays one.
+  const reportedZero = extractCodexUsage({
+    type: "response.completed",
+    response: {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 10,
+        input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
+      },
+    },
+  });
+  assertEqual(
+    reportedZero?.cacheReadTokensObserved,
+    true,
+    "a reported zero must stay observed",
+  );
+  assertEqual(reportedZero?.cacheReadTokens, 0, "reported zero must survive");
+
+  // One field present must not vouch for its absent sibling: nonNegativeInt
+  // floors the missing one to 0, which would otherwise be recorded as a real
+  // cache-write of zero.
+  const readOnly = extractCodexUsage({
+    type: "response.completed",
+    response: {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 10,
+        input_tokens_details: { cached_tokens: 40 },
+      },
+    },
+  });
+  assertEqual(
+    readOnly?.cacheReadTokensObserved,
+    true,
+    "a present cached_tokens is observed",
+  );
+  assertEqual(
+    readOnly?.cacheCreationTokensObserved,
+    false,
+    "an absent cache_write_tokens must not ride in on its sibling",
+  );
+
+  // A value nonNegativeInt will floor to 0 is not an observation either —
+  // JSON 1e400 parses to Infinity, and a negative count is equally invalid.
+  for (const bad of [Number.POSITIVE_INFINITY, Number.NaN, -5]) {
+    const invalid = extractCodexUsage({
+      type: "response.completed",
+      response: {
+        usage: {
+          input_tokens: 100,
+          output_tokens: 10,
+          input_tokens_details: { cached_tokens: bad },
+        },
+      },
+    });
+    assertEqual(
+      invalid?.cacheReadTokensObserved,
+      false,
+      `a cached_tokens of ${String(bad)} must not read as observed`,
+    );
+    assertEqual(
+      invalid?.cacheReadTokens,
+      0,
+      `a cached_tokens of ${String(bad)} must floor to 0`,
+    );
+  }
+});
+
+await test("the fallback omits cache counts Codex never reported, like the native route", async () => {
+  // The flag is only worth setting if a consumer reads it. This is the one the
+  // Claude client actually sees: serializer.finish emits the usage block, and
+  // proxyTokenUsage floors an absent count to 0, so without gating here the
+  // fallback tells the client "0 cache reads" when Codex said nothing at all —
+  // indistinguishable from an observed cache miss.
+  const emit = async (usage: Record<string, unknown>): Promise<string> => {
+    const sse = `event: response.completed\ndata: ${JSON.stringify({
+      type: "response.completed",
+      response: {
+        status: "completed",
+        output: [
+          { type: "message", content: [{ type: "output_text", text: "ok" }] },
+        ],
+        usage,
+      },
+    })}\n\n`;
+    const bridge = await createCodexFallbackStream(
+      new Response(sse, { headers: { "content-type": "text/event-stream" } }),
+      "claude-test",
+    );
+    const frames: string[] = [];
+    try {
+      let next = await bridge.frames.next();
+      while (!next.done) {
+        frames.push(String(next.value));
+        next = await bridge.frames.next();
+      }
+    } finally {
+      await bridge.cancel();
+    }
+    return frames.join("");
+  };
+
+  const silent = await emit({ input_tokens: 100, output_tokens: 20 });
+  assert(
+    !silent.includes("cache_read_input_tokens"),
+    "an unreported cache read must not be emitted to the client as 0",
+  );
+  assert(
+    !silent.includes("cache_creation_input_tokens"),
+    "an unreported cache write must not be emitted to the client as 0",
+  );
+
+  // A reported count still reaches the client unchanged, including a real zero.
+  const reported = await emit({
+    input_tokens: 100,
+    output_tokens: 20,
+    input_tokens_details: { cached_tokens: 50, cache_write_tokens: 0 },
+  });
+  assert(
+    reported.includes('"cache_read_input_tokens":50'),
+    "a reported cache read must still be emitted",
+  );
+  assert(
+    reported.includes('"cache_creation_input_tokens":0'),
+    "a genuinely reported zero must still be emitted",
+  );
+});
+
 await test("codex capture holds its byte cap against a single oversized chunk", async () => {
   // The capture is opt-in debugging that writes the assistant's real response
   // to disk, so its cap is the thing keeping a long stream from filling an

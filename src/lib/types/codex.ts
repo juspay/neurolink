@@ -205,6 +205,8 @@ export type CodexFallbackResult = {
     /** Numeric serializer compatibility must not imply provider observation. */
     inputTokensObserved?: boolean;
     outputTokensObserved?: boolean;
+    cacheReadTokensObserved?: boolean;
+    cacheCreationTokensObserved?: boolean;
   };
   finishReason: "end_turn" | "tool_use";
 };

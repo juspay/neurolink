@@ -8,7 +8,7 @@
 
 > **ProxyBodyCapturePublication** = `object`
 
-Defined in: [types/proxy.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L954)
+Defined in: [types/proxy.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L963)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:954](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **delivery?**: [`ProxyBodyDeliveryResult`](ProxyBodyDeliveryResult.md) \| \{ `status`: `"reference"`; `reason`: `"identical_redacted_payload"`; \} \| \{ `status`: `"policy_excluded"`; `reason`: `"body_byte_budget_exhausted"` \| `"body_byte_budget_invalid"`; \}
 
-Defined in: [types/proxy.ts:955](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L955)
+Defined in: [types/proxy.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L964)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:955](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **reference?**: [`ProxyBodyCaptureReference`](ProxyBodyCaptureReference.md)
 
-Defined in: [types/proxy.ts:962](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L962)
+Defined in: [types/proxy.ts:971](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L971)

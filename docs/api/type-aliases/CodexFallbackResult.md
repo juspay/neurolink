@@ -48,10 +48,18 @@ Numeric serializer compatibility must not imply provider observation.
 
 > `optional` **outputTokensObserved?**: `boolean`
 
+##### cacheReadTokensObserved?
+
+> `optional` **cacheReadTokensObserved?**: `boolean`
+
+##### cacheCreationTokensObserved?
+
+> `optional` **cacheCreationTokensObserved?**: `boolean`
+
 ---
 
 ### finishReason
 
 > **finishReason**: `"end_turn"` \| `"tool_use"`
 
-Defined in: [types/codex.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L209)
+Defined in: [types/codex.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L211)
