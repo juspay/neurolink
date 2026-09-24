@@ -8,7 +8,7 @@
 
 > **ProxyRequestLogSinkSnapshot** = `object`
 
-Defined in: [types/proxy.ts:866](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L866)
+Defined in: [types/proxy.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L875)
 
 File-sink evidence is independent of model/request success counters.
 
@@ -18,7 +18,7 @@ File-sink evidence is independent of model/request success counters.
 
 > **attempted**: `number`
 
-Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L867)
+Defined in: [types/proxy.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L876)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/releas
 
 > **written**: `number`
 
-Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L868)
+Defined in: [types/proxy.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L877)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/releas
 
 > **inFlight**: `number`
 
-Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L869)
+Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L878)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/releas
 
 > **pending**: `number`
 
-Defined in: [types/proxy.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L870)
+Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L879)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:870](https://github.com/juspay/neurolink/blob/releas
 
 > **dropped**: `number`
 
-Defined in: [types/proxy.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L872)
+Defined in: [types/proxy.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L881)
 
 Records not admitted because the bounded writer queue was full.
 
@@ -60,7 +60,7 @@ Records not admitted because the bounded writer queue was full.
 
 > **writeTimeouts**: `number`
 
-Defined in: [types/proxy.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L873)
+Defined in: [types/proxy.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L882)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/proxy.ts:873](https://github.com/juspay/neurolink/blob/releas
 
 > **unconfirmedWrites**: `number`
 
-Defined in: [types/proxy.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L874)
+Defined in: [types/proxy.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L883)
 
 ---
 
@@ -76,4 +76,4 @@ Defined in: [types/proxy.ts:874](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **lastErrorCode?**: `string`
 
-Defined in: [types/proxy.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L875)
+Defined in: [types/proxy.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L884)

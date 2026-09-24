@@ -8,7 +8,7 @@
 
 > **ClaudeFinalRequestLogger** = (`status`, `accountLabel`, `accountType`, `errorType?`, `errorMessage?`, `extra?`) => `void`
 
-Defined in: [types/proxy.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1242)
+Defined in: [types/proxy.ts:1251](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1251)
 
 ## Parameters
 
@@ -49,6 +49,16 @@ Defined in: [types/proxy.ts:1242](https://github.com/juspay/neurolink/blob/relea
 #### cacheReadTokens?
 
 `number`
+
+#### cacheReadTokensObserved?
+
+`boolean`
+
+False when the provider reported no cache breakdown; see RequestLogEntry.
+
+#### cacheCreationTokensObserved?
+
+`boolean`
 
 #### reasoningTokens?
 

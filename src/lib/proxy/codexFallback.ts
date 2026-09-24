@@ -87,6 +87,8 @@ export class CodexFallbackStreamError extends Error {
           }),
           inputTokensObserved: observed.inputTokensObserved,
           outputTokensObserved: observed.outputTokensObserved,
+          cacheReadTokensObserved: observed.cacheReadTokensObserved,
+          cacheCreationTokensObserved: observed.cacheCreationTokensObserved,
         }
       : usage;
   }
@@ -657,6 +659,8 @@ export function parseCodexFallbackSSE(sse: string): CodexFallbackResult {
         }),
         inputTokensObserved: parsedUsage.inputTokensObserved,
         outputTokensObserved: parsedUsage.outputTokensObserved,
+        cacheReadTokensObserved: parsedUsage.cacheReadTokensObserved,
+        cacheCreationTokensObserved: parsedUsage.cacheCreationTokensObserved,
       };
     }
     textFromResponse = outputTextFromResponse(payload);
@@ -846,6 +850,9 @@ export async function createCodexFallbackStream(
               }),
               inputTokensObserved: parsedUsage.inputTokensObserved,
               outputTokensObserved: parsedUsage.outputTokensObserved,
+              cacheReadTokensObserved: parsedUsage.cacheReadTokensObserved,
+              cacheCreationTokensObserved:
+                parsedUsage.cacheCreationTokensObserved,
             };
           }
           const responseBody = payload.response;
@@ -915,10 +922,18 @@ export async function createCodexFallbackStream(
         );
       }
       const finishReason = toolCalls.size > 0 ? "tool_use" : "end_turn";
+      // A count Codex never reported is omitted rather than sent as 0: this is
+      // what the Claude client reads, and a zero there is indistinguishable
+      // from an observed cache miss. `proxyTokenUsage` floors an absent count
+      // to 0, so the observation flags are the only thing that still knows.
       yield* serializer.finish(usage?.output, finishReason, {
         input_tokens: usage?.input,
-        cache_read_input_tokens: usage?.cacheReadTokens,
-        cache_creation_input_tokens: usage?.cacheCreationTokens,
+        cache_read_input_tokens: usage?.cacheReadTokensObserved
+          ? usage.cacheReadTokens
+          : undefined,
+        cache_creation_input_tokens: usage?.cacheCreationTokensObserved
+          ? usage.cacheCreationTokens
+          : undefined,
       });
       return {
         text: textParts.join(""),

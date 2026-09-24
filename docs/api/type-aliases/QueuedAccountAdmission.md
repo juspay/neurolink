@@ -8,7 +8,7 @@
 
 > **QueuedAccountAdmission** = `object`
 
-Defined in: [types/proxy.ts:1376](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1376)
+Defined in: [types/proxy.ts:1388](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1388)
 
 A cancellable queued request for per-account admission capacity.
 
@@ -18,7 +18,7 @@ A cancellable queued request for per-account admission capacity.
 
 > **accountKey**: `string`
 
-Defined in: [types/proxy.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1377)
+Defined in: [types/proxy.ts:1389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1389)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1377](https://github.com/juspay/neurolink/blob/relea
 
 > **promise**: `Promise`\<[`AccountAdmissionLease`](AccountAdmissionLease.md)\>
 
-Defined in: [types/proxy.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1378)
+Defined in: [types/proxy.ts:1390](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1390)
 
 ## Methods
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1378](https://github.com/juspay/neurolink/blob/relea
 
 > **cancel**(): `void`
 
-Defined in: [types/proxy.ts:1379](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1379)
+Defined in: [types/proxy.ts:1391](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1391)
 
 #### Returns
 

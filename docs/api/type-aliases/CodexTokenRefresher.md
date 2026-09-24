@@ -8,7 +8,7 @@
 
 > **CodexTokenRefresher** = (`refreshToken`) => `Promise`\<\{ `accessToken`: `string`; `refreshToken?`: `string`; `expiresAt?`: `number`; \}\>
 
-Defined in: [types/proxy.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1218)
+Defined in: [types/proxy.ts:1227](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1227)
 
 Result contract for a Codex OAuth refresh operation.
 

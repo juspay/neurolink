@@ -8,6 +8,6 @@
 
 > **ProxyFormat** = `"claude"` \| `"openai"` \| `"gemini"`
 
-Defined in: [types/proxy.ts:3874](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3874)
+Defined in: [types/proxy.ts:3924](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3924)
 
 Wire format a proxy request is using.

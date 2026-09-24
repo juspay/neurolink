@@ -8,7 +8,7 @@
 
 > **ProxyPeerFile** = `object`
 
-Defined in: [types/proxy.ts:4729](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4729)
+Defined in: [types/proxy.ts:4779](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4779)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4729](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4730](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4730)
+Defined in: [types/proxy.ts:4780](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4780)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:4730](https://github.com/juspay/neurolink/blob/relea
 
 > **peers**: `Record`\<`string`, [`ProxyPeer`](ProxyPeer.md)\>
 
-Defined in: [types/proxy.ts:4731](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4731)
+Defined in: [types/proxy.ts:4781](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4781)

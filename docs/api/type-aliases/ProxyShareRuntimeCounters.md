@@ -8,7 +8,7 @@
 
 > **ProxyShareRuntimeCounters** = `object`
 
-Defined in: [types/proxy.ts:4305](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4305)
+Defined in: [types/proxy.ts:4355](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4355)
 
 Runtime counters the rate gates need, supplied by the caller so the policy
 evaluator stays pure.
@@ -19,7 +19,7 @@ evaluator stays pure.
 
 > **requestsInLastMinute**: `number`
 
-Defined in: [types/proxy.ts:4306](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4306)
+Defined in: [types/proxy.ts:4356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4356)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/proxy.ts:4306](https://github.com/juspay/neurolink/blob/relea
 
 > **inFlight**: `number`
 
-Defined in: [types/proxy.ts:4307](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4307)
+Defined in: [types/proxy.ts:4357](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4357)

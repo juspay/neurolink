@@ -8,7 +8,7 @@
 
 > **ProxyQuotaHeaderContext** = `object`
 
-Defined in: [types/proxy.ts:1954](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1954)
+Defined in: [types/proxy.ts:1966](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1966)
 
 Everything the proxy knows about limits and routing for one response.
 Consumed by `buildQuotaResponseHeaders` — kept as data (not headers) so the
@@ -20,7 +20,7 @@ assembly stays pure and testable.
 
 > **quota**: [`AccountQuota`](AccountQuota.md) \| `null`
 
-Defined in: [types/proxy.ts:1955](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1955)
+Defined in: [types/proxy.ts:1967](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1967)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/proxy.ts:1955](https://github.com/juspay/neurolink/blob/relea
 
 > **source**: [`ProxyQuotaSource`](ProxyQuotaSource.md)
 
-Defined in: [types/proxy.ts:1956](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1956)
+Defined in: [types/proxy.ts:1968](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1968)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/proxy.ts:1956](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **accountLabel?**: `string`
 
-Defined in: [types/proxy.ts:1958](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1958)
+Defined in: [types/proxy.ts:1970](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1970)
 
 Account label that served the request; omitted for fallback/no-account.
 
@@ -46,7 +46,7 @@ Account label that served the request; omitted for fallback/no-account.
 
 > `optional` **accountType?**: `string`
 
-Defined in: [types/proxy.ts:1959](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1959)
+Defined in: [types/proxy.ts:1971](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1971)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/proxy.ts:1959](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **servedBy?**: `string`
 
-Defined in: [types/proxy.ts:1962](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1962)
+Defined in: [types/proxy.ts:1974](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1974)
 
 Which upstream actually produced the response ("anthropic" or a fallback
 provider name). Lets a consumer avoid attributing quota to the wrong one.
@@ -65,7 +65,7 @@ provider name). Lets a consumer avoid attributing quota to the wrong one.
 
 > `optional` **attempt?**: `number`
 
-Defined in: [types/proxy.ts:1964](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1964)
+Defined in: [types/proxy.ts:1976](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1976)
 
 1-based attempt index within the routing loop.
 
@@ -75,7 +75,7 @@ Defined in: [types/proxy.ts:1964](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coolingUntil?**: `number`
 
-Defined in: [types/proxy.ts:1966](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1966)
+Defined in: [types/proxy.ts:1978](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1978)
 
 Epoch ms until which the serving account is cooling, when applicable.
 
@@ -85,7 +85,7 @@ Epoch ms until which the serving account is cooling, when applicable.
 
 > `optional` **coolingReason?**: [`AccountCoolingReason`](AccountCoolingReason.md)
 
-Defined in: [types/proxy.ts:1967](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1967)
+Defined in: [types/proxy.ts:1979](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1979)
 
 ---
 
@@ -93,4 +93,4 @@ Defined in: [types/proxy.ts:1967](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **pool?**: [`ProxyPoolHeadroom`](ProxyPoolHeadroom.md)
 
-Defined in: [types/proxy.ts:1968](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1968)
+Defined in: [types/proxy.ts:1980](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1980)

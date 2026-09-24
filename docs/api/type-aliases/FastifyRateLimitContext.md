@@ -8,7 +8,7 @@
 
 > **FastifyRateLimitContext** = `object`
 
-Defined in: [types/proxy.ts:2039](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2039)
+Defined in: [types/proxy.ts:2051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2051)
 
 Rate limit context (Fastify adapter).
 
@@ -18,7 +18,7 @@ Rate limit context (Fastify adapter).
 
 > **ttl**: `number`
 
-Defined in: [types/proxy.ts:2040](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2040)
+Defined in: [types/proxy.ts:2052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2052)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2040](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **ban?**: `boolean`
 
-Defined in: [types/proxy.ts:2041](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2041)
+Defined in: [types/proxy.ts:2053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2053)

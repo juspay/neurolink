@@ -8,7 +8,7 @@
 
 > **CodexFallbackStream** = `object`
 
-Defined in: [types/codex.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L213)
+Defined in: [types/codex.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L215)
 
 Incremental Claude frames and explicit upstream cancellation.
 
@@ -18,7 +18,7 @@ Incremental Claude frames and explicit upstream cancellation.
 
 > **frames**: `AsyncGenerator`\<`string`, [`CodexFallbackResult`](CodexFallbackResult.md)\>
 
-Defined in: [types/codex.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L214)
+Defined in: [types/codex.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L216)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:214](https://github.com/juspay/neurolink/blob/releas
 
 > **cancel**: (`reason?`) => `Promise`\<`void`\>
 
-Defined in: [types/codex.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L215)
+Defined in: [types/codex.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L217)
 
 #### Parameters
 

@@ -96,6 +96,161 @@ async function lines(
     .map((line) => JSON.parse(line));
 }
 
+await test("an unreported cache breakdown is not counted as a cache miss", async () => {
+  // A turn whose provider reported no cache breakdown is unknown, not a miss.
+  // Counting it in the hit-rate denominator drags every measured cache rate
+  // down by however many such turns arrive — the distortion the observed flags
+  // exist to remove. Driven through the real analyzer over a real log file, so
+  // the record shape and the reader must actually agree.
+  const { analyzeProxyLogs } =
+    await import("../src/lib/proxy/proxyAnalysis.js");
+  const dir = await mkdtemp(join(tmpdir(), "cache-observation-"));
+  try {
+    const stamp = new Date();
+    const day = stamp.toISOString().slice(0, 10);
+    const row = (
+      requestId: string,
+      cacheReadTokens: number | null,
+      observed: boolean | undefined,
+    ) =>
+      JSON.stringify({
+        timestamp: stamp.toISOString(),
+        requestId,
+        method: "POST",
+        path: "/v1/messages",
+        model: "gpt-5.6-sol",
+        provider: "openai",
+        stream: false,
+        toolCount: 0,
+        account: "fixture",
+        accountType: "oauth",
+        responseStatus: 200,
+        responseTimeMs: 10,
+        inputTokens: 1000,
+        outputTokens: 10,
+        cacheReadTokens,
+        cacheCreationTokens: 0,
+        inputIncludesCachedTokens: true,
+        ...(observed === undefined
+          ? {}
+          : { cacheReadTokensObserved: observed }),
+      });
+    await writeFile(
+      join(dir, `proxy-${day}.jsonl`),
+      [
+        // Two turns that genuinely reported: one hit, one real miss => 50%.
+        row("hit", 900, true),
+        row("miss", 0, true),
+        // Two that reported nothing must land in neither half of the ratio.
+        row("silent-a", null, false),
+        row("silent-b", null, false),
+      ].join("\n") + "\n",
+      "utf8",
+    );
+
+    const report = await analyzeProxyLogs({ logsDir: dir, since: "24h" });
+    assertEqual(
+      report.cache.requestsWithCacheObservation,
+      2,
+      "only turns with a reported breakdown belong in the denominator",
+    );
+    assertEqual(
+      report.cache.requestsWithCacheRead,
+      1,
+      "exactly one turn reported a cache read",
+    );
+    assertEqual(
+      report.cache.requestHitRate,
+      0.5,
+      "two silent turns must not halve the measured hit rate",
+    );
+    assertEqual(
+      report.cache.requestsWithUsage,
+      4,
+      "all four turns still count as carrying usage",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+await test("an unknown cached portion is refused a price, not charged as zero cache", async () => {
+  // Codex reports input inclusive of cached tokens. With the cached portion
+  // unknown, subtracting a defaulted 0 charges those tokens at full input rate
+  // AND reports zero cache savings as if that were a measurement. Refusing to
+  // price is the honest outcome; a wrong number is worse than no number.
+  const { __requestLoggerTestHooks } =
+    await import("../src/lib/proxy/requestLogger.js");
+  const annotate = __requestLoggerTestHooks.annotateRequestPricing;
+  const base = () => ({
+    timestamp: new Date().toISOString(),
+    requestId: "codex-pricing",
+    method: "POST",
+    path: "/backend-api/codex/responses",
+    model: "gpt-5.6-sol",
+    provider: "openai" as const,
+    stream: false,
+    toolCount: 0,
+    account: "fixture",
+    accountType: "oauth" as const,
+    responseStatus: 200,
+    responseTimeMs: 10,
+    inputTokens: 1000,
+    outputTokens: 10,
+    inputIncludesCachedTokens: true,
+  });
+
+  // Unknown cached portion: not priceable.
+  const unobserved = {
+    ...base(),
+    cacheReadTokensObserved: false,
+    cacheCreationTokensObserved: false,
+  } as unknown as Parameters<typeof annotate>[0];
+  annotate(unobserved);
+  assertEqual(
+    unobserved.pricingStatus,
+    "usage_incomplete",
+    "an unknown cached portion must not be priced as an empty cache",
+  );
+  assertEqual(
+    unobserved.apiEquivalentCostUsd,
+    null,
+    "a turn that cannot be priced must carry no cost",
+  );
+
+  // A genuinely reported zero is a measurement, and still prices.
+  const reportedZero = {
+    ...base(),
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokensObserved: true,
+    cacheCreationTokensObserved: true,
+  } as unknown as Parameters<typeof annotate>[0];
+  annotate(reportedZero);
+  assert(
+    reportedZero.pricingStatus !== "usage_incomplete",
+    "a reported zero is an observation and must still price",
+  );
+
+  // And a reported cache read still prices, with savings recorded.
+  const reportedHit = {
+    ...base(),
+    cacheReadTokens: 800,
+    cacheCreationTokens: 0,
+    cacheReadTokensObserved: true,
+    cacheCreationTokensObserved: true,
+  } as unknown as Parameters<typeof annotate>[0];
+  annotate(reportedHit);
+  assert(
+    reportedHit.pricingStatus !== "usage_incomplete",
+    "a reported cache read must still price",
+  );
+  assert(
+    (reportedHit.apiEquivalentCacheSavingsUsd ?? 0) > 0,
+    "a real cache read must record a saving",
+  );
+});
+
 await test("a late successful append is never retried while its original write is pending", async () => {
   await withWriter(async (dir) => {
     let release = () => {};

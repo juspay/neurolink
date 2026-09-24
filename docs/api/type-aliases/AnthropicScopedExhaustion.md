@@ -8,7 +8,7 @@
 
 > **AnthropicScopedExhaustion** = `object`
 
-Defined in: [types/proxy.ts:3651](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3651)
+Defined in: [types/proxy.ts:3701](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3701)
 
 Every account's model-scoped window for the requested model is spent. Unlike
 a cooldown this is per-model: the same accounts stay healthy for every other
@@ -20,7 +20,7 @@ model, so the client is told to switch model rather than to back off.
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:3653](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3653)
+Defined in: [types/proxy.ts:3703](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3703)
 
 Wire model id from the request.
 
@@ -30,7 +30,7 @@ Wire model id from the request.
 
 > **scopeModel**: `string`
 
-Defined in: [types/proxy.ts:3655](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3655)
+Defined in: [types/proxy.ts:3705](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3705)
 
 Display name of the exhausted window, e.g. "Fable".
 
@@ -40,7 +40,7 @@ Display name of the exhausted window, e.g. "Fable".
 
 > **earliestResetMs**: `number`
 
-Defined in: [types/proxy.ts:3657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3657)
+Defined in: [types/proxy.ts:3707](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3707)
 
 Epoch ms of the soonest reset across the exhausted accounts.
 
@@ -50,7 +50,7 @@ Epoch ms of the soonest reset across the exhausted accounts.
 
 > **accounts**: `string`[]
 
-Defined in: [types/proxy.ts:3658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3658)
+Defined in: [types/proxy.ts:3708](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3708)
 
 ---
 
@@ -58,6 +58,6 @@ Defined in: [types/proxy.ts:3658](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **overageDisabledReason?**: `string`
 
-Defined in: [types/proxy.ts:3660](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3660)
+Defined in: [types/proxy.ts:3710](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3710)
 
 Provider reason overage is unavailable, e.g. "org_level_disabled".

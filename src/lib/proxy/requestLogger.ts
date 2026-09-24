@@ -217,6 +217,13 @@ export const __requestLoggerTestHooks = {
   defaultFlushTimeoutMs: REQUEST_LOG_FLUSH_TIMEOUT_MS,
   pendingOperationCount: () => pendingLogOperations.size,
   trackLogOperation,
+  /**
+   * Pricing annotation, exposed because it is otherwise reachable only through
+   * a full log-write cycle. What it refuses to price matters as much as what it
+   * prices: a turn whose cached portion is unknown must not be charged as if
+   * the cache were empty.
+   */
+  annotateRequestPricing,
   setAppendFileForTests: (writer: typeof writeFile) => {
     appendMetadataFile = writer;
   },
@@ -312,7 +319,14 @@ function annotateRequestPricing(entry: RequestLogEntry): void {
     !Number.isFinite(cacheCreation) ||
     cacheCreation < 0 ||
     (entry.inputIncludesCachedTokens === true &&
-      cacheRead + cacheCreation > input)
+      cacheRead + cacheCreation > input) ||
+    // When input includes the cached portion but the provider never reported
+    // it, subtracting a defaulted 0 prices the cached tokens at full input
+    // rate and reports zero cache savings. That is a guess, not a price, so
+    // the turn is incomplete rather than silently mispriced.
+    (entry.inputIncludesCachedTokens === true &&
+      (entry.cacheReadTokensObserved === false ||
+        entry.cacheCreationTokensObserved === false))
   ) {
     entry.pricingStatus = "usage_incomplete";
     return;

@@ -8,6 +8,6 @@
 
 > **ProxyEnvSource** = `"cli"` \| `"environment"` \| `"default"` \| `"none"`
 
-Defined in: [types/proxy.ts:2255](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2255)
+Defined in: [types/proxy.ts:2276](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2276)
 
 Where a proxy env file path was sourced from.

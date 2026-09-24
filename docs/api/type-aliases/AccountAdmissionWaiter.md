@@ -8,7 +8,7 @@
 
 > **AccountAdmissionWaiter** = `object`
 
-Defined in: [types/proxy.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1383)
+Defined in: [types/proxy.ts:1395](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1395)
 
 One queued request waiting for per-account admission capacity.
 
@@ -18,7 +18,7 @@ One queued request waiting for per-account admission capacity.
 
 > **capacity**: `number`
 
-Defined in: [types/proxy.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1384)
+Defined in: [types/proxy.ts:1396](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1396)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1384](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **generation?**: `number`
 
-Defined in: [types/proxy.ts:1389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1389)
+Defined in: [types/proxy.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1401)
 
 Runtime-config generation of the snapshot the request queued under.
 The route always passes one (0 from its fallback snapshot when no
@@ -39,7 +39,7 @@ hooks leave it absent.
 
 > **resolve**: (`lease`) => `void`
 
-Defined in: [types/proxy.ts:1390](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1390)
+Defined in: [types/proxy.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1402)
 
 #### Parameters
 

@@ -562,6 +562,10 @@ function summarizeFinalRequests(
   let recoveredAfterRetry = 0;
   let requestsWithUsage = 0;
   let requestsWithCacheRead = 0;
+  // Turns whose cache breakdown the provider actually reported. A turn that
+  // reported none cannot count as a miss, so it is excluded from the hit-rate
+  // denominator rather than folded in as a zero.
+  let requestsWithCacheObservation = 0;
   let cacheReadTokens = 0;
   let cacheCreationTokens = 0;
   let inputTokens = 0;
@@ -652,7 +656,10 @@ function summarizeFinalRequests(
       outputTokens += request.outputTokens ?? 0;
       cacheReadTokens += request.cacheReadTokens ?? 0;
       cacheCreationTokens += request.cacheCreationTokens ?? 0;
-      requestsWithCacheRead += (request.cacheReadTokens ?? 0) > 0 ? 1 : 0;
+      if (request.cacheReadTokensObserved !== false) {
+        requestsWithCacheObservation += 1;
+        requestsWithCacheRead += (request.cacheReadTokens ?? 0) > 0 ? 1 : 0;
+      }
 
       if (request.model) {
         // Records written before `provider` existed carry only a model name.
@@ -708,6 +715,7 @@ function summarizeFinalRequests(
     cache: {
       requestsWithUsage,
       requestsWithCacheRead,
+      requestsWithCacheObservation,
       cacheReadTokens,
       cacheCreationTokens,
       inputTokens,
@@ -719,8 +727,10 @@ function summarizeFinalRequests(
       requestsUnpriced,
       unpricedModels: [...unpricedModels].sort(),
       requestHitRate:
-        requestsWithUsage > 0
-          ? Number((requestsWithCacheRead / requestsWithUsage).toFixed(4))
+        requestsWithCacheObservation > 0
+          ? Number(
+              (requestsWithCacheRead / requestsWithCacheObservation).toFixed(4),
+            )
           : null,
     },
     finalRequestLatency,
@@ -1331,6 +1341,18 @@ export async function analyzeProxyLogs(
           outputTokens: finiteNumber(record.outputTokens),
           cacheReadTokens: finiteNumber(record.cacheReadTokens),
           cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
+          // Read as a boolean only. An absent flag means observed, which keeps
+          // every record written before the flag existed counting as it did.
+          // The merge below drops undefined from the later record, so a
+          // headers-only first record cannot erase a flag the body record sets.
+          cacheReadTokensObserved:
+            typeof record.cacheReadTokensObserved === "boolean"
+              ? record.cacheReadTokensObserved
+              : undefined,
+          cacheCreationTokensObserved:
+            typeof record.cacheCreationTokensObserved === "boolean"
+              ? record.cacheCreationTokensObserved
+              : undefined,
           errorType: stringValue(record.errorType),
           errorCode: stringValue(record.errorCode),
           routingDecision,

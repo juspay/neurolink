@@ -8,7 +8,7 @@
 
 > **ProxyLatencySummary** = `object`
 
-Defined in: [types/proxy.ts:2468](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2468)
+Defined in: [types/proxy.ts:2489](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2489)
 
 Percentile summary used by offline proxy log analysis.
 
@@ -18,7 +18,7 @@ Percentile summary used by offline proxy log analysis.
 
 > **count**: `number`
 
-Defined in: [types/proxy.ts:2469](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2469)
+Defined in: [types/proxy.ts:2490](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2490)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2469](https://github.com/juspay/neurolink/blob/relea
 
 > **p50**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2470](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2470)
+Defined in: [types/proxy.ts:2491](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2491)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2470](https://github.com/juspay/neurolink/blob/relea
 
 > **p95**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2471](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2471)
+Defined in: [types/proxy.ts:2492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2492)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2471](https://github.com/juspay/neurolink/blob/relea
 
 > **p99**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2472](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2472)
+Defined in: [types/proxy.ts:2493](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2493)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:2472](https://github.com/juspay/neurolink/blob/relea
 
 > **max**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2473](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2473)
+Defined in: [types/proxy.ts:2494](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2494)

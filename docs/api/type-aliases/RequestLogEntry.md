@@ -389,11 +389,33 @@ Defined in: [types/proxy.ts:827](https://github.com/juspay/neurolink/blob/releas
 
 ---
 
+### cacheReadTokensObserved?
+
+> `optional` **cacheReadTokensObserved?**: `boolean`
+
+Defined in: [types/proxy.ts:835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L835)
+
+Whether the provider reported each cache count. Omitted means observed,
+so every path that genuinely reports a breakdown is unchanged. When
+false the count is absent rather than zero, and the reporting and
+pricing paths must not read it as a cache miss: a zero folded into a
+hit-rate denominator biases every rate built on these records down.
+
+---
+
+### cacheCreationTokensObserved?
+
+> `optional` **cacheCreationTokensObserved?**: `boolean`
+
+Defined in: [types/proxy.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L836)
+
+---
+
 ### reasoningTokens?
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/proxy.ts:829](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L829)
+Defined in: [types/proxy.ts:838](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L838)
 
 Reasoning tokens are a subset of output, never additional usage.
 
@@ -403,7 +425,7 @@ Reasoning tokens are a subset of output, never additional usage.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/proxy.ts:835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L835)
+Defined in: [types/proxy.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L844)
 
 Provider that actually served the request, for costing. Absent on records
 written before this field existed; `proxyAnalysis` then falls back to a
@@ -415,7 +437,7 @@ cross-provider model lookup rather than assuming Anthropic.
 
 > `optional` **terminalOutcome?**: `"completed"` \| `"bodyless"` \| `"client_cancelled"` \| `"stream_error"` \| `"handler_error"`
 
-Defined in: [types/proxy.ts:837](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L837)
+Defined in: [types/proxy.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L846)
 
 Terminal state of the client-facing response when known.
 
@@ -425,7 +447,7 @@ Terminal state of the client-facing response when known.
 
 > `optional` **clientApp?**: `string`
 
-Defined in: [types/proxy.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L852)
+Defined in: [types/proxy.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L861)
 
 Which CLI made the request, derived from User-Agent, and the raw header it
 was derived from.
@@ -441,7 +463,7 @@ collapsing into "unknown" with everything else.
 
 > `optional` **userAgent?**: `string`
 
-Defined in: [types/proxy.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L854)
+Defined in: [types/proxy.ts:863](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L863)
 
 Raw User-Agent, truncated. See clientApp.
 
@@ -451,7 +473,7 @@ Raw User-Agent, truncated. See clientApp.
 
 > `optional` **traceId?**: `string`
 
-Defined in: [types/proxy.ts:856](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L856)
+Defined in: [types/proxy.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L865)
 
 OTel trace ID for correlation with distributed traces
 
@@ -461,7 +483,7 @@ OTel trace ID for correlation with distributed traces
 
 > `optional` **spanId?**: `string`
 
-Defined in: [types/proxy.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L858)
+Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L867)
 
 OTel span ID for correlation with distributed traces
 
@@ -471,7 +493,7 @@ OTel span ID for correlation with distributed traces
 
 > `optional` **traceFlags?**: `number`
 
-Defined in: [types/proxy.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L860)
+Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L869)
 
 Original OTel sampling flags retained through deferred logging.
 
@@ -481,6 +503,6 @@ Original OTel sampling flags retained through deferred logging.
 
 > `optional` **routingDecision?**: [`ProxyAccountRoutingDecision`](ProxyAccountRoutingDecision.md)
 
-Defined in: [types/proxy.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L862)
+Defined in: [types/proxy.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L871)
 
 Exact secret-free inputs and result of initial account selection.
