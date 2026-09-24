@@ -1992,7 +1992,14 @@ export class AnthropicProvider extends BaseProvider {
       usage: {
         input: loop.inputTokens,
         output: loop.outputTokens,
-        total: loop.inputTokens + loop.outputTokens,
+        // `inputTokens` is now the disjoint (uncached) figure, so cache
+        // tokens must be added back in to keep `total` billing-complete —
+        // they are additive on top of input under Anthropic's convention.
+        total:
+          loop.inputTokens +
+          loop.outputTokens +
+          loop.cacheReadTokens +
+          loop.cacheWriteTokens,
         ...(loop.cacheReadTokens
           ? { cacheReadTokens: loop.cacheReadTokens }
           : {}),

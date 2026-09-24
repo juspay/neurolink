@@ -1408,7 +1408,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       usage: {
         input: inputTokens,
         output: outputTokens,
-        total: inputTokens + outputTokens,
+        // `inputTokens` is the disjoint (uncached) figure — doGenerate
+        // already subtracts the overlapping prompt_tokens_details.cached_tokens
+        // subset before handing it to the loop — so cache tokens must be
+        // added back in here to keep `total` billing-complete.
+        total:
+          inputTokens +
+          outputTokens +
+          loop.cacheReadTokens +
+          loop.cacheWriteTokens,
         // doGenerate reads prompt_tokens_details.cached_tokens, and the loop
         // carries the counters out; discarding them here billed cached input
         // at the full rate in calculateCost and made cache effectiveness

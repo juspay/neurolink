@@ -270,11 +270,26 @@ export async function runNativeGenerateLoop(
     const usage = res.usage as
       | { inputTokens?: unknown; outputTokens?: unknown }
       | undefined;
-    inputTokens += readTotal(usage?.inputTokens);
     outputTokens += readTotal(usage?.outputTokens);
     const inShaped = usage?.inputTokens as
-      | { cacheRead?: number; cacheWrite?: number }
+      | {
+          total?: number;
+          noCache?: number;
+          cacheRead?: number;
+          cacheWrite?: number;
+        }
       | undefined;
+    // `total` on the shaped input-tokens object is cache-INCLUSIVE (noCache +
+    // cacheRead + cacheWrite). Accumulating it into `inputTokens` — while ALSO
+    // accumulating cacheRead/cacheWrite below — double-billed every cached
+    // token: once folded into `input`, once again as the flat cache fields
+    // `calculateCost` prices separately. `noCache` is the disjoint figure
+    // `calculateCost` expects; fall back to the inclusive total only when a
+    // provider hasn't populated `noCache` (i.e. it never reports cache usage).
+    inputTokens +=
+      typeof inShaped?.noCache === "number"
+        ? inShaped.noCache
+        : readTotal(usage?.inputTokens);
     cacheReadTokens += inShaped?.cacheRead ?? 0;
     cacheWriteTokens += inShaped?.cacheWrite ?? 0;
 
