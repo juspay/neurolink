@@ -271,6 +271,44 @@ function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
   return CODEX_REASONING_EFFORTS.some((effort) => effort === value);
 }
 
+function kebabToCamelRoutingKey(kebabKey: string): string {
+  return kebabKey.replace(/-([a-z])/g, (_match, letter: string) =>
+    letter.toUpperCase(),
+  );
+}
+
+/**
+ * Read one of the eight routing keys that predate #1787's five newer keys,
+ * accepting either spelling and treating a `null` value under either
+ * spelling as "unset" so it falls back to the caller's default instead of
+ * failing validation.
+ *
+ * `??` already treats a `null` kebab value the same as an absent one and
+ * falls through to the camel spelling — that precedence must not change (a
+ * `null` kebab key must not mask a non-null camel value) — so the only gap
+ * is a combined value that still resolves to `null` (camel-only `null`, or
+ * both spellings `null`): that case is mapped to `undefined` here so every
+ * existing `!== undefined` guard and default keeps working unchanged.
+ *
+ * `wasNull` is true exactly when the resolved value became `undefined`
+ * *because* one of the spellings was explicitly `null` — never merely
+ * because both were absent — so callers can warn once per null key without
+ * warning on ordinary omission.
+ */
+function readLegacyRoutingKey(
+  routing: Record<string, unknown>,
+  kebabKey: string,
+): { value: unknown; wasNull: boolean } {
+  const camelKey = kebabToCamelRoutingKey(kebabKey);
+  const rawKebab = routing[kebabKey];
+  const rawCamel = routing[camelKey];
+  const combined = rawKebab ?? rawCamel;
+  const value = combined === null ? undefined : combined;
+  const wasNull =
+    value === undefined && (rawKebab === null || rawCamel === null);
+  return { value, wasNull };
+}
+
 /**
  * Validate the shape of a parsed proxy config.
  * Returns an array of human-readable error strings (empty = valid).
@@ -305,7 +343,7 @@ export function validateProxyConfig(config: unknown): string[] {
 
   if (hasRouting) {
     const routing = cfg.routing as Record<string, unknown>;
-    const rawFallback = routing["fallback-chain"] ?? routing.fallbackChain;
+    const rawFallback = readLegacyRoutingKey(routing, "fallback-chain").value;
     if (Array.isArray(rawFallback)) {
       rawFallback.forEach((entry: unknown, index: number) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -330,8 +368,10 @@ export function validateProxyConfig(config: unknown): string[] {
         }
       });
     }
-    const rawAccountAllowlist =
-      routing["account-allowlist"] ?? routing.accountAllowlist;
+    const rawAccountAllowlist = readLegacyRoutingKey(
+      routing,
+      "account-allowlist",
+    ).value;
     if (rawAccountAllowlist !== undefined) {
       if (!Array.isArray(rawAccountAllowlist)) {
         errors.push(
@@ -348,7 +388,10 @@ export function validateProxyConfig(config: unknown): string[] {
       }
     }
 
-    const rawQuotaRouting = routing["quota-routing"] ?? routing.quotaRouting;
+    const rawQuotaRouting = readLegacyRoutingKey(
+      routing,
+      "quota-routing",
+    ).value;
     const normalizedQuotaRouting =
       typeof rawQuotaRouting === "string"
         ? rawQuotaRouting.trim().toLowerCase()
@@ -365,7 +408,7 @@ export function validateProxyConfig(config: unknown): string[] {
     // Without this a typo (`use-overage: nevr`) loads cleanly and silently
     // falls back to "auto" — the operator asked to block paid extra usage and
     // gets provider-driven overage instead.
-    const rawUseOverage = routing["use-overage"] ?? routing.useOverage;
+    const rawUseOverage = readLegacyRoutingKey(routing, "use-overage").value;
     if (
       rawUseOverage !== undefined &&
       !["auto", "always", "never"].includes(
@@ -377,7 +420,10 @@ export function validateProxyConfig(config: unknown): string[] {
       errors.push("routing.use-overage must be auto, always, or never");
     }
 
-    const rawAutoFallback = routing["auto-fallback"] ?? routing.autoFallback;
+    const rawAutoFallback = readLegacyRoutingKey(
+      routing,
+      "auto-fallback",
+    ).value;
     const normalizedAutoFallback =
       typeof rawAutoFallback === "string"
         ? rawAutoFallback.trim().toLowerCase()
@@ -391,8 +437,10 @@ export function validateProxyConfig(config: unknown): string[] {
       errors.push("routing.auto-fallback must be a boolean");
     }
 
-    const rawMaxInflight =
-      routing["max-inflight-per-account"] ?? routing.maxInflightPerAccount;
+    const rawMaxInflight = readLegacyRoutingKey(
+      routing,
+      "max-inflight-per-account",
+    ).value;
     if (
       rawMaxInflight !== undefined &&
       (typeof rawMaxInflight !== "number" ||
@@ -405,8 +453,10 @@ export function validateProxyConfig(config: unknown): string[] {
       );
     }
 
-    const rawSessionSoftLimit =
-      routing["session-soft-limit"] ?? routing.sessionSoftLimit;
+    const rawSessionSoftLimit = readLegacyRoutingKey(
+      routing,
+      "session-soft-limit",
+    ).value;
     if (rawSessionSoftLimit !== undefined) {
       const sessionSoftLimit = Number(rawSessionSoftLimit);
       if (
@@ -418,8 +468,10 @@ export function validateProxyConfig(config: unknown): string[] {
       }
     }
 
-    const rawSessionResetToleranceMs =
-      routing["session-reset-tolerance-ms"] ?? routing.sessionResetToleranceMs;
+    const rawSessionResetToleranceMs = readLegacyRoutingKey(
+      routing,
+      "session-reset-tolerance-ms",
+    ).value;
     if (rawSessionResetToleranceMs !== undefined) {
       const sessionResetToleranceMs = Number(rawSessionResetToleranceMs);
       if (
@@ -576,9 +628,13 @@ function parseRoutingConfig(
   }
 
   // Fallback chain (accept kebab-case or camelCase)
-  const rawFallback = (raw["fallback-chain"] ?? raw.fallbackChain) as
-    | unknown[]
-    | undefined;
+  const fallbackChainRead = readLegacyRoutingKey(raw, "fallback-chain");
+  if (fallbackChainRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.fallback-chain is null; using the default",
+    );
+  }
+  const rawFallback = fallbackChainRead.value as unknown[] | undefined;
   if (Array.isArray(rawFallback)) {
     result.fallbackChain = rawFallback
       .filter(
@@ -616,7 +672,13 @@ function parseRoutingConfig(
     result.passthroughModels = rawPassthrough.map(String);
   }
 
-  const rawQuotaRouting = raw["quota-routing"] ?? raw.quotaRouting;
+  const quotaRoutingRead = readLegacyRoutingKey(raw, "quota-routing");
+  if (quotaRoutingRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.quota-routing is null; using the default",
+    );
+  }
+  const rawQuotaRouting = quotaRoutingRead.value;
   if (rawQuotaRouting !== undefined) {
     if (typeof rawQuotaRouting === "boolean") {
       result.quotaRouting = rawQuotaRouting;
@@ -632,7 +694,13 @@ function parseRoutingConfig(
     }
   }
 
-  const rawUseOverage = raw["use-overage"] ?? raw.useOverage;
+  const useOverageRead = readLegacyRoutingKey(raw, "use-overage");
+  if (useOverageRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.use-overage is null; using the default",
+    );
+  }
+  const rawUseOverage = useOverageRead.value;
   if (rawUseOverage !== undefined) {
     const normalized =
       typeof rawUseOverage === "string"
@@ -651,7 +719,13 @@ function parseRoutingConfig(
     }
   }
 
-  const rawAutoFallback = raw["auto-fallback"] ?? raw.autoFallback;
+  const autoFallbackRead = readLegacyRoutingKey(raw, "auto-fallback");
+  if (autoFallbackRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.auto-fallback is null; using the default",
+    );
+  }
+  const rawAutoFallback = autoFallbackRead.value;
   if (rawAutoFallback !== undefined) {
     if (typeof rawAutoFallback === "boolean") {
       result.autoFallback = rawAutoFallback;
@@ -667,8 +741,13 @@ function parseRoutingConfig(
     }
   }
 
-  const rawMaxInflight =
-    raw["max-inflight-per-account"] ?? raw.maxInflightPerAccount;
+  const maxInflightRead = readLegacyRoutingKey(raw, "max-inflight-per-account");
+  if (maxInflightRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.max-inflight-per-account is null; using the default",
+    );
+  }
+  const rawMaxInflight = maxInflightRead.value;
   if (rawMaxInflight !== undefined) {
     if (
       typeof rawMaxInflight === "number" &&
@@ -684,7 +763,13 @@ function parseRoutingConfig(
     }
   }
 
-  const rawSessionSoftLimit = raw["session-soft-limit"] ?? raw.sessionSoftLimit;
+  const sessionSoftLimitRead = readLegacyRoutingKey(raw, "session-soft-limit");
+  if (sessionSoftLimitRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.session-soft-limit is null; using the default",
+    );
+  }
+  const rawSessionSoftLimit = sessionSoftLimitRead.value;
   if (rawSessionSoftLimit !== undefined) {
     const sessionSoftLimit = Number(rawSessionSoftLimit);
     if (
@@ -700,8 +785,16 @@ function parseRoutingConfig(
     }
   }
 
-  const rawSessionResetToleranceMs =
-    raw["session-reset-tolerance-ms"] ?? raw.sessionResetToleranceMs;
+  const sessionResetToleranceMsRead = readLegacyRoutingKey(
+    raw,
+    "session-reset-tolerance-ms",
+  );
+  if (sessionResetToleranceMsRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.session-reset-tolerance-ms is null; using the default",
+    );
+  }
+  const rawSessionResetToleranceMs = sessionResetToleranceMsRead.value;
   if (rawSessionResetToleranceMs !== undefined) {
     const sessionResetToleranceMs = Number(rawSessionResetToleranceMs);
     if (
@@ -732,8 +825,13 @@ function parseRoutingConfig(
     }
   }
 
-  const rawAccountAllowlist = (raw["account-allowlist"] ??
-    raw.accountAllowlist) as unknown;
+  const accountAllowlistRead = readLegacyRoutingKey(raw, "account-allowlist");
+  if (accountAllowlistRead.wasNull) {
+    logger.warn(
+      "[proxy-config] routing.account-allowlist is null; using the default",
+    );
+  }
+  const rawAccountAllowlist = accountAllowlistRead.value;
   if (Array.isArray(rawAccountAllowlist)) {
     result.accountAllowlist = [
       ...new Set(rawAccountAllowlist.map((entry) => String(entry).trim())),

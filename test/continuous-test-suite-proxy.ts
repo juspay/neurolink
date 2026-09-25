@@ -8809,6 +8809,384 @@ async function testParseRoutingPrimaryViaLoad(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: legacy routing keys treat `null` as unset under either spelling
+// ============================================================================
+
+/**
+ * The eight routing keys that predate #1787's five newer policy keys. Each
+ * is read under two spellings; a `null` under either one must mean "unset"
+ * rather than fail validation. See `readLegacyRoutingKey` in
+ * src/lib/proxy/proxyConfig.ts.
+ *
+ * `expected` is the value `sample` becomes once parsed (normalization such
+ * as trimming/dedup for arrays), used by the precedence test below.
+ */
+const LEGACY_ROUTING_KEYS: Array<{
+  kebab: string;
+  camel: string;
+  sample: unknown;
+  expected: unknown;
+}> = [
+  {
+    kebab: "fallback-chain",
+    camel: "fallbackChain",
+    sample: [{ provider: "codex", model: "gpt-5" }],
+    expected: [{ provider: "codex", model: "gpt-5" }],
+  },
+  {
+    kebab: "account-allowlist",
+    camel: "accountAllowlist",
+    sample: ["user@example.com"],
+    expected: ["user@example.com"],
+  },
+  {
+    kebab: "quota-routing",
+    camel: "quotaRouting",
+    sample: true,
+    expected: true,
+  },
+  {
+    kebab: "use-overage",
+    camel: "useOverage",
+    sample: "always",
+    expected: "always",
+  },
+  {
+    kebab: "auto-fallback",
+    camel: "autoFallback",
+    sample: true,
+    expected: true,
+  },
+  {
+    kebab: "max-inflight-per-account",
+    camel: "maxInflightPerAccount",
+    sample: 5,
+    expected: 5,
+  },
+  {
+    kebab: "session-soft-limit",
+    camel: "sessionSoftLimit",
+    sample: 0.5,
+    expected: 0.5,
+  },
+  {
+    kebab: "session-reset-tolerance-ms",
+    camel: "sessionResetToleranceMs",
+    sample: 1000,
+    expected: 1000,
+  },
+];
+
+/** Writes `routing` under a fresh tmp config file and returns the parsed
+ *  routing object via the always-exported `loadProxyConfig`, mirroring
+ *  `testParseRoutingPrimaryViaLoad`'s fallback pattern above. */
+async function loadRoutingFromConfig(
+  routing: Record<string, unknown>,
+): Promise<Record<string, unknown> | undefined> {
+  const { loadProxyConfig } = await import("../src/lib/proxy/proxyConfig.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-legacy-null-"));
+  try {
+    const configPath = path.join(tmpDir, "config.json");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ accounts: { anthropic: [] }, routing }),
+      "utf-8",
+    );
+    const cfg = (await loadProxyConfig(configPath, {
+      resolveEnv: false,
+    })) as { routing?: Record<string, unknown> };
+    return cfg.routing;
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * For each of the eight legacy routing keys: a `null` under either spelling
+ * must not fail validation, and the parsed routing config must hold the
+ * key's default (the field stays unset) rather than a literal `null`.
+ *
+ * RED on `release`: for seven of the eight keys, a camelCase-only `null`
+ * makes `validateProxyConfig` report an error (so `loadProxyConfig` throws
+ * and the whole config is rejected) because `??` only treats `null` as
+ * "fall through" when it is the left operand. `fallback-chain` happens not
+ * to reject on `release` (its validator only inspects array entries, and
+ * `Array.isArray(null)` is false), so its two assertions here already pass
+ * pre-fix — the warning test below covers it instead.
+ */
+async function testLegacyRoutingNullKeysHoldDefault(): Promise<boolean | null> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+
+  for (const { kebab, camel } of LEGACY_ROUTING_KEYS) {
+    for (const spelling of [kebab, camel]) {
+      const errors = validateProxyConfig({ routing: { [spelling]: null } });
+      if (errors.length !== 0) {
+        log(
+          `Legacy routing null: routing.${spelling}=null reported validation errors: ${errors.join("; ")}`,
+          "red",
+        );
+        return false;
+      }
+
+      const routing = await loadRoutingFromConfig({ [spelling]: null });
+      if (routing?.[camel] !== undefined) {
+        log(
+          `Legacy routing null: routing.${spelling}=null did not hold the default (got ${JSON.stringify(routing?.[camel])})`,
+          "red",
+        );
+        return false;
+      }
+    }
+  }
+
+  log(
+    `Legacy routing null: ${LEGACY_ROUTING_KEYS.length} keys x 2 spellings hold their default`,
+    "green",
+  );
+  return true;
+}
+
+/**
+ * A `null` kebab value must not mask a non-null camel value: `??` already
+ * falls through from a `null` left operand, and the fix must preserve that
+ * precedence exactly. (This does not regress on `release` — it guards
+ * against the fix changing behavior it must not touch.)
+ */
+async function testLegacyRoutingKebabNullFallsThroughToCamel(): Promise<
+  boolean | null
+> {
+  for (const { kebab, camel, sample, expected } of LEGACY_ROUTING_KEYS) {
+    const routing = await loadRoutingFromConfig({
+      [kebab]: null,
+      [camel]: sample,
+    });
+    const actual = routing?.[camel];
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      log(
+        `Legacy routing precedence: ${kebab}=null, ${camel}=sample — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+        "red",
+      );
+      return false;
+    }
+  }
+
+  log(
+    `Legacy routing precedence: ${LEGACY_ROUTING_KEYS.length} keys keep the non-null camel value when kebab is null`,
+    "green",
+  );
+  return true;
+}
+
+/**
+ * Two keys, each given genuinely DIFFERENT non-null valid values under the
+ * two spellings, so a reversed precedence (camel winning over kebab) cannot
+ * hide behind both spellings agreeing on the same sample value the way
+ * every other legacy-routing case above does. `??`'s left-to-right
+ * precedence is unchanged by the null fix, but nothing above pins it.
+ */
+const LEGACY_ROUTING_PRECEDENCE_CASES: Array<{
+  kebab: string;
+  camel: string;
+  kebabValue: unknown;
+  camelValue: unknown;
+}> = [
+  {
+    kebab: "use-overage",
+    camel: "useOverage",
+    kebabValue: "never",
+    camelValue: "always",
+  },
+  {
+    kebab: "max-inflight-per-account",
+    camel: "maxInflightPerAccount",
+    kebabValue: 3,
+    camelValue: 10,
+  },
+];
+
+async function testLegacyRoutingKebabWinsOverDifferentCamelValue(): Promise<
+  boolean | null
+> {
+  for (const {
+    kebab,
+    camel,
+    kebabValue,
+    camelValue,
+  } of LEGACY_ROUTING_PRECEDENCE_CASES) {
+    const routing = await loadRoutingFromConfig({
+      [kebab]: kebabValue,
+      [camel]: camelValue,
+    });
+    const actual = routing?.[camel];
+    if (JSON.stringify(actual) !== JSON.stringify(kebabValue)) {
+      log(
+        `Legacy routing precedence: ${kebab}=${JSON.stringify(kebabValue)}, ${camel}=${JSON.stringify(camelValue)} — expected the non-null kebab value to win, got ${JSON.stringify(actual)}`,
+        "red",
+      );
+      return false;
+    }
+  }
+
+  log(
+    `Legacy routing precedence: ${LEGACY_ROUTING_PRECEDENCE_CASES.length} keys keep the non-null kebab value over a different non-null camel value`,
+    "green",
+  );
+  return true;
+}
+
+/**
+ * Exactly one warning per null key per load, logged only from the parse
+ * path (never from validate). Sets all eight keys to `null` in a single
+ * config, alternating which spelling carries the `null`, and loads it once.
+ *
+ * RED on `release`: no warning exists yet for any of the eight keys, and for
+ * the seven keys landing on their camelCase spelling here, the load throws
+ * before any warning could be captured — both are legitimate failures of
+ * this assertion pre-fix.
+ */
+async function testLegacyRoutingNullKeyLogsWarning(): Promise<boolean | null> {
+  const { logger } = await import("../src/lib/utils/logger.js");
+  const originalWarn = logger.warn;
+  const capturedWarnings: string[] = [];
+  logger.warn = (...args: unknown[]) => {
+    capturedWarnings.push(
+      args
+        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+        .join(" "),
+    );
+  };
+
+  try {
+    const routingInput: Record<string, unknown> = {};
+    LEGACY_ROUTING_KEYS.forEach(({ kebab, camel }, index) => {
+      // Alternate spellings so both are exercised within the same load.
+      routingInput[index % 2 === 0 ? kebab : camel] = null;
+    });
+
+    await loadRoutingFromConfig(routingInput);
+
+    for (const { kebab } of LEGACY_ROUTING_KEYS) {
+      const matches = capturedWarnings.filter((w) =>
+        w.includes(`routing.${kebab} is null; using the default`),
+      );
+      if (matches.length !== 1) {
+        log(
+          `Legacy routing warning: expected exactly 1 warning for ${kebab}, got ${matches.length}`,
+          "red",
+        );
+        return false;
+      }
+    }
+
+    log(
+      `Legacy routing warning: ${LEGACY_ROUTING_KEYS.length} keys each warned exactly once`,
+      "green",
+    );
+    return true;
+  } finally {
+    logger.warn = originalWarn;
+  }
+}
+
+/**
+ * Both spellings of the same key set to `null` must still log exactly one
+ * warning, not two — the warning is per key, not per null-valued spelling
+ * encountered. Runs each key in its own load (rather than combining all
+ * eight into one config) so a key's count can't be inflated by another
+ * key's warning matching the same substring.
+ */
+async function testLegacyRoutingBothSpellingsNullWarnsOnce(): Promise<
+  boolean | null
+> {
+  const { logger } = await import("../src/lib/utils/logger.js");
+  const originalWarn = logger.warn;
+  let capturedWarnings: string[] = [];
+  logger.warn = (...args: unknown[]) => {
+    capturedWarnings.push(
+      args
+        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+        .join(" "),
+    );
+  };
+
+  try {
+    for (const { kebab, camel } of LEGACY_ROUTING_KEYS) {
+      capturedWarnings = [];
+      await loadRoutingFromConfig({ [kebab]: null, [camel]: null });
+      const matches = capturedWarnings.filter((w) =>
+        w.includes(`routing.${kebab} is null; using the default`),
+      );
+      if (matches.length !== 1) {
+        log(
+          `Legacy routing warning: expected exactly 1 warning for ${kebab}=null, ${camel}=null, got ${matches.length}`,
+          "red",
+        );
+        return false;
+      }
+    }
+
+    log(
+      `Legacy routing warning: ${LEGACY_ROUTING_KEYS.length} keys warn exactly once when both spellings are null`,
+      "green",
+    );
+    return true;
+  } finally {
+    logger.warn = originalWarn;
+  }
+}
+
+/**
+ * A `null` kebab value with a non-null camel value must log NO warning: the
+ * key did resolve to a real value (the camel one), so it was never "unset"
+ * and there is nothing to warn about — only a null-caused fallback to the
+ * default should warn.
+ */
+async function testLegacyRoutingNullKebabWithCamelValueLogsNoWarning(): Promise<
+  boolean | null
+> {
+  const { logger } = await import("../src/lib/utils/logger.js");
+  const originalWarn = logger.warn;
+  let capturedWarnings: string[] = [];
+  logger.warn = (...args: unknown[]) => {
+    capturedWarnings.push(
+      args
+        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+        .join(" "),
+    );
+  };
+
+  try {
+    for (const { kebab, camel, sample } of LEGACY_ROUTING_KEYS) {
+      capturedWarnings = [];
+      await loadRoutingFromConfig({ [kebab]: null, [camel]: sample });
+      const matches = capturedWarnings.filter((w) =>
+        w.includes(`routing.${kebab} is null; using the default`),
+      );
+      if (matches.length !== 0) {
+        log(
+          `Legacy routing warning: expected no warning for ${kebab}=null, ${camel}=sample, got ${matches.length}`,
+          "red",
+        );
+        return false;
+      }
+    }
+
+    log(
+      `Legacy routing warning: ${LEGACY_ROUTING_KEYS.length} keys log no warning when kebab is null but camel holds a value`,
+      "green",
+    );
+    return true;
+  } finally {
+    logger.warn = originalWarn;
+  }
+}
+
+// ============================================================================
 // Tests: /status stats.primaryAccount additive guarantee
 // ============================================================================
 
@@ -9494,6 +9872,36 @@ const tests: TestFunction[] = [
     name: "Primary: parseRoutingConfig.primaryAccount",
     fn: testParseRoutingPrimaryAccount,
     category: "proxy-primary",
+  },
+  {
+    name: "Legacy routing: null under either spelling holds the default",
+    fn: testLegacyRoutingNullKeysHoldDefault,
+    category: "proxy-config",
+  },
+  {
+    name: "Legacy routing: null kebab falls through to non-null camel",
+    fn: testLegacyRoutingKebabNullFallsThroughToCamel,
+    category: "proxy-config",
+  },
+  {
+    name: "Legacy routing: non-null kebab wins over a different non-null camel",
+    fn: testLegacyRoutingKebabWinsOverDifferentCamelValue,
+    category: "proxy-config",
+  },
+  {
+    name: "Legacy routing: null key logs exactly one warning",
+    fn: testLegacyRoutingNullKeyLogsWarning,
+    category: "proxy-config",
+  },
+  {
+    name: "Legacy routing: both spellings null still warns exactly once",
+    fn: testLegacyRoutingBothSpellingsNullWarnsOnce,
+    category: "proxy-config",
+  },
+  {
+    name: "Legacy routing: null kebab with non-null camel logs no warning",
+    fn: testLegacyRoutingNullKebabWithCamelValueLogsNoWarning,
+    category: "proxy-config",
   },
   {
     name: "Primary: /status fallback (no primary configured)",
