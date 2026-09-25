@@ -38,6 +38,27 @@
  * because the assertions are about the shape of the joined payload, not about
  * transport.
  *
+ * The routing-policy cases (account-ranking, prefer-primary, session affinity,
+ * spill-inflight) take the same exception. They import `accountRanking.ts` and
+ * `sessionAffinity.ts` directly (both pure, no I/O) and `validateProxyConfig`/
+ * `parseRoutingConfig` from `proxyConfig`, and reach the route-local glue
+ * through these `__testHooks`: `setAccountRuntimeState` and
+ * `resetAllRuntimeState` to stage and clear per-account quota and cooldown
+ * state, `selectClaudeProxyAccountOrderForTests`,
+ * `setForceSpillThrowForTests` and `setForceAffinityLookupThrowForTests` for
+ * precedence and the failure mode,
+ * `orderAccountsByQuota`, `buildRoutingDecision` and
+ * `buildQuotaRoutingDecision` for the reference order and decision record the
+ * policy results are compared against, `getAccountInflight`,
+ * `tryAcquireAccountAdmission` and `hasAccountAdmissionState` for
+ * admission-lease accounting, `handleAnthropicStreamingSuccessResponse` for
+ * the served discriminant that decides a binding, and
+ * `extractSnapshotBodySessionIdForTests` for the session id.
+ * Determinism buys exhaustive coverage of every comparator tie-break and
+ * precedence branch, which a live account pool cannot be staged to hit
+ * reliably. The policy's `/status` report and its hot reload are driven
+ * through the built CLI instead.
+ *
  * Tests the proxy server end-to-end:
  * - Starts the proxy
  * - Sends real requests through it
@@ -112,6 +133,7 @@ import {
 
 import type {
   AccountQuota,
+  ProxyAccountRoutingDecision,
   ProxyAccountRoutingReason,
   ProxyAccountSortMetrics,
   ProxyPassthroughAccount,
@@ -119,8 +141,10 @@ import type {
 } from "../src/lib/types/index.js";
 import {
   compareExpiryFirst,
+  compareHeadroomFirst,
   rankAccounts,
 } from "../src/lib/proxy/accountRanking.js";
+import { sessionAffinity } from "../src/lib/proxy/sessionAffinity.js";
 
 const { recordTest, runSuite } = defineSuite("Claude Proxy");
 
@@ -7502,7 +7526,7 @@ async function testAccountRankingMatchesRouteWrapper(): Promise<boolean> {
     "anthropic:home",
     sessionSoftLimit,
     sessionResetToleranceMs,
-    requestedModel,
+    { requestedModel },
   );
   const { metricsByKey: wrapperMetricsByKey } =
     __testHooks.orderAccountsByQuotaWithMetrics(
@@ -7511,7 +7535,7 @@ async function testAccountRankingMatchesRouteWrapper(): Promise<boolean> {
       "anthropic:home",
       sessionSoftLimit,
       sessionResetToleranceMs,
-      requestedModel,
+      { requestedModel },
     );
   __testHooks.resetAllRuntimeState();
 
@@ -7665,6 +7689,893 @@ async function testRankAccountsReasonNamesDecidingRung(): Promise<boolean> {
     }
   }
   return ok;
+}
+
+// ============================================================================
+// Tests: accountRanking.ts — compareHeadroomFirst, precedence, spill
+// ============================================================================
+
+async function testCompareHeadroomFirstPrefersMoreHeadroom(): Promise<boolean> {
+  const lowHeadroom: ProxyPassthroughAccount = {
+    key: "anthropic:low",
+    label: "low",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const highHeadroom: ProxyPassthroughAccount = {
+    key: "anthropic:high",
+    label: "high",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [lowHeadroom.key, makeSortMetrics({ sessionUsed: 0.9, weeklyUsed: 0.9 })],
+    [highHeadroom.key, makeSortMetrics({ sessionUsed: 0.1, weeklyUsed: 0.1 })],
+  ]);
+  const [sign, reason] = compareHeadroomFirst(
+    lowHeadroom,
+    highHeadroom,
+    metricsByKey,
+    undefined,
+  );
+  if (sign <= 0 || reason !== "headroom") {
+    log(
+      `compareHeadroomFirst headroom branch wrong — sign=${sign} reason=${reason}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testCompareHeadroomFirstUnknownHeadroomSortsLast(): Promise<boolean> {
+  const known: ProxyPassthroughAccount = {
+    key: "anthropic:known",
+    label: "known",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const unknown: ProxyPassthroughAccount = {
+    key: "anthropic:unknown",
+    label: "unknown",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [known.key, makeSortMetrics({ sessionUsed: 0.5, weeklyUsed: 0.5 })],
+    [unknown.key, makeSortMetrics({ sessionUsed: null, weeklyUsed: null })],
+  ]);
+  const [sign, reason] = compareHeadroomFirst(
+    unknown,
+    known,
+    metricsByKey,
+    undefined,
+  );
+  if (sign <= 0 || reason !== "headroom") {
+    log(
+      "expected the unknown-headroom account to sort after the known one",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testApplyAffinityTakesPrecedenceOverPreferPrimary(): Promise<boolean> {
+  const { applyAffinityAndPrimary } =
+    await import("../src/lib/proxy/accountRanking.js");
+  const bound: ProxyPassthroughAccount = {
+    key: "anthropic:bound",
+    label: "bound",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const primary: ProxyPassthroughAccount = {
+    key: "anthropic:primary",
+    label: "primary",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [bound.key, makeSortMetrics({})],
+    [primary.key, makeSortMetrics({})],
+  ]);
+  const result = applyAffinityAndPrimary({
+    orderedAccounts: [primary, bound],
+    metricsByKey,
+    affinityKey: bound.key,
+    primaryKey: primary.key,
+    preferPrimary: true,
+  });
+  if (
+    result.reason !== "session_affinity" ||
+    result.orderedAccounts[0]?.key !== bound.key
+  ) {
+    log("expected session affinity to win over prefer-primary", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testApplyAffinitySkipsUnusableBoundAccount(): Promise<boolean> {
+  const { applyAffinityAndPrimary } =
+    await import("../src/lib/proxy/accountRanking.js");
+  const bound: ProxyPassthroughAccount = {
+    key: "anthropic:bound",
+    label: "bound",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const other: ProxyPassthroughAccount = {
+    key: "anthropic:other",
+    label: "other",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [bound.key, makeSortMetrics({ usable: false })],
+    [other.key, makeSortMetrics({})],
+  ]);
+  const result = applyAffinityAndPrimary({
+    orderedAccounts: [bound, other],
+    metricsByKey,
+    affinityKey: bound.key,
+  });
+  if (result.reason !== null || result.affinitySkippedReason !== "unusable") {
+    log("expected affinity to be skipped as unusable", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testRankAccountsHeadroomFirstWithAffinity(): Promise<boolean> {
+  const bound: ProxyPassthroughAccount = {
+    key: "anthropic:bound",
+    label: "bound",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const highHeadroom: ProxyPassthroughAccount = {
+    key: "anthropic:high",
+    label: "high",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [bound.key, makeSortMetrics({ sessionUsed: 0.8, weeklyUsed: 0.8 })],
+    [highHeadroom.key, makeSortMetrics({ sessionUsed: 0.1, weeklyUsed: 0.1 })],
+  ]);
+  const result = rankAccounts({
+    accounts: [highHeadroom, bound],
+    metricsByKey,
+    primaryKey: undefined,
+    ranking: "headroom-first",
+    affinityKey: bound.key,
+  });
+  if (
+    result.reason !== "session_affinity" ||
+    result.orderedAccounts[0]?.key !== bound.key
+  ) {
+    log("expected affinity to override headroom-first ranking", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testRankAccountsDefaultsToExpiryFirstWhenRankingOmitted(): Promise<boolean> {
+  const accounts = buildRankingFixtureAccounts();
+  const metricsByKey = buildRankingFixtureMetrics(Date.now(), 5 * 60 * 1000);
+  const withRanking = rankAccounts({
+    accounts,
+    metricsByKey,
+    primaryKey: "anthropic:home",
+    ranking: "expiry-first",
+  });
+  const withoutRanking = rankAccounts({
+    accounts,
+    metricsByKey,
+    primaryKey: "anthropic:home",
+  });
+  const same =
+    withRanking.orderedAccounts.map((a) => a.key).join(",") ===
+    withoutRanking.orderedAccounts.map((a) => a.key).join(",");
+  if (!same) {
+    log("expected omitted ranking to default to expiry-first", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testApplySpillMovesAccountUnderThreshold(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const first: ProxyPassthroughAccount = {
+    key: "anthropic:first",
+    label: "first",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const second: ProxyPassthroughAccount = {
+    key: "anthropic:second",
+    label: "second",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const inflightByKey = new Map([
+    [first.key, 25],
+    [second.key, 3],
+  ]);
+  const metricsByKey = new Map([
+    [first.key, makeSortMetrics({ usable: true })],
+    [second.key, makeSortMetrics({ usable: true })],
+  ]);
+  const result = applySpill({
+    orderedAccounts: [first, second],
+    inflightByKey,
+    metricsByKey,
+    spillInflight: 20,
+  });
+  if (
+    result.orderedAccounts[0]?.key !== second.key ||
+    result.spill?.from !== first.key ||
+    result.spill?.to !== second.key ||
+    result.spill?.inflight !== 25
+  ) {
+    log(
+      "expected spill to move the under-threshold account to the front",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testApplySpillNoOpBelowThreshold(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const first: ProxyPassthroughAccount = {
+    key: "anthropic:first",
+    label: "first",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const second: ProxyPassthroughAccount = {
+    key: "anthropic:second",
+    label: "second",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const inflightByKey = new Map([
+    [first.key, 5],
+    [second.key, 0],
+  ]);
+  const metricsByKey = new Map([
+    [first.key, makeSortMetrics({ usable: true })],
+    [second.key, makeSortMetrics({ usable: true })],
+  ]);
+  const result = applySpill({
+    orderedAccounts: [first, second],
+    inflightByKey,
+    metricsByKey,
+    spillInflight: 20,
+  });
+  if (result.spill !== null || result.orderedAccounts[0]?.key !== first.key) {
+    log("expected no spill when the first account is under threshold", "red");
+    return false;
+  }
+  return true;
+}
+
+// Spill must skip an unusable candidate and keep looking for a usable
+// one below the threshold, rather than moving onto whichever account is
+// first under the threshold regardless of usability.
+async function testApplySpillSkipsUnusableAccountForLaterUsable(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const first: ProxyPassthroughAccount = {
+    key: "anthropic:first",
+    label: "first",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const unusable: ProxyPassthroughAccount = {
+    key: "anthropic:unusable",
+    label: "unusable",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const usable: ProxyPassthroughAccount = {
+    key: "anthropic:usable",
+    label: "usable",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const inflightByKey = new Map([
+    [first.key, 25],
+    [unusable.key, 0],
+    [usable.key, 5],
+  ]);
+  const metricsByKey = new Map([
+    [first.key, makeSortMetrics({ usable: true })],
+    [unusable.key, makeSortMetrics({ usable: false })],
+    [usable.key, makeSortMetrics({ usable: true })],
+  ]);
+  const result = applySpill({
+    orderedAccounts: [first, unusable, usable],
+    inflightByKey,
+    metricsByKey,
+    spillInflight: 20,
+  });
+  if (
+    result.orderedAccounts[0]?.key !== usable.key ||
+    result.orderedAccounts[1]?.key !== first.key ||
+    result.orderedAccounts[2]?.key !== unusable.key ||
+    result.spill?.from !== first.key ||
+    result.spill?.to !== usable.key ||
+    result.spill?.inflight !== 25
+  ) {
+    log(
+      "expected spill to skip the unusable account and land on the later usable one",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// When every account below the first choice is unusable, spill must be
+// a no-op — there is no usable target to move onto.
+async function testApplySpillNoSpillWhenAllLaterAccountsUnusable(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const first: ProxyPassthroughAccount = {
+    key: "anthropic:first",
+    label: "first",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const unusable: ProxyPassthroughAccount = {
+    key: "anthropic:unusable",
+    label: "unusable",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const inflightByKey = new Map([
+    [first.key, 25],
+    [unusable.key, 0],
+  ]);
+  const metricsByKey = new Map([
+    [first.key, makeSortMetrics({ usable: true })],
+    [unusable.key, makeSortMetrics({ usable: false })],
+  ]);
+  const result = applySpill({
+    orderedAccounts: [first, unusable],
+    inflightByKey,
+    metricsByKey,
+    spillInflight: 20,
+  });
+  if (
+    result.spill !== null ||
+    result.orderedAccounts[0]?.key !== first.key ||
+    result.orderedAccounts[1]?.key !== unusable.key
+  ) {
+    log("expected no spill when every later account is unusable", "red");
+    return false;
+  }
+  return true;
+}
+
+// `usable` and `saturated` are independent: a session-saturated account can
+// still be usable, and quota routing must not have traffic spilled onto it.
+// The shape is first at the threshold, then a busy account, then a usable but
+// saturated one with nothing in flight.
+function buildSaturatedSpillFixture(): {
+  first: ProxyPassthroughAccount;
+  busy: ProxyPassthroughAccount;
+  saturated: ProxyPassthroughAccount;
+  inflightByKey: Map<string, number>;
+  metricsByKey: Map<string, ProxyAccountSortMetrics>;
+} {
+  const first = {
+    key: "anthropic:first",
+    label: "first",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const busy = {
+    key: "anthropic:busy",
+    label: "busy",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const saturated = {
+    key: "anthropic:saturated",
+    label: "saturated",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  return {
+    first,
+    busy,
+    saturated,
+    inflightByKey: new Map([
+      [first.key, 5],
+      [busy.key, 5],
+      [saturated.key, 0],
+    ]),
+    metricsByKey: new Map([
+      [first.key, makeSortMetrics({})],
+      [busy.key, makeSortMetrics({})],
+      [
+        saturated.key,
+        makeSortMetrics({
+          usable: true,
+          saturated: true,
+          saturationKind: "soft",
+          sessionUsed: 0.98,
+        }),
+      ],
+    ]),
+  };
+}
+
+async function testApplySpillSkipsSaturatedAccountForLaterEligible(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const { first, busy, saturated, inflightByKey, metricsByKey } =
+    buildSaturatedSpillFixture();
+  const eligible = {
+    key: "anthropic:eligible",
+    label: "eligible",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const result = applySpill({
+    orderedAccounts: [first, busy, saturated, eligible],
+    inflightByKey: new Map([...inflightByKey, [eligible.key, 1]]),
+    metricsByKey: new Map([
+      ...metricsByKey,
+      [eligible.key, makeSortMetrics({})],
+    ]),
+    spillInflight: 5,
+  });
+  if (
+    result.spill?.to !== eligible.key ||
+    result.spill?.from !== first.key ||
+    result.orderedAccounts.map((account) => account.key).join(",") !==
+      [eligible.key, first.key, busy.key, saturated.key].join(",")
+  ) {
+    log(
+      "expected spill to skip the saturated account and land on the later eligible one",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testApplySpillNoSpillOntoSaturatedAccount(): Promise<boolean> {
+  const { applySpill } = await import("../src/lib/proxy/accountRanking.js");
+  const { first, busy, saturated, inflightByKey, metricsByKey } =
+    buildSaturatedSpillFixture();
+  const result = applySpill({
+    orderedAccounts: [first, busy, saturated],
+    inflightByKey,
+    metricsByKey,
+    spillInflight: 5,
+  });
+  if (result.spill !== null || result.orderedAccounts[0]?.key !== first.key) {
+    log(
+      "expected no spill when the only account under the threshold is saturated",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// When affinity applies and prefer-primary is also on, and the
+// configured primary is itself eligible and distinct from the bound
+// account, the primary goes second — [bound, primary, ...rest] — not just
+// [bound, ...rest] with the primary left wherever the base order put it.
+async function testApplyAffinityAndPreferPrimaryOrdersPrimarySecond(): Promise<boolean> {
+  const { applyAffinityAndPrimary } =
+    await import("../src/lib/proxy/accountRanking.js");
+  const bound: ProxyPassthroughAccount = {
+    key: "anthropic:bound",
+    label: "bound",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const primary: ProxyPassthroughAccount = {
+    key: "anthropic:primary",
+    label: "primary",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const other: ProxyPassthroughAccount = {
+    key: "anthropic:other",
+    label: "other",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const metricsByKey = new Map([
+    [bound.key, makeSortMetrics({})],
+    [primary.key, makeSortMetrics({})],
+    [other.key, makeSortMetrics({})],
+  ]);
+  const result = applyAffinityAndPrimary({
+    orderedAccounts: [other, primary, bound],
+    metricsByKey,
+    affinityKey: bound.key,
+    primaryKey: primary.key,
+    preferPrimary: true,
+  });
+  const orderedKeys = result.orderedAccounts.map((a) => a.key);
+  if (
+    result.reason !== "session_affinity" ||
+    result.affinitySkippedReason !== null ||
+    orderedKeys.join(",") !== [bound.key, primary.key, other.key].join(",")
+  ) {
+    log(
+      "expected bound then primary then the rest when affinity and prefer-primary are both active",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testRankAccountsIsDeterministicAndTransitive(): Promise<boolean> {
+  // Fixed seed (mulberry32) so failures reproduce without quoting inputs.
+  let seed = 0x2f6e2b1;
+  const rand = (): number => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (const ranking of ["expiry-first", "headroom-first"] as const) {
+    for (let trial = 0; trial < 20; trial += 1) {
+      const accounts: ProxyPassthroughAccount[] = Array.from(
+        { length: 6 },
+        (_, i) => ({
+          key: `anthropic:acct-${i}`,
+          label: `acct-${i}`,
+          type: "oauth",
+        }),
+      ) as ProxyPassthroughAccount[];
+      const metricsByKey = new Map(
+        accounts.map((a, i) => [
+          a.key,
+          makeSortMetrics({
+            usable: rand() > 0.1,
+            saturated: rand() > 0.7,
+            scopedSaturated: rand() > 0.85,
+            sessionUsed: rand(),
+            weeklyUsed: rand(),
+            weeklyReset: Math.floor(rand() * 1_000_000),
+            // Every account gets a distinct, non-zero coolingUntil (index-
+            // bucketed so no two accounts can ever collide) rather than
+            // "0 most of the time": compareExpiryFirst/compareHeadroomFirst
+            // both early-return a tie when two unusable accounts share
+            // coolingUntil 0, and a stable sort then preserves input order —
+            // which the shuffle below is specifically designed to detect as
+            // a (false) transitivity failure. Distinct values remove the
+            // construction-level tie without weakening the assertion.
+            coolingUntil: Math.floor(rand() * 1_000_000) + i * 1_000_001 + 1,
+          }),
+        ]),
+      );
+      const first = rankAccounts({
+        accounts,
+        metricsByKey,
+        primaryKey: undefined,
+        ranking,
+      });
+      const shuffled = [...accounts].sort(() => rand() - 0.5);
+      const second = rankAccounts({
+        accounts: shuffled,
+        metricsByKey,
+        primaryKey: undefined,
+        ranking,
+      });
+      const firstKeys = first.orderedAccounts.map((a) => a.key).join(",");
+      const secondKeys = second.orderedAccounts.map((a) => a.key).join(",");
+      if (firstKeys !== secondKeys) {
+        log(`${ranking} order depends on input order at trial ${trial}`, "red");
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * `buildQuotaRoutingDecision`'s policy argument threads through to
+ * `rankAccounts` via `orderAccountsByQuotaWithMetrics`, and the resulting
+ * `reason` overrides `buildRoutingDecision`'s own comparator-derived
+ * `selectionReason` (rather than being silently discarded).
+ */
+async function testBuildQuotaRoutingDecisionUsesPolicySelectionReason(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const now = Date.now();
+  const accounts: ProxyPassthroughAccount[] = [
+    { key: "anthropic:a", label: "a", type: "oauth" },
+    { key: "anthropic:b", label: "b", type: "oauth" },
+  ] as ProxyPassthroughAccount[];
+  for (const account of accounts) {
+    __testHooks.setAccountRuntimeState(account.key, {
+      quota: makeQuota({}),
+    });
+  }
+  const decision = __testHooks.buildQuotaRoutingDecision(
+    accounts,
+    now,
+    undefined,
+    0.97,
+    5 * 60 * 1000,
+    { policy: { affinityKey: "anthropic:b" } },
+  );
+  __testHooks.resetAllRuntimeState();
+  if (decision?.selectionReason !== "session_affinity") {
+    log(
+      `expected selectionReason to be overridden by the policy reason, got ${decision?.selectionReason}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// Table-driven coverage of every comparator rung, for both rankings.
+// Each row's two metrics sets differ at exactly one rung; on failure the
+// assertion names the comparator and the rung only — sign and reason are
+// enums/numbers, never the raw metrics payload, per the "keep payloads out
+// of assertion messages" rule (a message that echoes provider-error-shaped
+// text can be misread by isExpectedProviderError() as an expected skip).
+type ComparatorRungCase = {
+  comparator: "compareExpiryFirst" | "compareHeadroomFirst";
+  rung: string;
+  metricsA: Partial<ProxyAccountSortMetrics>;
+  metricsB: Partial<ProxyAccountSortMetrics>;
+  primaryKey?: string;
+  expectedSign: "negative" | "positive" | "zero";
+  expectedReason: ProxyAccountRoutingReason;
+};
+
+function buildComparatorRungCases(): ComparatorRungCase[] {
+  return [
+    // --- shared early rungs, exercised once per comparator ---
+    {
+      comparator: "compareExpiryFirst",
+      rung: "availability",
+      metricsA: { usable: true },
+      metricsB: { usable: false, coolingUntil: 1000 },
+      expectedSign: "negative",
+      expectedReason: "availability",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "cooldown_recovery",
+      metricsA: { usable: false, coolingUntil: 1000 },
+      metricsB: { usable: false, coolingUntil: 5000 },
+      expectedSign: "negative",
+      expectedReason: "cooldown_recovery",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "quota_evidence",
+      metricsA: { quotaEvidenceRank: 0 },
+      metricsB: { quotaEvidenceRank: 2 },
+      expectedSign: "negative",
+      expectedReason: "quota_evidence",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "session_headroom",
+      metricsA: { saturated: false },
+      metricsB: { saturated: true },
+      expectedSign: "negative",
+      expectedReason: "session_headroom",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "scoped_headroom",
+      metricsA: { scopedSaturated: false },
+      metricsB: { scopedSaturated: true },
+      expectedSign: "negative",
+      expectedReason: "scoped_headroom",
+    },
+    // --- compareExpiryFirst: weekly_reset / session_reset, both swap orders ---
+    {
+      comparator: "compareExpiryFirst",
+      rung: "weekly_reset (neither saturated)",
+      metricsA: { weeklyReset: 1000 },
+      metricsB: { weeklyReset: 5000 },
+      expectedSign: "negative",
+      expectedReason: "weekly_reset",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "session_reset (neither saturated)",
+      metricsA: { weeklyReset: 5000, sessionResetBucket: 1 },
+      metricsB: { weeklyReset: 5000, sessionResetBucket: 9 },
+      expectedSign: "negative",
+      expectedReason: "session_reset",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "session_reset (both saturated)",
+      metricsA: {
+        saturated: true,
+        sessionUsed: 0.99,
+        sessionResetBucket: 1,
+        weeklyReset: 5000,
+      },
+      metricsB: {
+        saturated: true,
+        sessionUsed: 0.99,
+        sessionResetBucket: 9,
+        weeklyReset: 5000,
+      },
+      expectedSign: "negative",
+      expectedReason: "session_reset",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "weekly_reset (both saturated)",
+      metricsA: {
+        saturated: true,
+        sessionUsed: 0.99,
+        sessionResetBucket: 5,
+        weeklyReset: 1000,
+      },
+      metricsB: {
+        saturated: true,
+        sessionUsed: 0.99,
+        sessionResetBucket: 5,
+        weeklyReset: 9000,
+      },
+      expectedSign: "negative",
+      expectedReason: "weekly_reset",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "scoped_utilization",
+      metricsA: { scopedUsed: 0.5, scopedUsedForSort: 0.5 },
+      metricsB: { scopedUsed: 0.5, scopedUsedForSort: 0.9 },
+      expectedSign: "positive",
+      expectedReason: "scoped_utilization",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "weekly_utilization",
+      metricsA: { weeklyUsedForSort: 0.2 },
+      metricsB: { weeklyUsedForSort: 0.7 },
+      expectedSign: "positive",
+      expectedReason: "weekly_utilization",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "configured_primary",
+      metricsA: {},
+      metricsB: {},
+      primaryKey: "anthropic:a",
+      expectedSign: "negative",
+      expectedReason: "configured_primary",
+    },
+    {
+      comparator: "compareExpiryFirst",
+      rung: "insertion_order",
+      metricsA: {},
+      metricsB: {},
+      expectedSign: "zero",
+      expectedReason: "insertion_order",
+    },
+    // --- compareHeadroomFirst: shared early rungs again, then its own tail ---
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "availability",
+      metricsA: { usable: true },
+      metricsB: { usable: false, coolingUntil: 1000 },
+      expectedSign: "negative",
+      expectedReason: "availability",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "cooldown_recovery",
+      metricsA: { usable: false, coolingUntil: 1000 },
+      metricsB: { usable: false, coolingUntil: 5000 },
+      expectedSign: "negative",
+      expectedReason: "cooldown_recovery",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "quota_evidence",
+      metricsA: { quotaEvidenceRank: 0 },
+      metricsB: { quotaEvidenceRank: 2 },
+      expectedSign: "negative",
+      expectedReason: "quota_evidence",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "session_headroom",
+      metricsA: { saturated: false },
+      metricsB: { saturated: true },
+      expectedSign: "negative",
+      expectedReason: "session_headroom",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "scoped_headroom",
+      metricsA: { scopedSaturated: false },
+      metricsB: { scopedSaturated: true },
+      expectedSign: "negative",
+      expectedReason: "scoped_headroom",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "headroom (known vs known)",
+      metricsA: { sessionUsed: 0.2, weeklyUsed: 0.2 },
+      metricsB: { sessionUsed: 0.5, weeklyUsed: 0.5 },
+      expectedSign: "negative",
+      expectedReason: "headroom",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "headroom (known vs null)",
+      metricsA: { sessionUsed: 0.5, weeklyUsed: 0.5 },
+      metricsB: { sessionUsed: null, weeklyUsed: null },
+      expectedSign: "negative",
+      expectedReason: "headroom",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "headroom (null vs null falls through to weekly_reset)",
+      metricsA: { sessionUsed: null, weeklyUsed: null, weeklyReset: 1000 },
+      metricsB: { sessionUsed: null, weeklyUsed: null, weeklyReset: 9000 },
+      expectedSign: "negative",
+      expectedReason: "weekly_reset",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "weekly_reset",
+      metricsA: { sessionUsed: 0.3, weeklyUsed: 0.3, weeklyReset: 2000 },
+      metricsB: { sessionUsed: 0.3, weeklyUsed: 0.3, weeklyReset: 8000 },
+      expectedSign: "negative",
+      expectedReason: "weekly_reset",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "configured_primary",
+      metricsA: {},
+      metricsB: {},
+      primaryKey: "anthropic:a",
+      expectedSign: "negative",
+      expectedReason: "configured_primary",
+    },
+    {
+      comparator: "compareHeadroomFirst",
+      rung: "insertion_order",
+      metricsA: {},
+      metricsB: {},
+      expectedSign: "zero",
+      expectedReason: "insertion_order",
+    },
+  ];
+}
+
+async function testComparatorRungTableCoversEveryBranch(): Promise<boolean> {
+  const a: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const b: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const signOf = (n: number): "negative" | "positive" | "zero" =>
+    n < 0 ? "negative" : n > 0 ? "positive" : "zero";
+
+  let allOk = true;
+  for (const testCase of buildComparatorRungCases()) {
+    const metricsByKey = new Map([
+      [a.key, makeSortMetrics(testCase.metricsA)],
+      [b.key, makeSortMetrics(testCase.metricsB)],
+    ]);
+    const compare =
+      testCase.comparator === "compareExpiryFirst"
+        ? compareExpiryFirst
+        : compareHeadroomFirst;
+    const [sign, reason] = compare(a, b, metricsByKey, testCase.primaryKey);
+    const actualSign = signOf(sign);
+    if (
+      actualSign !== testCase.expectedSign ||
+      reason !== testCase.expectedReason
+    ) {
+      log(
+        `${testCase.comparator} rung=${testCase.rung} — expected sign=${testCase.expectedSign} reason=${testCase.expectedReason}, got sign=${actualSign} reason=${reason}`,
+        "red",
+      );
+      allOk = false;
+    }
+  }
+  return allOk;
 }
 
 // ============================================================================
@@ -8025,6 +8936,156 @@ async function testUnlimitedStreamLeaseReleasedOnTerminal(): Promise<boolean> {
     const ended = await runCase("end");
     const cancelled = await runCase("cancel");
     return ended && cancelled;
+  } finally {
+    __testHooks.resetAllRuntimeState();
+  }
+}
+
+// handleAnthropicStreamingSuccessResponse
+// returns two terminal 502s in the same `{ response }` shape it uses for a
+// genuine success, with no `retryNextAccount` discriminator — so a naive
+// caller cannot tell "an account served this" from "this account served
+// nothing, here is a synthesized 502". Session affinity must bind only on
+// the former. This drives the three shapes directly and asserts the new
+// `served` discriminant is set correctly on each.
+async function testStreamingSuccessResponseServedDiscriminant(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+
+  const baseArgs = {
+    ctx: { metadata: {} } as never,
+    body: {
+      model: "claude-opus-4-8",
+      messages: [],
+      max_tokens: 16,
+      stream: true,
+    },
+    accountState: {
+      consecutiveRefreshFailures: 0,
+      permanentlyDisabled: false,
+    },
+    responseHeaders: { "content-type": "text/event-stream" },
+    requestStartTime: Date.now(),
+    fetchStartMs: Date.now(),
+    attemptNumber: 1,
+    finalBodyStr: "{}",
+    logAttempt: () => undefined,
+    logProxyBody: () => undefined,
+    logFinalRequest: () => undefined,
+  };
+  const mkAccount = (label: string) => ({
+    key: `anthropic:${label}`,
+    label,
+    token: "test-token",
+    type: "oauth" as const,
+  });
+
+  try {
+    // (a) Upstream sent no body at all — a synthesized 502, not a served response.
+    const noBodyResult =
+      await __testHooks.handleAnthropicStreamingSuccessResponse({
+        ...baseArgs,
+        account: mkAccount("served-flag-no-body@example.test"),
+        response: new Response(null, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      });
+    if ("retryNextAccount" in noBodyResult) {
+      log(
+        "no-body case: expected a response/served result, got a retryable failure",
+        "red",
+      );
+      return false;
+    }
+    if (noBodyResult.served !== false) {
+      log(
+        "no-body case: expected served=false for a synthesized 502 with no upstream body",
+        "red",
+      );
+      return false;
+    }
+
+    // (b) The stream fails before its first chunk — also a synthesized terminal
+    // error, not a served response.
+    const transportErrorStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("connection reset before first chunk"));
+      },
+    });
+    const transportErrorResult =
+      await __testHooks.handleAnthropicStreamingSuccessResponse({
+        ...baseArgs,
+        account: mkAccount("served-flag-transport-error@example.test"),
+        response: new Response(transportErrorStream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      });
+    if ("retryNextAccount" in transportErrorResult) {
+      log(
+        "stream-fails-before-first-chunk case: expected a response/served result, got a retryable failure",
+        "red",
+      );
+      return false;
+    }
+    if (transportErrorResult.served !== false) {
+      log(
+        "stream-fails-before-first-chunk case: expected served=false for a terminal transport error before the first chunk",
+        "red",
+      );
+      return false;
+    }
+
+    // (c) A normal stream that completes is a genuine served response.
+    const encoder = new TextEncoder();
+    const messageStart = encoder.encode(
+      'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+    );
+    const messageStop = encoder.encode(
+      'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+    );
+    const okStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(messageStart);
+        controller.enqueue(messageStop);
+        controller.close();
+      },
+    });
+    const okResult = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ...baseArgs,
+      account: mkAccount("served-flag-ok@example.test"),
+      response: new Response(okStream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+      onStreamTerminal: () => undefined,
+    });
+    if ("retryNextAccount" in okResult) {
+      log(
+        "normal stream case: expected a response/served result, got a retryable failure",
+        "red",
+      );
+      return false;
+    }
+    if (okResult.served !== true) {
+      log(
+        "normal stream case: expected served=true for a genuine streaming success",
+        "red",
+      );
+      return false;
+    }
+    const okBody =
+      okResult.response instanceof Response ? okResult.response.body : null;
+    if (okBody) {
+      const reader = okBody.getReader();
+      while (!(await reader.read()).done) {
+        // Drain to the natural end of the stream so nothing is left dangling.
+      }
+    }
+
+    return true;
   } finally {
     __testHooks.resetAllRuntimeState();
   }
@@ -10009,6 +11070,162 @@ async function testLegacyRoutingNullKebabWithCamelValueLogsNoWarning(): Promise<
 }
 
 // ============================================================================
+// Tests: validateProxyConfig / parseRoutingConfig — the five routing policy
+// keys (account-ranking, prefer-primary, session-affinity,
+// session-affinity-idle-ttl-ms, spill-inflight)
+// ============================================================================
+
+async function testValidateProxyConfigRejectsBadAccountRanking(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const errors = validateProxyConfig({
+    routing: { "account-ranking": "fastest-first" },
+  } as unknown as Record<string, unknown>);
+  const found = errors.some((e) => e.includes("account-ranking"));
+  if (!found) {
+    log("expected a routing.account-ranking validation error", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testValidateProxyConfigRejectsOutOfRangeSpill(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const errors = validateProxyConfig({
+    routing: { "spill-inflight": 101 },
+  } as unknown as Record<string, unknown>);
+  const found = errors.some((e) => e.includes("spill-inflight"));
+  if (!found) {
+    log("expected a routing.spill-inflight validation error", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testParseRoutingConfigAcceptsCamelCaseAffinityTtl(): Promise<boolean> {
+  const { parseRoutingConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const parsed = parseRoutingConfig({ sessionAffinityIdleTtlMs: 120_000 });
+  if (parsed?.sessionAffinityIdleTtlMs !== 120_000) {
+    log("expected camelCase sessionAffinityIdleTtlMs to parse", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testValidateProxyConfigRejectsBadPreferPrimary(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const errors = validateProxyConfig({
+    routing: { "prefer-primary": "yes" },
+  } as unknown as Record<string, unknown>);
+  const found = errors.some((e) => e.includes("prefer-primary"));
+  if (!found) {
+    log("expected a routing.prefer-primary validation error", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testValidateProxyConfigRejectsBadSessionAffinity(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const errors = validateProxyConfig({
+    routing: { "session-affinity": 1 },
+  } as unknown as Record<string, unknown>);
+  const found = errors.some((e) => e.includes("session-affinity"));
+  if (!found) {
+    log("expected a routing.session-affinity validation error", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testValidateProxyConfigRejectsBadAffinityIdleTtl(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const belowRangeErrors = validateProxyConfig({
+    routing: { "session-affinity-idle-ttl-ms": 59_999 },
+  } as unknown as Record<string, unknown>);
+  const belowRangeFound = belowRangeErrors.some((e) =>
+    e.includes("session-affinity-idle-ttl-ms"),
+  );
+  if (!belowRangeFound) {
+    log(
+      "expected a routing.session-affinity-idle-ttl-ms validation error for a below-range value",
+      "red",
+    );
+    return false;
+  }
+
+  const nonIntegerErrors = validateProxyConfig({
+    routing: { "session-affinity-idle-ttl-ms": 120_000.5 },
+  } as unknown as Record<string, unknown>);
+  const nonIntegerFound = nonIntegerErrors.some((e) =>
+    e.includes("session-affinity-idle-ttl-ms"),
+  );
+  if (!nonIntegerFound) {
+    log(
+      "expected a routing.session-affinity-idle-ttl-ms validation error for a non-integer value",
+      "red",
+    );
+    return false;
+  }
+
+  const aboveRangeErrors = validateProxyConfig({
+    routing: { "session-affinity-idle-ttl-ms": 86_400_001 },
+  } as unknown as Record<string, unknown>);
+  if (
+    !aboveRangeErrors.some((e) => e.includes("session-affinity-idle-ttl-ms"))
+  ) {
+    log(
+      "expected a routing.session-affinity-idle-ttl-ms validation error for an above-range value",
+      "red",
+    );
+    return false;
+  }
+
+  const atMaximumErrors = validateProxyConfig({
+    routing: { "session-affinity-idle-ttl-ms": 86_400_000 },
+  } as unknown as Record<string, unknown>);
+  if (atMaximumErrors.some((e) => e.includes("session-affinity-idle-ttl-ms"))) {
+    log(
+      "expected routing.session-affinity-idle-ttl-ms to accept its documented maximum",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// A serializer that writes null instead of omitting a key must get the same
+// verdict whichever spelling carries it: rejected, never a silent default.
+async function testValidateProxyConfigRejectsNullUnderEitherSpelling(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const spellings: ReadonlyArray<readonly [string, string]> = [
+    ["account-ranking", "accountRanking"],
+    ["prefer-primary", "preferPrimary"],
+    ["session-affinity", "sessionAffinity"],
+    ["session-affinity-idle-ttl-ms", "sessionAffinityIdleTtlMs"],
+    ["spill-inflight", "spillInflight"],
+  ];
+  for (const [kebabKey, camelKey] of spellings) {
+    for (const key of [kebabKey, camelKey]) {
+      const errors = validateProxyConfig({
+        routing: { [key]: null },
+      } as unknown as Record<string, unknown>);
+      if (!errors.some((e) => e.includes(`routing.${kebabKey}`))) {
+        log(`expected routing.${key} set to null to be rejected`, "red");
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// ============================================================================
 // Tests: /status stats.primaryAccount additive guarantee
 // ============================================================================
 
@@ -10063,6 +11280,564 @@ async function testStatusPrimaryAccountFallback(): Promise<boolean | null> {
       "red",
     );
     return false;
+  }
+}
+
+// ============================================================================
+// Tests: /status reports the routing policy (built CLI, throwaway config)
+// ============================================================================
+
+/**
+ * A real operator's proxy listens here by default. The kernel never hands out
+ * a bound port, but a stopped launchd proxy can come back on it mid-case, so
+ * it is excluded outright alongside the suite's own port.
+ */
+const OPERATOR_DEFAULT_PROXY_PORT = 55669;
+
+type ProxyTestInstance = {
+  child: ChildProcess;
+  port: number;
+  configPath: string;
+  home: string;
+};
+
+async function findFreeProxyTestPort(): Promise<number> {
+  const reserved = new Set([PROXY_PORT, OPERATOR_DEFAULT_PROXY_PORT]);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const port = await freePort();
+    if (!reserved.has(port)) {
+      return port;
+    }
+  }
+  throw new Error("no free proxy test port outside the reserved ports");
+}
+
+/**
+ * Write a proxy config as JSON and return its path. Without a path, a fresh
+ * directory under TEST_HOME holds it, and the suite removes TEST_HOME when the
+ * run ends. With a path, that file is replaced: a hot-reload case must rewrite
+ * the file the proxy was started with, because that is the path it watches.
+ * The rename means a reload can never read a half-written file.
+ */
+async function writeThrowawayProxyConfig(
+  config: Record<string, unknown>,
+  configPath?: string,
+): Promise<string> {
+  const target =
+    configPath ??
+    path.join(
+      fs.mkdtempSync(path.join(TEST_HOME, "proxy-cli-config-")),
+      "proxy-config.json",
+    );
+  const staging = `${target}.${process.pid}.tmp`;
+  await fs.promises.writeFile(staging, JSON.stringify(config, null, 2));
+  await fs.promises.rename(staging, target);
+  return target;
+}
+
+function waitForChildExit(
+  child: ChildProcess,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+  return new Promise<boolean>((resolve) => {
+    const onExit = (): void => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, timeoutMs);
+    child.once("exit", onExit);
+  });
+}
+
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readProxyTestGuardPid(home: string): number | undefined {
+  try {
+    const state = JSON.parse(
+      fs.readFileSync(
+        path.join(home, ".neurolink", "proxy-state.json"),
+        "utf8",
+      ),
+    ) as { guardPid?: unknown };
+    return typeof state.guardPid === "number" ? state.guardPid : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Stop a proxy from `startProxyForTests` and wait until nothing it started is
+ * left running. A foreground proxy also spawns a detached fail-open guard that
+ * polls for its parent and exits shortly after it. The guard is outside this
+ * process tree, so it is awaited by pid. Otherwise it could outlive the case
+ * and race the removal of the HOME it writes to.
+ */
+async function stopProxyForTests(proxy: ProxyTestInstance): Promise<void> {
+  const guardPid = readProxyTestGuardPid(proxy.home);
+  if (!(await waitForChildExit(proxy.child, 0))) {
+    proxy.child.kill("SIGTERM");
+    if (!(await waitForChildExit(proxy.child, 10_000))) {
+      proxy.child.kill("SIGKILL");
+      await waitForChildExit(proxy.child, 5_000);
+    }
+  }
+  if (guardPid !== undefined) {
+    const deadline = Date.now() + 10_000;
+    while (isPidAlive(guardPid) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    if (isPidAlive(guardPid)) {
+      try {
+        process.kill(guardPid, "SIGKILL");
+      } catch {
+        // Exited between the check and the kill.
+      }
+    }
+  }
+  try {
+    fs.rmSync(proxy.home, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
+  } catch {
+    // Cleanup of a temp directory must never decide whether a test passed.
+  }
+}
+
+/**
+ * Start `proxy start --config <configPath>` from the built CLI on `port`, with
+ * its own HOME, so it shares no state file, log or singleton guard with the
+ * suite's proxy on PROXY_PORT. Resolves once /health answers. On any startup
+ * failure it stops the child before throwing, so no process is left behind.
+ */
+async function startProxyForTests(options: {
+  port: number;
+  configPath: string;
+  env?: Record<string, string>;
+}): Promise<ProxyTestInstance> {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-proxy-cli-home-"));
+  const child = spawn(
+    process.execPath,
+    [
+      path.resolve("dist/cli/index.js"),
+      "proxy",
+      "start",
+      "--port",
+      String(options.port),
+      "--config",
+      options.configPath,
+      "--quiet",
+    ],
+    {
+      // The CLI entry loads a `.env` from its cwd. The checkout's own `.env`
+      // must not reach a proxy that is supposed to be isolated.
+      cwd: home,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        HOME: home,
+        USERPROFILE: home,
+        XDG_CONFIG_HOME: path.join(home, ".config"),
+        NEUROLINK_SKIP_MCP: "true",
+        NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
+        // Neither is under test. The share listener would bind a second port,
+        // and the updater is a detached process that could outlive the case.
+        NEUROLINK_PROXY_SHARE_LISTENER: "off",
+        NEUROLINK_PROXY_AUTO_UPDATE: "off",
+        ...(options.env ?? {}),
+      },
+    },
+  );
+  const proxy: ProxyTestInstance = {
+    child,
+    port: options.port,
+    configPath: options.configPath,
+    home,
+  };
+
+  // Drained so a chatty child cannot block on a full pipe, and kept short so a
+  // failed start can say why without the log growing unbounded.
+  let output = "";
+  const keepTail = (chunk: Buffer): void => {
+    output = (output + chunk.toString()).slice(-4096);
+  };
+  child.stdout?.on("data", keepTail);
+  child.stderr?.on("data", keepTail);
+  let exitReason: string | null = null;
+  child.once("error", (err) => {
+    exitReason = `spawn error: ${err.message}`;
+  });
+  child.once("exit", (code, signal) => {
+    exitReason = `exited early with code=${code} signal=${signal}`;
+  });
+
+  // Generous because the machine running this suite is often loaded, and
+  // bounded because a case timeout aborts every remaining case in the run.
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline && exitReason === null) {
+    try {
+      const probe = await fetch(`http://127.0.0.1:${options.port}/health`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (probe.ok) {
+        return proxy;
+      }
+    } catch {
+      // Not listening yet.
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  const reason = exitReason ?? "no healthy /health within 60s";
+  log(
+    `throwaway-config proxy failed to start: ${reason}${output ? ` — ${output.slice(-400)}` : ""}`,
+    "red",
+  );
+  await stopProxyForTests(proxy);
+  throw new Error(`throwaway-config proxy failed to start: ${reason}`);
+}
+
+/**
+ * `proxy start` with every routing-policy key set in a throwaway config must
+ * report that policy on `/status`, together with the bound-session count.
+ * Each key is set to a non-default value, so a field that fell back to its
+ * default cannot pass. The proxy is fresh and has served nothing, so the count
+ * must be exactly zero, not merely a number.
+ */
+async function testStatusReportsRoutingPolicy(): Promise<boolean> {
+  const port = await findFreeProxyTestPort();
+  const configPath = await writeThrowawayProxyConfig({
+    routing: {
+      "account-ranking": "headroom-first",
+      "prefer-primary": true,
+      "session-affinity": true,
+      "session-affinity-idle-ttl-ms": 120_000,
+      "spill-inflight": 10,
+    },
+  });
+  const proxy = await startProxyForTests({ port, configPath });
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/status`, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      log(`/status returned ${res.status}`, "red");
+      return false;
+    }
+    const body = (await res.json()) as {
+      policy?: {
+        ranking?: unknown;
+        preferPrimary?: unknown;
+        sessionAffinity?: unknown;
+        sessionAffinityIdleTtlMs?: unknown;
+        spillInflight?: unknown;
+      };
+      boundSessions?: unknown;
+    };
+    const checks: ReadonlyArray<readonly [string, unknown, unknown]> = [
+      ["policy.ranking", body.policy?.ranking, "headroom-first"],
+      ["policy.preferPrimary", body.policy?.preferPrimary, true],
+      ["policy.sessionAffinity", body.policy?.sessionAffinity, true],
+      [
+        "policy.sessionAffinityIdleTtlMs",
+        body.policy?.sessionAffinityIdleTtlMs,
+        120_000,
+      ],
+      ["policy.spillInflight", body.policy?.spillInflight, 10],
+      ["boundSessions", body.boundSessions, 0],
+    ];
+    const mismatched = checks
+      .filter(([, actual, expected]) => actual !== expected)
+      .map(([field]) => field);
+    if (mismatched.length > 0) {
+      log(
+        `expected /status to report the configured routing policy; mismatched: ${mismatched.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
+  }
+}
+
+type ProxyTestStatusBody = {
+  policy?: {
+    ranking?: unknown;
+    preferPrimary?: unknown;
+    sessionAffinity?: unknown;
+    sessionAffinityIdleTtlMs?: unknown;
+    spillInflight?: unknown;
+  };
+  config?: {
+    generation?: unknown;
+    lastReloadAttemptAt?: unknown;
+    lastReloadAt?: unknown;
+    lastReloadSource?: unknown;
+    lastReloadError?: unknown;
+    consecutiveFailures?: unknown;
+  } | null;
+};
+
+async function readProxyTestStatus(
+  port: number,
+): Promise<ProxyTestStatusBody | undefined> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/status`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    return res.ok ? ((await res.json()) as ProxyTestStatusBody) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Replace the config a `startProxyForTests` proxy was started with and wait
+ * until the reload that edit triggers has finished. `proxy start` reloads on
+ * SIGHUP and on its `fs.watchFile` poll of the config path. The edit already
+ * arms the watcher, so the helper relies on that alone: a SIGHUP on top would
+ * start a second reload. The markers are read before the edit, because the
+ * watcher can fire before a caller gets to look. A reload has finished when
+ * its attempt stamp has moved and either the success stamp has caught up
+ * with it or the failure count has risen. Resolves with /status from before
+ * and after, or undefined when no finished reload shows up within the bound.
+ */
+async function triggerProxyReloadForTests(
+  proxy: ProxyTestInstance,
+  config: Record<string, unknown>,
+): Promise<
+  { before: ProxyTestStatusBody; after: ProxyTestStatusBody } | undefined
+> {
+  const before = await readProxyTestStatus(proxy.port);
+  const markers = before?.config;
+  if (!before || !markers) {
+    return undefined;
+  }
+  await writeThrowawayProxyConfig(config, proxy.configPath);
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const after = await readProxyTestStatus(proxy.port);
+    const reload = after?.config;
+    if (
+      after &&
+      reload &&
+      reload.lastReloadAttemptAt !== markers.lastReloadAttemptAt &&
+      (reload.lastReloadAt === reload.lastReloadAttemptAt ||
+        reload.consecutiveFailures !== markers.consecutiveFailures)
+    ) {
+      return { before, after };
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return undefined;
+}
+
+/**
+ * An invalid routing value in an edited config rejects the whole reload: the
+ * valid key beside it does not apply either, and the last known-good policy
+ * stays active. The rejection is proved first from the /status reload markers,
+ * because "the policy did not change" alone would also pass if no reload had
+ * run.
+ */
+async function testInvalidRoutingPolicyValueRejectsWholeReload(): Promise<boolean> {
+  const port = await findFreeProxyTestPort();
+  const configPath = await writeThrowawayProxyConfig({
+    routing: { "account-ranking": "headroom-first", "spill-inflight": 5 },
+  });
+  const proxy = await startProxyForTests({ port, configPath });
+  try {
+    const reload = await triggerProxyReloadForTests(proxy, {
+      routing: {
+        "account-ranking": "not-a-real-ranking",
+        "spill-inflight": 15,
+      },
+    });
+    if (!reload) {
+      log(
+        "expected /status to show a finished reload after the config edit",
+        "red",
+      );
+      return false;
+    }
+    const { before, after } = reload;
+    if (
+      before.policy?.ranking !== "headroom-first" ||
+      before.policy?.spillInflight !== 5
+    ) {
+      log(
+        "precondition failed: the starting policy was not active before the edit",
+        "red",
+      );
+      return false;
+    }
+    const was = before.config ?? {};
+    const now = after.config ?? {};
+    const rejection: ReadonlyArray<readonly [string, boolean]> = [
+      ["config.lastReloadSource", now.lastReloadSource === "watch"],
+      [
+        "config.consecutiveFailures",
+        typeof was.consecutiveFailures === "number" &&
+          now.consecutiveFailures === was.consecutiveFailures + 1,
+      ],
+      [
+        "config.lastReloadError",
+        typeof now.lastReloadError === "string" &&
+          now.lastReloadError.length > 0,
+      ],
+      [
+        "config.generation",
+        typeof was.generation === "number" && now.generation === was.generation,
+      ],
+    ];
+    const notRejected = rejection.filter(([, ok]) => !ok).map(([f]) => f);
+    if (notRejected.length > 0) {
+      log(
+        `expected /status to record the edit's reload as attempted and rejected; mismatched: ${notRejected.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    const kept = [
+      ["policy.ranking", after.policy?.ranking, "headroom-first"],
+      ["policy.spillInflight", after.policy?.spillInflight, 5],
+    ] as const;
+    const changed = kept
+      .filter(([, actual, expected]) => actual !== expected)
+      .map(([field]) => field);
+    if (changed.length > 0) {
+      log(
+        `expected the rejected reload to leave the last known-good policy active; mismatched: ${changed.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
+  }
+}
+
+/**
+ * Editing the config file hot-reloads every routing-policy key. Each key
+ * starts at a value that differs from its edited value, so a reload that
+ * never applied cannot pass.
+ */
+async function testHotReloadUpdatesActivePolicy(): Promise<boolean> {
+  const initial = {
+    "account-ranking": "expiry-first",
+    "prefer-primary": false,
+    "session-affinity": false,
+    "session-affinity-idle-ttl-ms": 3_600_000,
+    "spill-inflight": 5,
+  };
+  const edited = {
+    "account-ranking": "headroom-first",
+    "prefer-primary": true,
+    "session-affinity": true,
+    "session-affinity-idle-ttl-ms": 120_000,
+    "spill-inflight": 15,
+  };
+  const policyChecks = (
+    policy: ProxyTestStatusBody["policy"],
+    expected: typeof initial,
+  ): string[] =>
+    (
+      [
+        ["policy.ranking", policy?.ranking, expected["account-ranking"]],
+        [
+          "policy.preferPrimary",
+          policy?.preferPrimary,
+          expected["prefer-primary"],
+        ],
+        [
+          "policy.sessionAffinity",
+          policy?.sessionAffinity,
+          expected["session-affinity"],
+        ],
+        [
+          "policy.sessionAffinityIdleTtlMs",
+          policy?.sessionAffinityIdleTtlMs,
+          expected["session-affinity-idle-ttl-ms"],
+        ],
+        [
+          "policy.spillInflight",
+          policy?.spillInflight,
+          expected["spill-inflight"],
+        ],
+      ] as const
+    )
+      .filter(([, actual, want]) => actual !== want)
+      .map(([field]) => field);
+  const port = await findFreeProxyTestPort();
+  const configPath = await writeThrowawayProxyConfig({ routing: initial });
+  const proxy = await startProxyForTests({ port, configPath });
+  try {
+    const reload = await triggerProxyReloadForTests(proxy, {
+      routing: edited,
+    });
+    if (!reload) {
+      log(
+        "expected /status to show a finished reload after the config edit",
+        "red",
+      );
+      return false;
+    }
+    const { before, after } = reload;
+    const notInitial = policyChecks(before.policy, initial);
+    if (notInitial.length > 0) {
+      log(
+        `precondition failed: the starting policy was not active before the edit; mismatched: ${notInitial.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    const was = before.config ?? {};
+    const now = after.config ?? {};
+    const applied: ReadonlyArray<readonly [string, boolean]> = [
+      ["config.lastReloadSource", now.lastReloadSource === "watch"],
+      [
+        "config.generation",
+        typeof was.generation === "number" &&
+          now.generation === was.generation + 1,
+      ],
+      ["config.lastReloadError", now.lastReloadError === null],
+      ["config.consecutiveFailures", now.consecutiveFailures === 0],
+    ];
+    const notApplied = applied.filter(([, ok]) => !ok).map(([f]) => f);
+    if (notApplied.length > 0) {
+      log(
+        `expected /status to record the edit's reload as applied; mismatched: ${notApplied.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    const notEdited = policyChecks(after.policy, edited);
+    if (notEdited.length > 0) {
+      log(
+        `expected the hot-reloaded policy to take effect; mismatched: ${notEdited.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
   }
 }
 
@@ -10183,6 +11958,1606 @@ async function testCliPrimaryRoundtrip(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: sessionAffinity (session→account binding store)
+// ============================================================================
+
+async function testSessionAffinityBindAndGet(): Promise<boolean> {
+  sessionAffinity.clear();
+  sessionAffinity.bind("session-a", "anthropic:acct-1", 1_000);
+  const bound = sessionAffinity.get("session-a", 1_500, 60_000);
+  sessionAffinity.clear();
+  if (bound !== "anthropic:acct-1") {
+    log("expected session-a bound to anthropic:acct-1", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testSessionAffinityIdleExpiryBoundary(): Promise<boolean> {
+  sessionAffinity.clear();
+  sessionAffinity.bind("session-b", "anthropic:acct-1", 1_000);
+  const atBoundary = sessionAffinity.get("session-b", 1_000 + 60_000, 60_000);
+  const pastBoundary = sessionAffinity.get("session-b", 1_000 + 60_001, 60_000);
+  sessionAffinity.clear();
+  if (atBoundary !== "anthropic:acct-1") {
+    log("expected binding to survive exactly at the idle TTL boundary", "red");
+    return false;
+  }
+  if (pastBoundary !== undefined) {
+    log("expected binding to expire one ms past the idle TTL boundary", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testSessionAffinityEvictsAtCap(): Promise<boolean> {
+  sessionAffinity.clear();
+  for (let i = 0; i < 5_000; i += 1) {
+    sessionAffinity.bind(`session-${i}`, "anthropic:acct-1", 1_000 + i);
+  }
+  const beforeOverflow = sessionAffinity.size();
+  sessionAffinity.bind("session-5000", "anthropic:acct-1", 1_000 + 5_000);
+  const afterOverflow = sessionAffinity.size();
+  const oldestStillBound = sessionAffinity.get(
+    "session-0",
+    1_000 + 5_001,
+    1_000_000_000,
+  );
+  sessionAffinity.clear();
+  if (beforeOverflow !== 5_000) {
+    log(
+      `expected 5000 bound sessions before overflow, got ${beforeOverflow}`,
+      "red",
+    );
+    return false;
+  }
+  if (afterOverflow !== 5_000) {
+    log(
+      `expected the store to stay capped at 5000, got ${afterOverflow}`,
+      "red",
+    );
+    return false;
+  }
+  if (oldestStillBound !== undefined) {
+    log(
+      "expected the least-recently-bound session to have been evicted",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testSessionAffinityCountActiveExcludesIdleExpired(): Promise<boolean> {
+  sessionAffinity.clear();
+  sessionAffinity.bind("session-expired", "anthropic:acct-1", 1_000);
+  sessionAffinity.bind("session-at-boundary", "anthropic:acct-1", 1_001);
+  sessionAffinity.bind("session-live", "anthropic:acct-2", 50_000);
+  const active = sessionAffinity.countActive(1_000 + 60_001, 60_000);
+  const retained = sessionAffinity.size();
+  sessionAffinity.clear();
+  if (active !== 2) {
+    log(
+      "expected the count to include bindings inside the idle TTL (boundary included) and exclude the idle-expired one",
+      "red",
+    );
+    return false;
+  }
+  if (retained !== 2) {
+    log("expected counting to drop the idle-expired binding", "red");
+    return false;
+  }
+  return true;
+}
+
+async function testSessionAffinityClear(): Promise<boolean> {
+  sessionAffinity.clear();
+  sessionAffinity.bind("session-c", "anthropic:acct-1", 1_000);
+  sessionAffinity.clear();
+  const size = sessionAffinity.size();
+  const bound = sessionAffinity.get("session-c", 1_500, 60_000);
+  if (size !== 0 || bound !== undefined) {
+    log("expected clear() to empty the store", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * `loadClaudeProxyAccounts` resolves `extractSnapshotBody(body)` before
+ * account selection, so `sessionId` is available for routing. The route-level
+ * binding cases in test/continuous-test-suite-proxy-fallback-parent.ts drive
+ * the whole attempt loop; this pins the session-id plumbing through the same
+ * `parseClaudeCodeUserId(metadata.user_id)` path Claude Code's own requests
+ * use. The device id / uuids are synthetic fixtures, never a real user id.
+ */
+async function testLoadClaudeProxyAccountsExposesSessionId(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const resolveSessionId = __testHooks.extractSnapshotBodySessionIdForTests;
+  if (typeof resolveSessionId !== "function") {
+    log("expected a test hook exposing the resolved sessionId path", "red");
+    return false;
+  }
+
+  const fakeDeviceId = "0123456789abcdef".repeat(4);
+  const fakeAccountUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const fakeSessionId = "11111111-2222-3333-4444-555555555555";
+  const claudeCodeBody = {
+    metadata: {
+      user_id: JSON.stringify({
+        device_id: fakeDeviceId,
+        account_uuid: fakeAccountUuid,
+        session_id: fakeSessionId,
+      }),
+    },
+  };
+  const resolved = resolveSessionId(claudeCodeBody);
+  if (resolved !== fakeSessionId) {
+    log(
+      "resolved sessionId did not match the Claude Code identity's session_id",
+      "red",
+    );
+    return false;
+  }
+
+  const bodyWithoutUserId = { metadata: {} };
+  const resolvedWithoutUserId = resolveSessionId(bodyWithoutUserId);
+  if (resolvedWithoutUserId !== undefined) {
+    log("expected no sessionId when metadata.user_id is absent", "red");
+    return false;
+  }
+
+  return true;
+}
+
+async function testAffinityAppliesWithQuotaRoutingDisabled(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  const accounts: ProxyPassthroughAccount[] = [
+    { key: "anthropic:a", label: "a", type: "oauth" },
+    { key: "anthropic:b", label: "b", type: "oauth" },
+  ] as ProxyPassthroughAccount[];
+  for (const account of accounts) {
+    __testHooks.setAccountRuntimeState(account.key, { quota: makeQuota({}) });
+  }
+  sessionAffinity.bind("test-session", "anthropic:b", Date.now());
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  const { orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests(
+    {
+      enabledAccounts: accounts,
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: false,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: "test-session",
+      ranking: "expiry-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 0,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    },
+  );
+  sessionAffinity.clear();
+  __testHooks.resetAllRuntimeState();
+  if (orderedAccounts[0]?.key !== "anthropic:b") {
+    log("expected affinity to apply even with quota routing disabled", "red");
+    return false;
+  }
+  if (decisions[0]?.affinity?.applied !== true) {
+    log("expected the routing decision to record affinity as applied", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The quota-off path's catch must not leave a partial policy reorder in
+ * place. Affinity genuinely reorders to [b, a]; the forced spill throw then
+ * lands in the catch, which must serve the pre-policy base order [a, b].
+ */
+async function testSpillThrowOnQuotaOffPathRestoresBaseOrder(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  __testHooks.setAccountRuntimeState(accountA.key, { quota: makeQuota({}) });
+  __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+  sessionAffinity.bind("session-spill-throw", accountB.key, Date.now());
+  __testHooks.setForceSpillThrowForTests(true);
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let orderedAccounts: ProxyPassthroughAccount[];
+  try {
+    ({ orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: false,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: "session-spill-throw",
+      ranking: "expiry-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 5,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }));
+  } finally {
+    __testHooks.setForceSpillThrowForTests(false);
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  if (orderedAccounts[0]?.key !== accountA.key) {
+    log(
+      "expected a thrown spill to restore the pre-policy base order, not the partial reorder",
+      "red",
+    );
+    return false;
+  }
+  if (decisions[0]?.selectionReason !== "routing_policy_error") {
+    log("expected selectionReason to record routing_policy_error", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The quota-ordered path's failure mode serves the plain expiry-first order
+ * (no ranking override, no affinity) and records routing_policy_error. The
+ * fixture binds the session to b under headroom-first so a policy order
+ * would start with b while expiry-first starts with a.
+ */
+async function testSpillThrowOnQuotaOrderedPathFallsBackToExpiryFirst(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  __testHooks.setAccountRuntimeState(accountA.key, { quota: makeQuota({}) });
+  __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+  sessionAffinity.bind("session-quota-spill-throw", accountB.key, Date.now());
+  const expectedOrder = __testHooks
+    .orderAccountsByQuota(
+      [accountA, accountB],
+      Date.now(),
+      undefined,
+      0.97,
+      5 * 60 * 1000,
+    )
+    .map((account) => account.key);
+  __testHooks.setForceSpillThrowForTests(true);
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let orderedAccounts: ProxyPassthroughAccount[];
+  try {
+    ({ orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: "session-quota-spill-throw",
+      ranking: "headroom-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 5,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }));
+  } finally {
+    __testHooks.setForceSpillThrowForTests(false);
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  if (expectedOrder[0] !== accountA.key) {
+    log("fixture precondition failed: expiry-first should rank a first", "red");
+    return false;
+  }
+  if (
+    orderedAccounts.map((account) => account.key).join(",") !==
+    expectedOrder.join(",")
+  ) {
+    log(
+      "expected a thrown policy on the quota-ordered path to serve the expiry-first order",
+      "red",
+    );
+    return false;
+  }
+  const decision = decisions[0];
+  if (decision?.selectionReason !== "routing_policy_error") {
+    log("expected selectionReason to record routing_policy_error", "red");
+    return false;
+  }
+  if (decision.affinity !== undefined || decision.spill !== undefined) {
+    log("expected no affinity or spill evidence after a policy error", "red");
+    return false;
+  }
+  if (decision.policy?.ranking !== "headroom-first") {
+    log("expected the policy snapshot to still be reported", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Spill skips only an active binding. An unbound request whose first
+ * choice is the preferred primary, already holding spill-inflight leases,
+ * moves to the next usable account — on both fill-first paths.
+ */
+async function testPreferredPrimaryFirstChoiceSpills(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const primary: ProxyPassthroughAccount = {
+    key: "anthropic:p",
+    label: "p",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const other: ProxyPassthroughAccount = {
+    key: "anthropic:q",
+    label: "q",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const spillInflight = 2;
+  for (const quotaRoutingEnabled of [true, false]) {
+    const path = quotaRoutingEnabled ? "quota-ordered" : "quota-off";
+    __testHooks.resetAllRuntimeState();
+    sessionAffinity.clear();
+    __testHooks.setAccountRuntimeState(primary.key, { quota: makeQuota({}) });
+    __testHooks.setAccountRuntimeState(other.key, { quota: makeQuota({}) });
+    const select = (
+      decisions: ProxyAccountRoutingDecision[],
+    ): ProxyPassthroughAccount[] =>
+      __testHooks.selectClaudeProxyAccountOrderForTests({
+        enabledAccounts: [other, primary],
+        accountStrategy: "fill-first",
+        primaryAccountKey: primary.key,
+        quotaRoutingEnabled,
+        sessionSoftLimit: 0.97,
+        sessionResetToleranceMs: 5 * 60 * 1000,
+        sessionId: undefined,
+        ranking: "expiry-first",
+        preferPrimary: true,
+        sessionAffinityEnabled: false,
+        sessionAffinityIdleTtlMs: 3_600_000,
+        spillInflight,
+        setRoutingDecision: (decision) => decisions.push(decision),
+      }).orderedAccounts;
+    const controlDecisions: ProxyAccountRoutingDecision[] = [];
+    const decisions: ProxyAccountRoutingDecision[] = [];
+    const leases: { release: () => void }[] = [];
+    let controlOrder: ProxyPassthroughAccount[];
+    let orderedAccounts: ProxyPassthroughAccount[];
+    try {
+      controlOrder = select(controlDecisions);
+      for (let i = 0; i < spillInflight; i++) {
+        const lease = __testHooks.tryAcquireAccountAdmission(
+          primary.key,
+          undefined,
+        );
+        if (lease) {
+          leases.push(lease);
+        }
+      }
+      orderedAccounts = select(decisions);
+    } finally {
+      for (const lease of leases) {
+        lease.release();
+      }
+      __testHooks.resetAllRuntimeState();
+    }
+    if (
+      controlOrder[0]?.key !== primary.key ||
+      controlDecisions[0]?.selectionReason !== "preferred_primary"
+    ) {
+      log(
+        `precondition failed on the ${path} path: prefer-primary should pick the primary before any lease is held`,
+        "red",
+      );
+      return false;
+    }
+    if (leases.length !== spillInflight) {
+      log(
+        `precondition failed on the ${path} path: primary leases not held`,
+        "red",
+      );
+      return false;
+    }
+    if (orderedAccounts[0]?.key !== other.key) {
+      log(
+        `expected a busy preferred primary to spill to the other usable account on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    const decision = decisions[0];
+    if (decision?.selectionReason !== "spill_inflight") {
+      log(`expected selectionReason spill_inflight on the ${path} path`, "red");
+      return false;
+    }
+    if (
+      decision.spill?.from !== primary.label ||
+      decision.spill.to !== other.label ||
+      decision.spill.inflight !== spillInflight
+    ) {
+      log(
+        `expected spill evidence from the primary to the other account on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Spill never splits a bound session. The bound account already holds
+ * spill-inflight leases and a usable, preferred primary with no leases sits
+ * right behind it, so only the session_affinity guard in maybeSpill keeps
+ * the request on its binding — on both fill-first paths.
+ */
+async function testSpillNeverSplitsBoundSession(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const sessionId = "session-bound-no-spill";
+  const spillInflight = 2;
+  for (const quotaRoutingEnabled of [true, false]) {
+    const path = quotaRoutingEnabled ? "quota-ordered" : "quota-off";
+    __testHooks.resetAllRuntimeState();
+    sessionAffinity.clear();
+    __testHooks.setAccountRuntimeState(accountA.key, { quota: makeQuota({}) });
+    __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+    sessionAffinity.bind(sessionId, accountB.key, Date.now());
+    const decisions: ProxyAccountRoutingDecision[] = [];
+    const leases: { release: () => void }[] = [];
+    let orderedAccounts: ProxyPassthroughAccount[];
+    try {
+      for (let i = 0; i < spillInflight; i++) {
+        const lease = __testHooks.tryAcquireAccountAdmission(
+          accountB.key,
+          undefined,
+        );
+        if (lease) {
+          leases.push(lease);
+        }
+      }
+      ({ orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests({
+        enabledAccounts: [accountA, accountB],
+        accountStrategy: "fill-first",
+        primaryAccountKey: accountA.key,
+        quotaRoutingEnabled,
+        sessionSoftLimit: 0.97,
+        sessionResetToleranceMs: 5 * 60 * 1000,
+        sessionId,
+        ranking: "expiry-first",
+        preferPrimary: true,
+        sessionAffinityEnabled: true,
+        sessionAffinityIdleTtlMs: 3_600_000,
+        spillInflight,
+        setRoutingDecision: (decision) => decisions.push(decision),
+      }));
+    } finally {
+      for (const lease of leases) {
+        lease.release();
+      }
+      sessionAffinity.clear();
+      __testHooks.resetAllRuntimeState();
+    }
+    if (leases.length !== spillInflight) {
+      log(
+        `precondition failed on the ${path} path: bound account leases not held`,
+        "red",
+      );
+      return false;
+    }
+    if (orderedAccounts[0]?.key !== accountB.key) {
+      log(
+        `expected a bound session to stay on its bound account on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    const decision = decisions[0];
+    if (decision?.selectionReason !== "session_affinity") {
+      log(
+        `expected selectionReason session_affinity on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    if ("spill" in decision) {
+      log(
+        `expected no spill evidence for a bound session on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * With every policy at its default, both fill-first paths must serve the
+ * pre-policy order and decision; the decision gains only the additive
+ * `policy`/`affinity` evidence (spec Observability). The pre-policy side is
+ * computed independently: orderAccountsByQuota plus buildRoutingDecision
+ * without policy inputs, and the fill-first rotation to the configured
+ * primary.
+ */
+async function testDefaultPolicyReproducesPrePolicyOrdering(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accounts: ProxyPassthroughAccount[] = [
+    { key: "anthropic:a", label: "a", type: "oauth" },
+    { key: "anthropic:b", label: "b", type: "oauth" },
+    { key: "anthropic:c", label: "c", type: "oauth" },
+  ] as ProxyPassthroughAccount[];
+  const primaryKey = "anthropic:c";
+  const sessionSoftLimit = 0.97;
+  const sessionResetToleranceMs = 5 * 60 * 1000;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const seedQuotas = (): void => {
+    __testHooks.setAccountRuntimeState("anthropic:a", {
+      quota: makeQuota({ weeklyUsed: 0.4, weeklyResetAt: nowSec + 3 * 86400 }),
+    });
+    __testHooks.setAccountRuntimeState("anthropic:b", {
+      quota: makeQuota({ weeklyUsed: 0.2, weeklyResetAt: nowSec + 86400 }),
+    });
+    __testHooks.setAccountRuntimeState("anthropic:c", {
+      quota: makeQuota({
+        sessionUsed: 0.99,
+        sessionResetAt: nowSec + 3600,
+        weeklyResetAt: nowSec + 2 * 86400,
+      }),
+    });
+  };
+  const withoutPolicyEvidence = (
+    decision: ProxyAccountRoutingDecision,
+  ): ProxyAccountRoutingDecision => {
+    const copy = { ...decision };
+    delete copy.policy;
+    delete copy.affinity;
+    return copy;
+  };
+  const keysOf = (list: ProxyPassthroughAccount[]): string =>
+    list.map((account) => account.key).join(",");
+  const expectedPolicy = {
+    ranking: "expiry-first",
+    preferPrimary: false,
+    sessionAffinity: false,
+    sessionAffinityIdleTtlMs: 3_600_000,
+    spillInflight: 0,
+  };
+  const expectedAffinity = {
+    sessionBound: false,
+    boundAccount: null,
+    applied: false,
+    skippedReason: "disabled",
+  };
+
+  for (const quotaRoutingEnabled of [true, false]) {
+    const path = quotaRoutingEnabled ? "quota-ordered" : "quota-off";
+    __testHooks.resetAllRuntimeState();
+    sessionAffinity.clear();
+    seedQuotas();
+    const decisions: ProxyAccountRoutingDecision[] = [];
+    let result: ReturnType<
+      typeof __testHooks.selectClaudeProxyAccountOrderForTests
+    >;
+    let prePolicyOrder: ProxyPassthroughAccount[];
+    try {
+      result = __testHooks.selectClaudeProxyAccountOrderForTests({
+        enabledAccounts: accounts,
+        accountStrategy: "fill-first",
+        primaryAccountKey: primaryKey,
+        quotaRoutingEnabled,
+        sessionSoftLimit,
+        sessionResetToleranceMs,
+        sessionId: "default-policy-session",
+        ranking: "expiry-first",
+        preferPrimary: false,
+        sessionAffinityEnabled: false,
+        sessionAffinityIdleTtlMs: 3_600_000,
+        spillInflight: 0,
+        setRoutingDecision: (decision) => decisions.push(decision),
+      });
+      const evaluatedAt = decisions[0]
+        ? Date.parse(decisions[0].evaluatedAt)
+        : Date.now();
+      // Quota-off fill-first rotates to the configured primary (index 2).
+      prePolicyOrder = quotaRoutingEnabled
+        ? __testHooks.orderAccountsByQuota(
+            accounts,
+            evaluatedAt,
+            primaryKey,
+            sessionSoftLimit,
+            sessionResetToleranceMs,
+          )
+        : [accounts[2], accounts[0], accounts[1]];
+    } finally {
+      __testHooks.resetAllRuntimeState();
+    }
+    const decision = decisions[0];
+    if (!decision) {
+      log(`expected a routing decision on the ${path} path`, "red");
+      return false;
+    }
+    if (keysOf(result.orderedAccounts) !== keysOf(prePolicyOrder)) {
+      log(
+        `default policy changed the account order on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    const prePolicyDecision = __testHooks.buildRoutingDecision({
+      accounts,
+      orderedAccounts: prePolicyOrder,
+      metricsByKey: result.metricsByKey,
+      evaluatedAt: Date.parse(decision.evaluatedAt),
+      strategy: "fill-first",
+      primaryKey,
+      quotaRoutingEnabled,
+      quotaOrdered: quotaRoutingEnabled,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+      rotationOffset: quotaRoutingEnabled ? 0 : 2,
+    });
+    if (
+      !prePolicyDecision ||
+      JSON.stringify(withoutPolicyEvidence(decision)) !==
+        JSON.stringify(prePolicyDecision)
+    ) {
+      log(
+        `default policy changed the routing decision beyond the additive evidence on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    if (
+      JSON.stringify(decision.policy) !== JSON.stringify(expectedPolicy) ||
+      JSON.stringify(decision.affinity) !== JSON.stringify(expectedAffinity) ||
+      "spill" in decision
+    ) {
+      log(
+        `unexpected policy, affinity or spill evidence under the default policy on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * `strategy: round-robin` ignores all five policy keys: with affinity bound
+ * elsewhere, prefer-primary on and the rotation's first choice already at
+ * spill-inflight, the order is still the plain rotation and the decision
+ * carries no policy, affinity or spill evidence.
+ */
+async function testRoundRobinIgnoresRoutingPolicies(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accounts: ProxyPassthroughAccount[] = [
+    { key: "anthropic:a", label: "a", type: "oauth" },
+    { key: "anthropic:b", label: "b", type: "oauth" },
+    { key: "anthropic:c", label: "c", type: "oauth" },
+  ] as ProxyPassthroughAccount[];
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  for (const account of accounts) {
+    __testHooks.setAccountRuntimeState(account.key, { quota: makeQuota({}) });
+  }
+  sessionAffinity.bind("rr-session", "anthropic:b", Date.now());
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let lease: { release: () => void } | undefined;
+  let orderedAccounts: ProxyPassthroughAccount[];
+  try {
+    lease = __testHooks.tryAcquireAccountAdmission("anthropic:c", undefined);
+    ({ orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: accounts,
+      accountStrategy: "round-robin",
+      primaryAccountKey: "anthropic:c",
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: "rr-session",
+      ranking: "headroom-first",
+      preferPrimary: true,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 1,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }));
+  } finally {
+    lease?.release();
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  // A fresh round-robin pool starts its rotation at the configured primary.
+  if (
+    orderedAccounts.map((account) => account.key).join(",") !==
+    "anthropic:c,anthropic:a,anthropic:b"
+  ) {
+    log("expected round-robin to serve the plain rotation", "red");
+    return false;
+  }
+  const decision = decisions[0];
+  if (decision?.selectionReason !== "round_robin") {
+    log("expected selectionReason round_robin", "red");
+    return false;
+  }
+  if ("policy" in decision || "affinity" in decision || "spill" in decision) {
+    log("expected no policy evidence on a round-robin decision", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Spec Precedence: binding on the serving account is what stops the
+ * ping-pong. A's cooldown moves the session to B, B serves it and is bound,
+ * and once A recovers the session must stay on B. The control run without
+ * affinity proves the recovered A would otherwise win again.
+ */
+async function testCooldownRecoveryDoesNotUnbindSession(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const sessionId = "session-recovery";
+  const select = (
+    sessionAffinityEnabled: boolean,
+    decisions: ProxyAccountRoutingDecision[],
+  ): ProxyPassthroughAccount[] =>
+    __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId,
+      ranking: "expiry-first",
+      preferPrimary: false,
+      sessionAffinityEnabled,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 0,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }).orderedAccounts;
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  const now = Date.now();
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let whileCooling: ProxyPassthroughAccount[];
+  let recoveredWithoutAffinity: ProxyPassthroughAccount[];
+  let afterRecovery: ProxyPassthroughAccount[];
+  try {
+    __testHooks.setAccountRuntimeState(accountA.key, {
+      coolingUntil: now + 5 * 60 * 1000,
+      quota: makeQuota({}),
+    });
+    __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+    whileCooling = select(true, []);
+    // Mirrors bind-on-success: B is the account that served the request.
+    sessionAffinity.bind(sessionId, accountB.key, now);
+    __testHooks.setAccountRuntimeState(accountA.key, {
+      coolingUntil: undefined,
+    });
+    recoveredWithoutAffinity = select(false, []);
+    afterRecovery = select(true, decisions);
+  } finally {
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  if (whileCooling[0]?.key !== accountB.key) {
+    log("expected A's cooldown to move the unbound request to B", "red");
+    return false;
+  }
+  if (recoveredWithoutAffinity[0]?.key !== accountA.key) {
+    log(
+      "precondition failed: without affinity the recovered A should rank first again",
+      "red",
+    );
+    return false;
+  }
+  if (afterRecovery[0]?.key !== accountB.key) {
+    log("expected the session to stay on B after A's cooldown ended", "red");
+    return false;
+  }
+  const decision = decisions[0];
+  if (
+    decision?.selectionReason !== "session_affinity" ||
+    decision.affinity?.applied !== true
+  ) {
+    log("expected the routing decision to record affinity as applied", "red");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Review Focus "spill onto a capacity-saturated account": the spill reorder is
+ * a pure ranking step and knows nothing about max-inflight-per-account. The
+ * admission gate runs later, in the attempt loop, which moves on to the next
+ * account when a lease is refused. So spill must still pick B, and B's cap
+ * must still refuse a second concurrent lease.
+ */
+async function testSpillTargetStillSubjectToAdmissionCap(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const spillInflight = 20;
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  __testHooks.setAccountRuntimeState(accountA.key, { quota: makeQuota({}) });
+  __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+  const leases: { release: () => void }[] = [];
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let bLeaseHeld = false;
+  let orderedAccounts: ProxyPassthroughAccount[];
+  let secondBLease: { release: () => void } | undefined;
+  try {
+    for (let i = 0; i < spillInflight + 5; i++) {
+      const lease = __testHooks.tryAcquireAccountAdmission(
+        accountA.key,
+        undefined,
+      );
+      if (lease) {
+        leases.push(lease);
+      }
+    }
+    const bLease = __testHooks.tryAcquireAccountAdmission(accountB.key, 1);
+    if (bLease) {
+      leases.push(bLease);
+      bLeaseHeld = true;
+    }
+    ({ orderedAccounts } = __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      ranking: "expiry-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: false,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }));
+    secondBLease = __testHooks.tryAcquireAccountAdmission(accountB.key, 1);
+  } finally {
+    secondBLease?.release();
+    for (const lease of leases) {
+      lease.release();
+    }
+    __testHooks.resetAllRuntimeState();
+  }
+  if (!bLeaseHeld || leases.length !== spillInflight + 6) {
+    log("precondition failed: the setup leases were not all granted", "red");
+    return false;
+  }
+  if (orderedAccounts[0]?.key !== accountB.key) {
+    log("expected spill to move B to the front once A crosses it", "red");
+    return false;
+  }
+  const decision = decisions[0];
+  if (
+    decision?.selectionReason !== "spill_inflight" ||
+    decision.spill?.to !== accountB.label
+  ) {
+    log("expected the routing decision to record the spill onto B", "red");
+    return false;
+  }
+  if (secondBLease !== undefined) {
+    log(
+      "expected B's admission cap to still refuse a second concurrent lease after the spill",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Concurrent requests in one just-starting session: two parallel first
+ * requests of one new session both route before either is served. Routing
+ * must not bind (only a served response does), so both see the same unbound
+ * order. The serve is simulated here with a direct bind; the route's own
+ * bind-on-serve is covered through the real attempt loop in
+ * test/continuous-test-suite-proxy-fallback-parent.ts. A request already in
+ * flight keeps the order it read, and the next request follows the binding.
+ */
+async function testParallelUnboundSessionRequestsBindConsistently(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const sessionId = "session-burst";
+  const idleTtlMs = 3_600_000;
+  const select = (
+    decisions: ProxyAccountRoutingDecision[],
+  ): ProxyPassthroughAccount[] =>
+    __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId,
+      ranking: "expiry-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: idleTtlMs,
+      spillInflight: 0,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }).orderedAccounts;
+  const keysOf = (order: ProxyPassthroughAccount[]): string =>
+    order.map((account) => account.key).join(",");
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  __testHooks.setAccountRuntimeState(accountA.key, { quota: makeQuota({}) });
+  __testHooks.setAccountRuntimeState(accountB.key, { quota: makeQuota({}) });
+  const firstDecisions: ProxyAccountRoutingDecision[] = [];
+  const secondDecisions: ProxyAccountRoutingDecision[] = [];
+  const followUpDecisions: ProxyAccountRoutingDecision[] = [];
+  let firstOrder: ProxyPassthroughAccount[];
+  let secondOrder: ProxyPassthroughAccount[];
+  let secondKeysWhenRead: string;
+  let boundAfterRouting: string | undefined;
+  let servedKey: string | undefined;
+  let followUpOrder: ProxyPassthroughAccount[];
+  try {
+    firstOrder = select(firstDecisions);
+    secondOrder = select(secondDecisions);
+    secondKeysWhenRead = keysOf(secondOrder);
+    boundAfterRouting = sessionAffinity.get(sessionId, Date.now(), idleTtlMs);
+    servedKey = firstOrder[0]?.key;
+    if (servedKey) {
+      sessionAffinity.bind(sessionId, servedKey, Date.now());
+    }
+    followUpOrder = select(followUpDecisions);
+  } finally {
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  if (boundAfterRouting !== undefined) {
+    log(
+      "expected routing alone to leave the new session unbound; only a served response binds",
+      "red",
+    );
+    return false;
+  }
+  if (keysOf(firstOrder) !== keysOf(secondOrder)) {
+    log(
+      "expected two unbound requests for the same new session to see the same order",
+      "red",
+    );
+    return false;
+  }
+  if (
+    firstDecisions[0]?.affinity?.sessionBound !== false ||
+    secondDecisions[0]?.affinity?.sessionBound !== false
+  ) {
+    log("expected both parallel decisions to record an unbound session", "red");
+    return false;
+  }
+  if (keysOf(secondOrder) !== secondKeysWhenRead) {
+    log(
+      "expected the bind not to change the order an in-flight request already read",
+      "red",
+    );
+    return false;
+  }
+  if (
+    servedKey === undefined ||
+    followUpOrder[0]?.key !== servedKey ||
+    followUpDecisions[0]?.selectionReason !== "session_affinity"
+  ) {
+    log(
+      "expected the next request in the session to follow the binding",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Spec Failure mode, entered from the affinity lookup rather than from spill
+ * (the spill-throw cases above force that one). The lookup runs inside the policy
+ * try on both fill-first paths. When it throws, the quota-ordered path must
+ * serve plain expiry-first although headroom-first is configured, and the
+ * quota-off path must serve its base rotation. Both record
+ * routing_policy_error. The fixture ranks b first under headroom-first and a
+ * first under expiry-first, so the fallback is visible in the order.
+ */
+async function testThrownRoutingPolicyFallsBackToExpiryFirst(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const seedQuotas = (): void => {
+    __testHooks.setAccountRuntimeState(accountA.key, {
+      quota: makeQuota({
+        sessionUsed: 0.5,
+        sessionResetAt: nowSec + 2 * 3600,
+        weeklyResetAt: nowSec + 86400,
+      }),
+    });
+    __testHooks.setAccountRuntimeState(accountB.key, {
+      quota: makeQuota({
+        sessionUsed: 0.1,
+        sessionResetAt: nowSec + 2 * 3600,
+        weeklyResetAt: nowSec + 3 * 86400,
+      }),
+    });
+  };
+  const select = (
+    quotaRoutingEnabled: boolean,
+    decisions: ProxyAccountRoutingDecision[],
+  ): ProxyPassthroughAccount[] =>
+    __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [accountA, accountB],
+      accountStrategy: "fill-first",
+      primaryAccountKey: undefined,
+      quotaRoutingEnabled,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: "session-throws",
+      ranking: "headroom-first",
+      preferPrimary: false,
+      sessionAffinityEnabled: true,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 0,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }).orderedAccounts;
+  for (const quotaRoutingEnabled of [true, false]) {
+    const path = quotaRoutingEnabled ? "quota-ordered" : "quota-off";
+    __testHooks.resetAllRuntimeState();
+    sessionAffinity.clear();
+    seedQuotas();
+    const expectedFirst = quotaRoutingEnabled
+      ? __testHooks.orderAccountsByQuota(
+          [accountA, accountB],
+          Date.now(),
+          undefined,
+          0.97,
+          5 * 60 * 1000,
+        )[0]?.key
+      : accountA.key;
+    const decisions: ProxyAccountRoutingDecision[] = [];
+    let policyOrder: ProxyPassthroughAccount[];
+    let orderedAccounts: ProxyPassthroughAccount[] | undefined;
+    let escaped = false;
+    try {
+      policyOrder = select(quotaRoutingEnabled, []);
+      __testHooks.setForceAffinityLookupThrowForTests(true);
+      try {
+        orderedAccounts = select(quotaRoutingEnabled, decisions);
+      } catch {
+        escaped = true;
+      }
+    } finally {
+      __testHooks.setForceAffinityLookupThrowForTests(false);
+      sessionAffinity.clear();
+      __testHooks.resetAllRuntimeState();
+    }
+    if (quotaRoutingEnabled && policyOrder[0]?.key !== accountB.key) {
+      log(
+        "fixture precondition failed: headroom-first should rank b first",
+        "red",
+      );
+      return false;
+    }
+    if (expectedFirst !== accountA.key) {
+      log(
+        `fixture precondition failed: the ${path} fallback order should start with a`,
+        "red",
+      );
+      return false;
+    }
+    if (escaped || !orderedAccounts) {
+      log(
+        `expected a thrown affinity lookup to be contained on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+    if (
+      orderedAccounts.length !== 2 ||
+      orderedAccounts[0]?.key !== expectedFirst
+    ) {
+      log(`expected the ${path} path to serve its fallback order`, "red");
+      return false;
+    }
+    if (decisions[0]?.selectionReason !== "routing_policy_error") {
+      log(
+        `expected selectionReason to record routing_policy_error on the ${path} path`,
+        "red",
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * A routing-policy failure is logged once per call site and error, not once
+ * per worker: a repeat stays quiet, but a different error at the same site,
+ * or the same error at another site, must still reach the log. The quota-
+ * ordered and quota-off policy catches are the two sites; the forced spill
+ * and affinity-lookup throws are the two errors.
+ */
+async function testRoutingPolicyErrorLogDedupesPerSiteAndError(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  let policyErrorLines = 0;
+  const selectWithFault = (
+    quotaRoutingEnabled: boolean,
+    fault: "spill" | "lookup",
+  ): void => {
+    const setFault =
+      fault === "spill"
+        ? __testHooks.setForceSpillThrowForTests
+        : __testHooks.setForceAffinityLookupThrowForTests;
+    const originalConsoleLog = console.log;
+    console.log = (...args: unknown[]): void => {
+      if (String(args[0]).startsWith("[proxy] routing policy threw")) {
+        policyErrorLines += 1;
+        return;
+      }
+      originalConsoleLog(...args);
+    };
+    setFault(true);
+    try {
+      __testHooks.selectClaudeProxyAccountOrderForTests({
+        enabledAccounts: [accountA, accountB],
+        accountStrategy: "fill-first",
+        primaryAccountKey: undefined,
+        quotaRoutingEnabled,
+        sessionSoftLimit: 0.97,
+        sessionResetToleranceMs: 5 * 60 * 1000,
+        sessionId: "session-log-dedupe",
+        ranking: "expiry-first",
+        preferPrimary: false,
+        sessionAffinityEnabled: true,
+        sessionAffinityIdleTtlMs: 3_600_000,
+        spillInflight: 1,
+        setRoutingDecision: () => undefined,
+      });
+    } finally {
+      setFault(false);
+      console.log = originalConsoleLog;
+    }
+  };
+  const steps: ReadonlyArray<{
+    label: string;
+    quotaRoutingEnabled: boolean;
+    fault: "spill" | "lookup";
+    reset?: boolean;
+    expectedLines: number;
+  }> = [
+    {
+      label: "a first failure",
+      quotaRoutingEnabled: true,
+      fault: "spill",
+      expectedLines: 1,
+    },
+    {
+      label: "the same failure at the same site",
+      quotaRoutingEnabled: true,
+      fault: "spill",
+      expectedLines: 1,
+    },
+    {
+      label: "a different failure at the same site",
+      quotaRoutingEnabled: true,
+      fault: "lookup",
+      expectedLines: 2,
+    },
+    {
+      label: "the same failure at a different site",
+      quotaRoutingEnabled: false,
+      fault: "spill",
+      expectedLines: 3,
+    },
+    {
+      label: "a logged failure after resetAllRuntimeState",
+      quotaRoutingEnabled: true,
+      fault: "spill",
+      reset: true,
+      expectedLines: 4,
+    },
+  ];
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  try {
+    for (const step of steps) {
+      if (step.reset) {
+        __testHooks.resetAllRuntimeState();
+      }
+      selectWithFault(step.quotaRoutingEnabled, step.fault);
+      if (policyErrorLines !== step.expectedLines) {
+        log(
+          `expected ${step.label} to leave ${step.expectedLines} routing-policy error log line(s), saw ${policyErrorLines}`,
+          "red",
+        );
+        return false;
+      }
+    }
+  } finally {
+    sessionAffinity.clear();
+    __testHooks.resetAllRuntimeState();
+  }
+  return true;
+}
+
+/**
+ * A throw from the account metrics, under the default policy, is not a
+ * routing-policy failure: it must propagate as it did before the policies
+ * existed, never be recorded as routing_policy_error. The quota throws on its
+ * first read only, so a policy catch that recomputed the metrics would
+ * succeed and mislabel it.
+ */
+async function testMetricsThrowIsNotRoutingPolicyError(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const accountA: ProxyPassthroughAccount = {
+    key: "anthropic:a",
+    label: "a",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const accountB: ProxyPassthroughAccount = {
+    key: "anthropic:b",
+    label: "b",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let quotaReads = 0;
+  let escaped = false;
+  __testHooks.resetAllRuntimeState();
+  sessionAffinity.clear();
+  try {
+    __testHooks.setAccountRuntimeState(accountA.key, {
+      quota: new Proxy(makeQuota({}), {
+        get(target, property, receiver) {
+          quotaReads += 1;
+          if (quotaReads === 1) {
+            throw new Error("forced failure for metrics throw test");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      }),
+    });
+    try {
+      __testHooks.selectClaudeProxyAccountOrderForTests({
+        enabledAccounts: [accountA, accountB],
+        accountStrategy: "fill-first",
+        primaryAccountKey: undefined,
+        quotaRoutingEnabled: true,
+        sessionSoftLimit: 0.97,
+        sessionResetToleranceMs: 5 * 60 * 1000,
+        ranking: "expiry-first",
+        preferPrimary: false,
+        sessionAffinityEnabled: false,
+        sessionAffinityIdleTtlMs: 3_600_000,
+        spillInflight: 0,
+        setRoutingDecision: (decision) => decisions.push(decision),
+      });
+    } catch {
+      escaped = true;
+    }
+  } finally {
+    __testHooks.resetAllRuntimeState();
+  }
+  if (quotaReads === 0) {
+    log(
+      "fixture precondition failed: routing never read the throwing quota",
+      "red",
+    );
+    return false;
+  }
+  if (
+    decisions.some(
+      (decision) => decision.selectionReason === "routing_policy_error",
+    )
+  ) {
+    log(
+      "expected a metrics failure not to be recorded as routing_policy_error",
+      "red",
+    );
+    return false;
+  }
+  if (!escaped) {
+    log(
+      "expected a metrics failure to propagate rather than be caught as a policy error",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Spec Precedence rule 2: with prefer-primary on and no
+ * binding, a usable primary that is not session-saturated goes first even
+ * when the ranking puts another account ahead of it. A session-saturated or
+ * unusable primary keeps its ranked place. The other account has both the
+ * sooner weekly reset and more headroom, so it ranks first under either
+ * ranking until prefer-primary applies.
+ */
+async function testPreferPrimaryTakesUsablePrimary(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const primary: ProxyPassthroughAccount = {
+    key: "anthropic:p",
+    label: "p",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const other: ProxyPassthroughAccount = {
+    key: "anthropic:q",
+    label: "q",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const now = Date.now();
+  const nowSec = Math.floor(now / 1000);
+  const primaryStates: ReadonlyArray<{
+    name: string;
+    sessionUsed: number;
+    coolingUntil: number | undefined;
+    movesFirst: boolean;
+  }> = [
+    {
+      name: "usable",
+      sessionUsed: 0.5,
+      coolingUntil: undefined,
+      movesFirst: true,
+    },
+    {
+      name: "session-saturated",
+      sessionUsed: 0.98,
+      coolingUntil: undefined,
+      movesFirst: false,
+    },
+    {
+      name: "unusable",
+      sessionUsed: 0.5,
+      coolingUntil: now + 5 * 60 * 1000,
+      movesFirst: false,
+    },
+  ];
+  const rankings = ["expiry-first", "headroom-first"] as const;
+  const keysOf = (order: ProxyPassthroughAccount[]): string =>
+    order.map((account) => account.key).join(",");
+  for (const ranking of rankings) {
+    for (const state of primaryStates) {
+      const label = `${state.name} primary under ${ranking}`;
+      __testHooks.resetAllRuntimeState();
+      sessionAffinity.clear();
+      __testHooks.setAccountRuntimeState(other.key, {
+        quota: makeQuota({
+          sessionUsed: 0.1,
+          sessionResetAt: nowSec + 2 * 3600,
+          weeklyResetAt: nowSec + 86400,
+        }),
+      });
+      __testHooks.setAccountRuntimeState(primary.key, {
+        coolingUntil: state.coolingUntil,
+        quota: makeQuota({
+          sessionUsed: state.sessionUsed,
+          sessionResetAt: nowSec + 2 * 3600,
+          weeklyResetAt: nowSec + 3 * 86400,
+        }),
+      });
+      const select = (
+        preferPrimary: boolean,
+        decisions: ProxyAccountRoutingDecision[],
+      ): ProxyPassthroughAccount[] =>
+        __testHooks.selectClaudeProxyAccountOrderForTests({
+          enabledAccounts: [other, primary],
+          accountStrategy: "fill-first",
+          primaryAccountKey: primary.key,
+          quotaRoutingEnabled: true,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 5 * 60 * 1000,
+          sessionId: undefined,
+          ranking,
+          preferPrimary,
+          sessionAffinityEnabled: false,
+          sessionAffinityIdleTtlMs: 3_600_000,
+          spillInflight: 0,
+          setRoutingDecision: (decision) => decisions.push(decision),
+        }).orderedAccounts;
+      const decisions: ProxyAccountRoutingDecision[] = [];
+      let rankedOrder: ProxyPassthroughAccount[];
+      let orderedAccounts: ProxyPassthroughAccount[];
+      try {
+        rankedOrder = select(false, []);
+        orderedAccounts = select(true, decisions);
+      } finally {
+        __testHooks.resetAllRuntimeState();
+      }
+      if (rankedOrder[0]?.key !== other.key) {
+        log(
+          `fixture precondition failed for the ${label}: the ranking should put the other account first`,
+          "red",
+        );
+        return false;
+      }
+      const reason = decisions[0]?.selectionReason;
+      if (state.movesFirst) {
+        if (
+          orderedAccounts[0]?.key !== primary.key ||
+          reason !== "preferred_primary"
+        ) {
+          log(
+            `expected prefer-primary to put the ${label} first as preferred_primary`,
+            "red",
+          );
+          return false;
+        }
+      } else if (
+        keysOf(orderedAccounts) !== keysOf(rankedOrder) ||
+        reason === "preferred_primary"
+      ) {
+        log(
+          `expected prefer-primary to leave the ${label} in its ranked place`,
+          "red",
+        );
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+async function testPreferPrimaryMatchesStoredKeySpelling(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  // resolvePrimaryAccountKey hands the route a normalized key, while the token
+  // store keeps the spelling the account was saved under.
+  const primary: ProxyPassthroughAccount = {
+    key: "anthropic:Primary@Example.com",
+    label: "Primary@Example.com",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const other: ProxyPassthroughAccount = {
+    key: "anthropic:q",
+    label: "q",
+    type: "oauth",
+  } as ProxyPassthroughAccount;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const decisions: ProxyAccountRoutingDecision[] = [];
+  let orderedAccounts: ProxyPassthroughAccount[];
+  try {
+    __testHooks.resetAllRuntimeState();
+    sessionAffinity.clear();
+    __testHooks.setAccountRuntimeState(other.key, {
+      quota: makeQuota({
+        sessionUsed: 0.1,
+        sessionResetAt: nowSec + 2 * 3600,
+        weeklyResetAt: nowSec + 86400,
+      }),
+    });
+    __testHooks.setAccountRuntimeState(primary.key, {
+      quota: makeQuota({
+        sessionUsed: 0.5,
+        sessionResetAt: nowSec + 2 * 3600,
+        weeklyResetAt: nowSec + 3 * 86400,
+      }),
+    });
+    orderedAccounts = __testHooks.selectClaudeProxyAccountOrderForTests({
+      enabledAccounts: [other, primary],
+      accountStrategy: "fill-first",
+      primaryAccountKey: "anthropic:primary@example.com",
+      quotaRoutingEnabled: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 5 * 60 * 1000,
+      sessionId: undefined,
+      ranking: "expiry-first",
+      preferPrimary: true,
+      sessionAffinityEnabled: false,
+      sessionAffinityIdleTtlMs: 3_600_000,
+      spillInflight: 0,
+      setRoutingDecision: (decision) => decisions.push(decision),
+    }).orderedAccounts;
+  } finally {
+    __testHooks.resetAllRuntimeState();
+  }
+  if (
+    orderedAccounts[0]?.key !== primary.key ||
+    decisions[0]?.selectionReason !== "preferred_primary" ||
+    decisions[0]?.configuredPrimaryMatched !== true
+  ) {
+    log(
+      "expected prefer-primary to match a primary stored with different case",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
 // Test Registration
 // ============================================================================
 
@@ -10252,6 +13627,86 @@ const tests: TestFunction[] = [
     category: "proxy-primary",
   },
   {
+    name: "compareHeadroomFirst: prefers more headroom",
+    fn: testCompareHeadroomFirstPrefersMoreHeadroom,
+    category: "proxy-primary",
+  },
+  {
+    name: "compareHeadroomFirst: unknown headroom sorts last",
+    fn: testCompareHeadroomFirstUnknownHeadroomSortsLast,
+    category: "proxy-primary",
+  },
+  {
+    name: "applyAffinityAndPrimary: affinity beats prefer-primary",
+    fn: testApplyAffinityTakesPrecedenceOverPreferPrimary,
+    category: "proxy-primary",
+  },
+  {
+    name: "applyAffinityAndPrimary: skips unusable bound account",
+    fn: testApplyAffinitySkipsUnusableBoundAccount,
+    category: "proxy-primary",
+  },
+  {
+    name: "rankAccounts: headroom-first with affinity",
+    fn: testRankAccountsHeadroomFirstWithAffinity,
+    category: "proxy-primary",
+  },
+  {
+    name: "rankAccounts: omitted ranking defaults to expiry-first",
+    fn: testRankAccountsDefaultsToExpiryFirstWhenRankingOmitted,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: moves under-threshold account to front",
+    fn: testApplySpillMovesAccountUnderThreshold,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: no-op below threshold",
+    fn: testApplySpillNoOpBelowThreshold,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: skips unusable account for a later usable one",
+    fn: testApplySpillSkipsUnusableAccountForLaterUsable,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: no spill when every later account is unusable",
+    fn: testApplySpillNoSpillWhenAllLaterAccountsUnusable,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: skips saturated account for a later eligible one",
+    fn: testApplySpillSkipsSaturatedAccountForLaterEligible,
+    category: "proxy-primary",
+  },
+  {
+    name: "applySpill: no spill onto a saturated account",
+    fn: testApplySpillNoSpillOntoSaturatedAccount,
+    category: "proxy-primary",
+  },
+  {
+    name: "applyAffinityAndPrimary: prefer-primary orders primary second after affinity",
+    fn: testApplyAffinityAndPreferPrimaryOrdersPrimarySecond,
+    category: "proxy-primary",
+  },
+  {
+    name: "rankAccounts: deterministic and transitive (seeded)",
+    fn: testRankAccountsIsDeterministicAndTransitive,
+    category: "proxy-primary",
+  },
+  {
+    name: "buildQuotaRoutingDecision: uses policySelectionReason override",
+    fn: testBuildQuotaRoutingDecisionUsesPolicySelectionReason,
+    category: "proxy-primary",
+  },
+  {
+    name: "comparator rung table: every branch for both rankings",
+    fn: testComparatorRungTableCoversEveryBranch,
+    category: "proxy-primary",
+  },
+  {
     name: "admission: unlimited account in-flight counting",
     fn: testUnlimitedAccountInflightCounting,
     category: "proxy-infra",
@@ -10269,6 +13724,11 @@ const tests: TestFunction[] = [
   {
     name: "admission: unlimited stream lease released on end and cancel",
     fn: testUnlimitedStreamLeaseReleasedOnTerminal,
+    category: "proxy-infra",
+  },
+  {
+    name: "streaming success response: served discriminant on 502s vs genuine success",
+    fn: testStreamingSuccessResponseServedDiscriminant,
     category: "proxy-infra",
   },
   {
@@ -10299,6 +13759,111 @@ const tests: TestFunction[] = [
   {
     name: "Quota: merge preserves provider configuration",
     fn: testQuotaMergePreservesProviderConfig,
+    category: "proxy-primary",
+  },
+  {
+    name: "sessionAffinity: bind and get",
+    fn: testSessionAffinityBindAndGet,
+    category: "proxy-primary",
+  },
+  {
+    name: "sessionAffinity: idle expiry boundary",
+    fn: testSessionAffinityIdleExpiryBoundary,
+    category: "proxy-primary",
+  },
+  {
+    name: "sessionAffinity: evicts least-recently-bound at cap",
+    fn: testSessionAffinityEvictsAtCap,
+    category: "proxy-primary",
+  },
+  {
+    name: "sessionAffinity: countActive excludes idle-expired bindings",
+    fn: testSessionAffinityCountActiveExcludesIdleExpired,
+    category: "proxy-primary",
+  },
+  {
+    name: "sessionAffinity: clear empties the store",
+    fn: testSessionAffinityClear,
+    category: "proxy-primary",
+  },
+  {
+    name: "loadClaudeProxyAccounts: exposes resolved sessionId",
+    fn: testLoadClaudeProxyAccountsExposesSessionId,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: affinity applies with quota routing disabled",
+    fn: testAffinityAppliesWithQuotaRoutingDisabled,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: thrown spill on quota-off path restores base order",
+    fn: testSpillThrowOnQuotaOffPathRestoresBaseOrder,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: thrown spill on quota-ordered path falls back to expiry-first",
+    fn: testSpillThrowOnQuotaOrderedPathFallsBackToExpiryFirst,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: busy preferred primary spills an unbound request",
+    fn: testPreferredPrimaryFirstChoiceSpills,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: spill never splits a bound session",
+    fn: testSpillNeverSplitsBoundSession,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: default policy reproduces pre-policy ordering",
+    fn: testDefaultPolicyReproducesPrePolicyOrdering,
+    category: "proxy-primary",
+  },
+  {
+    name: "selectClaudeProxyAccountOrder: round-robin ignores routing policies",
+    fn: testRoundRobinIgnoresRoutingPolicies,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: cooldown recovery does not unbind session",
+    fn: testCooldownRecoveryDoesNotUnbindSession,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: spill target still subject to admission cap",
+    fn: testSpillTargetStillSubjectToAdmissionCap,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: parallel unbound session requests bind consistently",
+    fn: testParallelUnboundSessionRequestsBindConsistently,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: thrown routing policy falls back to expiry-first",
+    fn: testThrownRoutingPolicyFallsBackToExpiryFirst,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: routing-policy error log dedupes per site and error",
+    fn: testRoutingPolicyErrorLogDedupesPerSiteAndError,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: a metrics throw is not a routing policy error",
+    fn: testMetricsThrowIsNotRoutingPolicyError,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: prefer-primary takes the usable primary",
+    fn: testPreferPrimaryTakesUsablePrimary,
+    category: "proxy-primary",
+  },
+  {
+    name: "precedence: prefer-primary matches the stored key spelling",
+    fn: testPreferPrimaryMatchesStoredKeySpelling,
     category: "proxy-primary",
   },
   {
@@ -10769,6 +14334,23 @@ const tests: TestFunction[] = [
     category: "proxy-infra",
   },
   {
+    name: "CLI: /status reports the active routing policy",
+    fn: testStatusReportsRoutingPolicy,
+    // Spawns its own proxy from the built CLI, so like every case that needs a
+    // live proxy it stays outside IN_PROCESS_CATEGORIES.
+    category: "proxy-infra",
+  },
+  {
+    name: "CLI: invalid routing policy value rejects the whole reload",
+    fn: testInvalidRoutingPolicyValueRejectsWholeReload,
+    category: "proxy-infra",
+  },
+  {
+    name: "CLI: hot reload updates the active policy",
+    fn: testHotReloadUpdatesActivePolicy,
+    category: "proxy-infra",
+  },
+  {
     name: "Primary: CLI set-primary/get-primary/clear-primary roundtrip",
     fn: testCliPrimaryRoundtrip,
     category: "proxy-primary",
@@ -10817,6 +14399,41 @@ const tests: TestFunction[] = [
   {
     name: "Config Loading",
     fn: testProxyConfigLoading,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects invalid account-ranking",
+    fn: testValidateProxyConfigRejectsBadAccountRanking,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects out-of-range spill-inflight",
+    fn: testValidateProxyConfigRejectsOutOfRangeSpill,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: parses camelCase sessionAffinityIdleTtlMs",
+    fn: testParseRoutingConfigAcceptsCamelCaseAffinityTtl,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects invalid prefer-primary",
+    fn: testValidateProxyConfigRejectsBadPreferPrimary,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects invalid session-affinity",
+    fn: testValidateProxyConfigRejectsBadSessionAffinity,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects invalid session-affinity-idle-ttl-ms",
+    fn: testValidateProxyConfigRejectsBadAffinityIdleTtl,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects null routing policy keys under either spelling",
+    fn: testValidateProxyConfigRejectsNullUnderEitherSpelling,
     category: "proxy-config",
   },
 

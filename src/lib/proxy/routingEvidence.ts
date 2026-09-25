@@ -28,6 +28,11 @@ export const PROXY_ACCOUNT_ROUTING_REASONS = [
   "weekly_reset",
   "weekly_utilization",
   "scoped_utilization",
+  "headroom",
+  "session_affinity",
+  "preferred_primary",
+  "spill_inflight",
+  "routing_policy_error",
 ] as const;
 
 export const PROXY_ACCOUNT_TYPES = ["oauth", "api_key"] as const;

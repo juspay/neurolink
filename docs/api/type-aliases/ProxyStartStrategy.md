@@ -8,6 +8,6 @@
 
 > **ProxyStartStrategy** = `"round-robin"` \| `"fill-first"`
 
-Defined in: [types/proxy.ts:3604](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3604)
+Defined in: [types/proxy.ts:3669](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3669)
 
 Load-balancing strategy used by the proxy across accounts.

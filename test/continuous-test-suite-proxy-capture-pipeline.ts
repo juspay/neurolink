@@ -1284,6 +1284,114 @@ await test("indexed final outcomes preserve semantic failures after HTTP 200", a
     }
   });
 });
+await test("analysis keeps routing-policy evidence on routing records", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "proxy-routing-evidence-"));
+  const timestamp = "2026-09-19T01:00:00.000Z";
+  const candidate = (account: string, rank: number) => ({
+    account,
+    accountType: "oauth",
+    sourceIndex: rank,
+    rank,
+    configuredPrimary: false,
+    usable: true,
+    saturated: false,
+    quotaObserved: true,
+    coolingActive: false,
+    quotaLastUpdated: null,
+    quotaAgeMs: null,
+    coolingUntil: null,
+    sessionUsed: 0.1,
+    sessionResetAt: null,
+    sessionResetBucket: null,
+    weeklyUsed: 0.2,
+    weeklyResetAt: null,
+    unifiedStatus: null,
+    overageStatus: null,
+    sessionStatus: null,
+    weeklyStatus: null,
+    coolingReason: null,
+  });
+  const decision = (requestId: string, spill: unknown) => ({
+    timestamp,
+    requestId,
+    method: "POST",
+    path: "/v1/messages",
+    responseStatus: 200,
+    account: "a",
+    accountType: "oauth",
+    routingDecision: {
+      schemaVersion: 1,
+      evaluatedAt: timestamp,
+      strategy: "fill-first",
+      mode: "quota",
+      selectionReason: "spill_inflight",
+      quotaRoutingEnabled: true,
+      quotaInputsUsed: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 300000,
+      configuredPrimaryAccount: null,
+      configuredPrimaryMatched: false,
+      rotationOffset: 0,
+      initialAccount: "a",
+      candidates: [candidate("a", 0), candidate("b", 1)],
+      policy: {
+        ranking: "headroom-first",
+        preferPrimary: false,
+        sessionAffinity: true,
+        sessionAffinityIdleTtlMs: 3600000,
+        spillInflight: 20,
+      },
+      affinity: {
+        sessionBound: false,
+        boundAccount: null,
+        applied: false,
+        skippedReason: "no_session",
+      },
+      spill,
+    },
+  });
+  try {
+    await writeFile(
+      join(directory, "proxy-2026-09-19.jsonl"),
+      [
+        decision("with-spill", { from: "b", to: "a", inflight: 20 }),
+        decision("bad-spill", { from: "b", inflight: -1 }),
+      ]
+        .map((row) => JSON.stringify(row))
+        .join("\n") + "\n",
+    );
+    const report = await analyzeProxyLogs({
+      logsDir: directory,
+      since: "2026-09-19T00:00:00Z",
+      nowMs: Date.parse("2026-09-19T02:00:00Z"),
+    });
+    const byId = new Map(
+      report.routing.records.map((record) => [record.requestId, record]),
+    );
+    const withSpill = byId.get("with-spill")?.decision;
+    const badSpill = byId.get("bad-spill")?.decision;
+    assert.ok(withSpill, "the decision with valid evidence was dropped");
+    assert.deepEqual(withSpill.policy, {
+      ranking: "headroom-first",
+      preferPrimary: false,
+      sessionAffinity: true,
+      sessionAffinityIdleTtlMs: 3600000,
+      spillInflight: 20,
+    });
+    assert.deepEqual(withSpill.affinity, {
+      sessionBound: false,
+      boundAccount: null,
+      applied: false,
+      skippedReason: "no_session",
+    });
+    assert.deepEqual(withSpill.spill, { from: "b", to: "a", inflight: 20 });
+    assert.ok(badSpill, "a malformed spill field rejected the whole decision");
+    assertEqual(badSpill.spill, undefined);
+    assertEqual(badSpill.policy?.ranking, "headroom-first");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 await test("recorded bridge analysis separates client outcomes from internal usage owners", async () => {
   const directory = await mkdtemp(join(tmpdir(), "proxy-owner-analysis-"));
   const timestamp = "2026-09-19T01:00:00.000Z";

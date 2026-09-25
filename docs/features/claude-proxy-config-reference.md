@@ -293,7 +293,7 @@ Run `neurolink auth list` to see all accounts and their current status.
 
 ### `neurolink auth set-primary`
 
-Designate the proxy's primary (home) Anthropic account by email/label. Writes `routing.primary-account` to the proxy config YAML; a running proxy watching that exact file applies it automatically and tries this account first under fill-first (or uses it as the home reference under round-robin). Does **not** touch the encrypted token store and does **not** require re-OAuthing any account.
+Designate the proxy's primary (home) Anthropic account by email/label. Writes `routing.primary-account` to the proxy config YAML; a running proxy watching that exact file applies it automatically. With quota routing enabled (the default), primary is the ranking's final tiebreaker, not tried first, unless `routing.prefer-primary` is also set; it is tried first unconditionally only when quota routing is disabled, and under `round-robin` it is used as the home reference. Does **not** touch the encrypted token store and does **not** require re-OAuthing any account.
 
 | Argument   | Type     | Required | Description                                                               |
 | ---------- | -------- | -------- | ------------------------------------------------------------------------- |
@@ -539,18 +539,45 @@ routing:
   # max-inflight-per-account: 2
 
   # Primary (home) account: under fill-first without quota routing this account
-  # is tried first. With quota routing enabled it is only the final tie-break;
-  # session headroom and weekly expiry determine order first. Under round-robin
-  # it sets the starting offset when account membership changes. Resolved
-  # per-request to a stable token-store key (anthropic:<email>); a numeric index
-  # is never persisted, so reordering accounts in the token store is irrelevant.
-  # When omitted the proxy falls back to insertion-order index 0.
-  # Accepts: primary-account (kebab) or primaryAccount (camel).
+  # is tried first. With quota routing enabled it is only the final tie-break
+  # in the ranking order below, unless prefer-primary (below) is set, in which
+  # case it is tried first whenever usable and not session-saturated. Under
+  # round-robin it sets the starting offset when account membership changes.
+  # Resolved per-request to a stable token-store key (anthropic:<email>); a
+  # numeric index is never persisted, so reordering accounts in the token
+  # store is irrelevant. When omitted the proxy falls back to insertion-order
+  # index 0. Accepts: primary-account (kebab) or primaryAccount (camel).
   # Manage via:
   #   neurolink auth set-primary <email>
   #   neurolink auth get-primary
   #   neurolink auth clear-primary
   primary-account: "alice@example.com"
+
+  # Account routing policies (all optional; every default reproduces today's
+  # exact behavior). See "Account Routing Policies" below for precedence,
+  # interaction notes, and hot-reload semantics. Ignored under round-robin.
+  # Accepts kebab-case or camelCase for every key here.
+  #
+  # Ordering of usable accounts under quota routing: "expiry-first" (default,
+  # unchanged) or "headroom-first" (ranks by highest min(1 - sessionUsed,
+  # 1 - weeklyUsed) ahead of weekly reset).
+  account-ranking: "expiry-first"
+  # If primary-account is usable and not session-saturated, try it before the
+  # ranking order (default: false).
+  prefer-primary: false
+  # Keep a Claude Code session on the Anthropic account that served it, while
+  # that account stays usable and not session-saturated (default: false).
+  # Turning this off or on at runtime clears all existing bindings.
+  session-affinity: false
+  # How long an idle session binding survives, in ms (default: 3600000;
+  # valid range 60000-86400000). Only meaningful when session-affinity is on.
+  session-affinity-idle-ttl-ms: 3600000
+  # For an unbound request: if the account that would otherwise be tried
+  # first already has this many requests in flight, try the next account
+  # below that count that is usable and not session-saturated instead
+  # (default: 0, meaning off; valid range 0-100). Only has an effect below
+  # max-inflight-per-account's cap, or when no cap is set.
+  spill-inflight: 0
 
   # Optional hard boundary for Anthropic credential discovery. Entries may be
   # labels/emails or full anthropic:<label> keys. An empty list denies all.
@@ -657,20 +684,25 @@ cloaking:
 
 #### Routing Fields
 
-| Field                                                    | Type                            | Default       | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| -------------------------------------------------------- | ------------------------------- | ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `strategy`                                               | `"round-robin" \| "fill-first"` | _(none)_      | No       | Account selection strategy. `round-robin` rotates across accounts. `fill-first` uses one account until exhausted.                                                                                                                                                                                                                                                                                                                    |
-| `primary-account` / `primaryAccount`                     | `string`                        | _(none)_      | No       | Email/label of the Anthropic account to treat as primary (home). With quota routing enabled, primary is only the final tie-break after session headroom and weekly expiry. Resolved per-request to `anthropic:<email>`; falls back to insertion-order index 0 when absent or when the configured account isn't currently authenticated. Manage via `neurolink auth set-primary <email>`.                                             |
-| `account-allowlist` / `accountAllowlist`                 | `string[]`                      | _(none)_      | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. Special fallback labels are `legacy-default` and `env`.                                                                                                                                                                              |
-| `model-mappings` / `modelMappings`                       | `ModelMapping[]`                | `[]`          | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                                                                                                                                                                             |
-| `fallback-chain` / `fallbackChain`                       | `FallbackEntry[]`               | `[]`          | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                                                                                                                                                                                    |
-| `auto-fallback` / `autoFallback`                         | `boolean`                       | `false`       | No       | Allows a translation-layer-selected fallback provider after configured fallbacks fail. Keep disabled to restrict requests to explicit accounts and fallback entries.                                                                                                                                                                                                                                                                 |
-| `max-inflight-per-account` / `maxInflightPerAccount`     | `integer`                       | _(unlimited)_ | No       | Optional maximum concurrent upstream requests per OAuth account, from 1 through 20. When omitted, every request is admitted immediately. When set, requests prefer an available ordered account before queueing. Any value outside the range — non-integer, `0`, or `21`+ — is discarded with a warning and admission stays **unlimited**; values are never clamped to the nearest bound.                                            |
-| `passthrough-models` / `passthroughModels`               | `string[]`                      | `[]`          | No       | Model IDs that bypass routing and go directly to Anthropic.                                                                                                                                                                                                                                                                                                                                                                          |
-| `quota-routing` / `quotaRouting`                         | `boolean`                       | `true`        | No       | Enables weekly-expiry-first quota ordering for fill-first with multiple accounts. Accounts at the session soft limit are temporarily demoted until their 5h window resets. The environment override takes precedence.                                                                                                                                                                                                                |
-| `session-soft-limit` / `sessionSoftLimit`                | `number`                        | `0.97`        | No       | Session utilization in `(0, 1]` at which quota routing proactively demotes an account.                                                                                                                                                                                                                                                                                                                                               |
-| `session-reset-tolerance-ms` / `sessionResetToleranceMs` | `integer`                       | `900000`      | No       | Positive reset-time bucket width used when session reset time breaks a weekly-expiry tie and when saturated accounts are ordered by recovery time.                                                                                                                                                                                                                                                                                   |
-| `use-overage` / `useOverage`                             | `"auto" \| "always" \| "never"` | `auto`        | No       | Whether an account may keep serving on paid extra usage once its subscription window is spent. `auto` follows what Anthropic reports per account; `never` parks the account at the subscription limit so the pool never spends credits; `always` keeps serving whenever the provider permits it. Only `never` overrides the provider — nothing here enables extra usage Anthropic has disabled. Manage via `neurolink auth overage`. |
+| Field                                                       | Type                                 | Default        | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------- | ------------------------------------ | -------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strategy`                                                  | `"round-robin" \| "fill-first"`      | _(none)_       | No       | Account selection strategy. `round-robin` rotates across accounts. `fill-first` uses one account until exhausted.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `primary-account` / `primaryAccount`                        | `string`                             | _(none)_       | No       | Email/label of the Anthropic account to treat as primary (home). With quota routing enabled, primary is only the final tie-break in the ranking order, unless `prefer-primary` is set, in which case it is tried first whenever it's usable and not session-saturated. It is tried first unconditionally only when quota routing is disabled. Resolved per-request to `anthropic:<email>`; falls back to insertion-order index 0 when absent or when the configured account isn't currently authenticated. Manage via `neurolink auth set-primary <email>`. |
+| `account-ranking` / `accountRanking`                        | `"expiry-first" \| "headroom-first"` | `expiry-first` | No       | Ordering of usable accounts under quota routing. `expiry-first` is the existing comparator (soonest weekly reset, then other tie-breakers), unchanged. `headroom-first` ranks by highest headroom — `min(1 - sessionUsed, 1 - weeklyUsed)` — ahead of weekly reset. Ignored under `strategy: round-robin`.                                                                                                                                                                                                                                                  |
+| `prefer-primary` / `preferPrimary`                          | `boolean`                            | `false`        | No       | If the configured `primary-account` is usable and not session-saturated, it is tried before the ranking order (after any active session-affinity binding). Ignored under `strategy: round-robin`.                                                                                                                                                                                                                                                                                                                                                           |
+| `session-affinity` / `sessionAffinity`                      | `boolean`                            | `false`        | No       | Sticky sessions: a Claude Code session is bound to the Anthropic account that serves it and stays there while that account is usable and not session-saturated; a request that never tried the bound account (e.g. past `max-inflight-per-account`) keeps the binding. Otherwise, even if the bound account failed it, the session re-binds to the account that serves it; Codex/Vertex fallback or a peer borrow never re-binds. Ignored under `strategy: round-robin` and with one enabled account. Turning it off or on at runtime clears all bindings.  |
+| `session-affinity-idle-ttl-ms` / `sessionAffinityIdleTtlMs` | `integer`, 60000–86400000            | `3600000`      | No       | How long a session binding survives without a served request before it's dropped (the prompt cache is assumed cold by then). Only meaningful when `session-affinity` is on.                                                                                                                                                                                                                                                                                                                                                                                 |
+| `spill-inflight` / `spillInflight`                          | `integer`, 0–100                     | `0` (off)      | No       | For a request with no active session-affinity binding: if the account that would otherwise be tried first already has this many requests in flight, try the next account below that count that is usable and not session-saturated instead. Only affects unbound requests; never splits a bound session. Effective only below `max-inflight-per-account`'s cap (or when no cap is set) — that cap applies to every account regardless of `spill-inflight`. Ignored under `strategy: round-robin`.                                                           |
+| `account-allowlist` / `accountAllowlist`                    | `string[]`                           | _(none)_       | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. Special fallback labels are `legacy-default` and `env`.                                                                                                                                                                                                                                                                                                     |
+| `model-mappings` / `modelMappings`                          | `ModelMapping[]`                     | `[]`           | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `fallback-chain` / `fallbackChain`                          | `FallbackEntry[]`                    | `[]`           | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `auto-fallback` / `autoFallback`                            | `boolean`                            | `false`        | No       | Allows a translation-layer-selected fallback provider after configured fallbacks fail. Keep disabled to restrict requests to explicit accounts and fallback entries.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `max-inflight-per-account` / `maxInflightPerAccount`        | `integer`                            | _(unlimited)_  | No       | Optional maximum concurrent upstream requests per OAuth account, from 1 through 20. When omitted, every request is admitted immediately. When set, requests prefer an available ordered account before queueing. Any value outside the range — non-integer, `0`, or `21`+ — is discarded with a warning and admission stays **unlimited**; values are never clamped to the nearest bound.                                                                                                                                                                   |
+| `passthrough-models` / `passthroughModels`                  | `string[]`                           | `[]`           | No       | Model IDs that bypass routing and go directly to Anthropic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `quota-routing` / `quotaRouting`                            | `boolean`                            | `true`         | No       | Enables weekly-expiry-first quota ordering for fill-first with multiple accounts. Accounts at the session soft limit are temporarily demoted until their 5h window resets. The environment override takes precedence.                                                                                                                                                                                                                                                                                                                                       |
+| `session-soft-limit` / `sessionSoftLimit`                   | `number`                             | `0.97`         | No       | Session utilization in `(0, 1]` at which quota routing proactively demotes an account.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `session-reset-tolerance-ms` / `sessionResetToleranceMs`    | `integer`                            | `900000`       | No       | Positive reset-time bucket width used when session reset time breaks a weekly-expiry tie and when saturated accounts are ordered by recovery time.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `use-overage` / `useOverage`                                | `"auto" \| "always" \| "never"`      | `auto`         | No       | Whether an account may keep serving on paid extra usage once its subscription window is spent. `auto` follows what Anthropic reports per account; `never` parks the account at the subscription limit so the pool never spends credits; `always` keeps serving whenever the provider permits it. Only `never` overrides the provider — nothing here enables extra usage Anthropic has disabled. Manage via `neurolink auth overage`.                                                                                                                        |
 
 For `fallback-chain`/`fallbackChain`, `account-allowlist`/`accountAllowlist`,
 `quota-routing`/`quotaRouting`, `use-overage`/`useOverage`,
@@ -680,7 +712,9 @@ For `fallback-chain`/`fallbackChain`, `account-allowlist`/`accountAllowlist`,
 under either spelling means "unset" — the field's default applies as if the
 key were omitted, but a warning is logged. An empty YAML value
 (`use-overage:`) is `null`. A non-null value under one spelling is still
-used even when the other spelling is `null`.
+used even when the other spelling is `null`. The five newer routing policy
+keys (`account-ranking` through `spill-inflight`) differ on purpose: an
+explicit `null` there is rejected — see [Validation Rules](#validation-rules).
 
 #### ModelMapping Fields
 
@@ -723,13 +757,101 @@ The config loader validates the following:
 - `routing.max-inflight-per-account` must be an integer from 1 through 20 when present.
 - `routing.session-soft-limit` must be a number in `(0, 1]` when present.
 - `routing.session-reset-tolerance-ms` must be a positive integer when present.
-- `routing.use-overage` must be `auto`, `always`, or `never` when present; any
-  other value is ignored with a warning and the default `auto` applies.
+- `routing.use-overage` must be `auto`, `always`, or `never` (case-insensitive)
+  when present.
+- `routing.account-ranking` must be `expiry-first` or `headroom-first` when
+  present.
+- `routing.prefer-primary` must be a boolean when present.
+- `routing.session-affinity` must be a boolean when present.
+- `routing.session-affinity-idle-ttl-ms` must be an integer from 60000 through
+  86400000 when present.
+- `routing.spill-inflight` must be an integer from 0 through 100 when present.
+- For those five routing policy keys, an explicit `null` counts as present
+  and is rejected, whichever spelling (kebab-case or camelCase) carries it.
 - Plaintext API keys (not using `${ENV_VAR}` references) trigger a warning.
 
 An absent default config is optional. An existing config that cannot be read or
 validated fails proxy startup; it is never ignored in favor of unrestricted
-routing.
+routing. A value that fails any check above rejects the whole config, never
+just that key: at startup the proxy does not start, and on a hot reload the
+last-known-good generation stays active.
+
+### Account Routing Policies
+
+The five keys above (`account-ranking`, `prefer-primary`, `session-affinity`,
+`session-affinity-idle-ttl-ms`, `spill-inflight`) all default to today's exact
+behavior — `expiry-first` ranking, no affinity, no primary preference, no
+spill — and are validated and hot-reloaded through the same runtime config
+snapshot as every other routing key.
+
+**`strategy: round-robin` ignores all five keys.** They apply only under
+`fill-first` with more than one enabled account.
+
+**`NEUROLINK_PROXY_QUOTA_ROUTING=off` disables quota-based ranking, but
+`session-affinity`, `prefer-primary` and `spill-inflight` still apply.**
+Turning off quota routing removes the expiry/headroom ordering step, so
+`account-ranking` has no effect; it does not disable sticky sessions, the
+primary preference or spill, which then work on the configured account
+order.
+
+**Precedence.** After unusable accounts are removed, the order a request
+tries is:
+
+1. the session's bound account, when `session-affinity` is on and that
+   account is usable and not session-saturated;
+2. the configured `primary-account`, when `prefer-primary` is on and it is
+   usable and not session-saturated;
+3. the remaining accounts in `account-ranking` order.
+
+Spill only changes which account is tried first, and only for requests
+without an active session-affinity binding — it never re-orders or moves a
+request that is already bound to an account. Its target must be usable and
+not session-saturated, like every step above; when no account under the
+threshold qualifies, nothing spills.
+
+**Binding.** A served request binds its session to the Anthropic account
+that served it. The existing binding is kept only when that request never
+tried the bound account and the bound account is still usable and not
+session-saturated — a request that overflowed the bound account's
+`max-inflight-per-account` cap onto another account keeps the session on its
+warm prompt cache. A bound account that was tried and failed in the same
+request loses the session to the account that served it, even if its
+cooldown has already lapsed by the time the response starts. A Codex or
+Vertex fallback, a peer borrow, or an error response never binds.
+
+**Failure mode.** If ranking, affinity or spill throws, the request uses the
+pre-policy order (plain `expiry-first` under quota routing) and the routing
+decision records `routing_policy_error`. If the binding step after a served
+response throws, the session binds to the serving account and the response
+is unaffected. Each such error is logged once per call site and distinct
+error (its name and message; the 32 most recent are remembered), not once
+per worker, so a later, unrelated failure still reaches the log.
+
+**`spill-inflight` and `max-inflight-per-account`.** `max-inflight-per-account`
+is a single cap applied to every account; `spill-inflight` reroutes an
+unbound request away from an account that has reached its own threshold. As a
+result, `spill-inflight` only has an observable effect when it is set to a
+value **below** the `max-inflight-per-account` cap, or when no cap is
+configured at all — a `spill-inflight` at or above the cap never triggers,
+because `max-inflight-per-account` already stops admission first.
+
+**Paid overage.** An account that may spend paid extra usage (see
+`use-overage`) is never marked session-saturated, so `session-affinity` and
+`prefer-primary` keep a session on it while it spends overage, even when
+other accounts still have free subscription headroom. If that matters, set
+`use-overage: never` alongside `session-affinity: true`.
+
+**Hot reload.** Disabling `session-affinity` clears all existing session
+bindings, and re-enabling it clears them again, so it always starts from an
+empty binding store — including a binding recorded by a request that was
+already in flight when affinity was turned off. Every other policy key takes
+effect on the next request under the new config generation.
+
+**Observability.** `GET /status` reports the active policy (`policy`: the
+current `account-ranking`, `prefer-primary`, `session-affinity`,
+`session-affinity-idle-ttl-ms`, and `spill-inflight` values) and the number of
+currently bound sessions (`boundSessions`); bindings idle for longer than
+`session-affinity-idle-ttl-ms` are not counted.
 
 ---
 
@@ -1069,22 +1191,22 @@ This configuration:
 
 For reference, the running proxy exposes these HTTP endpoints:
 
-| Method | Path                        | Description                                                                                                                                                                                    |
-| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).                                                                                                                                         |
-| `GET`  | `/v1/models`                | List available models.                                                                                                                                                                         |
-| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                                                                                                                                                       |
-| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                                                                                                                                          |
-| `GET`  | `/status`                   | Detailed status with per-account stats, total attempts, completed requests, and error rates. On a gated proxy, account identity is released only to a caller holding the update-control token. |
-| `GET`  | `/limits`                   | Fresh per-account limits from Anthropic's usage API. `?account=<label>` for one, `?snapshot=true` for stored state. Operator-only: refused for borrowed traffic.                               |
-| `GET`  | `/peer/handshake`           | Peer protocol version, capabilities and grant state. Authenticated by share token; touches no account.                                                                                         |
-| `GET`  | `/peer/limits`              | What the calling grant may still do: remaining coins, slice left, whether anything can serve it. Carries no account identity.                                                                  |
-| `POST` | `/peer/provision`           | Lodge a split-PKCE code challenge (complete shares).                                                                                                                                           |
-| `GET`  | `/peer/provision`           | Collect the authorization code the lender produced. Single-use.                                                                                                                                |
-| `POST` | `/peer/heartbeat`           | Complete-share check-in: report spend, receive a refreshed lease or a stop. Authenticated by the grant's lease secret.                                                                         |
-| `GET`  | `/peer/receipts`            | Signed statements of what this grant was charged. `?since=<sequence>` for the ones not yet collected.                                                                                          |
-| `POST` | `/peer/net`                 | Settle one round of reciprocal netting. The claim is signed with the grant's receipt secret.                                                                                                   |
-| `POST` | `/peer/note`                | Check a transferable coin note, or redeem it into this grant's balance. A check needs only the note; redeeming needs a grant to credit.                                                        |
+| Method | Path                        | Description                                                                                                                                                                                                                                                                                                                                    |
+| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).                                                                                                                                                                                                                                                                                         |
+| `GET`  | `/v1/models`                | List available models.                                                                                                                                                                                                                                                                                                                         |
+| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                                                                                                                                                                                                                                                                                                       |
+| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                                                                                                                                                                                                                                                                                          |
+| `GET`  | `/status`                   | Detailed status with per-account stats, total attempts, completed requests, and error rates, plus the active routing policy (`policy`) and bound-session count (`boundSessions`; see [Account Routing Policies](#account-routing-policies)). On a gated proxy, account identity is released only to a caller holding the update-control token. |
+| `GET`  | `/limits`                   | Fresh per-account limits from Anthropic's usage API. `?account=<label>` for one, `?snapshot=true` for stored state. Operator-only: refused for borrowed traffic.                                                                                                                                                                               |
+| `GET`  | `/peer/handshake`           | Peer protocol version, capabilities and grant state. Authenticated by share token; touches no account.                                                                                                                                                                                                                                         |
+| `GET`  | `/peer/limits`              | What the calling grant may still do: remaining coins, slice left, whether anything can serve it. Carries no account identity.                                                                                                                                                                                                                  |
+| `POST` | `/peer/provision`           | Lodge a split-PKCE code challenge (complete shares).                                                                                                                                                                                                                                                                                           |
+| `GET`  | `/peer/provision`           | Collect the authorization code the lender produced. Single-use.                                                                                                                                                                                                                                                                                |
+| `POST` | `/peer/heartbeat`           | Complete-share check-in: report spend, receive a refreshed lease or a stop. Authenticated by the grant's lease secret.                                                                                                                                                                                                                         |
+| `GET`  | `/peer/receipts`            | Signed statements of what this grant was charged. `?since=<sequence>` for the ones not yet collected.                                                                                                                                                                                                                                          |
+| `POST` | `/peer/net`                 | Settle one round of reciprocal netting. The claim is signed with the grant's receipt secret.                                                                                                                                                                                                                                                   |
+| `POST` | `/peer/note`                | Check a transferable coin note, or redeem it into this grant's balance. A check needs only the note; redeeming needs a grant to credit.                                                                                                                                                                                                        |
 
 The `/peer/*` routes sit outside the request gate: they consume no capacity, and
 running them through it would spend the grant's rate allowance on calls that

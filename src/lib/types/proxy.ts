@@ -655,6 +655,9 @@ export type ProxyAccountRoutingDecision = {
   rotationOffset: number;
   initialAccount: string;
   candidates: ProxyAccountRoutingCandidate[];
+  policy?: ProxyRoutingPolicySnapshot;
+  affinity?: ProxyAccountRoutingAffinityEvidence;
+  spill?: ProxyAccountRoutingSpillEvidence;
 };
 
 export type ProxyAccountSortMetrics = {
@@ -700,6 +703,55 @@ export type ProxyAccountSortMetrics = {
   scopedUsedForSort: number;
   scopedSaturated: boolean;
 };
+
+export type ProxyAccountRankingPolicy = "expiry-first" | "headroom-first";
+
+export type ProxyAccountRoutingAffinitySkipReason =
+  | "unusable"
+  | "session_saturated"
+  | "expired"
+  | "no_session"
+  | "disabled";
+
+/** The five routing.* values in effect for one request, as reported on the decision. */
+export type ProxyRoutingPolicySnapshot = {
+  ranking: ProxyAccountRankingPolicy;
+  preferPrimary: boolean;
+  sessionAffinity: boolean;
+  sessionAffinityIdleTtlMs: number;
+  spillInflight: number;
+};
+
+export type ProxyAccountRoutingAffinityEvidence = {
+  sessionBound: boolean;
+  boundAccount: string | null;
+  applied: boolean;
+  skippedReason: ProxyAccountRoutingAffinitySkipReason | null;
+};
+
+export type ProxyAccountRoutingSpillEvidence = {
+  from: string;
+  to: string;
+  inflight: number;
+};
+
+/** Why the precedence step skipped a bound account it could see. */
+export type ProxyAffinityPrecedenceSkipReason = Extract<
+  ProxyAccountRoutingAffinitySkipReason,
+  "unusable" | "session_saturated"
+>;
+
+/** The reasons a precedence step (affinity, then prefer-primary) places rank 0. */
+export type ProxyAccountPrecedenceReason = Extract<
+  ProxyAccountRoutingReason,
+  "session_affinity" | "preferred_primary"
+>;
+
+/**
+ * A spill decision in account keys; the route reports it with account labels
+ * as ProxyAccountRoutingSpillEvidence.
+ */
+export type ProxyAccountSpillMove = ProxyAccountRoutingSpillEvidence;
 
 export type RequestLogEntry = {
   /** Whether model identifies observed serving output rather than a routing target. */
@@ -1295,6 +1347,7 @@ export type LoadedClaudeAccountContext = {
   url: string;
   clientHeaders: Record<string, string | undefined>;
   isClaudeClientRequest: boolean;
+  sessionId?: string;
 };
 
 export type AnthropicSuccessResult =
@@ -1302,7 +1355,19 @@ export type AnthropicSuccessResult =
       retryNextAccount: true;
       failure?: { message: string; rateLimit: boolean; retryDelayMs?: number };
     }
-  | { response: Response | unknown; holdsAccountAdmission?: boolean };
+  | {
+      response: Response | unknown;
+      holdsAccountAdmission?: boolean;
+      /**
+       * True only when an Anthropic account genuinely produced this response.
+       * False for a same-shaped terminal error synthesized locally (e.g. no
+       * upstream body, or the stream failing before its first chunk) — these
+       * reuse the `{ response }` shape because the client still gets a
+       * response, but no account served anything, so session affinity must
+       * not bind on them.
+       */
+      served: boolean;
+    };
 
 /** A release handle for one in-flight request admitted to an OAuth account. */
 export type AccountAdmissionLease = { release(): void };
@@ -3627,6 +3692,11 @@ export type ProxyRequestRoutingSnapshot = {
   /** Operator policy on spending paid extra usage once a subscription window is
    *  spent. Only "never" can override the provider's own signal. */
   useOverage: ProxyOveragePolicy;
+  accountRanking: ProxyAccountRankingPolicy;
+  preferPrimary: boolean;
+  sessionAffinity: boolean;
+  sessionAffinityIdleTtlMs: number;
+  spillInflight: number;
 };
 
 /** Operator policy for paid extra usage. */

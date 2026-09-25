@@ -8,7 +8,7 @@
 
 > **NeuroLinkAuthOptions** = `object`
 
-Defined in: [types/subscription.ts:1076](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1076)
+Defined in: [types/subscription.ts:1077](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1077)
 
 Unified authentication options for NeuroLink
 
@@ -21,7 +21,7 @@ for Claude Pro/Max subscriptions.
 
 > **method**: `"api-key"` \| `"oauth"`
 
-Defined in: [types/subscription.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1082)
+Defined in: [types/subscription.ts:1083](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1083)
 
 Authentication method to use
 
@@ -34,7 +34,7 @@ Authentication method to use
 
 > `optional` **oauth?**: `object`
 
-Defined in: [types/subscription.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1087)
+Defined in: [types/subscription.ts:1088](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1088)
 
 OAuth configuration (required when method is "oauth")
 
@@ -62,7 +62,7 @@ Custom scopes to request
 
 > `optional` **tokenStorage?**: `object`
 
-Defined in: [types/subscription.ts:1099](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1099)
+Defined in: [types/subscription.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1100)
 
 Token storage configuration (optional, defaults to file-based storage)
 

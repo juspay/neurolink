@@ -8,7 +8,7 @@
 
 > **ClaudeQuotaInfo** = `object`
 
-Defined in: [types/subscription.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L344)
+Defined in: [types/subscription.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L345)
 
 Claude quota information for tracking usage limits
 
@@ -23,7 +23,7 @@ including message limits, token limits, and model access restrictions.
 
 > **maxMessagesPerPeriod**: `number`
 
-Defined in: [types/subscription.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L349)
+Defined in: [types/subscription.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L350)
 
 Maximum messages allowed per time period
 
@@ -37,7 +37,7 @@ Number of messages the user can send within the reset period
 
 > **maxTokensPerPeriod**: `number`
 
-Defined in: [types/subscription.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L355)
+Defined in: [types/subscription.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L356)
 
 Maximum tokens allowed per time period
 
@@ -51,7 +51,7 @@ Total tokens (input + output) allowed within the reset period
 
 > **maxTokensPerRequest**: `number`
 
-Defined in: [types/subscription.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L361)
+Defined in: [types/subscription.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L362)
 
 Maximum tokens per individual request
 
@@ -65,7 +65,7 @@ Limit on tokens for a single API request
 
 > **resetPeriodMs**: `number`
 
-Defined in: [types/subscription.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L367)
+Defined in: [types/subscription.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L368)
 
 Time period for quota reset in milliseconds
 
@@ -79,7 +79,7 @@ Duration after which quota counters reset (e.g., 3600000 for 1 hour)
 
 > **nextResetTimestamp**: `number`
 
-Defined in: [types/subscription.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L373)
+Defined in: [types/subscription.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L374)
 
 Timestamp when quota will reset (Unix epoch in milliseconds)
 
@@ -93,7 +93,7 @@ Next quota reset time
 
 > **availableModels**: `string`[]
 
-Defined in: [types/subscription.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L379)
+Defined in: [types/subscription.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L380)
 
 List of models accessible with current subscription
 
@@ -107,7 +107,7 @@ Model identifiers the user has access to based on tier
 
 > **hasPriorityAccess**: `boolean`
 
-Defined in: [types/subscription.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L385)
+Defined in: [types/subscription.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L386)
 
 Whether priority queue access is enabled
 
@@ -121,7 +121,7 @@ Priority access reduces wait times during high traffic
 
 > **maxConcurrentRequests**: `number`
 
-Defined in: [types/subscription.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L391)
+Defined in: [types/subscription.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L392)
 
 Maximum concurrent requests allowed
 
@@ -135,7 +135,7 @@ Number of simultaneous API requests permitted
 
 > **hasExtendedThinking**: `boolean`
 
-Defined in: [types/subscription.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L397)
+Defined in: [types/subscription.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L398)
 
 Whether extended thinking is available
 
@@ -149,7 +149,7 @@ Access to extended thinking/reasoning capabilities
 
 > **maxContextWindow**: `number`
 
-Defined in: [types/subscription.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L403)
+Defined in: [types/subscription.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L404)
 
 Maximum context window size in tokens
 

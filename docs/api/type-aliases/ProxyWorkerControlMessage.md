@@ -8,4 +8,4 @@
 
 > **ProxyWorkerControlMessage** = \{ `type`: `"proxy-worker:activate"`; `generation`: `number`; \} \| \{ `type`: `"proxy-worker:drain"`; `generation`: `number`; \} \| \{ `type`: `"proxy-worker:shutdown"`; `generation`: `number`; \} \| \{ `type`: `"proxy-worker:socket-offer"`; `generation`: `number`; `socketId`: `string`; \} \| \{ `type`: `"proxy-worker:socket-commit"`; `generation`: `number`; `socketId`: `string`; \} \| \{ `type`: `"proxy-worker:socket-cancel"`; `generation`: `number`; `socketId`: `string`; \}
 
-Defined in: [types/proxy.ts:3223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3223)
+Defined in: [types/proxy.ts:3288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3288)

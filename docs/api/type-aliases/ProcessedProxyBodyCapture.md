@@ -8,7 +8,7 @@
 
 > **ProcessedProxyBodyCapture** = `object`
 
-Defined in: [types/proxy.ts:826](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L826)
+Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L878)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:826](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/proxy.ts:827](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L827)
+Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L879)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:827](https://github.com/juspay/neurolink/blob/releas
 
 > **stored**: [`StoredBodyArtifact`](StoredBodyArtifact.md)
 
-Defined in: [types/proxy.ts:828](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L828)
+Defined in: [types/proxy.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L880)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:828](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/proxy.ts:829](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L829)
+Defined in: [types/proxy.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L881)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:829](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **queueWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L831)
+Defined in: [types/proxy.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L883)
 
 Admission plus worker queue time; retained for existing consumers.
 
@@ -50,7 +50,7 @@ Admission plus worker queue time; retained for existing consumers.
 
 > `optional` **admissionWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:832](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L832)
+Defined in: [types/proxy.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L884)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:832](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **workerQueueWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:833](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L833)
+Defined in: [types/proxy.ts:885](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L885)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:833](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **processingMs?**: `number`
 
-Defined in: [types/proxy.ts:834](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L834)
+Defined in: [types/proxy.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L886)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/proxy.ts:834](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **admission?**: [`ProxyBodyCaptureAdmission`](ProxyBodyCaptureAdmission.md)
 
-Defined in: [types/proxy.ts:835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L835)
+Defined in: [types/proxy.ts:887](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L887)

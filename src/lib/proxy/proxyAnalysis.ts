@@ -14,8 +14,13 @@ import type {
   ProxyAnalysisReport,
   ProxyAnalysisRoutingRecord,
   ProxyAnalysisStreamName,
+  ProxyAccountRankingPolicy,
+  ProxyAccountRoutingAffinityEvidence,
+  ProxyAccountRoutingAffinitySkipReason,
   ProxyAccountRoutingCandidate,
   ProxyAccountRoutingDecision,
+  ProxyAccountRoutingSpillEvidence,
+  ProxyRoutingPolicySnapshot,
   ProxyLatencySummary,
 } from "../types/index.js";
 import {
@@ -49,6 +54,17 @@ const ROUTING_STRATEGIES = new Set<string>(PROXY_ACCOUNT_ROUTING_STRATEGIES);
 const ROUTING_MODES = new Set<string>(PROXY_ACCOUNT_ROUTING_MODES);
 const ROUTING_REASONS = new Set<string>(PROXY_ACCOUNT_ROUTING_REASONS);
 const ROUTING_ACCOUNT_TYPES = new Set<string>(PROXY_ACCOUNT_TYPES);
+const ROUTING_RANKINGS = new Set<string>([
+  "expiry-first",
+  "headroom-first",
+] satisfies ProxyAccountRankingPolicy[]);
+const AFFINITY_SKIP_REASONS = new Set<string>([
+  "unusable",
+  "session_saturated",
+  "expired",
+  "no_session",
+  "disabled",
+] satisfies ProxyAccountRoutingAffinitySkipReason[]);
 const COOLING_REASONS = new Set<string>(ACCOUNT_COOLING_REASONS);
 const QUOTA_FRESHNESS_VALUES = new Set([
   "unknown",
@@ -277,6 +293,78 @@ function routingCandidateValue(
   };
 }
 
+function plainObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function routingPolicyValue(
+  value: unknown,
+): ProxyRoutingPolicySnapshot | undefined {
+  const policy = plainObject(value);
+  if (
+    !policy ||
+    typeof policy.ranking !== "string" ||
+    !ROUTING_RANKINGS.has(policy.ranking) ||
+    typeof policy.preferPrimary !== "boolean" ||
+    typeof policy.sessionAffinity !== "boolean" ||
+    !Number.isInteger(policy.sessionAffinityIdleTtlMs) ||
+    !Number.isInteger(policy.spillInflight)
+  ) {
+    return undefined;
+  }
+  return {
+    ranking: policy.ranking as ProxyAccountRankingPolicy,
+    preferPrimary: policy.preferPrimary,
+    sessionAffinity: policy.sessionAffinity,
+    sessionAffinityIdleTtlMs: policy.sessionAffinityIdleTtlMs as number,
+    spillInflight: policy.spillInflight as number,
+  };
+}
+
+function routingAffinityValue(
+  value: unknown,
+): ProxyAccountRoutingAffinityEvidence | undefined {
+  const affinity = plainObject(value);
+  if (
+    !affinity ||
+    typeof affinity.sessionBound !== "boolean" ||
+    !isNullableString(affinity.boundAccount) ||
+    typeof affinity.applied !== "boolean" ||
+    (affinity.skippedReason !== null &&
+      (typeof affinity.skippedReason !== "string" ||
+        !AFFINITY_SKIP_REASONS.has(affinity.skippedReason)))
+  ) {
+    return undefined;
+  }
+  return {
+    sessionBound: affinity.sessionBound,
+    boundAccount: affinity.boundAccount,
+    applied: affinity.applied,
+    skippedReason:
+      affinity.skippedReason as ProxyAccountRoutingAffinitySkipReason | null,
+  };
+}
+
+function routingSpillValue(
+  value: unknown,
+): ProxyAccountRoutingSpillEvidence | undefined {
+  const spill = plainObject(value);
+  const from = stringValue(spill?.from);
+  const to = stringValue(spill?.to);
+  if (
+    !spill ||
+    !from ||
+    !to ||
+    !Number.isInteger(spill.inflight) ||
+    (spill.inflight as number) < 0
+  ) {
+    return undefined;
+  }
+  return { from, to, inflight: spill.inflight as number };
+}
+
 function routingDecisionValue(
   value: unknown,
 ): ProxyAccountRoutingDecision | null {
@@ -332,7 +420,21 @@ function routingDecisionValue(
     rotationOffset: decision.rotationOffset as number,
     initialAccount: decision.initialAccount as string,
     candidates: candidates as ProxyAccountRoutingCandidate[],
+    ...optionalEvidence("policy", routingPolicyValue(decision.policy)),
+    ...optionalEvidence("affinity", routingAffinityValue(decision.affinity)),
+    ...optionalEvidence("spill", routingSpillValue(decision.spill)),
   };
+}
+
+// Evidence is optional per decision; a field that is absent or malformed is
+// left out rather than rejecting a decision that is otherwise valid.
+function optionalEvidence<K extends "policy" | "affinity" | "spill">(
+  key: K,
+  value: ProxyAccountRoutingDecision[K],
+): Partial<Pick<ProxyAccountRoutingDecision, K>> {
+  return value === undefined
+    ? {}
+    : ({ [key]: value } as Partial<Pick<ProxyAccountRoutingDecision, K>>);
 }
 
 function percentile(sorted: number[], fraction: number): number | null {

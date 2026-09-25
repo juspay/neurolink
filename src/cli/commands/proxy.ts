@@ -88,6 +88,7 @@ import type {
 import type { NeuroLink } from "../../lib/neurolink.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
 import { ProxyRuntimeConfigStore } from "../../lib/proxy/runtimeConfig.js";
+import { sessionAffinity } from "../../lib/proxy/sessionAffinity.js";
 import { startProxyLogCleanupScheduler } from "../../lib/proxy/logCleanupScheduler.js";
 import {
   anthropicAccountKeysEqual,
@@ -2186,6 +2187,25 @@ export async function createProxyStartApp(params: {
   residentHeartbeatTimer.unref();
 
   const runtimeConfigStore = params.runtimeConfigStore;
+  if (runtimeConfigStore) {
+    // Session bindings live in the process-local sessionAffinity store that
+    // the Claude routes created below read and write, so the app that owns
+    // those routes owns the store's reload transitions. Both directions
+    // clear: a request routed while affinity was on can finish after a
+    // disable reload and bind past that clear, and enabling must still start
+    // empty. A rejected reload leaves getSnapshot() unchanged, so it never
+    // looks like a transition.
+    let sessionAffinityWasEnabled =
+      runtimeConfigStore.getSnapshot().sessionAffinity;
+    runtimeConfigStore.subscribeReload(() => {
+      const sessionAffinityEnabled =
+        runtimeConfigStore.getSnapshot().sessionAffinity;
+      if (sessionAffinityWasEnabled !== sessionAffinityEnabled) {
+        sessionAffinity.clear();
+      }
+      sessionAffinityWasEnabled = sessionAffinityEnabled;
+    });
+  }
   const runtimeConfigProvider = runtimeConfigStore
     ? () => runtimeConfigStore.getSnapshot()
     : undefined;
@@ -2908,6 +2928,17 @@ export async function createProxyStartApp(params: {
         });
       }
     }
+    // Unlike the fields below there is no `params` fallback: the static start
+    // options never carried these, so without a runtime snapshot the active
+    // policy is simply the defaults.
+    const activePolicy = {
+      ranking: runtimeConfig?.accountRanking ?? "expiry-first",
+      preferPrimary: runtimeConfig?.preferPrimary ?? false,
+      sessionAffinity: runtimeConfig?.sessionAffinity ?? false,
+      sessionAffinityIdleTtlMs:
+        runtimeConfig?.sessionAffinityIdleTtlMs ?? 3_600_000,
+      spillInflight: runtimeConfig?.spillInflight ?? 0,
+    };
     return c.json({
       status: "running",
       ready: health.ready,
@@ -2917,6 +2948,11 @@ export async function createProxyStartApp(params: {
       port: params.port,
       host: params.host,
       strategy: activeStrategy,
+      policy: activePolicy,
+      boundSessions: sessionAffinity.countActive(
+        Date.now(),
+        activePolicy.sessionAffinityIdleTtlMs,
+      ),
       uptime: process.uptime(),
       version: PROXY_VERSION,
       health,

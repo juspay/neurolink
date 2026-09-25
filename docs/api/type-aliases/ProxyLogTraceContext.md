@@ -8,7 +8,7 @@
 
 > **ProxyLogTraceContext** = `object`
 
-Defined in: [types/proxy.ts:4894](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4894)
+Defined in: [types/proxy.ts:4964](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4964)
 
 Log correlation retained independently of the current async context.
 
@@ -18,7 +18,7 @@ Log correlation retained independently of the current async context.
 
 > **traceId**: `string`
 
-Defined in: [types/proxy.ts:4895](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4895)
+Defined in: [types/proxy.ts:4965](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4965)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4895](https://github.com/juspay/neurolink/blob/relea
 
 > **spanId**: `string`
 
-Defined in: [types/proxy.ts:4896](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4896)
+Defined in: [types/proxy.ts:4966](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4966)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:4896](https://github.com/juspay/neurolink/blob/relea
 
 > **traceFlags**: `number`
 
-Defined in: [types/proxy.ts:4897](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4897)
+Defined in: [types/proxy.ts:4967](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4967)

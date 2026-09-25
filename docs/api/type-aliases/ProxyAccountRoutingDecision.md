@@ -121,3 +121,27 @@ Defined in: [types/proxy.ts:656](https://github.com/juspay/neurolink/blob/releas
 > **candidates**: [`ProxyAccountRoutingCandidate`](ProxyAccountRoutingCandidate.md)[]
 
 Defined in: [types/proxy.ts:657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L657)
+
+---
+
+### policy?
+
+> `optional` **policy?**: [`ProxyRoutingPolicySnapshot`](ProxyRoutingPolicySnapshot.md)
+
+Defined in: [types/proxy.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L658)
+
+---
+
+### affinity?
+
+> `optional` **affinity?**: [`ProxyAccountRoutingAffinityEvidence`](ProxyAccountRoutingAffinityEvidence.md)
+
+Defined in: [types/proxy.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L659)
+
+---
+
+### spill?
+
+> `optional` **spill?**: [`ProxyAccountRoutingSpillEvidence`](ProxyAccountRoutingSpillEvidence.md)
+
+Defined in: [types/proxy.ts:660](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L660)

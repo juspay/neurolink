@@ -8,6 +8,6 @@
 
 > **ProxyOveragePolicy** = `"auto"` \| `"always"` \| `"never"`
 
-Defined in: [types/proxy.ts:3633](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3633)
+Defined in: [types/proxy.ts:3703](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3703)
 
 Operator policy for paid extra usage.

@@ -8,7 +8,7 @@
 
 > **ProxyServingWorkerIdentity** = `object`
 
-Defined in: [types/proxy.ts:3046](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3046)
+Defined in: [types/proxy.ts:3111](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3111)
 
 Immutable identity of the worker an update attempt is allowed to replace.
 
@@ -18,7 +18,7 @@ Immutable identity of the worker an update attempt is allowed to replace.
 
 > **version**: `string`
 
-Defined in: [types/proxy.ts:3047](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3047)
+Defined in: [types/proxy.ts:3112](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3112)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3047](https://github.com/juspay/neurolink/blob/relea
 
 > **pid**: `number`
 
-Defined in: [types/proxy.ts:3048](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3048)
+Defined in: [types/proxy.ts:3113](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3113)
 
 ---
 
@@ -34,6 +34,6 @@ Defined in: [types/proxy.ts:3048](https://github.com/juspay/neurolink/blob/relea
 
 > **generation**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3050](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3050)
+Defined in: [types/proxy.ts:3115](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3115)
 
 Rolling generation; null only for a legacy single-process service.

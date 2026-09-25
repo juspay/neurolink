@@ -8,7 +8,7 @@
 
 > **AnthropicBetaFeatures** = `object`
 
-Defined in: [types/subscription.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L812)
+Defined in: [types/subscription.ts:813](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L813)
 
 Anthropic beta feature flags for beta header configuration
 
@@ -27,7 +27,7 @@ https://docs.anthropic.com/en/api/versioning#beta-headers
 
 > `optional` **computerUse?**: `boolean`
 
-Defined in: [types/subscription.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L818)
+Defined in: [types/subscription.ts:819](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L819)
 
 Enable computer use capability
 
@@ -42,7 +42,7 @@ Header value: "computer-use-2024-10-22"
 
 > `optional` **extendedThinking?**: `boolean`
 
-Defined in: [types/subscription.ts:825](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L825)
+Defined in: [types/subscription.ts:826](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L826)
 
 Enable extended thinking/reasoning
 
@@ -57,7 +57,7 @@ Header value: "extended-thinking-2025-01-24"
 
 > `optional` **promptCaching?**: `boolean`
 
-Defined in: [types/subscription.ts:832](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L832)
+Defined in: [types/subscription.ts:833](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L833)
 
 Enable prompt caching
 
@@ -72,7 +72,7 @@ Header value: "prompt-caching-2024-07-31"
 
 > `optional` **tokenCounting?**: `boolean`
 
-Defined in: [types/subscription.ts:839](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L839)
+Defined in: [types/subscription.ts:840](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L840)
 
 Enable token counting
 
@@ -87,7 +87,7 @@ Header value: "token-counting-2024-11-01"
 
 > `optional` **messageBatches?**: `boolean`
 
-Defined in: [types/subscription.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L846)
+Defined in: [types/subscription.ts:847](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L847)
 
 Enable message batches
 
@@ -102,7 +102,7 @@ Header value: "message-batches-2024-09-24"
 
 > `optional` **pdfs?**: `boolean`
 
-Defined in: [types/subscription.ts:853](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L853)
+Defined in: [types/subscription.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L854)
 
 Enable PDF support
 
@@ -117,7 +117,7 @@ Header value: "pdfs-2024-09-25"
 
 > `optional` **maxTokensOverride?**: `boolean`
 
-Defined in: [types/subscription.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L860)
+Defined in: [types/subscription.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L861)
 
 Enable max tokens override (for higher output limits)
 
@@ -132,7 +132,7 @@ Header value: "max-tokens-3-5-sonnet-2024-07-15"
 
 > `optional` **interleavedThinking?**: `boolean`
 
-Defined in: [types/subscription.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L867)
+Defined in: [types/subscription.ts:868](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L868)
 
 Enable interleaved thinking (for multi-turn reasoning)
 
@@ -147,7 +147,7 @@ Header value: "interleaved-thinking-2025-01-24"
 
 > `optional` **filesApi?**: `boolean`
 
-Defined in: [types/subscription.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L874)
+Defined in: [types/subscription.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L875)
 
 Enable files API
 
@@ -162,7 +162,7 @@ Header value: "files-api-2025-01-15"
 
 > `optional` **mcpConnectors?**: `boolean`
 
-Defined in: [types/subscription.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L881)
+Defined in: [types/subscription.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L882)
 
 Enable MCP connectors
 
@@ -177,7 +177,7 @@ Header value: "mcp-connectors-2025-01-01"
 
 > `optional` **codeExecution?**: `boolean`
 
-Defined in: [types/subscription.ts:888](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L888)
+Defined in: [types/subscription.ts:889](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L889)
 
 Enable code execution
 
@@ -192,7 +192,7 @@ Header value: "code-execution-2025-01-24"
 
 > `optional` **custom?**: `string`[]
 
-Defined in: [types/subscription.ts:894](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L894)
+Defined in: [types/subscription.ts:895](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L895)
 
 Custom beta features as raw strings
 

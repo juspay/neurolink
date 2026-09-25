@@ -63,9 +63,13 @@ import { AccountQuotaRefreshCoordinator } from "../../proxy/accountQuotaRefreshC
 import { ProviderTransportCoordinator } from "../../proxy/providerTransportCoordinator.js";
 import { MAX_COOLDOWN_MS_BY_REASON } from "../../proxy/routingEvidence.js";
 import {
+  applyAffinityAndPrimary,
+  applySpill,
   compareExpiryFirst,
+  isPrecedenceEligible,
   rankAccounts,
 } from "../../proxy/accountRanking.js";
+import { sessionAffinity } from "../../proxy/sessionAffinity.js";
 import {
   buildProxyLimitHeaders,
   summarizePoolHeadroom,
@@ -238,10 +242,14 @@ import type {
   ParsedClaudeRequest,
   PreparedAnthropicAccountAttempt,
   RequestLogEntry,
+  ProxyAccountRankingPolicy,
+  ProxyAccountRoutingAffinityEvidence,
   ProxyAccountRoutingCandidate,
   ProxyAccountRoutingDecision,
   ProxyAccountRoutingReason,
+  ProxyAccountRoutingSpillEvidence,
   ProxyAccountSortMetrics,
+  ProxyAffinityPrecedenceSkipReason,
   ProxyBodyCaptureLogger,
   ProxyLimitsAccountResult,
   ProxyLimitsRefreshResponse,
@@ -249,6 +257,7 @@ import type {
   ProxyOveragePolicy,
   ProxyPassthroughAccount,
   ProxyQuotaSource,
+  ProxyRoutingPolicySnapshot,
   QueuedAccountAdmission,
   ResponseInfoContext,
   RouteGroup,
@@ -2183,18 +2192,14 @@ function accountSortMetrics(
   };
 }
 
-function orderAccountsByQuotaWithMetrics(
+function buildAccountSortMetricsByKey(
   accounts: ProxyPassthroughAccount[],
   now: number,
-  primaryKey: string | undefined,
   sessionSoftLimit: number,
   sessionResetToleranceMs: number,
-  requestedModel?: string,
-): {
-  orderedAccounts: ProxyPassthroughAccount[];
-  metricsByKey: Map<string, ProxyAccountSortMetrics>;
-} {
-  const metricsByKey = new Map(
+  requestedModel: string | undefined,
+): Map<string, ProxyAccountSortMetrics> {
+  return new Map(
     accounts.map((account) => [
       account.key,
       accountSortMetrics(
@@ -2206,12 +2211,45 @@ function orderAccountsByQuotaWithMetrics(
       ),
     ]),
   );
-  const { orderedAccounts } = rankAccounts({
+}
+
+function orderAccountsByQuotaWithMetrics(
+  accounts: ProxyPassthroughAccount[],
+  now: number,
+  primaryKey: string | undefined,
+  sessionSoftLimit: number,
+  sessionResetToleranceMs: number,
+  options?: {
+    requestedModel?: string;
+    policy?: {
+      ranking?: ProxyAccountRankingPolicy;
+      affinityKey?: string;
+      preferPrimary?: boolean;
+    };
+  },
+): {
+  orderedAccounts: ProxyPassthroughAccount[];
+  metricsByKey: Map<string, ProxyAccountSortMetrics>;
+  reason: ProxyAccountRoutingReason;
+  affinitySkippedReason: ProxyAffinityPrecedenceSkipReason | null;
+} {
+  const policy = options?.policy;
+  const metricsByKey = buildAccountSortMetricsByKey(
+    accounts,
+    now,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    options?.requestedModel,
+  );
+  const { orderedAccounts, reason, affinitySkippedReason } = rankAccounts({
     accounts,
     metricsByKey,
     primaryKey,
+    ranking: policy?.ranking,
+    affinityKey: policy?.affinityKey,
+    preferPrimary: policy?.preferPrimary,
   });
-  return { orderedAccounts, metricsByKey };
+  return { orderedAccounts, metricsByKey, reason, affinitySkippedReason };
 }
 
 /**
@@ -2252,7 +2290,7 @@ function orderAccountsByQuota(
     primaryKey,
     sessionSoftLimit,
     sessionResetToleranceMs,
-    requestedModel,
+    { requestedModel },
   ).orderedAccounts;
 }
 
@@ -2365,6 +2403,10 @@ function buildRoutingDecision(args: {
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
   rotationOffset: number;
+  policySelectionReason?: ProxyAccountRoutingReason;
+  policy?: ProxyRoutingPolicySnapshot;
+  affinity?: ProxyAccountRoutingAffinityEvidence;
+  spill?: ProxyAccountRoutingSpillEvidence;
 }): ProxyAccountRoutingDecision | undefined {
   const {
     accounts,
@@ -2454,21 +2496,24 @@ function buildRoutingDecision(args: {
     selectionReason = "single_account";
   } else if (quotaOrdered) {
     mode = "quota";
-    selectionReason = compareExpiryFirst(
-      orderedAccounts[0],
-      orderedAccounts[1],
-      metricsByKey,
-      primaryKey,
-    )[1];
+    selectionReason =
+      args.policySelectionReason ??
+      compareExpiryFirst(
+        orderedAccounts[0],
+        orderedAccounts[1],
+        metricsByKey,
+        primaryKey,
+      )[1];
   } else if (strategy === "round-robin") {
     mode = "round_robin";
     selectionReason = "round_robin";
   } else {
     mode = "primary";
     selectionReason =
-      configuredPrimaryMatched && initialAccount?.key === primaryKey
+      args.policySelectionReason ??
+      (configuredPrimaryMatched && initialAccount?.key === primaryKey
         ? "configured_primary"
-        : "insertion_order";
+        : "insertion_order");
   }
 
   return {
@@ -2486,8 +2531,52 @@ function buildRoutingDecision(args: {
     rotationOffset,
     initialAccount: initialAccount?.label ?? "",
     candidates,
+    ...(args.policy ? { policy: args.policy } : {}),
+    ...(args.affinity ? { affinity: args.affinity } : {}),
+    ...(args.spill ? { spill: args.spill } : {}),
   };
 }
+
+// A policy error can repeat on every request, so each (site, error) pair is
+// logged once. Keyed per pair rather than once per worker, so a later,
+// unrelated failure still reaches the log. Insertion order is eviction order.
+const MAX_LOGGED_ROUTING_POLICY_ERRORS = 32;
+const loggedRoutingPolicyErrors = new Set<string>();
+function logRoutingPolicyErrorOnce(
+  error: unknown,
+  fallbackOrder: string,
+): void {
+  const message = error instanceof Error ? error.message : String(error);
+  const signature = JSON.stringify([
+    fallbackOrder,
+    error instanceof Error ? error.name : typeof error,
+    message,
+  ]);
+  if (loggedRoutingPolicyErrors.has(signature)) {
+    return;
+  }
+  loggedRoutingPolicyErrors.add(signature);
+  if (loggedRoutingPolicyErrors.size > MAX_LOGGED_ROUTING_POLICY_ERRORS) {
+    const oldest = loggedRoutingPolicyErrors.values().next().value;
+    if (oldest !== undefined) {
+      loggedRoutingPolicyErrors.delete(oldest);
+    }
+  }
+  logger.always(
+    `[proxy] routing policy threw; falling back to ${fallbackOrder}: ${message}`,
+  );
+}
+
+// Test-only: makes maybeSpill() throw before its own guard, including on a
+// "session_affinity" first choice it would otherwise skip. That is the only
+// deterministic way to reach the policy catch after a genuine reorder, since
+// the policy steps return the input order unchanged when nothing applies.
+let forceSpillThrowForTests = false;
+// Test-only: make the selection-time affinity lookup, or the post-serve
+// binding re-check, throw. Each enters its own policy catch without reaching
+// into the binding store, so the store can stay frozen.
+let forceAffinityLookupThrowForTests = false;
+let forceBindRecheckThrowForTests = false;
 
 function selectClaudeProxyAccountOrder(args: {
   enabledAccounts: ProxyPassthroughAccount[];
@@ -2497,6 +2586,12 @@ function selectClaudeProxyAccountOrder(args: {
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
   requestedModel?: string;
+  sessionId?: string;
+  ranking: ProxyAccountRankingPolicy;
+  preferPrimary: boolean;
+  sessionAffinityEnabled: boolean;
+  sessionAffinityIdleTtlMs: number;
+  spillInflight: number;
   setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 }): {
   orderedAccounts: ProxyPassthroughAccount[];
@@ -2505,13 +2600,28 @@ function selectClaudeProxyAccountOrder(args: {
   const {
     enabledAccounts,
     accountStrategy,
-    primaryAccountKey,
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
     requestedModel,
+    sessionId,
+    ranking,
+    preferPrimary,
+    sessionAffinityEnabled,
+    sessionAffinityIdleTtlMs,
+    spillInflight,
     setRoutingDecision,
   } = args;
+  // The configured primary arrives normalized (lower-cased, prefixed), while
+  // account keys keep the token store's spelling, and every primary check
+  // below compares with ===. Resolve it to the loaded account's own key once.
+  const configuredPrimaryKey = args.primaryAccountKey;
+  const primaryAccountKey =
+    configuredPrimaryKey === undefined
+      ? undefined
+      : (enabledAccounts.find((account) =>
+          anthropicAccountKeysEqual(account.key, configuredPrimaryKey),
+        )?.key ?? configuredPrimaryKey);
   let orderedAccounts = [...enabledAccounts];
   const evaluatedAt = Date.now();
   let metricsByKey: Map<string, ProxyAccountSortMetrics>;
@@ -2520,22 +2630,151 @@ function selectClaudeProxyAccountOrder(args: {
     accountStrategy === "fill-first" &&
     orderedAccounts.length > 1 &&
     quotaRoutingEnabled;
+  // strategy: round-robin ignores every routing policy key.
+  const policiesApply =
+    accountStrategy === "fill-first" && orderedAccounts.length > 1;
+  const policy: ProxyRoutingPolicySnapshot | undefined = policiesApply
+    ? {
+        ranking,
+        preferPrimary,
+        sessionAffinity: sessionAffinityEnabled,
+        sessionAffinityIdleTtlMs,
+        spillInflight,
+      }
+    : undefined;
+  let policySelectionReason: ProxyAccountRoutingReason | undefined;
+  let affinity: ProxyAccountRoutingAffinityEvidence | undefined;
+  let spill: ProxyAccountRoutingSpillEvidence | undefined;
+
+  const resolveAffinityKey = (): string | undefined => {
+    if (!sessionAffinityEnabled || !sessionId) {
+      return undefined;
+    }
+    if (forceAffinityLookupThrowForTests) {
+      throw new Error("forced failure for affinity lookup throw test");
+    }
+    return sessionAffinity.get(
+      sessionId,
+      evaluatedAt,
+      sessionAffinityIdleTtlMs,
+    );
+  };
+
+  const buildAffinityEvidence = (
+    boundAccountKey: string | undefined,
+    applied: boolean,
+    skippedFromPrecedence: ProxyAffinityPrecedenceSkipReason | null,
+  ): ProxyAccountRoutingAffinityEvidence => ({
+    sessionBound: !!boundAccountKey,
+    boundAccount:
+      (boundAccountKey &&
+        enabledAccounts.find((account) => account.key === boundAccountKey)
+          ?.label) ??
+      null,
+    applied,
+    skippedReason: !sessionAffinityEnabled
+      ? "disabled"
+      : !sessionId
+        ? "no_session"
+        : !boundAccountKey
+          ? "expired"
+          : applied
+            ? null
+            : skippedFromPrecedence,
+  });
+
+  const labelOf = (accountKey: string): string =>
+    enabledAccounts.find((account) => account.key === accountKey)?.label ??
+    accountKey;
+
+  const maybeSpill = (
+    order: ProxyPassthroughAccount[],
+    reason: ProxyAccountRoutingReason | null,
+    metrics: ReadonlyMap<string, ProxyAccountSortMetrics>,
+  ):
+    | {
+        orderedAccounts: ProxyPassthroughAccount[];
+        spill: ProxyAccountRoutingSpillEvidence;
+      }
+    | undefined => {
+    if (forceSpillThrowForTests) {
+      throw new Error("forced failure for spill throw test");
+    }
+    // Spill never splits a bound session, but a preferred-primary first
+    // choice has no binding and can still be relieved.
+    if (spillInflight <= 0 || reason === "session_affinity") {
+      return undefined;
+    }
+    const inflightByKey = new Map(
+      order.map((account) => [account.key, getAccountInflight(account.key)]),
+    );
+    const spillResult = applySpill({
+      orderedAccounts: order,
+      inflightByKey,
+      metricsByKey: metrics,
+      spillInflight,
+    });
+    const move = spillResult.spill;
+    if (!move) {
+      return undefined;
+    }
+    return {
+      orderedAccounts: spillResult.orderedAccounts,
+      spill: {
+        from: labelOf(move.from),
+        to: labelOf(move.to),
+        inflight: move.inflight,
+      },
+    };
+  };
 
   if (!quotaOrdered && accountStrategy === "fill-first") {
     // A hot-reloaded primary change must apply to this request.
     maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
   }
   if (quotaOrdered) {
-    const quotaOrder = orderAccountsByQuotaWithMetrics(
+    // Metrics are not a policy step: a throw here propagates, as it did
+    // before the policies existed, instead of reading as a policy failure.
+    metricsByKey = buildAccountSortMetricsByKey(
       enabledAccounts,
       evaluatedAt,
-      primaryAccountKey,
       sessionSoftLimit,
       sessionResetToleranceMs,
       requestedModel,
     );
-    orderedAccounts = quotaOrder.orderedAccounts;
-    metricsByKey = quotaOrder.metricsByKey;
+    try {
+      const boundAccountKey = resolveAffinityKey();
+      const quotaOrder = rankAccounts({
+        accounts: enabledAccounts,
+        metricsByKey,
+        primaryKey: primaryAccountKey,
+        ranking,
+        affinityKey: boundAccountKey,
+        preferPrimary,
+      });
+      const spilled = maybeSpill(
+        quotaOrder.orderedAccounts,
+        quotaOrder.reason,
+        metricsByKey,
+      );
+      const affinityEvidence = buildAffinityEvidence(
+        boundAccountKey,
+        quotaOrder.reason === "session_affinity",
+        quotaOrder.affinitySkippedReason,
+      );
+      orderedAccounts = spilled?.orderedAccounts ?? quotaOrder.orderedAccounts;
+      policySelectionReason = spilled ? "spill_inflight" : quotaOrder.reason;
+      affinity = affinityEvidence;
+      spill = spilled?.spill;
+    } catch (error) {
+      logRoutingPolicyErrorOnce(error, "expiry-first order");
+      orderedAccounts = rankAccounts({
+        accounts: enabledAccounts,
+        metricsByKey,
+        primaryKey: primaryAccountKey,
+      }).orderedAccounts;
+      policySelectionReason = "routing_policy_error";
+    }
     if (logger.shouldLog("debug")) {
       logger.debug(
         `[proxy] quota-ordered fill sequence: ${orderedAccounts
@@ -2565,18 +2804,50 @@ function selectClaudeProxyAccountOrder(args: {
         orderedAccounts.push(...head);
       }
     }
-    metricsByKey = new Map(
-      enabledAccounts.map((account) => [
-        account.key,
-        accountSortMetrics(
-          account.key,
-          evaluatedAt,
-          sessionSoftLimit,
-          sessionResetToleranceMs,
-          requestedModel,
-        ),
-      ]),
+    metricsByKey = buildAccountSortMetricsByKey(
+      enabledAccounts,
+      evaluatedAt,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+      requestedModel,
     );
+
+    // Quota routing off: the rotation above stays the base order, and
+    // affinity/prefer-primary/spill still apply on top of it. Nothing is
+    // assigned until every policy step has succeeded, so a throw leaves the
+    // pre-policy order in place.
+    if (policiesApply) {
+      try {
+        const boundAccountKey = resolveAffinityKey();
+        const precedence = applyAffinityAndPrimary({
+          orderedAccounts,
+          metricsByKey,
+          affinityKey: boundAccountKey,
+          primaryKey: primaryAccountKey,
+          preferPrimary,
+        });
+        const spilled = maybeSpill(
+          precedence.orderedAccounts,
+          precedence.reason,
+          metricsByKey,
+        );
+        const affinityEvidence = buildAffinityEvidence(
+          boundAccountKey,
+          precedence.reason === "session_affinity",
+          precedence.affinitySkippedReason,
+        );
+        orderedAccounts =
+          spilled?.orderedAccounts ?? precedence.orderedAccounts;
+        policySelectionReason = spilled
+          ? "spill_inflight"
+          : (precedence.reason ?? undefined);
+        affinity = affinityEvidence;
+        spill = spilled?.spill;
+      } catch (error) {
+        logRoutingPolicyErrorOnce(error, "pre-policy order");
+        policySelectionReason = "routing_policy_error";
+      }
+    }
   }
 
   const routingDecision = buildRoutingDecision({
@@ -2591,11 +2862,68 @@ function selectClaudeProxyAccountOrder(args: {
     sessionSoftLimit,
     sessionResetToleranceMs,
     rotationOffset,
+    policySelectionReason,
+    policy,
+    affinity,
+    spill,
   });
   if (routingDecision) {
     setRoutingDecision(routingDecision);
   }
   return { orderedAccounts, metricsByKey };
+}
+
+/**
+ * Records that a session's request was served. A session keeps its current
+ * binding only when this request never tried the bound account and that
+ * account is still eligible: a request that overflowed its bound account's
+ * admission cap onto another account must not move the session off its warm
+ * prompt cache. Otherwise the serving account becomes the binding. Tried
+ * outranks eligible because an account that failed this request can look
+ * eligible again by now: a short 429 cooldown can lapse while the next
+ * account is still answering.
+ */
+function bindSessionAfterServe(args: {
+  sessionId: string;
+  servingAccountKey: string;
+  attemptedAccountKeys: ReadonlySet<string>;
+  enabledAccounts: ProxyPassthroughAccount[];
+  idleTtlMs: number;
+  sessionSoftLimit: number;
+  sessionResetToleranceMs: number;
+  requestedModel: string | undefined;
+}): void {
+  const now = Date.now();
+  // This runs after the response has already been served (and, on the
+  // stream path, after admission-lease ownership has transferred to the
+  // stream): a throw here must never drop that response or leak the lease,
+  // so eligibility re-checks fall back to binding the serving account.
+  let accountKey = args.servingAccountKey;
+  try {
+    if (forceBindRecheckThrowForTests) {
+      throw new Error("forced failure for bind recheck throw test");
+    }
+    const boundKey = sessionAffinity.get(args.sessionId, now, args.idleTtlMs);
+    if (
+      boundKey !== undefined &&
+      !args.attemptedAccountKeys.has(boundKey) &&
+      args.enabledAccounts.some((account) => account.key === boundKey) &&
+      isPrecedenceEligible(
+        accountSortMetrics(
+          boundKey,
+          now,
+          args.sessionSoftLimit,
+          args.sessionResetToleranceMs,
+          args.requestedModel,
+        ),
+      )
+    ) {
+      accountKey = boundKey;
+    }
+  } catch (error) {
+    logRoutingPolicyErrorOnce(error, "serving-account binding");
+  }
+  sessionAffinity.bind(args.sessionId, accountKey, now);
 }
 
 // ---------------------------------------------------------------------------
@@ -4599,6 +4927,11 @@ async function loadClaudeProxyAccounts(args: {
   quotaRoutingEnabled?: boolean;
   sessionSoftLimit?: number;
   sessionResetToleranceMs?: number;
+  ranking?: ProxyAccountRankingPolicy;
+  preferPrimary?: boolean;
+  sessionAffinityEnabled?: boolean;
+  sessionAffinityIdleTtlMs?: number;
+  spillInflight?: number;
   setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 }): Promise<
   LoadedClaudeAccountContext | { failure: DeferredClaudeAccountFailure }
@@ -4612,6 +4945,11 @@ async function loadClaudeProxyAccounts(args: {
     quotaRoutingEnabled = isQuotaRoutingEnabled(),
     sessionSoftLimit = getSessionSoftLimit(),
     sessionResetToleranceMs = getSessionResetToleranceMs(),
+    ranking = "expiry-first",
+    preferPrimary = false,
+    sessionAffinityEnabled = false,
+    sessionAffinityIdleTtlMs = 3_600_000,
+    spillInflight = 0,
     setRoutingDecision,
   } = args;
   const fs = await import("fs");
@@ -4950,6 +5288,14 @@ async function loadClaudeProxyAccounts(args: {
     };
   }
 
+  // Resolved ahead of account selection (rather than after, as before) so
+  // sessionId is available to selectClaudeProxyAccountOrder for session
+  // affinity. normalizeClaudeRequestForAnthropic below returns a
+  // shallow clone and never mutates `body`, so extracting earlier sees
+  // exactly the same snapshot extractSnapshotBody always saw.
+  const clientHeaders = ctx.headers ?? {};
+  const clientSnapshotBody = extractSnapshotBody(body);
+
   const { orderedAccounts, metricsByKey } = selectClaudeProxyAccountOrder({
     enabledAccounts,
     accountStrategy,
@@ -4958,6 +5304,12 @@ async function loadClaudeProxyAccounts(args: {
     sessionSoftLimit,
     sessionResetToleranceMs,
     requestedModel: typeof body.model === "string" ? body.model : undefined,
+    sessionId: clientSnapshotBody?.sessionId,
+    ranking,
+    preferPrimary,
+    sessionAffinityEnabled,
+    sessionAffinityIdleTtlMs,
+    spillInflight,
     setRoutingDecision,
   });
   if (
@@ -4978,8 +5330,6 @@ async function loadClaudeProxyAccounts(args: {
   const requestStart = Date.now();
   const toolCount = Array.isArray(body.tools) ? body.tools.length : 0;
   const url = "https://api.anthropic.com/v1/messages?beta=true";
-  const clientHeaders = ctx.headers ?? {};
-  const clientSnapshotBody = extractSnapshotBody(body);
 
   return {
     accounts,
@@ -4994,6 +5344,7 @@ async function loadClaudeProxyAccounts(args: {
       clientHeaders,
       clientSnapshotBody,
     ),
+    sessionId: clientSnapshotBody?.sessionId,
   };
 }
 
@@ -6665,7 +7016,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
       responseStatus: 502,
       durationMs: Date.now() - requestStartTime,
     });
-    return { response: clientError };
+    return { response: clientError, served: false };
   }
 
   const reader = response.body.getReader();
@@ -6707,6 +7058,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         errorType: "stream_error",
         message,
       }),
+      served: false,
     };
   }
   if (preflight.kind === "empty") {
@@ -6899,7 +7251,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     () => onStreamTerminal?.(),
     () => onStreamTerminal?.(),
   );
-  return { response: result, holdsAccountAdmission: true };
+  return { response: result, holdsAccountAdmission: true, served: true };
 }
 
 function getStreamFailureDetails(
@@ -7485,7 +7837,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
     );
   }
 
-  return { response: responseJson };
+  return { response: responseJson, served: true };
 }
 
 async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
@@ -7679,6 +8031,7 @@ async function handleAnthropicAuthRetry(args: {
   sawRateLimit: boolean;
   sawTransientFailure: boolean;
   sawNetworkError: boolean;
+  bindServedSession?: (servingAccountKey: string) => void;
 }): Promise<AnthropicAuthRetryResult> {
   const {
     ctx,
@@ -7704,6 +8057,7 @@ async function handleAnthropicAuthRetry(args: {
     sawRateLimit,
     sawTransientFailure,
     sawNetworkError,
+    bindServedSession,
   } = args;
   recordAttemptError(account.label, account.type, 401);
   logAttempt(401, "authentication_error", "received 401 from Anthropic", {
@@ -7839,6 +8193,10 @@ async function handleAnthropicAuthRetry(args: {
                 logProxyBody,
                 logFinalRequest,
               }),
+              // handleAnthropicSuccessfulNonStreamRetryResponse is only ever
+              // called when retryResp.ok — unlike the streaming path, it has
+              // no terminal-error return sharing this shape.
+              served: true,
             };
         if ("retryNextAccount" in successResult) {
           const failure = successResult.failure;
@@ -7857,6 +8215,9 @@ async function handleAnthropicAuthRetry(args: {
             sawNetworkError: currentSawNetworkError,
             upstreamSpan: undefined,
           };
+        }
+        if (bindServedSession && successResult.served) {
+          bindServedSession(account.key);
         }
         return {
           response: successResult.response,
@@ -9735,6 +10096,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   quotaRoutingEnabled?: boolean;
   sessionSoftLimit?: number;
   sessionResetToleranceMs?: number;
+  ranking?: ProxyAccountRankingPolicy;
+  preferPrimary?: boolean;
+  sessionAffinityEnabled?: boolean;
+  sessionAffinityIdleTtlMs?: number;
+  spillInflight?: number;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: ClaudeFinalRequestLogger;
@@ -9753,6 +10119,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     quotaRoutingEnabled = isQuotaRoutingEnabled(),
     sessionSoftLimit = getSessionSoftLimit(),
     sessionResetToleranceMs = getSessionResetToleranceMs(),
+    ranking = "expiry-first",
+    preferPrimary = false,
+    sessionAffinityEnabled = false,
+    sessionAffinityIdleTtlMs = 3_600_000,
+    spillInflight = 0,
     buildLoggedClaudeError,
     logProxyBody,
     logFinalRequest,
@@ -9777,6 +10148,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
+    ranking,
+    preferPrimary,
+    sessionAffinityEnabled,
+    sessionAffinityIdleTtlMs,
+    spillInflight,
     setRoutingDecision,
   });
   if ("failure" in loadedAccounts) {
@@ -9849,7 +10225,31 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     url,
     clientHeaders,
     isClaudeClientRequest,
+    sessionId,
   } = loadedAccounts;
+  // Accounts this request sent an upstream attempt to; one skipped only for
+  // its admission cap is not among them.
+  const attemptedAccountKeys = new Set<string>();
+  // Only fill-first over more than one account reads a binding (see
+  // selectClaudeProxyAccountOrder), so nothing else records one.
+  const bindServedSession =
+    sessionAffinityEnabled &&
+    sessionId &&
+    accountStrategy === "fill-first" &&
+    enabledAccounts.length > 1
+      ? (servingAccountKey: string): void =>
+          bindSessionAfterServe({
+            sessionId,
+            servingAccountKey,
+            attemptedAccountKeys,
+            enabledAccounts,
+            idleTtlMs: sessionAffinityIdleTtlMs,
+            sessionSoftLimit,
+            sessionResetToleranceMs,
+            requestedModel:
+              typeof body.model === "string" ? body.model : undefined,
+          })
+      : undefined;
   // Snapshot the operator policy once. Reading the module value later would let
   // a concurrent /limits call or a hot config reload change this request's
   // answer partway through its own account loop.
@@ -10071,6 +10471,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           }
           continue accountLoop;
         }
+        attemptedAccountKeys.add(account.key);
         let admissionTransferredToStream = false;
         try {
           let fetchResult: AnthropicUpstreamFetchResult;
@@ -10285,6 +10686,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
               sawRateLimit: loopState.sawRateLimit,
               sawTransientFailure: loopState.sawTransientFailure,
               sawNetworkError: loopState.sawNetworkError,
+              bindServedSession,
             });
             loopState.lastError = authRetryResult.lastError;
             loopState.authFailureMessage = authRetryResult.authFailureMessage;
@@ -10421,6 +10823,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           }
           admissionTransferredToStream =
             successResult.holdsAccountAdmission === true;
+          if (bindServedSession && successResult.served) {
+            bindServedSession(account.key);
+          }
           return successResult.response;
         } finally {
           if (!admissionTransferredToStream) {
@@ -10723,6 +11128,11 @@ export function createClaudeProxyRoutes(
             sessionSoftLimit: getSessionSoftLimit(),
             sessionResetToleranceMs: getSessionResetToleranceMs(),
             useOverage: "auto",
+            accountRanking: "expiry-first",
+            preferPrimary: false,
+            sessionAffinity: false,
+            sessionAffinityIdleTtlMs: 3_600_000,
+            spillInflight: 0,
           };
           setOveragePolicy(requestRouting.useOverage);
           const requestModelRouter = requestRouting.modelRouter;
@@ -10820,6 +11230,12 @@ export function createClaudeProxyRoutes(
                 quotaRoutingEnabled: requestRouting.quotaRoutingEnabled,
                 sessionSoftLimit: requestRouting.sessionSoftLimit,
                 sessionResetToleranceMs: requestRouting.sessionResetToleranceMs,
+                ranking: requestRouting.accountRanking,
+                preferPrimary: requestRouting.preferPrimary,
+                sessionAffinityEnabled: requestRouting.sessionAffinity,
+                sessionAffinityIdleTtlMs:
+                  requestRouting.sessionAffinityIdleTtlMs,
+                spillInflight: requestRouting.spillInflight,
                 buildLoggedClaudeError,
                 logProxyBody,
                 logFinalRequest,
@@ -12311,7 +12727,14 @@ export const __testHooks = {
     primaryKey: string | undefined,
     sessionSoftLimit: number = getSessionSoftLimit(),
     sessionResetToleranceMs: number = getSessionResetToleranceMs(),
-    requestedModel?: string,
+    options?: {
+      requestedModel?: string;
+      policy?: {
+        ranking?: ProxyAccountRankingPolicy;
+        affinityKey?: string;
+        preferPrimary?: boolean;
+      };
+    },
   ): ProxyAccountRoutingDecision | undefined => {
     const order = orderAccountsByQuotaWithMetrics(
       accounts,
@@ -12319,7 +12742,7 @@ export const __testHooks = {
       primaryKey,
       sessionSoftLimit,
       sessionResetToleranceMs,
-      requestedModel,
+      options,
     );
     return buildRoutingDecision({
       accounts,
@@ -12333,6 +12756,7 @@ export const __testHooks = {
       sessionSoftLimit,
       sessionResetToleranceMs,
       rotationOffset: 0,
+      policySelectionReason: order.reason,
     });
   },
   buildRoutingDecision,
@@ -12363,6 +12787,10 @@ export const __testHooks = {
     accountAdmissionStates.clear();
     accountQuotaRefreshCoordinator.clear();
     providerTransportCoordinator.clear();
+    loggedRoutingPolicyErrors.clear();
+    forceSpillThrowForTests = false;
+    forceAffinityLookupThrowForTests = false;
+    forceBindRecheckThrowForTests = false;
     primaryAccountIndex = 0;
     lastKnownAccountCount = 0;
   },
@@ -12376,6 +12804,21 @@ export const __testHooks = {
       null,
       isClaudeClientRequest,
     ),
+  // Pins the sessionId path loadClaudeProxyAccounts resolves ahead of
+  // account selection and feeds into selectClaudeProxyAccountOrder for
+  // session affinity.
+  extractSnapshotBodySessionIdForTests: (body: unknown): string | undefined =>
+    extractSnapshotBody(body)?.sessionId,
+  selectClaudeProxyAccountOrderForTests: selectClaudeProxyAccountOrder,
+  setForceSpillThrowForTests: (value: boolean): void => {
+    forceSpillThrowForTests = value;
+  },
+  setForceAffinityLookupThrowForTests: (value: boolean): void => {
+    forceAffinityLookupThrowForTests = value;
+  },
+  setForceBindRecheckThrowForTests: (value: boolean): void => {
+    forceBindRecheckThrowForTests = value;
+  },
   isAntiAbuseConstruction429,
   fetchAnthropicAccountResponse,
   finalizeAnthropicTerminalFetchError,
