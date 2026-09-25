@@ -672,6 +672,16 @@ cloaking:
 | `session-reset-tolerance-ms` / `sessionResetToleranceMs` | `integer`                       | `900000`      | No       | Positive reset-time bucket width used when session reset time breaks a weekly-expiry tie and when saturated accounts are ordered by recovery time.                                                                                                                                                                                                                                                                                   |
 | `use-overage` / `useOverage`                             | `"auto" \| "always" \| "never"` | `auto`        | No       | Whether an account may keep serving on paid extra usage once its subscription window is spent. `auto` follows what Anthropic reports per account; `never` parks the account at the subscription limit so the pool never spends credits; `always` keeps serving whenever the provider permits it. Only `never` overrides the provider — nothing here enables extra usage Anthropic has disabled. Manage via `neurolink auth overage`. |
 
+For `fallback-chain`/`fallbackChain`, `account-allowlist`/`accountAllowlist`,
+`quota-routing`/`quotaRouting`, `use-overage`/`useOverage`,
+`auto-fallback`/`autoFallback`, `max-inflight-per-account`/`maxInflightPerAccount`,
+`session-soft-limit`/`sessionSoftLimit`, and
+`session-reset-tolerance-ms`/`sessionResetToleranceMs`: an explicit `null`
+under either spelling means "unset" — the field's default applies as if the
+key were omitted, but a warning is logged. An empty YAML value
+(`use-overage:`) is `null`. A non-null value under one spelling is still
+used even when the other spelling is `null`.
+
 #### ModelMapping Fields
 
 | Field      | Type     | Default       | Required | Description                                      |
