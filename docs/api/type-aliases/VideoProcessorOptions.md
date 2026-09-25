@@ -8,7 +8,7 @@
 
 > **VideoProcessorOptions** = `object`
 
-Defined in: [types/file.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L461)
+Defined in: [types/file.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L470)
 
 Keyframe-extraction knobs for an attached video (#478).
 
@@ -22,7 +22,7 @@ own ceiling — a caller cannot raise `frames` above VIDEO_CONFIG.MAX_FRAMES.
 
 > `optional` **frames?**: `number`
 
-Defined in: [types/file.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L463)
+Defined in: [types/file.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L472)
 
 Max keyframes to extract. Clamped to the processor's MAX_FRAMES ceiling.
 
@@ -32,7 +32,7 @@ Max keyframes to extract. Clamped to the processor's MAX_FRAMES ceiling.
 
 > `optional` **quality?**: `number`
 
-Defined in: [types/file.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L465)
+Defined in: [types/file.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L474)
 
 Encoder quality 1-100 for the extracted frames.
 
@@ -42,6 +42,22 @@ Encoder quality 1-100 for the extracted frames.
 
 > `optional` **format?**: `"jpeg"` \| `"png"`
 
-Defined in: [types/file.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L467)
+Defined in: [types/file.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L476)
 
 Frame encoding. Defaults to jpeg.
+
+---
+
+### transcribeAudio?
+
+> `optional` **transcribeAudio?**: `boolean`
+
+Defined in: [types/file.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L486)
+
+Transcribe the clip's spoken audio (#433). Off by default: it costs an
+ffmpeg pass plus a Whisper call, and most attached video is silent
+screen capture.
+
+Best-effort — a clip with no audio track, no `OPENAI_API_KEY`, or a
+failed call still processes, and the reason lands in
+`ProcessedVideo.transcriptionSkippedReason`.

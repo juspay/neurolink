@@ -8,6 +8,6 @@
 
 > **ProviderStreamChunk** = \{ `content`: `string`; \} \| \{ `type`: `"audio"`; `audio`: [`AudioChunk`](AudioChunk.md); \} \| \{ `type`: `"tts_audio"`; `audio`: [`TTSChunk`](TTSChunk.md); \} \| \{ `type`: `"image"`; `imageOutput`: \{ `base64`: `string`; \}; \}
 
-Defined in: [types/stream.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L229)
+Defined in: [types/stream.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L230)
 
 Provider-level chunks accepted by NeuroLink's core streaming pipeline.

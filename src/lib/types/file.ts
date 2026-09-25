@@ -2,6 +2,8 @@
  * File detection and processing types for unified file handling
  */
 
+import type { ImageWithAltText } from "./multimodal.js";
+
 /**
  * Supported file types for multimodal input
  */
@@ -169,8 +171,15 @@ export type FileProcessingResult = {
   type: FileType;
   content: string | Buffer;
   mimeType: string;
-  /** Additional images extracted from the file (e.g., video keyframes, audio cover art) */
-  images?: Array<Buffer | string>;
+  /**
+   * Additional images extracted from the file (e.g., video keyframes, audio
+   * cover art).
+   *
+   * An entry may carry alt text, which is how a video keyframe states the
+   * timestamp it was sampled at. Bare bytes still work — the field was
+   * widened, not changed.
+   */
+  images?: Array<Buffer | string | ImageWithAltText>;
   metadata: {
     confidence: number;
     size?: number;
@@ -465,6 +474,16 @@ export type VideoProcessorOptions = {
   quality?: number;
   /** Frame encoding. Defaults to jpeg. */
   format?: "jpeg" | "png";
+  /**
+   * Transcribe the clip's spoken audio (#433). Off by default: it costs an
+   * ffmpeg pass plus a Whisper call, and most attached video is silent
+   * screen capture.
+   *
+   * Best-effort — a clip with no audio track, no `OPENAI_API_KEY`, or a
+   * failed call still processes, and the reason lands in
+   * `ProcessedVideo.transcriptionSkippedReason`.
+   */
+  transcribeAudio?: boolean;
 };
 
 /**

@@ -8,6 +8,6 @@
 
 > **PDFAPIType** = `"document"` \| `"files-api"` \| `"unsupported"`
 
-Defined in: [types/file.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L351)
+Defined in: [types/file.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L360)
 
 PDF API types for different providers

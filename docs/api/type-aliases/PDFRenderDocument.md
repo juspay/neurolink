@@ -8,7 +8,7 @@
 
 > **PDFRenderDocument** = `object`
 
-Defined in: [types/file.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L633)
+Defined in: [types/file.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L652)
 
 A PDF opened for page rendering. Rendering goes through pdf-parse so the
 process loads exactly one pdfjs-dist copy — a second copy fails pdfjs's
@@ -20,7 +20,7 @@ API-vs-Worker version check for whichever library loads second.
 
 > **length**: `number`
 
-Defined in: [types/file.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L635)
+Defined in: [types/file.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L654)
 
 Total pages in the document.
 
@@ -30,7 +30,7 @@ Total pages in the document.
 
 > **getPage**: (`pageNumber`) => `Promise`\<`Buffer`\>
 
-Defined in: [types/file.ts:637](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L637)
+Defined in: [types/file.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L656)
 
 Render a 1-based page to a PNG buffer.
 
@@ -50,7 +50,7 @@ Render a 1-based page to a PNG buffer.
 
 > **destroy**: () => `Promise`\<`void`\>
 
-Defined in: [types/file.ts:639](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L639)
+Defined in: [types/file.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L658)
 
 Release pdfjs resources held by the document.
 

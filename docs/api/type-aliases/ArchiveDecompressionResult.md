@@ -8,7 +8,7 @@
 
 > **ArchiveDecompressionResult** = \{ `status`: `"ok"`; `buffer`: `Buffer`; \} \| \{ `status`: `"tool-unavailable"`; \} \| \{ `status`: `"too-large"`; \} \| \{ `status`: `"failed"`; \}
 
-Defined in: [types/processor.ts:901](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L901)
+Defined in: [types/processor.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L945)
 
 Outcome of decompressing a single-stream archive (.bz2, .xz, .zst).
 

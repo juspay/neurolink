@@ -46,3 +46,27 @@ export function formatMediaDuration(seconds: number): string {
 
   return parts.join(" ");
 }
+
+/**
+ * Format the moment a video keyframe was sampled at — "3.00s",
+ * "1234.00s (20m 34s)".
+ *
+ * Deliberately not the clock form, for the reason in this module's header:
+ * the string is read by a language model, and "0:03" is ambiguous. That is
+ * not theoretical here — an early draft labelled frames "0:03" and the model
+ * reported the green frame as appearing at "3:00".
+ *
+ * Deliberately not `formatMediaDuration` alone either. That rounds to whole
+ * seconds, and an explicit `videoOptions.frames` spreads frames evenly rather
+ * than on the duration tier: sixteen frames across a 3.6s clip are 0.225s
+ * apart, and every one of them would render as "0s". The precise value is
+ * therefore always present, with the readable form added only past a minute,
+ * where "1234.00s" stops meaning anything to a reader.
+ *
+ * Non-finite and negative inputs clamp to zero rather than emitting "NaNs".
+ */
+export function formatKeyframeTimestamp(seconds: number): string {
+  const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  const precise = `${safe.toFixed(2)}s`;
+  return safe >= 60 ? `${precise} (${formatMediaDuration(safe)})` : precise;
+}
