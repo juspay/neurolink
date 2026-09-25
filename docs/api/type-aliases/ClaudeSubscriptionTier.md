@@ -8,7 +8,7 @@
 
 > **ClaudeSubscriptionTier** = `"free"` \| `"pro"` \| `"max"` \| `"max_5"` \| `"max_20"` \| `"api"`
 
-Defined in: [types/subscription.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L38)
+Defined in: [types/subscription.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L39)
 
 Claude subscription tier levels
 

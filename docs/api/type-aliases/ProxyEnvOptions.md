@@ -8,7 +8,7 @@
 
 > **ProxyEnvOptions** = `object`
 
-Defined in: [types/proxy.ts:2205](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2205)
+Defined in: [types/proxy.ts:2270](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2270)
 
 Options controlling proxy env file resolution.
 
@@ -18,7 +18,7 @@ Options controlling proxy env file resolution.
 
 > `optional` **explicitEnvFile?**: `string`
 
-Defined in: [types/proxy.ts:2206](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2206)
+Defined in: [types/proxy.ts:2271](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2271)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2206](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **env?**: `NodeJS.ProcessEnv`
 
-Defined in: [types/proxy.ts:2207](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2207)
+Defined in: [types/proxy.ts:2272](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2272)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2207](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **homeDir?**: `string`
 
-Defined in: [types/proxy.ts:2208](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2208)
+Defined in: [types/proxy.ts:2273](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2273)

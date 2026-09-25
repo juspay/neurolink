@@ -8,7 +8,7 @@
 
 > **ClaudeUsageInfo** = `object`
 
-Defined in: [types/subscription.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L412)
+Defined in: [types/subscription.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L413)
 
 Claude usage information for tracking current consumption
 
@@ -23,7 +23,7 @@ tracking messages sent, tokens consumed, and remaining quotas.
 
 > **messagesUsed**: `number`
 
-Defined in: [types/subscription.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L417)
+Defined in: [types/subscription.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L418)
 
 Messages sent in current period
 
@@ -37,7 +37,7 @@ Count of messages sent since last quota reset
 
 > **messagesRemaining**: `number`
 
-Defined in: [types/subscription.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L423)
+Defined in: [types/subscription.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L424)
 
 Messages remaining in current period
 
@@ -51,7 +51,7 @@ Calculated as maxMessagesPerPeriod - messagesUsed
 
 > **tokensUsed**: `number`
 
-Defined in: [types/subscription.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L429)
+Defined in: [types/subscription.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L430)
 
 Tokens consumed in current period
 
@@ -65,7 +65,7 @@ Total tokens (input + output) used since last reset
 
 > **tokensRemaining**: `number`
 
-Defined in: [types/subscription.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L435)
+Defined in: [types/subscription.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L436)
 
 Tokens remaining in current period
 
@@ -79,7 +79,7 @@ Calculated as maxTokensPerPeriod - tokensUsed
 
 > **inputTokensUsed**: `number`
 
-Defined in: [types/subscription.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L441)
+Defined in: [types/subscription.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L442)
 
 Input tokens consumed in current period
 
@@ -93,7 +93,7 @@ Prompt/input tokens used since last reset
 
 > **outputTokensUsed**: `number`
 
-Defined in: [types/subscription.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L447)
+Defined in: [types/subscription.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L448)
 
 Output tokens consumed in current period
 
@@ -107,7 +107,7 @@ Response/output tokens used since last reset
 
 > **lastRequestTimestamp**: `number`
 
-Defined in: [types/subscription.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L453)
+Defined in: [types/subscription.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L454)
 
 Timestamp of last API request (Unix epoch in milliseconds)
 
@@ -121,7 +121,7 @@ When the last successful request was made
 
 > **isRateLimited**: `boolean`
 
-Defined in: [types/subscription.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L459)
+Defined in: [types/subscription.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L460)
 
 Current rate limit status
 
@@ -135,7 +135,7 @@ Whether the user is currently rate limited
 
 > `optional` **rateLimitExpiresAt?**: `number`
 
-Defined in: [types/subscription.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L465)
+Defined in: [types/subscription.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L466)
 
 Timestamp when rate limit expires (Unix epoch in milliseconds)
 
@@ -149,7 +149,7 @@ When rate limiting will be lifted, if applicable
 
 > **requestCount**: `number`
 
-Defined in: [types/subscription.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L471)
+Defined in: [types/subscription.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L472)
 
 Total requests made in current period
 
@@ -163,7 +163,7 @@ Count of all API requests since last reset
 
 > **messageQuotaPercent**: `number`
 
-Defined in: [types/subscription.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L477)
+Defined in: [types/subscription.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L478)
 
 Usage percentage of message quota
 
@@ -177,7 +177,7 @@ Percentage of message quota consumed (0-100)
 
 > **tokenQuotaPercent**: `number`
 
-Defined in: [types/subscription.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L483)
+Defined in: [types/subscription.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L484)
 
 Usage percentage of token quota
 

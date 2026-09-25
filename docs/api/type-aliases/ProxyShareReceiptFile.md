@@ -8,7 +8,7 @@
 
 > **ProxyShareReceiptFile** = `object`
 
-Defined in: [types/proxy.ts:4332](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4332)
+Defined in: [types/proxy.ts:4402](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4402)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4332](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4333](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4333)
+Defined in: [types/proxy.ts:4403](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4403)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:4333](https://github.com/juspay/neurolink/blob/relea
 
 > **receipts**: `Record`\<`string`, [`ProxyShareReceipt`](ProxyShareReceipt.md)[]\>
 
-Defined in: [types/proxy.ts:4335](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4335)
+Defined in: [types/proxy.ts:4405](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4405)
 
 Per grant, oldest first, bounded.
 
@@ -34,7 +34,7 @@ Per grant, oldest first, bounded.
 
 > **netted**: `Record`\<`string`, `number`\>
 
-Defined in: [types/proxy.ts:4337](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4337)
+Defined in: [types/proxy.ts:4407](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4407)
 
 Cumulative coins each grant has had forgiven by netting.
 
@@ -44,7 +44,7 @@ Cumulative coins each grant has had forgiven by netting.
 
 > `optional` **consumedTotal?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/proxy.ts:4344](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4344)
+Defined in: [types/proxy.ts:4414](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4414)
 
 Lifetime coins receipted per grant.
 
@@ -57,7 +57,7 @@ would quietly under-count a busy grant, and netting reads this number.
 
 > `optional` **highestSequence?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/proxy.ts:4352](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4352)
+Defined in: [types/proxy.ts:4422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4422)
 
 Highest sequence issued per grant, for the same reason.
 

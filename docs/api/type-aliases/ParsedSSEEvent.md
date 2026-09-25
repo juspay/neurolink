@@ -8,7 +8,7 @@
 
 > **ParsedSSEEvent** = `object`
 
-Defined in: [types/proxy.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1345)
+Defined in: [types/proxy.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1410)
 
 One complete Server-Sent Event extracted from an incremental buffer.
 
@@ -18,7 +18,7 @@ One complete Server-Sent Event extracted from an incremental buffer.
 
 > **event**: `string`
 
-Defined in: [types/proxy.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1345)
+Defined in: [types/proxy.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1410)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:1345](https://github.com/juspay/neurolink/blob/relea
 
 > **data**: `string`
 
-Defined in: [types/proxy.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1345)
+Defined in: [types/proxy.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1410)

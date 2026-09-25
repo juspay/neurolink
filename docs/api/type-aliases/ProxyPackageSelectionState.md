@@ -8,7 +8,7 @@
 
 > **ProxyPackageSelectionState** = `object`
 
-Defined in: [types/proxy.ts:4920](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4920)
+Defined in: [types/proxy.ts:4990](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4990)
 
 Atomically published active and rollback package selections.
 
@@ -18,7 +18,7 @@ Atomically published active and rollback package selections.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4921](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4921)
+Defined in: [types/proxy.ts:4991](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4991)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4921](https://github.com/juspay/neurolink/blob/relea
 
 > **active**: [`ProxyPackageSelection`](ProxyPackageSelection.md) \| `null`
 
-Defined in: [types/proxy.ts:4922](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4922)
+Defined in: [types/proxy.ts:4992](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4992)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:4922](https://github.com/juspay/neurolink/blob/relea
 
 > **previous**: [`ProxyPackageSelection`](ProxyPackageSelection.md) \| `null`
 
-Defined in: [types/proxy.ts:4923](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4923)
+Defined in: [types/proxy.ts:4993](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4993)

@@ -8,7 +8,7 @@
 
 > **ProxyQuotaRefreshRunResult** = \{ `kind`: `"completed"`; `result`: [`AccountUsageFetchResult`](AccountUsageFetchResult.md); `startedAt`: `number`; \} \| \{ `kind`: `"backoff"`; `nextEligibleAt`: `number`; \} \| \{ `kind`: `"not_due"`; \}
 
-Defined in: [types/proxy.ts:1801](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1801)
+Defined in: [types/proxy.ts:1866](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1866)
 
 ## Union Members
 

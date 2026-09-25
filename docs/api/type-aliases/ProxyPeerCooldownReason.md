@@ -8,6 +8,6 @@
 
 > **ProxyPeerCooldownReason** = `"exhausted"` \| `"paused"` \| `"revoked"` \| `"expired"` \| `"withheld"` \| `"unreachable"` \| `"upstream_error"`
 
-Defined in: [types/proxy.ts:4614](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4614)
+Defined in: [types/proxy.ts:4684](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4684)
 
 Why a peer is temporarily not worth trying.

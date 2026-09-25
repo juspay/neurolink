@@ -271,6 +271,11 @@ function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
   return CODEX_REASONING_EFFORTS.some((effort) => effort === value);
 }
 
+const MIN_SESSION_AFFINITY_IDLE_TTL_MS = 60_000;
+const MAX_SESSION_AFFINITY_IDLE_TTL_MS = 86_400_000;
+const MIN_SPILL_INFLIGHT = 0;
+const MAX_SPILL_INFLIGHT = 100;
+
 function kebabToCamelRoutingKey(kebabKey: string): string {
   return kebabKey.replace(/-([a-z])/g, (_match, letter: string) =>
     letter.toUpperCase(),
@@ -307,6 +312,24 @@ function readLegacyRoutingKey(
   const wasNull =
     value === undefined && (rawKebab === null || rawCamel === null);
   return { value, wasNull };
+}
+
+/**
+ * Reads a routing policy key under its kebab-case or camelCase spelling,
+ * choosing by presence rather than with `??`: `??` treats an explicit
+ * kebab-case `null` as absent and falls through to an unset camelCase key,
+ * so the same null would be silently defaulted under one spelling and
+ * rejected under the other. Unlike `readLegacyRoutingKey`, a `null` is
+ * returned as-is so validation rejects it: these five keys never accepted it.
+ */
+function readRoutingPolicyKey(
+  routing: Record<string, unknown>,
+  kebabKey: string,
+): unknown {
+  const camelKey = kebabToCamelRoutingKey(kebabKey);
+  return routing[kebabKey] !== undefined
+    ? routing[kebabKey]
+    : routing[camelKey];
 }
 
 /**
@@ -483,6 +506,77 @@ export function validateProxyConfig(config: unknown): string[] {
         );
       }
     }
+
+    const rawAccountRanking = readRoutingPolicyKey(routing, "account-ranking");
+    if (
+      rawAccountRanking !== undefined &&
+      rawAccountRanking !== "expiry-first" &&
+      rawAccountRanking !== "headroom-first"
+    ) {
+      errors.push(
+        "routing.account-ranking must be expiry-first or headroom-first",
+      );
+    }
+
+    const rawPreferPrimary = readRoutingPolicyKey(routing, "prefer-primary");
+    const normalizedPreferPrimary =
+      typeof rawPreferPrimary === "string"
+        ? rawPreferPrimary.trim().toLowerCase()
+        : undefined;
+    if (
+      rawPreferPrimary !== undefined &&
+      typeof rawPreferPrimary !== "boolean" &&
+      normalizedPreferPrimary !== "true" &&
+      normalizedPreferPrimary !== "false"
+    ) {
+      errors.push("routing.prefer-primary must be a boolean");
+    }
+
+    const rawSessionAffinity = readRoutingPolicyKey(
+      routing,
+      "session-affinity",
+    );
+    const normalizedSessionAffinity =
+      typeof rawSessionAffinity === "string"
+        ? rawSessionAffinity.trim().toLowerCase()
+        : undefined;
+    if (
+      rawSessionAffinity !== undefined &&
+      typeof rawSessionAffinity !== "boolean" &&
+      normalizedSessionAffinity !== "true" &&
+      normalizedSessionAffinity !== "false"
+    ) {
+      errors.push("routing.session-affinity must be a boolean");
+    }
+
+    const rawAffinityTtl = readRoutingPolicyKey(
+      routing,
+      "session-affinity-idle-ttl-ms",
+    );
+    if (
+      rawAffinityTtl !== undefined &&
+      (typeof rawAffinityTtl !== "number" ||
+        !Number.isInteger(rawAffinityTtl) ||
+        rawAffinityTtl < MIN_SESSION_AFFINITY_IDLE_TTL_MS ||
+        rawAffinityTtl > MAX_SESSION_AFFINITY_IDLE_TTL_MS)
+    ) {
+      errors.push(
+        "routing.session-affinity-idle-ttl-ms must be an integer between 60000 and 86400000",
+      );
+    }
+
+    const rawSpillInflight = readRoutingPolicyKey(routing, "spill-inflight");
+    if (
+      rawSpillInflight !== undefined &&
+      (typeof rawSpillInflight !== "number" ||
+        !Number.isInteger(rawSpillInflight) ||
+        rawSpillInflight < MIN_SPILL_INFLIGHT ||
+        rawSpillInflight > MAX_SPILL_INFLIGHT)
+    ) {
+      errors.push(
+        "routing.spill-inflight must be an integer between 0 and 100",
+      );
+    }
   }
 
   if (!hasAccounts && !hasRouting) {
@@ -579,10 +673,15 @@ function warnPlaintextApiKeys(
  * - `session-soft-limit` / `sessionSoftLimit` — proactive handoff threshold
  * - `session-reset-tolerance-ms` / `sessionResetToleranceMs` — reset bucket
  * - `account-allowlist` / `accountAllowlist` — allowed Anthropic account IDs
+ * - `account-ranking` / `accountRanking` — expiry-first | headroom-first
+ * - `prefer-primary` / `preferPrimary` — bias ranking toward primaryAccount
+ * - `session-affinity` / `sessionAffinity` — sticky-session binding
+ * - `session-affinity-idle-ttl-ms` / `sessionAffinityIdleTtlMs` — idle unbind
+ * - `spill-inflight` / `spillInflight` — overflow threshold for sticky sessions
  *
  * Accepts both camelCase and kebab-case keys for YAML-friendliness.
  */
-function parseRoutingConfig(
+export function parseRoutingConfig(
   raw: Record<string, unknown> | undefined,
 ): Partial<ProxyRoutingConfig> | undefined {
   if (!raw || typeof raw !== "object") {
@@ -810,8 +909,10 @@ function parseRoutingConfig(
   }
 
   // Primary account (accept kebab-case or camelCase). Email or label of the
-  // Anthropic account that should be tried first ("home"). Resolved to a
-  // stable key (anthropic:<email>) at proxy boot; absence preserves the
+  // Anthropic account used as "home": under quota routing it is the
+  // ranking's final tiebreaker unless prefer-primary is set, and it is
+  // tried first only when quota routing is disabled. Resolved to a stable
+  // key (anthropic:<email>) at proxy boot; absence preserves the
   // pre-existing insertion-order behavior.
   const rawPrimary = (raw["primary-account"] ?? raw.primaryAccount) as unknown;
   if (rawPrimary !== undefined) {
@@ -836,6 +937,88 @@ function parseRoutingConfig(
     result.accountAllowlist = [
       ...new Set(rawAccountAllowlist.map((entry) => String(entry).trim())),
     ];
+  }
+
+  const rawAccountRanking = readRoutingPolicyKey(raw, "account-ranking");
+  if (rawAccountRanking !== undefined) {
+    if (
+      rawAccountRanking === "expiry-first" ||
+      rawAccountRanking === "headroom-first"
+    ) {
+      result.accountRanking = rawAccountRanking;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.accountRanking: expected expiry-first|headroom-first, got ${String(rawAccountRanking)}`,
+      );
+    }
+  }
+
+  const rawPreferPrimary = readRoutingPolicyKey(raw, "prefer-primary");
+  if (rawPreferPrimary !== undefined) {
+    if (typeof rawPreferPrimary === "boolean") {
+      result.preferPrimary = rawPreferPrimary;
+    } else if (
+      typeof rawPreferPrimary === "string" &&
+      ["true", "false"].includes(rawPreferPrimary.trim().toLowerCase())
+    ) {
+      result.preferPrimary = rawPreferPrimary.trim().toLowerCase() === "true";
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.preferPrimary: expected boolean, got ${typeof rawPreferPrimary}`,
+      );
+    }
+  }
+
+  const rawSessionAffinity = readRoutingPolicyKey(raw, "session-affinity");
+  if (rawSessionAffinity !== undefined) {
+    if (typeof rawSessionAffinity === "boolean") {
+      result.sessionAffinity = rawSessionAffinity;
+    } else if (
+      typeof rawSessionAffinity === "string" &&
+      ["true", "false"].includes(rawSessionAffinity.trim().toLowerCase())
+    ) {
+      result.sessionAffinity =
+        rawSessionAffinity.trim().toLowerCase() === "true";
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.sessionAffinity: expected boolean, got ${typeof rawSessionAffinity}`,
+      );
+    }
+  }
+
+  const rawAffinityTtl = readRoutingPolicyKey(
+    raw,
+    "session-affinity-idle-ttl-ms",
+  );
+  if (rawAffinityTtl !== undefined) {
+    if (
+      typeof rawAffinityTtl === "number" &&
+      Number.isInteger(rawAffinityTtl) &&
+      rawAffinityTtl >= MIN_SESSION_AFFINITY_IDLE_TTL_MS &&
+      rawAffinityTtl <= MAX_SESSION_AFFINITY_IDLE_TTL_MS
+    ) {
+      result.sessionAffinityIdleTtlMs = rawAffinityTtl;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.sessionAffinityIdleTtlMs: expected integer between 60000 and 86400000, got ${String(rawAffinityTtl)}`,
+      );
+    }
+  }
+
+  const rawSpillInflight = readRoutingPolicyKey(raw, "spill-inflight");
+  if (rawSpillInflight !== undefined) {
+    if (
+      typeof rawSpillInflight === "number" &&
+      Number.isInteger(rawSpillInflight) &&
+      rawSpillInflight >= MIN_SPILL_INFLIGHT &&
+      rawSpillInflight <= MAX_SPILL_INFLIGHT
+    ) {
+      result.spillInflight = rawSpillInflight;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.spillInflight: expected integer between 0 and 100, got ${String(rawSpillInflight)}`,
+      );
+    }
   }
 
   return result;

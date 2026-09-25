@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryCheck** = `object`
 
-Defined in: [types/proxy.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L999)
+Defined in: [types/proxy.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1051)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:999](https://github.com/juspay/neurolink/blob/releas
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1000)
+Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1052)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:1000](https://github.com/juspay/neurolink/blob/relea
 
 > **status**: `"pass"` \| `"fail"` \| `"warn"` \| `"unverified"`
 
-Defined in: [types/proxy.ts:1001](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1001)
+Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1053)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:1001](https://github.com/juspay/neurolink/blob/relea
 
 > **evidence**: `unknown`
 
-Defined in: [types/proxy.ts:1002](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1002)
+Defined in: [types/proxy.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1054)

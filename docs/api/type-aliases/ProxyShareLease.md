@@ -8,7 +8,7 @@
 
 > **ProxyShareLease** = `object`
 
-Defined in: [types/proxy.ts:4735](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4735)
+Defined in: [types/proxy.ts:4805](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4805)
 
 The offline-survivable projection of a grant.
 
@@ -24,7 +24,7 @@ lender still consents.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4736](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4736)
+Defined in: [types/proxy.ts:4806](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4806)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:4736](https://github.com/juspay/neurolink/blob/relea
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4737](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4737)
+Defined in: [types/proxy.ts:4807](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4807)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:4737](https://github.com/juspay/neurolink/blob/relea
 
 > **peerLabel**: `string`
 
-Defined in: [types/proxy.ts:4738](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4738)
+Defined in: [types/proxy.ts:4808](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4808)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/proxy.ts:4738](https://github.com/juspay/neurolink/blob/relea
 
 > **issuedAt**: `number`
 
-Defined in: [types/proxy.ts:4739](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4739)
+Defined in: [types/proxy.ts:4809](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4809)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/proxy.ts:4739](https://github.com/juspay/neurolink/blob/relea
 
 > **notAfter**: `number`
 
-Defined in: [types/proxy.ts:4741](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4741)
+Defined in: [types/proxy.ts:4811](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4811)
 
 Hard stop, honored even by a borrower that never calls home again.
 
@@ -66,7 +66,7 @@ Hard stop, honored even by a borrower that never calls home again.
 
 > **heartbeatEveryMs**: `number`
 
-Defined in: [types/proxy.ts:4743](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4743)
+Defined in: [types/proxy.ts:4813](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4813)
 
 How often the borrower should check in.
 
@@ -76,7 +76,7 @@ How often the borrower should check in.
 
 > **offlineGraceMs**: `number`
 
-Defined in: [types/proxy.ts:4745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4745)
+Defined in: [types/proxy.ts:4815](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4815)
 
 How long the borrower may keep serving while the lender is unreachable.
 
@@ -86,7 +86,7 @@ How long the borrower may keep serving while the lender is unreachable.
 
 > **gates**: [`ProxyShareGates`](ProxyShareGates.md)
 
-Defined in: [types/proxy.ts:4747](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4747)
+Defined in: [types/proxy.ts:4817](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4817)
 
 The gate set, snapshotted at issue time.
 
@@ -96,7 +96,7 @@ The gate set, snapshotted at issue time.
 
 > **entitlementSnapshot**: `number` \| `"unlimited"`
 
-Defined in: [types/proxy.ts:4749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4749)
+Defined in: [types/proxy.ts:4819](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4819)
 
 Coin balance at issue time; "unlimited" for an uncapped grant.
 
@@ -106,6 +106,6 @@ Coin balance at issue time; "unlimited" for an uncapped grant.
 
 > **signature**: `string`
 
-Defined in: [types/proxy.ts:4751](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4751)
+Defined in: [types/proxy.ts:4821](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4821)
 
 HMAC over the payload, keyed by the grant's lease secret.

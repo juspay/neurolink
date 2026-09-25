@@ -8,7 +8,7 @@
 
 > **ProxyResponseTrackingObserver** = `object`
 
-Defined in: [types/proxy.ts:2260](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2260)
+Defined in: [types/proxy.ts:2325](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2325)
 
 Non-blocking callbacks for response lifecycle metadata.
 
@@ -18,7 +18,7 @@ Non-blocking callbacks for response lifecycle metadata.
 
 > `optional` **onFirstChunk?**: (`details`) => `void`
 
-Defined in: [types/proxy.ts:2261](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2261)
+Defined in: [types/proxy.ts:2326](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2326)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Decoded response-body bytes observed by the adapter.
 
 > `optional` **onTerminal?**: (`details`) => `unknown`
 
-Defined in: [types/proxy.ts:2266](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2266)
+Defined in: [types/proxy.ts:2331](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2331)
 
 #### Parameters
 

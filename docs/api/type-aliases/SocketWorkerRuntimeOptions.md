@@ -8,7 +8,7 @@
 
 > **SocketWorkerRuntimeOptions** = `object`
 
-Defined in: [types/proxy.ts:3491](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3491)
+Defined in: [types/proxy.ts:3556](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3556)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3491](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onDrained?**: () => `void`
 
-Defined in: [types/proxy.ts:3492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3492)
+Defined in: [types/proxy.ts:3557](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3557)
 
 #### Returns
 
@@ -28,6 +28,6 @@ Defined in: [types/proxy.ts:3492](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **firstRequestGraceMs?**: `number`
 
-Defined in: [types/proxy.ts:3494](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3494)
+Defined in: [types/proxy.ts:3559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3559)
 
 Bound for a committed socket's first HTTP request while draining.

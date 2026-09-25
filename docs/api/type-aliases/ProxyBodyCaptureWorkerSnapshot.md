@@ -8,7 +8,7 @@
 
 > **ProxyBodyCaptureWorkerSnapshot** = `object` & `ProxyBodyCaptureWaitingSnapshot`
 
-Defined in: [types/proxy.ts:848](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L848)
+Defined in: [types/proxy.ts:900](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L900)
 
 ## Type Declaration
 

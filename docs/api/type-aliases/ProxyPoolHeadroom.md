@@ -8,7 +8,7 @@
 
 > **ProxyPoolHeadroom** = `object`
 
-Defined in: [types/proxy.ts:1872](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1872)
+Defined in: [types/proxy.ts:1937](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1937)
 
 Aggregate account-pool headroom at the moment a response was produced.
 
@@ -18,7 +18,7 @@ Aggregate account-pool headroom at the moment a response was produced.
 
 > **available**: `number`
 
-Defined in: [types/proxy.ts:1874](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1874)
+Defined in: [types/proxy.ts:1939](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1939)
 
 Accounts eligible to serve a request right now (not cooling/disabled).
 
@@ -28,7 +28,7 @@ Accounts eligible to serve a request right now (not cooling/disabled).
 
 > **cooling**: `number`
 
-Defined in: [types/proxy.ts:1876](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1876)
+Defined in: [types/proxy.ts:1941](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1941)
 
 Accounts currently in a cooldown window.
 
@@ -38,7 +38,7 @@ Accounts currently in a cooldown window.
 
 > `optional` **bestSessionLeftPct?**: `number`
 
-Defined in: [types/proxy.ts:1879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1879)
+Defined in: [types/proxy.ts:1944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1944)
 
 Best session headroom across available accounts, as a percentage 0-100.
 Undefined when no available account has a quota snapshot.

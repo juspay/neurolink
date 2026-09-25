@@ -8,7 +8,7 @@
 
 > **AnthropicUpstreamBody** = `object`
 
-Defined in: [types/proxy.ts:1278](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1278)
+Defined in: [types/proxy.ts:1330](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1330)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1278](https://github.com/juspay/neurolink/blob/relea
 
 > **bodyStr**: `string`
 
-Defined in: [types/proxy.ts:1279](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1279)
+Defined in: [types/proxy.ts:1331](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1331)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:1279](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/proxy.ts:1280](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1280)
+Defined in: [types/proxy.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1332)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:1280](https://github.com/juspay/neurolink/blob/relea
 
 > **preparedContext**: [`ProxyPreparedContext`](ProxyPreparedContext.md)\<[`ClaudeRequest`](ClaudeRequest.md)\>
 
-Defined in: [types/proxy.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1281)
+Defined in: [types/proxy.ts:1333](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1333)

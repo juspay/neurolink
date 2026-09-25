@@ -8,7 +8,7 @@
 
 > **CodexStreamUsage** = `object`
 
-Defined in: [types/proxy.ts:2656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2656)
+Defined in: [types/proxy.ts:2721](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2721)
 
 Token usage scraped from a Codex (OpenAI Responses) SSE stream.
 
@@ -25,7 +25,7 @@ a null result as "not observed", never as "zero tokens".
 
 > `optional` **inputTokensObserved?**: `boolean`
 
-Defined in: [types/proxy.ts:2658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2658)
+Defined in: [types/proxy.ts:2723](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2723)
 
 Distinguish missing provider usage from a reported zero.
 
@@ -35,7 +35,7 @@ Distinguish missing provider usage from a reported zero.
 
 > `optional` **outputTokensObserved?**: `boolean`
 
-Defined in: [types/proxy.ts:2659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2659)
+Defined in: [types/proxy.ts:2724](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2724)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/proxy.ts:2659](https://github.com/juspay/neurolink/blob/relea
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxy.ts:2660](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2660)
+Defined in: [types/proxy.ts:2725](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2725)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/proxy.ts:2660](https://github.com/juspay/neurolink/blob/relea
 
 > **outputTokens**: `number`
 
-Defined in: [types/proxy.ts:2661](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2661)
+Defined in: [types/proxy.ts:2726](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2726)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/proxy.ts:2661](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/proxy.ts:2662](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2662)
+Defined in: [types/proxy.ts:2727](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2727)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/proxy.ts:2662](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/proxy.ts:2664](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2664)
+Defined in: [types/proxy.ts:2729](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2729)
 
 Cache writes, which bill at a premium over both reads and plain input.
 
@@ -77,7 +77,7 @@ Cache writes, which bill at a premium over both reads and plain input.
 
 > **reasoningTokens**: `number`
 
-Defined in: [types/proxy.ts:2665](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2665)
+Defined in: [types/proxy.ts:2730](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2730)
 
 ---
 
@@ -85,6 +85,6 @@ Defined in: [types/proxy.ts:2665](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **reasoningTokensObserved?**: `boolean`
 
-Defined in: [types/proxy.ts:2667](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2667)
+Defined in: [types/proxy.ts:2732](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2732)
 
 Whether the provider supplied a valid reasoning breakdown.

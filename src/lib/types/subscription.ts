@@ -12,6 +12,7 @@
 
 import type { StoredOAuthTokens } from "./auth.js";
 import type { CodexReasoningEffort } from "./codex.js";
+import type { ProxyAccountRankingPolicy } from "./proxy.js";
 
 export type {
   StoredOAuthTokens,
@@ -1231,16 +1232,27 @@ export type ProxyRoutingConfig = {
   sessionSoftLimit?: number;
   /** Reset-time bucket width used when ordering quota windows. */
   sessionResetToleranceMs?: number;
-  /** Email/label of the Anthropic account that should be tried first
-   *  ("home"). When absent, falls back to insertion-order index 0.
-   *  Resolved per-request to a stable key (anthropic:<email>); does not
-   *  encode an index. */
+  /** Email/label of the Anthropic account used as "home". Under quota
+   *  routing it is the ranking's final tiebreaker unless prefer-primary is
+   *  set; it is tried first only when quota routing is disabled. When
+   *  absent, falls back to insertion-order index 0. Resolved per-request to
+   *  a stable key (anthropic:<email>); does not encode an index. */
   primaryAccount?: string;
   /** Anthropic account emails/labels that may be loaded by the proxy. When
    *  present, every token-store, legacy, and environment credential outside
    *  this set is excluded before refresh or routing. An empty list denies all
    *  stored credentials. */
   accountAllowlist?: string[];
+  /** Ordering rule for usable accounts. Defaults to "expiry-first" (today's behaviour). */
+  accountRanking?: ProxyAccountRankingPolicy;
+  /** If the configured primary is usable and not session-saturated, try it first. */
+  preferPrimary?: boolean;
+  /** Keep a Claude Code session on its bound account while it stays usable and not session-saturated. */
+  sessionAffinity?: boolean;
+  /** Idle TTL, in ms, before a session-affinity binding is dropped. 60000-86400000. */
+  sessionAffinityIdleTtlMs?: number;
+  /** For a request without a binding: spill off an account already at N in-flight. 0-100, 0 = off. */
+  spillInflight?: number;
 };
 
 /** Cloaking plugin config */

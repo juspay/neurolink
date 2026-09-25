@@ -8,7 +8,7 @@
 
 > **QuotaCheckResult** = `object`
 
-Defined in: [types/subscription.ts:657](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L657)
+Defined in: [types/subscription.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L658)
 
 Quota check result for determining if an operation can proceed
 
@@ -22,7 +22,7 @@ Result of checking whether quota allows an operation
 
 > **allowed**: `boolean`
 
-Defined in: [types/subscription.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L659)
+Defined in: [types/subscription.ts:660](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L660)
 
 Whether the operation is allowed within quota
 
@@ -32,7 +32,7 @@ Whether the operation is allowed within quota
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/subscription.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L661)
+Defined in: [types/subscription.ts:662](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L662)
 
 Reason if operation is not allowed
 
@@ -42,7 +42,7 @@ Reason if operation is not allowed
 
 > `optional` **estimatedTokens?**: `number`
 
-Defined in: [types/subscription.ts:663](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L663)
+Defined in: [types/subscription.ts:664](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L664)
 
 Estimated tokens required for the operation
 
@@ -52,7 +52,7 @@ Estimated tokens required for the operation
 
 > `optional` **tokensRemainingAfter?**: `number`
 
-Defined in: [types/subscription.ts:665](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L665)
+Defined in: [types/subscription.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L666)
 
 Tokens remaining after operation (if allowed)
 
@@ -62,6 +62,6 @@ Tokens remaining after operation (if allowed)
 
 > `optional` **suggestedWaitMs?**: `number`
 
-Defined in: [types/subscription.ts:667](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L667)
+Defined in: [types/subscription.ts:668](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L668)
 
 Suggested wait time in ms if rate limited

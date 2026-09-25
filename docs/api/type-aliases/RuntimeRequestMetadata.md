@@ -8,7 +8,7 @@
 
 > **RuntimeRequestMetadata** = `object`
 
-Defined in: [types/proxy.ts:2694](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2694)
+Defined in: [types/proxy.ts:2759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2759)
 
 Request metadata retained by the HTTP adapter for terminal error logging.
 
@@ -18,7 +18,7 @@ Request metadata retained by the HTTP adapter for terminal error logging.
 
 > `optional` **parentRequestId?**: `string`
 
-Defined in: [types/proxy.ts:2696](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2696)
+Defined in: [types/proxy.ts:2761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2761)
 
 Internal adapter requests link to their one client-facing parent.
 
@@ -28,7 +28,7 @@ Internal adapter requests link to their one client-facing parent.
 
 > `optional` **accountingScope?**: `"client"` \| `"internal"`
 
-Defined in: [types/proxy.ts:2697](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2697)
+Defined in: [types/proxy.ts:2762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2762)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/proxy.ts:2697](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **usageOwnerRequestId?**: `string`
 
-Defined in: [types/proxy.ts:2699](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2699)
+Defined in: [types/proxy.ts:2764](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2764)
 
 Exactly this request owns usage; bridge parents never duplicate it.
 
@@ -46,7 +46,7 @@ Exactly this request owns usage; bridge parents never duplicate it.
 
 > `optional` **abortController?**: `AbortController`
 
-Defined in: [types/proxy.ts:2700](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2700)
+Defined in: [types/proxy.ts:2765](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2765)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/proxy.ts:2700](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **lastUpstreamAttempt?**: [`RequestAttemptLogEntry`](RequestAttemptLogEntry.md)
 
-Defined in: [types/proxy.ts:2703](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2703)
+Defined in: [types/proxy.ts:2768](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2768)
 
 Last dispatched attempt, retained until this HTTP request terminates.
 
@@ -64,7 +64,7 @@ Last dispatched attempt, retained until this HTTP request terminates.
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:2704](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2704)
+Defined in: [types/proxy.ts:2769](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2769)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/proxy.ts:2704](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **traceId?**: `string`
 
-Defined in: [types/proxy.ts:2706](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2706)
+Defined in: [types/proxy.ts:2771](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2771)
 
 Ingress OTel correlation survives detached stream/error callbacks.
 
@@ -82,7 +82,7 @@ Ingress OTel correlation survives detached stream/error callbacks.
 
 > `optional` **spanId?**: `string`
 
-Defined in: [types/proxy.ts:2707](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2707)
+Defined in: [types/proxy.ts:2772](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2772)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxy.ts:2707](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **traceFlags?**: `number`
 
-Defined in: [types/proxy.ts:2709](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2709)
+Defined in: [types/proxy.ts:2774](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2774)
 
 Original OTel sampling flags retained through deferred logging.
 
@@ -100,7 +100,7 @@ Original OTel sampling flags retained through deferred logging.
 
 > **method**: `string`
 
-Defined in: [types/proxy.ts:2710](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2710)
+Defined in: [types/proxy.ts:2775](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2775)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/proxy.ts:2710](https://github.com/juspay/neurolink/blob/relea
 
 > **path**: `string`
 
-Defined in: [types/proxy.ts:2711](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2711)
+Defined in: [types/proxy.ts:2776](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2776)
 
 ---
 
@@ -116,7 +116,7 @@ Defined in: [types/proxy.ts:2711](https://github.com/juspay/neurolink/blob/relea
 
 > **startedAt**: `number`
 
-Defined in: [types/proxy.ts:2712](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2712)
+Defined in: [types/proxy.ts:2777](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2777)
 
 ---
 
@@ -124,7 +124,7 @@ Defined in: [types/proxy.ts:2712](https://github.com/juspay/neurolink/blob/relea
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:2713](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2713)
+Defined in: [types/proxy.ts:2778](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2778)
 
 ---
 
@@ -132,7 +132,7 @@ Defined in: [types/proxy.ts:2713](https://github.com/juspay/neurolink/blob/relea
 
 > **stream**: `boolean`
 
-Defined in: [types/proxy.ts:2714](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2714)
+Defined in: [types/proxy.ts:2779](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2779)
 
 ---
 
@@ -140,7 +140,7 @@ Defined in: [types/proxy.ts:2714](https://github.com/juspay/neurolink/blob/relea
 
 > **toolCount**: `number`
 
-Defined in: [types/proxy.ts:2715](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2715)
+Defined in: [types/proxy.ts:2780](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2780)
 
 ---
 
@@ -148,7 +148,7 @@ Defined in: [types/proxy.ts:2715](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **rejectForUpdate?**: `boolean`
 
-Defined in: [types/proxy.ts:2717](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2717)
+Defined in: [types/proxy.ts:2782](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2782)
 
 Admission decision captured before an updater drain can race the route.
 
@@ -158,7 +158,7 @@ Admission decision captured before an updater drain can race the route.
 
 > `optional` **terminalErrorType?**: `string`
 
-Defined in: [types/proxy.ts:2718](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2718)
+Defined in: [types/proxy.ts:2783](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2783)
 
 ---
 
@@ -166,7 +166,7 @@ Defined in: [types/proxy.ts:2718](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **terminalErrorCode?**: `string`
 
-Defined in: [types/proxy.ts:2719](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2719)
+Defined in: [types/proxy.ts:2784](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2784)
 
 ---
 
@@ -174,7 +174,7 @@ Defined in: [types/proxy.ts:2719](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **terminalResult?**: [`RequestLogEntry`](RequestLogEntry.md)
 
-Defined in: [types/proxy.ts:2721](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2721)
+Defined in: [types/proxy.ts:2786](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2786)
 
 Canonical final record, populated synchronously before asynchronous I/O.
 
@@ -184,7 +184,7 @@ Canonical final record, populated synchronously before asynchronous I/O.
 
 > `optional` **shareRelease?**: () => `void`
 
-Defined in: [types/proxy.ts:2725](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2725)
+Defined in: [types/proxy.ts:2790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2790)
 
 Releases this request's peer-share concurrency slot. Set by the share
 gate for borrowed traffic; invoked once the response body completes, so a

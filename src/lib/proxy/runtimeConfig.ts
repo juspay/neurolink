@@ -350,6 +350,12 @@ async function buildCandidate(
     .digest("hex")
     .slice(0, 16);
   const useOverage = routing?.useOverage ?? "auto";
+  const accountRanking = routing?.accountRanking ?? "expiry-first";
+  const preferPrimary = routing?.preferPrimary ?? false;
+  const sessionAffinity = routing?.sessionAffinity ?? false;
+  const sessionAffinityIdleTtlMs =
+    routing?.sessionAffinityIdleTtlMs ?? 3_600_000;
+  const spillInflight = routing?.spillInflight ?? 0;
   const fingerprintSource = JSON.stringify({
     strategy,
     passthrough: options.passthrough,
@@ -360,6 +366,11 @@ async function buildCandidate(
     sessionSoftLimit,
     sessionResetToleranceMs,
     useOverage,
+    accountRanking,
+    preferPrimary,
+    sessionAffinity,
+    sessionAffinityIdleTtlMs,
+    spillInflight,
   });
   const configHash = createHash("sha256")
     .update(fingerprintSource)
@@ -381,6 +392,11 @@ async function buildCandidate(
       sessionSoftLimit,
       sessionResetToleranceMs,
       useOverage,
+      accountRanking,
+      preferPrimary,
+      sessionAffinity,
+      sessionAffinityIdleTtlMs,
+      spillInflight,
     }),
     configFilePresent,
     envFilePresent,

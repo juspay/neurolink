@@ -8,7 +8,7 @@
 
 > **FallbackEntry** = `object`
 
-Defined in: [types/subscription.ts:1192](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1192)
+Defined in: [types/subscription.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1193)
 
 A fallback chain entry
 
@@ -18,7 +18,7 @@ A fallback chain entry
 
 > **provider**: `string`
 
-Defined in: [types/subscription.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1193)
+Defined in: [types/subscription.ts:1194](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1194)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1193](https://github.com/juspay/neurolink/blo
 
 > **model**: `string`
 
-Defined in: [types/subscription.ts:1194](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1194)
+Defined in: [types/subscription.ts:1195](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1195)
 
 ---
 
@@ -34,6 +34,6 @@ Defined in: [types/subscription.ts:1194](https://github.com/juspay/neurolink/blo
 
 > `optional` **reasoningEffort?**: [`CodexReasoningEffort`](CodexReasoningEffort.md)
 
-Defined in: [types/subscription.ts:1196](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1196)
+Defined in: [types/subscription.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1197)
 
 Explicit Codex fallback effort. Omit to use the upstream default.
