@@ -10,6 +10,7 @@
     "build": "pnpm run sync-docs && pnpm run build:llms-txt && docusaurus build",
     "sync-docs": "tsx scripts/sync-docs.ts",
     "build:llms-txt": "tsx scripts/build-llms-txt.ts",
+    "test:search-index-reproducibility": "node scripts/test-search-index-reproducibility.cjs",
     "validate:frontmatter": "tsx scripts/validate-frontmatter.ts",
     "validate:frontmatter:strict": "tsx scripts/validate-frontmatter.ts --strict",
     "typecheck": "tsc --noEmit",
