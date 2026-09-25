@@ -8,6 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 const matter = require("gray-matter");
+const { createHash } = require("node:crypto");
 
 /** Simple glob matching for exclude patterns */
 function matchGlob(glob, filePath) {
@@ -73,11 +74,17 @@ function extractSections(content) {
   let currentContent = [];
   let currentLevel = 0;
 
+  // Every heading is recorded here, even one immediately followed by another
+  // heading (empty body) — anchor disambiguation must see every heading a
+  // real Markdown slugger would, not just the ones with indexable content.
+  // Whether a section has enough body to actually be indexed is decided by
+  // the caller, which reads `section.content`.
   for (const line of lines) {
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      // Save previous section
-      if (currentContent.length > 0) {
+      // Save previous section (skip the pre-first-heading preamble, which
+      // has no heading at all)
+      if (currentHeading || currentContent.length > 0) {
         sections.push({
           heading: currentHeading,
           level: currentLevel,
@@ -96,7 +103,7 @@ function extractSections(content) {
   }
 
   // Save last section
-  if (currentContent.length > 0) {
+  if (currentHeading || currentContent.length > 0) {
     sections.push({
       heading: currentHeading,
       level: currentLevel,
@@ -107,17 +114,55 @@ function extractSections(content) {
   return sections;
 }
 
+/**
+ * Codepoint total order; locale collation differs across Node/ICU builds.
+ * Plain `<`/`>` on strings compares UTF-16 code units, which diverges from
+ * code point order for astral characters (surrogate pairs, U+10000+) vs BMP
+ * characters above the surrogate range (U+E000-U+FFFF): a surrogate pair's
+ * leading unit (U+D800-U+DBFF) always sorts below those BMP units even when
+ * its actual code point is numerically larger. Step through code points
+ * explicitly instead.
+ */
+function byCodepoint(a, b) {
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    const ca = a.codePointAt(i);
+    const cb = b.codePointAt(j);
+    if (ca !== cb) {
+      return ca < cb ? -1 : 1;
+    }
+    i += ca > 0xffff ? 2 : 1;
+    j += cb > 0xffff ? 2 : 1;
+  }
+  if (i < a.length) {
+    return 1;
+  }
+  if (j < b.length) {
+    return -1;
+  }
+  return 0;
+}
+
+/** Stable Algolia/MiniSearch object id for one URL. */
+function objectIdForUrl(url) {
+  return createHash("sha256").update(url).digest("hex");
+}
+
 /** Recursively find all markdown files */
-function findMarkdownFiles(dir, baseDir = dir) {
+function findMarkdownFiles(dir) {
   const files = [];
   if (!fs.existsSync(dir)) {
     return files;
   }
 
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => byCodepoint(a.name, b.name));
+  for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...findMarkdownFiles(fullPath, baseDir));
+      files.push(...findMarkdownFiles(fullPath));
     } else if (/\.(md|mdx)$/.test(entry.name)) {
       files.push(fullPath);
     }
@@ -177,8 +222,16 @@ module.exports = function searchIndexPlugin(context, options = {}) {
 async function generateIndex(docsDir, outDir, isExcluded) {
   const files = findMarkdownFiles(docsDir);
   const documents = [];
-  let id = 0;
   let skipped = 0;
+
+  // URL is derived from file path only (frontmatter `slug:` overrides are
+  // not consulted), so two files can legitimately compute the same URL —
+  // e.g. `tutorials.md` and `tutorials/index.md` both landing on
+  // `/docs/tutorials`. That predates this file and is not fixed here; what
+  // must hold regardless is that every entry still gets a distinct,
+  // order-independent objectID, so a repeat occurrence is disambiguated the
+  // same way a repeated heading anchor is below.
+  const urlOccurrences = new Map();
 
   for (const filePath of files) {
     try {
@@ -206,6 +259,14 @@ async function generateIndex(docsDir, outDir, isExcluded) {
       const url = `/docs/${urlPath}`;
       const title = frontmatter.title || path.basename(urlPath) || "Untitled";
 
+      const urlOccurrence = urlOccurrences.get(url) ?? 0;
+      urlOccurrences.set(url, urlOccurrence + 1);
+      // Only the objectID input is suffixed on a repeat — the visible `url`
+      // field is untouched, so this changes nothing about what's indexed or
+      // where a result links, only how its id is derived.
+      const idSource = (forUrl) =>
+        urlOccurrence === 0 ? forUrl : `${forUrl}::dup${urlOccurrence}`;
+
       // Extract hierarchy from path
       const pathParts = urlPath.split("/");
       const lvl0 =
@@ -216,7 +277,7 @@ async function generateIndex(docsDir, outDir, isExcluded) {
       // Add main document entry — index full content for better search recall
       const plainContent = stripMarkdown(content);
       documents.push({
-        objectID: String(id++),
+        objectID: objectIdForUrl(idSource(url)),
         title,
         url,
         content: plainContent.slice(0, 5000),
@@ -230,19 +291,32 @@ async function generateIndex(docsDir, outDir, isExcluded) {
 
       // Add section entries
       const sections = extractSections(content);
+      const anchorCounts = new Map();
       for (const section of sections) {
         if (!section.heading) {
           continue;
         }
-        const anchor = section.heading
+        const baseAnchor = section.heading
           .toLowerCase()
           .replace(/[^\w\s-]/g, "")
           .replace(/\s+/g, "-");
+        const occurrence = anchorCounts.get(baseAnchor) ?? 0;
+        anchorCounts.set(baseAnchor, occurrence + 1);
+        const anchor =
+          occurrence === 0 ? baseAnchor : `${baseAnchor}-${occurrence}`;
 
+        // Every heading counts toward anchor disambiguation above (matching
+        // Docusaurus's own slugger), but a heading with no body text isn't
+        // worth indexing as a search result.
+        if (!section.content) {
+          continue;
+        }
+
+        const sectionUrl = `${url}#${anchor}`;
         documents.push({
-          objectID: String(id++),
+          objectID: objectIdForUrl(idSource(sectionUrl)),
           title: section.heading,
-          url: `${url}#${anchor}`,
+          url: sectionUrl,
           content: section.content,
           hierarchy: {
             lvl0,
