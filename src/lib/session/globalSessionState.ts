@@ -58,6 +58,7 @@ export class GlobalSessionManager {
     undefined;
   /** Optional skills config set by CLI handlers before SDK construction. */
   private _skillsConfig: SkillsConfig | undefined = undefined;
+  private _fileToolRoots: string[] | undefined = undefined;
 
   static getInstance(): GlobalSessionManager {
     if (!GlobalSessionManager.instance) {
@@ -220,6 +221,19 @@ export class GlobalSessionManager {
     this._skillsConfig = config;
   }
 
+  /**
+   * Store file-tool roots (`--tool-root`) to be injected at SDK construction
+   * time as `tools.fileRoots`. Call this BEFORE `getOrCreateNeuroLink()`.
+   * When a loop session is already active the roots are ignored (the
+   * instance already exists).
+   */
+  setFileToolRoots(roots: string[] | undefined): void {
+    if (this.hasActiveSession() || !roots?.length) {
+      return;
+    }
+    this._fileToolRoots = roots;
+  }
+
   getOrCreateNeuroLink(): NeuroLink {
     const session = this.getLoopSession();
     if (session) {
@@ -248,6 +262,10 @@ export class GlobalSessionManager {
     if (this._skillsConfig) {
       options.skills = this._skillsConfig;
       this._skillsConfig = undefined;
+    }
+    if (this._fileToolRoots) {
+      options.tools = { ...options.tools, fileRoots: this._fileToolRoots };
+      this._fileToolRoots = undefined;
     }
 
     return new NeuroLink(Object.keys(options).length ? options : undefined);

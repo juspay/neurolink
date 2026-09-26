@@ -265,6 +265,28 @@ const result = await neurolink.generate({
 }
 ```
 
+### File tool roots
+
+`readFile`, `writeFile`, `listDirectory` and `analyzeCSV` only touch paths inside their **roots**. By default that is the process working directory. Configure other roots per instance, and narrow them per call:
+
+```typescript
+const neurolink = new NeuroLink({
+  tools: { fileRoots: ["/srv/workspace", "/home/agent"] },
+});
+
+await neurolink.generate({
+  input: { text: "Summarize notes.md" },
+  toolRoots: ["/srv/workspace"], // may only narrow tools.fileRoots
+});
+```
+
+- **Precedence:** per-call `toolRoots`, then instance `tools.fileRoots`, then the `NEUROLINK_TOOL_ROOTS` environment variable (a `:`-separated list; `;` on Windows). A per-call root outside the instance roots is rejected, so a server that forwards caller options cannot widen file access.
+- **Resolution:** each root must be an existing directory and is resolved through symlinks once, when the request starts. A missing root rejects the call before any model request. `fileRoots: []` denies all file access.
+- **Containment:** target paths are resolved through symlinks too, and the prefix check is separator-bounded, so neither `<root>/link → /etc` nor a sibling such as `/srv/workspace-evil` gets through. A symlink that does not resolve is refused, and writes never follow a symlink at the final path component. Relative paths resolve against the first root; a root of `/` contains every absolute path.
+- **Where it applies:** `generate()`, `generateText()`, `stream()`, `streamText()`, `executeTool()`, the server's tool and MCP routes (which execute through the instance's tool registry), and worker instances (`createWorkerInstance()`, isolated agents, delegates), which inherit the host's roots and can only narrow them. The resolved policy is internal: only `toolRoots` is settable per call.
+- **CLI:** `neurolink generate "…" --tool-root /srv/workspace --tool-root /home/agent`.
+- **Bash:** when the opt-in `executeBashCommand` tool is enabled, roots constrain only its `cwd` argument. The command itself runs with the full privileges of the process and can `cd` anywhere. Use OS-level isolation (a container or a separate user) to sandbox shell commands.
+
 ### 5. calculateMath
 
 **Purpose**: Complex mathematical calculations

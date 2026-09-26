@@ -8,7 +8,7 @@
 
 > **OpenAISetupArgv** = `object`
 
-Defined in: [types/cli.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L757)
+Defined in: [types/cli.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L763)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:757](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L758)
+Defined in: [types/cli.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L764)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:758](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L759)
+Defined in: [types/cli.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L765)

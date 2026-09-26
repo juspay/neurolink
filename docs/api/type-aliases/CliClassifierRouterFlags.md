@@ -8,7 +8,7 @@
 
 > **CliClassifierRouterFlags** = `object`
 
-Defined in: [types/cli.ts:2064](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2064)
+Defined in: [types/cli.ts:2070](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2070)
 
 CLI flags for the classifier router (`--classifier-*`). Builds a
 ClassifierRouterConfig that is injected at SDK construction time.
@@ -19,7 +19,7 @@ ClassifierRouterConfig that is injected at SDK construction time.
 
 > `optional` **classifierRouter?**: `boolean`
 
-Defined in: [types/cli.ts:2066](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2066)
+Defined in: [types/cli.ts:2072](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2072)
 
 Master enable switch (--classifier-router).
 
@@ -29,7 +29,7 @@ Master enable switch (--classifier-router).
 
 > `optional` **classifierStrategy?**: `string`
 
-Defined in: [types/cli.ts:2073](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2073)
+Defined in: [types/cli.ts:2079](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2079)
 
 Strategy: "auto" (default), "heuristic", "llm" or "jev"
 (--classifier-strategy). "auto" resolves to "jev" when a decision
@@ -42,7 +42,7 @@ LAYA_BASE_URL) and "heuristic" otherwise.
 
 > `optional` **classifierMinUpgradeConfidence?**: `number`
 
-Defined in: [types/cli.ts:2079](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2079)
+Defined in: [types/cli.ts:2085](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2085)
 
 Minimum confidence required to route UP to a costlier model
 (--classifier-min-upgrade-confidence). Only meaningful for "jev", whose
@@ -54,7 +54,7 @@ confidence is calibrated. Default: 0.3.
 
 > `optional` **classifierMinDowngradeConfidence?**: `number`
 
-Defined in: [types/cli.ts:2085](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2085)
+Defined in: [types/cli.ts:2091](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2091)
 
 Minimum confidence required to route DOWN to a cheaper model
 (--classifier-min-downgrade-confidence). Higher than the upgrade bar
@@ -66,7 +66,7 @@ because the mistakes cost differently. Default: 0.6.
 
 > `optional` **classifierModelProvider?**: `string`
 
-Defined in: [types/cli.ts:2087](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2087)
+Defined in: [types/cli.ts:2093](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2093)
 
 LLM-classifier provider override (--classifier-model-provider).
 
@@ -76,7 +76,7 @@ LLM-classifier provider override (--classifier-model-provider).
 
 > `optional` **classifierModelName?**: `string`
 
-Defined in: [types/cli.ts:2089](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2089)
+Defined in: [types/cli.ts:2095](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2095)
 
 LLM-classifier model override (--classifier-model-name).
 
@@ -86,7 +86,7 @@ LLM-classifier model override (--classifier-model-name).
 
 > `optional` **classifierModelRegion?**: `string`
 
-Defined in: [types/cli.ts:2091](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2091)
+Defined in: [types/cli.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2097)
 
 LLM-classifier region override (--classifier-model-region).
 
@@ -96,7 +96,7 @@ LLM-classifier region override (--classifier-model-region).
 
 > `optional` **classifierPool?**: `string`
 
-Defined in: [types/cli.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2097)
+Defined in: [types/cli.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2103)
 
 Path to a JSON file OR inline JSON array of pool members
 (--classifier-pool). Each entry: { provider, model?, region?, description?,
@@ -108,6 +108,6 @@ tiers?, cost?, quality?, capabilities?, id? }.
 
 > `optional` **classifierTimeout?**: `number`
 
-Defined in: [types/cli.ts:2099](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2099)
+Defined in: [types/cli.ts:2105](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2105)
 
 LLM-classifier hard timeout in ms (--classifier-timeout).

@@ -8,7 +8,7 @@
 
 > **NeurolinkCredentials** = `object`
 
-Defined in: [types/providers.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L183)
+Defined in: [types/providers.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L184)
 
 Per-provider credential overrides for generate() / stream() calls.
 
@@ -25,7 +25,7 @@ Unset providers fall through to environment variables (existing behaviour).
 
 > `optional` **openai?**: `object`
 
-Defined in: [types/providers.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L184)
+Defined in: [types/providers.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L185)
 
 #### apiKey?
 
@@ -41,7 +41,7 @@ Defined in: [types/providers.ts:184](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **anthropic?**: `object`
 
-Defined in: [types/providers.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L185)
+Defined in: [types/providers.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L186)
 
 #### apiKey?
 
@@ -57,7 +57,7 @@ Defined in: [types/providers.ts:185](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **googleAiStudio?**: `object`
 
-Defined in: [types/providers.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L186)
+Defined in: [types/providers.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L187)
 
 #### apiKey?
 
@@ -73,7 +73,7 @@ Defined in: [types/providers.ts:186](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **vertex?**: `object`
 
-Defined in: [types/providers.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L187)
+Defined in: [types/providers.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L188)
 
 #### projectId?
 
@@ -111,7 +111,7 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 > `optional` **bedrock?**: `object`
 
-Defined in: [types/providers.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L198)
+Defined in: [types/providers.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L199)
 
 #### accessKeyId?
 
@@ -135,7 +135,7 @@ Defined in: [types/providers.ts:198](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **sagemaker?**: `object`
 
-Defined in: [types/providers.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L204)
+Defined in: [types/providers.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L205)
 
 #### accessKeyId?
 
@@ -163,7 +163,7 @@ Defined in: [types/providers.ts:204](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **azure?**: `object`
 
-Defined in: [types/providers.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L211)
+Defined in: [types/providers.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L212)
 
 #### apiKey?
 
@@ -191,7 +191,7 @@ Defined in: [types/providers.ts:211](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **openrouter?**: `object`
 
-Defined in: [types/providers.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L222)
+Defined in: [types/providers.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L223)
 
 #### apiKey?
 
@@ -207,7 +207,7 @@ Defined in: [types/providers.ts:222](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **litellm?**: `object`
 
-Defined in: [types/providers.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L223)
+Defined in: [types/providers.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L224)
 
 #### apiKey?
 
@@ -223,7 +223,7 @@ Defined in: [types/providers.ts:223](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **openaiCompatible?**: `object`
 
-Defined in: [types/providers.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L224)
+Defined in: [types/providers.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L225)
 
 #### apiKey?
 
@@ -239,7 +239,7 @@ Defined in: [types/providers.ts:224](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **ollama?**: `object`
 
-Defined in: [types/providers.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L225)
+Defined in: [types/providers.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L226)
 
 #### baseURL?
 
@@ -255,7 +255,7 @@ Defined in: [types/providers.ts:225](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **nvidiaNim?**: `object`
 
-Defined in: [types/providers.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L226)
+Defined in: [types/providers.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L227)
 
 #### apiKey?
 
@@ -271,7 +271,7 @@ Defined in: [types/providers.ts:226](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **lmStudio?**: `object`
 
-Defined in: [types/providers.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L229)
+Defined in: [types/providers.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L230)
 
 #### apiKey?
 
@@ -287,7 +287,7 @@ Defined in: [types/providers.ts:229](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **llamacpp?**: `object`
 
-Defined in: [types/providers.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L230)
+Defined in: [types/providers.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L231)
 
 #### apiKey?
 
@@ -303,7 +303,7 @@ Defined in: [types/providers.ts:230](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **apiRoute?**: `object`
 
-Defined in: [types/providers.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L232)
+Defined in: [types/providers.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L233)
 
 #### apiKey?
 
@@ -319,7 +319,7 @@ Defined in: [types/providers.ts:232](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **baseten?**: `object`
 
-Defined in: [types/providers.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L233)
+Defined in: [types/providers.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L234)
 
 #### apiKey?
 
@@ -335,7 +335,7 @@ Defined in: [types/providers.ts:233](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **cerebras?**: `object`
 
-Defined in: [types/providers.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L234)
+Defined in: [types/providers.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L235)
 
 #### apiKey?
 
@@ -351,7 +351,7 @@ Defined in: [types/providers.ts:234](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **cloudflare?**: `object`
 
-Defined in: [types/providers.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L235)
+Defined in: [types/providers.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L236)
 
 #### apiKey?
 
@@ -371,7 +371,7 @@ Defined in: [types/providers.ts:235](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **deepseek?**: `object`
 
-Defined in: [types/providers.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L236)
+Defined in: [types/providers.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L237)
 
 #### apiKey?
 
@@ -387,7 +387,7 @@ Defined in: [types/providers.ts:236](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **fireworks?**: `object`
 
-Defined in: [types/providers.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L237)
+Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L238)
 
 #### apiKey?
 
@@ -403,7 +403,7 @@ Defined in: [types/providers.ts:237](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **friendli?**: `object`
 
-Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L238)
+Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L239)
 
 #### apiKey?
 
@@ -419,7 +419,7 @@ Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **gmicloud?**: `object`
 
-Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L239)
+Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L240)
 
 #### apiKey?
 
@@ -435,7 +435,7 @@ Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **groq?**: `object`
 
-Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L240)
+Defined in: [types/providers.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L241)
 
 #### apiKey?
 
@@ -451,7 +451,7 @@ Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **huggingFace?**: `object`
 
-Defined in: [types/providers.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L241)
+Defined in: [types/providers.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L242)
 
 #### apiKey?
 
@@ -467,7 +467,7 @@ Defined in: [types/providers.ts:241](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **inceptionLabs?**: `object`
 
-Defined in: [types/providers.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L242)
+Defined in: [types/providers.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L243)
 
 #### apiKey?
 
@@ -483,7 +483,7 @@ Defined in: [types/providers.ts:242](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **ioIntelligence?**: `object`
 
-Defined in: [types/providers.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L243)
+Defined in: [types/providers.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L244)
 
 #### apiKey?
 
@@ -499,7 +499,7 @@ Defined in: [types/providers.ts:243](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **mancer?**: `object`
 
-Defined in: [types/providers.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L244)
+Defined in: [types/providers.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L245)
 
 #### apiKey?
 
@@ -515,7 +515,7 @@ Defined in: [types/providers.ts:244](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **mistral?**: `object`
 
-Defined in: [types/providers.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L245)
+Defined in: [types/providers.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L246)
 
 #### apiKey?
 
@@ -531,7 +531,7 @@ Defined in: [types/providers.ts:245](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **perplexity?**: `object`
 
-Defined in: [types/providers.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L246)
+Defined in: [types/providers.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L247)
 
 #### apiKey?
 
@@ -547,7 +547,7 @@ Defined in: [types/providers.ts:246](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **sambanova?**: `object`
 
-Defined in: [types/providers.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L247)
+Defined in: [types/providers.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L248)
 
 #### apiKey?
 
@@ -563,7 +563,7 @@ Defined in: [types/providers.ts:247](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **together?**: `object`
 
-Defined in: [types/providers.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L248)
+Defined in: [types/providers.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L249)
 
 #### apiKey?
 
@@ -579,7 +579,7 @@ Defined in: [types/providers.ts:248](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **upstage?**: `object`
 
-Defined in: [types/providers.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L249)
+Defined in: [types/providers.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L250)
 
 #### apiKey?
 
@@ -595,7 +595,7 @@ Defined in: [types/providers.ts:249](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **xai?**: `object`
 
-Defined in: [types/providers.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L250)
+Defined in: [types/providers.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L251)
 
 #### apiKey?
 
@@ -611,7 +611,7 @@ Defined in: [types/providers.ts:250](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **cohere?**: `object`
 
-Defined in: [types/providers.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L252)
+Defined in: [types/providers.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L253)
 
 #### apiKey?
 
@@ -627,7 +627,7 @@ Defined in: [types/providers.ts:252](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **replicate?**: `object`
 
-Defined in: [types/providers.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L253)
+Defined in: [types/providers.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L254)
 
 #### apiToken?
 
@@ -651,7 +651,7 @@ Defined in: [types/providers.ts:253](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **voyage?**: `object`
 
-Defined in: [types/providers.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L259)
+Defined in: [types/providers.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L260)
 
 #### apiKey?
 
@@ -667,7 +667,7 @@ Defined in: [types/providers.ts:259](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **jina?**: `object`
 
-Defined in: [types/providers.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L260)
+Defined in: [types/providers.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L261)
 
 #### apiKey?
 
@@ -683,7 +683,7 @@ Defined in: [types/providers.ts:260](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **stability?**: `object`
 
-Defined in: [types/providers.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L261)
+Defined in: [types/providers.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L262)
 
 #### apiKey?
 
@@ -699,7 +699,7 @@ Defined in: [types/providers.ts:261](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **ideogram?**: `object`
 
-Defined in: [types/providers.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L262)
+Defined in: [types/providers.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L263)
 
 #### apiKey?
 
@@ -715,7 +715,7 @@ Defined in: [types/providers.ts:262](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **recraft?**: `object`
 
-Defined in: [types/providers.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L263)
+Defined in: [types/providers.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L264)
 
 #### apiKey?
 
@@ -731,7 +731,7 @@ Defined in: [types/providers.ts:263](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **typesafe?**: `object`
 
-Defined in: [types/providers.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L265)
+Defined in: [types/providers.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L266)
 
 TypeSafe (Jev) — the `decide` inference type, not text generation.
 
@@ -778,7 +778,7 @@ The gateway transport's evaluation-model route. Defaults to
 
 > `optional` **laya?**: `object`
 
-Defined in: [types/providers.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L295)
+Defined in: [types/providers.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L296)
 
 Laya (Convai, open weights) — the `decide` inference type. There is no
 built-in endpoint: `baseURL` (or LAYA_BASE_URL) is required, pointing at a

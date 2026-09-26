@@ -8,7 +8,7 @@
 
 > **VertexAnthropicMessage** = `object`
 
-Defined in: [types/providers.ts:2563](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2563)
+Defined in: [types/providers.ts:2570](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2570)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:2563](https://github.com/juspay/neurolink/blob/r
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/providers.ts:2564](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2564)
+Defined in: [types/providers.ts:2571](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2571)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/providers.ts:2564](https://github.com/juspay/neurolink/blob/r
 
 > **content**: `string` \| (\{ `type`: `"text"`; `text`: `string`; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"image"`; `source`: \{ `type`: `"base64"`; `media_type`: `string`; `data`: `string`; \}; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"document"`; `source`: \{ `type`: `"base64"`; `media_type`: `string`; `data`: `string`; \}; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"tool_use"`; `id`: `string`; `name`: `string`; `input`: `unknown`; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"tool_result"`; `tool_use_id`: `string`; `content`: `string`; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"thinking"`; `thinking`: `string`; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \} \| \{ `type`: `"redacted_thinking"`; `data`: `string`; `cache_control?`: [`VertexAnthropicCacheControl`](VertexAnthropicCacheControl.md); \})[]
 
-Defined in: [types/providers.ts:2565](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2565)
+Defined in: [types/providers.ts:2572](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2572)

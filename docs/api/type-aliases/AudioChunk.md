@@ -8,7 +8,7 @@
 
 > **AudioChunk** = `object`
 
-Defined in: [types/stream.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L162)
+Defined in: [types/stream.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L166)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stream.ts:162](https://github.com/juspay/neurolink/blob/relea
 
 > **data**: `Buffer`
 
-Defined in: [types/stream.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L163)
+Defined in: [types/stream.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L167)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stream.ts:163](https://github.com/juspay/neurolink/blob/relea
 
 > **sampleRateHz**: `number`
 
-Defined in: [types/stream.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L164)
+Defined in: [types/stream.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L168)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stream.ts:164](https://github.com/juspay/neurolink/blob/relea
 
 > **channels**: `number`
 
-Defined in: [types/stream.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L165)
+Defined in: [types/stream.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L169)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/stream.ts:165](https://github.com/juspay/neurolink/blob/relea
 
 > **encoding**: [`PCMEncoding`](PCMEncoding.md)
 
-Defined in: [types/stream.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L166)
+Defined in: [types/stream.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L170)

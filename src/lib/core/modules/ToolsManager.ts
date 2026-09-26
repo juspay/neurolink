@@ -246,7 +246,7 @@ export class ToolsManager {
 
   constructor(
     private readonly providerName: AIProviderName,
-    private readonly directTools: Record<string, unknown>,
+    private directTools: Record<string, unknown>,
     private readonly neurolink?: NeuroLink,
     private readonly utilities?: ToolUtilities,
   ) {
@@ -715,6 +715,15 @@ export class ToolsManager {
    */
   getDirectTools(): Record<string, unknown> {
     return this.directTools;
+  }
+
+  /**
+   * Replace the direct tools for this provider instance — used to bind the
+   * built-in file tools to one request's root policy. Providers are created
+   * per request, so this never leaks a boundary into another request.
+   */
+  setDirectTools(tools: Record<string, unknown>): void {
+    this.directTools = tools;
   }
 
   /**

@@ -8,7 +8,7 @@
 
 > **DiagnosticReport** = `object`
 
-Defined in: [types/providers.ts:2427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2427)
+Defined in: [types/providers.ts:2434](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2434)
 
 Aggregated SageMaker diagnostic report.
 
@@ -18,7 +18,7 @@ Aggregated SageMaker diagnostic report.
 
 > **overallStatus**: `"healthy"` \| `"issues"` \| `"critical"`
 
-Defined in: [types/providers.ts:2428](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2428)
+Defined in: [types/providers.ts:2435](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2435)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2428](https://github.com/juspay/neurolink/blob/r
 
 > **results**: [`DiagnosticResult`](DiagnosticResult.md)[]
 
-Defined in: [types/providers.ts:2429](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2429)
+Defined in: [types/providers.ts:2436](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2436)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2429](https://github.com/juspay/neurolink/blob/r
 
 > **summary**: `object`
 
-Defined in: [types/providers.ts:2430](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2430)
+Defined in: [types/providers.ts:2437](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2437)
 
 #### total
 

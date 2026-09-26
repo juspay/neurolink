@@ -8,6 +8,10 @@ import type { SkillsCallOptions } from "./skills.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
 import type { ClaudeLimitSnapshot } from "./subscription.js";
 import type { JsonValue } from "./common.js";
+import type {
+  TerminalAgentModeOption,
+  TerminalAgentModeVersion,
+} from "./agentMode.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
 import type { EvaluationData } from "./evaluation.js";
@@ -344,6 +348,11 @@ export type GenerateOptions = {
   stopSequences?: string[];
   systemPrompt?: string;
   /**
+   * Opt-in terminal agent mode: prepends Neurolink's versioned autonomous-agent
+   * instructions to `systemPrompt`. Omitted means no change in behaviour.
+   */
+  agentMode?: TerminalAgentModeOption;
+  /**
    * Zod schema for structured output validation
    *
    * @important Google GEMINI limitation (Gemini models only)
@@ -556,6 +565,14 @@ export type GenerateOptions = {
 
   /** Maximum number of tool execution steps (default: 200) */
   maxSteps?: number;
+
+  /**
+   * Directories the built-in file tools and bash's `cwd` argument may touch
+   * for this call. Can only narrow the instance's `tools.fileRoots` (or the
+   * working-directory default); a root outside them is rejected before any
+   * model call. An empty array denies all file access.
+   */
+  toolRoots?: string[];
 
   /**
    * Tool choice configuration for the generation.
@@ -1092,6 +1109,8 @@ export type GenerateResult = {
   content: string; // Primary output
   /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
   knowledge?: KnowledgeGroundingMetadata;
+  /** Terminal agent instructions version applied (present only with `agentMode`). */
+  agentModeVersion?: TerminalAgentModeVersion;
   /**
    * Parsed structured object when a `schema` was requested. Populated from
    * AI-SDK experimental_output, or from text-mode coercion (balanced-scan +
@@ -1419,6 +1438,8 @@ export type TextGenerationOptions = {
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;
   maxSteps?: number; // Maximum tool execution steps (default: 200)
+  /** Directories the built-in file tools may touch for this call; see GenerateOptions.toolRoots. */
+  toolRoots?: string[];
 
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */
   toolFilter?: string[];

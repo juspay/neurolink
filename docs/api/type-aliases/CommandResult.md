@@ -8,7 +8,7 @@
 
 > **CommandResult** = `object`
 
-Defined in: [types/cli.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L404)
+Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L410)
 
 CLI command result
 
@@ -18,7 +18,7 @@ CLI command result
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L406)
+Defined in: [types/cli.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L412)
 
 Command success status
 
@@ -28,7 +28,7 @@ Command success status
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/cli.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L408)
+Defined in: [types/cli.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L414)
 
 Result data
 
@@ -38,7 +38,7 @@ Result data
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L410)
+Defined in: [types/cli.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L416)
 
 Error message if failed
 
@@ -48,7 +48,7 @@ Error message if failed
 
 > `optional` **content?**: `string`
 
-Defined in: [types/cli.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L412)
+Defined in: [types/cli.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L418)
 
 Output content
 
@@ -58,7 +58,7 @@ Output content
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L414)
+Defined in: [types/cli.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L420)
 
 Execution metadata
 

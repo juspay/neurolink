@@ -8,7 +8,7 @@
 
 > **AnthropicSetupOptions** = `object`
 
-Defined in: [types/cli.ts:774](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L774)
+Defined in: [types/cli.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L780)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:774](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **checkOnly?**: `boolean`
 
-Defined in: [types/cli.ts:775](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L775)
+Defined in: [types/cli.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L781)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:775](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **interactive?**: `boolean`
 
-Defined in: [types/cli.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L776)
+Defined in: [types/cli.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L782)

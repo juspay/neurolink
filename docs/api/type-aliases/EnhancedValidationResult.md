@@ -8,7 +8,7 @@
 
 > **EnhancedValidationResult** = `object`
 
-Defined in: [types/tools.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L633)
+Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L646)
 
 Result of a validation operation
 Contains validation status, errors, warnings, and suggestions for improvement
@@ -19,7 +19,7 @@ Contains validation status, errors, warnings, and suggestions for improvement
 
 > **isValid**: `boolean`
 
-Defined in: [types/tools.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L635)
+Defined in: [types/tools.ts:648](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L648)
 
 Whether the validation passed without errors
 
@@ -29,7 +29,7 @@ Whether the validation passed without errors
 
 > **errors**: `ValidationError`[]
 
-Defined in: [types/tools.ts:637](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L637)
+Defined in: [types/tools.ts:650](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L650)
 
 Array of validation errors that must be fixed
 
@@ -39,7 +39,7 @@ Array of validation errors that must be fixed
 
 > **warnings**: `string`[]
 
-Defined in: [types/tools.ts:639](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L639)
+Defined in: [types/tools.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L652)
 
 Array of warning messages that should be addressed
 
@@ -49,6 +49,6 @@ Array of warning messages that should be addressed
 
 > **suggestions**: [`StringArray`](StringArray.md)
 
-Defined in: [types/tools.ts:641](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L641)
+Defined in: [types/tools.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L654)
 
 Array of suggestions to improve the validated object

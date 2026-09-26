@@ -8,7 +8,7 @@
 
 > **BedrockSetupArgv** = `object`
 
-Defined in: [types/cli.ts:845](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L845)
+Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L851)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:845](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L846)
+Defined in: [types/cli.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L852)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:846](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:847](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L847)
+Defined in: [types/cli.ts:853](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L853)

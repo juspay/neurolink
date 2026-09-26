@@ -38,6 +38,12 @@ Model name
 
 System prompt
 
+### agentMode?
+
+> `optional` **agentMode?**: `boolean`
+
+Prepend Neurolink's versioned terminal agent instructions
+
 ### temperature?
 
 > `optional` **temperature?**: `number`

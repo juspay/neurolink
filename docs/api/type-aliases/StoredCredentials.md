@@ -8,7 +8,7 @@
 
 > **StoredCredentials** = `object`
 
-Defined in: [types/cli.ts:1084](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1084)
+Defined in: [types/cli.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1090)
 
 Stored credentials for an authenticated provider.
 
@@ -18,7 +18,7 @@ Stored credentials for an authenticated provider.
 
 > **type**: `"api-key"` \| `"oauth"`
 
-Defined in: [types/cli.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1085)
+Defined in: [types/cli.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1091)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1085](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1086)
+Defined in: [types/cli.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1092)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1086](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **oauth?**: [`OAuthTokens`](OAuthTokens.md)
 
-Defined in: [types/cli.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1087)
+Defined in: [types/cli.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1093)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1087](https://github.com/juspay/neurolink/blob/release
 
 > **provider**: `string`
 
-Defined in: [types/cli.ts:1088](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1088)
+Defined in: [types/cli.ts:1094](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1094)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1088](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/cli.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1089)
+Defined in: [types/cli.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1095)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1089](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **email?**: `string`
 
-Defined in: [types/cli.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1090)
+Defined in: [types/cli.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1096)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1090](https://github.com/juspay/neurolink/blob/release
 
 > **createdAt**: `number`
 
-Defined in: [types/cli.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1091)
+Defined in: [types/cli.ts:1097](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1097)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/cli.ts:1091](https://github.com/juspay/neurolink/blob/release
 
 > **updatedAt**: `number`
 
-Defined in: [types/cli.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1092)
+Defined in: [types/cli.ts:1098](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1098)

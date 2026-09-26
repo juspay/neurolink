@@ -1,10 +1,7 @@
 /**
- * Path containment guard for the sandboxed execution paths.
- *
- * `bashTool` does this check inline; `directTools.resolveWithinCwd` does a
- * weaker, non-symlink-aware version against `process.cwd()`. Neither is
- * reusable, and the background-command runner needs the strong form against a
- * caller-declared root, so it lives here once.
+ * Path containment guard for the sandboxed execution paths: the built-in file
+ * tools, bash's `cwd` argument and the background-command runner all check
+ * against caller-declared roots here, so the strong form lives in one place.
  *
  * The load-bearing detail is **realpath**. A string comparison on resolved
  * paths is defeated by a symlink: `<root>/escape → /etc` resolves lexically to
@@ -19,7 +16,7 @@
  * @module utils/pathSandbox
  */
 
-import { realpathSync, statSync } from "node:fs";
+import { lstatSync, realpathSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import type { PathSandboxResult } from "../types/index.js";
 
@@ -42,9 +39,29 @@ function realEntry(candidate: string): string | undefined {
   }
 }
 
-function isInside(candidate: string, root: string): boolean {
-  return candidate === root || candidate.startsWith(root + sep);
+/** A symbolic link that does not resolve (dangling, or a loop). */
+function isUnresolvableLink(candidate: string): boolean {
+  try {
+    return lstatSync(candidate).isSymbolicLink();
+  } catch {
+    return false;
+  }
 }
+
+/**
+ * Separator-bounded containment. A root that already ends in the separator
+ * (`/`, `C:\\`) contains every path that starts with it; appending another
+ * separator would turn `/` into `//` and deny everything.
+ */
+export function isPathInsideRoot(candidate: string, root: string): boolean {
+  if (candidate === root) {
+    return true;
+  }
+  const prefix = root.endsWith(sep) ? root : root + sep;
+  return candidate.startsWith(prefix);
+}
+
+const isInside = isPathInsideRoot;
 
 /**
  * Resolve `target` and confirm it is `root` or lies inside it, with symlinks
@@ -125,6 +142,13 @@ export function resolvePathWithinRoot(
     return isInside(direct, realRoot) ? { path: direct } : denied;
   }
 
+  // The path does not resolve. A link that exists but points nowhere is where
+  // a write would be redirected — a dangling `<root>/x → /elsewhere/new` would
+  // pass an ancestor check and then create `/elsewhere/new` — so any
+  // unresolvable link on the way down is refused outright.
+  if (isUnresolvableLink(requested)) {
+    return denied;
+  }
   let existing = resolve(requested, "..");
   let suffix = basename(requested);
   for (;;) {
@@ -133,6 +157,9 @@ export function resolvePathWithinRoot(
       return isInside(real, realRoot)
         ? { path: resolve(real, suffix) }
         : denied;
+    }
+    if (isUnresolvableLink(existing)) {
+      return denied;
     }
     const parent = resolve(existing, "..");
     if (parent === existing) {

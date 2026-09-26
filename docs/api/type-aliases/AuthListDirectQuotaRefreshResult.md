@@ -8,6 +8,6 @@
 
 > **AuthListDirectQuotaRefreshResult** = \{ `status`: `"refreshed"`; `quota`: [`AccountQuota`](AccountQuota.md); \} \| \{ `status`: `"unavailable"` \| `"not_supported"`; `error?`: `string`; \}
 
-Defined in: [types/cli.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1155)
+Defined in: [types/cli.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1161)
 
 One direct quota-adapter result used by `auth list --refresh`.

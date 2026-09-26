@@ -8,7 +8,7 @@
 
 > **StreamingMetadata** = `object`
 
-Defined in: [types/stream.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L64)
+Defined in: [types/stream.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L68)
 
 Streaming metadata for performance tracking
 
@@ -18,7 +18,7 @@ Streaming metadata for performance tracking
 
 > **startTime**: `number`
 
-Defined in: [types/stream.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L65)
+Defined in: [types/stream.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L69)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:65](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **endTime?**: `number`
 
-Defined in: [types/stream.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L66)
+Defined in: [types/stream.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L70)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:66](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **totalDuration?**: `number`
 
-Defined in: [types/stream.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L67)
+Defined in: [types/stream.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L71)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/stream.ts:67](https://github.com/juspay/neurolink/blob/releas
 
 > **averageChunkSize**: `number`
 
-Defined in: [types/stream.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L68)
+Defined in: [types/stream.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L72)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/stream.ts:68](https://github.com/juspay/neurolink/blob/releas
 
 > **maxChunkSize**: `number`
 
-Defined in: [types/stream.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L69)
+Defined in: [types/stream.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L73)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/stream.ts:69](https://github.com/juspay/neurolink/blob/releas
 
 > **minChunkSize**: `number`
 
-Defined in: [types/stream.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L70)
+Defined in: [types/stream.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L74)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/stream.ts:70](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **throughputBytesPerSecond?**: `number`
 
-Defined in: [types/stream.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L71)
+Defined in: [types/stream.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L75)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/stream.ts:71](https://github.com/juspay/neurolink/blob/releas
 
 > **streamingProvider**: `string`
 
-Defined in: [types/stream.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L72)
+Defined in: [types/stream.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L76)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/stream.ts:72](https://github.com/juspay/neurolink/blob/releas
 
 > **modelUsed**: `string`
 
-Defined in: [types/stream.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L73)
+Defined in: [types/stream.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L77)

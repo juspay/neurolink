@@ -8,7 +8,7 @@
 
 > **CliServeFlatRoute** = `object`
 
-Defined in: [types/cli.ts:2022](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2022)
+Defined in: [types/cli.ts:2028](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2028)
 
 Flat per-route row used by the `neurolink serve routes` listing.
 
@@ -18,7 +18,7 @@ Flat per-route row used by the `neurolink serve routes` listing.
 
 > **method**: `string`
 
-Defined in: [types/cli.ts:2023](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2023)
+Defined in: [types/cli.ts:2029](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2029)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:2023](https://github.com/juspay/neurolink/blob/release
 
 > **path**: `string`
 
-Defined in: [types/cli.ts:2024](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2024)
+Defined in: [types/cli.ts:2030](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2030)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:2024](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **description?**: `string`
 
-Defined in: [types/cli.ts:2025](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2025)
+Defined in: [types/cli.ts:2031](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2031)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:2025](https://github.com/juspay/neurolink/blob/release
 
 > **group**: `string`
 
-Defined in: [types/cli.ts:2026](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2026)
+Defined in: [types/cli.ts:2032](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2032)

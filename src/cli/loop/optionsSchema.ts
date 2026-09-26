@@ -47,6 +47,7 @@ export const textGenerationOptionsSchema: Record<
     | "inputValidation" // Complex config, wired via CLI flags instead
     | "toolExecutionCapture" // Complex config object, only usable via SDK
     | "toolExecutionRecorder" // Internal: set by BaseProvider, not by CLI
+    | "toolRoots" // Array type; set with --tool-root at session start
   >,
   OptionSchema
 > = {

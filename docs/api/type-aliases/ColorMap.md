@@ -8,7 +8,7 @@
 
 > **ColorMap** = `object`
 
-Defined in: [types/cli.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L522)
+Defined in: [types/cli.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L528)
 
 Color mapping for CLI output
 

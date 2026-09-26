@@ -26,6 +26,7 @@ import type {
   DecisionRequest,
   DecisionResult,
 } from "./decision.js";
+import type { FileToolRootPolicy } from "./fileToolRoots.js";
 import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -962,6 +963,12 @@ export type AIProvider = {
    * Use this method instead of accessing `_traceContext` directly.
    */
   setTraceContext(ctx: { traceId: string; parentSpanId: string } | null): void;
+
+  /**
+   * Bind the built-in file tools to one request's root policy. Optional so
+   * custom provider implementations keep compiling; BaseProvider implements it.
+   */
+  setFileToolRootPolicy?(policy: FileToolRootPolicy | undefined): void;
 
   /**
    * Whether this provider supports native tool/function calling for the

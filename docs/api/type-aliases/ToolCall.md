@@ -8,7 +8,7 @@
 
 > **ToolCall** = `object`
 
-Defined in: [types/tools.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L604)
+Defined in: [types/tools.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L617)
 
 Tool call information (for AI SDK integration)
 
@@ -18,7 +18,7 @@ Tool call information (for AI SDK integration)
 
 > **toolName**: `string`
 
-Defined in: [types/tools.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L605)
+Defined in: [types/tools.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L618)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:605](https://github.com/juspay/neurolink/blob/releas
 
 > **parameters**: [`ToolArgs`](ToolArgs.md)
 
-Defined in: [types/tools.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L606)
+Defined in: [types/tools.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L619)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tools.ts:606](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **id?**: `string`
 
-Defined in: [types/tools.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L607)
+Defined in: [types/tools.ts:620](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L620)

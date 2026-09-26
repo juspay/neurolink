@@ -8,7 +8,7 @@
 
 > **EnvBackupResult** = `object`
 
-Defined in: [types/cli.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L624)
+Defined in: [types/cli.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L630)
 
 Environment file backup result
 
@@ -18,7 +18,7 @@ Environment file backup result
 
 > `optional` **backupPath?**: `string`
 
-Defined in: [types/cli.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L625)
+Defined in: [types/cli.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L631)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:625](https://github.com/juspay/neurolink/blob/release/
 
 > **existed**: `boolean`
 
-Defined in: [types/cli.ts:626](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L626)
+Defined in: [types/cli.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L632)

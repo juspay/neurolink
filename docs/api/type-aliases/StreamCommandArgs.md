@@ -8,7 +8,7 @@
 
 > **StreamCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & [`CliToolRoutingFlags`](CliToolRoutingFlags.md) & [`CliClassifierRouterFlags`](CliClassifierRouterFlags.md) & `object`
 
-Defined in: [types/cli.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L132)
+Defined in: [types/cli.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L134)
 
 Stream command arguments
 
@@ -37,6 +37,18 @@ Model name
 > `optional` **system?**: `string`
 
 System prompt
+
+### agentMode?
+
+> `optional` **agentMode?**: `boolean`
+
+Prepend Neurolink's versioned terminal agent instructions
+
+### maxSteps?
+
+> `optional` **maxSteps?**: `number`
+
+Maximum tool-calling steps
 
 ### temperature?
 

@@ -70,6 +70,10 @@ export {
   parseRoutingResponse,
   ROUTING_PROMPTS,
 } from "./prompts/routingPrompts.js";
+export {
+  TERMINAL_AGENT_PROMPT_V1,
+  TERMINAL_AGENT_PROMPT_VERSION,
+} from "./prompts/terminalAgentPrompt.js";
 
 // Coordination module
 export { AgentCoordinator, TaskDistributor } from "./coordination/index.js";

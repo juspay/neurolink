@@ -8,7 +8,7 @@
 
 > **AuthListRefreshResultSetter** = (`key`, `status`, `error?`) => `void`
 
-Defined in: [types/cli.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1172)
+Defined in: [types/cli.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1178)
 
 Applies one account's explicit auth-list refresh state.
 

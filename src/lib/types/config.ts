@@ -441,6 +441,15 @@ export type ToolConfig = {
   /** Whether the bash command execution tool should be enabled (opt-in, defaults to false) */
   enableBashTool?: boolean;
   /**
+   * Directories the built-in file tools (readFile, listDirectory, writeFile,
+   * analyzeCSV) and bash's `cwd` argument may touch. Resolved through
+   * symlinks; each must be an existing directory. Default: the process
+   * working directory. An empty array denies all file access. Per-call
+   * `toolRoots` can only narrow this list. Roots do not sandbox the shell
+   * commands themselves — a command can still `cd` anywhere.
+   */
+  fileRoots?: string[];
+  /**
    * Byte ceiling for the safety-net truncation `ToolsManager` applies to
    * every direct/custom/external-MCP tool result before it reaches the AI
    * SDK accumulator (BZ-666). Independent of `mcp.outputLimits`, which only

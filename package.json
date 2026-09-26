@@ -141,6 +141,7 @@
     "test:rag": "pnpm exec tsx test/continuous-test-suite-rag.ts",
     "test:skills": "pnpm exec tsx test/continuous-test-suite-skills.ts",
     "test:decide": "pnpm exec tsx test/continuous-test-suite-decide.ts",
+    "test:agent-mode": "pnpm exec tsx test/continuous-test-suite-agent-mode.ts",
     "test:servers": "pnpm exec tsx test/continuous-test-suite-servers.ts",
     "test:tool-reliability": "pnpm exec tsx test/continuous-test-suite-tool-reliability.ts",
     "test:video-abort": "pnpm exec tsx test/continuous-test-suite-video-abort.ts",
@@ -263,8 +264,10 @@
     "test:docs-mcp": "pnpm exec tsx test/continuous-test-suite-docs-mcp.ts",
     "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts",
     "test:toolfree-guard-overhead": "pnpm exec tsx test/continuous-test-suite-toolfree-guard-overhead.ts",
+    "test:file-tool-roots": "pnpm exec tsx test/continuous-test-suite-file-tool-roots.ts",
     "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts",
-    "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts"
+    "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts",
+    "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts"
   },
   "files": [
     "dist",
