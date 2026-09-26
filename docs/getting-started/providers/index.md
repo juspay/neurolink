@@ -454,8 +454,8 @@ Access multiple providers through unified interfaces:
 
 ## 🧠 Decision-Only Providers {#decision-only-providers}
 
-The one provider that serves `decide` rather than `generate`/`stream`. It
-returns typed, calibrated judgments and emits no text, so it never appears in
+The two providers that serve `decide` rather than `generate`/`stream`. Each
+returns typed, calibrated judgments and emits no text, so neither appears in
 generation fallback chains or the health sweep.
 
 ### [TypeSafe (Jev)](typesafe.md)

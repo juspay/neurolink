@@ -6,8 +6,10 @@ keywords: typesafe, jev, decide, decision model, calibrated confidence, routing,
 
 # TypeSafe (Jev) Provider Guide
 
-**The only provider that serves `decide` rather than `generate`/`stream`** — it
-returns typed, calibrated judgments and emits no text at all.
+**One of two providers that serve `decide` rather than `generate`/`stream`** —
+it returns typed, calibrated judgments and emits no text at all. The other is
+[Laya](laya.md), an open-weights model you run yourself; TypeSafe runs first
+when both are configured.
 
 ---
 
@@ -32,7 +34,8 @@ unreachable in normal use.
 ### Key Facts
 
 - **Provider id**: `typesafe` (aliases: `jev`, `typesafe-ai`)
-- **Inference kinds**: `decide` only — the single provider of the 40 that does
+- **Inference kinds**: `decide` only — one of two providers that do
+  (the other is [Laya](laya.md)); TypeSafe runs first when both are configured
 - **Tool calling**: none (`toolSupport: "none"`) — a decision model calls nothing
 - **Health check**: `env-only`; it is never probed with a live generation
 - **Default decide timeout**: 5000 ms (`timeouts.decideMs`)
