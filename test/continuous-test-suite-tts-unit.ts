@@ -46,6 +46,7 @@ import {
 import {
   AIProviderFactory,
   getMetricsAggregator,
+  GoogleTTSHandler,
   NeuroLink,
   OpenAITTS,
   TTSProcessor,
@@ -64,6 +65,7 @@ import type {
   TTSStreamChunk,
 } from "../dist/index.js";
 import { stub, withStubs } from "./helpers/stubs.js";
+import { Duplex } from "node:stream";
 
 // `offline: true` — this suite registers stub handlers and drives
 // createOfflineProvider; nothing in it touches a network. A test that never
@@ -4164,6 +4166,287 @@ await test("#479: flac is a real OpenAI response_format and must not downgrade t
     roundTrip("m4a").wire,
     "mp3",
     "a format OpenAI genuinely cannot produce still coerces to mp3",
+  );
+});
+
+// --- PR#1746: GoogleTTSHandler streaming cancellation + format gate --------
+//
+// Determinism exception (CLAUDE.md rule 15): a live Google streaming call
+// cannot be made to race a cancellation at a chosen microtask, and cannot
+// force its idle timer to fire in milliseconds instead of 30s. These cases
+// reach into GoogleTTSHandler's private surface — the `client` field, the
+// `getClient` method and the private static `STREAMING_IDLE_TIMEOUT_MS` — the
+// same way the #479 case above reaches OpenAITTS's private `mapFormat`, and
+// for the same reason: the seam is the only way to get deterministic control
+// a live call cannot give. Everything under test still comes from
+// `../dist/index.js`, never from `src/`, per the module-graph rule.
+//
+// `FakeCancellableDuplex` stands in for the real
+// `gax.CancellableStream` that `TextToSpeechClient#streamingSynthesize()`
+// returns. It exists to answer one question discriminatingly: did the
+// production code call `.cancel()` (which reaches gRPC's
+// `cancelWithStatus()` and actually tells the server to stop) or merely
+// `.destroy()` (which only tears down the local Node stream and leaves the
+// server-side synthesis, and its billing, running)?
+class FakeCancellableDuplex extends Duplex {
+  cancelCalls = 0;
+  destroyCalls = 0;
+
+  constructor() {
+    // `autoDestroy: false` matters here: Node's own stream machinery calls
+    // `destroy()` automatically once a stream is fully read and never
+    // written to again, which would tick `destroyCalls` for a reason that
+    // has nothing to do with the production code under test. Disabling it
+    // isolates the counter to destroy() calls the handler itself makes.
+    super({ objectMode: true, autoDestroy: false });
+  }
+
+  override _write(
+    _chunk: unknown,
+    _encoding: string,
+    callback: (error?: Error | null) => void,
+  ): void {
+    callback();
+  }
+
+  override _read(): void {
+    // Data arrives only via emitChunk/endStream below.
+  }
+
+  emitChunk(audioContent: Buffer): void {
+    this.push({ audioContent });
+  }
+
+  endStream(): void {
+    this.push(null);
+  }
+
+  // The real `gax.CancellableStream#cancel()` calls gRPC's
+  // `cancelWithStatus(Status.CANCELLED, ...)`, which ends the call gracefully
+  // from the client's point of view (no thrown error) while telling the
+  // server to actually stop. Modelled here as a graceful, deferred end so a
+  // consumer mid-`for await` sees a normal stream close, not an error.
+  cancel(): void {
+    this.cancelCalls++;
+    queueMicrotask(() => this.push(null));
+  }
+
+  override destroy(error?: Error): this {
+    this.destroyCalls++;
+    return super.destroy(error);
+  }
+}
+
+await test("PR#1746 F1: cancelling an in-flight Google stream calls cancel(), not just destroy()", async () => {
+  const fakeDuplex = new FakeCancellableDuplex();
+  const fakeClient = { streamingSynthesize: () => fakeDuplex };
+  const handler = new GoogleTTSHandler("test-credentials-path");
+  (handler as unknown as { client: unknown }).client = fakeClient;
+
+  const iterable = handler.synthesizeStream("Cancel me mid-stream.", {
+    voice: "en-US-Chirp3-HD-Aoede",
+    format: "pcm16",
+  });
+  assertNotNull(
+    iterable,
+    "a Chirp3-HD voice with plain text and pcm16 qualifies for native streaming",
+  );
+
+  const STREAM_CANCEL = Symbol.for("neurolink.streamCancel");
+  const cancelHook = (iterable as unknown as Record<symbol, () => void>)[
+    STREAM_CANCEL
+  ];
+  assert(
+    typeof cancelHook === "function",
+    "synthesizeStream registers a cancel hook via attachStreamCancel",
+  );
+
+  const iterator = iterable[Symbol.asyncIterator]();
+  try {
+    fakeDuplex.emitChunk(Buffer.from([1, 2, 3, 4]));
+    const first = await iterator.next();
+    assert(first.done === false, "the first chunk is delivered normally");
+
+    // Cancel while the generator is suspended at the `yield`, exactly the
+    // window a real consumer disconnect lands in.
+    cancelHook();
+
+    const second = await iterator.next();
+    assert(
+      second.done === true,
+      "the stream ends once cancelled instead of continuing to synthesize",
+    );
+
+    // Two call sites run on this path: the explicit cancel hook, then the
+    // generator's own `finally` block on the way out. A bare `> 0` would
+    // pass even if only one of the two were fixed, so the count is exact.
+    assertEqual(
+      fakeDuplex.cancelCalls,
+      2,
+      "both the cancel hook and the finally block must call cancel()",
+    );
+    assertEqual(
+      fakeDuplex.destroyCalls,
+      0,
+      "neither call site may fall back to destroy(), which never reaches the server",
+    );
+  } finally {
+    await iterator.return?.(undefined)?.catch?.(() => undefined);
+  }
+});
+
+await test("PR#1746 F1: an idle timeout calls cancel(), not just destroy()", async () => {
+  const HandlerStatics = GoogleTTSHandler as unknown as {
+    STREAMING_IDLE_TIMEOUT_MS: number;
+  };
+  const originalTimeout = HandlerStatics.STREAMING_IDLE_TIMEOUT_MS;
+  HandlerStatics.STREAMING_IDLE_TIMEOUT_MS = 20;
+
+  const fakeDuplex = new FakeCancellableDuplex();
+  const fakeClient = { streamingSynthesize: () => fakeDuplex };
+  const handler = new GoogleTTSHandler("test-credentials-path");
+  (handler as unknown as { client: unknown }).client = fakeClient;
+
+  const iterable = handler.synthesizeStream("Go quiet after one chunk.", {
+    voice: "en-US-Chirp3-HD-Aoede",
+    format: "pcm16",
+  });
+  assertNotNull(iterable, "this voice/format/text combination streams");
+
+  const iterator = iterable[Symbol.asyncIterator]();
+  try {
+    fakeDuplex.emitChunk(Buffer.from([9, 9]));
+    const first = await iterator.next();
+    assert(first.done === false, "the first chunk is delivered normally");
+
+    // Resuming past the `yield` re-arms the idle timer (now 20ms). No
+    // further data is pushed, so the timer — not a cancel hook — is what
+    // ends the stream.
+    const second = await iterator.next();
+    assert(second.done === true, "an idle stream ends once the timeout fires");
+
+    // One call from the idle-timer callback, one from the finally block —
+    // an exact count so a fix that only touches the finally block (leaving
+    // the idle-timer callback still calling destroy()) still fails here.
+    assertEqual(
+      fakeDuplex.cancelCalls,
+      2,
+      "the idle timeout must itself call cancel(), not just the finally block",
+    );
+    assertEqual(
+      fakeDuplex.destroyCalls,
+      0,
+      "an idle timeout may not fall back to destroy(), which leaves synthesis (and billing) running server-side",
+    );
+  } finally {
+    await iterator.return?.(undefined)?.catch?.(() => undefined);
+    HandlerStatics.STREAMING_IDLE_TIMEOUT_MS = originalTimeout;
+  }
+});
+
+await test("PR#1746 F2: cancelling before getClient() resolves must not open the gRPC stream", async () => {
+  let resolveClient: ((client: unknown) => void) | undefined;
+  const clientPromise = new Promise<unknown>((resolve) => {
+    resolveClient = resolve;
+  });
+  let streamingSynthesizeCalls = 0;
+  const fakeClient = {
+    streamingSynthesize: () => {
+      streamingSynthesizeCalls++;
+      const duplex = new FakeCancellableDuplex();
+      // If cancellation were NOT honoured before this point, the stream
+      // must still end quickly (rather than hang for the suite's
+      // 240s-per-case timeout) so an unfixed run fails fast and for the
+      // right reason.
+      queueMicrotask(() => {
+        duplex.emitChunk(Buffer.from([1]));
+        duplex.endStream();
+      });
+      return duplex;
+    },
+  };
+
+  const handler = new GoogleTTSHandler("test-credentials-path");
+  (handler as unknown as { getClient: () => Promise<unknown> }).getClient =
+    () => clientPromise;
+
+  const iterable = handler.synthesizeStream(
+    "Cancelled before the client resolves.",
+    { voice: "en-US-Chirp3-HD-Aoede", format: "pcm16" },
+  );
+  assertNotNull(iterable, "this voice/format/text combination streams");
+
+  const STREAM_CANCEL = Symbol.for("neurolink.streamCancel");
+  const cancelHook = (iterable as unknown as Record<symbol, () => void>)[
+    STREAM_CANCEL
+  ];
+  assert(typeof cancelHook === "function", "a cancel hook is registered");
+
+  const iterator = iterable[Symbol.asyncIterator]();
+  try {
+    const pulled = iterator.next();
+
+    // The generator is parked at `await handler.getClient()`. Cancel now —
+    // before it resolves, and before `active` is ever assigned — the exact
+    // race a disconnect during a process's first (cold-import) TTS call
+    // can hit in production.
+    cancelHook();
+    resolveClient?.(fakeClient);
+
+    const result = await pulled;
+    assert(
+      result.done === true,
+      "a stream cancelled before getClient() resolves must end immediately, not deliver a chunk",
+    );
+    assertEqual(
+      streamingSynthesizeCalls,
+      0,
+      "the gRPC call must never be opened once the caller already cancelled",
+    );
+  } finally {
+    await iterator.return?.(undefined)?.catch?.(() => undefined);
+  }
+});
+
+await test("PR#1746 F3: mapFormat gives pcm16 an actionable reason instead of a bare 'unsupported format'", () => {
+  // Exercised off the prototype exactly like the OpenAI mapFormat case
+  // above — mapFormat only reads its `format` argument, never `this`.
+  const proto = GoogleTTSHandler.prototype as unknown as {
+    mapFormat: (f: string) => string;
+  };
+
+  let thrown: unknown;
+  try {
+    proto.mapFormat.call({}, "pcm16");
+  } catch (err) {
+    thrown = err;
+  }
+  assert(thrown instanceof Error, "the buffered encoder mapping rejects pcm16");
+  assertIncludes(
+    (thrown as Error).message,
+    "streaming",
+    "the error must explain pcm16 needs the native streaming path, not just name it unsupported",
+  );
+  assertIncludes(
+    (thrown as Error).message,
+    "SSML",
+    "the error must name the SSML gate as one of the two conditions that route a request off streaming",
+  );
+
+  // A genuinely invalid format keeps the plain generic message — only
+  // pcm16 is special-cased, since it is the only one that is actually
+  // supported (via streaming) rather than simply invalid.
+  let genericThrown: unknown;
+  try {
+    proto.mapFormat.call({}, "not-a-real-format");
+  } catch (err) {
+    genericThrown = err;
+  }
+  assert(genericThrown instanceof Error, "a truly invalid format still throws");
+  assertIncludes(
+    (genericThrown as Error).message,
+    "Unsupported audio format",
+    "a truly invalid format keeps the plain unsupported-format message",
   );
 });
 

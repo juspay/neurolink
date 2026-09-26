@@ -6,7 +6,7 @@
 
 # Class: TTSError
 
-Defined in: [utils/ttsProcessor.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L229)
+Defined in: [utils/ttsProcessor.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L230)
 
 TTS Error class for text-to-speech specific errors
 
@@ -20,7 +20,7 @@ TTS Error class for text-to-speech specific errors
 
 > **new TTSError**(`options`): `TTSError`
 
-Defined in: [utils/ttsProcessor.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L230)
+Defined in: [utils/ttsProcessor.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L231)
 
 #### Parameters
 

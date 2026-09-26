@@ -227,6 +227,17 @@ export const VALID_TTS_QUALITIES: readonly TTSQuality[] = ["standard", "hd"];
 export type GoogleAudioEncoding = "MP3" | "LINEAR16" | "OGG_OPUS";
 
 /**
+ * Audio encodings Google's *streaming* synthesis endpoint accepts.
+ *
+ * Deliberately a separate type from {@link GoogleAudioEncoding}: the
+ * batch and streaming endpoints do not accept the same set. `MP3` and
+ * `LINEAR16` are valid for batch and rejected by streaming with
+ * `INVALID_ARGUMENT: Unsupported audio encoding`, while `PCM` — raw
+ * 16-bit signed LE, headerless — exists only on the streaming side.
+ */
+export type GoogleStreamingAudioEncoding = "PCM" | "OGG_OPUS";
+
+/**
  * Type guard to check if an object is a TTSResult
  */
 export function isTTSResult(value: unknown): value is TTSResult {

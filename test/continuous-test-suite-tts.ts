@@ -25,8 +25,18 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import type { ProcessResult, TTSMetadata } from "../dist/index.js";
-import { NeuroLink, ProviderRegistry, TTSProcessor } from "../dist/index.js";
+import type {
+  ProcessResult,
+  TTSMetadata,
+  TTSHandler,
+  TTSChunk,
+} from "../dist/index.js";
+import {
+  NeuroLink,
+  ProviderRegistry,
+  TTSProcessor,
+  GoogleTTSHandler,
+} from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1783,6 +1793,912 @@ async function testCartesiaTTS(sdk: NeuroLink): Promise<boolean | null> {
   }
 }
 
+// ============================================================
+// TTS-013 (#492): Google native streaming synthesis
+// TTS-026 (#524): `neurolink voices`
+// TTS-028 (#528): live per-provider synthesis
+// ============================================================
+
+/**
+ * A voice family Google's streaming endpoint accepts. Every other family is
+ * refused with `only Chirp 3: HD voices are supported for streaming
+ * synthesis`, so this is not interchangeable with TTS_CONFIG.defaultVoice.
+ */
+const STREAMING_VOICE = "en-US-Chirp3-HD-Aoede";
+
+/**
+ * Exactly one sentence, and long enough that Google takes over a second to
+ * render it.
+ *
+ * That is what makes the chunk count discriminating. `TTSProcessor` segments
+ * streamed text at sentence boundaries and serves each segment either from a
+ * handler's native stream or from a single buffered `synthesize()` call, so
+ * one sentence yields exactly ONE chunk on the buffered path however long it
+ * is. More than one chunk is reachable only by the native path.
+ */
+const ONE_SENTENCE =
+  "One single sentence that is long enough for the service to take a " +
+  "noticeable moment to render it from beginning to end";
+
+/**
+ * A multi-sentence paragraph, long enough that Google's real synthesis and
+ * delivery time comfortably exceeds `GoogleTTSHandler`'s 30-second streaming
+ * idle window.
+ *
+ * `ONE_SENTENCE` is deliberately too short for that: its whole response
+ * finishes within a second or two, so by the time any idle timer could fire
+ * the duplex has already closed on its own, and a premature `destroy()`
+ * lands on a stream that was never going to deliver anything more anyway —
+ * a false negative for the idle-timer defect. `takeBufferedSegment`
+ * (ttsProcessor.ts) only splits accumulated text into multiple segments once
+ * the buffer reaches `streamingBufferSize`; since this whole paragraph
+ * arrives as one generator yield under that threshold, it is flushed as a
+ * single segment on end-of-input regardless of how many sentences it
+ * contains, so it still reaches Google as exactly one streaming synthesis
+ * call — one duplex, open for the entire real synthesis time.
+ */
+const LONG_STREAMING_TEXT =
+  "The morning sun rose slowly over the quiet valley, casting long golden shadows across the fields " +
+  "where farmers had already begun their daily work. Birds called to one another from the tall oak " +
+  "trees lining the winding dirt road, and a gentle breeze carried the scent of fresh hay and blooming " +
+  "wildflowers through the open countryside. In the distance, a small river wound its way past mossy " +
+  "boulders and fallen logs, its steady current reflecting the pale blue sky above. Travelers walking " +
+  "along the ridge paused to admire the view, watching clouds drift lazily overhead while sheep grazed " +
+  "peacefully in the meadow below. By midday, the village market would fill with the sounds of vendors " +
+  "calling out prices, children laughing as they chased each other between stalls, and the warm smell " +
+  "of fresh bread drifting from the corner bakery, making the whole square feel alive with quiet, " +
+  "ordinary happiness that seemed to stretch on comfortably into the long, unhurried afternoon. Later, " +
+  "as the light began to soften and shift toward amber, shopkeepers would slowly close their wooden " +
+  "shutters, exchanging quiet farewells with neighbors who lingered near the fountain at the center of " +
+  "the square. Somewhere beyond the rooftops, a church bell rang out a slow, familiar melody, marking " +
+  "the hour for anyone who cared to listen. Even the old stray cats seemed to know the rhythm of the " +
+  "town, stretching lazily on sun-warmed steps before wandering off toward the bakery for scraps left " +
+  "at the back door. As evening settled in, lanterns were lit one by one along the narrow cobblestone " +
+  "streets, their warm glow reflecting softly in shop windows still dusted with the last light of day, " +
+  "while somewhere further down the lane a fiddler began to play a slow, wandering tune that drifted " +
+  "gently through open doorways and out into the cooling evening air.";
+
+async function* oneSegment(text: string): AsyncGenerator<string> {
+  yield text;
+}
+
+type CollectedChunk = {
+  index: number;
+  isFinal: boolean;
+  bytes: number;
+  cumulativeSize?: number;
+  format: string;
+  sampleRate?: number;
+};
+
+/**
+ * Drain `TTSProcessor.synthesizeStream()` for one sentence.
+ *
+ * `streamingBufferSize` is set above the sentence length so the processor
+ * cannot hard-split it: any chunk count above one then comes from the
+ * handler, not from segmentation.
+ */
+async function collectGoogleChunks(
+  format: "pcm16" | "ogg" | "mp3",
+  voice: string,
+): Promise<CollectedChunk[]> {
+  await ProviderRegistry.registerAllProviders();
+  const collected: CollectedChunk[] = [];
+  for await (const chunk of TTSProcessor.synthesizeStream(
+    oneSegment(ONE_SENTENCE),
+    "google-ai",
+    { voice, format, streamingBufferSize: ONE_SENTENCE.length + 50 },
+  )) {
+    collected.push({
+      index: chunk.index,
+      isFinal: chunk.isFinal,
+      bytes: chunk.data.length,
+      cumulativeSize: chunk.cumulativeSize,
+      format: chunk.format,
+      sampleRate: chunk.sampleRate,
+    });
+  }
+  return collected;
+}
+
+/**
+ * Global chunk invariants `TTSProcessor` guarantees whichever path served a
+ * segment. Returns a discrepancy description, or undefined when they all hold.
+ *
+ * Deliberately names the position of a mismatch rather than printing the
+ * chunk: a message carrying provider-ish text is reclassified as a skip by
+ * the harness, which would turn a real failure green.
+ */
+function describeChunkInvariantBreak(
+  chunks: readonly CollectedChunk[],
+): string | undefined {
+  const misindexed = chunks.findIndex((chunk, at) => chunk.index !== at);
+  if (misindexed !== -1) {
+    return `chunk indexes are not 0..n-1 — first mismatch at position ${misindexed}`;
+  }
+  const finals = chunks.filter((chunk) => chunk.isFinal).length;
+  if (finals !== 1) {
+    return `expected exactly one final chunk, counted ${finals}`;
+  }
+  if (!chunks[chunks.length - 1]?.isFinal) {
+    return "the final chunk is not the last one delivered";
+  }
+  let running = 0;
+  for (const [at, chunk] of chunks.entries()) {
+    running += chunk.bytes;
+    if (chunk.cumulativeSize !== running) {
+      return `cumulativeSize does not track the running byte total — first divergence at position ${at}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * TTS-013 (#492): Google streams natively for a streaming-capable voice.
+ *
+ * The precondition below matters: "more than one chunk" is only evidence of
+ * native delivery once audio has actually been produced. An empty stream
+ * would otherwise read as a failure of the native path when in fact nothing
+ * ran at all.
+ */
+async function testGoogleNativeStreaming(): Promise<boolean | null> {
+  const name = "TTS - Google native streaming (#492)";
+  logTest(name, "TESTING");
+
+  if (isTTSCredentialsMissing()) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  try {
+    const chunks = await collectGoogleChunks("pcm16", STREAMING_VOICE);
+
+    // Precondition: synthesis actually happened.
+    const audible = chunks.filter((chunk) => chunk.bytes > 0).length;
+    if (audible === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "no audio was produced at all — the chunk-count assertion below would be vacuous",
+      );
+      return false;
+    }
+
+    if (chunks.length < 2) {
+      logTest(
+        name,
+        "FAIL",
+        `one sentence produced ${chunks.length} chunk(s); the native path must deliver more than one`,
+      );
+      return false;
+    }
+
+    const broken = describeChunkInvariantBreak(chunks);
+    if (broken) {
+      logTest(name, "FAIL", broken);
+      return false;
+    }
+
+    if (chunks[0]?.format !== "pcm16") {
+      logTest(name, "FAIL", "streamed chunks are not labelled pcm16");
+      return false;
+    }
+    if (chunks[0]?.sampleRate !== 24000) {
+      logTest(
+        name,
+        "FAIL",
+        "streamed chunks do not report the 24kHz sample rate headerless PCM needs",
+      );
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `${chunks.length} native chunks, ${chunks[chunks.length - 1]?.cumulativeSize} bytes`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(name, "SKIP", `upstream error: ${msg.slice(0, 120)}`);
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  }
+}
+
+/**
+ * TTS-013 (#492), negative control: the format gate keeps mp3 on the buffered
+ * path.
+ *
+ * Google's streaming endpoint rejects MP3 outright, so the handler must
+ * answer `undefined` for it rather than reach the wire and fail a segment the
+ * buffered path can serve. Same voice as the case above — only the format
+ * differs — so a chunk count of exactly one isolates the gate.
+ */
+async function testGoogleStreamingFormatGate(): Promise<boolean | null> {
+  const name = "TTS - Google streaming format gate (#492)";
+  logTest(name, "TESTING");
+
+  if (isTTSCredentialsMissing()) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  try {
+    const chunks = await collectGoogleChunks("mp3", STREAMING_VOICE);
+
+    // Precondition: the buffered path ran and produced audio. Without this,
+    // zero chunks would satisfy "not more than one" for the wrong reason.
+    const audible = chunks.filter((chunk) => chunk.bytes > 0).length;
+    if (audible === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "the buffered path produced no audio — nothing was actually synthesized",
+      );
+      return false;
+    }
+
+    if (chunks.length !== 1) {
+      logTest(
+        name,
+        "FAIL",
+        `mp3 must take the buffered path and yield one chunk per sentence; got ${chunks.length}`,
+      );
+      return false;
+    }
+
+    const broken = describeChunkInvariantBreak(chunks);
+    if (broken) {
+      logTest(name, "FAIL", broken);
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `mp3 fell back to buffered, ${chunks[0]?.bytes} bytes`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(name, "SKIP", `upstream error: ${msg.slice(0, 120)}`);
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  }
+}
+
+/**
+ * PR #1746 review (CodeRabbit r4090036240, MAJOR): the streaming idle timer
+ * must bound time spent waiting for the SERVER, not time this generator sits
+ * suspended at its own `yield` waiting for ITS OWN CONSUMER. The prior code
+ * re-armed the timer unconditionally on every response, before yielding — so
+ * the clock started running before that suspension, and a consumer slower
+ * than the idle window to pull the next chunk destroyed a healthy duplex and
+ * reported its own backpressure as a network stall.
+ *
+ * Real-time by necessity, not a unit-level trick: the defect is a race
+ * against a live 30-second wall-clock timer inside `GoogleTTSHandler`, and
+ * Rule 15 forbids reaching into that internal generator state to simulate
+ * it. Deliberately drives `GoogleTTSHandler.synthesizeStream()` directly
+ * (exported from `../dist/index.js`, a legitimate public surface) rather
+ * than through `TTSProcessor.synthesizeStream()`: the processor's outer loop
+ * keeps a one-chunk lookahead buffer, so a chunk it yields was already
+ * fetched from the handler before this test's own pause began, and a single
+ * post-pause pull would keep resolving from that stale, already-safe buffer
+ * regardless of whether the timer fired — silently absorbing exactly the
+ * failure this test exists to catch. Driving the handler removes that
+ * buffering: each `.next()` call maps 1:1 onto one real response from the
+ * duplex, so a pull made after the pause can only succeed if the connection
+ * the timer was supposed to be guarding is still alive.
+ *
+ * Pulls one chunk, then pauses this test's own consumption — never Google's
+ * server, which is still genuinely mid-flight on `LONG_STREAMING_TEXT` at
+ * that point — for longer than the idle window before pulling the next
+ * chunk. Accepts either observable symptom of the bug (a thrown "stalled"
+ * error, or the stream silently ending early) so the assertion does not
+ * depend on exactly how Node/gRPC surfaces a destroyed duplex. It stops as
+ * soon as a post-pause chunk is confirmed, releasing the stream via
+ * `iterator.return()` instead of draining the rest of a multi-minute
+ * response for no additional evidence.
+ */
+async function testGoogleStreamingSurvivesSlowConsumer(): Promise<
+  boolean | null
+> {
+  const name = "TTS - Google streaming survives a slow consumer (PR#1746)";
+  logTest(name, "TESTING");
+
+  if (isTTSCredentialsMissing()) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  const handler = new GoogleTTSHandler();
+  if (!handler.isConfigured()) {
+    logTest(name, "SKIP", "GoogleTTSHandler reports not configured");
+    return null;
+  }
+
+  let iterator: AsyncIterator<TTSChunk> | undefined;
+  try {
+    const iterable = handler.synthesizeStream(LONG_STREAMING_TEXT, {
+      voice: STREAMING_VOICE,
+      format: "pcm16",
+    });
+    if (iterable === undefined) {
+      logTest(
+        name,
+        "FAIL",
+        "GoogleTTSHandler declined to stream this voice/format — the slow-consumer assertion below would be vacuous",
+      );
+      return false;
+    }
+    iterator = iterable[Symbol.asyncIterator]();
+
+    const first = await iterator.next();
+    if (first.done || (first.value?.data.length ?? 0) === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "no audio arrived on the first pull — the slow-consumer assertion below would be vacuous",
+      );
+      return false;
+    }
+
+    // Longer than GoogleTTSHandler's 30s idle window. LONG_STREAMING_TEXT is
+    // sized so Google's server is still genuinely streaming this response
+    // when the pause ends — this is this test's own consumption stalling,
+    // not the server finishing early.
+    await new Promise((resolve) => setTimeout(resolve, 31_000));
+
+    let second: IteratorResult<TTSChunk> | undefined;
+    let misattributed = false;
+    try {
+      second = await iterator.next();
+    } catch {
+      misattributed = true;
+    }
+
+    if (misattributed) {
+      logTest(
+        name,
+        "FAIL",
+        "a slow consumer pull was reported as a synthesis failure instead of delivering the still-in-flight response",
+      );
+      return false;
+    }
+
+    if (second === undefined || second.done) {
+      logTest(
+        name,
+        "FAIL",
+        "the stream ended after the paused pull instead of continuing to deliver the response still being produced",
+      );
+      return false;
+    }
+
+    if ((second.value?.data.length ?? 0) === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "the chunk delivered after the paused pull carried no audio",
+      );
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      "delivered a further chunk after a 31s consumer pause without the connection being torn down",
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(name, "SKIP", `upstream error: ${msg.slice(0, 120)}`);
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  } finally {
+    await iterator?.return?.(undefined)?.catch?.(() => undefined);
+  }
+}
+
+/**
+ * TTS-026 (#524): `TTSProcessor.getVoices()` reports an unregistered provider
+ * as a typed error rather than a TypeError on an absent member.
+ *
+ * Runs without any credentials: with none set, nothing registers and every
+ * provider name is unregistered, which is exactly the case under test.
+ */
+async function testGetVoicesUnregistered(): Promise<boolean | null> {
+  const name = "TTS - getVoices rejects an unregistered provider (#524)";
+  logTest(name, "TESTING");
+
+  try {
+    await ProviderRegistry.registerAllProviders();
+    let raised: unknown;
+    try {
+      await TTSProcessor.getVoices("definitely-not-a-tts-provider");
+    } catch (err) {
+      raised = err;
+    }
+
+    if (raised === undefined) {
+      logTest(name, "FAIL", "listing voices for an unknown provider resolved");
+      return false;
+    }
+    const code = (raised as { code?: unknown }).code;
+    if (code !== "TTS_PROVIDER_NOT_SUPPORTED") {
+      logTest(name, "FAIL", "the raised error does not carry the typed code");
+      return false;
+    }
+
+    logTest(name, "PASS", "typed TTS_PROVIDER_NOT_SUPPORTED");
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * PR #1746 review (CodeRabbit r4090036240 / Yama): `getVoices()` must gate on
+ * `isConfigured()` before touching the handler, and must shape whatever the
+ * handler throws into a typed `TTSError` — exactly what `synthesize()` does.
+ *
+ * No live provider exercises this today: every shipped handler already
+ * guards its own `isConfigured()` and wraps its own errors, so the gap this
+ * closes is invisible against real providers. A handler that does neither is
+ * exactly what the public `TTSHandler` structural type exists to allow, and
+ * registering one through the same `TTSProcessor.registerHandler()` a real
+ * provider uses is still the public surface under test, not an internal
+ * shape — the JSDoc example on `registerHandler` shows the identical
+ * pattern. Runs everywhere, no credentials, no network.
+ */
+async function testGetVoicesGatesConfigAndShapesErrors(): Promise<
+  boolean | null
+> {
+  const name = "TTS - getVoices gates isConfigured, shapes errors (PR#1746)";
+  logTest(name, "TESTING");
+
+  try {
+    const { TTSError } = await import("../dist/index.js");
+
+    // Case 1: an unconfigured handler must be rejected before its own
+    // getVoices() ever runs.
+    let handlerGetVoicesCalled = false;
+    const unconfiguredProvider = `test-unconfigured-tts-${Date.now()}`;
+    const unconfiguredHandler: TTSHandler = {
+      synthesize: async () => {
+        throw new Error("not used by this test");
+      },
+      isConfigured: () => false,
+      getVoices: async () => {
+        handlerGetVoicesCalled = true;
+        return [];
+      },
+    };
+    TTSProcessor.registerHandler(unconfiguredProvider, unconfiguredHandler);
+
+    let unconfiguredRaised: unknown;
+    try {
+      await TTSProcessor.getVoices(unconfiguredProvider);
+    } catch (err) {
+      unconfiguredRaised = err;
+    }
+
+    if (handlerGetVoicesCalled) {
+      logTest(
+        name,
+        "FAIL",
+        "getVoices() called the handler's own getVoices() before checking isConfigured()",
+      );
+      return false;
+    }
+    if (!(unconfiguredRaised instanceof TTSError)) {
+      logTest(
+        name,
+        "FAIL",
+        "an unconfigured handler did not raise a typed TTSError",
+      );
+      return false;
+    }
+    const unconfiguredCode = (unconfiguredRaised as { code?: unknown }).code;
+    if (unconfiguredCode !== "TTS_PROVIDER_NOT_CONFIGURED") {
+      logTest(
+        name,
+        "FAIL",
+        "an unconfigured handler did not raise TTS_PROVIDER_NOT_CONFIGURED",
+      );
+      return false;
+    }
+
+    // Case 2: a configured handler whose getVoices() throws a raw, unshaped
+    // error — the failure must still arrive as a typed, retriable TTSError.
+    const failingProvider = `test-failing-voices-tts-${Date.now()}`;
+    const failingHandler: TTSHandler = {
+      synthesize: async () => {
+        throw new Error("not used by this test");
+      },
+      isConfigured: () => true,
+      getVoices: async () => {
+        throw new Error("simulated upstream voice-list failure");
+      },
+    };
+    TTSProcessor.registerHandler(failingProvider, failingHandler);
+
+    let failingRaised: unknown;
+    try {
+      await TTSProcessor.getVoices(failingProvider);
+    } catch (err) {
+      failingRaised = err;
+    }
+
+    if (!(failingRaised instanceof TTSError)) {
+      logTest(
+        name,
+        "FAIL",
+        "a handler's raw getVoices() failure reached the caller unshaped",
+      );
+      return false;
+    }
+    const failingRecord = failingRaised as {
+      retriable?: unknown;
+    };
+    if (failingRecord.retriable !== true) {
+      logTest(
+        name,
+        "FAIL",
+        "the shaped error lost the retriable flag synthesize() would carry",
+      );
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      "unconfigured handler gated before the call; raw failure shaped into TTSError",
+    );
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-026 (#524): the CLI command exists, is reachable, and fails cleanly.
+ *
+ * Credential-free by construction — an unknown provider is unregistered
+ * whatever keys are present — so this half runs everywhere.
+ */
+async function testCLIVoicesUnknownProvider(): Promise<boolean | null> {
+  const name = "CLI voices - unknown provider exits non-zero (#524)";
+  logTest(name, "TESTING");
+
+  try {
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "voices",
+      "--provider=definitely-not-a-tts-provider",
+    ]);
+
+    if (result.success) {
+      logTest(
+        name,
+        "FAIL",
+        "the command reported success for an unknown provider",
+      );
+      return false;
+    }
+    const output = `${result.stdout}${result.stderr}`;
+    if (!output.includes("Could not list voices")) {
+      logTest(
+        name,
+        "FAIL",
+        "the failure was not reported by the voices command",
+      );
+      return false;
+    }
+    if (!output.includes("Registered providers")) {
+      logTest(name, "FAIL", "the failure does not name what is registered");
+      return false;
+    }
+
+    logTest(name, "PASS", `exit ${result.code}, registered set named`);
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-026 (#524): the live listing path — CLI, JSON mode, against OpenAI's
+ * fixed six voices, which are the one provider list that is a known constant.
+ */
+async function testCLIVoicesOpenAI(): Promise<boolean | null> {
+  const name = "CLI voices - OpenAI list (#524)";
+  logTest(name, "TESTING");
+
+  if (!process.env.OPENAI_API_KEY) {
+    logTest(name, "SKIP", "OPENAI_API_KEY not set");
+    return null;
+  }
+
+  try {
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "voices",
+      "--provider=openai-tts",
+      "--json",
+    ]);
+
+    if (!result.success) {
+      if (isExpectedProviderError(result.stderr)) {
+        logTest(name, "SKIP", result.stderr.slice(0, 120));
+        return null;
+      }
+      logTest(name, "FAIL", `the command exited ${result.code}`);
+      return false;
+    }
+
+    const start = result.stdout.indexOf("[");
+    const end = result.stdout.lastIndexOf("]");
+    if (start === -1 || end <= start) {
+      logTest(name, "FAIL", "--json did not emit a JSON array");
+      return false;
+    }
+    const parsed: unknown = JSON.parse(result.stdout.slice(start, end + 1));
+    if (!Array.isArray(parsed)) {
+      logTest(name, "FAIL", "--json did not emit a JSON array");
+      return false;
+    }
+
+    const ids = parsed.map((voice) => (voice as { id?: unknown }).id);
+    const expected = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"];
+    const missing = expected.filter((id) => !ids.includes(id));
+    if (missing.length > 0) {
+      logTest(
+        name,
+        "FAIL",
+        `${missing.length} of the six OpenAI voices are absent`,
+      );
+      return false;
+    }
+
+    const names = parsed.map((voice) =>
+      String((voice as { name?: unknown }).name),
+    );
+    const unsorted = names.findIndex(
+      (current, at) => at > 0 && (names[at - 1] ?? "") > current,
+    );
+    if (unsorted !== -1) {
+      logTest(
+        name,
+        "FAIL",
+        `the list is not sorted by name — first break at position ${unsorted}`,
+      );
+      return false;
+    }
+
+    logTest(name, "PASS", `${parsed.length} voices, sorted`);
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * Issue #528's Google share of its literal per-provider acceptance list:
+ * "getVoices() returns 220+ voices". The live synthesis matrix below covers
+ * Google's synthesis half of #528 but never calls `getVoices()`, so that
+ * specific assertion had no test anywhere in the PR — CodeRabbit's pre-merge
+ * Linked Issues check named the gap.
+ *
+ * OpenAI's share of the same issue ("all 6 voices work", meaning synthesis of
+ * each) and Azure's ("emotional styles work") both need live synthesis against
+ * keys this environment does not hold; this case covers only the one share
+ * that is actually reachable and provable here — Google's catalog size,
+ * through the same `TTSProcessor.getVoices()` surface #524 added — gated on
+ * `GOOGLE_APPLICATION_CREDENTIALS` like every other Google case in this file.
+ */
+async function testGoogleVoiceCatalogSize(): Promise<boolean | null> {
+  const name = "TTS - Google getVoices returns 220+ voices (#528)";
+  logTest(name, "TESTING");
+
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  try {
+    await ProviderRegistry.registerAllProviders();
+    if (!TTSProcessor.supports("google-ai")) {
+      logTest(name, "SKIP", "google-ai did not register");
+      return null;
+    }
+
+    const voices = await TTSProcessor.getVoices("google-ai");
+
+    if (!Array.isArray(voices)) {
+      logTest(name, "FAIL", "getVoices() did not return an array");
+      return false;
+    }
+    // 220 is issue #528's own literal threshold, not a number this test
+    // picked — a full, unfiltered catalog call is well past it (thousands),
+    // so this also catches an accidental language-code filter creeping into
+    // the unfiltered path.
+    if (voices.length < 220) {
+      logTest(
+        name,
+        "FAIL",
+        `only ${voices.length} voices returned — issue #528 requires 220+`,
+      );
+      return false;
+    }
+
+    const unnamed = voices.filter(
+      (voice) => typeof (voice as { name?: unknown }).name !== "string",
+    );
+    if (unnamed.length > 0) {
+      logTest(name, "FAIL", `${unnamed.length} voice(s) are missing a name`);
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `${voices.length} voices via TTSProcessor.getVoices("google-ai")`,
+    );
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-028 (#528): every configured TTS provider in scope synthesizes real
+ * audio.
+ *
+ * One case rather than one per provider so the matrix stays readable, and
+ * because the interesting property is coverage across providers rather than
+ * any single provider's behaviour. A provider whose key is absent is not
+ * counted; a provider whose key is present but rejected upstream is reported
+ * as an environment skip, matching `explainMissingAudio` elsewhere in this
+ * file. The whole case skips only when nothing at all was exercised.
+ *
+ * The matrix is OpenAI, Google and Azure only — the three providers #492,
+ * #524 and #528 actually scope this work to. ElevenLabs and Cartesia are
+ * real TTS providers elsewhere in this codebase, but adding them here would
+ * be coverage this PR did not otherwise touch, under an issue number that
+ * does not ask for them.
+ */
+async function testLiveProviderSynthesis(): Promise<boolean | null> {
+  const name = "TTS - live provider synthesis matrix (#528)";
+  logTest(name, "TESTING");
+
+  const matrix: Array<{
+    provider: string;
+    configured: boolean;
+    voice?: string;
+    format: "mp3" | "pcm16";
+  }> = [
+    {
+      provider: "openai-tts",
+      configured: !!process.env.OPENAI_API_KEY,
+      voice: "nova",
+      format: "mp3",
+    },
+    {
+      provider: "google-ai",
+      configured: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      voice: TTS_CONFIG.defaultVoice,
+      format: "mp3",
+    },
+    {
+      provider: "azure-tts",
+      configured:
+        !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
+      voice: "en-US-JennyNeural",
+      format: "mp3",
+    },
+  ];
+
+  try {
+    await ProviderRegistry.registerAllProviders();
+
+    const passed: string[] = [];
+    const skipped: string[] = [];
+    const failed: string[] = [];
+
+    for (const entry of matrix) {
+      if (!entry.configured) {
+        continue;
+      }
+      if (!TTSProcessor.supports(entry.provider)) {
+        // Credentials are present but registration declined them. That is a
+        // configuration condition, not a synthesis defect.
+        skipped.push(`${entry.provider} (not registered)`);
+        continue;
+      }
+      try {
+        const result = await TTSProcessor.synthesize(
+          "Integration coverage for text to speech.",
+          entry.provider,
+          {
+            format: entry.format,
+            ...(entry.voice !== undefined ? { voice: entry.voice } : {}),
+          },
+        );
+        if (!Buffer.isBuffer(result.buffer) || result.buffer.length === 0) {
+          failed.push(`${entry.provider} (empty buffer)`);
+          continue;
+        }
+        if (result.size !== result.buffer.length) {
+          failed.push(`${entry.provider} (size disagrees with buffer)`);
+          continue;
+        }
+        if (typeof result.metadata?.latency !== "number") {
+          failed.push(`${entry.provider} (no latency recorded)`);
+          continue;
+        }
+        passed.push(`${entry.provider} ${result.buffer.length}B`);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        // 401/403 is a credential condition — environmental, like a missing
+        // key. Anything else is a real failure of this provider's path.
+        if (/\b(?:401|403)\b/.test(detail) || isExpectedProviderError(detail)) {
+          skipped.push(`${entry.provider} (upstream credential/quota)`);
+          continue;
+        }
+        failed.push(`${entry.provider} (synthesis raised)`);
+      }
+    }
+
+    if (failed.length > 0) {
+      logTest(
+        name,
+        "FAIL",
+        `${failed.length} provider(s) failed: ${failed.join(", ")}`,
+      );
+      return false;
+    }
+    if (passed.length === 0) {
+      logTest(
+        name,
+        "SKIP",
+        skipped.length > 0
+          ? `no provider was exercised — ${skipped.join(", ")}`
+          : "no TTS provider credentials are set",
+      );
+      return null;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `${passed.length} synthesized: ${passed.join(", ")}${
+        skipped.length > 0 ? ` | skipped: ${skipped.join(", ")}` : ""
+      }`,
+    );
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
 async function runAllTests(): Promise<void> {
   log("\nNeuroLink Continuous Test Suite: TTS (Text-to-Speech)", "bright");
   log(
@@ -1874,6 +2790,48 @@ async function runAllTests(): Promise<void> {
     {
       name: "TTS - Cartesia end-to-end",
       fn: () => testCartesiaTTS(sharedSdk),
+    },
+
+    // TTS-013 (#492) — Google native streaming, plus its format gate.
+    {
+      name: "TTS - Google native streaming (#492)",
+      fn: () => testGoogleNativeStreaming(),
+    },
+    {
+      name: "TTS - Google streaming format gate (#492)",
+      fn: () => testGoogleStreamingFormatGate(),
+    },
+    {
+      name: "TTS - Google streaming survives a slow consumer (PR#1746)",
+      fn: () => testGoogleStreamingSurvivesSlowConsumer(),
+    },
+
+    // TTS-026 (#524) — voice discovery, SDK and CLI.
+    {
+      name: "TTS - getVoices rejects an unregistered provider (#524)",
+      fn: () => testGetVoicesUnregistered(),
+    },
+    {
+      name: "TTS - getVoices gates isConfigured, shapes errors (PR#1746)",
+      fn: () => testGetVoicesGatesConfigAndShapesErrors(),
+    },
+    {
+      name: "CLI voices - unknown provider exits non-zero (#524)",
+      fn: () => testCLIVoicesUnknownProvider(),
+    },
+    {
+      name: "CLI voices - OpenAI list (#524)",
+      fn: () => testCLIVoicesOpenAI(),
+    },
+    {
+      name: "TTS - Google getVoices returns 220+ voices (#528)",
+      fn: () => testGoogleVoiceCatalogSize(),
+    },
+
+    // TTS-028 (#528) — live synthesis across every configured provider.
+    {
+      name: "TTS - live provider synthesis matrix (#528)",
+      fn: () => testLiveProviderSynthesis(),
     },
     // Observability spans (Test #15)
     {
