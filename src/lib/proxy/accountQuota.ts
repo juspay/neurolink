@@ -385,8 +385,8 @@ const FLUSH_INTERVAL_MS = 5_000; // write to disk at most every 5 seconds
 let memoryCache: Record<string, AccountQuota> = {};
 let cacheLoaded = false;
 let cacheLoadPromise: Promise<void> | null = null;
-let dirty = false;
-let cacheVersion = 0;
+/** Accounts this worker changed since its last flush. */
+let dirtyKeys = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 const stateMutex = new AsyncMutex();
 const flushMutex = new AsyncMutex();
@@ -411,44 +411,103 @@ export function initAccountQuota(quotaFilePath: string): void {
   memoryCache = {};
   cacheLoaded = false;
   cacheLoadPromise = null;
-  dirty = false;
-  cacheVersion = 0;
+  dirtyKeys = new Set();
 }
 
 function getQuotaFilePath(): string {
   return customQuotaFilePath ?? join(homedir(), ".neurolink", QUOTA_FILE);
 }
 
-/** Flush the in-memory cache to disk (async, non-blocking). */
+/**
+ * Read the quota file as it is now. A missing file is empty; any other failure
+ * (unreadable, corrupt) returns `fallback`, so a flush never discards entries
+ * just because one read failed.
+ */
+async function readQuotasFromDisk(
+  filePath: string,
+  fallback: Record<string, AccountQuota>,
+): Promise<Record<string, AccountQuota>> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(filePath, "utf-8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return fallback;
+    }
+    return parsed as Record<string, AccountQuota>;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? {} : fallback;
+  }
+}
+
+/** Fold two snapshots of one account so the more recently updated one wins,
+ *  whichever worker wrote it. */
+function foldNewerQuota(
+  onDisk: AccountQuota | undefined,
+  ours: AccountQuota,
+): AccountQuota {
+  if (!onDisk) {
+    return ours;
+  }
+  return onDisk.lastUpdated > ours.lastUpdated
+    ? mergeQuotaSnapshot(ours, onDisk)
+    : mergeQuotaSnapshot(onDisk, ours);
+}
+
+/** Flush this worker's changed accounts to disk (async, non-blocking). */
 async function flushToDisk(): Promise<void> {
   await flushMutex.runExclusive(async () => {
-    let snapshot: Record<string, AccountQuota> | undefined;
-    let snapshotVersion = 0;
+    let changed: Record<string, AccountQuota> | undefined;
+    let fallback: Record<string, AccountQuota> = {};
     let filePath = "";
 
     await stateMutex.runExclusive(async () => {
-      if (!dirty) {
+      if (dirtyKeys.size === 0) {
         return;
       }
-      snapshot = Object.fromEntries(
+      changed = Object.fromEntries(
+        [...dirtyKeys].map((key) => [key, { ...memoryCache[key] }]),
+      );
+      fallback = Object.fromEntries(
         Object.entries(memoryCache).map(([key, quota]) => [key, { ...quota }]),
       );
-      snapshotVersion = cacheVersion;
+      dirtyKeys = new Set();
       filePath = getQuotaFilePath();
     });
 
-    if (!snapshot) {
+    const flushing = changed;
+    if (!flushing) {
       return;
     }
 
     try {
-      await writeJsonSnapshotAtomically(filePath, snapshot, 0o600);
+      // Another worker (a draining one during a rolling restart) may have
+      // written the file since this one loaded it: fold only this worker's
+      // changes onto the file as it is now, never rewrite it from this copy.
+      const onDisk = await readQuotasFromDisk(filePath, fallback);
+      const merged = { ...onDisk };
+      for (const [key, quota] of Object.entries(flushing)) {
+        merged[key] = foldNewerQuota(onDisk[key], quota);
+      }
+      await writeJsonSnapshotAtomically(filePath, merged, 0o600);
       await stateMutex.runExclusive(async () => {
-        if (cacheVersion === snapshotVersion) {
-          dirty = false;
+        if (getQuotaFilePath() !== filePath) {
+          return;
         }
+        // Adopt what other workers wrote, keeping changes saved meanwhile.
+        memoryCache = {
+          ...merged,
+          ...Object.fromEntries(
+            [...dirtyKeys].map((key) => [key, memoryCache[key]]),
+          ),
+        };
       });
     } catch {
+      await stateMutex.runExclusive(async () => {
+        if (getQuotaFilePath() === filePath) {
+          for (const key of Object.keys(flushing)) {
+            dirtyKeys.add(key);
+          }
+        }
+      });
       // Non-fatal — quota is best-effort telemetry
     }
   });
@@ -482,12 +541,7 @@ async function ensureAccountQuotasLoaded(): Promise<void> {
   if (!cacheLoaded) {
     if (!cacheLoadPromise) {
       cacheLoadPromise = (async () => {
-        try {
-          const raw = await fs.readFile(getQuotaFilePath(), "utf-8");
-          memoryCache = JSON.parse(raw) as Record<string, AccountQuota>;
-        } catch {
-          memoryCache = {};
-        }
+        memoryCache = await readQuotasFromDisk(getQuotaFilePath(), {});
         cacheLoaded = true;
       })().finally(() => {
         cacheLoadPromise = null;
@@ -536,8 +590,7 @@ export async function saveAccountQuota(
       memoryCache[accountKey],
       quota,
     );
-    dirty = true;
-    cacheVersion += 1;
+    dirtyKeys.add(accountKey);
   });
   scheduleFlush();
 }

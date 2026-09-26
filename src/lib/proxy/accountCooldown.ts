@@ -83,27 +83,35 @@ function sanitizePersistedCooldown(
   return { ...entry, coolingUntil: latest };
 }
 
+/**
+ * Read the cooldown file as it is now. A missing file is empty; any other
+ * failure (unreadable, corrupt) returns `fallback`, so a write never discards
+ * entries just because one read failed.
+ */
+async function readCooldownsFromDisk(
+  fallback: Record<string, PersistedAccountCooldown>,
+): Promise<Record<string, PersistedAccountCooldown>> {
+  try {
+    const parsed = JSON.parse(
+      await readFile(getCooldownFilePath(), "utf8"),
+    ) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter((entry): entry is [string, PersistedAccountCooldown] =>
+          isPersistedCooldown(entry[1]),
+        )
+        .map(([key, entry]) => [key, sanitizePersistedCooldown(key, entry)]),
+    );
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? {} : fallback;
+  }
+}
+
 async function ensureAccountCooldownsLoaded(): Promise<void> {
   if (!cacheLoaded) {
     if (!cacheLoadPromise) {
       cacheLoadPromise = (async () => {
-        try {
-          const parsed = JSON.parse(
-            await readFile(getCooldownFilePath(), "utf8"),
-          ) as Record<string, unknown>;
-          memoryCache = Object.fromEntries(
-            Object.entries(parsed)
-              .filter((entry): entry is [string, PersistedAccountCooldown] =>
-                isPersistedCooldown(entry[1]),
-              )
-              .map(([key, entry]) => [
-                key,
-                sanitizePersistedCooldown(key, entry),
-              ]),
-          );
-        } catch {
-          memoryCache = {};
-        }
+        memoryCache = await readCooldownsFromDisk({});
         cacheLoaded = true;
       })().finally(() => {
         cacheLoadPromise = null;
@@ -127,14 +135,18 @@ export async function saveAccountCooldown(
 ): Promise<void> {
   await mutationMutex.runExclusive(async () => {
     await ensureAccountCooldownsLoaded();
-    const current = memoryCache[accountKey];
+    // Another worker (a draining one during a rolling restart) may have written
+    // the file since this one loaded it, so the change folds onto the file as
+    // it is now rather than onto this worker's copy.
+    const onDisk = await readCooldownsFromDisk(memoryCache);
+    memoryCache = onDisk;
+    const current = onDisk[accountKey];
     if (current && current.coolingUntil > coolingUntil) {
       return;
     }
-    memoryCache[accountKey] = {
-      coolingUntil,
-      reason,
-      updatedAt: Date.now(),
+    memoryCache = {
+      ...onDisk,
+      [accountKey]: { coolingUntil, reason, updatedAt: Date.now() },
     };
     await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
   });
@@ -146,7 +158,11 @@ export async function clearAccountCooldown(
 ): Promise<void> {
   await mutationMutex.runExclusive(async () => {
     await ensureAccountCooldownsLoaded();
-    const current = memoryCache[accountKey];
+    // Compare against the file, not this worker's copy: another worker may
+    // have extended this cooldown since, and that one must survive.
+    const onDisk = await readCooldownsFromDisk(memoryCache);
+    memoryCache = onDisk;
+    const current = onDisk[accountKey];
     if (!current) {
       return;
     }
@@ -156,7 +172,9 @@ export async function clearAccountCooldown(
     ) {
       return;
     }
-    delete memoryCache[accountKey];
+    const next = { ...onDisk };
+    delete next[accountKey];
+    memoryCache = next;
     await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
   });
 }

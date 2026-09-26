@@ -9739,6 +9739,90 @@ async function testPersistedCooldownClamp(): Promise<boolean | null> {
   }
 }
 
+/** Another worker (a draining one during a rolling restart) writes the
+ * cooldown file after this one loaded it. Each save and clear must fold onto
+ * the file as it is now, not rewrite it from this worker's stale copy. Every
+ * scenario starts from a fresh load so one failure cannot mask another. */
+async function testCooldownWritesMergeWithDisk(): Promise<boolean | null> {
+  const {
+    initAccountCooldown,
+    loadAccountCooldowns,
+    saveAccountCooldown,
+    clearAccountCooldown,
+  } = await import("../src/lib/proxy/accountCooldown.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cooldown-"));
+  const file = path.join(dir, "account-cooldowns.json");
+  const now = Date.now();
+  const entry = (coolingUntil: number) => ({
+    coolingUntil,
+    reason: "unified",
+    updatedAt: now,
+  });
+  const diskUntil = (key: string): number | undefined =>
+    (
+      JSON.parse(fs.readFileSync(file, "utf8")) as Record<
+        string,
+        { coolingUntil?: number }
+      >
+    )[key]?.coolingUntil;
+  /** This worker loads `before`; another worker then writes `after`. */
+  const stage = async (
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+  ): Promise<void> => {
+    fs.writeFileSync(file, JSON.stringify(before));
+    initAccountCooldown(file);
+    await loadAccountCooldowns();
+    fs.writeFileSync(file, JSON.stringify(after));
+  };
+  const failures: string[] = [];
+  try {
+    await stage({}, { "anthropic:p": entry(now + 600_000) });
+    await saveAccountCooldown("anthropic:s", now + 120_000, "unified");
+    if (diskUntil("anthropic:p") === undefined) {
+      failures.push("a save dropped another worker's cooldown");
+    }
+    if (diskUntil("anthropic:s") === undefined) {
+      failures.push("a save did not write its own cooldown");
+    }
+
+    await stage(
+      { "anthropic:a": entry(now + 60_000) },
+      { "anthropic:a": entry(now + 600_000) },
+    );
+    await saveAccountCooldown("anthropic:a", now + 120_000, "unified");
+    if (diskUntil("anthropic:a") !== now + 600_000) {
+      failures.push("a save shortened a later cooldown another worker wrote");
+    }
+
+    await stage(
+      { "anthropic:a": entry(now + 60_000) },
+      { "anthropic:a": entry(now + 600_000) },
+    );
+    await clearAccountCooldown("anthropic:a", now + 60_000);
+    if (diskUntil("anthropic:a") !== now + 600_000) {
+      failures.push("a clear removed a cooldown another worker extended");
+    }
+
+    if (failures.length > 0) {
+      for (const failure of failures) {
+        log(`cooldown write merge: ${failure}`, "red");
+      }
+      return false;
+    }
+    log(
+      "cooldown write merge: saves and clears fold onto the file on disk",
+      "green",
+    );
+    return true;
+  } finally {
+    initAccountCooldown(
+      path.join(os.tmpdir(), "neurolink-cooldown-discard.json"),
+    );
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // ============================================================================
 // Tests: cleanup must not delete credentials that still work
 // ============================================================================
@@ -10558,6 +10642,96 @@ async function testSaveAccountQuotaMerges(): Promise<boolean | null> {
   } finally {
     // Point the module back at a throwaway path so the debounced flush from
     // this test can't touch the real ~/.neurolink file.
+    initAccountQuota(path.join(tmpDir, "discard.json"));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/** Another worker (a draining one during a rolling restart) writes the quota
+ * file after this one loaded it. A flush must fold this worker's changes onto
+ * the file as it is now, not rewrite it from a stale copy. */
+async function testQuotaFlushMergesWithDisk(): Promise<boolean | null> {
+  const { initAccountQuota, saveAccountQuota, flushAccountQuotas } =
+    await import("../src/lib/proxy/accountQuota.js");
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nl-quota-merge-"));
+  const quotaPath = path.join(tmpDir, "account-quotas.json");
+  try {
+    fs.writeFileSync(
+      quotaPath,
+      JSON.stringify({ "a@test": makeQuota({ weeklyResetAt: 1_900_000_000 }) }),
+    );
+    initAccountQuota(quotaPath);
+    await saveAccountQuota("b@test", makeQuota({}) as never);
+
+    fs.writeFileSync(
+      quotaPath,
+      JSON.stringify({
+        "a@test": makeQuota({ weeklyResetAt: 1_950_000_000 }),
+        "c@test": makeQuota({ weeklyResetAt: 1_960_000_000 }),
+      }),
+    );
+    await flushAccountQuotas();
+
+    const disk = JSON.parse(fs.readFileSync(quotaPath, "utf8")) as Record<
+      string,
+      { weeklyResetAt?: number }
+    >;
+    const failures: string[] = [];
+    if (!disk["b@test"]) {
+      failures.push("this worker's own change was not written");
+    }
+    if (!disk["c@test"]) {
+      failures.push("another worker's account was dropped");
+    }
+    if (disk["a@test"]?.weeklyResetAt !== 1_950_000_000) {
+      failures.push(
+        "an account this worker never touched lost the other worker's newer snapshot",
+      );
+    }
+    if (failures.length > 0) {
+      for (const failure of failures) {
+        log(`quota flush merge: ${failure}`, "red");
+      }
+      return false;
+    }
+    log("quota flush merge: folds onto the file another worker wrote", "green");
+    return true;
+  } finally {
+    initAccountQuota(path.join(tmpDir, "discard.json"));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/** A quota file holding valid JSON that is not an object is corrupt: a save
+ * and a flush must replace it, not throw on every later write. */
+async function testQuotaFileThatIsNotAnObject(): Promise<boolean | null> {
+  const { initAccountQuota, saveAccountQuota, flushAccountQuotas } =
+    await import("../src/lib/proxy/accountQuota.js");
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nl-quota-shape-"));
+  const quotaPath = path.join(tmpDir, "account-quotas.json");
+  try {
+    for (const content of ["null", "[]"]) {
+      fs.writeFileSync(quotaPath, content);
+      initAccountQuota(quotaPath);
+      await saveAccountQuota("b@test", makeQuota({}) as never);
+      await flushAccountQuotas();
+      const disk = JSON.parse(fs.readFileSync(quotaPath, "utf8")) as Record<
+        string,
+        unknown
+      > | null;
+      if (!disk || Array.isArray(disk) || !disk["b@test"]) {
+        log(
+          `quota file shape: a ${content} file was not replaced by this worker's snapshot`,
+          "red",
+        );
+        return false;
+      }
+    }
+    log("quota file shape: a non-object file is replaced, not fatal", "green");
+    return true;
+  } finally {
     initAccountQuota(path.join(tmpDir, "discard.json"));
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -14348,6 +14522,11 @@ const tests: TestFunction[] = [
     category: "proxy-primary",
   },
   {
+    name: "Cooldown: writes merge with what another worker wrote",
+    fn: testCooldownWritesMergeWithDisk,
+    category: "proxy-primary",
+  },
+  {
     name: "Cleanup: only broken credentials are deletable",
     fn: testCleanupRetainsUsableCredentials,
     category: "proxy-primary",
@@ -14355,6 +14534,16 @@ const tests: TestFunction[] = [
   {
     name: "Quota: saveAccountQuota merges across restarts",
     fn: testSaveAccountQuotaMerges,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: a flush merges with what another worker wrote",
+    fn: testQuotaFlushMergesWithDisk,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: a non-object quota file is replaced, not fatal",
+    fn: testQuotaFileThatIsNotAnObject,
     category: "proxy-primary",
   },
   {
