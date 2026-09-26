@@ -32,9 +32,14 @@ File processing result after detection and conversion
 
 ### images?
 
-> `optional` **images?**: (`Buffer` \| `string`)[]
+> `optional` **images?**: (`Buffer` \| `string` \| [`ImageWithAltText`](ImageWithAltText.md))[]
 
-Additional images extracted from the file (e.g., video keyframes, audio cover art)
+Additional images extracted from the file (e.g., video keyframes, audio
+cover art).
+
+An entry may carry alt text, which is how a video keyframe states the
+timestamp it was sampled at. Bare bytes still work — the field was
+widened, not changed.
 
 ---
 

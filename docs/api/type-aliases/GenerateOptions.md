@@ -249,31 +249,14 @@ module's own default, unchanged unless a caller opts in here.
 
 ### videoOptions?
 
-> `optional` **videoOptions?**: `object`
+> `optional` **videoOptions?**: [`VideoProcessorOptions`](VideoProcessorOptions.md)
 
-#### frames?
+Video processing options — keyframe budget, encoder settings, and
+whether to transcribe the clip's spoken audio.
 
-> `optional` **frames?**: `number`
-
-Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100.
-
-#### quality?
-
-> `optional` **quality?**: `number`
-
-Frame encoder quality, clamped to 1-100. Default 80.
-
-#### format?
-
-> `optional` **format?**: `"jpeg"` \| `"png"`
-
-Frame encoding. Default jpeg.
-
-#### transcribeAudio?
-
-> `optional` **transcribeAudio?**: `boolean`
-
-Not implemented yet (#433) — warns rather than silently doing nothing.
+The canonical shape, rather than a third structurally-identical copy of
+it: `StreamOptions` and `TextGenerationOptions` declare the same field,
+and the inline copies had already drifted apart in what they documented.
 
 ---
 

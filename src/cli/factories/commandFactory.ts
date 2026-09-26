@@ -221,7 +221,9 @@ export class CLICommandFactory {
     "transcribe-audio": {
       type: "boolean" as const,
       default: false,
-      description: "Extract and transcribe audio from video",
+      description:
+        "Transcribe the video's spoken audio (needs ffmpeg and OPENAI_API_KEY). " +
+        "Unnecessary for Gemini, which hears the clip directly",
     },
     file: {
       type: "string" as const,

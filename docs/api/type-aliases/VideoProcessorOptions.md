@@ -37,3 +37,17 @@ Encoder quality 1-100 for the extracted frames.
 > `optional` **format?**: `"jpeg"` \| `"png"`
 
 Frame encoding. Defaults to jpeg.
+
+---
+
+### transcribeAudio?
+
+> `optional` **transcribeAudio?**: `boolean`
+
+Transcribe the clip's spoken audio (#433). Off by default: it costs an
+ffmpeg pass plus a Whisper call, and most attached video is silent
+screen capture.
+
+Best-effort — a clip with no audio track, no `OPENAI_API_KEY`, or a
+failed call still processes, and the reason lands in
+`ProcessedVideo.transcriptionSkippedReason`.

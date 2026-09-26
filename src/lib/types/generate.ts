@@ -39,6 +39,7 @@ import type {
 import type { NeurolinkCredentials } from "./providers.js";
 import type {
   CSVProcessorOptions,
+  VideoProcessorOptions,
   FileWithMetadata,
   MultimodalAudioEntry,
   MultimodalVideoEntry,
@@ -213,17 +214,15 @@ export type GenerateOptions = {
     outputFormat?: VisionImageOutputFormat;
   };
 
-  // Video processing options
-  videoOptions?: {
-    /** Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100. */
-    frames?: number;
-    /** Frame encoder quality, clamped to 1-100. Default 80. */
-    quality?: number;
-    /** Frame encoding. Default jpeg. */
-    format?: "jpeg" | "png";
-    /** Not implemented yet (#433) — warns rather than silently doing nothing. */
-    transcribeAudio?: boolean;
-  };
+  /**
+   * Video processing options — keyframe budget, encoder settings, and
+   * whether to transcribe the clip's spoken audio.
+   *
+   * The canonical shape, rather than a third structurally-identical copy of
+   * it: `StreamOptions` and `TextGenerationOptions` declare the same field,
+   * and the inline copies had already drifted apart in what they documented.
+   */
+  videoOptions?: VideoProcessorOptions;
 
   /**
    * Text-to-Speech (TTS) configuration
@@ -1597,6 +1596,17 @@ export type TextGenerationOptions = {
   // NEW: CSV Processing Options (#379: canonical shape — see above)
   csvOptions?: CSVProcessorOptions;
 
+  /**
+   * Video processing options (#478, #433).
+   *
+   * Reconstructed option objects have to carry this the same way they carry
+   * `csvOptions` and `pdfOptions`: the message builder hands it to the
+   * detector, which hands it to `VideoProcessor`, and anything that rebuilds
+   * the options along the way and omits it restores the defaults without
+   * saying so.
+   */
+  videoOptions?: VideoProcessorOptions;
+
   /** PDF processing options (#258). */
   pdfOptions?: {
     /** Password for an encrypted PDF (image-conversion fallback path). */
@@ -1622,22 +1632,6 @@ export type TextGenerationOptions = {
      * module's own default, unchanged unless a caller opts in here.
      */
     outputFormat?: VisionImageOutputFormat;
-  };
-
-  /**
-   * Video processing options (mirrors `GenerateOptions.videoOptions`). Never
-   * declared here before, so `buildGenerateTextOptions` had nowhere to
-   * forward the caller's setting even once the allowlist itself named it.
-   */
-  videoOptions?: {
-    /** Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100. */
-    frames?: number;
-    /** Frame encoder quality, clamped to 1-100. Default 80. */
-    quality?: number;
-    /** Frame encoding. Default jpeg. */
-    format?: "jpeg" | "png";
-    /** Not implemented yet (#433) — warns rather than silently doing nothing. */
-    transcribeAudio?: boolean;
   };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request

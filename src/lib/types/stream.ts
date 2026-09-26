@@ -42,6 +42,7 @@ import type { StandardRecord, ValidationSchema } from "./aliases.js";
 import type {
   CSVProcessorOptions,
   FileWithMetadata,
+  VideoProcessorOptions,
   VisionImageOutputFormat,
 } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
@@ -420,6 +421,17 @@ export type StreamOptions = {
   // CSV processing options (#379: canonical shape — see CSVProcessorOptions)
   csvOptions?: CSVProcessorOptions;
 
+  /**
+   * Video processing options (#478, #433).
+   *
+   * Reconstructed option objects have to carry this the same way they carry
+   * `csvOptions` and `pdfOptions`: the message builder hands it to the
+   * detector, which hands it to `VideoProcessor`, and anything that rebuilds
+   * the options along the way and omits it restores the defaults without
+   * saying so.
+   */
+  videoOptions?: VideoProcessorOptions;
+
   /** PDF processing options (#258). */
   pdfOptions?: {
     /** Password for an encrypted PDF (image-conversion fallback path). */
@@ -450,18 +462,6 @@ export type StreamOptions = {
      * module's own default, unchanged unless a caller opts in here.
      */
     outputFormat?: VisionImageOutputFormat;
-  };
-
-  // Video processing options
-  videoOptions?: {
-    /** Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100. */
-    frames?: number;
-    /** Frame encoder quality, clamped to 1-100. Default 80. */
-    quality?: number;
-    /** Frame encoding. Default jpeg. */
-    format?: "jpeg" | "png";
-    /** Not implemented yet (#433) — warns rather than silently doing nothing. */
-    transcribeAudio?: boolean;
   };
 
   /**

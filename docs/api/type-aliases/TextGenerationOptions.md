@@ -605,6 +605,20 @@ const result = await neurolink.generate({
 
 ---
 
+### videoOptions?
+
+> `optional` **videoOptions?**: [`VideoProcessorOptions`](VideoProcessorOptions.md)
+
+Video processing options (#478, #433).
+
+Reconstructed option objects have to carry this the same way they carry
+`csvOptions` and `pdfOptions`: the message builder hands it to the
+detector, which hands it to `VideoProcessor`, and anything that rebuilds
+the options along the way and omits it restores the defaults without
+saying so.
+
+---
+
 ### pdfOptions?
 
 > `optional` **pdfOptions?**: `object`
@@ -653,40 +667,6 @@ built on `BaseProvider`.
 
 Transcode target for an incompatible image. Defaults to `"png"` — the
 module's own default, unchanged unless a caller opts in here.
-
----
-
-### videoOptions?
-
-> `optional` **videoOptions?**: `object`
-
-Video processing options (mirrors `GenerateOptions.videoOptions`). Never
-declared here before, so `buildGenerateTextOptions` had nowhere to
-forward the caller's setting even once the allowlist itself named it.
-
-#### frames?
-
-> `optional` **frames?**: `number`
-
-Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100.
-
-#### quality?
-
-> `optional` **quality?**: `number`
-
-Frame encoder quality, clamped to 1-100. Default 80.
-
-#### format?
-
-> `optional` **format?**: `"jpeg"` \| `"png"`
-
-Frame encoding. Default jpeg.
-
-#### transcribeAudio?
-
-> `optional` **transcribeAudio?**: `boolean`
-
-Not implemented yet (#433) — warns rather than silently doing nothing.
 
 ---
 
