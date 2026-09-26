@@ -497,6 +497,19 @@ export default [
             // this one function is the exception, and the suite's header says
             // so.
             "test/continuous-test-suite-gemini-thinking-level.ts",
+            // `supportsNativeAudio` (adapters/audioFormatSupport.ts) and
+            // `buildMultimodalMessagesArray` (utils/messageBuilder.ts) are
+            // internal — neither is re-exported from src/lib/index.ts, so no
+            // public surface can observe them — and for the real Vertex
+            // provider the gate never reaches the wire request: `stream()`
+            // does run it (BaseProvider's early multimodal detection), but
+            // only to look for video frames before Vertex's own
+            // `executeStream()` rebuilds the request from `options.input`,
+            // and `generate()` is overridden outright. A live call therefore
+            // cannot distinguish the fixed decision from the pre-fix one.
+            // Asserts directly on the two functions' return values/output
+            // shape instead. Its header states the exception in full.
+            "test/continuous-test-suite-native-audio-model-aware.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`

@@ -259,7 +259,8 @@
     "test:docs-mcp": "pnpm exec tsx test/continuous-test-suite-docs-mcp.ts",
     "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts",
     "test:toolfree-guard-overhead": "pnpm exec tsx test/continuous-test-suite-toolfree-guard-overhead.ts",
-    "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts"
+    "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts",
+    "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts"
   },
   "files": [
     "dist",
