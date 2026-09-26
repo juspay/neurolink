@@ -70,6 +70,7 @@ import {
   normalizeMimeHint,
 } from "./mimeTypeHints.js";
 import { PDFProcessor } from "./pdfProcessor.js";
+import { formatKeyframeTimestamp } from "./mediaDuration.js";
 
 /**
  * Short-TTL cache of URL → Content-Type (#323). A URL is commonly detected more
@@ -1044,6 +1045,30 @@ export class FileDetector {
   /**
    * SDK-8: Format an informative placeholder when a file processor fails.
    * Instead of bare "[Video file: name]" strings, include size, format, and
+   * Describe one keyframe well enough for a model to place it in time.
+   *
+   * The clip's total length rides along because the eighth frame of a
+   * recording means nothing without knowing how long the recording is.
+   *
+   * Explicit units rather than a clock — see `formatKeyframeTimestamp`. An
+   * earlier draft used "0:03" here and the model reported the frame as
+   * appearing at "3:00".
+   *
+   * A timestamp can be missing if extraction and its schedule ever disagree
+   * in length. That should not happen, but an unlabelled frame is better
+   * than one labelled "NaN".
+   */
+  private static describeKeyframe(
+    timestampSec: number | undefined,
+    durationFormatted: string,
+  ): string | undefined {
+    if (typeof timestampSec !== "number" || !Number.isFinite(timestampSec)) {
+      return undefined;
+    }
+    return `Video keyframe at ${formatKeyframeTimestamp(timestampSec)} into a ${durationFormatted} video`;
+  }
+
+  /**
    * the reason for failure so the LLM can acknowledge the attachment.
    */
   private static formatInformativePlaceholder(
@@ -1463,10 +1488,13 @@ export class FileDetector {
         videoOptions,
       );
       if (videoResult.success && videoResult.data) {
+        // Bound to a local because the keyframe map below is a closure, and
+        // TypeScript drops the `videoResult.data` narrowing across one.
+        const video = videoResult.data;
         return {
           type: "video",
           content:
-            videoResult.data.textContent ||
+            video.textContent ||
             FileDetector.formatInformativePlaceholder(
               "Video",
               videoFilename,
@@ -1474,14 +1502,26 @@ export class FileDetector {
               detection,
             ),
           mimeType: detection.mimeType,
+          // Each keyframe carries the moment it was sampled at. Alt text is
+          // the only per-image channel that survives to the model — the
+          // message builder folds it into the prompt as
+          // "[Image N: <alt>]" — so without it the frames arrive as an
+          // unlabelled pile and "what happens at 0:30?" has no answer even
+          // though the frame at 0:30 is right there.
           images:
-            videoResult.data.keyframes && videoResult.data.keyframes.length > 0
-              ? videoResult.data.keyframes
+            video.keyframes && video.keyframes.length > 0
+              ? video.keyframes.map((frame, index) => ({
+                  data: frame,
+                  altText: FileDetector.describeKeyframe(
+                    video.keyframeTimestampsSec[index],
+                    video.metadata.durationFormatted,
+                  ),
+                }))
               : undefined,
           metadata: {
             ...detection.metadata,
-            frameCount: videoResult.data.frameCount,
-            hasKeyframes: videoResult.data.hasKeyframes,
+            frameCount: video.frameCount,
+            hasKeyframes: video.hasKeyframes,
           },
         };
       }

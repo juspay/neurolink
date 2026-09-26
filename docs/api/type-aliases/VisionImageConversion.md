@@ -8,7 +8,7 @@
 
 > **VisionImageConversion** = `object`
 
-Defined in: [types/file.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L45)
+Defined in: [types/file.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L47)
 
 Outcome of a vision-compatibility pass over one image.
 
@@ -22,7 +22,7 @@ read it, so callers must not treat it as a success flag.
 
 > `readonly` **buffer**: `Buffer`
 
-Defined in: [types/file.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L46)
+Defined in: [types/file.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L48)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/file.ts:46](https://github.com/juspay/neurolink/blob/release/
 
 > `readonly` **mimeType**: `string`
 
-Defined in: [types/file.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L47)
+Defined in: [types/file.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L49)
 
 ---
 
@@ -38,6 +38,6 @@ Defined in: [types/file.ts:47](https://github.com/juspay/neurolink/blob/release/
 
 > `readonly` **converted**: `boolean`
 
-Defined in: [types/file.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L49)
+Defined in: [types/file.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L51)
 
 True when the bytes were re-encoded; false when they were left alone.

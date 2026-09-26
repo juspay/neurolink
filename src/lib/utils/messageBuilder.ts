@@ -1030,25 +1030,6 @@ export function mergeMediaFileAliases<TFile>(input: {
 }
 
 /**
- * #478: `transcribeAudio` (CLI `--transcribe-audio`) is accepted by the options
- * surface but no video-audio transcription exists yet — VideoProcessor extracts
- * keyframes and embedded subtitle tracks only, and the transcription step is
- * still open as #433. Say so once per request rather than letting the caller
- * believe a transcript was produced and silently omitted.
- */
-function warnIfVideoTranscriptionRequested(
-  videoOptions: GenerateOptions["videoOptions"],
-): void {
-  if (videoOptions?.transcribeAudio) {
-    logger.warn(
-      "[NEUROLINK] Video audio transcription was requested but is not implemented yet " +
-        "(tracked as #433). Keyframes and any embedded subtitle tracks are still extracted; " +
-        "spoken audio will not be transcribed.",
-    );
-  }
-}
-
-/**
  * Process the unified files array with auto-detection.
  * Handles lazy file registration, full processing, and preview injection.
  *
@@ -1124,6 +1105,10 @@ async function detectFileForUnifiedArray(
           frames: options.videoOptions.frames,
           quality: options.videoOptions.quality,
           format: options.videoOptions.format,
+          // #433: `--transcribe-audio` stopped here until now — the flag was
+          // accepted, warned about, and never handed to the processor that
+          // would have to act on it.
+          transcribeAudio: options.videoOptions.transcribeAudio,
         }
       : undefined,
     provider: provider,
@@ -1172,8 +1157,6 @@ export async function processUnifiedFilesArray(
 
   const totalFiles = pending.length;
   const files = pending;
-
-  warnIfVideoTranscriptionRequested(options.videoOptions);
 
   return withSpan(
     {

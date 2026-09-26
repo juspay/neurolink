@@ -52,7 +52,10 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
-import { formatMediaDuration } from "../../utils/mediaDuration.js";
+import {
+  formatKeyframeTimestamp,
+  formatMediaDuration,
+} from "../../utils/mediaDuration.js";
 import type {
   FfprobeData,
   FfprobeStream,
@@ -60,6 +63,7 @@ import type {
   ProcessedVideo,
   ProcessorFileProcessingResult,
   ProcessOptions,
+  VideoKeyframe,
   VideoProcessorOptions,
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
@@ -71,6 +75,8 @@ import { FileErrorCode } from "../errors/index.js";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { logger } from "../../utils/logger.js";
 import { tryImport } from "../../utils/tryImport.js";
+import { withTimeout } from "../../utils/errorHandling.js";
+import { runFfmpeg } from "../../adapters/video/ffmpegAdapter.js";
 
 /**
  * Narrow a loaded `fluent-ffmpeg` export to the shape this file actually uses:
@@ -243,6 +249,21 @@ const VIDEO_CONFIG = {
   FFMPEG_TIMEOUT_MS: 120_000,
   /** Timeout for ffprobe metadata extraction in milliseconds */
   FFPROBE_TIMEOUT_MS: 10_000,
+  /**
+   * Timeout for demuxing the audio track out of a video (#433).
+   *
+   * Generous next to frame extraction: this reads the whole file rather than
+   * seeking to a handful of offsets, and a meeting recording is long.
+   */
+  AUDIO_EXTRACT_TIMEOUT_MS: 180_000,
+  /** Timeout for one Whisper transcription request in milliseconds */
+  TRANSCRIPTION_TIMEOUT_MS: 120_000,
+  /**
+   * Whisper's upload ceiling in MB. The extracted track is mono 16 kHz MP3,
+   * so this is roughly six hours of speech — a clip that breaches it is
+   * unusual enough to be worth saying so rather than silently truncating.
+   */
+  WHISPER_MAX_SIZE_MB: 25,
 } as const;
 
 /**
@@ -339,6 +360,8 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
       filename: this.getFilename(fileInfo),
       textContent: "",
       keyframes: [],
+      keyframeTimestampsSec: [],
+      hasTranscript: false,
       metadata: {
         duration: 0,
         durationFormatted: formatMediaDuration(0),
@@ -537,7 +560,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
           );
 
           // Step 5: Extract keyframes
-          let keyframes: Buffer[] = [];
+          let keyframes: VideoKeyframe[] = [];
           try {
             keyframes = await this.extractKeyframes(
               tempVideoPath,
@@ -568,12 +591,22 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
             }
           }
 
-          // Step 7: Build textContent for LLM
+          // Step 7: Transcribe spoken audio, if asked
+          const transcription = await this.extractAndTranscribeAudio(
+            tempVideoPath,
+            tempDir,
+            metadata,
+            filename,
+            options,
+          );
+
+          // Step 8: Build textContent for LLM
           const textContent = this.buildTextContent(
             metadata,
-            keyframes.length,
+            keyframes.map((frame) => frame.timestampSec),
             subtitleText,
             this.getFilename(fileInfo),
+            transcription.transcript,
           );
 
           span.setAttribute(ATTR.VIDEO_TEXT_CONTENT_LENGTH, textContent.length);
@@ -585,7 +618,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
               `(${metadata.durationFormatted}, ${metadata.width}x${metadata.height}, ${metadata.codec})`,
           );
 
-          // Step 8: Return structured result
+          // Step 9: Return structured result
           return {
             success: true,
             data: {
@@ -594,9 +627,17 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
               size: fileInfo.size,
               filename: this.getFilename(fileInfo),
               textContent,
-              keyframes,
+              keyframes: keyframes.map((frame) => frame.buffer),
+              keyframeTimestampsSec: keyframes.map(
+                (frame) => frame.timestampSec,
+              ),
               metadata,
               subtitleText,
+              transcript: transcription.transcript,
+              hasTranscript: !!transcription.transcript,
+              ...(transcription.skippedReason
+                ? { transcriptionSkippedReason: transcription.skippedReason }
+                : {}),
               hasKeyframes: keyframes.length > 0,
               frameCount: keyframes.length,
             },
@@ -620,7 +661,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
             ),
           };
         } finally {
-          // Step 8: Clean up temp files
+          // Step 10: Clean up temp files
           if (tempCreated) {
             await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
               // Ignore cleanup errors - temp files will be cleaned by OS eventually
@@ -806,6 +847,196 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   }
 
   /**
+   * Extract the clip's audio track and transcribe the speech in it (#433).
+   *
+   * ## Why this exists at all, now that Gemini hears video directly
+   *
+   * It does not help Gemini — a native provider receives the clip and its
+   * audio together. It is for everyone else. A provider on the frame path
+   * gets stills and nothing else, so a recorded standup, a support call or a
+   * narrated demo arrives with its entire spoken content missing, and
+   * "summarise this meeting" is answered from four screenshots.
+   *
+   * ## Why it is not a stub
+   *
+   * The issue asked for one, on the grounds that no transcription backend
+   * existed yet. One does: `AudioProcessor` has shipped Whisper transcription
+   * for standalone audio files for some time. A method that logged "not yet
+   * implemented" and returned undefined would be dead code sitting next to a
+   * working implementation of the same thing, and `--transcribe-audio` would
+   * still do nothing.
+   *
+   * The Whisper call is reproduced here rather than shared with
+   * `AudioProcessor`: extracting it into a common module is the better
+   * long-term shape, but that file is being edited concurrently, and a
+   * merge conflict in the audio pipeline is a worse outcome than fifty
+   * duplicated lines. The duplication is worth removing once both land.
+   *
+   * ## Failure behaviour
+   *
+   * Best-effort throughout, and never throws: a clip with no audio track, a
+   * machine without ffmpeg, a missing key, an oversized track or a failed
+   * request all return a *reason* and leave the rest of the pipeline intact.
+   * Each reason is distinct, because from the outside every one of them
+   * looks the same — no transcript — while the remedies differ completely.
+   *
+   * @param videoPath - Temp path to the video, already written by the caller
+   * @param tempDir - Caller-owned temp directory; removed in its `finally`
+   * @param metadata - Probed metadata, consulted for an audio track
+   * @param filename - Display name, for logs
+   * @param options - Caller settings; transcription runs only when asked
+   */
+  private async extractAndTranscribeAudio(
+    videoPath: string,
+    tempDir: string,
+    metadata: ProcessedVideo["metadata"],
+    filename: string,
+    options?: VideoProcessorOptions,
+  ): Promise<{ transcript?: string; skippedReason?: string }> {
+    if (!options?.transcribeAudio) {
+      // Not a skip worth reporting: nobody asked. Reporting it would put a
+      // "no transcript because..." line in every video result.
+      return {};
+    }
+
+    const skipped = (reason: string): { skippedReason: string } => {
+      logger.warn(
+        `[VideoProcessor] No transcript for ${filename}: ${reason}. ` +
+          `The model will receive the keyframes and metadata only.`,
+      );
+      return { skippedReason: reason };
+    };
+
+    // Probing reports no audio codec both for a genuinely silent clip and
+    // for one nothing could open. Either way there is nothing to send, and
+    // the ffmpeg pass below would only fail more slowly.
+    if (!metadata.audioCodec) {
+      return skipped("the video has no audio track");
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return skipped(
+        "OPENAI_API_KEY is not set, and Whisper is the only transcription backend wired up",
+      );
+    }
+
+    const audioPath = join(tempDir, "audio.mp3");
+    try {
+      await runFfmpeg(
+        [
+          "-y",
+          "-v",
+          "error",
+          "-i",
+          videoPath,
+          // Drop the video stream outright. Without -vn ffmpeg tries to carry
+          // it into an MP3 container as cover art and fails on most inputs.
+          "-vn",
+          // Mono at 16 kHz is what Whisper resamples to anyway, and it keeps
+          // an hour-long recording comfortably under the upload ceiling.
+          "-ac",
+          "1",
+          "-ar",
+          "16000",
+          "-c:a",
+          "libmp3lame",
+          "-q:a",
+          "4",
+          audioPath,
+        ],
+        { timeoutMs: VIDEO_CONFIG.AUDIO_EXTRACT_TIMEOUT_MS },
+      );
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message.split("\n")[0] : String(error);
+      return skipped(`the audio track could not be extracted — ${detail}`);
+    }
+
+    let audioBuffer: Buffer;
+    try {
+      audioBuffer = await fs.readFile(audioPath);
+    } catch {
+      return skipped("ffmpeg reported success but wrote no audio file");
+    }
+    if (audioBuffer.length === 0) {
+      return skipped("the extracted audio track was empty");
+    }
+
+    const sizeMB = audioBuffer.length / (1024 * 1024);
+    if (sizeMB > VIDEO_CONFIG.WHISPER_MAX_SIZE_MB) {
+      return skipped(
+        `the extracted audio is ${sizeMB.toFixed(1)}MB, over Whisper's ` +
+          `${VIDEO_CONFIG.WHISPER_MAX_SIZE_MB}MB limit — split the recording`,
+      );
+    }
+
+    const baseUrl = (
+      process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
+    ).replace(/\/+$/, "");
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }),
+      "audio.mp3",
+    );
+    form.append("model", "whisper-1");
+    form.append("response_format", "verbose_json");
+
+    // `withTimeout` only races a promise against a timer — it cannot cancel
+    // the request. Without the abort, a timed-out upload keeps its socket and
+    // its in-flight body alive after the caller has already moved on.
+    const abort = new AbortController();
+    const timer = setTimeout(
+      () => abort.abort(),
+      VIDEO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+    );
+    try {
+      const response = await withTimeout(
+        fetch(`${baseUrl}/audio/transcriptions`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: form,
+          signal: abort.signal,
+        }),
+        VIDEO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+      );
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        return skipped(
+          `the transcription request failed — HTTP ${response.status}` +
+            `${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+        );
+      }
+
+      const payload: unknown = await response.json();
+      const text =
+        typeof payload === "object" &&
+        payload !== null &&
+        typeof (payload as { text?: unknown }).text === "string"
+          ? (payload as { text: string }).text.trim()
+          : "";
+
+      if (text.length === 0) {
+        // A successful call returning nothing is a real outcome — silence,
+        // music, no speech — and not the same as a failure.
+        return skipped("Whisper returned an empty transcript for this audio");
+      }
+
+      logger.debug(
+        `[VideoProcessor] Transcribed ${filename} via openai-whisper (${text.length} chars)`,
+      );
+      return { transcript: text };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return skipped(`the transcription request failed — ${detail}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Extract keyframes from a video at calculated intervals.
    *
    * The interval between frames is determined by the video duration:
@@ -829,14 +1060,14 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    * @param tempDir - Temp directory for frame output
    * @param durationSec - Video duration in seconds
    * @param options - Caller frame budget / encoder settings
-   * @returns Array of encoded frame buffers (JPEG unless png was requested)
+   * @returns Each kept frame with the second it was sampled at, ascending
    */
   private async extractKeyframes(
     videoPath: string,
     tempDir: string,
     durationSec: number,
     options?: VideoProcessorOptions,
-  ): Promise<Buffer[]> {
+  ): Promise<VideoKeyframe[]> {
     if (durationSec <= 0) {
       return [];
     }
@@ -893,7 +1124,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     );
 
     // Read extracted frames and resize with sharp
-    const keyframes: Buffer[] = [];
+    const keyframes: VideoKeyframe[] = [];
     for (let i = 0; i < timestamps.length; i++) {
       const framePath = join(
         framesDir,
@@ -923,7 +1154,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
             : pipeline.jpeg({ quality })
         ).toBuffer();
 
-        keyframes.push(resized);
+        // Paired as the frame is kept, not derived afterwards from the
+        // interval: the catch below drops a frame whose encode failed, and a
+        // reconstructed schedule would then mislabel every frame after it.
+        keyframes.push({ buffer: resized, timestampSec: timestamps[i] });
       } catch {
         // Skip individual frame on resize/encode failure
       }
@@ -1118,9 +1352,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    */
   private buildTextContent(
     metadata: ProcessedVideo["metadata"],
-    frameCount: number,
+    keyframeTimestampsSec: number[],
     subtitleText: string | undefined,
     filename: string,
+    transcript: string | undefined,
   ): string {
     const lines: string[] = [];
 
@@ -1154,19 +1389,49 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     );
 
     lines.push("");
-    if (frameCount > 0) {
-      const intervalSec = this.getFrameInterval(metadata.duration);
+    if (keyframeTimestampsSec.length > 0) {
+      // The real sample times, not the duration tier's nominal interval. Those
+      // two disagree whenever the caller passed `videoOptions.frames`, because
+      // an explicit budget spreads frames evenly across the clip instead of
+      // following the tier — so a 3s clip asked for 16 frames used to be
+      // described as "every ~1s" while the frames were 0.19s apart. Listing
+      // what was actually sampled cannot drift from what was sent, and it is
+      // also what lets the model answer a question about a specific moment.
+      lines.push(`## Keyframes (${keyframeTimestampsSec.length} extracted)`);
       lines.push(
-        `## Keyframes (${frameCount} frames extracted every ~${intervalSec}s)`,
+        "The images attached below are keyframes from this video, in order. " +
+          "Each was sampled at the timestamp listed here:",
       );
-      lines.push(
-        "The following images are keyframes extracted from the video at regular intervals.",
-      );
+      for (const [index, timestampSec] of keyframeTimestampsSec.entries()) {
+        lines.push(
+          `- Frame ${index + 1}: ${formatKeyframeTimestamp(timestampSec)}`,
+        );
+      }
     } else {
       lines.push("## Keyframes");
       lines.push(
         "No keyframes could be extracted from this video (it may be audio-only or use an unsupported codec).",
       );
+    }
+
+    if (transcript) {
+      lines.push("");
+      // Labelled as transcribed speech, not as captions: the two can both be
+      // present and disagree, and a model told which is which can say so
+      // rather than averaging them into one confident answer.
+      lines.push("## Spoken Audio (transcribed)");
+      lines.push(
+        "The following is a machine transcription of the speech in this video:",
+      );
+      const maxTranscriptChars = 20_000;
+      if (transcript.length > maxTranscriptChars) {
+        lines.push(
+          transcript.substring(0, maxTranscriptChars) +
+            `\n... [truncated, ${transcript.length - maxTranscriptChars} more characters]`,
+        );
+      } else {
+        lines.push(transcript);
+      }
     }
 
     if (subtitleText) {

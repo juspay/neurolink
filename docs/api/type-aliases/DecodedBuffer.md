@@ -8,7 +8,7 @@
 
 > **DecodedBuffer** = `object`
 
-Defined in: [types/file.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L303)
+Defined in: [types/file.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L312)
 
 Result of decoding a buffer with encoding detection (#362).
 
@@ -18,7 +18,7 @@ Result of decoding a buffer with encoding detection (#362).
 
 > **text**: `string`
 
-Defined in: [types/file.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L305)
+Defined in: [types/file.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L314)
 
 Decoded text with any BOM removed.
 
@@ -28,7 +28,7 @@ Decoded text with any BOM removed.
 
 > **encoding**: `string`
 
-Defined in: [types/file.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L307)
+Defined in: [types/file.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L316)
 
 iconv-lite label actually used to decode.
 
@@ -38,6 +38,6 @@ iconv-lite label actually used to decode.
 
 > **confidence**: `number`
 
-Defined in: [types/file.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L309)
+Defined in: [types/file.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L318)
 
 Detection confidence 0-100 (100 for BOM/override, 0 for the UTF-8 fallback).

@@ -8,7 +8,7 @@
 
 > **SerializeOptions** = `object`
 
-Defined in: [types/processor.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1175)
+Defined in: [types/processor.ts:1219](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1219)
 
 Options for error serialization.
 
@@ -18,7 +18,7 @@ Options for error serialization.
 
 > `optional` **includeStack?**: `boolean`
 
-Defined in: [types/processor.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1176)
+Defined in: [types/processor.ts:1220](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1220)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/processor.ts:1176](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **maxDepth?**: `number`
 
-Defined in: [types/processor.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1177)
+Defined in: [types/processor.ts:1221](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1221)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/processor.ts:1177](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **filterStacks?**: `boolean`
 
-Defined in: [types/processor.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1178)
+Defined in: [types/processor.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1222)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/processor.ts:1178](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/processor.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1179)
+Defined in: [types/processor.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1223)

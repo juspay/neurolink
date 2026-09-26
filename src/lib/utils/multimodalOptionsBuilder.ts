@@ -16,6 +16,7 @@ import type { StreamOptions } from "../types/index.js";
  *   - input.audioFiles: Audio files (Buffer | string paths)
  *   - input.videoFiles: Video files (Buffer | string paths)
  *   - csvOptions: CSV parsing options
+ *   - videoOptions: Video frame/quality/format/transcription options
  *   - systemPrompt: System-level instructions
  *   - conversationMessages: Chat history
  *   - temperature: Model temperature (0-1)
@@ -66,6 +67,12 @@ export function buildMultimodalOptions(
     csvOptions: options.csvOptions,
     pdfOptions: options.pdfOptions,
     imageOptions: options.imageOptions,
+    // Same whitelist hazard as above, one level up: `videoFiles` reaching
+    // the processor is not enough on its own — without `videoOptions` too,
+    // the frame/quality/format/transcribeAudio knobs a caller set on
+    // `StreamOptions` never reach VideoProcessor on the Bedrock branch, and
+    // it silently falls back to the duration-tier default.
+    videoOptions: options.videoOptions,
     systemPrompt: options.systemPrompt,
     conversationHistory: options.conversationMessages,
     provider: providerName,

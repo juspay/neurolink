@@ -8,7 +8,7 @@
 
 > **VisionImageOutputFormat** = `"png"` \| `"jpeg"`
 
-Defined in: [types/file.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L36)
+Defined in: [types/file.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L38)
 
 Transcode target for a vision-incompatible image (`adapters/imageFormatSupport.ts`).
 

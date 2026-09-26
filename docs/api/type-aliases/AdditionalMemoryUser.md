@@ -8,7 +8,7 @@
 
 > **AdditionalMemoryUser** = `object`
 
-Defined in: [types/generate.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L871)
+Defined in: [types/generate.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L870)
 
 Represents an additional user whose memory should be included in a generate/stream call.
 Allows per-user prompt overrides for different memory condensation strategies
@@ -20,7 +20,7 @@ Allows per-user prompt overrides for different memory condensation strategies
 
 > **userId**: `string`
 
-Defined in: [types/generate.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L873)
+Defined in: [types/generate.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L872)
 
 The user/owner ID to retrieve or store memory for.
 
@@ -30,7 +30,7 @@ The user/owner ID to retrieve or store memory for.
 
 > `optional` **label?**: `string`
 
-Defined in: [types/generate.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L879)
+Defined in: [types/generate.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L878)
 
 Human-readable label used in the formatted memory context.
 E.g. "Organization Policy", "Team Context", "User Preferences".
@@ -42,7 +42,7 @@ If not provided, defaults to userId.
 
 > `optional` **read?**: `boolean`
 
-Defined in: [types/generate.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L881)
+Defined in: [types/generate.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L880)
 
 Whether to read this user's memory and include in context. Defaults to true.
 
@@ -52,7 +52,7 @@ Whether to read this user's memory and include in context. Defaults to true.
 
 > `optional` **write?**: `boolean`
 
-Defined in: [types/generate.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L883)
+Defined in: [types/generate.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L882)
 
 Whether to write conversation into this user's memory. Defaults to true.
 
@@ -62,7 +62,7 @@ Whether to write conversation into this user's memory. Defaults to true.
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/generate.ts:885](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L885)
+Defined in: [types/generate.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L884)
 
 Custom condensation prompt for this user. Overrides the default Hippocampus prompt.
 
@@ -72,6 +72,6 @@ Custom condensation prompt for this user. Overrides the default Hippocampus prom
 
 > `optional` **maxWords?**: `number`
 
-Defined in: [types/generate.ts:887](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L887)
+Defined in: [types/generate.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L886)
 
 Max words for this user's condensed memory. Overrides the default maxWords.

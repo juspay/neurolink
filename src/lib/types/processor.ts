@@ -847,6 +847,21 @@ export type ProcessedAudio = ProcessedFileBase & {
 };
 
 /**
+ * One extracted keyframe and the moment it came from.
+ *
+ * Internal to extraction: `ProcessedVideo` splits this back into the parallel
+ * `keyframes` / `keyframeTimestampsSec` arrays its existing consumers expect.
+ * Keeping the pair together while frames are being read and encoded is what
+ * makes a dropped frame impossible to mislabel — the alternative is
+ * reconstructing timestamps from an interval after the fact, which is wrong
+ * for every frame following a failed encode.
+ */
+export type VideoKeyframe = {
+  readonly buffer: Buffer;
+  readonly timestampSec: number;
+};
+
+/**
  * Processed video result.
  * Extends ProcessedFileBase with video-specific fields including metadata,
  * extracted keyframes, subtitle text, and a pre-formatted textContent block
@@ -855,6 +870,19 @@ export type ProcessedAudio = ProcessedFileBase & {
 export type ProcessedVideo = ProcessedFileBase & {
   textContent: string;
   keyframes: Buffer[];
+  /**
+   * When each entry of `keyframes` was sampled, in seconds from the start of
+   * the clip. Same length, same order, ascending.
+   *
+   * A parallel array rather than a richer `keyframes` element type: that
+   * field is read by `fileReferenceRegistry` and by the detector as a plain
+   * `Buffer[]`, and reshaping it would break them for a value they do not
+   * need. Extraction can also drop an individual frame when its encode
+   * fails, so the timestamps are recorded as frames are kept — never
+   * reconstructed from an interval, which would silently mislabel every
+   * frame after a dropped one.
+   */
+  keyframeTimestampsSec: number[];
   metadata: {
     duration: number;
     durationFormatted: string;
@@ -870,6 +898,22 @@ export type ProcessedVideo = ProcessedFileBase & {
     fileSize: number;
   };
   subtitleText?: string;
+  /**
+   * Speech transcribed from the clip's audio track, when
+   * `VideoProcessorOptions.transcribeAudio` asked for it and it worked.
+   *
+   * Distinct from `subtitleText`, which is an embedded subtitle stream the
+   * file already carried. A recording can have one, both or neither.
+   */
+  transcript?: string;
+  hasTranscript: boolean;
+  /**
+   * Why no transcript was produced. Follows `ProcessedAudio`'s precedent:
+   * "nobody asked", "there is no audio track", "no API key", "the call
+   * failed" and "nobody was speaking" are five different situations that
+   * otherwise all present as an absent transcript.
+   */
+  transcriptionSkippedReason?: string;
   hasKeyframes: boolean;
   frameCount: number;
 };
