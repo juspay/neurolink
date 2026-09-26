@@ -8,4 +8,4 @@
 
 > **ProxyShareNoteStatus** = `"valid"` \| `"spent"` \| `"expired"` \| `"unknown"` \| `"forged"`
 
-Defined in: [types/proxy.ts:4474](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4474)
+Defined in: [types/proxy.ts:4476](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4476)
