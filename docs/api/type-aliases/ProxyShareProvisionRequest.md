@@ -8,7 +8,7 @@
 
 > **ProxyShareProvisionRequest** = `object`
 
-Defined in: [types/proxy.ts:4406](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4406)
+Defined in: [types/proxy.ts:4416](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4416)
 
 One borrower's outstanding request for a resident credential.
 
@@ -22,7 +22,7 @@ lender authorizing and the borrower claiming, and is erased by consumption.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4407](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4407)
+Defined in: [types/proxy.ts:4417](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4417)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:4407](https://github.com/juspay/neurolink/blob/relea
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4408](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4408)
+Defined in: [types/proxy.ts:4418](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4418)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/proxy.ts:4408](https://github.com/juspay/neurolink/blob/relea
 
 > **codeChallenge**: `string`
 
-Defined in: [types/proxy.ts:4410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4410)
+Defined in: [types/proxy.ts:4420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4420)
 
 Base64url SHA-256 of the borrower's verifier.
 
@@ -48,7 +48,7 @@ Base64url SHA-256 of the borrower's verifier.
 
 > **challengeMethod**: `"S256"`
 
-Defined in: [types/proxy.ts:4411](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4411)
+Defined in: [types/proxy.ts:4421](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4421)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/proxy.ts:4411](https://github.com/juspay/neurolink/blob/relea
 
 > **state**: `string`
 
-Defined in: [types/proxy.ts:4413](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4413)
+Defined in: [types/proxy.ts:4423](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4423)
 
 Borrower-chosen state, echoed through the authorization round trip.
 
@@ -66,7 +66,7 @@ Borrower-chosen state, echoed through the authorization round trip.
 
 > **requestedAt**: `number`
 
-Defined in: [types/proxy.ts:4414](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4414)
+Defined in: [types/proxy.ts:4424](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4424)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:4414](https://github.com/juspay/neurolink/blob/relea
 
 > **expiresAt**: `number`
 
-Defined in: [types/proxy.ts:4415](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4415)
+Defined in: [types/proxy.ts:4425](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4425)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:4415](https://github.com/juspay/neurolink/blob/relea
 
 > **status**: [`ProxyShareProvisionStatus`](ProxyShareProvisionStatus.md)
 
-Defined in: [types/proxy.ts:4416](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4416)
+Defined in: [types/proxy.ts:4426](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4426)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxy.ts:4416](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **code?**: `string`
 
-Defined in: [types/proxy.ts:4418](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4418)
+Defined in: [types/proxy.ts:4428](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4428)
 
 Present only between authorization and the single claim that consumes it.
 
@@ -100,7 +100,7 @@ Present only between authorization and the single claim that consumes it.
 
 > `optional` **authorizedAt?**: `number`
 
-Defined in: [types/proxy.ts:4419](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4419)
+Defined in: [types/proxy.ts:4429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4429)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/proxy.ts:4419](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **claimedAt?**: `number`
 
-Defined in: [types/proxy.ts:4420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4420)
+Defined in: [types/proxy.ts:4430](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4430)
 
 ---
 
@@ -116,6 +116,6 @@ Defined in: [types/proxy.ts:4420](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **accountLabel?**: `string`
 
-Defined in: [types/proxy.ts:4422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4422)
+Defined in: [types/proxy.ts:4432](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4432)
 
 Which of the lender's accounts was authorized, for the drift audit.

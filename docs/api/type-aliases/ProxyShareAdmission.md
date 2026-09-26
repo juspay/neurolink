@@ -8,7 +8,7 @@
 
 > **ProxyShareAdmission** = \{ `admitted`: `true`; `grant`: [`ProxyShareGrant`](ProxyShareGrant.md); \} \| \{ `admitted`: `false`; `status`: `number`; `reason`: [`ProxyShareRefusalReason`](ProxyShareRefusalReason.md); `message`: `string`; `retryAfterSeconds?`: `number`; `grant?`: [`ProxyShareGrant`](ProxyShareGrant.md); \}
 
-Defined in: [types/proxy.ts:4300](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4300)
+Defined in: [types/proxy.ts:4310](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4310)
 
 Result of evaluating an inbound borrowed request.
 

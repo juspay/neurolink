@@ -8,7 +8,7 @@
 
 > **ProxyRuntimeConfigReloadListener** = (`result`, `status`) => `void`
 
-Defined in: [types/proxy.ts:3823](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3823)
+Defined in: [types/proxy.ts:3833](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3833)
 
 Listener invoked after every successful or rejected reload attempt.
 

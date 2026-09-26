@@ -1365,7 +1365,17 @@ export type LoadedClaudeAccountContext = {
 export type AnthropicSuccessResult =
   | {
       retryNextAccount: true;
-      failure?: { message: string; rateLimit: boolean; retryDelayMs?: number };
+      failure?: {
+        message: string;
+        rateLimit: boolean;
+        retryDelayMs?: number;
+        /**
+         * Set only for a transient (burst) rate limit: the attempt loop may
+         * retry the same account within the shared budget before rotating,
+         * exactly as it does for an HTTP 429.
+         */
+        sameAccountRetry?: { coolingUntil: number; retryAfterMs: number };
+      };
     }
   | {
       response: Response | unknown;

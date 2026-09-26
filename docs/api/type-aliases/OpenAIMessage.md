@@ -8,4 +8,4 @@
 
 > **OpenAIMessage** = [`OpenAISystemMessage`](OpenAISystemMessage.md) \| [`OpenAIUserMessage`](OpenAIUserMessage.md) \| [`OpenAIAssistantMessage`](OpenAIAssistantMessage.md) \| [`OpenAIToolMessage`](OpenAIToolMessage.md)
 
-Defined in: [types/proxy.ts:3969](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3969)
+Defined in: [types/proxy.ts:3979](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3979)

@@ -8,7 +8,7 @@
 
 > **ProxyShareGrantCounters** = `object`
 
-Defined in: [types/proxy.ts:4647](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4647)
+Defined in: [types/proxy.ts:4657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4657)
 
 Per-grant sliding-window request timestamps and in-flight count.
 
@@ -18,7 +18,7 @@ Per-grant sliding-window request timestamps and in-flight count.
 
 > **timestamps**: `number`[]
 
-Defined in: [types/proxy.ts:4648](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4648)
+Defined in: [types/proxy.ts:4658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4658)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:4648](https://github.com/juspay/neurolink/blob/relea
 
 > **inFlight**: `number`
 
-Defined in: [types/proxy.ts:4649](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4649)
+Defined in: [types/proxy.ts:4659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4659)

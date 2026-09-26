@@ -6,7 +6,7 @@
 
 # Type Alias: AnthropicSuccessResult
 
-> **AnthropicSuccessResult** = \{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; \}; \} \| \{ `response`: `Response` \| `unknown`; `holdsAccountAdmission?`: `boolean`; `served`: `boolean`; \}
+> **AnthropicSuccessResult** = \{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; `sameAccountRetry?`: \{ `coolingUntil`: `number`; `retryAfterMs`: `number`; \}; \}; \} \| \{ `response`: `Response` \| `unknown`; `holdsAccountAdmission?`: `boolean`; `served`: `boolean`; \}
 
 Defined in: [types/proxy.ts:1365](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1365)
 
@@ -14,7 +14,7 @@ Defined in: [types/proxy.ts:1365](https://github.com/juspay/neurolink/blob/relea
 
 ### Type Literal
 
-\{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; \}; \}
+\{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; `sameAccountRetry?`: \{ `coolingUntil`: `number`; `retryAfterMs`: `number`; \}; \}; \}
 
 ---
 

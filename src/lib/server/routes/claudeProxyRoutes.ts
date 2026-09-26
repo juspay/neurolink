@@ -895,6 +895,61 @@ function claimTransientRateLimitRetry(
   return budget.retriesClaimed;
 }
 
+/**
+ * Claims one same-account retry after a transient rate limit and returns its
+ * delay, or undefined once this request's retries or the account's shared
+ * budget are spent. Both the HTTP 429 and the in-stream rate-limit paths use
+ * it, so a burst is paced the same way however it arrives.
+ */
+function claimTransientRateLimitRetryDelay(
+  accountKey: string,
+  coolingUntil: number,
+  retryAfterMs: number | undefined,
+  retriesThisRequest: number,
+): { slot: number; delayMs: number } | undefined {
+  const slot = claimTransientRateLimitRetry(accountKey, coolingUntil);
+  if (
+    retryAfterMs === undefined ||
+    retriesThisRequest >= MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES ||
+    slot === undefined
+  ) {
+    return undefined;
+  }
+  const base = Math.min(retryAfterMs || 1_000, MAX_RATE_LIMIT_RETRY_DELAY_MS);
+  // Stagger the two shared slots, then cap after jitter so the final sleep
+  // never exceeds the configured maximum.
+  return {
+    slot,
+    delayMs: Math.min(
+      MAX_RATE_LIMIT_RETRY_DELAY_MS,
+      jitteredDelay(base * slot),
+    ),
+  };
+}
+
+/**
+ * A same-account retry that was served shows the burst is over. Without this
+ * the burst cooldown outlives it, the session's next request goes to another
+ * account and loses its prompt cache — the A→B→A bounce this retry exists to
+ * prevent. Only a transient cooldown is lifted: an exhaustion cooldown that a
+ * concurrent request recorded meanwhile stays.
+ */
+function liftTransientCooldownAfterServedRetry(
+  account: Pick<ProxyPassthroughAccount, "key">,
+  state: RuntimeAccountState,
+): void {
+  transientRateLimitRetryBudgets.delete(account.key);
+  if (state.coolingReason !== "transient" || !state.coolingUntil) {
+    return;
+  }
+  const previousCoolingUntil = state.coolingUntil;
+  state.coolingUntil = undefined;
+  state.coolingReason = undefined;
+  clearAccountCooldown(account.key, previousCoolingUntil).catch(() => {
+    // Best-effort: routing already reads the cleared in-memory state.
+  });
+}
+
 function claimTransientCooldownAdmission(
   accountKey: string,
   coolingUntil: number,
@@ -7121,10 +7176,16 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     const logicalStatus = isRateLimit ? 429 : 502;
     const quota = parseQuotaHeaders(responseHeaders, { model: body.model });
     const now = Date.now();
+    let sameAccountRetry:
+      | { coolingUntil: number; retryAfterMs: number }
+      | undefined;
     if (isRateLimit) {
+      const retryAfterMs = parseRetryAfterMs(
+        responseHeaders["retry-after"] ?? null,
+      );
       const cooldownPlan = planCooldownFor429(
         quota,
-        parseRetryAfterMs(responseHeaders["retry-after"] ?? null),
+        retryAfterMs,
         now,
         getUnifiedRateLimitStatus(responseHeaders),
         overagePolicy,
@@ -7156,6 +7217,12 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         rateLimitKind,
         cooldownReason: cooldownPlan.reason,
       });
+      if (!cooldownPlan.rotateImmediately) {
+        sameAccountRetry = {
+          coolingUntil: cooldownPlan.coolingUntil,
+          retryAfterMs,
+        };
+      }
     } else {
       recordAttemptError(account.label, account.type, logicalStatus);
       logAttempt(logicalStatus, preflight.errorType, preflight.message, {
@@ -7163,7 +7230,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
       });
     }
     logger.always(
-      `[proxy] immediate SSE ${preflight.errorType} account=${account.label}: ${preflight.message}; rotating before client commit`,
+      `[proxy] immediate SSE ${preflight.errorType} account=${account.label}: ${preflight.message}; ${sameAccountRetry ? "transient, same account may retry" : "rotating"} before client commit`,
     );
     tracer?.recordRetry(
       account.label,
@@ -7196,6 +7263,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         ...(preflight.errorType === "overloaded_error"
           ? { retryDelayMs: getOverloadRotationDelayMs(attemptNumber) }
           : {}),
+        ...(sameAccountRetry ? { sameAccountRetry } : {}),
       },
     };
   }
@@ -10605,31 +10673,20 @@ async function handleAnthropicRoutedClaudeRequest(args: {
               // Transient retries are budgeted across all concurrent requests for
               // this account/window. Exhaustion plans rotate immediately and never
               // claim this budget.
-              const sharedRetrySlot = fetchResult.retrySameAccount
-                ? claimTransientRateLimitRetry(account.key, plan.coolingUntil)
+              const retry = fetchResult.retrySameAccount
+                ? claimTransientRateLimitRetryDelay(
+                    account.key,
+                    plan.coolingUntil,
+                    fetchResult.retryAfterMs,
+                    rateLimitSameAccountRetries,
+                  )
                 : undefined;
-              if (
-                fetchResult.retrySameAccount &&
-                fetchResult.retryAfterMs !== undefined &&
-                rateLimitSameAccountRetries <
-                  MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES &&
-                sharedRetrySlot !== undefined
-              ) {
+              if (retry) {
                 rateLimitSameAccountRetries += 1;
-                const base = Math.min(
-                  fetchResult.retryAfterMs || 1_000,
-                  MAX_RATE_LIMIT_RETRY_DELAY_MS,
-                );
-                // Stagger the two shared slots, then cap after jitter so the final
-                // sleep never exceeds the configured maximum.
-                const delayMs = Math.min(
-                  MAX_RATE_LIMIT_RETRY_DELAY_MS,
-                  jitteredDelay(base * sharedRetrySlot),
-                );
                 logger.always(
-                  `[proxy] retrying same account=${account.label} after transient 429 (shared slot ${sharedRetrySlot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+                  `[proxy] retrying same account=${account.label} after transient 429 (shared slot ${retry.slot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${retry.delayMs}ms`,
                 );
-                await sleep(delayMs);
+                await sleep(retry.delayMs);
                 continue;
               }
               // Exhaustion, or the shared transient retry budget being used up:
@@ -10845,6 +10902,23 @@ async function handleAnthropicRoutedClaudeRequest(args: {
               loopState.sawRateLimit ||= successResult.failure.rateLimit;
               loopState.sawTransientFailure ||=
                 !successResult.failure.rateLimit;
+              const { sameAccountRetry } = successResult.failure;
+              const retry = sameAccountRetry
+                ? claimTransientRateLimitRetryDelay(
+                    account.key,
+                    sameAccountRetry.coolingUntil,
+                    sameAccountRetry.retryAfterMs,
+                    rateLimitSameAccountRetries,
+                  )
+                : undefined;
+              if (retry) {
+                rateLimitSameAccountRetries += 1;
+                logger.always(
+                  `[proxy] retrying same account=${account.label} after transient in-stream rate limit (shared slot ${retry.slot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${retry.delayMs}ms`,
+                );
+                await sleep(retry.delayMs);
+                continue;
+              }
               if (hasNextAccount && successResult.failure.retryDelayMs) {
                 logger.always(
                   `[proxy] pacing cross-account SSE overload rotation for ${successResult.failure.retryDelayMs}ms`,
@@ -10856,6 +10930,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           }
           admissionTransferredToStream =
             successResult.holdsAccountAdmission === true;
+          if (successResult.served && rateLimitSameAccountRetries > 0) {
+            liftTransientCooldownAfterServedRetry(account, accountState);
+          }
           if (bindServedSession && successResult.served) {
             bindServedSession(account.key);
           }

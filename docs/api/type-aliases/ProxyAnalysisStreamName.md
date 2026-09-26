@@ -8,6 +8,6 @@
 
 > **ProxyAnalysisStreamName** = `"lifecycle"` \| `"requests"` \| `"attempts"` \| `"debug"`
 
-Defined in: [types/proxy.ts:2511](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2511)
+Defined in: [types/proxy.ts:2521](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2521)
 
 Offline report generated from proxy request, attempt, and lifecycle logs.

@@ -8,7 +8,7 @@
 
 > **ProxyStagedInstallOptions** = `object`
 
-Defined in: [types/proxy.ts:5049](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5049)
+Defined in: [types/proxy.ts:5059](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5059)
 
 Bounded asynchronous package installation with injectable subprocesses.
 
@@ -18,7 +18,7 @@ Bounded asynchronous package installation with injectable subprocesses.
 
 > **version**: `string`
 
-Defined in: [types/proxy.ts:5050](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5050)
+Defined in: [types/proxy.ts:5060](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5060)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:5050](https://github.com/juspay/neurolink/blob/relea
 
 > **packagesDir**: `string`
 
-Defined in: [types/proxy.ts:5051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5051)
+Defined in: [types/proxy.ts:5061](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5061)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:5051](https://github.com/juspay/neurolink/blob/relea
 
 > **installer**: `Pick`\<[`GlobalInstallerProbe`](GlobalInstallerProbe.md), `"kind"` \| `"bin"`\>
 
-Defined in: [types/proxy.ts:5052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5052)
+Defined in: [types/proxy.ts:5062](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5062)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:5052](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **idleTimeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:5053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5053)
+Defined in: [types/proxy.ts:5063](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5063)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:5053](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxDurationMs?**: `number`
 
-Defined in: [types/proxy.ts:5054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5054)
+Defined in: [types/proxy.ts:5064](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5064)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:5054](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **killGraceMs?**: `number`
 
-Defined in: [types/proxy.ts:5055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5055)
+Defined in: [types/proxy.ts:5065](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5065)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:5055](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **spawn?**: `spawn`
 
-Defined in: [types/proxy.ts:5056](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5056)
+Defined in: [types/proxy.ts:5066](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5066)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:5056](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **execFileSync?**: [`GlobalInstallerExecFile`](GlobalInstallerExecFile.md)
 
-Defined in: [types/proxy.ts:5057](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5057)
+Defined in: [types/proxy.ts:5067](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5067)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:5057](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onProgress?**: (`progress`) => `void`
 
-Defined in: [types/proxy.ts:5058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5058)
+Defined in: [types/proxy.ts:5068](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5068)
 
 #### Parameters
 
