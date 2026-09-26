@@ -277,6 +277,9 @@ pnpm format            # Prettier formatting
 
 **Note:** The build rule enforcement system will automatically prevent commits that don't meet quality standards. See the "Build Rule Enforcement & Quality Standards" section above for complete details.
 
+For logger levels, structured fields, redaction, and performance guidance, see
+[Logging Guidelines](docs/development/logging-guidelines.md).
+
 ## Testing
 
 NeuroLink has a comprehensive testing suite to ensure reliability across all AI providers and features. Please add tests for any new features or bug fixes.

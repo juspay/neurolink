@@ -12,6 +12,7 @@ This section covers everything needed for contributing to NeuroLink, understandi
 
 - **[Contributing](contributing.md)** — How to contribute to NeuroLink, including setup, coding standards, and submission guidelines.
 - **[Testing](testing.md)** — Comprehensive testing strategies, test suite organization, and validation procedures.
+- **[Logging Guidelines](/docs/development/logging-guidelines)** — Log levels, structured fields, redaction, and per-instance routing.
 - **[Architecture](architecture.md)** — Deep dive into NeuroLink's architecture, design patterns, and system organization.
 - **[Factory Pattern Migration](factory-migration.md)** — Guide for upgrading from older architectures to the new unified factory pattern system.
 - **[Documentation Versioning](versioning.md)** — Managing documentation versions across releases using mike for version control and deployment.
