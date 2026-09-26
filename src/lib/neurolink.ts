@@ -5760,6 +5760,7 @@ Current user's request: ${currentInput}`;
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
       imageOptions: options.imageOptions,
+      officeOptions: options.officeOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

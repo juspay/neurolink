@@ -8,7 +8,7 @@
 
 > **FileDetectorOptions** = `object`
 
-Defined in: [types/file.ts:667](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L667)
+Defined in: [types/file.ts:682](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L682)
 
 File detector options
 
@@ -18,7 +18,7 @@ File detector options
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/file.ts:668](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L668)
+Defined in: [types/file.ts:683](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L683)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:668](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/file.ts:669](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L669)
+Defined in: [types/file.ts:684](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L684)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:669](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **allowedTypes?**: [`FileType`](FileType.md)[]
 
-Defined in: [types/file.ts:670](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L670)
+Defined in: [types/file.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L685)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:670](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **allowedBaseDir?**: `string`
 
-Defined in: [types/file.ts:680](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L680)
+Defined in: [types/file.ts:695](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L695)
 
 When set, local file paths must resolve inside this base directory;
 anything that escapes it (absolute path, `../` traversal, or a symlink
@@ -58,7 +58,7 @@ filesystem access; SDK callers loading their own files can omit it.
 
 > `optional` **audioOptions?**: [`AudioProcessorOptions`](AudioProcessorOptions.md)
 
-Defined in: [types/file.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L681)
+Defined in: [types/file.ts:696](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L696)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/file.ts:681](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **csvOptions?**: [`CSVProcessorOptions`](CSVProcessorOptions.md)
 
-Defined in: [types/file.ts:682](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L682)
+Defined in: [types/file.ts:697](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L697)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/file.ts:682](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **officeOptions?**: [`OfficeProcessorOptions`](OfficeProcessorOptions.md)
 
-Defined in: [types/file.ts:683](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L683)
+Defined in: [types/file.ts:698](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L698)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/file.ts:683](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **videoOptions?**: [`VideoProcessorOptions`](VideoProcessorOptions.md)
 
-Defined in: [types/file.ts:684](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L684)
+Defined in: [types/file.ts:699](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L699)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/file.ts:684](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **confidenceThreshold?**: `number`
 
-Defined in: [types/file.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L685)
+Defined in: [types/file.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L700)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/file.ts:685](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/file.ts:686](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L686)
+Defined in: [types/file.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L701)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/file.ts:686](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/file.ts:688](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L688)
+Defined in: [types/file.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L703)
 
 Maximum number of retry attempts for network requests (default: 3)
 
@@ -116,7 +116,7 @@ Maximum number of retry attempts for network requests (default: 3)
 
 > `optional` **retryDelay?**: `number`
 
-Defined in: [types/file.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L690)
+Defined in: [types/file.ts:705](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L705)
 
 Initial retry delay in milliseconds with exponential backoff (default: 1000)
 
@@ -126,7 +126,7 @@ Initial retry delay in milliseconds with exponential backoff (default: 1000)
 
 > `optional` **mimetypeHint?**: `string`
 
-Defined in: [types/file.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L700)
+Defined in: [types/file.ts:715](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L715)
 
 Caller-provided MIME type hint (e.g. "text/plain", "application/json").
 Used when the filename has no extension and magic-byte detection cannot
@@ -142,7 +142,7 @@ hint (the lazy FileReferenceRegistry path has its own hint-handling).
 
 > `optional` **filenameHint?**: `string`
 
-Defined in: [types/file.ts:711](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L711)
+Defined in: [types/file.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L726)
 
 Caller-provided filename hint, the companion to [mimetypeHint](#mimetypehint).
 

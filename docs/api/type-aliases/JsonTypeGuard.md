@@ -8,7 +8,7 @@
 
 > **JsonTypeGuard**\<`T`\> = (`parsed`) => `parsed is T`
 
-Defined in: [types/processor.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L780)
+Defined in: [types/processor.ts:791](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L791)
 
 Type guard function signature for JSON parsing.
 
