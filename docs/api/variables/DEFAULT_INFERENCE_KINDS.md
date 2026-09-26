@@ -8,6 +8,6 @@
 
 > `const` **DEFAULT_INFERENCE_KINDS**: readonly [`InferenceKind`](../type-aliases/InferenceKind.md)[]
 
-Defined in: [types/providers.ts:2247](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2247)
+Defined in: [types/providers.ts:2249](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2249)
 
 What a descriptor means when it declares no `inferenceKinds`.

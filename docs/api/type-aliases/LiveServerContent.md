@@ -8,7 +8,7 @@
 
 > **LiveServerContent** = `object`
 
-Defined in: [types/providers.ts:1171](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1171)
+Defined in: [types/providers.ts:1173](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1173)
 
 Live server content structure
 
@@ -18,7 +18,7 @@ Live server content structure
 
 > `optional` **modelTurn?**: [`LiveServerMessageModelTurn`](LiveServerMessageModelTurn.md)
 
-Defined in: [types/providers.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1172)
+Defined in: [types/providers.ts:1174](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1174)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:1172](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **interrupted?**: `boolean`
 
-Defined in: [types/providers.ts:1173](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1173)
+Defined in: [types/providers.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1175)

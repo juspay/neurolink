@@ -8,7 +8,7 @@
 
 > **InferenceKind** = `"generate"` \| `"stream"` \| `"decide"`
 
-Defined in: [types/providers.ts:2244](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2244)
+Defined in: [types/providers.ts:2246](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2246)
 
 The kinds of inference a provider can serve.
 

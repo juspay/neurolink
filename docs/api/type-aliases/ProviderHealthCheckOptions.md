@@ -8,7 +8,7 @@
 
 > **ProviderHealthCheckOptions** = `object`
 
-Defined in: [types/providers.ts:1989](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1989)
+Defined in: [types/providers.ts:1991](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1991)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1989](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:1990](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1990)
+Defined in: [types/providers.ts:1992](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1992)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providers.ts:1990](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **includeConnectivityTest?**: `boolean`
 
-Defined in: [types/providers.ts:1991](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1991)
+Defined in: [types/providers.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1993)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providers.ts:1991](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **includeModelValidation?**: `boolean`
 
-Defined in: [types/providers.ts:1992](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1992)
+Defined in: [types/providers.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1994)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providers.ts:1992](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cacheResults?**: `boolean`
 
-Defined in: [types/providers.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1993)
+Defined in: [types/providers.ts:1995](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1995)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/providers.ts:1993](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **maxCacheAge?**: `number`
 
-Defined in: [types/providers.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1994)
+Defined in: [types/providers.ts:1996](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1996)

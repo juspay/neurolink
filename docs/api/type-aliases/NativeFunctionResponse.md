@@ -8,7 +8,7 @@
 
 > **NativeFunctionResponse** = `object`
 
-Defined in: [types/providers.ts:2144](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2144)
+Defined in: [types/providers.ts:2146](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2146)
 
 A single function response to feed back into the conversation.
 
@@ -18,7 +18,7 @@ A single function response to feed back into the conversation.
 
 > **functionResponse**: `object`
 
-Defined in: [types/providers.ts:2145](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2145)
+Defined in: [types/providers.ts:2147](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2147)
 
 #### name
 

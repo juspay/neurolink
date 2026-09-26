@@ -127,6 +127,46 @@ export function isSchemaComplexityError(error: unknown): boolean {
 }
 
 /**
+ * True when a provider error indicates the MODEL (not the provider as a
+ * whole) rejects `response_format` outright, independent of which mode was
+ * requested. The catalog schema declares `structuredOutput` per provider,
+ * not per model (`catalogCapabilitiesSchema`, `src/lib/providers/catalog/
+ * schema.ts` — there is no per-model override the way `tools:
+ * "model-dependent"` has one), so a provider can accurately claim the
+ * capability for its default model while a caller-selected fallback model
+ * rejects every `response_format` value. Novita's
+ * `meta-llama/llama-3.3-70b-instruct` is the recorded case: both
+ * `json_schema` ("does not support 'json_schema' response format.
+ * Supported formats: json_object") and `json_object` ("response format
+ * json_object is not supported") come back as 400s on that model, while
+ * the catalog's default model accepts both.
+ *
+ * This is intentionally a text match on the classified error, not a
+ * per-model catalog flag: it lets ANY vendor's per-model rejection recover
+ * the same way, mirroring `isToolsSchemaConflictError` /
+ * `isSchemaComplexityError` above. Recovery here means the same thing it
+ * means for those two — drop `response_format` and spell the JSON Schema
+ * into the prompt instead — which is exactly what CLAUDE.md's Critical
+ * Rule 3 requires unconditionally ("Regardless of provider,
+ * generate({ schema }) is guaranteed to return valid JSON in content plus
+ * a parsed structuredData object"): a model-specific capability gap must
+ * degrade to best-effort JSON, not throw.
+ */
+export function isResponseFormatUnsupportedError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  return (
+    /does not support[^.]{0,80}response[\s_-]?format/i.test(message) ||
+    /response[\s_-]?format[^.]{0,60}(?:is )?not support/i.test(message) ||
+    /unsupported response[\s_-]?format/i.test(message)
+  );
+}
+
+/**
  * True when a provider error indicates the request was rejected because the
  * `temperature` parameter is deprecated / unsupported for the model. The newest
  * Anthropic models (e.g. claude-opus-4-8, with tools + advanced beta features)
