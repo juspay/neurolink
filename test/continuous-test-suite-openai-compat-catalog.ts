@@ -1278,6 +1278,40 @@ async function testCatalogStructuralInvariants(): Promise<void> {
       },
     );
   }
+
+  await runCase(
+    `${section}: Perplexity attribution stays on the public API host`,
+    async () => {
+      setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "perplexity-proxy.example.com/v1/chat/completions",
+            respond: okResp("sonar"),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "perplexity",
+            model: "sonar",
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: {
+              perplexity: {
+                baseURL: "https://perplexity-proxy.example.com/v1",
+              },
+            },
+          });
+          expect(calls.length > 0, "request captured");
+          expect(
+            !("x-pplx-integration" in calls[0].headers),
+            "custom Perplexity-compatible host has no integration attribution",
+          );
+        },
+      );
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
