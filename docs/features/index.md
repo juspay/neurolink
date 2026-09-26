@@ -96,9 +96,9 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Category                 | Features                                                                                                           | Documentation                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 40 providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config           | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
+| **Provider unification** | 44 providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config           | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
-| **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live)                               | [TTS Guide](tts.md), [STT Guide](audio-input.md), [Realtime Services](/docs/features/real-time-services)                                 |
+| **Voice pipeline**       | TTS (6 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live)                               | [TTS Guide](tts.md), [STT Guide](audio-input.md), [Realtime Services](/docs/features/real-time-services)                                 |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging                          | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
 | **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 5-stage context compaction                      | [Conversation Memory](../conversation-memory.md), [Memory](memory.md), [Redis Export](conversation-history.md)                           |
 | **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags                      | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
@@ -109,7 +109,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## AI Provider Integration
 
-NeuroLink supports **40 AI providers** with unified API access:
+NeuroLink supports **44 AI providers** with unified API access:
 
 | Provider              | Key Features                             | Free Tier    | Tool Support | Status     | Documentation                                                                                               |
 | --------------------- | ---------------------------------------- | ------------ | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------- |

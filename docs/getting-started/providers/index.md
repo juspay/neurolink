@@ -515,6 +515,18 @@ also what the CI onboarding gate reads.
 
 [Setup Guide →](baseten.md)
 
+### [Friendli](friendli.md)
+
+**zai-org/GLM-5.3**
+
+- 🤖 7 models; default `zai-org/GLM-5.3` (1M context)
+- 🛠️ Native tool calling — not combined with structured output in one request (HTTP 422 if both are set)
+- 💳 Free tier available (rate limits are tight — pace requests 20s+ apart)
+- ✅ Roster verified 2026-09-06 (authenticated GET /serverless/v1/models)
+- 🔑 API key from [suite.friendli.ai](https://suite.friendli.ai/)
+
+[Setup Guide →](friendli.md)
+
 ### [GMI Cloud](gmicloud.md)
 
 **MiniMaxAI/MiniMax-M3**
@@ -566,6 +578,31 @@ also what the CI onboarding gate reads.
 - 🔄 Aliases: `mancer-tech`
 
 [Setup Guide →](mancer.md)
+
+### [Morph](morph.md)
+
+**Morph v3 Large**
+
+- 🤖 2 models; default `morph-v3-large` (262K context)
+- ⚠️ **No tool calling** — text generation and structured output only
+- 💳 Free tier requires a card on file (rate-limited to 5 req/min until added)
+- ✅ Roster verified 2026-09-05 (authenticated GET /v1/models)
+- 🔑 API key from [morphllm.com/dashboard](https://morphllm.com/dashboard)
+- 🔄 Aliases: `morphllm`
+
+[Setup Guide →](morph.md)
+
+### [Novita AI](novita.md)
+
+**zai-org/GLM-5.3 Flash**
+
+- 🤖 5 models; default `zai-org/glm-5.3-flash` (128K context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-05 (authenticated GET /openai/v1/models)
+- 🔑 API key from [novita.ai/settings/key-management](https://novita.ai/settings/key-management)
+
+[Setup Guide →](novita.md)
 
 ### [Upstage](upstage.md)
 

@@ -211,7 +211,7 @@ RealtimeProcessor.getSupportedFormats("openai-realtime"); // TTSAudioFormat[]
 
 ## Related
 
-- **[TTS Guide](tts.md)** — non-realtime text-to-speech (5 providers)
+- **[TTS Guide](tts.md)** — non-realtime text-to-speech (6 providers)
 - **[STT Guide](audio-input.md)** — transcription (4 providers)
 - **[Voice Agent Guide](/docs/features/voice-agent)** — building voice agents end-to-end
 - **[Provider Fallback](/docs/features/provider-fallback)** — failover between models on access denial

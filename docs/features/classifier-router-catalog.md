@@ -10,13 +10,13 @@ question.
 
 **The registry is 64 models across 7 providers** (openai 21, anthropic 19,
 azure 7, ollama 6, bedrock 5, mistral 4, google-ai 2), with 132 aliases on top
-of those 64 ids — not the whole set of 40 providers NeuroLink can call. The
+of those 64 ids — not the whole set of 44 providers NeuroLink can call. The
 catalogue is strictly an _addition_ to a declared pool, never a replacement
 for one: a host routing over LiteLLM, OpenRouter, an OpenAI-compatible
 endpoint, or anything self-hosted still declares those members by hand, and
 `enrichCandidate` ranks declared and catalogue members together on one scale
 rather than sorting them into separate buckets. Enabling `catalog` widens the
-pool for the 7 providers it knows; it does not make the other 33 appear.
+pool for the 7 providers it knows; it does not make the other 37 appear.
 
 **The degradation contract.** `catalog.enabled` defaults to unset, and
 `buildModelCatalog()` returns `[]` when it is. Nothing about routing changes

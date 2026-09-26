@@ -1,23 +1,22 @@
 # Provider Descriptor Migration Ledger
 
-Inventory taken at `origin/release` @ `2cefa3ae4115f817f75a415b6bc70fc3ecaed2d3`. TypeSafe was added afterwards (#1761) and is included below; the 25-entry count matches `origin/release` @ `f536fd091`.
+Inventory taken at `origin/release` @ `2cefa3ae4115f817f75a415b6bc70fc3ecaed2d3`. TypeSafe was added afterwards (#1761) and is included below; the 25-entry count matched `origin/release` @ `f536fd091`.
 
-All 25 entries in `HAND_DESCRIPTORS` (`src/lib/factories/providerDescriptors.ts:45-526`) were inventoried against their live implementation files. This ledger records, per provider, why it is (or isn't) a JSON-catalog migration candidate, so "add a provider" work doesn't re-litigate the same analysis per PR.
+`mistral`, `huggingface` and `deepseek` have since migrated to the JSON catalog and been removed from `HAND_DESCRIPTORS` (#1781) — see [Migrated](#migrated-3) below — and `laya` (decision-only, like TypeSafe) was added as a hand descriptor afterwards. Net effect: 25 minus the 3 migrated plus 1 (`laya`) leaves **23 entries currently in `HAND_DESCRIPTORS`** (`src/lib/factories/providerDescriptors.ts`). The category counts below (Shared adapter needed / Must remain class / Must remain core class) cover exactly those 23; the 3 migrated providers are recorded separately as done and no longer count toward "what remains."
+
+This ledger records, per provider, why it is (or isn't) a JSON-catalog migration candidate, so "add a provider" work doesn't re-litigate the same analysis per PR.
 
 Every verdict allows one thing regardless of class: the **static descriptor metadata** (name, aliases, default model, credential env var names, setup URL) can always move into a class-backed JSON record. "Must remain class" means the _execution_ — the inference loop (`generate`/`stream`/`decide`, per the provider's `inferenceKinds`), auth, media pipelines — cannot be reduced to declarative catalog data; it does not mean the provider is exempt from descriptor consolidation.
 
-## JSON-ready now (1)
+## Migrated (3)
 
-| Provider  | Note                                                                                                                                                                                                                                                                                                                                                              |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mistral` | Already `ConfiguredOpenAICompatProvider`, driven by `catalog/mistral.json`. Remove the hand descriptor once its data conflicts are resolved: descriptor `setupUrl` disagrees with the JSON, the descriptor omits a model env var the JSON expects, and it carries timeout/priority/key-format fields the current descriptor builder doesn't derive from JSON yet. |
+All three ran the same class-removal path this ledger recommended below: resolve the JSON/descriptor data conflicts, then delete the hand descriptor and hand-written subclass so the provider is fully catalog-derived.
 
-## Schema extension needed (2)
-
-| Provider      | What the catalog schema is missing                                                                                                                                                                                     |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `huggingface` | Alternate credential env vars (`HUGGINGFACE_API_KEY` with `HF_TOKEN` fallback), `toolSupport: model-dependent`, timeouts, auto-select priority. Closest direct-vendor class-removal candidate once these fields exist. |
-| `deepseek`    | A narrowly-scoped `response_format` downgrade quirk (json_object coercion). No arbitrary executable hooks — this should be one named catalog quirk field, not a scripting escape hatch.                                |
+| Provider      | Note                                                                                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mistral`     | Moved onto `catalog/mistral.json`. `defaultModel` now derives from the new optional `models.registryDefaultModel` field when present (only Mistral sets it), and the `setupUrl`/key-format/timeout/priority conflicts this ledger flagged were resolved in the JSON rather than carried forward. |
+| `huggingface` | Moved onto `catalog/huggingface.json`, which gained `wire.apiKeyFallbackEnvVars` (`HF_TOKEN` alongside `HUGGINGFACE_API_KEY`) and `capabilities.tools: "model-dependent"` — the two schema gaps this ledger flagged below before the extension landed.                                           |
+| `deepseek`    | Moved onto `catalog/deepseek.json`, using the new `quirks.responseFormatDowngrade: "json-schema-to-json-object"` field (DeepSeek 400s on `json_schema`) instead of an executable hook — the named-quirk approach this ledger recommended. It also sets `quirks.replayReasoningContent: true`.    |
 
 ## Shared adapter needed (9)
 
@@ -29,7 +28,7 @@ Three adapter families, not nine one-off migrations:
 
 **Image-generation adapter** (`stability`, `ideogram`, `recraft`) — one image-generation adapter family: explicit multipart vs JSON request profile, base64-vs-URL response profile, custom auth-header support, model-path mapping as data. SSRF and bounded-read policy remain shared mandatory behavior, not per-vendor opt-outs.
 
-## Must remain class (12)
+## Must remain class (13)
 
 | Provider     | Why                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,6 +44,7 @@ Three adapter families, not nine one-off migrations:
 | `replicate`  | Async prediction lifecycle (not chat completions) plus cross-media handler integration is custom; descriptor JSON must not imply media-handler registrations belong to the LLM descriptor.                                                                                                                                                                                 |
 | `google-ai`  | Native Gemini + media + embedding pipelines aren't declaratively OpenAI-compatible — but flagged as the best early proof-of-concept for class-backed JSON _metadata_, since its auth is simpler than the cloud-IAM providers.                                                                                                                                              |
 | `typesafe`   | Decision-only (`inferenceKinds: ["decide"]`, no `generate`/`stream`): a dual-transport (direct + Vercel AI Gateway) wire protocol with its own question vocabulary (`noul` for boolean) and token-budget quirks — nothing here is OpenAI-compatible chat shape, so it isn't catalog-JSON candidate material by a different route than the generate/stream providers above. |
+| `laya`       | Decision-only (`inferenceKinds: ["decide"]`), like TypeSafe. Custom short-context wire protocol (rejects state over ~768 tokens, 320 for `english`) with no built-in endpoint — it only runs self-hosted or behind a LiteLLM route named by `LAYA_BASE_URL` — so it has no OpenAI-compatible chat shape to hang a catalog entry on.                                        |
 
 ## Must remain core class (1)
 
@@ -54,9 +54,9 @@ Three adapter families, not nine one-off migrations:
 
 ## Suggested execution order
 
-1. **`mistral`** — low-risk once the conflicts above are resolved, JSON-ready-now; proves the removal path for a hand descriptor that already has a JSON twin.
-2. **`huggingface`, `deepseek`** — smallest schema extensions (few named fields), each unlocks one direct-vendor class removal.
-3. **Three shared adapters** (local-runtime, embedding-only, image-generation) — each unlocks 3 providers at once; build once, migrate three.
-4. **`google-ai`** descriptor-only JSON metadata — proof of concept for moving static descriptor data out of a "must remain class" provider without touching its execution.
-5. Direct-vendor "must remain class" providers (`bedrock`, `openai`, `vertex`, `anthropic`, `azure`, `sagemaker`, `nvidia-nim`) get descriptor-only JSON metadata migrations, execution untouched — lower priority, cosmetic consolidation only.
-6. Aggregators (`litellm`, `openrouter`), the core adapter (`openai-compatible`), and `typesafe` are excluded from the first-class-count migration priority entirely — the first three add no direct-vendor coverage however they're implemented, and `typesafe` is a `decide`-only provider with no `generate`/`stream` surface to migrate at all.
+Steps 1–2 below (`mistral`; `huggingface`, `deepseek`) are complete — see [Migrated](#migrated-3) above. What remains:
+
+1. **Three shared adapters** (local-runtime, embedding-only, image-generation) — each unlocks 3 providers at once; build once, migrate three.
+2. **`google-ai`** descriptor-only JSON metadata — proof of concept for moving static descriptor data out of a "must remain class" provider without touching its execution.
+3. Direct-vendor "must remain class" providers (`bedrock`, `openai`, `vertex`, `anthropic`, `azure`, `sagemaker`, `nvidia-nim`) get descriptor-only JSON metadata migrations, execution untouched — lower priority, cosmetic consolidation only.
+4. Aggregators (`litellm`, `openrouter`), the core adapter (`openai-compatible`), and the decision-only providers (`typesafe`, `laya`) are excluded from the first-class-count migration priority entirely — the first three add no direct-vendor coverage however they're implemented, and `typesafe`/`laya` are `decide`-only providers with no `generate`/`stream` surface to migrate at all.

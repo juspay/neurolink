@@ -39,7 +39,7 @@ const QUICK_LINKS = [
   },
   {
     title: "SDK Guide",
-    description: "Unified API for 40 providers",
+    description: "Unified API for 44 providers",
     href: "/docs/sdk",
     icon: "📦",
   },
@@ -170,7 +170,7 @@ export default function Home(): React.JSX.Element {
   return (
     <Layout
       title="NeuroLink - The Nervous System Pipe for AI Streams"
-      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, voice, and context from 40 providers through pluggable connectors."
+      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, voice, and context from 44 providers through pluggable connectors."
     >
       <Head>
         <script type="application/ld+json">{JSON.stringify(FAQ_JSONLD)}</script>
@@ -226,7 +226,7 @@ export default function Home(): React.JSX.Element {
               <span className={styles.routingCardLabel}>THE PIPE</span>
               <p className={styles.routingCardTitle}>Start with the pipe</p>
               <p className={styles.routingCardDesc}>
-                Unified API for 40 AI providers. Token streams, voice, memory,
+                Unified API for 44 AI providers. Token streams, voice, memory,
                 tools, RAG — one consistent interface.
               </p>
             </a>

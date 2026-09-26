@@ -94,17 +94,52 @@ not declared here.
 class + message. Templates: `{model}`, `{apiKeyEnvVar}`, `{setupUrl}`.
 Rules are appended before the defaults and matched first-wins.
 
-**`quirks`** — two escape hatches, both rare:
+**`quirks`** — five named, closed escape hatches, all rare. Each one is
+consumed generically by `ConfiguredOpenAICompatProvider`/the catalog loader —
+none of them run arbitrary code. A provider that needs more than these
+becomes a Tier 3 subclass instead of a sixth quirk.
 
-- `timeoutErrorClass: "provider"` — `classifyProviderError()` hard-codes
-  `TimeoutError -> NetworkError` ahead of any rule table. Groq is the only
-  entry that overrides it, because its pre-migration subclass returned a
-  plain `ProviderError`. Set it only if your vendor genuinely needs a
-  different timeout Error subclass; other error-mapping quirks belong in
-  `errorRules`, or in a Tier 3 subclass if they need real logic.
-  `test/continuous-test-suite-error-classifier-contract.ts` asserts this
-  per provider — add a case if you set it.
-- `registryDefaultIgnoresModelEnvVar: true` — Mistral only.
+- `timeoutErrorClass: "provider"` — What it does: `classifyProviderError()`
+  hard-codes `TimeoutError -> NetworkError` ahead of any rule table; this
+  quirk overrides that mapping to `ProviderError` instead. When to use it:
+  only if your vendor genuinely needs a different timeout Error subclass —
+  Groq is the only current user, because its pre-migration subclass returned
+  a plain `ProviderError`. Other error-mapping quirks belong in `errorRules`,
+  or in a Tier 3 subclass if they need real logic.
+  `test/continuous-test-suite-error-classifier-contract.ts` asserts this per
+  provider — add a case if you set it.
+- `messageContentFormat: "string"` — What it does: forces every
+  `messages[].content` sent to the vendor to be a plain string instead of
+  OpenAI's content-parts array (and instead of the `null` OpenAI sends on an
+  assistant message with `tool_calls`); `ConfiguredOpenAICompatProvider`
+  normalizes every message before sending, so tool round-trips keep working.
+  When to use it: the vendor is otherwise OpenAI-compatible but rejects the
+  array/`null` content shape outright — Morph and Cloudflare Workers AI both
+  return HTTP 500/400 without it. Set it if a provider's tool round-trip
+  fails with a content-shape error and no other explanation.
+- `registryDefaultIgnoresModelEnvVar: true` — What it does: stops the
+  provider registry's default-model resolution from honoring the model named
+  in the provider's `*_MODEL` env var, so the catalog's own `models.default`
+  always wins instead. When to use it: Mistral is the only current user —
+  leave it unset for every other provider, since the default behavior (the
+  env var wins) is what operators expect.
+- `responseFormatDowngrade: "json-schema-to-json-object"` — What it does:
+  when a `generate({ schema })` call would send
+  `response_format: { type: "json_schema", ... }`, downgrades it to the
+  looser `{ type: "json_object" }` before sending; `coerceJsonToSchema`
+  still validates and coerces the response against your schema client-side,
+  so structured output keeps working. When to use it: the vendor's
+  OpenAI-compatible endpoint 400s on `json_schema` specifically but accepts
+  `json_object` — DeepSeek is the only current user.
+- `replayReasoningContent: true` — What it does: makes the shared message
+  converter and the streaming tool loop send each assistant turn's
+  `reasoning_content` back to the vendor on every later request in the
+  conversation, instead of dropping it the way a strict OpenAI-compatible
+  backend expects. When to use it: the vendor's own docs say a later request
+  400s without it once tools are in play — DeepSeek is the only current
+  user, and it sets this alongside `responseFormatDowngrade`. Setting this
+  for a vendor that doesn't ask for it risks a 400 from an unrecognized
+  field, since strict OpenAI-compatible backends reject it.
 
 **`setup`** — `url`, `apiKeyFormat` (regex or null), `billingPolicy`
 (`free-tier` | `free-with-card` | `no-free-tier`), `instructions[]`, and an
