@@ -930,6 +930,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             options.input,
             options.input.text,
             "[GoogleAIStudio:stream]",
+            modelName,
           );
           currentContents.push({
             role: "user",
@@ -1632,6 +1633,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             options.input,
             promptText,
             "[GoogleAIStudio:generate]",
+            modelName,
           );
           currentContents.push({
             role: "user",

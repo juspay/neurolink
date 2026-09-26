@@ -82,6 +82,105 @@ export type MultimodalAudioEntry = {
 };
 
 /**
+ * One video file destined for native delivery to a provider.
+ *
+ * Mirrors {@link MultimodalAudioEntry}: the bytes travel rather than the path,
+ * because whether a video is sent at all is decided per provider, after
+ * detection has already read the file.
+ *
+ * `durationSec` rides along because the native-delivery gate is expressed in
+ * seconds as well as bytes, and re-probing the container at dispatch time
+ * would mean a second ffprobe run for something the processor already
+ * measured. It is optional: probing can fail (no ffmpeg, an exotic container),
+ * and an unknown duration must not by itself disqualify a clip that is
+ * comfortably under the size ceiling.
+ */
+export type MultimodalVideoEntry = {
+  /** Raw video bytes, as detected. */
+  buffer: Buffer;
+  /** Display name; may be a full path, so log only its basename. */
+  filename: string;
+  /** Detected MIME type of `buffer`. */
+  mimeType: string;
+  /** Clip length in seconds, when the processor was able to measure it. */
+  durationSec?: number;
+};
+
+/**
+ * How one provider handles an attached video.
+ *
+ * The table lives in `adapters/videoFormatSupport.ts`; this is its row shape.
+ * `apiType` names the mechanism that is actually implemented, not the one a
+ * provider theoretically offers — Gemini also exposes a resumable Files API
+ * for clips beyond the inline ceiling, and until that is wired up calling this
+ * row "files-api" would misdescribe what happens to a 200 MB upload.
+ */
+export type VideoProviderConfig = {
+  /** Whether raw video bytes can be handed to this provider at all. */
+  readonly supportsNativeVideo: boolean;
+  /** How the video reaches the model. */
+  readonly apiType: "inline" | "frame-extraction";
+  /**
+   * Inline source-byte budget for the whole request, in MB. A clip is
+   * delivered natively only while its bytes plus every inline part already in
+   * the request stay within it; otherwise it falls back to keyframes.
+   * Meaningless when `supportsNativeVideo` is false, and set to 0 there rather
+   * than to a number that reads like a real limit.
+   */
+  readonly maxSizeMB: number;
+  /** Longest clip accepted natively, in seconds. 0 when not applicable. */
+  readonly maxDurationSec: number;
+  /** Whether the provider hears the video's audio track as well as seeing it. */
+  readonly supportsAudio: boolean;
+  /**
+   * Keyframe budget to aim for when this provider gets frames instead of the
+   * video. Advisory: an explicit `videoOptions.frames` always wins.
+   */
+  readonly recommendedFrameCount: number;
+};
+
+/**
+ * Media collected during file detection that a provider may be able to
+ * consume directly, rather than as a text summary.
+ *
+ * Grouped rather than passed as two more positional parameters: the message
+ * converters already take text, images, PDFs, provider and model, and each
+ * new modality added one more argument to a call nobody could read. A bag
+ * also means the next modality is a field, not another signature change at
+ * every call site.
+ */
+export type NativeMediaAttachments = {
+  readonly audio?: MultimodalAudioEntry[];
+  readonly video?: MultimodalVideoEntry[];
+  /**
+   * Transcode target for an incompatible image (see
+   * `GenerateOptions.imageOptions`). Not itself a native attachment, but
+   * bundled here for the same reason audio and video are: it is one more
+   * per-request option the message converters need at the same call sites.
+   */
+  readonly outputFormat?: VisionImageOutputFormat;
+};
+
+/**
+ * Outcome of asking whether one video may be handed to one provider as bytes.
+ *
+ * A plain boolean collapsed "this provider never watches video" with "this
+ * provider would have, but the clip is 400 MB" — and the two want different
+ * log lines and different advice. `reason` is populated exactly when
+ * `deliver` is false, and is phrased for a user to read.
+ *
+ * The accepting arm declares `reason?: undefined` rather than omitting the
+ * field. Not decoration: `build:react-hooks` type-checks this graph without
+ * `--strict`, and there a negated boolean-literal discriminant does not
+ * narrow, so `decision.reason` inside `if (!decision.deliver)` fails to
+ * compile unless the property exists on both arms. Declaring it keeps the
+ * union exact under strict and compilable under both.
+ */
+export type VideoDeliveryDecision =
+  | { readonly deliver: true; readonly reason?: undefined }
+  | { readonly deliver: false; readonly reason: string };
+
+/**
  * Broad category a file format belongs to, as a human would name it.
  *
  * Distinct from {@link FileType}, which is the *routing* type the detector
@@ -222,6 +321,14 @@ export type FileProcessingResult = {
     // Video-specific metadata
     frameCount?: number;
     hasKeyframes?: boolean;
+    /**
+     * Clip length in seconds, when the processor could measure it.
+     *
+     * Surfaced here so the native-delivery gate does not have to re-probe a
+     * container the processor has already opened. Absent when probing failed
+     * — an unknown duration, not a zero-length clip.
+     */
+    durationSec?: number;
   };
 };
 

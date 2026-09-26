@@ -8,7 +8,7 @@
 
 > **CSVDataQualityWarning** = `object`
 
-Defined in: [types/file.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L256)
+Defined in: [types/file.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L363)
 
 Data quality warning for CSV columns
 
@@ -18,7 +18,7 @@ Data quality warning for CSV columns
 
 > **column**: `string`
 
-Defined in: [types/file.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L257)
+Defined in: [types/file.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L364)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:257](https://github.com/juspay/neurolink/blob/release
 
 > **type**: `"empty_values"` \| `"invalid_name"` \| `"mixed_types"` \| `"high_null_rate"` \| `"duplicates"` \| `"inconsistent_format"`
 
-Defined in: [types/file.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L258)
+Defined in: [types/file.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L365)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:258](https://github.com/juspay/neurolink/blob/release
 
 > **message**: `string`
 
-Defined in: [types/file.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L265)
+Defined in: [types/file.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L372)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:265](https://github.com/juspay/neurolink/blob/release
 
 > **severity**: `"info"` \| `"warning"` \| `"error"`
 
-Defined in: [types/file.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L266)
+Defined in: [types/file.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L373)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/file.ts:266](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **affectedRows?**: `number`
 
-Defined in: [types/file.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L267)
+Defined in: [types/file.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L374)

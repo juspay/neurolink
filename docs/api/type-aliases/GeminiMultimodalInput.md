@@ -51,3 +51,16 @@ Defined in: [types/providers.ts:2509](https://github.com/juspay/neurolink/blob/r
 Audio collected during file detection, carried through to the native
 request as `inlineData`. Distinct from the user-facing `audioFiles`: these
 are already-materialised bytes with a resolved mime type.
+
+---
+
+### nativeVideoFiles?
+
+> `optional` **nativeVideoFiles?**: [`MultimodalVideoEntry`](MultimodalVideoEntry.md)[]
+
+Defined in: [types/providers.ts:2516](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2516)
+
+Video collected during file detection, carried through to the native
+request as `inlineData`. Distinct from the user-facing `videoFiles`: these
+are already-materialised bytes with a resolved mime type and, where it
+could be measured, the clip's duration.

@@ -8,7 +8,7 @@
 
 > **FileProcessingResult** = `object`
 
-Defined in: [types/file.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L168)
+Defined in: [types/file.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L267)
 
 File processing result after detection and conversion
 
@@ -18,7 +18,7 @@ File processing result after detection and conversion
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L169)
+Defined in: [types/file.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L268)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:169](https://github.com/juspay/neurolink/blob/release
 
 > **content**: `string` \| `Buffer`
 
-Defined in: [types/file.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L170)
+Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L269)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:170](https://github.com/juspay/neurolink/blob/release
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L171)
+Defined in: [types/file.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L270)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:171](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/file.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L173)
+Defined in: [types/file.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L272)
 
 Additional images extracted from the file (e.g., video keyframes, audio cover art)
 
@@ -52,7 +52,7 @@ Additional images extracted from the file (e.g., video keyframes, audio cover ar
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L174)
+Defined in: [types/file.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L273)
 
 #### confidence
 
@@ -217,3 +217,13 @@ Provider's citations requirement for visual PDF analysis (#349).
 #### hasKeyframes?
 
 > `optional` **hasKeyframes?**: `boolean`
+
+#### durationSec?
+
+> `optional` **durationSec?**: `number`
+
+Clip length in seconds, when the processor could measure it.
+
+Surfaced here so the native-delivery gate does not have to re-probe a
+container the processor has already opened. Absent when probing failed
+— an unknown duration, not a zero-length clip.
