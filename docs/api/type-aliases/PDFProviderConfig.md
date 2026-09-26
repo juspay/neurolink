@@ -8,7 +8,7 @@
 
 > **PDFProviderConfig** = `object`
 
-Defined in: [types/file.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L505)
+Defined in: [types/file.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L533)
 
 PDF provider configuration
 
@@ -18,7 +18,7 @@ PDF provider configuration
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/file.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L506)
+Defined in: [types/file.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L534)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:506](https://github.com/juspay/neurolink/blob/release
 
 > **maxPages**: `number`
 
-Defined in: [types/file.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L507)
+Defined in: [types/file.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L535)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:507](https://github.com/juspay/neurolink/blob/release
 
 > **supportsNative**: `boolean`
 
-Defined in: [types/file.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L508)
+Defined in: [types/file.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L536)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:508](https://github.com/juspay/neurolink/blob/release
 
 > **requiresCitations**: `boolean` \| `"auto"`
 
-Defined in: [types/file.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L517)
+Defined in: [types/file.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L545)
 
 Whether this provider needs source citations enabled for visual PDF
 analysis (#349). `"auto"` = enable when the request requires visual
@@ -57,4 +57,4 @@ adapters can act on it instead of the value being dead config.
 
 > **apiType**: [`PDFAPIType`](PDFAPIType.md)
 
-Defined in: [types/file.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L518)
+Defined in: [types/file.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L546)

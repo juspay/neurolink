@@ -5760,6 +5760,13 @@ Current user's request: ${currentInput}`;
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
       imageOptions: options.imageOptions,
+      // #413/#440/#1748: the per-modality option bags. Same trap as the fields
+      // above — this allowlist is the only road into the message builder, so
+      // leaving one out meant it was accepted by the public type and then
+      // silently discarded. videoOptions had been dropped here since #478
+      // wired the CLI flags up: they parsed, and went nowhere.
+      audioOptions: options.audioOptions,
+      videoOptions: options.videoOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

@@ -8,7 +8,7 @@
 
 > **ArchiveEntry** = `object`
 
-Defined in: [types/processor.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L942)
+Defined in: [types/processor.ts:961](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L961)
 
 Metadata about an individual entry within an archive.
 
@@ -18,7 +18,7 @@ Metadata about an individual entry within an archive.
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:943](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L943)
+Defined in: [types/processor.ts:962](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L962)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/processor.ts:943](https://github.com/juspay/neurolink/blob/re
 
 > **uncompressedSize**: `number`
 
-Defined in: [types/processor.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L944)
+Defined in: [types/processor.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L963)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/processor.ts:944](https://github.com/juspay/neurolink/blob/re
 
 > **compressedSize**: `number`
 
-Defined in: [types/processor.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L945)
+Defined in: [types/processor.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L964)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/processor.ts:945](https://github.com/juspay/neurolink/blob/re
 
 > **isDirectory**: `boolean`
 
-Defined in: [types/processor.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L946)
+Defined in: [types/processor.ts:965](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L965)

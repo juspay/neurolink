@@ -30,6 +30,7 @@ async function getArchiveProcessor() {
   return mod.archiveProcessor;
 }
 import type {
+  AudioProcessorOptions,
   CSVProcessorOptions,
   DetectionStrategy,
   FileDetectionResult,
@@ -448,6 +449,7 @@ export class FileDetector {
             csvOptions,
             options?.provider,
             options?.videoOptions,
+            options?.audioOptions,
           );
           FileDetector.setFileResultSpanAttributes(
             span,
@@ -468,6 +470,7 @@ export class FileDetector {
           csvOptions,
           options?.provider,
           options?.videoOptions,
+          options?.audioOptions,
         );
         FileDetector.setFileResultSpanAttributes(
           span,
@@ -1364,6 +1367,7 @@ export class FileDetector {
     options?: CSVProcessorOptions,
     provider?: string,
     videoOptions?: VideoProcessorOptions,
+    audioOptions?: AudioProcessorOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
@@ -1388,7 +1392,11 @@ export class FileDetector {
           videoOptions,
         );
       case "audio":
-        return await FileDetector.processAudioFile(content, detection);
+        return await FileDetector.processAudioFile(
+          content,
+          detection,
+          audioOptions,
+        );
       case "archive":
         return await FileDetector.processArchiveFile(content, detection);
       case "xlsx":
@@ -1531,23 +1539,30 @@ export class FileDetector {
   private static async processAudioFile(
     content: Buffer,
     detection: FileDetectionResult,
+    audioOptions?: AudioProcessorOptions,
   ): Promise<FileProcessingResult> {
     const audioFilename = detection.metadata.filename || "audio";
     try {
       const audioResult = await (
         await getAudioProcessor()
-      ).processFile({
-        id: audioFilename,
-        name: audioFilename,
-        mimetype: detection.mimeType || "audio/mpeg",
-        size: content.length,
-        buffer: content,
-      });
+      ).processFile(
+        {
+          id: audioFilename,
+          name: audioFilename,
+          mimetype: detection.mimeType || "audio/mpeg",
+          size: content.length,
+          buffer: content,
+        },
+        // #440: carry the caller's transcription provider/language/prompt
+        // through to the processor; previously these stopped here.
+        audioOptions,
+      );
       if (audioResult.success && audioResult.data) {
+        const audio = audioResult.data;
         return {
           type: "audio",
           content:
-            audioResult.data.textContent ||
+            audio.textContent ||
             FileDetector.formatInformativePlaceholder(
               "Audio",
               audioFilename,
@@ -1556,10 +1571,28 @@ export class FileDetector {
             ),
           mimeType: detection.mimeType,
           // Surface embedded cover art as an image content block
-          images: audioResult.data.coverArt
-            ? [audioResult.data.coverArt]
-            : undefined,
-          metadata: detection.metadata,
+          images: audio.coverArt ? [audio.coverArt] : undefined,
+          metadata: {
+            ...detection.metadata,
+            // #409: the processor's audio metadata used to stop here —
+            // `detection.metadata` alone carries only size/filename/confidence,
+            // so duration and everything about the transcript were dropped by
+            // the very call that produced them.
+            ...(audio.metadata.duration > 0
+              ? { duration: audio.metadata.duration }
+              : {}),
+            ...(audio.transcriptionLanguage
+              ? { language: audio.transcriptionLanguage }
+              : {}),
+            // Written whenever a backend actually ran, so 0 (a real empty
+            // transcript) stays distinguishable from "never attempted".
+            ...(audio.transcriptionProvider
+              ? {
+                  transcriptionLength: audio.transcript?.length ?? 0,
+                  transcriptionProvider: audio.transcriptionProvider,
+                }
+              : {}),
+          },
         };
       }
     } catch (audioError) {

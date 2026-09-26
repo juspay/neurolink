@@ -8,7 +8,7 @@
 
 > **AudioProviderConfig** = `object`
 
-Defined in: [types/file.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L568)
+Defined in: [types/file.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L596)
 
 Audio provider configuration for transcription services
 
@@ -45,7 +45,7 @@ const googleConfig: AudioProviderConfig = {
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/file.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L570)
+Defined in: [types/file.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L598)
 
 Maximum audio file size in megabytes
 
@@ -55,7 +55,7 @@ Maximum audio file size in megabytes
 
 > **maxDurationSeconds**: `number`
 
-Defined in: [types/file.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L572)
+Defined in: [types/file.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L600)
 
 Maximum audio duration in seconds
 
@@ -65,7 +65,7 @@ Maximum audio duration in seconds
 
 > **supportedFormats**: `string`[]
 
-Defined in: [types/file.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L574)
+Defined in: [types/file.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L602)
 
 Supported audio formats (e.g., 'mp3', 'wav', 'm4a', 'flac', 'ogg')
 
@@ -75,7 +75,7 @@ Supported audio formats (e.g., 'mp3', 'wav', 'm4a', 'flac', 'ogg')
 
 > **supportsLanguageDetection**: `boolean`
 
-Defined in: [types/file.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L576)
+Defined in: [types/file.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L604)
 
 Whether the provider supports automatic language detection
 
@@ -85,7 +85,7 @@ Whether the provider supports automatic language detection
 
 > **requiresApiKey**: `boolean`
 
-Defined in: [types/file.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L578)
+Defined in: [types/file.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L606)
 
 Whether the provider requires an API key for authentication
 
@@ -95,7 +95,7 @@ Whether the provider requires an API key for authentication
 
 > `optional` **costPer60s?**: `number`
 
-Defined in: [types/file.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L580)
+Defined in: [types/file.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L608)
 
 Optional: Cost per 60 seconds of audio in USD
 
@@ -105,6 +105,6 @@ Optional: Cost per 60 seconds of audio in USD
 
 > `optional` **costPer15s?**: `number`
 
-Defined in: [types/file.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L582)
+Defined in: [types/file.ts:610](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L610)
 
 Optional: Cost per 15 seconds of audio in USD

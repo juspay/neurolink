@@ -8,7 +8,7 @@
 
 > **ProcessedVideo** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:855](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L855)
+Defined in: [types/processor.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L874)
 
 Processed video result.
 Extends ProcessedFileBase with video-specific fields including metadata,

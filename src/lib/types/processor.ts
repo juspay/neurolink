@@ -838,6 +838,25 @@ export type ProcessedAudio = ProcessedFileBase & {
   hasTranscript: boolean;
   transcriptionProvider?: string;
   /**
+   * Language the transcription backend reported for the speech (#409), when
+   * it reported one.
+   *
+   * Not always a *detected* language: when the backend's response carries no
+   * language (Whisper's `verbose_json` usually does; Google/Azure responses
+   * vary), this falls back to the caller-requested `options.language` instead
+   * of going unset. A caller that must distinguish "the backend detected X"
+   * from "X is just what was asked for" cannot do so from this field alone.
+   */
+  transcriptionLanguage?: string;
+  /**
+   * Audio duration in seconds as measured by the transcription backend (#409).
+   *
+   * Kept apart from `metadata.duration`, which comes from the container
+   * header: the two disagree on a file with a broken or absent header, and the
+   * header is the one that is available without a transcription call.
+   */
+  transcriptionDuration?: number;
+  /**
    * Why transcription produced nothing, when it did (#416). Absent on success.
    * Lets a caller distinguish "this audio has no speech" from "the transcription
    * backend was never reachable", which previously looked identical.
