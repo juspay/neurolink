@@ -8,7 +8,7 @@
 
 > **JsonCoercionResult** = `object`
 
-Defined in: [types/utilities.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L326)
+Defined in: [types/utilities.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L340)
 
 Result of coercing arbitrary model text into canonical, valid JSON.
 `content` is a JSON.stringify of the recovered object; `structuredData` is
@@ -20,7 +20,7 @@ the parsed object itself.
 
 > **content**: `string`
 
-Defined in: [types/utilities.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L327)
+Defined in: [types/utilities.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L341)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/utilities.ts:327](https://github.com/juspay/neurolink/blob/re
 
 > **structuredData**: `unknown`
 
-Defined in: [types/utilities.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L328)
+Defined in: [types/utilities.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L342)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/utilities.ts:328](https://github.com/juspay/neurolink/blob/re
 
 > **repaired**: `boolean`
 
-Defined in: [types/utilities.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L330)
+Defined in: [types/utilities.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L344)
 
 True when jsonrepair altered the model text to make it parse.
 
@@ -46,7 +46,7 @@ True when jsonrepair altered the model text to make it parse.
 
 > **truncated**: `boolean`
 
-Defined in: [types/utilities.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L335)
+Defined in: [types/utilities.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L349)
 
 True when the recovered object came from a truncated (unclosed) span —
 the response likely hit the output-token cap and data may be incomplete.

@@ -8,7 +8,7 @@
 
 > **PromptRedactionOptions** = `object`
 
-Defined in: [types/utilities.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L212)
+Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L226)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/utilities.ts:212](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **maxLength?**: `number`
 
-Defined in: [types/utilities.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L214)
+Defined in: [types/utilities.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L228)
 
 Maximum length of redacted prompt
 
@@ -26,7 +26,7 @@ Maximum length of redacted prompt
 
 > `optional` **showWordCount?**: `boolean`
 
-Defined in: [types/utilities.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L216)
+Defined in: [types/utilities.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L230)
 
 Whether to show word count
 
@@ -36,6 +36,6 @@ Whether to show word count
 
 > `optional` **maskChar?**: `string`
 
-Defined in: [types/utilities.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L218)
+Defined in: [types/utilities.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L232)
 
 Mask character to use for redaction

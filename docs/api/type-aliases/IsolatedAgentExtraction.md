@@ -8,7 +8,7 @@
 
 > **IsolatedAgentExtraction** = `object`
 
-Defined in: [types/isolatedAgent.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L92)
+Defined in: [types/isolatedAgent.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L101)
 
 Structured-extraction configuration for an isolated agent run.
 
@@ -22,7 +22,7 @@ provider error still extracts from the records instead of losing the run.
 
 > **schema**: `z.ZodSchema`
 
-Defined in: [types/isolatedAgent.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L94)
+Defined in: [types/isolatedAgent.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L103)
 
 Local validator (lenient — may carry defaults/catch). Required.
 
@@ -32,7 +32,7 @@ Local validator (lenient — may carry defaults/catch). Required.
 
 > `optional` **wireSchema?**: `z.ZodSchema`
 
-Defined in: [types/isolatedAgent.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L99)
+Defined in: [types/isolatedAgent.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L108)
 
 Provider-attached wire schema (strict: no defaults/catch, which many
 providers reject in constrained decoding). Falls back to `schema`.
@@ -43,7 +43,7 @@ providers reject in constrained decoding). Falls back to `schema`.
 
 > `optional` **shapeDoc?**: `string`
 
-Defined in: [types/isolatedAgent.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L104)
+Defined in: [types/isolatedAgent.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L113)
 
 Human/model-readable JSON shape description used in the extraction
 prompt and in corrective retries alongside validation errors.
@@ -54,7 +54,7 @@ prompt and in corrective retries alongside validation errors.
 
 > `optional` **coerce?**: (`candidate`) => `unknown`
 
-Defined in: [types/isolatedAgent.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L109)
+Defined in: [types/isolatedAgent.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L118)
 
 Normalizer applied to every recovery candidate before validation
 (e.g. wrap a bare top-level array into the expected envelope).
@@ -75,7 +75,7 @@ Normalizer applied to every recovery candidate before validation
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/isolatedAgent.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L111)
+Defined in: [types/isolatedAgent.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L120)
 
 Corrective re-ask attempts after ladder failure (default 2).
 
@@ -85,7 +85,7 @@ Corrective re-ask attempts after ladder failure (default 2).
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L116)
+Defined in: [types/isolatedAgent.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L125)
 
 Per-attempt extraction timeout in ms (default 60_000). Never carved out
 of the research budget.
@@ -96,7 +96,7 @@ of the research budget.
 
 > `optional` **totalTimeoutMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L124)
+Defined in: [types/isolatedAgent.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L133)
 
 Phase-level deadline bounding ALL extraction attempts (ms). Defaults to
 `(maxRetries + 1) × timeoutMs` — i.e. 180s at the defaults. Callers that

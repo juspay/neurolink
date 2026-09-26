@@ -8,7 +8,7 @@
 
 > **AgentRunOverrides** = `object`
 
-Defined in: [types/isolatedAgent.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L140)
+Defined in: [types/isolatedAgent.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L149)
 
 Per-run overrides for an isolated agent run (internal-caller knobs).
 
@@ -18,7 +18,7 @@ Per-run overrides for an isolated agent run (internal-caller knobs).
 
 > `optional` **turnTimeoutMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L142)
+Defined in: [types/isolatedAgent.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L151)
 
 Wall-clock cap for the research pass (ms).
 
@@ -28,7 +28,7 @@ Wall-clock cap for the research pass (ms).
 
 > `optional` **stallTimeoutMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L144)
+Defined in: [types/isolatedAgent.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L153)
 
 Stall watchdog for the research pass (ms).
 
@@ -38,7 +38,7 @@ Stall watchdog for the research pass (ms).
 
 > `optional` **wrapupTimeLeadMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L146)
+Defined in: [types/isolatedAgent.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L155)
 
 Wrap-up lead for the research pass (ms).
 
@@ -48,7 +48,7 @@ Wrap-up lead for the research pass (ms).
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/isolatedAgent.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L148)
+Defined in: [types/isolatedAgent.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L157)
 
 Max agentic steps for the research pass.
 
@@ -58,7 +58,7 @@ Max agentic steps for the research pass.
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/isolatedAgent.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L150)
+Defined in: [types/isolatedAgent.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L159)
 
 Max output tokens per model call.
 
@@ -68,7 +68,7 @@ Max output tokens per model call.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/isolatedAgent.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L152)
+Defined in: [types/isolatedAgent.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L161)
 
 Model override (wins over the definition).
 
@@ -78,6 +78,6 @@ Model override (wins over the definition).
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/isolatedAgent.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L154)
+Defined in: [types/isolatedAgent.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L163)
 
 Provider override (wins over the definition).
