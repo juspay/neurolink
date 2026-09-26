@@ -459,6 +459,101 @@ await test("preserves Claude tool_use and tool_result pairing while truncating",
     }
   }
 });
+await test("preserves every Codex call family pairing while truncating", () => {
+  // A live Codex session failed with upstream "No tool call found for custom
+  // tool call output with call_id ...". The pairing predicates matched only
+  // `function_call`, so a `custom_tool_call` opened no id, unit grouping could
+  // not see the pair, and truncation was free to cut between the call and its
+  // output. The Codex CLI's shell and apply_patch tools are custom tools, so
+  // this is the common case rather than an exotic one.
+  //
+  // Swept across targets rather than asserted at one: whether the cut lands
+  // between a call and its answer depends on where the byte budget runs out, so
+  // a single target can pass while the invariant is broken at another.
+  registerRuntimeContextWindow("codex", "gpt-5.6-sol", 1_000_000);
+  const filler = "word ".repeat(2500);
+  const families = ["function", "custom_tool", "local_shell", "computer"];
+  const input: unknown[] = [];
+  for (let n = 0; n < 16; n += 1) {
+    const family = families[n % families.length];
+    // Weight sits on the CALL, not the answer: a Codex apply_patch custom call
+    // carries the whole patch in its arguments while its output is a short
+    // acknowledgement. That is the shape that makes the budget run out between
+    // the two, which is exactly when an unpaired answer gets stranded.
+    input.push({
+      type: `${family}_call`,
+      call_id: `call-${n}`,
+      name: "apply_patch",
+      arguments: filler,
+    });
+    input.push({
+      type: `${family}_call_output`,
+      call_id: `call-${n}`,
+      output: "Success",
+    });
+  }
+  input.push({
+    role: "user",
+    content: [{ type: "input_text", text: "final" }],
+  });
+
+  let sawTruncation = false;
+  let sawAnswer = false;
+  for (let target = 2_000; target <= 36_000; target += 1_000) {
+    const result = prepareProxyRequestContext({
+      provider: "codex",
+      model: "gpt-5.6-sol",
+      body: { input: input.map((item) => ({ ...(item as object) })) },
+      policy: {
+        models: {
+          "codex/gpt-5.6-sol": {
+            contextWindow: 1_000_000,
+            compactAtTokens: 20_000,
+            compactToTokens: target,
+          },
+        },
+      },
+    });
+    if (result.evidence.historyModified !== true) {
+      continue;
+    }
+    sawTruncation = true;
+    const kept = result.body.input as Array<Record<string, unknown>>;
+    const opened = new Set<string>();
+    for (const item of kept) {
+      const type = item.type;
+      if (
+        typeof type === "string" &&
+        type.endsWith("_call") &&
+        typeof item.call_id === "string"
+      ) {
+        opened.add(item.call_id);
+      }
+    }
+    for (const item of kept) {
+      const type = item.type;
+      if (
+        typeof type === "string" &&
+        type.endsWith("_call_output") &&
+        typeof item.call_id === "string"
+      ) {
+        sawAnswer = true;
+        assert.ok(
+          opened.has(item.call_id),
+          `orphaned ${type} for ${item.call_id} at target ${target}`,
+        );
+      }
+    }
+  }
+  assert.ok(
+    sawTruncation,
+    "no target truncated, so the invariant was untested",
+  );
+  assert.ok(
+    sawAnswer,
+    "no tool answer survived any target, so nothing was proven",
+  );
+});
 await test("does not treat the translated current turn as removable history", () => {
   registerRuntimeContextWindow("vertex", "opus", 1_000_000);
   const result = prepareProxyRequestContext({

@@ -27,8 +27,8 @@ function record(value: unknown): value is Record<string, unknown> {
  * (plain, carrying a complete tool pair, repeated, or opening with a signed
  * `thinking` block). A `role: "system"` message is not — the Messages API
  * requires the initial system prompt in the top-level `system` parameter.
- * Items with no role (Codex `function_call` / `function_call_output`) are not
- * turns and are left alone.
+ * Items with no role (Codex `*_call` / `*_call_output`) are not turns and are
+ * left alone.
  */
 function isDirectiveTurn(item: unknown): boolean {
   return record(item) && item.role === "system";
@@ -38,13 +38,28 @@ function blocksOf(item: Record<string, unknown>): unknown[] {
   return Array.isArray(item.content) ? item.content : [item];
 }
 
-/** Tool-call ids this item opens. */
+/**
+ * Tool-call ids this item opens.
+ *
+ * Matched on the `_call` suffix rather than an enumerated list of item types.
+ * The Responses API has several call families — `function_call`,
+ * `custom_tool_call`, `local_shell_call`, `computer_call` — and an unrecognised
+ * one is worse than useless here: it opens no id, so unit grouping cannot see
+ * the pair and truncation is free to cut between a call and its answer. A live
+ * Codex session failed exactly that way, upstream rejecting the request with
+ * "No tool call found for custom tool call output with call_id ...". Suffix
+ * matching keeps the next family from reintroducing it silently.
+ */
 function definedCallIds(item: unknown): string[] {
   if (!record(item)) {
     return [];
   }
   const ids: string[] = [];
-  if (item.type === "function_call" && typeof item.call_id === "string") {
+  if (
+    typeof item.type === "string" &&
+    item.type.endsWith("_call") &&
+    typeof item.call_id === "string"
+  ) {
     ids.push(item.call_id);
   }
   for (const block of blocksOf(item)) {
@@ -59,14 +74,21 @@ function definedCallIds(item: unknown): string[] {
   return ids;
 }
 
-/** Tool-call ids this item answers. */
+/**
+ * Tool-call ids this item answers.
+ *
+ * Suffix-matched for the same reason `definedCallIds` is. `_call_output` is
+ * checked rather than `_call` because no output type ends in `_call`, so the
+ * two predicates stay disjoint without ordering between them.
+ */
 function referencedCallIds(item: unknown): string[] {
   if (!record(item)) {
     return [];
   }
   const ids: string[] = [];
   if (
-    item.type === "function_call_output" &&
+    typeof item.type === "string" &&
+    item.type.endsWith("_call_output") &&
     typeof item.call_id === "string"
   ) {
     ids.push(item.call_id);
@@ -87,7 +109,8 @@ function referencedCallIds(item: unknown): string[] {
  * Group items so a tool call and every answer to it stay in one unit.
  *
  * A unit stays open while any call it opened is still unanswered, so removing
- * whole units can never strand a `tool_result` or a `function_call_output`.
+ * whole units can never strand a tool answer — an Anthropic `tool_result` or
+ * any Responses API `*_call_output`.
  */
 function groupIntoUnits(items: readonly unknown[]): number[][] {
   const units: number[][] = [];
