@@ -163,3 +163,13 @@ Signals the channel that no further chunks will arrive (success or error path al
 #### Returns
 
 `void`
+
+---
+
+### responseFormat?
+
+> `optional` **responseFormat?**: [`OpenAICompatResponseFormat`](OpenAICompatResponseFormat.md)
+
+`response_format` for this turn's requests, computed once up front from
+`options.schema` (see `suppressResponseFormatWithTools`). Absent when no
+schema was requested, or when tools suppress it.

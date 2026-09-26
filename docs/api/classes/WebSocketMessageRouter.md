@@ -34,7 +34,7 @@ Register a message route
 
 ##### handler
 
-(`connection`, `payload`) => `Promise`\<`unknown`\>
+(`connection`, `payload`, `requestId?`) => `Promise`\<`unknown`\>
 
 #### Returns
 

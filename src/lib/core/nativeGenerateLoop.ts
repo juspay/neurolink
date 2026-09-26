@@ -109,8 +109,14 @@ export const appendJsonSchemaInstruction = (
   conversation: Array<Record<string, unknown>>,
   schema: unknown,
 ): Array<Record<string, unknown>> => {
+  // "value", not "object": a ValidationSchema also accepts array and scalar
+  // roots (z.array(...), z.string()), and demanding an object told a
+  // compliant model to emit something those roots can never satisfy — so the
+  // fallback silently produced nothing for them however well the model
+  // complied. The generate path's own re-ask prompt was corrected for this
+  // reason; this shared helper, used by both paths, was missed.
   const instruction =
-    "When you give your final answer, respond with only a single JSON object " +
+    "When you give your final answer, respond with only a single JSON value " +
     "that conforms to the following JSON Schema. No prose before or after it, " +
     `and no markdown code fence. JSON Schema: ${JSON.stringify(schema)}`;
   const lastSystemIndex = conversation.reduce(

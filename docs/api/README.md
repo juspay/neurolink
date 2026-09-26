@@ -2746,6 +2746,7 @@ console.log(result.content);
 - [DataStreamWriter](type-aliases/DataStreamWriter.md)
 - [WebSocketMessageType](type-aliases/WebSocketMessageType.md)
 - [WebSocketMessage](type-aliases/WebSocketMessage.md)
+- [WebSocketRequestId](type-aliases/WebSocketRequestId.md)
 - [AuthenticatedUser](type-aliases/AuthenticatedUser.md)
 - [WebSocketConnection](type-aliases/WebSocketConnection.md)
 - [AuthStrategy](type-aliases/AuthStrategy.md)

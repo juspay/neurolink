@@ -5760,6 +5760,10 @@ Current user's request: ${currentInput}`;
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
       imageOptions: options.imageOptions,
+      // videoOptions belongs in that same list and was never in it, so no SDK
+      // caller's video settings have ever reached a provider -- frames and
+      // quality included, not just the native-video flags added alongside.
+      videoOptions: options.videoOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

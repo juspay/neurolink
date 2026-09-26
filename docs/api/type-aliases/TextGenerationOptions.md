@@ -656,6 +656,40 @@ module's own default, unchanged unless a caller opts in here.
 
 ---
 
+### videoOptions?
+
+> `optional` **videoOptions?**: `object`
+
+Video processing options (mirrors `GenerateOptions.videoOptions`). Never
+declared here before, so `buildGenerateTextOptions` had nowhere to
+forward the caller's setting even once the allowlist itself named it.
+
+#### frames?
+
+> `optional` **frames?**: `number`
+
+Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100.
+
+#### quality?
+
+> `optional` **quality?**: `number`
+
+Frame encoder quality, clamped to 1-100. Default 80.
+
+#### format?
+
+> `optional` **format?**: `"jpeg"` \| `"png"`
+
+Frame encoding. Default jpeg.
+
+#### transcribeAudio?
+
+> `optional` **transcribeAudio?**: `boolean`
+
+Not implemented yet (#433) — warns rather than silently doing nothing.
+
+---
+
 ### enableSummarization?
 
 > `optional` **enableSummarization?**: `boolean`
