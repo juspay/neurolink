@@ -2606,6 +2606,795 @@ async function testGrokApplyRefusesUnreadableConfig(): Promise<boolean> {
 }
 
 /**
+ * Grok rewrites config.toml itself. Any user-config save (`/settings`,
+ * `grok mcp add`, ...) round-trips the whole document through a serializer
+ * that drops every comment, both managed-block markers with them, and turns
+ * the inline `extra_headers` into a `[model.<id>.extra_headers]` sub-table.
+ * Measured against Grok Build 1.0.40.
+ *
+ * The writer found its block only by those markers, so the next apply kept
+ * the unmarked tables and appended a second copy of every id. TOML rejects a
+ * table declared twice and Grok refuses to start. Every proxy start, and so
+ * every auto-update, appended another copy.
+ */
+const GROK_BLOCK_BEGIN_LINE = "# >>> neurolink-proxy (managed) >>>";
+const GROK_BLOCK_END_LINE = "# <<< neurolink-proxy (managed) <<<";
+
+const GROK_USER_PREAMBLE = [
+  "[cli]",
+  'installer = "internal"',
+  "",
+  "[ui]",
+  "yolo = false",
+  "",
+  "[models]",
+  'default = "grok-4.6"',
+  'default_reasoning_effort = "xhigh"',
+  "",
+];
+
+/** A managed entry in the shape Grok's own save leaves behind. */
+function grokSerializedManagedModel(
+  id: string,
+  anthropic: boolean,
+  name = `${id} (NeuroLink)`,
+): string[] {
+  const key = /^[A-Za-z0-9_-]+$/.test(id) ? id : JSON.stringify(id);
+  return [
+    `[model.${key}]`,
+    `model = "${id}"`,
+    `name = "${name}"`,
+    'base_url = "http://127.0.0.1:55669/v1"',
+    `api_backend = "${anthropic ? "messages" : "chat_completions"}"`,
+    "context_window = 200000",
+    ...(anthropic
+      ? [
+          "",
+          `[model.${key}.extra_headers]`,
+          'x-api-key = "neurolink-proxy"',
+          'anthropic-version = "2023-06-01"',
+        ]
+      : ['api_key = "neurolink-proxy"']),
+    "",
+  ];
+}
+
+function countGrokLines(text: string, line: string): number {
+  return text.split(/\r?\n/).filter((candidate) => candidate.trim() === line)
+    .length;
+}
+
+async function withGrokHome(
+  label: string,
+  body: (configPath: string) => Promise<string | null>,
+): Promise<boolean> {
+  const { __grokTestHooks } = await import("../src/cli/proxy-clients/grok.js");
+  const prevHome = process.env.HOME;
+  const prevGrokHome = process.env.GROK_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-grok-state-"));
+  try {
+    delete process.env.GROK_HOME;
+    process.env.HOME = root;
+    fs.mkdirSync(__grokTestHooks.getGrokConfigDir(), { recursive: true });
+    const failure = await body(__grokTestHooks.getGrokConfigPath());
+    if (failure) {
+      log(`Grok ${label}: ${failure}`, "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevGrokHome === undefined) {
+      delete process.env.GROK_HOME;
+    } else {
+      process.env.GROK_HOME = prevGrokHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testGrokApplyReplacesUnmarkedBlock(): Promise<boolean> {
+  const { grokConfigurator } = await import("../src/cli/proxy-clients/grok.js");
+  return withGrokHome("unmarked block", async (configPath) => {
+    fs.writeFileSync(
+      configPath,
+      [
+        ...GROK_USER_PREAMBLE,
+        ...grokSerializedManagedModel("claude-opus-4-6", true),
+        // TOML literal strings are as valid as basic ones.
+        ...grokSerializedManagedModel("gemini-2.5-pro", false).map((line) =>
+          line.replaceAll('"', "'"),
+        ),
+        // A sub-table ahead of its own table, another table between them.
+        "[model.claude-haiku-4-5.extra_headers]",
+        'x-api-key = "neurolink-proxy"',
+        "",
+        "[user_notes]",
+        'kept = "between"',
+        "",
+        "[model.claude-haiku-4-5]",
+        'model = "claude-haiku-4-5"',
+        'base_url = "http://127.0.0.1:55669/v1"',
+        "",
+        // Written by an older catalog: gone from this one, still carrying
+        // the name the proxy gives it.
+        ...grokSerializedManagedModel(
+          "claude-3-5-sonnet",
+          true,
+          "Claude 3.5 Sonnet (NeuroLink)",
+        ).map((line) => line.replace(/^name = "(.*)"$/, 'name = """$1"""')),
+        ...grokSerializedManagedModel(
+          "claude-3-5-haiku",
+          true,
+          "Claude 3.5 Haiku (NeuroLink)",
+        ).map((line) => line.replace(/^name = "(.*)"$/, "name = '''$1'''")),
+        // A proxy sub-table whose own table was deleted by hand.
+        "[model.retired-model.extra_headers]",
+        'x-api-key = "neurolink-proxy"',
+        "",
+        // The credential after a multi-line-delimited string whose content
+        // ends in a quote, on the same line.
+        '[model."gemini-2.5-flash"]',
+        'model = "gemini-2.5-flash"',
+        'base_url = "http://127.0.0.1:55669/v1"',
+        'extra_headers = { note = """from "grok"""", "x-api-key" = "neurolink-proxy" }',
+        "",
+        "# probe server, added by hand",
+        // Grok appends what it adds after everything already there.
+        "[mcp_servers.probe]",
+        'command = "echo"',
+        "",
+      ].join("\n"),
+    );
+    if (!(await grokConfigurator.apply("http://127.0.0.1:55669"))) {
+      return "writer reported no write";
+    }
+    const applied = fs.readFileSync(configPath, "utf8");
+    for (const header of [
+      "[model.claude-opus-4-6]",
+      '[model."gemini-2.5-pro"]',
+      "[model.claude-haiku-4-5]",
+      "[model.claude-sonnet-4-6]",
+    ]) {
+      if (countGrokLines(applied, header) !== 1) {
+        return `${header} is not declared exactly once`;
+      }
+    }
+    for (const stale of [
+      "[model.claude-opus-4-6.extra_headers]",
+      "[model.claude-haiku-4-5.extra_headers]",
+      "[model.'gemini-2.5-pro']",
+      "[model.claude-3-5-sonnet]",
+      "[model.claude-3-5-haiku]",
+      "[model.retired-model.extra_headers]",
+    ]) {
+      if (countGrokLines(applied, stale) !== 0) {
+        return `a stale managed table survived: ${stale}`;
+      }
+    }
+    if (!applied.includes('name = "Claude Haiku 4.5 (NeuroLink)"')) {
+      return "the split claude-haiku-4-5 entry was kept instead of replaced";
+    }
+    if (
+      !applied.includes('name = "Gemini 2.5 Flash (NeuroLink)"') ||
+      applied.includes('from "grok"')
+    ) {
+      return "the gemini-2.5-flash entry was kept instead of replaced";
+    }
+    if (
+      countGrokLines(applied, GROK_BLOCK_BEGIN_LINE) !== 1 ||
+      countGrokLines(applied, GROK_BLOCK_END_LINE) !== 1
+    ) {
+      return "expected exactly one begin and one end marker";
+    }
+    for (const kept of [
+      "[mcp_servers.probe]",
+      'command = "echo"',
+      "yolo = false",
+      "[user_notes]",
+      'kept = "between"',
+      "# probe server, added by hand",
+    ]) {
+      if (!applied.includes(kept)) {
+        return `user content was lost: ${kept}`;
+      }
+    }
+    await grokConfigurator.apply("http://127.0.0.1:55669");
+    if (fs.readFileSync(configPath, "utf8") !== applied) {
+      return "a second apply changed the file";
+    }
+    return null;
+  });
+}
+
+async function testGrokApplyHealsOrphanBeginMarker(): Promise<boolean> {
+  const { grokConfigurator, __grokTestHooks } =
+    await import("../src/cli/proxy-clients/grok.js");
+  return withGrokHome("orphan begin marker", async (configPath) => {
+    const block = await __grokTestHooks.buildGrokManagedBlock(
+      "http://127.0.0.1:55669/v1",
+    );
+    // The live failure: the end marker gone and the last managed line
+    // carrying a literal backslash-n, which no TOML parser accepts.
+    const damaged = block
+      .replace(`${GROK_BLOCK_END_LINE}\n`, "")
+      .replace(/"neurolink-proxy"\n$/, '"neurolink-proxy"\\n\n');
+    if (damaged === block || !damaged.includes('"neurolink-proxy"\\n')) {
+      return "fixture did not reproduce the damaged tail";
+    }
+    fs.writeFileSync(
+      configPath,
+      [
+        ...GROK_USER_PREAMBLE,
+        damaged,
+        "[hints]",
+        'kept = "user-value"',
+        "",
+      ].join("\n"),
+    );
+    await grokConfigurator.apply("http://127.0.0.1:55669");
+    const first = fs.readFileSync(configPath, "utf8");
+    await grokConfigurator.apply("http://127.0.0.1:55669");
+    const second = fs.readFileSync(configPath, "utf8");
+    if (
+      !second.includes("[hints]") ||
+      !second.includes('kept = "user-value"')
+    ) {
+      return "content after the orphaned marker was deleted";
+    }
+    if (second.includes('"neurolink-proxy"\\n')) {
+      return "the unparseable managed line survived";
+    }
+    if (countGrokLines(second, "[model.claude-opus-4-6]") !== 1) {
+      return "[model.claude-opus-4-6] is not declared exactly once";
+    }
+    if (
+      countGrokLines(second, GROK_BLOCK_BEGIN_LINE) !== 1 ||
+      countGrokLines(second, GROK_BLOCK_END_LINE) !== 1
+    ) {
+      return "expected exactly one begin and one end marker";
+    }
+    if (first !== second) {
+      return "the first apply did not reach a fixed point";
+    }
+    return null;
+  });
+}
+
+async function testGrokApplyKeepsUserModelWithCatalogId(): Promise<boolean> {
+  const { grokConfigurator } = await import("../src/cli/proxy-clients/grok.js");
+  return withGrokHome("user model with a catalog id", async (configPath) => {
+    fs.writeFileSync(
+      configPath,
+      [
+        ...GROK_USER_PREAMBLE,
+        "[model.claude-opus-4-6]",
+        'model = "claude-opus-4-6"',
+        'base_url = "https://gateway.example.test/v1"',
+        'api_backend = "messages"',
+        // Strings that merely mention the placeholder assign nothing.
+        `reminder = 'never set x-api-key = "neurolink-proxy" here'`,
+        'legacy.api_key = "neurolink-proxy"',
+        'notes = """',
+        'api_key = "neurolink-proxy"',
+        '"""',
+        "",
+        // The user's own entry behind the proxy, outside the catalog.
+        "[model.my-proxy-alias]",
+        'model = "claude-opus-4-6"',
+        'name = "My alias through the proxy"',
+        'base_url = "http://127.0.0.1:55669/v1"',
+        'api_key = "neurolink-proxy"',
+        "",
+        "[[model.claude-haiku-4-5]]",
+        'model = "claude-haiku-4-5"',
+        "",
+        // Belongs to the array element above, not to the proxy.
+        "[model.claude-haiku-4-5.extra_headers]",
+        'x-api-key = "neurolink-proxy"',
+        "",
+        // A model defined by dotted keys has no [model.<id>] header.
+        "[model]",
+        'claude-sonnet-4-20250514.model = "claude-sonnet-4-20250514"',
+        'claude-sonnet-4-20250514.base_url = "https://dotted.example.test/v1"',
+        'gpt-4o.base_url = "https://dotted.example.test/v1"',
+        "",
+        "[model.claude-sonnet-4-20250514.extra_headers]",
+        'x-api-key = "neurolink-proxy"',
+        "",
+      ].join("\n"),
+    );
+    if (!(await grokConfigurator.apply("http://127.0.0.1:55669"))) {
+      return "writer reported no write";
+    }
+    const applied = fs.readFileSync(configPath, "utf8");
+    if (countGrokLines(applied, "[model.claude-opus-4-6]") !== 1) {
+      return "the proxy declared the user's own model a second time";
+    }
+    if (
+      countGrokLines(
+        applied,
+        'base_url = "https://gateway.example.test/v1"',
+      ) !== 1 ||
+      countGrokLines(applied, 'notes = """') !== 1
+    ) {
+      return "the user's own model was replaced";
+    }
+    if (countGrokLines(applied, "[model.claude-haiku-4-5]") !== 0) {
+      return "the proxy declared a table over the user's array of tables";
+    }
+    if (countGrokLines(applied, "[model.claude-sonnet-4-20250514]") !== 0) {
+      return "the proxy declared a table the user defines by dotted keys";
+    }
+    if (countGrokLines(applied, "[model.gpt-4o]") !== 0) {
+      return "the proxy declared a table over a dotted-key model";
+    }
+    if (
+      countGrokLines(
+        applied,
+        "[model.claude-sonnet-4-20250514.extra_headers]",
+      ) !== 1
+    ) {
+      return "a sub-table of the user's dotted-key model was removed";
+    }
+    if (
+      countGrokLines(applied, "[model.claude-haiku-4-5.extra_headers]") !== 1
+    ) {
+      return "a sub-table of the user's array-of-tables model was removed";
+    }
+    if (countGrokLines(applied, "[model.my-proxy-alias]") !== 1) {
+      return "the user's own proxy-backed model was removed";
+    }
+    if (!applied.includes("[model.claude-sonnet-4-6]")) {
+      return "the rest of the catalog was not written";
+    }
+    if (!(await grokConfigurator.restore("http://127.0.0.1:55669"))) {
+      return "restore reported that it did nothing";
+    }
+    const restored = fs.readFileSync(configPath, "utf8");
+    if (
+      countGrokLines(
+        restored,
+        'base_url = "https://gateway.example.test/v1"',
+      ) !== 1
+    ) {
+      return "restore removed the user's own model";
+    }
+    if (
+      countGrokLines(restored, "[model.my-proxy-alias]") !== 1 ||
+      countGrokLines(restored, "[[model.claude-haiku-4-5]]") !== 1 ||
+      countGrokLines(restored, "[model.claude-haiku-4-5.extra_headers]") !== 1
+    ) {
+      return "restore removed a model the user wrote";
+    }
+    if (
+      restored.includes("[model.claude-sonnet-4-6]") ||
+      restored.includes(GROK_BLOCK_BEGIN_LINE)
+    ) {
+      return "restore left managed content behind";
+    }
+    return null;
+  });
+}
+
+async function testGrokRestoreRemovesDamagedBlock(): Promise<boolean> {
+  const { grokConfigurator, __grokTestHooks } =
+    await import("../src/cli/proxy-clients/grok.js");
+  const url = "http://127.0.0.1:55669";
+  const unmarked = await withGrokHome(
+    "restore, unmarked",
+    async (configPath) => {
+      fs.writeFileSync(configPath, GROK_USER_PREAMBLE.join("\n"));
+      await grokConfigurator.apply(url);
+      fs.writeFileSync(
+        configPath,
+        [
+          ...GROK_USER_PREAMBLE,
+          ...grokSerializedManagedModel("claude-opus-4-6", true),
+        ].join("\n"),
+      );
+      if (!(await grokConfigurator.restore(url))) {
+        return "restore refused the tables Grok had unmarked";
+      }
+      const restored = fs.readFileSync(configPath, "utf8");
+      if (
+        restored.includes("neurolink-proxy") ||
+        restored.includes("[model.")
+      ) {
+        return "restore left the unmarked managed tables behind";
+      }
+      if (!restored.includes('default = "grok-4.6"')) {
+        return "restore lost the user's default model";
+      }
+      return null;
+    },
+  );
+  const orphaned = await withGrokHome(
+    "restore, orphan begin",
+    async (configPath) => {
+      fs.writeFileSync(configPath, GROK_USER_PREAMBLE.join("\n"));
+      await grokConfigurator.apply(url);
+      fs.writeFileSync(
+        configPath,
+        fs
+          .readFileSync(configPath, "utf8")
+          .replace(`${GROK_BLOCK_END_LINE}\n`, ""),
+      );
+      const restored = await grokConfigurator.restore(url);
+      const after = fs.readFileSync(configPath, "utf8");
+      if (after.includes("neurolink-proxy")) {
+        return restored
+          ? "restore reported success but left the managed block behind"
+          : "restore left the managed block behind";
+      }
+      if (fs.existsSync(__grokTestHooks.getGrokSnapshotPath())) {
+        return "restore kept a snapshot for a block it removed";
+      }
+      return null;
+    },
+  );
+  const repointed = await withGrokHome(
+    "restore, one entry repointed",
+    async (configPath) => {
+      fs.writeFileSync(configPath, GROK_USER_PREAMBLE.join("\n"));
+      await grokConfigurator.apply(url);
+      // The first entry in file order, so its URL is the one read first.
+      fs.writeFileSync(
+        configPath,
+        fs
+          .readFileSync(configPath, "utf8")
+          .replace(
+            'base_url = "http://127.0.0.1:55669/v1"',
+            'base_url = "http://127.0.0.1:1/v1"',
+          ),
+      );
+      if (!(await grokConfigurator.restore(url))) {
+        return "restore treated the whole block as foreign over one entry";
+      }
+      if (fs.readFileSync(configPath, "utf8").includes(GROK_BLOCK_BEGIN_LINE)) {
+        return "restore left the managed block behind";
+      }
+      return null;
+    },
+  );
+  return unmarked && orphaned && repointed;
+}
+
+async function testGrokApplySkipsUnchangedConfig(): Promise<boolean> {
+  const { grokConfigurator } = await import("../src/cli/proxy-clients/grok.js");
+  return withGrokHome("unchanged config", async (configPath) => {
+    fs.writeFileSync(configPath, GROK_USER_PREAMBLE.join("\n"));
+    await grokConfigurator.apply("http://127.0.0.1:55669");
+    const before = fs.statSync(configPath).ino;
+    if (!(await grokConfigurator.apply("http://127.0.0.1:55669"))) {
+      return "a repeat apply reported no write";
+    }
+    if (fs.statSync(configPath).ino !== before) {
+      return "a repeat apply replaced a file that already matched";
+    }
+    return null;
+  });
+}
+
+async function testGrokApplyRefusesDuplicateTables(): Promise<boolean> {
+  const { __grokTestHooks } = await import("../src/cli/proxy-clients/grok.js");
+  return withGrokHome("duplicate user tables", async (configPath) => {
+    const broken = ["[ui]", "yolo = false", "", "[ui]", "yolo = true", ""].join(
+      "\n",
+    );
+    fs.writeFileSync(configPath, broken);
+    if (
+      await __grokTestHooks.setGrokProxySettings("http://127.0.0.1:55669/v1")
+    ) {
+      return "apply wrote into a config that declares [ui] twice";
+    }
+    if (fs.readFileSync(configPath, "utf8") !== broken) {
+      return "apply changed a config it cannot parse";
+    }
+    if (fs.existsSync(__grokTestHooks.getGrokSnapshotPath())) {
+      return "apply recorded a snapshot for a write it did not make";
+    }
+    // Each [[array]] element scopes the tables under it: not a repeat.
+    fs.writeFileSync(
+      configPath,
+      [
+        "[[mcp_servers]]",
+        'name = "first"',
+        "[mcp_servers.env]",
+        'TOKEN = "1"',
+        "",
+        "[[mcp_servers]]",
+        'name = "second"',
+        "[mcp_servers.env]",
+        'TOKEN = "2"',
+        "",
+      ].join("\n"),
+    );
+    if (
+      !(await __grokTestHooks.setGrokProxySettings("http://127.0.0.1:55669/v1"))
+    ) {
+      return "apply refused array elements that each have their own sub-table";
+    }
+    // Nested arrays are scoped the same way: [a.b] may be an array of
+    // tables under one element and a plain table under the next.
+    fs.writeFileSync(
+      configPath,
+      ["[[a]]", "[[a.b]]", "x = 1", "", "[[a]]", "[a.b]", "y = 2", ""].join(
+        "\n",
+      ),
+    );
+    if (
+      !(await __grokTestHooks.setGrokProxySettings("http://127.0.0.1:55669/v1"))
+    ) {
+      return "apply refused a nested array scoped under a new element";
+    }
+    return null;
+  });
+}
+
+/**
+ * Codex's own saves keep comments (measured on codex-cli 0.155.1), so its
+ * managed block was never unmarked the way Grok's is. A hand edit or another
+ * tool can still drop a marker, and the writer shared Grok's marker-only
+ * strip: a lost end marker made the next apply eat whatever followed, and a
+ * lost pair appended a second [model_providers.neurolink], which Codex cannot
+ * parse.
+ */
+async function withCodexHome(
+  label: string,
+  body: (configPath: string) => Promise<string | null>,
+): Promise<boolean> {
+  const { __codexClientTestHooks } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-codex-state-"));
+  try {
+    process.env.HOME = root;
+    const configPath = __codexClientTestHooks.getCodexConfigPath();
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    const failure = await body(configPath);
+    if (failure) {
+      log(`Codex ${label}: ${failure}`, "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const CODEX_USER_PREAMBLE = [
+  'model = "gpt-5.1-codex"',
+  'model_provider = "openai"',
+  "",
+  "[profiles.work]",
+  // A profile's own selector is the user's, whatever it names.
+  'model_provider = "neurolink"',
+  "",
+];
+
+async function testCodexApplyReplacesUnmarkedProvider(): Promise<boolean> {
+  const { __codexClientTestHooks: hooks } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const url = "http://127.0.0.1:55669";
+  const providerHeader = "[model_providers.neurolink]";
+  const unmarked = await withCodexHome(
+    "unmarked provider",
+    async (configPath) => {
+      fs.writeFileSync(configPath, CODEX_USER_PREAMBLE.join("\n"));
+      await hooks.setCodexProxySettings(url);
+      // Both markers gone, a note and a table of the user's after the provider.
+      fs.writeFileSync(
+        configPath,
+        [
+          ...fs
+            .readFileSync(configPath, "utf8")
+            .split("\n")
+            .filter((line) => !line.startsWith("# ")),
+          "# my own note",
+          "[mcp_servers.probe]",
+          'command = "echo"',
+          "",
+        ].join("\n"),
+      );
+      if (!(await hooks.setCodexProxySettings(url))) {
+        return "writer reported no write";
+      }
+      const applied = fs.readFileSync(configPath, "utf8");
+      if (countGrokLines(applied, providerHeader) !== 1) {
+        return `${providerHeader} is not declared exactly once`;
+      }
+      for (const kept of [
+        "# my own note",
+        "[mcp_servers.probe]",
+        'model_provider = "neurolink"',
+        "[profiles.work]",
+      ]) {
+        if (!applied.includes(kept)) {
+          return `user content was lost: ${kept}`;
+        }
+      }
+      const inode = fs.statSync(configPath).ino;
+      await hooks.setCodexProxySettings(url);
+      if (fs.readFileSync(configPath, "utf8") !== applied) {
+        return "a second apply changed the file";
+      }
+      if (fs.statSync(configPath).ino !== inode) {
+        return "a repeat apply replaced a file that already matched";
+      }
+      if (!(await hooks.clearCodexProxySettings(url))) {
+        return "restore reported that it did nothing";
+      }
+      const restored = fs.readFileSync(configPath, "utf8");
+      if (
+        restored.includes(providerHeader) ||
+        !/^model_provider = "openai"$/m.test(restored) ||
+        countGrokLines(restored, 'model_provider = "neurolink"') !== 1
+      ) {
+        return "restore did not return the user's own selectors";
+      }
+      return null;
+    },
+  );
+  const orphaned = await withCodexHome(
+    "orphan begin marker",
+    async (configPath) => {
+      fs.writeFileSync(configPath, CODEX_USER_PREAMBLE.join("\n"));
+      await hooks.setCodexProxySettings(url);
+      fs.writeFileSync(
+        configPath,
+        `${fs
+          .readFileSync(configPath, "utf8")
+          .replace(
+            `${GROK_BLOCK_END_LINE}\n`,
+            "",
+          )}[mcp_servers.after]\ncommand = "kept"\n`,
+      );
+      await hooks.setCodexProxySettings(url);
+      await hooks.setCodexProxySettings(url);
+      const applied = fs.readFileSync(configPath, "utf8");
+      if (!applied.includes('command = "kept"')) {
+        return "content after the orphaned marker was deleted";
+      }
+      if (countGrokLines(applied, providerHeader) !== 1) {
+        return `${providerHeader} is not declared exactly once`;
+      }
+      return null;
+    },
+  );
+  return unmarked && orphaned;
+}
+
+async function testCodexApplyRefusesForeignProvider(): Promise<boolean> {
+  const { __codexClientTestHooks: hooks } =
+    await import("../src/cli/proxy-clients/codex.js");
+  // As a table under another name, and by dotted keys, which declare no
+  // [model_providers.neurolink] header for a duplicate check to see.
+  const definitions = [
+    [
+      "[model_providers.neurolink]",
+      'name = "My own gateway"',
+      'base_url = "https://gateway.example.test/v1"',
+    ],
+    [
+      "[model_providers]",
+      'neurolink.name = "My own gateway"',
+      'neurolink.base_url = "https://gateway.example.test/v1"',
+    ],
+  ];
+  const results = [];
+  for (const [index, definition] of definitions.entries()) {
+    results.push(
+      await withCodexHome(
+        `foreign provider ${index + 1}`,
+        async (configPath) => {
+          const mine = [...CODEX_USER_PREAMBLE, ...definition, ""].join("\n");
+          fs.writeFileSync(configPath, mine);
+          if (await hooks.setCodexProxySettings("http://127.0.0.1:55669")) {
+            return "apply wrote beside a neurolink provider the user defined";
+          }
+          if (fs.readFileSync(configPath, "utf8") !== mine) {
+            return "apply changed a config with the user's own neurolink provider";
+          }
+          if (fs.existsSync(hooks.getCodexSnapshotPath())) {
+            return "apply recorded a snapshot for a write it did not make";
+          }
+          return null;
+        },
+      ),
+    );
+  }
+  return results.every(Boolean);
+}
+
+/**
+ * Configs kept in a dotfiles repository are symlinks into it, a setup Grok
+ * documents and its own writer honours. The atomic write renamed over the
+ * link, turning it into a regular file and leaving the repository's copy
+ * stale. Every client writer shares that helper.
+ */
+async function testClientConfigWritesFollowSymlinks(): Promise<boolean> {
+  const { grokConfigurator } = await import("../src/cli/proxy-clients/grok.js");
+  const { __codexClientTestHooks: codex } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const url = "http://127.0.0.1:55669";
+  const linkTo = (configPath: string, target: string, contents?: string) => {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    if (contents !== undefined) {
+      fs.writeFileSync(target, contents);
+    }
+    fs.rmSync(configPath, { force: true });
+    fs.symlinkSync(path.relative(path.dirname(configPath), target), configPath);
+  };
+  const grok = await withGrokHome("symlinked config", async (configPath) => {
+    const target = path.join(
+      path.dirname(configPath),
+      "..",
+      "dotfiles",
+      "grok.toml",
+    );
+    linkTo(configPath, target, GROK_USER_PREAMBLE.join("\n"));
+    await grokConfigurator.apply(url);
+    if (!fs.lstatSync(configPath).isSymbolicLink()) {
+      return "apply replaced the symlink with a regular file";
+    }
+    if (!fs.readFileSync(target, "utf8").includes(GROK_BLOCK_BEGIN_LINE)) {
+      return "apply did not write through the symlink";
+    }
+    await grokConfigurator.restore(url);
+    if (
+      !fs.lstatSync(configPath).isSymbolicLink() ||
+      fs.readFileSync(target, "utf8").includes(GROK_BLOCK_BEGIN_LINE)
+    ) {
+      return "restore did not write through the symlink";
+    }
+    // A link whose target does not exist yet.
+    const dangling = path.join(path.dirname(target), "fresh", "grok.toml");
+    linkTo(configPath, dangling);
+    await grokConfigurator.apply(url);
+    if (
+      !fs.lstatSync(configPath).isSymbolicLink() ||
+      !fs.existsSync(dangling)
+    ) {
+      return "apply did not create the target of a dangling symlink";
+    }
+    return null;
+  });
+  const codexResult = await withCodexHome(
+    "symlinked config",
+    async (configPath) => {
+      const target = path.join(
+        path.dirname(configPath),
+        "..",
+        "dotfiles",
+        "codex.toml",
+      );
+      linkTo(configPath, target, CODEX_USER_PREAMBLE.join("\n"));
+      await codex.setCodexProxySettings(url);
+      if (!fs.lstatSync(configPath).isSymbolicLink()) {
+        return "apply replaced the symlink with a regular file";
+      }
+      if (
+        !fs.readFileSync(target, "utf8").includes("[model_providers.neurolink]")
+      ) {
+        return "apply did not write through the symlink";
+      }
+      return null;
+    },
+  );
+  return grok && codexResult;
+}
+
+/**
  * A client config must never be observable in a torn state.
  *
  * Every writer did readFileSync then writeFileSync. writeFileSync opens with
@@ -14221,6 +15010,51 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Grok apply refuses an unreadable config.toml",
     fn: testGrokApplyRefusesUnreadableConfig,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok apply replaces a block Grok's own save unmarked",
+    fn: testGrokApplyReplacesUnmarkedBlock,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok apply heals an orphaned begin marker",
+    fn: testGrokApplyHealsOrphanBeginMarker,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok apply keeps a user model with a catalog id",
+    fn: testGrokApplyKeepsUserModelWithCatalogId,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok restore removes unmarked and orphaned blocks",
+    fn: testGrokRestoreRemovesDamagedBlock,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok apply leaves a matching config untouched",
+    fn: testGrokApplySkipsUnchangedConfig,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Grok apply refuses a config with duplicate tables",
+    fn: testGrokApplyRefusesDuplicateTables,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Codex apply replaces an unmarked provider",
+    fn: testCodexApplyReplacesUnmarkedProvider,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Codex apply refuses a provider it did not write",
+    fn: testCodexApplyRefusesForeignProvider,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: config writes follow a symlinked config",
+    fn: testClientConfigWritesFollowSymlinks,
     category: "proxy-config",
   },
   {

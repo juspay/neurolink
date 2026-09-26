@@ -8,7 +8,7 @@
 
 > **CliGrokSnapshot** = `object`
 
-Defined in: [types/proxyClient.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L119)
+Defined in: [types/proxyClient.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L124)
 
 Snapshot of whether `~/.grok/config.toml` existed before the proxy wrote
 its managed block. Persisted to `~/.neurolink/grok-proxy-snapshot.json`.
@@ -19,7 +19,7 @@ its managed block. Persisted to `~/.neurolink/grok-proxy-snapshot.json`.
 
 > **originalExisted**: `boolean`
 
-Defined in: [types/proxyClient.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L120)
+Defined in: [types/proxyClient.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L125)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/proxyClient.ts:120](https://github.com/juspay/neurolink/blob/
 
 > **writtenBaseUrl**: `string`
 
-Defined in: [types/proxyClient.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L121)
+Defined in: [types/proxyClient.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L126)

@@ -18,6 +18,16 @@
  * Adaptive thinking: Grok's global `default_reasoning_effort = "xhigh"`
  * becomes Anthropic `thinking.type = "adaptive"`. Haiku 4.5 rejects that
  * with 400. Only Claude Opus/Sonnet 4.6 and 5.x keep reasoning enabled.
+ *
+ * Ownership is decided by content, never by the block markers alone. Grok
+ * rewrites config.toml on its own saves (`/settings`, `grok mcp add`, ...)
+ * through a serializer that drops every comment, the markers included, and
+ * splits the inline `extra_headers` into a `[model.<id>.extra_headers]`
+ * sub-table (measured on Grok Build 1.0.40). A marker-only writer then kept
+ * the unmarked tables and appended a second copy of every id on the next
+ * proxy start, and TOML rejects a table declared twice, so Grok would not
+ * start. What marks an entry as ours is the placeholder key, a credential
+ * only the proxy accepts, and that survives Grok's rewrite.
  */
 
 import { readFileSync } from "fs";
@@ -33,6 +43,7 @@ import {
 import type {
   CliGrokProxyModelSpec,
   CliGrokSnapshot,
+  CliTomlSection,
   CliProxyClientApplyOptions,
   CliProxyClientConfigurator,
   ModelMapping,
@@ -42,9 +53,30 @@ import {
   shouldCaptureSnapshot,
   writeFileAtomic,
 } from "./snapshot.js";
+import {
+  dottedTableIds,
+  findDuplicateTable,
+  inlineTablePairs,
+  maskTomlStrings,
+  maskedStringValue,
+  ownedLineCount,
+  parseMaskedAssignment,
+  readStringValue,
+  splitTomlSections,
+  tomlCodeLines,
+} from "./tomlSections.js";
 
 const GROK_BLOCK_BEGIN = "# >>> neurolink-proxy (managed) >>>";
 const GROK_BLOCK_END = "# <<< neurolink-proxy (managed) <<<";
+const GROK_BLOCK_NOTES = [
+  "# Proxy catalog. Built-in grok-4.6 / grok-4.5 stay on xAI.",
+  "# context_window is Grok's compaction limit and must be <= upstream.",
+];
+const GROK_MANAGED_COMMENT_LINES = new Set([
+  GROK_BLOCK_BEGIN,
+  GROK_BLOCK_END,
+  ...GROK_BLOCK_NOTES,
+]);
 const PLACEHOLDER_KEY = "neurolink-proxy";
 const ANTHROPIC_VERSION = "2023-06-01";
 
@@ -61,10 +93,6 @@ function getGrokConfigPath(): string {
 
 function getGrokSnapshotPath(): string {
   return join(homedir(), ".neurolink", "grok-proxy-snapshot.json");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function tomlKey(id: string): string {
@@ -234,18 +262,30 @@ function buildGrokModelBlock(
   return lines.join("\n");
 }
 
+/**
+ * `userModelIds` are ids the user defines themselves. Writing the proxy's
+ * entry beside theirs would declare the table twice, so theirs wins.
+ */
 async function buildGrokManagedBlock(
   baseUrl: string,
   configPath?: string,
+  userModelIds: ReadonlySet<string> = new Set(),
 ): Promise<string> {
-  const specs = await catalogGrokSpecs(configPath);
-  const body = specs
+  const catalog = await catalogGrokSpecs(configPath);
+  for (const spec of catalog) {
+    if (userModelIds.has(spec.id)) {
+      logger.debug(
+        `[proxy] Grok: config.toml already defines [model.${tomlKey(spec.id)}]; keeping it and skipping the proxy's entry`,
+      );
+    }
+  }
+  const body = catalog
+    .filter((spec) => !userModelIds.has(spec.id))
     .map((spec) => buildGrokModelBlock(spec, baseUrl))
     .join("\n\n");
   return [
     GROK_BLOCK_BEGIN,
-    "# Proxy catalog. Built-in grok-4.6 / grok-4.5 stay on xAI.",
-    "# context_window is Grok's compaction limit and must be <= upstream.",
+    ...GROK_BLOCK_NOTES,
     "",
     body,
     GROK_BLOCK_END,
@@ -253,23 +293,173 @@ async function buildGrokManagedBlock(
   ].join("\n");
 }
 
-function stripGrokManagedBlock(text: string): string {
-  const blockRe = new RegExp(
-    `\\n?${escapeRegExp(GROK_BLOCK_BEGIN)}[\\s\\S]*?${escapeRegExp(
-      GROK_BLOCK_END,
-    )}\\n?`,
-    "g",
-  );
-  return text.replace(blockRe, "\n");
+function modelEntryId(section: CliTomlSection): string | null {
+  return section.path !== null &&
+    section.path.length >= 2 &&
+    section.path[0] === "model"
+    ? section.path[1]
+    : null;
 }
 
-function extractManagedBaseUrl(text: string): string | undefined {
-  const match = text.match(
-    new RegExp(
-      `${escapeRegExp(GROK_BLOCK_BEGIN)}[\\s\\S]*?base_url\\s*=\\s*"([^"]*)"`,
-    ),
+/** Where a model entry carries the placeholder key, as a path within it. */
+const PLACEHOLDER_KEY_PATHS: readonly (readonly string[])[] = [
+  ["api_key"],
+  ["extra_headers", "x-api-key"],
+];
+
+function isPlaceholderKey(
+  path: readonly string[],
+  value: string | undefined,
+): boolean {
+  return (
+    value === PLACEHOLDER_KEY &&
+    PLACEHOLDER_KEY_PATHS.some(
+      (keyPath) =>
+        keyPath.length === path.length &&
+        keyPath.every((part, index) => path[index] === part),
+    )
   );
-  return match?.[1];
+}
+
+/**
+ * Whether a section of a model entry sends the placeholder key: `api_key` on
+ * the model, or `x-api-key` in its `extra_headers`, spelled as a plain key, a
+ * dotted key, an inline table or the sub-table Grok's own save writes. The
+ * full key path must match, so a user's `legacy.api_key` is not the proxy's.
+ */
+function sectionSendsPlaceholderKey(section: CliTomlSection): boolean {
+  const prefix = section.path?.slice(2) ?? [];
+  return tomlCodeLines(section).some(({ line, statement }) => {
+    if (!statement) {
+      return false;
+    }
+    const { masked, strings } = maskTomlStrings(line);
+    const assignment = parseMaskedAssignment(masked, strings);
+    if (!assignment) {
+      return false;
+    }
+    const path = [...prefix, ...assignment.path];
+    return (
+      isPlaceholderKey(path, maskedStringValue(assignment.value, strings)) ||
+      inlineTablePairs(assignment.value, strings).some((pair) =>
+        isPlaceholderKey(
+          [...path, ...pair.path],
+          maskedStringValue(pair.value, strings),
+        ),
+      )
+    );
+  });
+}
+
+/**
+ * Which parts of a Grok config.toml the proxy owns.
+ *
+ * A model entry is a `[model.<id>]` table plus its `[model.<id>.*]`
+ * sub-tables, wherever they sit: Grok's save keeps them together, hand edits
+ * need not. It is the proxy's when it sends the placeholder key and is either
+ * in the current catalog or still carries the exact name the proxy gave it,
+ * which covers entries a later catalog dropped. A user's own model behind the
+ * proxy, under their own name, is theirs. Keys and values are read as TOML,
+ * never as raw text, so a string that merely mentions the placeholder cannot
+ * make a user's table look like the proxy's. `remainder` is the text with
+ * owned entries and the managed comment lines removed and every other byte
+ * kept, so a missing, orphaned or doubled marker cannot make an apply delete
+ * the user's content or leave an old copy of the catalog behind.
+ */
+function inspectGrokConfig(
+  text: string,
+  catalogIds: ReadonlySet<string>,
+): {
+  remainder: string;
+  managedBaseUrls: readonly string[];
+  userModelIds: ReadonlySet<string>;
+} {
+  const sections = splitTomlSections(text);
+  // Models the user defines without a [model.<id>] table of their own.
+  const definedElsewhere = new Set([
+    ...dottedTableIds(sections, "model"),
+    ...sections.flatMap((section) => {
+      const id = section.arrayTable ? modelEntryId(section) : null;
+      return id !== null && section.path?.length === 2 ? [id] : [];
+    }),
+  ]);
+  const ids = sections.map((section) =>
+    section.arrayTable ? null : modelEntryId(section),
+  );
+  const isModelTable = (index: number): boolean =>
+    ids[index] !== null && sections[index].path?.length === 2;
+  const tableFor = (index: number): number => {
+    if (ids[index] === null || isModelTable(index)) {
+      return index;
+    }
+    const sameModel = (candidate: number): boolean =>
+      isModelTable(candidate) && ids[candidate] === ids[index];
+    const before = sections.findLastIndex(
+      (_, candidate) => candidate < index && sameModel(candidate),
+    );
+    const after = sections.findIndex(
+      (_, candidate) => candidate > index && sameModel(candidate),
+    );
+    return before !== -1 ? before : after !== -1 ? after : index;
+  };
+  const entryOf = sections.map((_, index) => tableFor(index));
+  const ownedEntries = new Set(
+    entryOf.filter((entry) => {
+      const id = ids[entry];
+      if (id === null) {
+        return false;
+      }
+      const sendsPlaceholder = sections.some(
+        (section, index) =>
+          entryOf[index] === entry &&
+          ids[index] !== null &&
+          sectionSendsPlaceholderKey(section),
+      );
+      if (!sendsPlaceholder) {
+        return false;
+      }
+      // A sub-table left without its table carries no name to check; it is
+      // the proxy's unless the model is defined some other way.
+      if (!isModelTable(entry)) {
+        return !definedElsewhere.has(id);
+      }
+      return (
+        catalogIds.has(id) ||
+        readStringValue(sections[entry], "name") === displayNameFor(id)
+      );
+    }),
+  );
+  const owned = sections.map(
+    (_, index) => ids[index] !== null && ownedEntries.has(entryOf[index]),
+  );
+  const userModelIds = new Set([
+    ...definedElsewhere,
+    ...sections.flatMap((section, index) => {
+      const id = modelEntryId(section);
+      return id !== null && !owned[index] ? [id] : [];
+    }),
+  ]);
+  const managedBaseUrls = [
+    ...new Set(
+      sections.flatMap((section, index) => {
+        const url = owned[index]
+          ? readStringValue(section, "base_url")
+          : undefined;
+        return url === undefined ? [] : [url];
+      }),
+    ),
+  ];
+  const remainder = sections
+    .flatMap((section, index) =>
+      owned[index]
+        ? section.lines.slice(
+            ownedLineCount(section, GROK_MANAGED_COMMENT_LINES),
+          )
+        : section.lines,
+    )
+    .filter((line) => !GROK_MANAGED_COMMENT_LINES.has(line.trim()))
+    .join("");
+  return { remainder, managedBaseUrls, userModelIds };
 }
 
 async function readGrokSnapshot(): Promise<CliGrokSnapshot | null> {
@@ -341,12 +531,40 @@ export async function setGrokProxySettings(
       : undefined
     : undefined;
 
+  const inspected =
+    original === null
+      ? null
+      : inspectGrokConfig(
+          original,
+          new Set(await catalogModelIds(options?.configPath)),
+        );
+  const block = await buildGrokManagedBlock(
+    baseUrl,
+    options?.configPath,
+    inspected?.userModelIds,
+  );
+  const remainder = inspected?.remainder ?? "";
+  const next =
+    remainder.trim().length === 0
+      ? block
+      : `${remainder.replace(/\s*$/, "\n")}\n${block}`;
+
+  // Grok refuses to load or save a config it cannot parse. Writing into one
+  // would only bury the user's own error under ours.
+  const duplicate = findDuplicateTable(next);
+  if (duplicate !== undefined) {
+    logger.warn(
+      `[proxy] Grok: config.toml declares [${duplicate}] more than once; leaving it untouched`,
+    );
+    return false;
+  }
+
   if (
     existingSnapshot === null ||
     shouldCaptureSnapshot({
       hasSnapshot: existingSnapshot !== null,
       written: existingSnapshot?.writtenBaseUrl,
-      current: extractManagedBaseUrl(original ?? "") ?? currentBlock,
+      current: inspected?.managedBaseUrls[0] ?? currentBlock,
     })
   ) {
     fs.mkdirSync(join(homedir(), ".neurolink"), { recursive: true });
@@ -365,16 +583,15 @@ export async function setGrokProxySettings(
     );
   }
 
-  const withoutBlock = original ? stripGrokManagedBlock(original) : "";
-  const trimmed = withoutBlock.replace(/\s*$/, "\n");
-  const next = `${trimmed}\n${await buildGrokManagedBlock(baseUrl, options?.configPath)}`;
-  await writeFileAtomic(
-    getGrokConfigPath(),
-    next.startsWith("\n") && original === null
-      ? next.replace(/^\n+/, "")
-      : next,
-    original === null ? 0o600 : undefined,
-  );
+  // Every proxy start applies; an update starts one. Rewriting a file that
+  // already matches only widens the window for racing Grok's own saves.
+  if (next !== original) {
+    await writeFileAtomic(
+      getGrokConfigPath(),
+      next,
+      original === null ? 0o600 : undefined,
+    );
+  }
   return true;
 }
 
@@ -389,15 +606,21 @@ export async function clearGrokProxySettings(
     return false;
   }
 
-  if (!current.includes(GROK_BLOCK_BEGIN)) {
+  const inspected = inspectGrokConfig(
+    current,
+    new Set(await catalogModelIds()),
+  );
+  if (inspected.remainder === current) {
     return false;
   }
 
-  const configuredUrl = extractManagedBaseUrl(current);
+  // Another proxy's block is left alone. One entry the user repointed does
+  // not make the rest foreign, whichever entry happens to come first.
+  const configuredUrls = inspected.managedBaseUrls;
   if (
     expectedBaseUrl &&
-    configuredUrl !== undefined &&
-    configuredUrl !== expectedBaseUrl
+    configuredUrls.length > 0 &&
+    !configuredUrls.includes(expectedBaseUrl)
   ) {
     logger.debug(
       "[proxy] Grok clear: base URL is not the one we wrote, leaving it intact",
@@ -413,7 +636,7 @@ export async function clearGrokProxySettings(
     return false;
   }
 
-  const remainder = stripGrokManagedBlock(current).replace(/\s*$/, "\n");
+  const remainder = inspected.remainder.replace(/\s*$/, "\n");
   if (!snapshot.originalExisted && remainder.trim().length === 0) {
     fs.rmSync(getGrokConfigPath(), { force: true });
   } else {
