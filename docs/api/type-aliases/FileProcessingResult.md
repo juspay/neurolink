@@ -8,7 +8,7 @@
 
 > **FileProcessingResult** = `object`
 
-Defined in: [types/file.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L267)
+Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L269)
 
 File processing result after detection and conversion
 
@@ -18,7 +18,7 @@ File processing result after detection and conversion
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L268)
+Defined in: [types/file.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L270)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:268](https://github.com/juspay/neurolink/blob/release
 
 > **content**: `string` \| `Buffer`
 
-Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L269)
+Defined in: [types/file.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L271)
 
 ---
 
@@ -34,17 +34,22 @@ Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L270)
+Defined in: [types/file.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L272)
 
 ---
 
 ### images?
 
-> `optional` **images?**: (`Buffer` \| `string`)[]
+> `optional` **images?**: (`Buffer` \| `string` \| [`ImageWithAltText`](ImageWithAltText.md))[]
 
-Defined in: [types/file.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L272)
+Defined in: [types/file.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L281)
 
-Additional images extracted from the file (e.g., video keyframes, audio cover art)
+Additional images extracted from the file (e.g., video keyframes, audio
+cover art).
+
+An entry may carry alt text, which is how a video keyframe states the
+timestamp it was sampled at. Bare bytes still work — the field was
+widened, not changed.
 
 ---
 
@@ -52,7 +57,7 @@ Additional images extracted from the file (e.g., video keyframes, audio cover ar
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L273)
+Defined in: [types/file.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L282)
 
 #### confidence
 

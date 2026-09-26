@@ -8,7 +8,7 @@
 
 > **PDFImageConversionProgress** = `object`
 
-Defined in: [types/file.ts:714](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L714)
+Defined in: [types/file.ts:733](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L733)
 
 Progress reported per page during streaming conversion (#302).
 
@@ -18,7 +18,7 @@ Progress reported per page during streaming conversion (#302).
 
 > **pagesConverted**: `number`
 
-Defined in: [types/file.ts:716](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L716)
+Defined in: [types/file.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L735)
 
 Number of pages successfully converted so far.
 
@@ -28,7 +28,7 @@ Number of pages successfully converted so far.
 
 > **totalPages**: `number`
 
-Defined in: [types/file.ts:718](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L718)
+Defined in: [types/file.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L737)
 
 Total pages in the document (known up-front from the renderer).
 
@@ -38,6 +38,6 @@ Total pages in the document (known up-front from the renderer).
 
 > **elapsedMs**: `number`
 
-Defined in: [types/file.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L720)
+Defined in: [types/file.ts:739](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L739)
 
 Elapsed time since conversion started, in milliseconds.

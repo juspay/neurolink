@@ -5757,9 +5757,16 @@ Current user's request: ${currentInput}`;
       // every csvOptions field (incl. the CLI --csv-* flags) or
       // pdfOptions.password so the CLI --pdf-password / SDK pdfOptions never
       // reached convertToImages.
+      //
+      // videoOptions was the one still missing, and it failed the same way:
+      // #478 wired the keyframe knobs from the message builder down into the
+      // processor, but nothing carried them this far, so `--video-frames 2`
+      // on a 4-second clip still produced the tier default of four frames
+      // and `--transcribe-audio` reached no code that could act on it.
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
       imageOptions: options.imageOptions,
+      videoOptions: options.videoOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

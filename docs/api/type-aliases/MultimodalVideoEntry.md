@@ -8,7 +8,7 @@
 
 > **MultimodalVideoEntry** = `object`
 
-Defined in: [types/file.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L98)
+Defined in: [types/file.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L100)
 
 One video file destined for native delivery to a provider.
 
@@ -29,7 +29,7 @@ comfortably under the size ceiling.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/file.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L100)
+Defined in: [types/file.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L102)
 
 Raw video bytes, as detected.
 
@@ -39,7 +39,7 @@ Raw video bytes, as detected.
 
 > **filename**: `string`
 
-Defined in: [types/file.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L102)
+Defined in: [types/file.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L104)
 
 Display name; may be a full path, so log only its basename.
 
@@ -49,7 +49,7 @@ Display name; may be a full path, so log only its basename.
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L104)
+Defined in: [types/file.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L106)
 
 Detected MIME type of `buffer`.
 
@@ -59,6 +59,6 @@ Detected MIME type of `buffer`.
 
 > `optional` **durationSec?**: `number`
 
-Defined in: [types/file.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L106)
+Defined in: [types/file.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L108)
 
 Clip length in seconds, when the processor was able to measure it.

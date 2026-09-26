@@ -28,6 +28,7 @@ export const textGenerationOptionsSchema: Record<
     | "csvOptions"
     | "pdfOptions"
     | "imageOptions"
+    | "videoOptions"
     | "tts"
     | "stt" // Complex object, set via --stt* flags
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead

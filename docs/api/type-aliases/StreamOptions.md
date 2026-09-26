@@ -8,7 +8,7 @@
 
 > **StreamOptions** = `object`
 
-Defined in: [types/stream.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L355)
+Defined in: [types/stream.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L356)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stream.ts:355](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **compactionThreshold?**: `number`
 
-Defined in: [types/stream.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L368)
+Defined in: [types/stream.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L369)
 
 Fraction of the model's context window at which compaction runs for this
 request, replacing the 0.8 default.
@@ -35,7 +35,7 @@ failure as a permanent cooldown.
 
 > `optional` **useKnowledgeGrounding?**: `boolean`
 
-Defined in: [types/stream.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L373)
+Defined in: [types/stream.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L374)
 
 Opt this stream call into the knowledge grounding configured on the
 NeuroLink instance. Defaults to `false` when omitted.
@@ -46,7 +46,7 @@ NeuroLink instance. Defaults to `false` when omitted.
 
 > `optional` **knowledgeContext?**: [`KnowledgeRequestScope`](KnowledgeRequestScope.md)
 
-Defined in: [types/stream.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L380)
+Defined in: [types/stream.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L381)
 
 Enabled integrations used to scope knowledge retrieval for this turn.
 Used only when `useKnowledgeGrounding` is true and knowledge grounding is
@@ -58,7 +58,7 @@ enabled on the NeuroLink instance.
 
 > **input**: `object`
 
-Defined in: [types/stream.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L382)
+Defined in: [types/stream.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L383)
 
 #### text?
 
@@ -120,7 +120,7 @@ images: [
 
 > `optional` **output?**: `object`
 
-Defined in: [types/stream.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L411)
+Defined in: [types/stream.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L412)
 
 #### format?
 
@@ -148,7 +148,23 @@ Defined in: [types/stream.ts:411](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **csvOptions?**: [`CSVProcessorOptions`](CSVProcessorOptions.md)
 
-Defined in: [types/stream.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L421)
+Defined in: [types/stream.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L422)
+
+---
+
+### videoOptions?
+
+> `optional` **videoOptions?**: [`VideoProcessorOptions`](VideoProcessorOptions.md)
+
+Defined in: [types/stream.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L433)
+
+Video processing options (#478, #433).
+
+Reconstructed option objects have to carry this the same way they carry
+`csvOptions` and `pdfOptions`: the message builder hands it to the
+detector, which hands it to `VideoProcessor`, and anything that rebuilds
+the options along the way and omits it restores the defaults without
+saying so.
 
 ---
 
@@ -156,7 +172,7 @@ Defined in: [types/stream.ts:421](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **pdfOptions?**: `object`
 
-Defined in: [types/stream.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L424)
+Defined in: [types/stream.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L436)
 
 PDF processing options (#258).
 
@@ -193,7 +209,7 @@ not sent to the model at all. Defaults to PDF_LIMITS.DEFAULT_MAX_PAGES (20).
 
 > `optional` **imageOptions?**: `object`
 
-Defined in: [types/stream.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L447)
+Defined in: [types/stream.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L459)
 
 Options for images that need transcoding before a vision provider can
 read them (HEIC, TIFF, BMP, ICO, JPEG 2000, AVIF — see
@@ -205,38 +221,6 @@ read them (HEIC, TIFF, BMP, ICO, JPEG 2000, AVIF — see
 
 Transcode target for an incompatible image. Defaults to `"png"` — the
 module's own default, unchanged unless a caller opts in here.
-
----
-
-### videoOptions?
-
-> `optional` **videoOptions?**: `object`
-
-Defined in: [types/stream.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L456)
-
-#### frames?
-
-> `optional` **frames?**: `number`
-
-Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100.
-
-#### quality?
-
-> `optional` **quality?**: `number`
-
-Frame encoder quality, clamped to 1-100. Default 80.
-
-#### format?
-
-> `optional` **format?**: `"jpeg"` \| `"png"`
-
-Frame encoding. Default jpeg.
-
-#### transcribeAudio?
-
-> `optional` **transcribeAudio?**: `boolean`
-
-Not implemented yet (#433) — warns rather than silently doing nothing.
 
 ---
 

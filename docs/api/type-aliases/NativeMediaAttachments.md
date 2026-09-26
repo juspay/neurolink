@@ -8,7 +8,7 @@
 
 > **NativeMediaAttachments** = `object`
 
-Defined in: [types/file.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L152)
+Defined in: [types/file.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L154)
 
 Media collected during file detection that a provider may be able to
 consume directly, rather than as a text summary.
@@ -25,7 +25,7 @@ every call site.
 
 > `readonly` `optional` **audio?**: [`MultimodalAudioEntry`](MultimodalAudioEntry.md)[]
 
-Defined in: [types/file.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L153)
+Defined in: [types/file.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L155)
 
 ---
 
@@ -33,7 +33,7 @@ Defined in: [types/file.ts:153](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` `optional` **video?**: [`MultimodalVideoEntry`](MultimodalVideoEntry.md)[]
 
-Defined in: [types/file.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L154)
+Defined in: [types/file.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L156)
 
 ---
 
@@ -41,7 +41,7 @@ Defined in: [types/file.ts:154](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` `optional` **outputFormat?**: [`VisionImageOutputFormat`](VisionImageOutputFormat.md)
 
-Defined in: [types/file.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L161)
+Defined in: [types/file.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L163)
 
 Transcode target for an incompatible image (see
 `GenerateOptions.imageOptions`). Not itself a native attachment, but

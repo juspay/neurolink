@@ -8,7 +8,7 @@
 
 > **PDFImagePage** = `object`
 
-Defined in: [types/file.ts:724](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L724)
+Defined in: [types/file.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L743)
 
 A single streamed page result (#302). `error` is set when that page failed.
 
@@ -18,7 +18,7 @@ A single streamed page result (#302). `error` is set when that page failed.
 
 > **pageIndex**: `number`
 
-Defined in: [types/file.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L726)
+Defined in: [types/file.ts:745](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L745)
 
 1-based page index.
 
@@ -28,7 +28,7 @@ Defined in: [types/file.ts:726](https://github.com/juspay/neurolink/blob/release
 
 > **image**: `string`
 
-Defined in: [types/file.ts:728](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L728)
+Defined in: [types/file.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L747)
 
 Base64-encoded PNG for the page (empty string when `error` is set).
 
@@ -38,7 +38,7 @@ Base64-encoded PNG for the page (empty string when `error` is set).
 
 > **imageSizeBytes**: `number`
 
-Defined in: [types/file.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L730)
+Defined in: [types/file.ts:749](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L749)
 
 Byte size of the rendered PNG (0 when `error` is set).
 
@@ -48,6 +48,6 @@ Byte size of the rendered PNG (0 when `error` is set).
 
 > `optional` **error?**: `string`
 
-Defined in: [types/file.ts:732](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L732)
+Defined in: [types/file.ts:751](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L751)
 
 Populated when this page failed to render (#294).

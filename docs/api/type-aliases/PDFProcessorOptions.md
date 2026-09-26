@@ -8,7 +8,7 @@
 
 > **PDFProcessorOptions** = `object`
 
-Defined in: [types/file.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L482)
+Defined in: [types/file.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L491)
 
 PDF processor options
 
@@ -18,7 +18,7 @@ PDF processor options
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/file.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L483)
+Defined in: [types/file.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L492)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:483](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **model?**: `string`
 
-Defined in: [types/file.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L484)
+Defined in: [types/file.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L493)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:484](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **maxSizeMB?**: `number`
 
-Defined in: [types/file.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L485)
+Defined in: [types/file.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L494)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:485](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **bedrockApiMode?**: `"converse"` \| `"invokeModel"`
 
-Defined in: [types/file.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L486)
+Defined in: [types/file.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L495)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/file.ts:486](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **enforceLimits?**: `boolean`
 
-Defined in: [types/file.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L491)
+Defined in: [types/file.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L500)
 
 Whether to enforce page limits by throwing an error (default: true)
 Set to false to bypass limit enforcement (logs warning instead)
@@ -61,6 +61,6 @@ Set to false to bypass limit enforcement (logs warning instead)
 
 > `optional` **password?**: `string`
 
-Defined in: [types/file.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L493)
+Defined in: [types/file.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L502)
 
 Password for an encrypted PDF (used on the image-conversion path) (#258).

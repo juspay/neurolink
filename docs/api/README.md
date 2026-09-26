@@ -1932,6 +1932,7 @@ console.log(result.content);
 - [JsonTypeGuard](type-aliases/JsonTypeGuard.md)
 - [ProcessorRegistration](type-aliases/ProcessorRegistration.md)
 - [ProcessedAudio](type-aliases/ProcessedAudio.md)
+- [VideoKeyframe](type-aliases/VideoKeyframe.md)
 - [ProcessedVideo](type-aliases/ProcessedVideo.md)
 - [ArchiveFormat](type-aliases/ArchiveFormat.md)
 - [ArchiveDecompressionResult](type-aliases/ArchiveDecompressionResult.md)
