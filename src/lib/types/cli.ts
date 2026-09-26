@@ -2106,6 +2106,18 @@ export type CliClassifierRouterFlags = {
 };
 
 /**
+ * `neurolink voices` arguments — TTS voice discovery.
+ */
+export type CliVoicesCommandArgs = {
+  /** TTS provider whose voices to list (e.g. google-ai, openai-tts). */
+  provider: string;
+  /** Optional language filter passed through to the provider (e.g. en-US). */
+  language?: string;
+  /** Emit the raw list as JSON instead of a table. */
+  json?: boolean;
+};
+
+/**
  * Agent command arguments for multi-agent orchestration
  */
 export type CliAgentCommandArgs = BaseCommandArgs & {

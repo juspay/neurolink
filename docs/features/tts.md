@@ -144,7 +144,36 @@ Google Cloud TTS offers three voice quality tiers:
 
 ### Voice Discovery
 
-Voice identifiers follow Google Cloud TTS naming conventions: `<language>-<variant>-<type>-<name>` (e.g., `en-US-Neural2-C`, `en-GB-Wavenet-D`).
+`--tts-voice` takes a provider-specific identifier, and `neurolink voices`
+prints the ones a provider will accept:
+
+```bash
+neurolink voices --provider openai-tts                  # the six OpenAI voices
+neurolink voices --provider google-ai --language en-US  # filter by language
+neurolink voices --provider elevenlabs --json           # machine-readable
+```
+
+`--provider` is required. The list is sorted by name and the count is printed
+at the end. Providers are registered only when their credentials are present,
+so an unconfigured provider is reported the same way a misspelled one is —
+with the set that _is_ registered named in the message, and a non-zero exit.
+
+The same list is available from the SDK:
+
+```typescript
+import { TTSProcessor } from "@juspay/neurolink";
+
+const voices = await TTSProcessor.getVoices("google-ai", {
+  languageCode: "en-US",
+});
+```
+
+`languageCode` is passed through to the provider, which decides what filtering
+it means: Google and Azure query their APIs with it, and OpenAI's fixed list
+ignores it. An unregistered provider, or one whose handler does not implement
+voice listing, raises a `TTS_PROVIDER_NOT_SUPPORTED` error.
+
+Google voice identifiers follow Google Cloud TTS naming conventions: `<language>-<variant>-<type>-<name>` (e.g., `en-US-Neural2-C`, `en-GB-Wavenet-D`).
 
 Refer to the [Google Cloud TTS voice list](https://cloud.google.com/text-to-speech/docs/voices) for all available voices.
 
@@ -463,6 +492,14 @@ neurolink generate "Your text" \
 # --tts-use-ai-response  : synthesize AI response instead of input text
 ```
 
+**Discovering voice ids for `--tts-voice`:**
+
+```bash
+neurolink voices --provider <provider> [--language <code>] [--json]
+```
+
+See [Voice Discovery](#voice-discovery).
+
 **Selecting a specific TTS provider:**
 
 ```bash
@@ -656,10 +693,42 @@ use the 3,000-character default.
 Handlers can optionally expose provider-native audio reads for each buffered
 text segment. NeuroLink prefers that capability when it supports the requested
 options and otherwise keeps the existing one-buffer-per-segment synthesis path.
-OpenAI TTS currently streams response-body reads for `mp3` and raw `pcm16`;
-`wav`, `flac`, `ogg`/`opus`, and other requested formats use buffered synthesis
-because native delivery has not been verified for those container formats.
 Custom and built-in handlers without the optional capability remain compatible.
+
+Two handlers currently offer it, each only for the options whose incremental
+delivery has been verified against the live API:
+
+| Handler      | Streams natively for                                                                    | Everything else    |
+| ------------ | --------------------------------------------------------------------------------------- | ------------------ |
+| `openai-tts` | `mp3`, `pcm16`                                                                          | buffered synthesis |
+| `google-ai`  | `pcm16` and `ogg`/`opus`, **and** only for a `Chirp3-HD`, `Chirp-HD` or `Journey` voice | buffered synthesis |
+
+Google's restriction is the streaming endpoint's own, not NeuroLink's: it
+rejects every other voice family (`Neural2`, `Studio`, `Wavenet`, `Standard`)
+with `only Chirp 3: HD voices are supported for streaming synthesis`, and
+rejects `MP3` and `LINEAR16` as unsupported encodings even though
+`synthesizeSpeech` accepts both. SSML is also excluded — the streaming request
+has no SSML field at all, so `<speak>` input stays on the buffered path rather
+than being sent as literal text. Because the default format is `mp3` and the
+default voice is a `Neural2` one, native streaming is strictly opt-in: pass
+both a streaming-capable voice and `format: "pcm16"` (or `"ogg"`) to get it.
+
+```typescript
+// Sentence-buffered audio arrives in many reads instead of one per sentence.
+const streamResult = await neurolink.stream({
+  input: { text: "Summarize the quarterly report." },
+  tts: {
+    enabled: true,
+    provider: "google-ai",
+    voice: "en-US-Chirp3-HD-Aoede",
+    format: "pcm16",
+  },
+});
+```
+
+Note that `pcm16` is headerless: the chunks report `sampleRate: 24000` so a
+consumer can wrap them, and Google's buffered path does not support `pcm16` at
+all, so that format only works for the streaming-capable voices above.
 
 Provider-local chunk indexes and finality are not exposed directly. NeuroLink
 recomputes a single global zero-based index, cumulative byte size, and exactly

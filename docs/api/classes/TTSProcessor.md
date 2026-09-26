@@ -156,6 +156,59 @@ if (TTSProcessor.supports("google-ai")) {
 
 ---
 
+### getVoices()
+
+> `static` **getVoices**(`providerName`, `options?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
+
+List the voices a registered provider offers.
+
+The counterpart to `synthesize()` for discovery: a caller cannot pass
+`TTSOptions.voice` without first knowing what the provider will accept,
+and `getVoices` is optional on `TTSHandler`, so asking the handler
+directly means every caller re-implements the same two guards. Both
+failures are reported as typed `TTSError`s rather than a `TypeError` on
+an absent member.
+
+`languageCode` is passed through verbatim; each handler decides what
+filtering it means. Google and Azure query their APIs with it, OpenAI's
+voice list is fixed and ignores it.
+
+#### Parameters
+
+##### providerName
+
+`string`
+
+Provider identifier, resolved case-insensitively
+
+##### options?
+
+Optional language filter
+
+###### languageCode?
+
+`string`
+
+#### Returns
+
+`Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
+
+The provider's voices
+
+#### Throws
+
+TTSError if the provider is not registered or cannot list voices
+
+#### Example
+
+```typescript
+const voices = await TTSProcessor.getVoices("google-ai", {
+  languageCode: "en-US",
+});
+```
+
+---
+
 ### synthesize()
 
 > `static` **synthesize**(`text`, `provider`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
