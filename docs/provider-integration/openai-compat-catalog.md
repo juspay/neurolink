@@ -47,7 +47,11 @@ A provider belongs in the JSON catalog if it needs **only**:
   `json_schema` structured-output requests, so `deepseek.json` sets
   `quirks.responseFormatDowngrade: "json-schema-to-json-object"` and the
   generic `ConfiguredOpenAICompatProvider` downgrades to `json_object` before
-  sending — no subclass.
+  sending — no subclass. It also sets `quirks.replayReasoningContent: true`:
+  DeepSeek documents that each assistant turn's `reasoning_content` must go
+  back on later requests once tools are in play, so the shared message
+  converter and the streaming tool loop send it — for this quirk only, since
+  strict OpenAI-compatible backends reject the unknown field.
 
 ## When a provider needs a dedicated subclass instead
 

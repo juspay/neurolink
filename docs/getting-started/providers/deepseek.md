@@ -271,7 +271,9 @@ Expected. `deepseek-reasoner`, `deepseek-flash` and `deepseek-v4-pro` reason bef
 
 ### Tool calls failing with thinking on
 
-DeepSeek requires `reasoning_content` to be sent back on every later request once tools are in play, and returns `400` otherwise ([thinking mode guide](https://api-docs.deepseek.com/guides/thinking_mode)). For tool-heavy workflows, use `deepseek-chat`, which keeps thinking off.
+DeepSeek's [thinking mode guide](https://api-docs.deepseek.com/guides/thinking_mode) says each turn's `reasoning_content` must be sent back on every later request once tools are in play, and that the API returns `400` otherwise. NeuroLink does this for you: the DeepSeek catalog entry sets `quirks.replayReasoningContent`, so both `generate()` and `stream()` send the reasoning back on each follow-up request. (Tested live on 2026-09-26, the API accepted follow-ups with or without it, but NeuroLink follows the documented contract.)
+
+If a tool loop still fails, check whether you are replaying conversation history yourself without each assistant turn's reasoning. For tool-heavy workflows where you don't need the reasoning, `deepseek-chat` keeps thinking off.
 
 ---
 

@@ -140,6 +140,11 @@ export const estimateWireTokens = (
     if (toolCalls) {
       total += estimateTokens(safeStringify(toolCalls), provider);
     }
+    const reasoning = (message as { reasoning_content?: string })
+      .reasoning_content;
+    if (reasoning) {
+      total += estimateTokens(reasoning, provider);
+    }
   }
   if (tools && tools.length > 0) {
     total += estimateTokens(safeStringify(tools), provider);
@@ -304,6 +309,7 @@ export const convertContentForOpenAI = (
 export const messageBuilderToOpenAI = (
   messages: ReadonlyArray<OpenAICompatMessage>,
   toolNameToWire?: Map<string, string>,
+  replayReasoning = false,
 ): OpenAICompatChatMessage[] => {
   const out: OpenAICompatChatMessage[] = [];
   for (const msg of messages) {
@@ -327,10 +333,13 @@ export const messageBuilderToOpenAI = (
         const parts = Array.isArray(msg.content) ? msg.content : [msg.content];
         const text: OpenAICompatMessageContent[] = [];
         const toolCalls: OpenAICompatToolCallWire[] = [];
+        const reasoning: string[] = [];
         for (const part of parts) {
           if (part && typeof part === "object") {
             const p = part as { type?: string };
-            if (p.type === "text") {
+            if (p.type === "reasoning") {
+              reasoning.push((part as { text?: string }).text ?? "");
+            } else if (p.type === "text") {
               text.push({
                 type: "text",
                 text: (part as { text?: string }).text ?? "",
@@ -363,10 +372,12 @@ export const messageBuilderToOpenAI = (
             : text.length === 1 && text[0].type === "text"
               ? text[0].text
               : text;
+        const reasoningContent = replayReasoning ? reasoning.join("") : "";
         out.push({
           role: "assistant",
           content: flat,
           ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+          ...(reasoningContent ? { reasoning_content: reasoningContent } : {}),
         });
         break;
       }

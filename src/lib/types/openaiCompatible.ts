@@ -43,6 +43,9 @@ export type OpenAICompatChatMessage =
       role: "assistant";
       content?: string | OpenAICompatMessageContent[] | null;
       tool_calls?: OpenAICompatToolCallWire[];
+      /** The turn's reasoning, sent back only where the catalog opts in
+       *  (DeepSeek's replayReasoningContent quirk). */
+      reasoning_content?: string;
     }
   | {
       role: "tool";

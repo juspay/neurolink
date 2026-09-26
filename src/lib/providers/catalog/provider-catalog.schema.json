@@ -280,6 +280,10 @@
           "type": "string",
           "enum": ["json-schema-to-json-object"],
           "description": "Vendor rejects response_format: { type: \"json_schema\" } outright but accepts { type: \"json_object\" }. ConfiguredOpenAICompatProvider downgrades the request so generate({ schema }) keeps working."
+        },
+        "replayReasoningContent": {
+          "type": "boolean",
+          "description": "Vendor wants each assistant turn's reasoning_content sent back on every later request of the conversation (DeepSeek documents a 400 without it once tools are in play). Off for every other provider, since strict OpenAI-compatible backends reject the unknown field."
         }
       }
     },

@@ -155,6 +155,7 @@ const catalogQuirksSchema = z.strictObject({
   messageContentFormat: z.literal("string").optional(),
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),
   responseFormatDowngrade: z.literal("json-schema-to-json-object").optional(),
+  replayReasoningContent: z.boolean().optional(),
 });
 
 const catalogTimeoutsSchema = z.strictObject({

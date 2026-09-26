@@ -168,6 +168,10 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
     return super.adjustResponseFormat(rf, modelId);
   }
 
+  protected replayReasoningContent(): boolean {
+    return this.entry.replayReasoningContent === true;
+  }
+
   protected formatProviderError(error: unknown): Error {
     // classifyProviderError hard-codes TimeoutError -> NetworkError ahead
     // of any rule table and does not allow a per-provider override. An

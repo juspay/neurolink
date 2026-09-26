@@ -203,6 +203,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     if (entry.quirks?.responseFormatDowngrade) {
       base.responseFormatDowngrade = entry.quirks.responseFormatDowngrade;
     }
+    if (entry.quirks?.replayReasoningContent) {
+      base.replayReasoningContent = true;
+    }
     return base;
   });
 }

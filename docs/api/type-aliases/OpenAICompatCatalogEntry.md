@@ -242,3 +242,12 @@ See CatalogQuirks.messageContentFormat — a vendor that accepts
 See CatalogQuirks.responseFormatDowngrade — a vendor that rejects
 `response_format: { type: "json_schema" }` but accepts
 `{ type: "json_object" }`.
+
+---
+
+### replayReasoningContent?
+
+> `optional` **replayReasoningContent?**: `boolean`
+
+See CatalogQuirks.replayReasoningContent — a vendor that wants each
+assistant turn's `reasoning_content` sent back on later requests.

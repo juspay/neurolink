@@ -82,6 +82,11 @@ export type CatalogQuirks = {
    *  ConfiguredOpenAICompatProvider so `generate({ schema })` keeps working
    *  (mirrors the pre-catalog `supportsStructuredOutputs: false` behavior). */
   responseFormatDowngrade?: "json-schema-to-json-object";
+  /** Vendor wants each assistant turn's `reasoning_content` sent back on
+   *  every later request of the conversation (DeepSeek documents a 400
+   *  without it once tools are in play). ConfiguredOpenAICompatProvider
+   *  turns on the replay; every other provider leaves the field off. */
+  replayReasoningContent?: boolean;
 };
 
 export type CatalogBillingPolicy =
