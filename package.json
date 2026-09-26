@@ -274,7 +274,8 @@
     "test:file-tool-roots": "pnpm exec tsx test/continuous-test-suite-file-tool-roots.ts",
     "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts",
     "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts",
-    "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts"
+    "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts",
+    "test:logging-guidelines": "pnpm exec tsx test/continuous-test-suite-logging-guidelines.ts"
   },
   "files": [
     "dist",
