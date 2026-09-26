@@ -8,7 +8,7 @@
 
 > **OpenAICompatStreamLifecycleListeners** = `object`
 
-Defined in: [types/openaiCompatible.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L357)
+Defined in: [types/openaiCompatible.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L360)
 
 Per-stream lifecycle listeners returned from an OpenAIChatCompletionsProvider
 subclass's `onStreamStart` hook. Every property is optional — provide only
@@ -21,7 +21,7 @@ the deferred analytics promises.
 
 > `optional` **onUsage?**: (`usage`) => `void`
 
-Defined in: [types/openaiCompatible.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L364)
+Defined in: [types/openaiCompatible.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L367)
 
 Fired once the deferred usage promise resolves with the final aggregated
 token counts. promptTokens is the UNCACHED remainder; cacheReadTokens
@@ -44,7 +44,7 @@ reasoningTokens is a subset of completionTokens.
 
 > `optional` **onFinish?**: (`reason`, `capturedError?`) => `void`
 
-Defined in: [types/openaiCompatible.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L370)
+Defined in: [types/openaiCompatible.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L373)
 
 Fired once the deferred finish promise resolves. `reason` is "stop",
 "length", "tool-calls", "content-filter", or "error". When the loop

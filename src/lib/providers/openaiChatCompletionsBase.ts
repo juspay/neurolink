@@ -362,6 +362,17 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * When true, an assistant turn's reasoning goes back to the vendor as
+   * `reasoning_content` on every later request of the conversation. DeepSeek
+   * documents this as required once tools are in play and answers 400
+   * without it. Default false: strict OpenAI-compatible backends reject a
+   * field they don't know. Read per request, never during construction.
+   */
+  protected replayReasoningContent(): boolean {
+    return false;
+  }
+
+  /**
    * Hook to adjust the fully-built wire request body before it is sent, on
    * both the streaming and non-streaming paths. Default identity. Override for
    * provider/model quirks that can't be expressed through buildBody options —
@@ -705,6 +716,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       this.suppressResponseFormatWithTools.bind(this);
     const useStreamingWireForGenerate =
       this.useStreamingWireForGenerate.bind(this);
+    const replayReasoningContent = this.replayReasoningContent.bind(this);
     const getTimeoutForOptions = (
       opts: Record<string, unknown> | undefined,
     ): number => this.getTimeout((opts ?? {}) as never);
@@ -746,6 +758,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const baseMessages = messageBuilderToOpenAI(
           options.prompt as OpenAICompatMessage[],
           wireNameMaps?.toWire,
+          replayReasoningContent(),
         );
         const hasTools =
           Array.isArray(options.tools) && options.tools.length > 0;
@@ -1879,6 +1892,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const conversation = messageBuilderToOpenAI(
           transformedPrompt,
           wireNameMaps?.toWire,
+          this.replayReasoningContent(),
         );
         const sampled: StreamOptions = {
           ...options,
@@ -2492,6 +2506,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       role: "assistant",
       content: stepResult.text.length > 0 ? stepResult.text : null,
       tool_calls: toolCallsForMessage,
+      ...(this.replayReasoningContent() && stepResult.reasoning
+        ? { reasoning_content: stepResult.reasoning }
+        : {}),
     });
 
     for (const [, t] of stepResult.toolCalls) {

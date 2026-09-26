@@ -8,7 +8,7 @@
 
 > **SageMakerConfig** = `object`
 
-Defined in: [types/providers.ts:1443](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1443)
+Defined in: [types/providers.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1446)
 
 AWS configuration options for SageMaker client
 
@@ -18,7 +18,7 @@ AWS configuration options for SageMaker client
 
 > **region**: `string`
 
-Defined in: [types/providers.ts:1445](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1445)
+Defined in: [types/providers.ts:1448](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1448)
 
 AWS region for SageMaker service
 
@@ -28,7 +28,7 @@ AWS region for SageMaker service
 
 > **accessKeyId**: `string`
 
-Defined in: [types/providers.ts:1447](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1447)
+Defined in: [types/providers.ts:1450](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1450)
 
 AWS access key ID
 
@@ -38,7 +38,7 @@ AWS access key ID
 
 > **secretAccessKey**: `string`
 
-Defined in: [types/providers.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1449)
+Defined in: [types/providers.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1452)
 
 AWS secret access key
 
@@ -48,7 +48,7 @@ AWS secret access key
 
 > `optional` **sessionToken?**: `string`
 
-Defined in: [types/providers.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1451)
+Defined in: [types/providers.ts:1454](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1454)
 
 AWS session token (optional, for temporary credentials)
 
@@ -58,7 +58,7 @@ AWS session token (optional, for temporary credentials)
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:1453](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1453)
+Defined in: [types/providers.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1456)
 
 Request timeout in milliseconds
 
@@ -68,7 +68,7 @@ Request timeout in milliseconds
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/providers.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1455)
+Defined in: [types/providers.ts:1458](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1458)
 
 Maximum number of retry attempts
 
@@ -78,6 +78,6 @@ Maximum number of retry attempts
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/providers.ts:1457](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1457)
+Defined in: [types/providers.ts:1460](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1460)
 
 Custom SageMaker endpoint URL (optional)

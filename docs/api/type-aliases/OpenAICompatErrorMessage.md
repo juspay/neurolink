@@ -8,4 +8,4 @@
 
 > **OpenAICompatErrorMessage** = `string` \| `ReadonlyArray`\<\{ `msg?`: `string`; \}\>
 
-Defined in: [types/openaiCompatible.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L188)
+Defined in: [types/openaiCompatible.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L191)

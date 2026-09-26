@@ -8,7 +8,7 @@
 
 > **CatalogCapabilities** = `object`
 
-Defined in: [types/providerCatalog.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L121)
+Defined in: [types/providerCatalog.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L126)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:121](https://github.com/juspay/neurolink/b
 
 > **text**: `boolean`
 
-Defined in: [types/providerCatalog.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L122)
+Defined in: [types/providerCatalog.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L127)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:122](https://github.com/juspay/neurolink/b
 
 > **streaming**: `boolean`
 
-Defined in: [types/providerCatalog.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L123)
+Defined in: [types/providerCatalog.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L128)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:123](https://github.com/juspay/neurolink/b
 
 > **tools**: `boolean` \| `"model-dependent"`
 
-Defined in: [types/providerCatalog.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L131)
+Defined in: [types/providerCatalog.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L136)
 
 "model-dependent" when tool support varies per served model and the
 vendor doesn't reject `tools` for unsupported ones (the model just
@@ -48,7 +48,7 @@ default, exactly like an entry that never set supportsTools at all.
 
 > **toolsWithStreaming**: `boolean`
 
-Defined in: [types/providerCatalog.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L132)
+Defined in: [types/providerCatalog.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L137)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/providerCatalog.ts:132](https://github.com/juspay/neurolink/b
 
 > **structuredOutput**: `boolean`
 
-Defined in: [types/providerCatalog.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L133)
+Defined in: [types/providerCatalog.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L138)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/providerCatalog.ts:133](https://github.com/juspay/neurolink/b
 
 > **structuredOutputWithTools**: `boolean`
 
-Defined in: [types/providerCatalog.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L134)
+Defined in: [types/providerCatalog.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L139)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/providerCatalog.ts:134](https://github.com/juspay/neurolink/b
 
 > **embeddings**: `boolean`
 
-Defined in: [types/providerCatalog.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L135)
+Defined in: [types/providerCatalog.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L140)
 
 ---
 
@@ -80,4 +80,4 @@ Defined in: [types/providerCatalog.ts:135](https://github.com/juspay/neurolink/b
 
 > **thinking**: `boolean`
 
-Defined in: [types/providerCatalog.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L136)
+Defined in: [types/providerCatalog.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L141)

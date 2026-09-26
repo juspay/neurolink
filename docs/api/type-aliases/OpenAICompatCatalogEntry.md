@@ -280,3 +280,14 @@ Defined in: [types/providers.ts:873](https://github.com/juspay/neurolink/blob/re
 See CatalogQuirks.responseFormatDowngrade — a vendor that rejects
 `response_format: { type: "json_schema" }` but accepts
 `{ type: "json_object" }`.
+
+---
+
+### replayReasoningContent?
+
+> `optional` **replayReasoningContent?**: `boolean`
+
+Defined in: [types/providers.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L876)
+
+See CatalogQuirks.replayReasoningContent — a vendor that wants each
+assistant turn's `reasoning_content` sent back on later requests.

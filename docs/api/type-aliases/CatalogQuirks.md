@@ -52,3 +52,16 @@ Vendor rejects `response_format: { type: "json_schema" }` outright but
 accepts `{ type: "json_object" }`. Normalized by
 ConfiguredOpenAICompatProvider so `generate({ schema })` keeps working
 (mirrors the pre-catalog `supportsStructuredOutputs: false` behavior).
+
+---
+
+### replayReasoningContent?
+
+> `optional` **replayReasoningContent?**: `boolean`
+
+Defined in: [types/providerCatalog.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L89)
+
+Vendor wants each assistant turn's `reasoning_content` sent back on
+every later request of the conversation (DeepSeek documents a 400
+without it once tools are in play). ConfiguredOpenAICompatProvider
+turns on the replay; every other provider leaves the field off.

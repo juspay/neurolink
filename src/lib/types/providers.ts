@@ -871,6 +871,9 @@ export type OpenAICompatCatalogEntry = {
    *  `response_format: { type: "json_schema" }` but accepts
    *  `{ type: "json_object" }`. */
   responseFormatDowngrade?: "json-schema-to-json-object";
+  /** See CatalogQuirks.replayReasoningContent — a vendor that wants each
+   *  assistant turn's `reasoning_content` sent back on later requests. */
+  replayReasoningContent?: boolean;
 };
 
 /** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()

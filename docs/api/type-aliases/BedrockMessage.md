@@ -8,7 +8,7 @@
 
 > **BedrockMessage** = `object`
 
-Defined in: [types/providers.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1115)
+Defined in: [types/providers.ts:1118](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1118)
 
 Bedrock message structure
 
@@ -18,7 +18,7 @@ Bedrock message structure
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/providers.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1116)
+Defined in: [types/providers.ts:1119](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1119)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:1116](https://github.com/juspay/neurolink/blob/r
 
 > **content**: [`BedrockContentBlock`](BedrockContentBlock.md)[]
 
-Defined in: [types/providers.ts:1117](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1117)
+Defined in: [types/providers.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1120)

@@ -8,7 +8,7 @@
 
 > **InvokeEndpointParams** = `object`
 
-Defined in: [types/providers.ts:1560](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1560)
+Defined in: [types/providers.ts:1563](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1563)
 
 Parameters for SageMaker endpoint invocation
 
@@ -18,7 +18,7 @@ Parameters for SageMaker endpoint invocation
 
 > **EndpointName**: `string`
 
-Defined in: [types/providers.ts:1562](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1562)
+Defined in: [types/providers.ts:1565](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1565)
 
 Endpoint name to invoke
 
@@ -28,7 +28,7 @@ Endpoint name to invoke
 
 > **Body**: `string` \| `Uint8Array`
 
-Defined in: [types/providers.ts:1564](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1564)
+Defined in: [types/providers.ts:1567](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1567)
 
 Request body as string or Uint8Array
 
@@ -38,7 +38,7 @@ Request body as string or Uint8Array
 
 > `optional` **ContentType?**: `string`
 
-Defined in: [types/providers.ts:1566](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1566)
+Defined in: [types/providers.ts:1569](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1569)
 
 Content type of the request
 
@@ -48,7 +48,7 @@ Content type of the request
 
 > `optional` **Accept?**: `string`
 
-Defined in: [types/providers.ts:1568](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1568)
+Defined in: [types/providers.ts:1571](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1571)
 
 Accept header for response format
 
@@ -58,7 +58,7 @@ Accept header for response format
 
 > `optional` **CustomAttributes?**: `string`
 
-Defined in: [types/providers.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1570)
+Defined in: [types/providers.ts:1573](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1573)
 
 Custom attributes for the request
 
@@ -68,7 +68,7 @@ Custom attributes for the request
 
 > `optional` **TargetModel?**: `string`
 
-Defined in: [types/providers.ts:1572](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1572)
+Defined in: [types/providers.ts:1575](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1575)
 
 Target model for multi-model endpoints
 
@@ -78,7 +78,7 @@ Target model for multi-model endpoints
 
 > `optional` **TargetVariant?**: `string`
 
-Defined in: [types/providers.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1574)
+Defined in: [types/providers.ts:1577](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1577)
 
 Target variant for A/B testing
 
@@ -88,7 +88,7 @@ Target variant for A/B testing
 
 > `optional` **InferenceId?**: `string`
 
-Defined in: [types/providers.ts:1576](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1576)
+Defined in: [types/providers.ts:1579](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1579)
 
 Inference ID for request tracking
 
@@ -98,7 +98,7 @@ Inference ID for request tracking
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/providers.ts:1586](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1586)
+Defined in: [types/providers.ts:1589](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1589)
 
 Cancels the in-flight HTTP request, not just the loop around it.
 

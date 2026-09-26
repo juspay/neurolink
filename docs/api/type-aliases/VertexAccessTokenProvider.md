@@ -8,7 +8,7 @@
 
 > **VertexAccessTokenProvider** = () => `Promise`\<`string` \| `null` \| `undefined`\>
 
-Defined in: [types/providers.ts:2612](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2612)
+Defined in: [types/providers.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2615)
 
 Supplies the bearer token for a Vertex publisher call.
 
