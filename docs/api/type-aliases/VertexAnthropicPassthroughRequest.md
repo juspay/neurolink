@@ -8,7 +8,7 @@
 
 > **VertexAnthropicPassthroughRequest** = `object`
 
-Defined in: [types/proxy.ts:5079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5079)
+Defined in: [types/proxy.ts:5089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5089)
 
 One native Claude-to-Vertex passthrough dispatch.
 
@@ -18,7 +18,7 @@ One native Claude-to-Vertex passthrough dispatch.
 
 > **body**: `Readonly`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [types/proxy.ts:5080](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5080)
+Defined in: [types/proxy.ts:5090](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5090)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:5080](https://github.com/juspay/neurolink/blob/relea
 
 > **projectId**: `string`
 
-Defined in: [types/proxy.ts:5081](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5081)
+Defined in: [types/proxy.ts:5091](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5091)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:5081](https://github.com/juspay/neurolink/blob/relea
 
 > **location**: `string`
 
-Defined in: [types/proxy.ts:5082](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5082)
+Defined in: [types/proxy.ts:5092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5092)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:5082](https://github.com/juspay/neurolink/blob/relea
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:5083](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5083)
+Defined in: [types/proxy.ts:5093](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5093)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:5083](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **signal?**: `AbortSignal`
 
-Defined in: [types/proxy.ts:5084](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5084)
+Defined in: [types/proxy.ts:5094](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L5094)

@@ -8,7 +8,7 @@
 
 > **ProxyShareNettingClaim** = `object`
 
-Defined in: [types/proxy.ts:4492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4492)
+Defined in: [types/proxy.ts:4502](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4502)
 
 One side's position in a reciprocal netting round.
 
@@ -18,7 +18,7 @@ One side's position in a reciprocal netting round.
 
 > **consumedByYou**: `number`
 
-Defined in: [types/proxy.ts:4494](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4494)
+Defined in: [types/proxy.ts:4504](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4504)
 
 Cumulative coins the _other_ node has consumed under my grant to them.
 
@@ -28,7 +28,7 @@ Cumulative coins the _other_ node has consumed under my grant to them.
 
 > **alreadyNetted**: `number`
 
-Defined in: [types/proxy.ts:4496](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4496)
+Defined in: [types/proxy.ts:4506](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4506)
 
 Cumulative coins already forgiven on my side, so a replay nets nothing.
 
@@ -38,4 +38,4 @@ Cumulative coins already forgiven on my side, so a replay nets nothing.
 
 > **signature**: `string`
 
-Defined in: [types/proxy.ts:4497](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4497)
+Defined in: [types/proxy.ts:4507](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4507)

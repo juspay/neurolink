@@ -8,4 +8,4 @@
 
 > **ProxyShareRefillPeriod** = `"session"` \| `"week"`
 
-Defined in: [types/proxy.ts:4215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4215)
+Defined in: [types/proxy.ts:4225](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4225)

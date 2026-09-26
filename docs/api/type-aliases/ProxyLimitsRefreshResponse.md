@@ -8,7 +8,7 @@
 
 > **ProxyLimitsRefreshResponse** = `object`
 
-Defined in: [types/proxy.ts:1928](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1928)
+Defined in: [types/proxy.ts:1938](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1938)
 
 Response body of the proxy's GET /limits endpoint.
 
@@ -18,7 +18,7 @@ Response body of the proxy's GET /limits endpoint.
 
 > **fetchedAt**: `number`
 
-Defined in: [types/proxy.ts:1929](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1929)
+Defined in: [types/proxy.ts:1939](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1939)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1929](https://github.com/juspay/neurolink/blob/relea
 
 > **snapshot**: `boolean`
 
-Defined in: [types/proxy.ts:1931](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1931)
+Defined in: [types/proxy.ts:1941](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1941)
 
 True when served from stored state without contacting Anthropic.
 
@@ -36,7 +36,7 @@ True when served from stored state without contacting Anthropic.
 
 > **results**: [`ProxyLimitsAccountResult`](ProxyLimitsAccountResult.md)[]
 
-Defined in: [types/proxy.ts:1932](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1932)
+Defined in: [types/proxy.ts:1942](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1942)
 
 ---
 
@@ -44,6 +44,6 @@ Defined in: [types/proxy.ts:1932](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **refreshMetrics?**: [`ProxyQuotaRefreshMetrics`](ProxyQuotaRefreshMetrics.md)
 
-Defined in: [types/proxy.ts:1934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1934)
+Defined in: [types/proxy.ts:1944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1944)
 
 Process-local refresh activity; contains no credentials or response body.

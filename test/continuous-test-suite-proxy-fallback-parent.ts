@@ -7,7 +7,9 @@
  * Anthropic upstream can produce. A stubbed Vertex endpoint and a stubbed peer
  * serve the fallback legs that must leave a binding alone, and
  * `setForceBindRecheckThrowForTests` makes the post-serve binding re-check
- * throw, which no real request can be staged to do. */
+ * throw, which no real request can be staged to do. A rate-limit error carried
+ * as a stream's first event, and a burst that clears on the retry, likewise
+ * need the stubbed upstream. */
 import "./helpers/proxyTestIsolation.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -296,6 +298,15 @@ const anthropicRateLimited = (): Response =>
       status: 429,
       headers: { "content-type": "application/json", "retry-after": "1" },
     },
+  );
+/** A 200 whose first stream event is an error, as Anthropic sends it. */
+const anthropicStreamError = (
+  errorType: string,
+  headers: Record<string, string> = {},
+): Response =>
+  new Response(
+    sse("error", { error: { type: errorType, message: "Fixture error" } }),
+    { headers: { "content-type": "text/event-stream", ...headers } },
   );
 const anthropicEmptyStream = (): Response =>
   new Response("", { headers: { "content-type": "text/event-stream" } });
@@ -845,6 +856,123 @@ async function runSessionAffinityRouteCases(
     "PASS affinity moves the binding off a bound account whose token refresh fails",
   );
 }
+/** A rate limit that arrives as the stream's first event follows the same rule
+ * as one that arrives as an HTTP 429: a short burst retries the same account,
+ * an exhausted window rotates at once. A retry that is served ends the burst,
+ * so the next request stays on that account instead of bouncing away. */
+async function runInStreamRateLimitRouteCases(
+  app: FixtureProxyApp,
+): Promise<void> {
+  // The refresh-failure case above disables a until it is re-authorised.
+  await tokenStore.saveTokens(AFFINITY_ACCOUNT_A, {
+    accessToken: AFFINITY_TOKEN_A,
+    tokenType: "Bearer",
+    expiresAt: Date.now() + 3600000,
+  });
+  await tokenStore.markEnabled(AFFINITY_ACCOUNT_A);
+  await tokenStore.saveTokens(AFFINITY_ACCOUNT_B, {
+    accessToken: AFFINITY_TOKEN_B,
+    tokenType: "Bearer",
+    expiresAt: Date.now() + 3600000,
+  });
+  await loadAffinityConfig({ "session-affinity": false });
+  /** Waits out a real cooldown the previous case left on a. */
+  const waitUntilACanServe = async (): Promise<void> => {
+    const coolingUntil =
+      __testHooks.getAccountRuntimeState(AFFINITY_ACCOUNT_A)?.coolingUntil;
+    if (coolingUntil === undefined || coolingUntil <= Date.now()) {
+      return;
+    }
+    assert.ok(
+      coolingUntil - Date.now() < 30_000,
+      "precondition: a staged cooldown should be short",
+    );
+    await delay(coolingUntil - Date.now() + 10);
+  };
+  const attemptsFor = async (
+    label: string,
+    upstream: typeof anthropicUpstream,
+  ): Promise<AffinityFixtureAccount[]> => {
+    anthropicUpstream = upstream;
+    anthropicAttempts.length = 0;
+    const response = await sendAffinityRequest(app, randomUUID(), true);
+    await response.text();
+    await waitForProxyIdle();
+    assert.equal(response.status, 200, `${label}: the request was not served`);
+    return [...anthropicAttempts];
+  };
+  const oneSecond = { "retry-after": "1" };
+  try {
+    let aCalls = 0;
+    let attempts = await attemptsFor("burst", (account, stream) =>
+      account === "a" && aCalls++ === 0
+        ? anthropicStreamError("rate_limit_error")
+        : anthropicServes(stream),
+    );
+    assert.deepEqual(
+      attempts,
+      ["a", "a"],
+      "burst: a short burst in the stream must retry the same account",
+    );
+    attempts = await attemptsFor("after burst", (_account, stream) =>
+      anthropicServes(stream),
+    );
+    assert.deepEqual(
+      attempts,
+      ["a"],
+      "after burst: a served retry must end the burst so the next request stays",
+    );
+    console.log(
+      "PASS an in-stream burst retries the same account and the next request stays",
+    );
+
+    attempts = await attemptsFor("burst budget", (account, stream) =>
+      account === "a"
+        ? anthropicStreamError("rate_limit_error", oneSecond)
+        : anthropicServes(stream),
+    );
+    assert.deepEqual(
+      attempts,
+      ["a", "a", "a", "b"],
+      "burst budget: two same-account retries, then the next account",
+    );
+    console.log(
+      "PASS in-stream burst rate limits rotate after two same-account retries",
+    );
+
+    await waitUntilACanServe();
+    attempts = await attemptsFor("exhausted", (account, stream) =>
+      account === "a"
+        ? anthropicStreamError("rate_limit_error", {
+            ...oneSecond,
+            "anthropic-ratelimit-unified-status": "rejected",
+          })
+        : anthropicServes(stream),
+    );
+    assert.deepEqual(
+      attempts,
+      ["a", "b"],
+      "exhausted: a rejected window must move to the next account at once",
+    );
+    console.log("PASS an in-stream exhausted rate limit rotates at once");
+
+    await waitUntilACanServe();
+    attempts = await attemptsFor("overload", (account, stream) =>
+      account === "a"
+        ? anthropicStreamError("overloaded_error")
+        : anthropicServes(stream),
+    );
+    assert.deepEqual(
+      attempts,
+      ["a", "b"],
+      "overload: an overloaded stream must still move to the next account",
+    );
+    console.log("PASS an in-stream overload still rotates");
+  } finally {
+    anthropicUpstream = (_account, stream) => anthropicServes(stream);
+    await loadAffinityConfig();
+  }
+}
 try {
   const { app } = await createProxyStartApp({
     runtimeConfigStore,
@@ -1126,6 +1254,7 @@ try {
     );
   }
   await runSessionAffinityRouteCases(app);
+  await runInStreamRateLimitRouteCases(app);
 } finally {
   sessionAffinity.clear();
   logs.initRequestLogger(false);

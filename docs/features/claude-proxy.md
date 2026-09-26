@@ -752,15 +752,20 @@ Routing treats a spent model-scoped cap as per-model, never per-account:
 
 When an account encounters an error, it enters a cooldown period based on the error type:
 
-| Failure                                                | Cooldown                                           | Behavior                                         |
-| ------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------ |
-| Authoritative unified, 5-hour, or 7-day rejection      | Upstream reset or `Retry-After`, capped per reason | Persist cooldown and rotate immediately          |
-| Transient burst 429                                    | Upstream delay, capped at 15 minutes               | At most 2 same-account retries, then rotate      |
-| Refresh credential rejection (`400`/`401`/`403`/`404`) | Disabled until explicit login                      | Rotate without retrying an invalid refresh token |
-| Refresh network, `429`, or `5xx`                       | 30 seconds to 5 minutes                            | Persist auth cooldown and rotate                 |
-| Upstream `5xx` or network error                        | Bounded same-account retries                       | Rotate after retry budget                        |
+| Failure                                                         | Cooldown                                           | Behavior                                         |
+| --------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| Authoritative unified, 5-hour, or 7-day rejection               | Upstream reset or `Retry-After`, capped per reason | Persist cooldown and rotate immediately          |
+| Transient burst 429, as a status or as the stream's first event | Upstream delay, capped at 15 minutes               | At most 2 same-account retries, then rotate      |
+| Refresh credential rejection (`400`/`401`/`403`/`404`)          | Disabled until explicit login                      | Rotate without retrying an invalid refresh token |
+| Refresh network, `429`, or `5xx`                                | 30 seconds to 5 minutes                            | Persist auth cooldown and rotate                 |
+| Upstream `5xx` or network error                                 | Bounded same-account retries                       | Rotate after retry budget                        |
 
 Cooldown updates are extend-only: a late concurrent response cannot shorten a longer known reset window.
+
+The one exception is a transient burst. When a same-account retry is served, the
+burst is over, so its cooldown is lifted and the session's next request stays on
+that account instead of moving away and losing its prompt cache. An exhaustion
+cooldown recorded in the meantime is left in place.
 
 Each cooldown is also capped by what its reason can mean — a `session` cooldown
 describes a 5-hour window, so it can never run for days no matter what reset the

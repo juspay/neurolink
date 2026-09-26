@@ -8,7 +8,7 @@
 
 > **RollingQueuedSocket** = [`RollingSocketAdmission`](RollingSocketAdmission.md) & `object`
 
-Defined in: [types/proxy.ts:3592](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3592)
+Defined in: [types/proxy.ts:3602](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3602)
 
 ## Type Declaration
 

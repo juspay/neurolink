@@ -8,7 +8,7 @@
 
 > **ProxyShareUsage** = `object`
 
-Defined in: [types/proxy.ts:4653](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4653)
+Defined in: [types/proxy.ts:4663](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4663)
 
 Model-weighted token usage settled against a grant.
 
@@ -18,7 +18,7 @@ Model-weighted token usage settled against a grant.
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxy.ts:4654](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4654)
+Defined in: [types/proxy.ts:4664](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4664)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4654](https://github.com/juspay/neurolink/blob/relea
 
 > **outputTokens**: `number`
 
-Defined in: [types/proxy.ts:4655](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4655)
+Defined in: [types/proxy.ts:4665](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4665)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4655](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **cacheCreationTokens?**: `number`
 
-Defined in: [types/proxy.ts:4656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4656)
+Defined in: [types/proxy.ts:4666](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4666)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:4656](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **cacheReadTokens?**: `number`
 
-Defined in: [types/proxy.ts:4657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4657)
+Defined in: [types/proxy.ts:4667](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4667)
