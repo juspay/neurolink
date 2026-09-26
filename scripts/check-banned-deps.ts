@@ -53,7 +53,7 @@ import {
   statSync,
   type Stats,
 } from "node:fs";
-import { join, extname } from "node:path";
+import { join, extname, relative, sep } from "node:path";
 import { execSync } from "node:child_process";
 import yaml from "js-yaml";
 
@@ -444,9 +444,7 @@ function checkSourceImports(rootDir: string): void {
   const files = collectSourceFiles(rootDir);
 
   for (const file of files) {
-    const rel = file.startsWith(rootDir + "/")
-      ? file.slice(rootDir.length + 1)
-      : file;
+    const rel = relative(rootDir, file).split(sep).join("/");
     if (ALLOWED_IMPORT_PREFIXES.some((prefix) => rel.startsWith(prefix))) {
       continue;
     }

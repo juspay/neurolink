@@ -1,5 +1,6 @@
 // GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.
 // Source of truth: the per-provider JSON files in this directory.
+import a2agentJson from "./a2agent.json" with { type: "json" };
 import apiRouteJson from "./api-route.json" with { type: "json" };
 import basetenJson from "./baseten.json" with { type: "json" };
 import cerebrasJson from "./cerebras.json" with { type: "json" };
@@ -22,6 +23,7 @@ import xaiJson from "./xai.json" with { type: "json" };
 import type { ProviderCatalogJson } from "../../types/index.js";
 
 export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
+  a2agentJson as ProviderCatalogJson,
   apiRouteJson as ProviderCatalogJson,
   basetenJson as ProviderCatalogJson,
   cerebrasJson as ProviderCatalogJson,
@@ -44,6 +46,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
 ];
 
 export const CATALOG_PROVIDER_IDS = [
+  "a2agent",
   "api-route",
   "baseten",
   "cerebras",

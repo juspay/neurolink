@@ -24,6 +24,7 @@ import "dotenv/config";
 
 import * as fs from "fs";
 import * as path from "path";
+import { execFileSync } from "node:child_process";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 // Type-only: erased at compile time, so this does not pull the runtime
@@ -371,6 +372,15 @@ await test("Model id tables agree with the model enums", async () => {
     orphans.length === 0,
     `${orphans.length} token-limit key(s) unreachable from any model enum (listed above)`,
   );
+});
+
+await test("CLI setup advertises A2Agent from provider descriptors", async () => {
+  const help = execFileSync(
+    process.execPath,
+    ["dist/cli/index.js", "setup", "--help"],
+    { encoding: "utf8", timeout: 30000 },
+  );
+  assert(help.includes('"a2agent"'), "setup choices omit the catalog provider");
 });
 
 await runSuite();

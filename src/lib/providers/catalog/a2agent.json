@@ -1,0 +1,64 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "a2agent",
+  "displayName": "A2Agent",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.a2agent.me/v1"
+  },
+  "models": {
+    "default": "deepseek-v4-flash",
+    "fallbacks": ["deepseek-v4-flash"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "deepseek-v4-flash": {
+        "contextWindow": 128000,
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash via A2Agent; live-verified chat and tool calling"
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://a2agent.me/keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Create an account at https://a2agent.me/register",
+      "2. Create an API key at https://a2agent.me/keys",
+      "3. Set {apiKeyEnvVar} in your environment",
+      "4. Review trial-credit eligibility and prepaid rates at https://docs.a2agent.me/quickstart and https://a2agent.me/pricing",
+      "5. Use authenticated GET https://api.a2agent.me/v1/models for current model IDs; set A2AGENT_MODEL to select another model"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-21",
+      "status": 200,
+      "method": "authenticated GET https://api.a2agent.me/v1/models; deepseek-v4-flash present among 21 model IDs"
+    },
+    "authProbe": {
+      "date": "2026-09-21",
+      "status": 401,
+      "method": "GET /v1/models with a deliberately invalid Bearer token"
+    },
+    "liveMatrix": {
+      "date": "2026-09-21",
+      "result": "deepseek-v4-flash: provider matrix 4/4 (generate, stream, tools, structured output); CLI generate resolves the default and returns HELLO. Direct SSE, tool calls, streaming tool calls, JSON output and tools+response_format probes pass. SDK generate executes a tool and validates its result against a schema; fresh-session SDK streaming executes the tool and returns its value with automatic tool choice. Forcing required tool choice on every stream step loops until timeout, so that mode is not claimed. Vision, embeddings and thinking-level controls are not claimed."
+    },
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1775"
+  }
+}

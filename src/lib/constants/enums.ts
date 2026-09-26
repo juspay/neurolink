@@ -21,6 +21,7 @@ export enum AIProviderName {
   LM_STUDIO = "lm-studio",
   LLAMACPP = "llamacpp",
   // ── BEGIN GENERATED(provider-members): provider catalog (pnpm run codegen:catalog) ──
+  A2AGENT = "a2agent",
   API_ROUTE = "api-route",
   BASETEN = "baseten",
   CEREBRAS = "cerebras",
@@ -1115,6 +1116,10 @@ export enum ReplicateModels {
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── BEGIN GENERATED(models-enums): provider catalog (pnpm run codegen:catalog) ──
+export enum A2agentModels {
+  DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
+}
+
 export enum ApiRouteModels {
   CLAUDE_SONNET_4_6 = "claude-sonnet-4-6",
   CLAUDE_HAIKU_4_5 = "claude-haiku-4-5",
