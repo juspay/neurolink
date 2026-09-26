@@ -8,7 +8,7 @@
 
 > **ProxyExposeArgs** = `object`
 
-Defined in: [types/cli.ts:2266](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2266)
+Defined in: [types/cli.ts:2278](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2278)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:2266](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **port?**: `number`
 
-Defined in: [types/cli.ts:2267](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2267)
+Defined in: [types/cli.ts:2279](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2279)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:2267](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **host?**: `string`
 
-Defined in: [types/cli.ts:2268](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2268)
+Defined in: [types/cli.ts:2280](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2280)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:2268](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **named?**: `string`
 
-Defined in: [types/cli.ts:2269](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2269)
+Defined in: [types/cli.ts:2281](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2281)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:2269](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **force?**: `boolean`
 
-Defined in: [types/cli.ts:2270](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2270)
+Defined in: [types/cli.ts:2282](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2282)

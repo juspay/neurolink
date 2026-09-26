@@ -8,7 +8,7 @@
 
 > **TTSChunk** = `object`
 
-Defined in: [types/tts.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L290)
+Defined in: [types/tts.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L301)
 
 TTS audio chunk for streaming Text-to-Speech output
 
@@ -21,7 +21,7 @@ Used in StreamChunk type to deliver audio alongside text content.
 
 > **data**: `Buffer`
 
-Defined in: [types/tts.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L292)
+Defined in: [types/tts.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L303)
 
 Audio data chunk as Buffer
 
@@ -31,7 +31,7 @@ Audio data chunk as Buffer
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/tts.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L294)
+Defined in: [types/tts.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L305)
 
 Audio format of this chunk
 
@@ -41,7 +41,7 @@ Audio format of this chunk
 
 > **index**: `number`
 
-Defined in: [types/tts.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L296)
+Defined in: [types/tts.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L307)
 
 Chunk sequence number (0-indexed)
 
@@ -51,7 +51,7 @@ Chunk sequence number (0-indexed)
 
 > **isFinal**: `boolean`
 
-Defined in: [types/tts.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L298)
+Defined in: [types/tts.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L309)
 
 Whether this is the final audio chunk
 
@@ -61,7 +61,7 @@ Whether this is the final audio chunk
 
 > `optional` **cumulativeSize?**: `number`
 
-Defined in: [types/tts.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L300)
+Defined in: [types/tts.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L311)
 
 Cumulative audio size in bytes so far
 
@@ -71,7 +71,7 @@ Cumulative audio size in bytes so far
 
 > `optional` **estimatedDuration?**: `number`
 
-Defined in: [types/tts.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L302)
+Defined in: [types/tts.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L313)
 
 Estimated total duration in seconds (if available)
 
@@ -81,7 +81,7 @@ Estimated total duration in seconds (if available)
 
 > `optional` **voice?**: `string`
 
-Defined in: [types/tts.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L304)
+Defined in: [types/tts.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L315)
 
 Voice used for generation
 
@@ -91,6 +91,6 @@ Voice used for generation
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/tts.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L306)
+Defined in: [types/tts.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L317)
 
 Sample rate in Hz
