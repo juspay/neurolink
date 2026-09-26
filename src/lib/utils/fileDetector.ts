@@ -38,6 +38,7 @@ import type {
   FileProcessingResult,
   FileSource,
   FileType,
+  OfficeProcessorOptions,
   VideoProcessorOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
@@ -448,6 +449,7 @@ export class FileDetector {
             csvOptions,
             options?.provider,
             options?.videoOptions,
+            options?.officeOptions,
           );
           FileDetector.setFileResultSpanAttributes(
             span,
@@ -468,6 +470,7 @@ export class FileDetector {
           csvOptions,
           options?.provider,
           options?.videoOptions,
+          options?.officeOptions,
         );
         FileDetector.setFileResultSpanAttributes(
           span,
@@ -1364,6 +1367,7 @@ export class FileDetector {
     options?: CSVProcessorOptions,
     provider?: string,
     videoOptions?: VideoProcessorOptions,
+    officeOptions?: OfficeProcessorOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
@@ -1392,7 +1396,11 @@ export class FileDetector {
       case "archive":
         return await FileDetector.processArchiveFile(content, detection);
       case "xlsx":
-        return await FileDetector.processXlsxFile(content, detection);
+        return await FileDetector.processXlsxFile(
+          content,
+          detection,
+          officeOptions,
+        );
       case "docx":
         return await FileDetector.processDocxFile(content, detection);
       case "pptx":
@@ -1667,6 +1675,7 @@ export class FileDetector {
   private static async processXlsxFile(
     content: Buffer,
     detection: FileDetectionResult,
+    officeOptions?: OfficeProcessorOptions,
   ): Promise<FileProcessingResult> {
     const xlsxFilename = detection.metadata.filename || "spreadsheet";
     try {
@@ -1699,7 +1708,7 @@ export class FileDetector {
           };
         }
       } else {
-        const { excelProcessor } =
+        const { excelProcessor, formatWorksheetsForPrompt } =
           await import("../processors/document/ExcelProcessor.js");
         const xlsxResult = await excelProcessor.processFile({
           id: xlsxFilename,
@@ -1711,30 +1720,13 @@ export class FileDetector {
           buffer: content,
         });
         if (xlsxResult.success && xlsxResult.data) {
-          // Build text content from worksheets
-          const sheets = xlsxResult.data.worksheets || [];
-          let textContent = `Spreadsheet: ${sheets.length} sheet(s), ${xlsxResult.data.totalRows} total rows\n`;
-          for (const sheet of sheets) {
-            textContent += `\n### Sheet: ${sheet.name}\n`;
-            textContent += `Columns (${sheet.columnCount}): ${sheet.headers.join(", ")}\n`;
-            textContent += `Rows: ${sheet.rowCount}\n`;
-            // Include first rows as sample data
-            const sampleRows = sheet.rows.slice(0, 20);
-            const rowText = sampleRows
-              .map((row) => row.map((c) => String(c ?? "")).join("\t"))
-              .join("\n");
-            if (!rowText) {
-              continue;
-            }
-            textContent += `\nData:\n${sheet.headers.join("\t")}\n${rowText}\n`;
-            const remaining = sheet.rowCount - 20;
-            if (remaining > 0) {
-              textContent += `... (${remaining} more rows)\n`;
-            }
-          }
           return {
             type: "xlsx",
-            content: textContent,
+            content: formatWorksheetsForPrompt(
+              xlsxResult.data.worksheets || [],
+              xlsxResult.data.totalRows,
+              officeOptions,
+            ),
             mimeType: detection.mimeType,
             metadata: detection.metadata,
           };
@@ -1785,14 +1777,22 @@ export class FileDetector {
       if (ext === "odt") {
         const { openDocumentProcessor } =
           await import("../processors/document/OpenDocumentProcessor.js");
-        const odtResult = await openDocumentProcessor.processFile({
-          id: docxFilename,
-          name: docxFilename,
-          mimetype:
-            detection.mimeType || "application/vnd.oasis.opendocument.text",
-          size: content.length,
-          buffer: content,
-        });
+        // Bounded per the project's async-timeout guideline, matching the ODP
+        // branch of processPptxFile below: this unzips and parses
+        // attacker-supplied bytes, and a stalled parse would otherwise hold
+        // the request open with no ceiling. On timeout the throw lands in
+        // this block's existing catch, which degrades to the placeholder.
+        const odtResult = await withTimeout(
+          openDocumentProcessor.processFile({
+            id: docxFilename,
+            name: docxFilename,
+            mimetype:
+              detection.mimeType || "application/vnd.oasis.opendocument.text",
+            size: content.length,
+            buffer: content,
+          }),
+          FileDetector.DEFAULT_DOCUMENT_TIMEOUT,
+        );
         if (odtResult.success && odtResult.data) {
           return {
             type: "docx",
@@ -1811,13 +1811,17 @@ export class FileDetector {
       } else if (ext === "rtf") {
         const { rtfProcessor } =
           await import("../processors/document/RtfProcessor.js");
-        const rtfResult = await rtfProcessor.processFile({
-          id: docxFilename,
-          name: docxFilename,
-          mimetype: detection.mimeType || "application/rtf",
-          size: content.length,
-          buffer: content,
-        });
+        // Bounded for the same reason as the odt branch above.
+        const rtfResult = await withTimeout(
+          rtfProcessor.processFile({
+            id: docxFilename,
+            name: docxFilename,
+            mimetype: detection.mimeType || "application/rtf",
+            size: content.length,
+            buffer: content,
+          }),
+          FileDetector.DEFAULT_DOCUMENT_TIMEOUT,
+        );
         if (rtfResult.success && rtfResult.data) {
           return {
             type: "docx",
@@ -1836,26 +1840,44 @@ export class FileDetector {
       } else {
         const { wordProcessor } =
           await import("../processors/document/WordProcessor.js");
-        const docxResult = await wordProcessor.processFile({
-          id: docxFilename,
-          name: docxFilename,
-          mimetype:
-            detection.mimeType ||
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          size: content.length,
-          buffer: content,
-        });
+        // Bounded for the same reason as the odt branch above. This call now
+        // also runs htmlToMarkdown's recursive HTML-to-markdown rendering
+        // over mammoth's output, so it is real additional work inside what
+        // was already an unbounded call.
+        const docxResult = await withTimeout(
+          wordProcessor.processFile({
+            id: docxFilename,
+            name: docxFilename,
+            mimetype:
+              detection.mimeType ||
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size: content.length,
+            buffer: content,
+          }),
+          FileDetector.DEFAULT_DOCUMENT_TIMEOUT,
+        );
         if (docxResult.success && docxResult.data) {
+          // Prefer the markdown rendering: it keeps the headings, lists and
+          // tables that the plain-text extraction flattens away. Plain text
+          // remains the fallback for a document with no convertible structure.
+          const {
+            markdownContent,
+            textContent,
+            wordCount,
+            paragraphCount,
+            characterCount,
+          } = docxResult.data;
+          const body = markdownContent || textContent;
           return {
             type: "docx",
-            content:
-              docxResult.data.textContent ||
-              FileDetector.formatInformativePlaceholder(
-                "Document",
-                docxFilename,
-                content,
-                detection,
-              ),
+            content: body
+              ? `Document: ${wordCount} words, ${paragraphCount} paragraphs, ${characterCount} characters\n\n${body}`
+              : FileDetector.formatInformativePlaceholder(
+                  "Document",
+                  docxFilename,
+                  content,
+                  detection,
+                ),
             mimeType: detection.mimeType,
             metadata: detection.metadata,
           };

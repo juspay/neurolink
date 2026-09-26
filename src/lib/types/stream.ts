@@ -43,6 +43,7 @@ import type {
   CSVProcessorOptions,
   FileWithMetadata,
   VisionImageOutputFormat,
+  OfficeProcessorOptions,
 } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
@@ -419,6 +420,12 @@ export type StreamOptions = {
 
   // CSV processing options (#379: canonical shape — see CSVProcessorOptions)
   csvOptions?: CSVProcessorOptions;
+
+  /**
+   * Office document processing options. Currently consumed by the XLSX path
+   * (`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+   */
+  officeOptions?: OfficeProcessorOptions;
 
   /** PDF processing options (#258). */
   pdfOptions?: {

@@ -8,7 +8,7 @@
 
 > **ProcessedAudio** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:810](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L810)
+Defined in: [types/processor.ts:821](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L821)
 
 Processed audio file result.
 Extends ProcessedFileBase with audio-specific metadata, tags, and transcript info.

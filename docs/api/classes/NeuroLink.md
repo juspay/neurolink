@@ -469,7 +469,7 @@ Gracefully shutdown NeuroLink and all MCP connections
 
 > **generateText**(`options`): `Promise`\<[`TextGenerationResult`](../type-aliases/TextGenerationResult.md)\>
 
-Defined in: [neurolink.ts:6694](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L6694)
+Defined in: [neurolink.ts:6695](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L6695)
 
 BACKWARD COMPATIBILITY: Legacy generateText method
 Internally calls generate() and converts result format
@@ -490,7 +490,7 @@ Internally calls generate() and converts result format
 
 > **streamText**(`prompt`, `options?`): `Promise`\<`AsyncIterable`\<`string`, `any`, `any`\>\>
 
-Defined in: [neurolink.ts:9251](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L9251)
+Defined in: [neurolink.ts:9252](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L9252)
 
 BACKWARD COMPATIBILITY: Legacy streamText method
 Internally calls stream() and converts result format
@@ -515,7 +515,7 @@ Internally calls stream() and converts result format
 
 > **stream**(`options`): `Promise`\<[`StreamResult`](../type-aliases/StreamResult.md)\>
 
-Defined in: [neurolink.ts:9334](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L9334)
+Defined in: [neurolink.ts:9335](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L9335)
 
 Stream AI-generated content in real-time using the best available provider.
 This method provides real-time streaming of AI responses with full MCP tool integration.
@@ -588,7 +588,7 @@ When conversation memory operations fail (if enabled)
 
 > **setToolRoutingServers**(`servers`): `void`
 
-Defined in: [neurolink.ts:10266](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L10266)
+Defined in: [neurolink.ts:10267](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L10267)
 
 Supplies (or replaces) the pre-call tool routing server catalog.
 
@@ -613,7 +613,7 @@ alone does not activate it.
 
 > **getKnowledgeStatus**(): [`KnowledgeEngineStatus`](../type-aliases/KnowledgeEngineStatus.md) \| `null`
 
-Defined in: [neurolink.ts:10284](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L10284)
+Defined in: [neurolink.ts:10285](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L10285)
 
 Knowledge-grounding engine health (null when it was not configured).
 
@@ -627,7 +627,7 @@ Knowledge-grounding engine health (null when it was not configured).
 
 > **getEventEmitter**(): `TypedEventEmitter`\<[`NeuroLinkEvents`](../type-aliases/NeuroLinkEvents.md)\>
 
-Defined in: [neurolink.ts:12772](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12772)
+Defined in: [neurolink.ts:12773](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12773)
 
 Get the EventEmitter instance to listen to NeuroLink events for real-time monitoring and debugging.
 This method provides access to the internal event system that emits events during AI generation,
@@ -833,7 +833,7 @@ This method does not throw errors as it returns the internal EventEmitter
 
 > **hasPendingHITLConfirmation**(`confirmationId`): `boolean`
 
-Defined in: [neurolink.ts:12812](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12812)
+Defined in: [neurolink.ts:12813](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12813)
 
 Whether a HITL confirmation is still awaiting a response on THIS instance.
 
@@ -888,7 +888,7 @@ neurolink.getEventEmitter().emit("hitl:confirmation-response", { ... });
 
 > **getToolDedupConfig**(): [`ToolDedupConfig`](../type-aliases/ToolDedupConfig.md) \| `undefined`
 
-Defined in: [neurolink.ts:12828](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12828)
+Defined in: [neurolink.ts:12829](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12829)
 
 Returns the instance-level tool-dedup configuration, or `undefined` when
 toolDedup was not provided at construction time.
@@ -911,7 +911,7 @@ parameter through the full call stack.
 
 > **getToolsConfig**(): [`ToolConfig`](../type-aliases/ToolConfig.md) \| `undefined`
 
-Defined in: [neurolink.ts:12881](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12881)
+Defined in: [neurolink.ts:12882](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12882)
 
 ##### Returns
 
@@ -923,7 +923,7 @@ Defined in: [neurolink.ts:12881](https://github.com/juspay/neurolink/blob/releas
 
 > **getDiscoveryPins**(`sessionKey`): `ReadonlySet`\<`string`\>
 
-Defined in: [neurolink.ts:12892](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12892)
+Defined in: [neurolink.ts:12893](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12893)
 
 Tools discovered via `search_tools` for a session (`tools.discovery`
 mode). Pinned tools are sent in full on every subsequent call of that
@@ -947,7 +947,7 @@ are never the ones evicted at the session cap.
 
 > **pinDiscoveredTools**(`sessionKey`, `toolNames`): `void`
 
-Defined in: [neurolink.ts:12909](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12909)
+Defined in: [neurolink.ts:12910](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12910)
 
 Pin discovered tools to a session (called by the `search_tools`
 meta-tool on hydration). Append-only within a session; the map is
@@ -973,7 +973,7 @@ bounded by evicting the least-recently-used session past 1000 sessions.
 
 > **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"expired"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
 
-Defined in: [neurolink.ts:12954](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12954)
+Defined in: [neurolink.ts:12955](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12955)
 
 Curator P1-1: synchronous credential health check for a single provider.
 
@@ -1025,7 +1025,7 @@ if (health.status !== "ok") {
 
 > **emitToolStart**(`toolName`, `input`, `startTime?`): `string`
 
-Defined in: [neurolink.ts:13033](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13033)
+Defined in: [neurolink.ts:13034](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13034)
 
 Emit tool start event with execution tracking
 
@@ -1061,7 +1061,7 @@ executionId for tracking this specific execution
 
 > **emitToolEnd**(`toolName`, `result?`, `error?`, `startTime?`, `endTime?`, `executionId?`): `void`
 
-Defined in: [neurolink.ts:13084](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13084)
+Defined in: [neurolink.ts:13085](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13085)
 
 Emit tool end event with execution summary
 
@@ -1113,7 +1113,7 @@ Optional execution ID for tracking
 
 > **getCurrentToolExecutions**(): [`ToolExecutionContext`](../type-aliases/ToolExecutionContext.md)[]
 
-Defined in: [neurolink.ts:13165](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13165)
+Defined in: [neurolink.ts:13166](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13166)
 
 Get current tool execution contexts for stream metadata
 
@@ -1127,7 +1127,7 @@ Get current tool execution contexts for stream metadata
 
 > **getToolExecutionHistory**(): [`ToolExecutionSummary`](../type-aliases/ToolExecutionSummary.md)[]
 
-Defined in: [neurolink.ts:13172](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13172)
+Defined in: [neurolink.ts:13173](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13173)
 
 Get tool execution history
 
@@ -1141,7 +1141,7 @@ Get tool execution history
 
 > **clearCurrentStreamExecutions**(): `void`
 
-Defined in: [neurolink.ts:13179](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13179)
+Defined in: [neurolink.ts:13180](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13180)
 
 Clear current stream tool executions (called at stream start)
 
@@ -1155,7 +1155,7 @@ Clear current stream tool executions (called at stream start)
 
 > **registerTool**(`name`, `tool`, `options?`): `void`
 
-Defined in: [neurolink.ts:13195](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13195)
+Defined in: [neurolink.ts:13196](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13196)
 
 Register a custom tool that will be available to all AI providers
 
@@ -1201,7 +1201,7 @@ Tool in MCPExecutableTool format (unified MCP protocol type)
 
 > **setToolContext**(`context`): `void`
 
-Defined in: [neurolink.ts:13346](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13346)
+Defined in: [neurolink.ts:13347](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13347)
 
 Set the context that will be passed to tools during execution
 This context will be merged with any runtime context passed by the AI model
@@ -1224,7 +1224,7 @@ Context object containing session info, tokens, shop data, etc.
 
 > **getToolContext**(): `Record`\<`string`, `unknown`\> \| `undefined`
 
-Defined in: [neurolink.ts:13361](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13361)
+Defined in: [neurolink.ts:13362](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13362)
 
 Get the current tool execution context
 
@@ -1240,7 +1240,7 @@ Current context or undefined if not set
 
 > **clearToolContext**(): `void`
 
-Defined in: [neurolink.ts:13370](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13370)
+Defined in: [neurolink.ts:13371](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13371)
 
 Clear the tool execution context
 
@@ -1254,7 +1254,7 @@ Clear the tool execution context
 
 > **registerTools**(`tools`): `void`
 
-Defined in: [neurolink.ts:13382](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13382)
+Defined in: [neurolink.ts:13383](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13383)
 
 Register multiple tools at once - Supports both object and array formats
 
@@ -1279,7 +1279,7 @@ Array format (Lighthouse compatible): [{ name: string, tool: MCPExecutableTool }
 
 > **unregisterTool**(`name`): `boolean`
 
-Defined in: [neurolink.ts:13405](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13405)
+Defined in: [neurolink.ts:13406](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13406)
 
 Unregister a custom tool
 
@@ -1303,7 +1303,7 @@ true if the tool was removed, false if it didn't exist
 
 > **useToolMiddleware**(`middleware`): `this`
 
-Defined in: [neurolink.ts:13424](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13424)
+Defined in: [neurolink.ts:13425](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13425)
 
 Register a global tool middleware that runs on every tool execution.
 Middleware receives the tool, params, context, and a next() function.
@@ -1328,7 +1328,7 @@ this (for chaining)
 
 > **getToolMiddlewares**(): [`ToolMiddleware`](../type-aliases/ToolMiddleware.md)[]
 
-Defined in: [neurolink.ts:13437](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13437)
+Defined in: [neurolink.ts:13438](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13438)
 
 Get all registered tool middlewares
 
@@ -1342,7 +1342,7 @@ Get all registered tool middlewares
 
 > **flushToolBatch**(): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:13444](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13444)
+Defined in: [neurolink.ts:13445](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13445)
 
 Flush any pending batched tool calls immediately
 
@@ -1356,7 +1356,7 @@ Flush any pending batched tool calls immediately
 
 > **getMCPEnhancementsConfig**(): [`MCPEnhancementsConfig`](../type-aliases/MCPEnhancementsConfig.md) \| `undefined`
 
-Defined in: [neurolink.ts:13453](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13453)
+Defined in: [neurolink.ts:13454](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13454)
 
 Get the current MCP enhancements configuration
 
@@ -1370,7 +1370,7 @@ Get the current MCP enhancements configuration
 
 > **updateAgenticLoopReport**(`sessionId`, `report`, `userId?`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:13476](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13476)
+Defined in: [neurolink.ts:13477](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13477)
 
 Update agentic loop report metadata for a conversation session.
 Upserts a report entry by reportId — updates existing or adds new.
@@ -1420,7 +1420,7 @@ await neurolink.updateAgenticLoopReport("session-123", {
 
 > **getCustomTools**(): `Map`\<`string`, \{ `name`: `string`; `description`: `string`; `inputSchema?`: `object`; `execute?`: (`params`, `context?`) => `unknown`; \}\>
 
-Defined in: [neurolink.ts:13512](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13512)
+Defined in: [neurolink.ts:13513](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13513)
 
 Get all registered custom tools
 
@@ -1436,7 +1436,7 @@ Map of tool names to MCPExecutableTool format
 
 > **addInMemoryMCPServer**(`serverId`, `serverInfo`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:13650](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13650)
+Defined in: [neurolink.ts:13651](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13651)
 
 Add an in-memory MCP server (from git diff)
 Allows registration of pre-instantiated server objects
@@ -1465,7 +1465,7 @@ Server configuration
 
 > **getInMemoryServers**(): `Map`\<`string`, [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)\>
 
-Defined in: [neurolink.ts:13694](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13694)
+Defined in: [neurolink.ts:13695](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13695)
 
 Get all registered in-memory servers as a Map for ID-based lookup.
 
@@ -1488,7 +1488,7 @@ Map of server IDs to MCPServerInfo
 
 > **getInMemoryServerInfos**(): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)[]
 
-Defined in: [neurolink.ts:13721](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13721)
+Defined in: [neurolink.ts:13722](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13722)
 
 Get in-memory servers as an array of MCPServerInfo.
 
@@ -1518,7 +1518,7 @@ Array of MCPServerInfo for in-memory servers
 
 > **getAutoDiscoveredServerInfos**(): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)[]
 
-Defined in: [neurolink.ts:13737](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13737)
+Defined in: [neurolink.ts:13738](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13738)
 
 Get auto-discovered servers as MCPServerInfo - ZERO conversion needed
 
@@ -1534,7 +1534,7 @@ Array of MCPServerInfo
 
 > **executeTool**\<`T`\>(`toolName`, `params?`, `options?`): `Promise`\<`T`\>
 
-Defined in: [neurolink.ts:13749](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13749)
+Defined in: [neurolink.ts:13750](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L13750)
 
 Execute a specific tool by name with robust error handling
 Supports both custom tools and MCP server tools with timeout, retry, and circuit breaker patterns
@@ -1625,7 +1625,7 @@ Tool execution result
 
 > **getAllAvailableTools**(): `Promise`\<[`ToolInfo`](../type-aliases/ToolInfo.md)[]\>
 
-Defined in: [neurolink.ts:14849](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L14849)
+Defined in: [neurolink.ts:14850](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L14850)
 
 ##### Returns
 
@@ -1637,7 +1637,7 @@ Defined in: [neurolink.ts:14849](https://github.com/juspay/neurolink/blob/releas
 
 > **getProviderStatus**(`options?`): `Promise`\<[`ProviderStatus`](../type-aliases/ProviderStatus.md)[]\>
 
-Defined in: [neurolink.ts:15031](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15031)
+Defined in: [neurolink.ts:15032](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15032)
 
 Get comprehensive status of all AI providers
 Primary method for provider health checking and diagnostics
@@ -1660,7 +1660,7 @@ Primary method for provider health checking and diagnostics
 
 > **testProvider**(`providerName`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15234](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15234)
+Defined in: [neurolink.ts:15235](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15235)
 
 Test a specific AI provider's connectivity and authentication
 
@@ -1684,7 +1684,7 @@ Promise resolving to true if provider is working
 
 > **getBestProvider**(`requestedProvider?`): `Promise`\<`string`\>
 
-Defined in: [neurolink.ts:15273](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15273)
+Defined in: [neurolink.ts:15274](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15274)
 
 Get the best available AI provider based on configuration and availability
 
@@ -1708,7 +1708,7 @@ Promise resolving to the best provider name
 
 > **getAvailableProviders**(): `Promise`\<`string`[]\>
 
-Defined in: [neurolink.ts:15282](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15282)
+Defined in: [neurolink.ts:15283](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15283)
 
 Get list of all available AI provider names
 
@@ -1724,7 +1724,7 @@ Array of supported provider names
 
 > **isValidProvider**(`providerName`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15292](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15292)
+Defined in: [neurolink.ts:15293](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15293)
 
 Validate if a provider name is supported
 
@@ -1748,7 +1748,7 @@ True if provider name is valid
 
 > **getMCPStatus**(): `Promise`\<[`MCPStatus`](../type-aliases/MCPStatus.md)\>
 
-Defined in: [neurolink.ts:15305](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15305)
+Defined in: [neurolink.ts:15306](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15306)
 
 Get comprehensive MCP (Model Context Protocol) status information
 
@@ -1764,7 +1764,7 @@ Promise resolving to MCP status details
 
 > **listMCPServers**(): `Promise`\<[`MCPServerInfo`](../type-aliases/MCPServerInfo.md)[]\>
 
-Defined in: [neurolink.ts:15375](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15375)
+Defined in: [neurolink.ts:15376](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15376)
 
 List all configured MCP servers with their status
 
@@ -1780,7 +1780,7 @@ Promise resolving to array of MCP server information
 
 > **testMCPServer**(`serverId`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15390](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15390)
+Defined in: [neurolink.ts:15391](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15391)
 
 Test connectivity to a specific MCP server
 
@@ -1804,7 +1804,7 @@ Promise resolving to true if server is reachable
 
 > **hasProviderEnvVars**(`providerName`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15431](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15431)
+Defined in: [neurolink.ts:15432](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15432)
 
 Check if a provider has the required environment variables configured
 
@@ -1828,7 +1828,7 @@ Promise resolving to true if provider has required env vars
 
 > **checkProviderHealth**(`providerName`, `options?`): `Promise`\<\{ `provider`: `string`; `isHealthy`: `boolean`; `isConfigured`: `boolean`; `hasApiKey`: `boolean`; `lastChecked`: `Date`; `error?`: `string`; `warning?`: `string`; `responseTime?`: `number`; `configurationIssues`: `string`[]; `recommendations`: `string`[]; \}\>
 
-Defined in: [neurolink.ts:15457](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15457)
+Defined in: [neurolink.ts:15458](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15458)
 
 Perform comprehensive health check on a specific provider
 
@@ -1872,7 +1872,7 @@ Promise resolving to detailed health status
 
 > **checkAllProvidersHealth**(`options?`): `Promise`\<`object`[]\>
 
-Defined in: [neurolink.ts:15503](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15503)
+Defined in: [neurolink.ts:15504](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15504)
 
 Check health of all supported providers
 
@@ -1910,7 +1910,7 @@ Promise resolving to array of health statuses for all providers
 
 > **getProviderHealthSummary**(): `Promise`\<\{ `total`: `number`; `healthy`: `number`; `configured`: `number`; `hasIssues`: `number`; `healthyProviders`: `string`[]; `unhealthyProviders`: `string`[]; `recommendations`: `string`[]; \}\>
 
-Defined in: [neurolink.ts:15547](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15547)
+Defined in: [neurolink.ts:15548](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15548)
 
 Get a summary of provider health across all supported providers
 
@@ -1926,7 +1926,7 @@ Promise resolving to health summary statistics
 
 > **clearProviderHealthCache**(`providerName?`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:15594](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15594)
+Defined in: [neurolink.ts:15595](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15595)
 
 Clear provider health cache (useful for re-testing after configuration changes)
 
@@ -1948,7 +1948,7 @@ Optional specific provider to clear cache for
 
 > **getToolExecutionMetrics**(): `Record`\<`string`, \{ `totalExecutions`: `number`; `successfulExecutions`: `number`; `failedExecutions`: `number`; `successRate`: `number`; `averageExecutionTime`: `number`; `lastExecutionTime`: `number`; `errorCategories`: `Record`\<`string`, `number`\>; \}\>
 
-Defined in: [neurolink.ts:15605](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15605)
+Defined in: [neurolink.ts:15606](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15606)
 
 Get execution metrics for all tools
 
@@ -1964,7 +1964,7 @@ Object with execution metrics for each tool
 
 > **setModelAliasConfig**(`config`): `void`
 
-Defined in: [neurolink.ts:15649](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15649)
+Defined in: [neurolink.ts:15650](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15650)
 
 NL-004: Set model alias/deprecation configuration.
 Models in the alias map will be warned, redirected, or blocked based on their action.
@@ -1987,7 +1987,7 @@ Model alias configuration with aliases map
 
 > **getToolCircuitBreakerStatus**(): `Record`\<`string`, \{ `state`: `"closed"` \| `"open"` \| `"half-open"`; `failureCount`: `number`; `isHealthy`: `boolean`; \}\>
 
-Defined in: [neurolink.ts:15662](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15662)
+Defined in: [neurolink.ts:15663](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15663)
 
 Get circuit breaker status for all tools
 
@@ -2003,7 +2003,7 @@ Object with circuit breaker status for each tool
 
 > **resetToolCircuitBreaker**(`toolName`): `void`
 
-Defined in: [neurolink.ts:15697](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15697)
+Defined in: [neurolink.ts:15698](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15698)
 
 Reset circuit breaker for a specific tool
 
@@ -2025,7 +2025,7 @@ Name of the tool to reset circuit breaker for
 
 > **clearToolExecutionMetrics**(): `void`
 
-Defined in: [neurolink.ts:15714](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15714)
+Defined in: [neurolink.ts:15715](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15715)
 
 Clear all tool execution metrics
 
@@ -2039,7 +2039,7 @@ Clear all tool execution metrics
 
 > **getToolHealthReport**(): `Promise`\<\{ `totalTools`: `number`; `healthyTools`: `number`; `unhealthyTools`: `number`; `tools`: `Record`\<`string`, \{ `name`: `string`; `isHealthy`: `boolean`; `metrics`: \{ `totalExecutions`: `number`; `successRate`: `number`; `averageExecutionTime`: `number`; `lastExecutionTime`: `number`; `errorCategories`: `Record`\<`string`, `number`\>; \}; `circuitBreaker`: \{ `state`: `"closed"` \| `"open"` \| `"half-open"`; `failureCount`: `number`; \}; `issues`: `string`[]; `recommendations`: `string`[]; \}\>; \}\>
 
-Defined in: [neurolink.ts:15723](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15723)
+Defined in: [neurolink.ts:15724](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15724)
 
 Get comprehensive tool health report
 
@@ -2055,7 +2055,7 @@ Detailed health report for all tools
 
 > **ensureConversationMemoryInitialized**(): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15878](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15878)
+Defined in: [neurolink.ts:15879](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15879)
 
 Initialize conversation memory if enabled (public method for explicit initialization)
 This is useful for testing or when you want to ensure conversation memory is ready
@@ -2072,7 +2072,7 @@ Promise resolving to true if initialization was successful, false otherwise
 
 > **getConversationStats**(): `Promise`\<[`ConversationMemoryStats`](../type-aliases/ConversationMemoryStats.md)\>
 
-Defined in: [neurolink.ts:15898](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15898)
+Defined in: [neurolink.ts:15899](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15899)
 
 Get conversation memory statistics (public API)
 
@@ -2086,7 +2086,7 @@ Get conversation memory statistics (public API)
 
 > **getConversationHistory**(`sessionId`): `Promise`\<[`ChatMessage`](../type-aliases/ChatMessage.md)[]\>
 
-Defined in: [neurolink.ts:15925](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15925)
+Defined in: [neurolink.ts:15926](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15926)
 
 Get complete conversation history for a specific session (public API)
 
@@ -2110,7 +2110,7 @@ Array of ChatMessage objects in chronological order, or empty array if session d
 
 > **clearConversationSession**(`sessionId`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:15981](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15981)
+Defined in: [neurolink.ts:15982](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L15982)
 
 Clear conversation history for a specific session (public API)
 
@@ -2130,7 +2130,7 @@ Clear conversation history for a specific session (public API)
 
 > **clearAllConversations**(): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:16007](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16007)
+Defined in: [neurolink.ts:16008](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16008)
 
 Clear all conversation history (public API)
 
@@ -2144,7 +2144,7 @@ Clear all conversation history (public API)
 
 > **listSessions**(`userId?`): `Promise`\<[`SessionListItem`](../type-aliases/SessionListItem.md)[]\>
 
-Defined in: [neurolink.ts:16035](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16035)
+Defined in: [neurolink.ts:16036](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16036)
 
 List all conversation sessions with metadata (public API)
 
@@ -2168,7 +2168,7 @@ Array of session list items with metadata
 
 > **exportSession**(`sessionId`, `options?`): `Promise`\<[`SessionExport`](../type-aliases/SessionExport.md) \| `null`\>
 
-Defined in: [neurolink.ts:16084](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16084)
+Defined in: [neurolink.ts:16085](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16085)
 
 Export a single session with full history and metadata (public API)
 
@@ -2204,7 +2204,7 @@ Session export object with full history
 
 > **exportAllSessions**(`userId?`, `options?`): `Promise`\<[`SessionExport`](../type-aliases/SessionExport.md)[]\>
 
-Defined in: [neurolink.ts:16169](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16169)
+Defined in: [neurolink.ts:16170](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16170)
 
 Export all sessions for a user (public API)
 
@@ -2240,7 +2240,7 @@ Array of session exports
 
 > **storeToolExecutions**(`sessionId`, `userId`, `toolCalls`, `toolResults`, `currentTime?`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:16233](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16233)
+Defined in: [neurolink.ts:16234](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16234)
 
 Store tool executions in conversation memory if enabled and Redis is configured
 
@@ -2288,7 +2288,7 @@ Promise resolving when storage is complete
 
 > **isToolExecutionStorageAvailable**(): `boolean`
 
-Defined in: [neurolink.ts:16303](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16303)
+Defined in: [neurolink.ts:16304](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16304)
 
 Check if tool execution storage is available.
 
@@ -2309,7 +2309,7 @@ whether the active memory backend can persist tool executions
 
 > **getSessionMessages**(`sessionId`, `userId?`): `Promise`\<[`ChatMessage`](../type-aliases/ChatMessage.md)[]\>
 
-Defined in: [neurolink.ts:16313](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16313)
+Defined in: [neurolink.ts:16314](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16314)
 
 Get the raw messages array for a session.
 Returns the full messages list without context filtering or summarization.
@@ -2338,7 +2338,7 @@ Array of ChatMessage objects, or empty array if session doesn't exist
 
 > **setSessionMessages**(`sessionId`, `messages`, `userId?`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:16354](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16354)
+Defined in: [neurolink.ts:16355](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16355)
 
 Replace the entire messages array for a session.
 
@@ -2372,7 +2372,7 @@ Optional user ID for scoped Redis key lookup
 
 > **modifyLastAssistantMessage**(`sessionId`, `transformer`, `userId?`): `Promise`\<`boolean`\>
 
-Defined in: [neurolink.ts:16402](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16402)
+Defined in: [neurolink.ts:16403](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16403)
 
 Modify the last assistant message in a session using a transformer function.
 Convenience wrapper around getSessionMessages/setSessionMessages.
@@ -2409,7 +2409,7 @@ true if a message was modified, false if no assistant message was found
 
 > **addExternalMCPServer**(`serverId`, `config`): `Promise`\<[`ExternalMCPOperationResult`](../type-aliases/ExternalMCPOperationResult.md)\<[`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md)\>\>
 
-Defined in: [neurolink.ts:16433](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16433)
+Defined in: [neurolink.ts:16434](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16434)
 
 Add an external MCP server
 Automatically discovers and registers tools from the server
@@ -2440,7 +2440,7 @@ Operation result with server instance
 
 > **removeExternalMCPServer**(`serverId`): `Promise`\<[`ExternalMCPOperationResult`](../type-aliases/ExternalMCPOperationResult.md)\<`void`\>\>
 
-Defined in: [neurolink.ts:16520](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16520)
+Defined in: [neurolink.ts:16521](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16521)
 
 Remove an external MCP server
 Stops the server and removes all its tools
@@ -2465,7 +2465,7 @@ Operation result
 
 > **listExternalMCPServers**(): `object`[]
 
-Defined in: [neurolink.ts:16572](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16572)
+Defined in: [neurolink.ts:16573](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16573)
 
 List all external MCP servers
 
@@ -2481,7 +2481,7 @@ Array of server health information
 
 > **getExternalMCPServer**(`serverId`): [`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md) \| `undefined`
 
-Defined in: [neurolink.ts:16601](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16601)
+Defined in: [neurolink.ts:16602](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16602)
 
 Get external MCP server status
 
@@ -2505,7 +2505,7 @@ Server instance or undefined if not found
 
 > **executeExternalMCPTool**(`serverId`, `requestedToolName`, `parameters`, `options?`): `Promise`\<`unknown`\>
 
-Defined in: [neurolink.ts:16615](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16615)
+Defined in: [neurolink.ts:16616](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16616)
 
 Execute a tool from an external MCP server
 
@@ -2547,7 +2547,7 @@ Tool execution result
 
 > **getExternalMCPTools**(): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
 
-Defined in: [neurolink.ts:16814](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16814)
+Defined in: [neurolink.ts:16815](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16815)
 
 Get all tools from external MCP servers
 
@@ -2563,7 +2563,7 @@ Array of external tool information
 
 > **getExternalMCPServerTools**(`serverId`): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
 
-Defined in: [neurolink.ts:16823](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16823)
+Defined in: [neurolink.ts:16824](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16824)
 
 Get tools from a specific external MCP server
 
@@ -2587,7 +2587,7 @@ Array of tool information for the server
 
 > **testExternalMCPConnection**(`config`): `Promise`\<[`BatchOperationResult`](../type-aliases/BatchOperationResult.md)\>
 
-Defined in: [neurolink.ts:16832](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16832)
+Defined in: [neurolink.ts:16833](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16833)
 
 Test connection to an external MCP server
 
@@ -2611,7 +2611,7 @@ Test result with connection status
 
 > **getExternalMCPStatistics**(): `object`
 
-Defined in: [neurolink.ts:16860](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16860)
+Defined in: [neurolink.ts:16861](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16861)
 
 Get external MCP server manager statistics
 
@@ -2651,7 +2651,7 @@ Statistics about external servers and tools
 
 > **shutdownExternalMCPServers**(): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:16875](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16875)
+Defined in: [neurolink.ts:16876](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16876)
 
 Shutdown all external MCP servers
 Called automatically on process exit
@@ -2666,7 +2666,7 @@ Called automatically on process exit
 
 > **getElicitationManager**(): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:16913](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16913)
+Defined in: [neurolink.ts:16914](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16914)
 
 Get the global elicitation manager for interactive tool input
 Elicitation allows tools to request additional information from users during execution
@@ -2697,7 +2697,7 @@ elicitationManager.registerHandler(async (request) => {
 
 > **registerElicitationHandler**(`handler`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:16941](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16941)
+Defined in: [neurolink.ts:16942](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16942)
 
 Register an elicitation handler for interactive tool input
 Handlers are called when tools need user input during execution
@@ -2735,7 +2735,7 @@ neurolink.registerElicitationHandler(async (request) => {
 
 > **getMultiServerManager**(): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:16964](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16964)
+Defined in: [neurolink.ts:16965](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16965)
 
 Get the multi-server manager for load balancing and coordination
 Allows managing multiple MCP servers with failover and load balancing
@@ -2764,7 +2764,7 @@ await multiServer.createServerGroup("ai-tools", {
 
 > **getEnhancedToolDiscovery**(): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:16989](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16989)
+Defined in: [neurolink.ts:16990](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L16990)
 
 Get the enhanced tool discovery service
 Provides advanced search, filtering, and compatibility checking for tools
@@ -2794,7 +2794,7 @@ const results = await discovery.searchTools({
 
 > **getMCPRegistryClient**(): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:17016](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17016)
+Defined in: [neurolink.ts:17017](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17017)
 
 Get the MCP registry client for discovering servers from registries
 Supports multiple registry sources (official, community, custom)
@@ -2826,7 +2826,7 @@ const githubServer = registryClient.getWellKnownServer("github");
 
 > **exposeAgentAsTool**(`agent`, `options?`): `Promise`\<[`ExposureResult`](../type-aliases/ExposureResult.md)\>
 
-Defined in: [neurolink.ts:17044](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17044)
+Defined in: [neurolink.ts:17045](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17045)
 
 Expose a NeuroLink agent as an MCP tool
 This allows agents to be called by other systems via MCP
@@ -2903,7 +2903,7 @@ const tool = await neurolink.exposeAgentAsTool(agent, {
 
 > **exposeWorkflowAsTool**(`workflow`, `options?`): `Promise`\<[`ExposureResult`](../type-aliases/ExposureResult.md)\>
 
-Defined in: [neurolink.ts:17085](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17085)
+Defined in: [neurolink.ts:17086](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17086)
 
 Expose a workflow as an MCP tool
 This allows workflows to be called by other systems via MCP
@@ -2984,7 +2984,7 @@ const tool = await neurolink.exposeWorkflowAsTool(workflow, {
 
 > **getToolIntegrationManager**(): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:17124](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17124)
+Defined in: [neurolink.ts:17125](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17125)
 
 Get the tool integration manager for middleware and elicitation
 Provides advanced tool wrapping with confirmation, timeout, retry, etc.
@@ -3014,7 +3014,7 @@ integration.registerTool(myTool, {
 
 > **convertToolsToMCPFormat**(`tools`, `options?`): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:17146](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17146)
+Defined in: [neurolink.ts:17147](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17147)
 
 Convert NeuroLink tools to MCP format
 Useful for exposing local tools to external MCP clients
@@ -3055,7 +3055,7 @@ const mcpTools = neurolink.convertToolsToMCPFormat([
 
 > **convertToolsFromMCPFormat**(`tools`, `options?`): `Promise`\<`any`\>
 
-Defined in: [neurolink.ts:17185](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17185)
+Defined in: [neurolink.ts:17186](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17186)
 
 Convert MCP tools to NeuroLink format
 Useful for importing tools from external MCP servers
@@ -3096,7 +3096,7 @@ const neurolinkTools = neurolink.convertToolsFromMCPFormat(externalTools, {
 
 > **getToolAnnotations**(`toolName`): `Promise`\<\{ `annotations`: [`MCPToolAnnotations`](../type-aliases/MCPToolAnnotations.md); `summary`: `string`; \} \| `null`\>
 
-Defined in: [neurolink.ts:17208](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17208)
+Defined in: [neurolink.ts:17209](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17209)
 
 Get tool annotations and safety information
 Provides insights about tool behavior, safety levels, and retry-ability
@@ -3128,7 +3128,7 @@ const annotations = await neurolink.getToolAnnotations("deleteFile");
 
 > **createEvaluationPipeline**(`configOrPreset`): `Promise`\<[`EvaluationPipeline`](EvaluationPipeline.md)\>
 
-Defined in: [neurolink.ts:17447](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17447)
+Defined in: [neurolink.ts:17448](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17448)
 
 Create an evaluation pipeline with the specified configuration or preset.
 Pipelines orchestrate multiple scorers to evaluate AI responses comprehensively.
@@ -3179,7 +3179,7 @@ const pipeline = await neurolink.createEvaluationPipeline({
 
 > **decide**(`options`): `Promise`\<[`DecisionResult`](../type-aliases/DecisionResult.md)\>
 
-Defined in: [neurolink.ts:17529](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17529)
+Defined in: [neurolink.ts:17530](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17530)
 
 Run the `decide` inference type: evaluate a `state` against a batch of
 named, typed questions and get one typed answer each.
@@ -3237,7 +3237,7 @@ when no decision provider is configured, or the call fails
 
 > **tryDecide**(`options`): `Promise`\<[`DecisionResult`](../type-aliases/DecisionResult.md) \| `null`\>
 
-Defined in: [neurolink.ts:17678](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17678)
+Defined in: [neurolink.ts:17679](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17679)
 
 Fail-open [NeuroLink.decide](#decide): returns null on any failure instead
 of throwing.
@@ -3263,7 +3263,7 @@ did before the decision was available.
 
 > **evaluate**(`input`, `options?`): `Promise`\<[`PipelineResult`](../type-aliases/PipelineResult.md)\>
 
-Defined in: [neurolink.ts:17748](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17748)
+Defined in: [neurolink.ts:17749](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17749)
 
 Evaluate an AI response using the specified pipeline or scorers.
 This is a convenience method that creates a pipeline and executes it in one call.
@@ -3365,7 +3365,7 @@ const result = await neurolink.evaluate(
 
 > **score**(`scorerId`, `input`, `config?`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [neurolink.ts:17886](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17886)
+Defined in: [neurolink.ts:17887](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17887)
 
 Score a response using a single scorer.
 Useful for quick, targeted evaluations without the overhead of a full pipeline.
@@ -3434,7 +3434,7 @@ const result = await neurolink.score(
 
 > **getAvailableScorers**(`options?`): `Promise`\<[`ScorerMetadata`](../type-aliases/ScorerMetadata.md)[]\>
 
-Defined in: [neurolink.ts:17972](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17972)
+Defined in: [neurolink.ts:17973](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L17973)
 
 Get a list of all available scorers and their metadata.
 Useful for discovering what evaluation capabilities are available.
@@ -3495,7 +3495,7 @@ const ruleBasedScorers = await neurolink.getAvailableScorers({
 
 > **getEvaluationPresets**(): `Promise`\<`string`[]\>
 
-Defined in: [neurolink.ts:18018](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18018)
+Defined in: [neurolink.ts:18019](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18019)
 
 Get a list of available evaluation pipeline presets.
 Presets are pre-configured pipelines for common evaluation scenarios.
@@ -3521,7 +3521,7 @@ console.log("Available presets:", presets);
 
 > **getEvaluationPreset**(`presetName`): `Promise`\<[`PipelineConfig`](../type-aliases/PipelineConfig.md)\>
 
-Defined in: [neurolink.ts:18041](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18041)
+Defined in: [neurolink.ts:18042](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18042)
 
 Get details of a specific evaluation preset.
 
@@ -3557,7 +3557,7 @@ console.log("Pass threshold:", ragPreset.passThreshold);
 
 > **createAgent**(`definition`): `Promise`\<[`Agent`](Agent.md)\>
 
-Defined in: [neurolink.ts:18091](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18091)
+Defined in: [neurolink.ts:18092](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18092)
 
 Create an Agent instance for multi-agent orchestration.
 
@@ -3609,7 +3609,7 @@ const result = await researcher.execute("Find recent AI breakthroughs");
 
 > **createNetwork**(`config`): `Promise`\<[`AgentNetwork`](AgentNetwork.md)\>
 
-Defined in: [neurolink.ts:18153](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18153)
+Defined in: [neurolink.ts:18154](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18154)
 
 Create an AgentNetwork for multi-agent orchestration.
 
@@ -3683,7 +3683,7 @@ const result = await network.execute({
 
 > **createWorkerInstance**(`options?`): `NeuroLink`
 
-Defined in: [neurolink.ts:18185](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18185)
+Defined in: [neurolink.ts:18186](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18186)
 
 Create a worker-mode NeuroLink instance for sub-agent execution.
 
@@ -3723,7 +3723,7 @@ A new worker-mode NeuroLink instance
 
 > **runIsolatedAgent**(`definition`, `input`, `options?`): `Promise`\<[`AgentRunOutcome`](../type-aliases/AgentRunOutcome.md)\>
 
-Defined in: [neurolink.ts:18289](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18289)
+Defined in: [neurolink.ts:18290](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18290)
 
 Run an isolated sub-agent: a worker instance (see
 [createWorkerInstance](#createworkerinstance)) executes a tool-using research pass under
@@ -3773,7 +3773,7 @@ The run outcome
 
 > **continueAgent**(`handle`, `guidance?`): `Promise`\<[`AgentRunOutcome`](../type-aliases/AgentRunOutcome.md)\>
 
-Defined in: [neurolink.ts:18308](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18308)
+Defined in: [neurolink.ts:18309](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18309)
 
 Resume a leashed isolated-agent run by handle. `guidance`, when given,
 is appended as a user turn before the next leg — the supervisor's
@@ -3806,7 +3806,7 @@ The next leg's outcome (or the final outcome)
 
 > **stopAgent**(`handle`): `Promise`\<[`AgentRunOutcome`](../type-aliases/AgentRunOutcome.md)\>
 
-Defined in: [neurolink.ts:18324](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18324)
+Defined in: [neurolink.ts:18325](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18325)
 
 Stop a leashed isolated-agent run: dispose its worker and return the
 final outcome (mechanical digest over everything gathered so far).
@@ -3831,7 +3831,7 @@ The final outcome
 
 > **registerAgentTool**(`definition`, `options?`): `Promise`\<\{ `name`: `string`; \}\>
 
-Defined in: [neurolink.ts:18342](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18342)
+Defined in: [neurolink.ts:18343](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18343)
 
 Register an isolated agent as a delegation tool on THIS instance, so
 its existing generate() loop can delegate — no second router generate.
@@ -3869,7 +3869,7 @@ The registered tool name
 
 > **registerTaskTools**(): `void`
 
-Defined in: [neurolink.ts:18375](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18375)
+Defined in: [neurolink.ts:18376](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18376)
 
 Register the task CHECKLIST toolset — `tasks_create`, `tasks_update`,
 `tasks_list` — on this instance (TodoWrite-style planning for a
@@ -3905,7 +3905,7 @@ id for that one call.
 
 > **getTaskState**(`sessionId?`): [`ChecklistState`](../type-aliases/ChecklistState.md)
 
-Defined in: [neurolink.ts:18401](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18401)
+Defined in: [neurolink.ts:18402](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18402)
 
 Read a session's task checklist — synchronous, so a completeness gate is
 one line of host code:
@@ -3931,7 +3931,7 @@ instance's tool-context session, or its default checklist).
 
 > **clearTaskState**(`sessionId?`): `boolean`
 
-Defined in: [neurolink.ts:18409](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18409)
+Defined in: [neurolink.ts:18410](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18410)
 
 Drop a session's checklist. Returns whether there was one to drop.
 Omit `sessionId` to clear the session the tools currently write to.
@@ -3952,7 +3952,7 @@ Omit `sessionId` to clear the session the tools currently write to.
 
 > **registerDelegationTools**(`options?`): `void`
 
-Defined in: [neurolink.ts:18436](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18436)
+Defined in: [neurolink.ts:18437](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18437)
 
 Register the background-delegation toolset — `delegate_task` and
 `collect_results` — on this instance. Opt-in and idempotent: existing
@@ -3991,7 +3991,7 @@ Depth ceiling, pool raise, and queue wait
 
 > **spawnDelegate**(`options`): `Promise`\<[`DelegateHandle`](../type-aliases/DelegateHandle.md)\>
 
-Defined in: [neurolink.ts:18476](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18476)
+Defined in: [neurolink.ts:18477](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18477)
 
 Start a background worker and get its handle immediately — before it has
 run anything, and long before it finishes.
@@ -4035,7 +4035,7 @@ when the task is empty or the caller is at the depth ceiling
 
 > **collectDelegates**(`request`): `Promise`\<[`DelegateCollectResult`](../type-aliases/DelegateCollectResult.md)\>
 
-Defined in: [neurolink.ts:18487](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18487)
+Defined in: [neurolink.ts:18488](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18488)
 
 Claim finished background workers — in COMPLETION order, which has nothing
 to do with spawn order. Each outcome is handed out exactly once.
@@ -4060,7 +4060,7 @@ Claimed outcomes plus what is still pending/ready
 
 > **cancelDelegates**(`workerId?`): `Promise`\<`number`\>
 
-Defined in: [neurolink.ts:18501](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18501)
+Defined in: [neurolink.ts:18502](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18502)
 
 Cancel background workers: one by id, or every outstanding worker this
 instance spawned. Cancelled workers still settle into a claimable outcome
@@ -4086,7 +4086,7 @@ How many workers were cancelled
 
 > **getArtifactStore**(): [`ArtifactStore`](../type-aliases/ArtifactStore.md)
 
-Defined in: [neurolink.ts:18524](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18524)
+Defined in: [neurolink.ts:18525](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18525)
 
 This instance's artifact store, created on first use.
 
@@ -4112,7 +4112,7 @@ The artifact store backing [bankArtifact](#bankartifact) / [readArtifact](#reada
 
 > **setArtifactStore**(`store`): `void`
 
-Defined in: [neurolink.ts:18554](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18554)
+Defined in: [neurolink.ts:18555](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18555)
 
 Replace this instance's artifact store.
 
@@ -4150,7 +4150,7 @@ Any [ArtifactStore](../type-aliases/ArtifactStore.md)
 
 > **bankArtifact**(`payload`, `options`): `Promise`\<[`BankedArtifactRef`](../type-aliases/BankedArtifactRef.md)\>
 
-Defined in: [neurolink.ts:18642](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18642)
+Defined in: [neurolink.ts:18643](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18643)
 
 Bank a payload to a file and get back a pointer to it.
 
@@ -4197,7 +4197,7 @@ const ref = await neurolink.bankArtifact(fullReport, {
 
 > **readArtifact**(`id`, `page?`): `Promise`\<`string` \| `null`\>
 
-Defined in: [neurolink.ts:18659](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18659)
+Defined in: [neurolink.ts:18660](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18660)
 
 Read a banked payload back from host code — the programmatic twin of the
 model's `retrieve_context({ artifactId })` call.
@@ -4229,7 +4229,7 @@ Optional character window
 
 > **registerBackgroundCommandTools**(`policy`): `void`
 
-Defined in: [neurolink.ts:18691](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18691)
+Defined in: [neurolink.ts:18692](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18692)
 
 Register the background-command toolset — `run_command_bg`,
 `command_status`, `command_output`, `command_kill` — on this instance, and
@@ -4270,7 +4270,7 @@ What may run, where, for how long, and how loudly
 
 > **setBackgroundCommandPolicy**(`policy`): `void`
 
-Defined in: [neurolink.ts:18716](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18716)
+Defined in: [neurolink.ts:18717](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18717)
 
 Declare (or replace) what this instance may execute, without registering
 the model-facing tools. Host code that only drives
@@ -4294,7 +4294,7 @@ What may run, where, for how long, and how loudly
 
 > **startBackgroundCommand**(`argv`, `options`): `Promise`\<[`BackgroundCommandHandle`](../type-aliases/BackgroundCommandHandle.md)\>
 
-Defined in: [neurolink.ts:18740](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18740)
+Defined in: [neurolink.ts:18741](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18741)
 
 Start a command in the background and get its task id immediately.
 
@@ -4341,7 +4341,7 @@ allowlisted, the policy vetoes it, or the cwd escapes the sandbox
 
 > **getBackgroundCommandStatus**(`taskId`): [`BackgroundCommandStatus`](../type-aliases/BackgroundCommandStatus.md)
 
-Defined in: [neurolink.ts:18754](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18754)
+Defined in: [neurolink.ts:18755](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18755)
 
 Everything known about one command right now — synchronous, so a
 mid-loop monitor costs nothing.
@@ -4368,7 +4368,7 @@ when the task id is unknown to this instance
 
 > **awaitBackgroundCommand**(`taskId`, `opts?`): `Promise`\<[`BackgroundCommandStatus`](../type-aliases/BackgroundCommandStatus.md)\>
 
-Defined in: [neurolink.ts:18766](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18766)
+Defined in: [neurolink.ts:18767](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18767)
 
 Wait for a command to settle. `timeoutMs` bounds the WAIT, not the
 command: when it elapses the current status is returned rather than
@@ -4400,7 +4400,7 @@ Task id from [startBackgroundCommand](#startbackgroundcommand)
 
 > **killBackgroundCommand**(`taskId`, `signal?`): `Promise`\<[`BackgroundCommandStatus`](../type-aliases/BackgroundCommandStatus.md)\>
 
-Defined in: [neurolink.ts:18781](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18781)
+Defined in: [neurolink.ts:18782](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18782)
 
 Kill a running command — SIGTERM, then SIGKILL five seconds later — and
 resolve with its settled status. Whatever it printed first is still
@@ -4430,7 +4430,7 @@ Signal to send first. Default SIGTERM
 
 > **readBackgroundCommandOutput**(`taskId`, `page`): `Promise`\<[`BackgroundCommandOutputPage`](../type-aliases/BackgroundCommandOutputPage.md)\>
 
-Defined in: [neurolink.ts:18796](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18796)
+Defined in: [neurolink.ts:18797](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18797)
 
 Read one character window of a command's output straight from its log
 file — while it is still running, or long after it finished. Offsets,
@@ -4460,7 +4460,7 @@ Which stream, and which window of it
 
 > **registerGitTools**(`options`): `void`
 
-Defined in: [neurolink.ts:18823](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18823)
+Defined in: [neurolink.ts:18824](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18824)
 
 Register the read-only git toolset — `git_log`, `git_show`, `git_diff`,
 `git_blame`, `git_merge_base`, `git_ls_files` — on this instance. Opt-in
@@ -4493,7 +4493,7 @@ Repository root, plus timeout / byte-cap / preview bounds
 
 > **runGitCommand**(`args`, `sessionId?`): `Promise`\<[`GitToolResult`](../type-aliases/GitToolResult.md)\>
 
-Defined in: [neurolink.ts:18849](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18849)
+Defined in: [neurolink.ts:18850](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18850)
 
 Run one read-only git command from host code, with the same bounding the
 tools get: the complete stdout is banked, the result carries a preview and
@@ -4528,7 +4528,7 @@ when [registerGitTools](#registergittools) has not been called
 
 > **executeNetwork**(`network`, `input`, `options?`): `Promise`\<[`NetworkExecutionResult`](../type-aliases/NetworkExecutionResult.md)\>
 
-Defined in: [neurolink.ts:18868](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18868)
+Defined in: [neurolink.ts:18869](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18869)
 
 Execute an agent network with the given input.
 
@@ -4573,7 +4573,7 @@ Network execution result with content, trace, and usage
 
 > **streamNetwork**(`network`, `input`, `options?`): `AsyncIterable`\<[`NetworkStreamChunk`](../type-aliases/NetworkStreamChunk.md)\>
 
-Defined in: [neurolink.ts:18892](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18892)
+Defined in: [neurolink.ts:18893](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18893)
 
 Stream agent network execution with real-time events.
 
@@ -4617,7 +4617,7 @@ Async iterable of network stream chunks
 
 > **createOrchestrator**(`config?`): `Promise`\<[`NetworkOrchestrator`](NetworkOrchestrator.md)\>
 
-Defined in: [neurolink.ts:18916](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18916)
+Defined in: [neurolink.ts:18917](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18917)
 
 Create a NetworkOrchestrator for managing multiple agent networks.
 
@@ -4645,7 +4645,7 @@ A new NetworkOrchestrator instance
 
 > **createCoordinator**(`config?`): `Promise`\<[`AgentCoordinator`](AgentCoordinator.md)\>
 
-Defined in: [neurolink.ts:18935](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18935)
+Defined in: [neurolink.ts:18936](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18936)
 
 Create an AgentCoordinator for managing agent coordination strategies.
 
@@ -4673,7 +4673,7 @@ A new AgentCoordinator instance
 
 > **createMessageBus**(`config?`): `Promise`\<[`MessageBus`](MessageBus.md)\>
 
-Defined in: [neurolink.ts:18953](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18953)
+Defined in: [neurolink.ts:18954](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18954)
 
 Create a MessageBus for inter-agent communication.
 
@@ -4701,7 +4701,7 @@ A new MessageBus instance
 
 > **dispose**(): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:18968](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18968)
+Defined in: [neurolink.ts:18969](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L18969)
 
 Dispose of all resources and cleanup connections
 Call this method when done using the NeuroLink instance to prevent resource leaks
@@ -4717,7 +4717,7 @@ Especially important in test environments where multiple instances are created
 
 > **getToolRegistry**(): [`MCPToolRegistry`](MCPToolRegistry.md)
 
-Defined in: [neurolink.ts:19187](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19187)
+Defined in: [neurolink.ts:19188](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19188)
 
 Get the tool registry instance
 Used internally by server adapters for tool management
@@ -4734,7 +4734,7 @@ The MCPToolRegistry instance
 
 > **compactSession**(`sessionId`, `config?`): `Promise`\<[`CompactionResult`](../type-aliases/CompactionResult.md) \| `null`\>
 
-Defined in: [neurolink.ts:19195](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19195)
+Defined in: [neurolink.ts:19196](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19196)
 
 Manually trigger context compaction for a session.
 Runs the full 4-stage compaction pipeline.
@@ -4759,7 +4759,7 @@ Runs the full 4-stage compaction pipeline.
 
 > **getContextStats**(`sessionId`, `provider?`, `model?`): `Promise`\<\{ `estimatedInputTokens`: `number`; `availableInputTokens`: `number`; `usageRatio`: `number`; `shouldCompact`: `boolean`; `messageCount`: `number`; \} \| `null`\>
 
-Defined in: [neurolink.ts:19249](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19249)
+Defined in: [neurolink.ts:19250](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19250)
 
 Get context usage statistics for a session.
 Returns token counts, usage ratio, and breakdown by category.
@@ -4788,7 +4788,7 @@ Returns token counts, usage ratio, and breakdown by category.
 
 > **needsCompaction**(`sessionId`, `provider?`, `model?`): `boolean`
 
-Defined in: [neurolink.ts:19291](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19291)
+Defined in: [neurolink.ts:19292](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19292)
 
 Check if a session needs compaction.
 
@@ -4816,7 +4816,7 @@ Check if a session needs compaction.
 
 > **setAuthProvider**(`config`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:19328](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19328)
+Defined in: [neurolink.ts:19329](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19329)
 
 Set the authentication provider for the NeuroLink instance
 
@@ -4838,7 +4838,7 @@ Auth provider or configuration to create one
 
 > **getAuthProvider**(): [`AuthProvider`](../type-aliases/AuthProvider.md) \| `undefined`
 
-Defined in: [neurolink.ts:19376](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19376)
+Defined in: [neurolink.ts:19377](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19377)
 
 Get the currently configured authentication provider
 
@@ -4852,7 +4852,7 @@ Get the currently configured authentication provider
 
 > **setAuthContext**(`context`): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:19417](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19417)
+Defined in: [neurolink.ts:19418](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19418)
 
 Set the current authentication context for request handling.
 
@@ -4879,7 +4879,7 @@ The authenticated user context
 
 > **getAuthContext**(): `Promise`\<[`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md) \| `undefined`\>
 
-Defined in: [neurolink.ts:19432](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19432)
+Defined in: [neurolink.ts:19433](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19433)
 
 Get the current authentication context.
 
@@ -4895,7 +4895,7 @@ Checks AsyncLocalStorage first, then falls back to the global holder.
 
 > **clearAuthContext**(): `Promise`\<`void`\>
 
-Defined in: [neurolink.ts:19440](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19440)
+Defined in: [neurolink.ts:19441](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19441)
 
 Clear the current authentication context
 
@@ -4909,7 +4909,7 @@ Clear the current authentication context
 
 > **getExternalServerManager**(): [`ExternalServerManager`](ExternalServerManager.md)
 
-Defined in: [neurolink.ts:19454](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19454)
+Defined in: [neurolink.ts:19455](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L19455)
 
 Get the external server manager instance
 Used internally by server adapters for external MCP server management

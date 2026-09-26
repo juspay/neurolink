@@ -8,6 +8,6 @@
 
 > **CellValue** = `CellValue`
 
-Defined in: [types/processor.ts:1124](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1124)
+Defined in: [types/processor.ts:1135](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1135)
 
 Alias for ExcelJS.CellValue to avoid leaking exceljs types across files.

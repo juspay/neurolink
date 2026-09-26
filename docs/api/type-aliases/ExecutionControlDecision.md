@@ -8,7 +8,7 @@
 
 > **ExecutionControlDecision** = `object`
 
-Defined in: [types/stream.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L273)
+Defined in: [types/stream.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L274)
 
 What a `beforeStep` callback may change about the rest of the turn.
 
@@ -22,7 +22,7 @@ outcome exactly as it would with no callback at all.
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/stream.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L279)
+Defined in: [types/stream.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L280)
 
 A new absolute step cap. Must be finite and greater than the cap in force;
 anything else is ignored, so a callback cannot shorten a turn by returning
@@ -34,7 +34,7 @@ a smaller number or unbound one by returning Infinity.
 
 > `optional` **nudge?**: `string`
 
-Defined in: [types/stream.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L285)
+Defined in: [types/stream.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L286)
 
 A planning nudge appended to the conversation before the next step, in the
 same loop and the same history — this is how a caller tells the model that
