@@ -1233,6 +1233,14 @@ export class GoogleVertexProvider extends BaseProvider {
           tools: optionTools,
         };
 
+        // Captured up-front (mirrors generate()'s inputPrompt) so the
+        // failure branch below can label a `generation:end` it emits before
+        // any content exists.
+        const inputPrompt =
+          (mergedOptions.input as { text?: string } | undefined)?.text ||
+          (mergedOptions as { prompt?: string }).prompt ||
+          "";
+
         try {
           // Route Claude models to native Anthropic SDK
           let result: StreamResult;
@@ -1283,6 +1291,24 @@ export class GoogleVertexProvider extends BaseProvider {
         } catch (error) {
           this.fireGenerateOnError(options, error, streamStartTime);
           this.emitStreamEnd(modelName, streamStartTime, false, error);
+          // Unlike Google AI Studio's native stream, Vertex's turn loop is
+          // awaited to completion INSIDE executeNativeGemini3Stream /
+          // executeNativeAnthropicStream before this method ever returns a
+          // StreamResult — a first-call failure (e.g. a 500 on the initial
+          // request) rejects here, before the generic per-stream dedup
+          // machinery in NeuroLink.stream() (which only wraps an already
+          // -returned stream) ever runs. Without this call a failed Vertex
+          // stream reported zero `generation:end` events instead of one:
+          // `emitStreamEnd` above only ever emits `stream:end`, a different
+          // event Pipeline B and analytics don't listen for.
+          this.emitGenerationEnd(
+            modelName,
+            null,
+            streamStartTime,
+            false,
+            error,
+            inputPrompt,
+          );
           throw error;
         }
       },
@@ -7404,6 +7430,26 @@ export class GoogleVertexProvider extends BaseProvider {
       result?.usage && typeof result.usage === "object"
         ? result.usage
         : { input: 0, output: 0, total: 0 };
+    // Mark on the result so the SDK-level runStandardGenerateRequest knows
+    // this provider already emitted `generation:end` itself and skips its
+    // own duplicate emission. Without this flag the public event listener
+    // (and the observability test) would see two events per generate call.
+    if (result && typeof result === "object") {
+      (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
+        true;
+    }
+    // The failure path has no result to carry that flag — `result` is null —
+    // so mark the error instead. Without this, `generateTextInternal`'s
+    // wrapProviderError (which replaces this error with a new one further up
+    // the stack) has nothing to copy forward, and emitGenerateErrorEvent goes
+    // on to emit its own `generation:end` for a failure this provider already
+    // reported — double-counting every failed native Vertex generate in
+    // analytics and as two Pipeline B spans. Same shape as the AI Studio
+    // (#1745) and Bedrock (#1762) fixes for the same gap.
+    if (!success && error && typeof error === "object") {
+      (error as { _generationEndEmitted?: boolean })._generationEndEmitted =
+        true;
+    }
     emitter.emit("generation:end", {
       provider: this.providerName,
       responseTime: Date.now() - startTime,
@@ -7424,14 +7470,6 @@ export class GoogleVertexProvider extends BaseProvider {
         ? { error: error instanceof Error ? error.message : String(error) }
         : {}),
     });
-    // Mark on the result so the SDK-level runStandardGenerateRequest knows
-    // this provider already emitted `generation:end` itself and skips its
-    // own duplicate emission. Without this flag the public event listener
-    // (and the observability test) would see two events per generate call.
-    if (result && typeof result === "object") {
-      (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
-        true;
-    }
   }
 
   /**
