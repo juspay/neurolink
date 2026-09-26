@@ -8,7 +8,7 @@
 
 > `const` **globalCircuitBreakerManager**: [`CircuitBreakerManager`](../classes/CircuitBreakerManager.md)
 
-Defined in: [mcp/mcpCircuitBreaker.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L547)
+Defined in: [mcp/mcpCircuitBreaker.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L593)
 
 MCP (Model Context Protocol) Plugin Ecosystem
 

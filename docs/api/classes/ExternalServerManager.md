@@ -479,7 +479,7 @@ Execute a tool on a specific server
 
 > **getAllTools**(): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
 
-Defined in: [mcp/externalServerManager.ts:2318](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2318)
+Defined in: [mcp/externalServerManager.ts:2332](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2332)
 
 Get all tools from all servers
 
@@ -493,7 +493,7 @@ Get all tools from all servers
 
 > **getServerTools**(`serverId`): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
 
-Defined in: [mcp/externalServerManager.ts:2325](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2325)
+Defined in: [mcp/externalServerManager.ts:2339](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2339)
 
 Get tools for a specific server
 
@@ -513,7 +513,7 @@ Get tools for a specific server
 
 > **getToolDiscovery**(): `ToolDiscoveryService`
 
-Defined in: [mcp/externalServerManager.ts:2332](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2332)
+Defined in: [mcp/externalServerManager.ts:2346](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2346)
 
 Get tool discovery service
 

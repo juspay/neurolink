@@ -8,7 +8,7 @@
 
 > **ExternalMCPManagerConfig** = `object`
 
-Defined in: [types/externalMcp.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L394)
+Defined in: [types/externalMcp.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L402)
 
 External MCP manager configuration
 
@@ -18,7 +18,7 @@ External MCP manager configuration
 
 > `optional` **maxServers?**: `number`
 
-Defined in: [types/externalMcp.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L396)
+Defined in: [types/externalMcp.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L404)
 
 Maximum number of concurrent servers
 
@@ -28,7 +28,7 @@ Maximum number of concurrent servers
 
 > `optional` **defaultTimeout?**: `number`
 
-Defined in: [types/externalMcp.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L399)
+Defined in: [types/externalMcp.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L407)
 
 Default timeout for operations
 
@@ -38,7 +38,7 @@ Default timeout for operations
 
 > `optional` **defaultHealthCheckInterval?**: `number`
 
-Defined in: [types/externalMcp.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L402)
+Defined in: [types/externalMcp.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L410)
 
 Default health check interval
 
@@ -48,7 +48,7 @@ Default health check interval
 
 > `optional` **enableAutoRestart?**: `boolean`
 
-Defined in: [types/externalMcp.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L405)
+Defined in: [types/externalMcp.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L413)
 
 Whether to enable automatic restart
 
@@ -58,7 +58,7 @@ Whether to enable automatic restart
 
 > `optional` **maxRestartAttempts?**: `number`
 
-Defined in: [types/externalMcp.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L408)
+Defined in: [types/externalMcp.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L416)
 
 Maximum restart attempts per server
 
@@ -68,7 +68,7 @@ Maximum restart attempts per server
 
 > `optional` **restartBackoffMultiplier?**: `number`
 
-Defined in: [types/externalMcp.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L411)
+Defined in: [types/externalMcp.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L419)
 
 Restart backoff multiplier
 
@@ -78,7 +78,7 @@ Restart backoff multiplier
 
 > `optional` **enablePerformanceMonitoring?**: `boolean`
 
-Defined in: [types/externalMcp.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L414)
+Defined in: [types/externalMcp.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L422)
 
 Whether to enable performance monitoring
 
@@ -88,6 +88,6 @@ Whether to enable performance monitoring
 
 > `optional` **logLevel?**: `"debug"` \| `"info"` \| `"warn"` \| `"error"`
 
-Defined in: [types/externalMcp.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L417)
+Defined in: [types/externalMcp.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L425)
 
 Log level for external MCP operations
