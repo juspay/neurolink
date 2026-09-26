@@ -10,7 +10,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 
 ### Q: Which AI providers does NeuroLink support?
 
-**A:** NeuroLink ships 40 AI providers for text generation, streaming, and decision-making — plus separate provider systems for voice and media generation. The text and multimodal providers include:
+**A:** NeuroLink ships AI providers for text generation, streaming, and decision-making — plus separate provider systems for voice and media generation. The text and multimodal providers include:
 
 - **OpenAI** (GPT-4o, GPT-4.1, o3, o4-mini)
 - **Google AI Studio** (Gemini 3 Flash/Pro, Gemini 2.5 Pro/Flash)
@@ -32,11 +32,11 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **Groq, Cerebras, SambaNova, Together AI, Fireworks AI, Perplexity, Cloudflare Workers AI, xAI, Baseten, GMI Cloud, Inception Labs, io.net Intelligence, Mancer, Upstage, API Route** (zero-quirk OpenAI-wire-compatible catalog providers)
 - **Cohere** (chat, plus `embed()` and reranking)
 - **Voyage AI**, **Jina AI** (embedding and/or reranking only — no chat completions)
-- **TypeSafe Jev** (decision-only — serves `decide()`, not `generate()`/`stream()`)
+- **TypeSafe Jev**, **Laya** (decision-only — serve `decide()`, not `generate()`/`stream()`; TypeSafe first when both are configured)
 
 See [Provider Setup](../getting-started/provider-setup.md) for the complete roster with setup guides.
 
-Voice providers (a separate system from the 40 above):
+Voice providers (a separate system from the providers above):
 
 - **OpenAI TTS** (TTS-1, TTS-1-HD, GPT-4o Audio)
 - **ElevenLabs** (Multilingual v2, Turbo v2.5, Flash v2.5)

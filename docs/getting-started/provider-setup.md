@@ -4,7 +4,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 
 ## Supported Providers
 
-NeuroLink ships 40 providers in total. This guide walks through full environment-variable setup for the providers below; the complete roster — including the newer catalog providers and the embedding/media/decision-only providers — is indexed with setup guides at [Provider Guides](providers/index.md).
+This guide walks through full environment-variable setup for the providers below; the complete roster — including the newer catalog providers and the embedding/media/decision-only providers — is indexed with setup guides at [Provider Guides](providers/index.md).
 
 ### Providers configured in this guide
 
@@ -52,6 +52,7 @@ Embedding, media-generation, and decision-only providers — not part of `genera
 - **[Jina AI](providers/jina.md)** - embeddings + reranking; default `jina-embeddings-v3`
 - **[Replicate](providers/replicate.md)**, **[Stability AI](providers/stability.md)**, **[Ideogram](providers/ideogram.md)**, **[Recraft](providers/recraft.md)** - direct image generation
 - **[TypeSafe Jev](providers/typesafe.md)** - decision-only; serves `decide()`, not `generate()`/`stream()`. Set `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the gateway transport)
+- **[Laya](providers/laya.md)** - decision-only, open-weights; serves `decide()` on a Laya server or LiteLLM proxy route you configure. Set `LAYA_API_KEY` + `LAYA_BASE_URL`; used when TypeSafe isn't configured
 
 Voice providers (TTS/STT/Realtime) are configured further down in this guide — see [OpenAI TTS](#openai-tts) onward.
 
