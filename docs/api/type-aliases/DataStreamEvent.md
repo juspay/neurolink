@@ -8,7 +8,7 @@
 
 > **DataStreamEvent** = `object`
 
-Defined in: [types/server.ts:1299](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1299)
+Defined in: [types/server.ts:1308](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1308)
 
 Base data stream event
 
@@ -18,7 +18,7 @@ Base data stream event
 
 > **type**: [`DataStreamEventType`](DataStreamEventType.md)
 
-Defined in: [types/server.ts:1300](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1300)
+Defined in: [types/server.ts:1309](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1309)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1300](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **id?**: `string`
 
-Defined in: [types/server.ts:1301](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1301)
+Defined in: [types/server.ts:1310](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1310)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1301](https://github.com/juspay/neurolink/blob/rele
 
 > **timestamp**: `number`
 
-Defined in: [types/server.ts:1302](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1302)
+Defined in: [types/server.ts:1311](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1311)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/server.ts:1302](https://github.com/juspay/neurolink/blob/rele
 
 > **data**: `unknown`
 
-Defined in: [types/server.ts:1303](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1303)
+Defined in: [types/server.ts:1312](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1312)

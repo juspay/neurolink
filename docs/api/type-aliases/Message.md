@@ -8,7 +8,7 @@
 
 > **Message** = `object`
 
-Defined in: [types/server.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1345)
+Defined in: [types/server.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1354)
 
 Voice-server conversation turn — superset role set.
 
@@ -18,7 +18,7 @@ Voice-server conversation turn — superset role set.
 
 > **role**: `"system"` \| `"user"` \| `"assistant"`
 
-Defined in: [types/server.ts:1346](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1346)
+Defined in: [types/server.ts:1355](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1355)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/server.ts:1346](https://github.com/juspay/neurolink/blob/rele
 
 > **content**: `string`
 
-Defined in: [types/server.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1347)
+Defined in: [types/server.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1356)

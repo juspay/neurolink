@@ -8,7 +8,7 @@
 
 > **CacheStore** = `object`
 
-Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1320)
+Defined in: [types/server.ts:1329](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1329)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/rele
 
 > **get**(`key`): `Promise`\<[`CacheEntry`](CacheEntry.md) \| `undefined`\>
 
-Defined in: [types/server.ts:1321](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1321)
+Defined in: [types/server.ts:1330](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1330)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1321](https://github.com/juspay/neurolink/blob/rele
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1322](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1322)
+Defined in: [types/server.ts:1331](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1331)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [types/server.ts:1322](https://github.com/juspay/neurolink/blob/rele
 
 > **delete**(`key`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1323)
+Defined in: [types/server.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1332)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/rele
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1324](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1324)
+Defined in: [types/server.ts:1333](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1333)
 
 #### Returns
 

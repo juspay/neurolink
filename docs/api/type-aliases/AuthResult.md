@@ -8,7 +8,7 @@
 
 > **AuthResult** = `object`
 
-Defined in: [types/server.ts:1306](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1306)
+Defined in: [types/server.ts:1315](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1315)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/server.ts:1306](https://github.com/juspay/neurolink/blob/rele
 
 > **id**: `string`
 
-Defined in: [types/server.ts:1308](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1308)
+Defined in: [types/server.ts:1317](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1317)
 
 User ID
 
@@ -26,7 +26,7 @@ User ID
 
 > `optional` **email?**: `string`
 
-Defined in: [types/server.ts:1311](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1311)
+Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1320)
 
 User email (optional)
 
@@ -36,7 +36,7 @@ User email (optional)
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:1314](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1314)
+Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1323)
 
 User roles (optional)
 
@@ -46,6 +46,6 @@ User roles (optional)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:1317](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1317)
+Defined in: [types/server.ts:1326](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1326)
 
 Additional user data

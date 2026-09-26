@@ -8,7 +8,7 @@
 
 > **ConversationMessage** = `object`
 
-Defined in: [types/server.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1351)
+Defined in: [types/server.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1360)
 
 Subset of Message that excludes the system role (assistant+user only).
 
@@ -18,7 +18,7 @@ Subset of Message that excludes the system role (assistant+user only).
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/server.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1352)
+Defined in: [types/server.ts:1361](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1361)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/server.ts:1352](https://github.com/juspay/neurolink/blob/rele
 
 > **content**: `string`
 
-Defined in: [types/server.ts:1353](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1353)
+Defined in: [types/server.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1362)

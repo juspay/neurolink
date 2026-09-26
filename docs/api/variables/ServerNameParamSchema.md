@@ -8,6 +8,6 @@
 
 > `const` **ServerNameParamSchema**: `ZodObject`\<\{ `name`: `ZodString`; \}, `$strip`\>
 
-Defined in: [server/utils/validation.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L64)
+Defined in: [server/utils/validation.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L93)
 
 MCP server name parameter schema

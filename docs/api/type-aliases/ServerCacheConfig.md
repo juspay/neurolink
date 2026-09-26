@@ -8,7 +8,7 @@
 
 > **ServerCacheConfig** = `object`
 
-Defined in: [types/server.ts:1249](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1249)
+Defined in: [types/server.ts:1258](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1258)
 
 Cache configuration
 
@@ -18,7 +18,7 @@ Cache configuration
 
 > **ttlMs**: `number`
 
-Defined in: [types/server.ts:1251](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1251)
+Defined in: [types/server.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1260)
 
 Default TTL in milliseconds
 
@@ -28,7 +28,7 @@ Default TTL in milliseconds
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/server.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1254)
+Defined in: [types/server.ts:1263](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1263)
 
 Maximum cache size (number of entries)
 
@@ -38,7 +38,7 @@ Maximum cache size (number of entries)
 
 > `optional` **keyGenerator?**: (`ctx`) => `string`
 
-Defined in: [types/server.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1260)
+Defined in: [types/server.ts:1269](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1269)
 
 Custom key generator
 Default: method + path + sorted query params
@@ -59,7 +59,7 @@ Default: method + path + sorted query params
 
 > `optional` **methods?**: `string`[]
 
-Defined in: [types/server.ts:1265](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1265)
+Defined in: [types/server.ts:1274](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1274)
 
 Methods to cache (default: GET only)
 
@@ -69,7 +69,7 @@ Methods to cache (default: GET only)
 
 > `optional` **paths?**: `string`[]
 
-Defined in: [types/server.ts:1270](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1270)
+Defined in: [types/server.ts:1279](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1279)
 
 Paths to cache (default: all paths)
 
@@ -79,7 +79,7 @@ Paths to cache (default: all paths)
 
 > `optional` **excludePaths?**: `string`[]
 
-Defined in: [types/server.ts:1275](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1275)
+Defined in: [types/server.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1284)
 
 Paths to exclude from caching
 
@@ -89,7 +89,7 @@ Paths to exclude from caching
 
 > `optional` **store?**: [`CacheStore`](CacheStore.md)
 
-Defined in: [types/server.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1281)
+Defined in: [types/server.ts:1290](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1290)
 
 Custom cache store
 Default: in-memory store
@@ -100,7 +100,7 @@ Default: in-memory store
 
 > `optional` **includeQuery?**: `boolean`
 
-Defined in: [types/server.ts:1287](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1287)
+Defined in: [types/server.ts:1296](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1296)
 
 Whether to include query params in cache key
 Default: true
@@ -111,6 +111,6 @@ Default: true
 
 > `optional` **ttlByPath?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/server.ts:1292](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1292)
+Defined in: [types/server.ts:1301](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1301)
 
 Custom TTL per path pattern

@@ -8,7 +8,7 @@
 
 > **EnhancedStreamProvider** = `object`
 
-Defined in: [types/stream.ts:1075](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1075)
+Defined in: [types/stream.ts:1105](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1105)
 
 Enhanced provider type with stream method
 
@@ -18,7 +18,7 @@ Enhanced provider type with stream method
 
 > **stream**(`options`): `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/stream.ts:1076](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1076)
+Defined in: [types/stream.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1106)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/stream.ts:1076](https://github.com/juspay/neurolink/blob/rele
 
 > **getName**(): `string`
 
-Defined in: [types/stream.ts:1077](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1077)
+Defined in: [types/stream.ts:1107](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1107)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [types/stream.ts:1077](https://github.com/juspay/neurolink/blob/rele
 
 > **isAvailable**(): `Promise`\<`boolean`\>
 
-Defined in: [types/stream.ts:1078](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1078)
+Defined in: [types/stream.ts:1108](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1108)
 
 #### Returns
 

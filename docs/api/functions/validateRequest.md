@@ -8,7 +8,7 @@
 
 > **validateRequest**\<`T`\>(`schema`, `data`, `requestId?`): [`ServerValidationResult`](../type-aliases/ServerValidationResult.md)\<`T`\>
 
-Defined in: [server/utils/validation.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L242)
+Defined in: [server/utils/validation.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L271)
 
 Validate request body against a Zod schema
 

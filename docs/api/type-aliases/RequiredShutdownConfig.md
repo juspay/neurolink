@@ -8,7 +8,7 @@
 
 > **RequiredShutdownConfig** = `object`
 
-Defined in: [types/server.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1040)
+Defined in: [types/server.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1049)
 
 Required shutdown configuration (with defaults applied)
 
@@ -18,7 +18,7 @@ Required shutdown configuration (with defaults applied)
 
 > **gracefulShutdownTimeoutMs**: `number`
 
-Defined in: [types/server.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1041)
+Defined in: [types/server.ts:1050](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1050)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1041](https://github.com/juspay/neurolink/blob/rele
 
 > **drainTimeoutMs**: `number`
 
-Defined in: [types/server.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1042)
+Defined in: [types/server.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1051)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/server.ts:1042](https://github.com/juspay/neurolink/blob/rele
 
 > **forceClose**: `boolean`
 
-Defined in: [types/server.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1043)
+Defined in: [types/server.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1052)

@@ -8,6 +8,6 @@
 
 > **AuthStrategy** = `"bearer"` \| `"apiKey"` \| `"basic"` \| `"custom"` \| `"none"`
 
-Defined in: [types/server.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L948)
+Defined in: [types/server.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L957)
 
 Authentication strategy types
