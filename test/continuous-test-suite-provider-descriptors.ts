@@ -27,6 +27,7 @@ import "dotenv/config";
  * Run: npx tsx test/continuous-test-suite-provider-descriptors.ts
  *      pnpm run test:provider-descriptors
  */
+import { createServer, type Server } from "node:http";
 import {
   defineSuite,
   logSection,
@@ -1259,32 +1260,50 @@ await runSuite(async () => {
     );
   });
 
-  logSection("default health sweep (retired providerHealth.ts hand list)");
+  logSection("default health sweep (issue #1305 — full-coverage membership)");
 
-  await test("the descriptor-driven health sweep preserves the historical membership AND order", async () => {
+  await test("the descriptor-driven health sweep covers every non-opted-out descriptor, prioritized ones first", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
     const all = ProviderFactory.getAllDescriptors();
-    const sweep = all
-      .filter(
-        (d: { defaultHealthSweepPriority?: number }) =>
-          d.defaultHealthSweepPriority !== undefined,
-      )
+    const eligible = all.filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    );
+    const sweep = eligible
+      .slice()
       .sort(
         (
           a: { defaultHealthSweepPriority?: number },
           b: { defaultHealthSweepPriority?: number },
         ) =>
-          (a.defaultHealthSweepPriority ?? 0) -
-          (b.defaultHealthSweepPriority ?? 0),
+          (a.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER) -
+          (b.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER),
       )
       .map((d: { name: string }) => d.name);
-    // Order is behaviour: auto-select takes the first healthy provider, so
-    // this pins the exact sequence the retired hand-maintained array had.
+
+    // Membership: nothing opts out today, so the sweep must cover every
+    // registered descriptor — no more silent, undocumented exclusion.
     assertEqual(
-      sweep.join(","),
-      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
-      "sweep membership/order",
+      sweep.length,
+      all.length,
+      "sweep membership must equal the full descriptor count",
     );
+
+    // Order is behaviour: auto-select takes the first healthy provider, so
+    // the historically prioritized 8 must still lead, in their original
+    // sequence, before the rest follow in declaration order.
+    assertEqual(
+      sweep.slice(0, 8).join(","),
+      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
+      "prioritized sweep prefix/order",
+    );
+
+    // Regression guard for the exact defect issue #1305 reported: these
+    // were excluded from the sweep with no documented reason.
+    for (const name of ["mistral", "deepseek"]) {
+      assert(sweep.includes(name), `${name} must be part of the default sweep`);
+    }
+
     const priorities = all
       .map(
         (d: { defaultHealthSweepPriority?: number }) =>
@@ -1298,23 +1317,340 @@ await runSuite(async () => {
     );
   });
 
-  await test("the SHIPPED sweep returns statuses in descriptor-priority order", async () => {
+  await test("the SHIPPED sweep returns every eligible provider, prioritized ones in order first", async () => {
     // Review follow-up: the data pin above proves the descriptors, not the
     // runtime. This drives ProviderHealthChecker.checkAllProvidersHealth
     // itself — health OUTCOMES are environment-dependent and irrelevant
-    // here; the returned array's provider SEQUENCE is the behaviour the
+    // here; the returned array's SIZE and SEQUENCE are the behaviour the
     // descriptor priorities own.
+    const { ProviderFactory } = await import("../dist/index.js");
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
+    const eligibleCount = ProviderFactory.getAllDescriptors().filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    ).length;
     const statuses = await ProviderHealthChecker.checkAllProvidersHealth({
       includeConnectivityTest: false,
       cacheResults: false,
       timeout: 1000,
     });
     assertEqual(
-      statuses.map((h: { provider: string }) => h.provider).join(","),
+      statuses.length,
+      eligibleCount,
+      "runtime sweep size must match the eligible descriptor count",
+    );
+    assertEqual(
+      statuses
+        .slice(0, 8)
+        .map((h: { provider: string }) => h.provider)
+        .join(","),
       "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
-      "runtime sweep order",
+      "runtime sweep prioritized prefix/order",
+    );
+  });
+
+  await test("the sweep backfills a freed slot rather than waiting out each batch (review r4053694648)", async () => {
+    // Bounded concurrency was implemented as chunk-and-await: each batch
+    // waits for ALL of its members before the next batch starts, so the
+    // slowest member gates its whole batch and the sweep costs the SUM of
+    // the per-batch maxima instead of one slowest check. Under
+    // includeConnectivityTest the per-check bound is the full timeout, so a
+    // full sweep regressed from ~1x to ~ceil(n/cap)x that. The cap is worth
+    // keeping; the batching is not.
+    //
+    // Both halves are pinned, because either alone is satisfiable by a
+    // wrong implementation: removing the cap would pass the backfill
+    // assertion, and keeping the batches passes the cap assertion.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { ProviderFactory } = await import("../dist/index.js");
+    const eligible = ProviderFactory.getAllDescriptors()
+      .filter(
+        (d: { excludeFromHealthSweep?: true }) =>
+          d.excludeFromHealthSweep !== true,
+      )
+      .sort(
+        (
+          a: { defaultHealthSweepPriority?: number },
+          b: { defaultHealthSweepPriority?: number },
+        ) =>
+          (a.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER) -
+          (b.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER),
+      )
+      .map((d: { name: string }) => d.name);
+
+    // "vertex" sorts first, so the slow check sits in what would be the
+    // first batch — the case where backfill either happens or does not.
+    const SLOW_PROVIDER = "vertex";
+    // Also inside the first cap window, and it REJECTS. Writing results by
+    // index is what keeps the rejected-case fallback paired with
+    // providers[index]; without a rejection in the mix nothing here would
+    // exercise that branch at all.
+    const REJECTING_PROVIDER = "bedrock";
+    const SLOW_MS = 500;
+    const CAP = 8; // MAX_CONCURRENT_HEALTH_CHECKS
+
+    const original = ProviderHealthChecker.checkProviderHealth;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let startedCount = 0;
+    let startedWhenSlowFinished = -1;
+
+    let statuses: Array<{
+      provider: string;
+      isHealthy: boolean;
+      configurationIssues: string[];
+    }>;
+    try {
+      ProviderHealthChecker.checkProviderHealth = async (
+        name: Parameters<typeof original>[0],
+      ) => {
+        inFlight += 1;
+        startedCount += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        // The decrement is in `finally` so the rejecting provider below
+        // cannot leak a slot and corrupt the concurrency measurement.
+        try {
+          await new Promise((resolve) =>
+            setTimeout(resolve, name === SLOW_PROVIDER ? SLOW_MS : 1),
+          );
+          if (name === SLOW_PROVIDER) {
+            startedWhenSlowFinished = startedCount;
+          }
+          if (name === REJECTING_PROVIDER) {
+            throw new Error("suite-injected rejection");
+          }
+          return {
+            provider: name,
+            isHealthy: false,
+            isConfigured: false,
+            hasApiKey: false,
+            lastChecked: new Date(),
+            configurationIssues: [],
+            recommendations: [],
+            responseTime: 0,
+          };
+        } finally {
+          inFlight -= 1;
+        }
+      };
+      statuses = await ProviderHealthChecker.checkAllProvidersHealth({
+        includeConnectivityTest: false,
+        cacheResults: false,
+      });
+    } finally {
+      ProviderHealthChecker.checkProviderHealth = original;
+    }
+
+    assert(maxInFlight <= CAP, "the sweep exceeded its concurrency cap");
+    // Chunk-and-await can only ever have started one batch by the time the
+    // slow member of that batch finishes. A limiter that refills a freed
+    // slot starts far more, so anything above the cap discriminates; the
+    // margin below keeps it away from scheduler noise.
+    assert(
+      startedWhenSlowFinished >= CAP * 2,
+      "a slot freed by a fast check did not start the next provider while a slow one was still running",
+    );
+    assertEqual(
+      statuses.map((s: { provider: string }) => s.provider).join(","),
+      eligible.join(","),
+      "sweep result order must stay in descriptor sweep order",
+    );
+    assertEqual(
+      statuses.length,
+      eligible.length,
+      "sweep result count must match the eligible descriptor count",
+    );
+    // The rejected check must land at ITS OWN provider's index rather than
+    // shifting later results by one, and must be reported through the
+    // rejected-case fallback instead of silently vanishing.
+    assertEqual(
+      statuses[eligible.indexOf(REJECTING_PROVIDER)]?.provider,
+      REJECTING_PROVIDER,
+      "a rejected check must occupy its own provider's position",
+    );
+    const rejectedEntry = statuses.find(
+      (s: { provider: string }) => s.provider === REJECTING_PROVIDER,
+    );
+    assertEqual(
+      rejectedEntry?.isHealthy,
+      false,
+      "a rejected check must not be reported healthy",
+    );
+    assert(
+      (rejectedEntry?.configurationIssues ?? []).some((issue: string) =>
+        issue.includes("promise rejected"),
+      ),
+      "a rejected check must be reported through the rejected-case fallback",
+    );
+  });
+
+  await test("a currently-excluded provider (mistral) appears in the sweep once configured (issue #1305)", async () => {
+    // Precondition proving the sweep actually ran a real check for this
+    // provider, not merely listed its name: responseTime is only set once
+    // checkProviderHealth() reaches the end of its try block.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { ProviderFactory } = await import("../dist/index.js");
+    const eligibleCount = ProviderFactory.getAllDescriptors().filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    ).length;
+
+    const originalMistralKey = process.env.MISTRAL_API_KEY;
+    // 32 alphanumeric chars — satisfies API_KEY_FORMATS.mistral so format
+    // validation passes without a real credential or network call
+    // (includeConnectivityTest stays false below).
+    process.env.MISTRAL_API_KEY = "n".repeat(32);
+
+    let statuses: Array<{
+      provider: string;
+      isConfigured: boolean;
+      hasApiKey: boolean;
+      isHealthy: boolean;
+      responseTime?: number;
+    }>;
+    try {
+      statuses = await ProviderHealthChecker.checkAllProvidersHealth({
+        includeConnectivityTest: false,
+        cacheResults: false,
+        timeout: 1000,
+      });
+    } finally {
+      if (originalMistralKey === undefined) {
+        delete process.env.MISTRAL_API_KEY;
+      } else {
+        process.env.MISTRAL_API_KEY = originalMistralKey;
+      }
+    }
+
+    // Precondition: the sweep iterated every eligible descriptor, not a
+    // short hard-coded list — the exact shape of the original defect.
+    assertEqual(
+      statuses.length,
+      eligibleCount,
+      "sweep result count must match the eligible descriptor count",
+    );
+
+    const mistral = statuses.find(
+      (s: { provider: string }) => s.provider === "mistral",
+    );
+    assert(
+      mistral !== undefined,
+      "mistral must be present in the sweep result",
+    );
+    assert(
+      typeof mistral?.responseTime === "number",
+      "mistral's entry must show a real check ran, not just membership",
+    );
+    assertEqual(
+      mistral?.isConfigured,
+      true,
+      "mistral must be reported configured once its API key env var is set",
+    );
+    assertEqual(
+      mistral?.hasApiKey,
+      true,
+      "mistral must be reported as having a validly formatted API key",
+    );
+    assertEqual(
+      mistral?.isHealthy,
+      true,
+      "mistral must be reported healthy once configured",
+    );
+  });
+
+  await test("repeated configuration-only sweeps never blacklist an unconfigured provider (issue #1305 follow-up)", async () => {
+    // #1305 grew the sweep from 8 providers to every eligible descriptor,
+    // so on any machine that lacks ~38 vendors' credentials most entries
+    // now come back unconfigured on EVERY sweep. That must not count as a
+    // provider failure: the circuit breaker exists to stop hammering an
+    // endpoint, and a sweep with includeConnectivityTest off issues no
+    // request at all. While it did count, the fourth such sweep tripped
+    // the breaker and short-circuited before the check ran — returning a
+    // structurally different entry (no responseTime, isConfigured false)
+    // for a provider whose key had just been supplied, and continuing to
+    // return it for the life of the process. That is the exact shape the
+    // test above happens to catch, but only at its current call ordering;
+    // this pins the behaviour directly.
+    //
+    // Two ways a test like this can stop discriminating, both closed here
+    // rather than documented. Call ordering: clearHealthCache() resets the
+    // breaker and the cache for every provider, so this drives the count
+    // from zero and does not care how many checks earlier tests spent.
+    // Threshold: CONSECUTIVE_FAILURE_THRESHOLD is read from
+    // PROVIDER_FAILURE_THRESHOLD at class-init, so a literal loop count
+    // sized against the default 3 would silently pass on the unfixed
+    // checker under, say, PROVIDER_FAILURE_THRESHOLD=5. The loop below
+    // instead exceeds the highest value getValidatedFailureThreshold will
+    // accept, so no configured threshold escapes it.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+
+    type SweepEntry = {
+      provider: string;
+      isConfigured: boolean;
+      isHealthy: boolean;
+      responseTime?: number;
+    };
+    const sweepMistral = async (): Promise<SweepEntry | undefined> => {
+      const statuses: SweepEntry[] =
+        await ProviderHealthChecker.checkAllProvidersHealth({
+          includeConnectivityTest: false,
+          cacheResults: false,
+          timeout: 1000,
+        });
+      return statuses.find((s) => s.provider === "mistral");
+    };
+
+    const originalMistralKey = process.env.MISTRAL_API_KEY;
+    // Breaker and cache are process-lifetime static state that earlier
+    // tests in this file have already moved — start from a known point.
+    ProviderHealthChecker.clearHealthCache();
+
+    let configured: SweepEntry | undefined;
+    try {
+      delete process.env.MISTRAL_API_KEY;
+      // One more than the ceiling getValidatedFailureThreshold enforces
+      // (10), so this outruns any threshold the env can select — not just
+      // the default 3 that tripped the breaker in CI.
+      for (let i = 0; i < 11; i++) {
+        const unconfigured = await sweepMistral();
+        assert(
+          typeof unconfigured?.responseTime === "number",
+          `sweep ${i + 1} skipped the check for mistral instead of running it`,
+        );
+        assertEqual(
+          unconfigured?.isConfigured,
+          false,
+          `sweep ${i + 1} reported mistral configured with its env var removed`,
+        );
+      }
+      process.env.MISTRAL_API_KEY = "n".repeat(32);
+      configured = await sweepMistral();
+    } finally {
+      if (originalMistralKey === undefined) {
+        delete process.env.MISTRAL_API_KEY;
+      } else {
+        process.env.MISTRAL_API_KEY = originalMistralKey;
+      }
+      ProviderHealthChecker.clearHealthCache();
+    }
+
+    assert(
+      typeof configured?.responseTime === "number",
+      "the sweep after the key was supplied skipped mistral's check",
+    );
+    assertEqual(
+      configured?.isConfigured,
+      true,
+      "mistral stayed reported as unconfigured after its env var was set",
+    );
+    assertEqual(
+      configured?.isHealthy,
+      true,
+      "mistral stayed reported as unhealthy after its env var was set",
     );
   });
 
@@ -1339,5 +1675,547 @@ await runSuite(async () => {
       "litellm,ollama,openai,anthropic,vertex,google-ai,bedrock,azure",
       "auto-select preference order",
     );
+  });
+
+  logSection(
+    "PR #1735 follow-up: LiteLLM/Ollama runtime probe is breaker-governed",
+  );
+
+  // checkLiteLLMConfig/checkOllamaConfig make a REAL outbound HTTP request
+  // (LiteLLM /v1/models, Ollama /api/tags) from step 1 of every health
+  // check, even with includeConnectivityTest left at its default `false`.
+  // That request is what makes `isConfigured` mean anything for a local
+  // provider whose base URL always resolves to a built-in default and whose
+  // `hasApiKey` is hard-coded true — see hasProviderEnvVars()'s single
+  // caller in neurolink.ts. Gating it on includeConnectivityTest (the
+  // obvious fix) breaks provider auto-select on a machine with no local
+  // proxy running. Instead the request must be governed by the SAME circuit
+  // breaker that already governs the step-3 connectivity probe: skipped
+  // while blacklisted, and counted toward the breaker when it runs.
+  //
+  // Both fake upstreams answer every method with HTTP 500 when set
+  // unhealthy. LiteLLM's connectivity-test endpoint (getProviderHealthEndpoint)
+  // and its runtime-probe endpoint are the SAME URL (getLiteLLMModelsUrl()),
+  // same for Ollama — so one upstream, made to fail via plain HTTP 500,
+  // fails both the runtime probe AND the step-3 connectivity probe at once.
+  // That is what lets the "one call, both probes" test below exist at all.
+
+  const OLLAMA_TEST_MODEL = "suite-test-model:latest";
+  // This repo's own .env sets LITELLM_MODEL (to a real proxy's model id),
+  // which would otherwise steer checkLiteLLMConfig into matching against a
+  // name our fake upstream never serves. Every LiteLLM test below pins
+  // LITELLM_MODEL to this value via withEnv so behavior does not depend on
+  // the ambient .env.
+  const LITELLM_TEST_MODEL = "suite-test-litellm-model";
+  // Default CONSECUTIVE_FAILURE_THRESHOLD — PROVIDER_FAILURE_THRESHOLD is
+  // not set in this repo's .env, so ProviderHealthChecker resolves 3. If
+  // that ever changes, these tests must fail loudly (not silently pass
+  // with a wrong number), so nothing here hard-codes an assumption beyond
+  // this single named constant.
+  const THRESHOLD = 3;
+
+  type FakeUpstream = {
+    url: string;
+    hits: () => number;
+    setHealthy: (healthy: boolean) => void;
+    close: () => Promise<void>;
+  };
+
+  /**
+   * A local HTTP server standing in for a LiteLLM/Ollama base URL. Counts
+   * every request it receives, and switches between a well-formed models
+   * response (`setHealthy(true)`) and a plain HTTP 500 (`setHealthy(false)`)
+   * on demand.
+   */
+  async function startFakeUpstream(
+    kind: "litellm" | "ollama",
+  ): Promise<FakeUpstream> {
+    let hitCount = 0;
+    let healthy = true;
+    const server: Server = createServer((_req, res) => {
+      hitCount++;
+      if (!healthy) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "suite-injected failure" }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      if (kind === "ollama") {
+        res.end(JSON.stringify({ models: [{ name: OLLAMA_TEST_MODEL }] }));
+      } else {
+        res.end(JSON.stringify({ data: [{ id: LITELLM_TEST_MODEL }] }));
+      }
+    });
+
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("fake upstream server did not report a port");
+    }
+
+    return {
+      url: `http://127.0.0.1:${address.port}`,
+      hits: () => hitCount,
+      setHealthy: (value: boolean) => {
+        healthy = value;
+      },
+      close: () =>
+        new Promise<void>((resolve) => server.close(() => resolve())),
+    };
+  }
+
+  async function withEnv<T>(
+    vars: Record<string, string>,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const previous: Record<string, string | undefined> = {};
+    for (const key of Object.keys(vars)) {
+      previous[key] = process.env[key];
+      process.env[key] = vars[key];
+    }
+    try {
+      return await fn();
+    } finally {
+      for (const key of Object.keys(vars)) {
+        if (previous[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = previous[key];
+        }
+      }
+    }
+  }
+
+  await test("checkProviderHealth(litellm): failing upstream trips the breaker after threshold, then stops probing (default options)", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("litellm");
+    upstream.setHealthy(false);
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { LITELLM_BASE_URL: upstream.url, LITELLM_MODEL: LITELLM_TEST_MODEL },
+        async () => {
+          for (let i = 0; i < THRESHOLD; i++) {
+            const before = upstream.hits();
+            const status = await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.LITELLM,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+            assertEqual(
+              upstream.hits(),
+              before + 1,
+              `call ${i + 1} did not hit the fake upstream exactly once`,
+            );
+            assertEqual(
+              status.isConfigured,
+              false,
+              `call ${i + 1} should report isConfigured false against a failing upstream`,
+            );
+          }
+
+          // Precondition for the zero-request assertion below: the loop just
+          // above proved the harness is live by hitting the server THRESHOLD
+          // times against this exact env.
+          const beforeBlacklist = upstream.hits();
+          const blacklistedStatus =
+            await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.LITELLM,
+              {
+                includeConnectivityTest: false,
+                cacheResults: false,
+              },
+            );
+          assertEqual(
+            upstream.hits(),
+            beforeBlacklist,
+            "the call after crossing the threshold must not hit the fake upstream at all",
+          );
+          assertEqual(
+            blacklistedStatus.isConfigured,
+            false,
+            "a blacklisted provider must still report isConfigured false",
+          );
+          assert(
+            blacklistedStatus.configurationIssues.some((issue: string) =>
+              issue.includes("Blacklisted"),
+            ),
+            "the blacklisted status must carry the blacklist configurationIssue",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(litellm): a passing probe resets the consecutive-failure count", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("litellm");
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { LITELLM_BASE_URL: upstream.url, LITELLM_MODEL: LITELLM_TEST_MODEL },
+        async () => {
+          // Fail below threshold (threshold is 3; two failures never trips it).
+          upstream.setHealthy(false);
+          for (let i = 0; i < THRESHOLD - 1; i++) {
+            const status = await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.LITELLM,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+            assertEqual(
+              status.isConfigured,
+              false,
+              `pre-reset failing call ${i + 1} should report isConfigured false`,
+            );
+          }
+
+          // One passing probe must reset the counter to zero.
+          upstream.setHealthy(true);
+          const passing = await ProviderHealthChecker.checkProviderHealth(
+            AIProviderName.LITELLM,
+            { includeConnectivityTest: false, cacheResults: false },
+          );
+          assertEqual(
+            passing.isConfigured,
+            true,
+            "a healthy upstream must report isConfigured true",
+          );
+
+          // Fail again, below threshold — if the reset worked this must still
+          // reach the upstream every time (breaker must not be tripped).
+          upstream.setHealthy(false);
+          for (let i = 0; i < THRESHOLD - 1; i++) {
+            const before = upstream.hits();
+            const status = await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.LITELLM,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+            assert(
+              upstream.hits() > before,
+              `post-reset failing call ${i + 1} must still reach the upstream — the breaker must not be tripped`,
+            );
+            assertEqual(
+              status.isConfigured,
+              false,
+              `post-reset failing call ${i + 1} should report isConfigured false`,
+            );
+            assert(
+              !status.configurationIssues.some((issue: string) =>
+                issue.includes("Blacklisted"),
+              ),
+              `post-reset failing call ${i + 1} must not be blacklisted`,
+            );
+          }
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(litellm): healthy upstream reports isConfigured true with default options (auto-select safety)", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("litellm");
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { LITELLM_BASE_URL: upstream.url, LITELLM_MODEL: LITELLM_TEST_MODEL },
+        async () => {
+          const before = upstream.hits();
+          const status = await ProviderHealthChecker.checkProviderHealth(
+            AIProviderName.LITELLM,
+            { includeConnectivityTest: false, cacheResults: false },
+          );
+          assert(
+            upstream.hits() > before,
+            "the default-mode call never reached the fake upstream — shallow mode must still probe local providers",
+          );
+          assertEqual(
+            status.isConfigured,
+            true,
+            "a reachable LiteLLM proxy must be reported configured under default options",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(litellm, includeConnectivityTest:true): a failing upstream counts ONE breaker failure per call, not two", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("litellm");
+    upstream.setHealthy(false);
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { LITELLM_BASE_URL: upstream.url, LITELLM_MODEL: LITELLM_TEST_MODEL },
+        async () => {
+          // Two failing calls with connectivity testing on, so BOTH the
+          // runtime probe and the step-3 connectivity probe run and fail on
+          // every call. If each counted its own failure, this alone trips a
+          // threshold-3 breaker.
+          for (let i = 0; i < 2; i++) {
+            const before = upstream.hits();
+            const status = await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.LITELLM,
+              {
+                includeConnectivityTest: true,
+                cacheResults: false,
+                timeout: 2000,
+              },
+            );
+            assert(
+              upstream.hits() > before,
+              `call ${i + 1} did not reach the fake upstream`,
+            );
+            assertEqual(
+              status.isConfigured,
+              false,
+              `call ${i + 1} should report isConfigured false`,
+            );
+          }
+
+          // A third call must still issue a request — proof the breaker has
+          // NOT tripped after only two calls, i.e. each of the two prior
+          // calls counted as exactly one failure, not two.
+          const before = upstream.hits();
+          await ProviderHealthChecker.checkProviderHealth(
+            AIProviderName.LITELLM,
+            {
+              includeConnectivityTest: true,
+              cacheResults: false,
+              timeout: 2000,
+            },
+          );
+          assert(
+            upstream.hits() > before,
+            "the third call must still reach the fake upstream — the breaker must not have tripped after only two calls",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(ollama): failing upstream trips the breaker after threshold, then stops probing (default options)", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("ollama");
+    upstream.setHealthy(false);
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { OLLAMA_BASE_URL: upstream.url, OLLAMA_MODEL: OLLAMA_TEST_MODEL },
+        async () => {
+          for (let i = 0; i < THRESHOLD; i++) {
+            const before = upstream.hits();
+            const status = await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.OLLAMA,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+            assertEqual(
+              upstream.hits(),
+              before + 1,
+              `call ${i + 1} did not hit the fake upstream exactly once`,
+            );
+            assertEqual(
+              status.isConfigured,
+              false,
+              `call ${i + 1} should report isConfigured false against a failing upstream`,
+            );
+          }
+
+          // Precondition for the zero-request assertion below: the loop
+          // just above proved the harness is live against this exact env.
+          const beforeBlacklist = upstream.hits();
+          const blacklistedStatus =
+            await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.OLLAMA,
+              {
+                includeConnectivityTest: false,
+                cacheResults: false,
+              },
+            );
+          assertEqual(
+            upstream.hits(),
+            beforeBlacklist,
+            "the call after crossing the threshold must not hit the fake upstream at all",
+          );
+          assertEqual(
+            blacklistedStatus.isConfigured,
+            false,
+            "a blacklisted provider must still report isConfigured false",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(ollama): an unrelated caller's short maxCacheAge must not evict another caller's breaker entry early", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("ollama");
+    upstream.setHealthy(false);
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { OLLAMA_BASE_URL: upstream.url, OLLAMA_MODEL: OLLAMA_TEST_MODEL },
+        async () => {
+          // Trip the breaker with the default (5-minute) maxCacheAge, the
+          // same way an ordinary caller (e.g. a health sweep) would.
+          for (let i = 0; i < THRESHOLD; i++) {
+            await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.OLLAMA,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+          }
+
+          // Let a few real milliseconds pass so an eviction keyed off a
+          // tiny maxCacheAge is unambiguously "expired", not a same-tick
+          // race.
+          await new Promise((resolve) => setTimeout(resolve, 5));
+
+          // An unrelated caller reads the SAME shared, process-wide breaker
+          // entry with a much shorter maxCacheAge — mirrors
+          // checkFallbackProviderAvailability's hard-coded 15_000ms against
+          // the sweep's 300_000ms default. This must not reach the
+          // upstream: the breaker's own fixed reset window, not this
+          // caller's maxCacheAge, governs when the entry expires.
+          const beforeInterloper = upstream.hits();
+          const interloperStatus =
+            await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.OLLAMA,
+              {
+                includeConnectivityTest: false,
+                cacheResults: false,
+                maxCacheAge: 1,
+              },
+            );
+          assertEqual(
+            upstream.hits(),
+            beforeInterloper,
+            "a caller passing a tiny maxCacheAge must not evict another caller's breaker entry and re-probe a blacklisted provider",
+          );
+          assert(
+            interloperStatus.configurationIssues.some((issue: string) =>
+              issue.includes("Blacklisted"),
+            ),
+            "the short-maxCacheAge call must still observe the provider as blacklisted",
+          );
+
+          // The original caller, using the default maxCacheAge again, must
+          // still see the breaker held too — it must not have been erased
+          // by the interloper above.
+          const beforeFollowUp = upstream.hits();
+          const followUpStatus =
+            await ProviderHealthChecker.checkProviderHealth(
+              AIProviderName.OLLAMA,
+              { includeConnectivityTest: false, cacheResults: false },
+            );
+          assertEqual(
+            upstream.hits(),
+            beforeFollowUp,
+            "the original caller's next default-options call must still be suppressed by the breaker, not re-probe",
+          );
+          assert(
+            followUpStatus.configurationIssues.some((issue: string) =>
+              issue.includes("Blacklisted"),
+            ),
+            "the original caller must still observe the provider as blacklisted after the interloper call",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(ollama): healthy upstream reports isConfigured true with default options (auto-select safety)", async () => {
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    const upstream = await startFakeUpstream("ollama");
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        { OLLAMA_BASE_URL: upstream.url, OLLAMA_MODEL: OLLAMA_TEST_MODEL },
+        async () => {
+          const before = upstream.hits();
+          const status = await ProviderHealthChecker.checkProviderHealth(
+            AIProviderName.OLLAMA,
+            { includeConnectivityTest: false, cacheResults: false },
+          );
+          assert(
+            upstream.hits() > before,
+            "the default-mode call never reached the fake upstream — shallow mode must still probe local providers",
+          );
+          assertEqual(
+            status.isConfigured,
+            true,
+            "a reachable Ollama runtime must be reported configured under default options",
+          );
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("checkProviderHealth(anthropic): non-local provider is unaffected by the runtime-probe breaker change", async () => {
+    // Anthropic has no runtime probe at all — this pins that the new
+    // breaker plumbing does not change behavior for providers that never
+    // reach checkLiteLLMConfig/checkOllamaConfig.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { AIProviderName } = await import("../dist/index.js");
+    ProviderHealthChecker.clearHealthCache();
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      const status = await ProviderHealthChecker.checkProviderHealth(
+        AIProviderName.ANTHROPIC,
+        { includeConnectivityTest: false, cacheResults: false },
+      );
+      assertEqual(
+        status.isConfigured,
+        false,
+        "anthropic without its API key must report isConfigured false, same as before this change",
+      );
+      assert(
+        typeof status.responseTime === "number",
+        "the check must still run to completion (no accidental blacklist/skip for a non-local provider)",
+      );
+    } finally {
+      if (originalKey === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = originalKey;
+      }
+      ProviderHealthChecker.clearHealthCache();
+    }
   });
 });

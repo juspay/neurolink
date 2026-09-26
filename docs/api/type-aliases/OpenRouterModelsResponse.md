@@ -8,7 +8,7 @@
 
 > **OpenRouterModelsResponse** = `object`
 
-Defined in: [types/providers.ts:2093](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2093)
+Defined in: [types/providers.ts:2117](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2117)
 
 OpenRouter models API response
 
@@ -18,4 +18,4 @@ OpenRouter models API response
 
 > **data**: [`OpenRouterModelInfo`](OpenRouterModelInfo.md)[]
 
-Defined in: [types/providers.ts:2094](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2094)
+Defined in: [types/providers.ts:2118](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2118)

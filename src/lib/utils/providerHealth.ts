@@ -17,6 +17,7 @@ import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   ProviderHealthCheckOptions,
   ProviderHealthStatusOptions,
+  ProviderRuntimeProbeOutcome,
 } from "../types/index.js";
 import { DEFAULT_OLLAMA_MODEL } from "../providers/ollama/constants.js";
 import { ProviderFactory } from "../factories/providerFactory.js";
@@ -32,9 +33,57 @@ export class ProviderHealthChecker {
   >();
   private static readonly DEFAULT_TIMEOUT = 5000; // 5 seconds
   private static readonly DEFAULT_CACHE_AGE = 300000; // 5 minutes
+  /**
+   * Fixed backoff window for the circuit breaker below, in milliseconds.
+   * Deliberately NOT the per-call `maxCacheAge` option: `consecutiveFailures`
+   * is a single process-wide map keyed only by provider name, shared by every
+   * caller (e.g. `checkFallbackProviderAvailability` hard-codes a 15s
+   * `maxCacheAge` for its own health-status cache). Evicting the breaker
+   * entry using whichever caller happens to read it next would let a
+   * short-TTL caller silently erase a backoff another caller is relying on
+   * — see `checkProviderHealth`. This constant governs breaker expiry alone
+   * and is intentionally independent of `maxCacheAge`/`DEFAULT_CACHE_AGE`.
+   */
+  private static readonly CIRCUIT_BREAKER_RESET_MS = 300000; // 5 minutes
   private static readonly CONSECUTIVE_FAILURE_THRESHOLD =
     ProviderHealthChecker.getValidatedFailureThreshold();
-  private static consecutiveFailures = new Map<string, number>();
+  /**
+   * Circuit breaker state, keyed by provider.
+   *
+   * `count` is a count of consecutive failed CONNECTIVITY PROBES (plus the
+   * rare case of the check itself throwing) — never of "the provider is
+   * unconfigured". Those are different facts and only one of them is worth
+   * backing off from. A missing credential is a free, local, determinate
+   * answer that costs nothing to re-derive and flips the instant an env var
+   * is set; treating it as a failure is what let a sweep of ~38 providers
+   * (issue #1305 grew it from 8) blacklist every provider the machine
+   * happens not to have credentials for, after which the sweep reported
+   * `isConfigured: false` and no `responseTime` for a provider that was
+   * merely unconfigured — and kept reporting it after the key was supplied.
+   *
+   * `lastFailureAt` bounds how long a run of failures is held against a
+   * provider; see `checkProviderHealth`.
+   */
+  private static consecutiveFailures = new Map<
+    string,
+    { count: number; lastFailureAt: number }
+  >();
+  /**
+   * Hard cap on simultaneous per-provider checks inside
+   * `checkAllProvidersHealth`. Issue #1305: the sweep used to cover only 8
+   * of ~38 registered providers; now every non-opted-out descriptor is
+   * included (see `excludeFromHealthSweep`). Firing all ~38 at once via a
+   * single `Promise.allSettled` would be harmless by default
+   * (`includeConnectivityTest` defaults to false, so most calls never
+   * leave the process), but a caller who opts into
+   * `includeConnectivityTest: true` would otherwise open up to ~38
+   * concurrent outbound HTTP connections to that many different vendors in
+   * one burst. A worker pool keeps that bounded without reducing coverage
+   * — every provider is still checked, just not all in the same instant,
+   * and without the latency a fixed batch would add (see
+   * `checkAllProvidersHealth`).
+   */
+  private static readonly MAX_CONCURRENT_HEALTH_CHECKS = 8;
 
   /**
    * Validate and return a safe failure threshold value
@@ -81,27 +130,54 @@ export class ProviderHealthChecker {
       }
     }
 
-    // Check if provider has consecutive failures (blacklisting)
-    const failureCount = this.consecutiveFailures.get(providerName) || 0;
-    if (failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD) {
-      const healthStatus: ProviderHealthStatusOptions = {
-        provider: providerName,
-        isHealthy: false,
-        isConfigured: false,
-        hasApiKey: false,
-        lastChecked: new Date(),
-        error: `Provider blacklisted after ${failureCount} consecutive failures`,
-        warning: "Provider will be retried after cache TTL expires",
-        configurationIssues: [
-          `Blacklisted due to ${failureCount} consecutive failures`,
-        ],
-        recommendations: ["Check provider status and configuration"],
-      };
+    // Circuit breaker. It suppresses outbound PROBES, not the whole check:
+    // for most providers the step-1 configuration audit is local and free,
+    // so skipping it bought nothing and cost the caller a status object of
+    // a different shape — no `responseTime`, and a fabricated
+    // `isConfigured: false` for a provider nothing had looked at.
+    //
+    // LiteLLM and Ollama are the exception: their step-1 check
+    // (checkLiteLLMConfig/checkOllamaConfig) makes a real outbound request,
+    // because for a local runtime "configured" only means something if it
+    // means "reachable" — both providers have zero required env vars
+    // (`credentialsResolvedExternally` / no `apiKey`), so with no request at
+    // all every install would read as configured. Auto-select
+    // (`NeuroLink.hasProviderEnvVars`) depends on that: it always calls with
+    // `includeConnectivityTest: false`, so gating this probe on that flag
+    // instead of the breaker would make a dead local proxy look configured
+    // and win auto-select over a real, working cloud provider. So this
+    // probe still runs in shallow mode, but — like the step-3 connectivity
+    // probe — it is governed by the SAME breaker below (`allowRuntimeProbe`
+    // passed into checkEnvironmentConfiguration): skipped while blacklisted,
+    // and its outcome folded into `anyProbeFailed`/`anyProbeRan` further
+    // down, so a dead local proxy still gets backed off instead of eating a
+    // full timeout on every call forever.
+    //
+    // A run of failures older than CIRCUIT_BREAKER_RESET_MS is forgotten,
+    // which is what makes the "will be retried after cache TTL expires"
+    // warning below true. Nothing else could clear it, because the
+    // breaker's whole effect is to suppress the probe that would disprove
+    // it. This is deliberately the fixed CIRCUIT_BREAKER_RESET_MS window,
+    // not this call's own `maxCacheAge` — `consecutiveFailures` is a single
+    // shared map keyed only by provider name, so reusing whichever caller
+    // happens to invoke `checkProviderHealth` next (some call sites pass a
+    // much shorter `maxCacheAge` for their own unrelated caching needs)
+    // would let that caller silently evict a backoff a different caller is
+    // relying on.
+    const breaker = this.consecutiveFailures.get(providerName);
+    if (
+      breaker !== undefined &&
+      Date.now() - breaker.lastFailureAt >= this.CIRCUIT_BREAKER_RESET_MS
+    ) {
+      this.consecutiveFailures.delete(providerName);
+    }
+    const failureCount = this.consecutiveFailures.get(providerName)?.count ?? 0;
+    const blacklisted = failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD;
+    if (blacklisted) {
       logger.warn(
         `Provider ${providerName} blacklisted due to consecutive failures`,
         { failureCount },
       );
-      return healthStatus;
     }
 
     const startTime = Date.now();
@@ -116,24 +192,51 @@ export class ProviderHealthChecker {
     };
 
     try {
-      // 1. Check environment configuration
-      await this.checkEnvironmentConfiguration(
+      // 1. Check environment configuration. For LiteLLM/Ollama this
+      // includes a breaker-governed runtime probe — see the comment on
+      // `blacklisted` above.
+      const runtimeProbe = await this.checkEnvironmentConfiguration(
         providerName,
         healthStatus,
         timeout,
+        !blacklisted,
       );
 
       // 2. Check API key validity (basic format validation)
       await this.checkApiKeyValidity(providerName, healthStatus);
 
-      // 3. Optional: Connectivity test
-      if (includeConnectivityTest) {
+      // 3. Optional: Connectivity test. Also governed by the breaker.
+      const issuesBeforeProbe = healthStatus.configurationIssues.length;
+      const probed = includeConnectivityTest && !blacklisted;
+      if (probed) {
         await this.checkConnectivity(providerName, healthStatus, timeout);
       }
+      const probeFailed =
+        probed && healthStatus.configurationIssues.length > issuesBeforeProbe;
+
+      // Fold the step-1 runtime probe (if this provider has one) together
+      // with the step-3 connectivity probe into one pair of breaker
+      // signals, so a call where BOTH run and fail still counts as exactly
+      // ONE failure (the breaker steps consecutive calls, not consecutive
+      // requests).
+      const anyProbeRan = probed || runtimeProbe.ran;
+      const anyProbeFailed = probeFailed || runtimeProbe.failed;
 
       // 4. Optional: Model validation
       if (includeModelValidation) {
         await this.checkModelAvailability(providerName, healthStatus);
+      }
+
+      if (blacklisted) {
+        healthStatus.error = `Provider blacklisted after ${failureCount} consecutive failures`;
+        healthStatus.warning =
+          "Provider will be retried after cache TTL expires";
+        healthStatus.configurationIssues.push(
+          `Blacklisted due to ${failureCount} consecutive failures`,
+        );
+        healthStatus.recommendations.push(
+          "Check provider status and configuration",
+        );
       }
 
       // 5. Determine overall health
@@ -152,13 +255,16 @@ export class ProviderHealthChecker {
         });
       }
 
-      // Reset failure count on success
-      if (healthStatus.isHealthy) {
+      // Only a probe that actually ran moves the breaker. A check that
+      // issued no request is not evidence either way: it neither proves the
+      // provider is failing nor that it has recovered.
+      if (anyProbeFailed) {
+        this.consecutiveFailures.set(providerName, {
+          count: failureCount + 1,
+          lastFailureAt: Date.now(),
+        });
+      } else if (anyProbeRan) {
         this.consecutiveFailures.delete(providerName);
-      } else {
-        // Track consecutive failures
-        const currentFailures = this.consecutiveFailures.get(providerName) || 0;
-        this.consecutiveFailures.set(providerName, currentFailures + 1);
       }
 
       logger.debug(`Health check completed for ${providerName}`, {
@@ -175,13 +281,16 @@ export class ProviderHealthChecker {
       );
       healthStatus.responseTime = Date.now() - startTime;
 
-      // Track consecutive failures
-      const currentFailures = this.consecutiveFailures.get(providerName) || 0;
-      this.consecutiveFailures.set(providerName, currentFailures + 1);
+      // A check that threw failed to answer at all, which is a failure in
+      // the sense the breaker is for — unlike an answered "not configured".
+      this.consecutiveFailures.set(providerName, {
+        count: failureCount + 1,
+        lastFailureAt: Date.now(),
+      });
 
       logger.warn(`Health check failed for ${providerName}`, {
         error: errorMessage,
-        consecutiveFailures: currentFailures + 1,
+        consecutiveFailures: failureCount + 1,
       });
     }
 
@@ -195,7 +304,8 @@ export class ProviderHealthChecker {
     providerName: AIProviderName,
     healthStatus: ProviderHealthStatusOptions,
     timeout: number,
-  ): Promise<void> {
+    allowRuntimeProbe: boolean,
+  ): Promise<ProviderRuntimeProbeOutcome> {
     const requiredEnvVars = this.getRequiredEnvironmentVariables(providerName);
 
     logger.debug(
@@ -245,7 +355,12 @@ export class ProviderHealthChecker {
     }
 
     // Provider-specific configuration checks
-    await this.checkProviderSpecificConfig(providerName, healthStatus, timeout);
+    return this.checkProviderSpecificConfig(
+      providerName,
+      healthStatus,
+      timeout,
+      allowRuntimeProbe,
+    );
   }
 
   /**
@@ -610,7 +725,8 @@ export class ProviderHealthChecker {
     providerName: AIProviderName,
     healthStatus: ProviderHealthStatusOptions,
     timeout: number,
-  ): Promise<void> {
+    allowRuntimeProbe: boolean,
+  ): Promise<ProviderRuntimeProbeOutcome> {
     switch (providerName) {
       case AIProviderName.VERTEX:
         await this.checkVertexAIConfig(healthStatus);
@@ -622,12 +738,17 @@ export class ProviderHealthChecker {
         await this.checkAzureConfig(healthStatus);
         break;
       case AIProviderName.LITELLM:
-        await this.checkLiteLLMConfig(healthStatus, timeout);
-        break;
+        return this.checkLiteLLMConfig(
+          healthStatus,
+          timeout,
+          allowRuntimeProbe,
+        );
       case AIProviderName.OLLAMA:
-        await this.checkOllamaConfig(healthStatus, timeout);
-        break;
+        return this.checkOllamaConfig(healthStatus, timeout, allowRuntimeProbe);
     }
+    // Every other provider's config check above is local (env vars, file
+    // existence) — never a network request, so there is no probe to report.
+    return { ran: false, failed: false };
   }
 
   /**
@@ -1093,7 +1214,8 @@ export class ProviderHealthChecker {
   private static async checkLiteLLMConfig(
     healthStatus: ProviderHealthStatusOptions,
     timeout: number = this.DEFAULT_TIMEOUT,
-  ): Promise<void> {
+    allowRuntimeProbe: boolean = true,
+  ): Promise<ProviderRuntimeProbeOutcome> {
     const liteLLMBase = this.getLiteLLMBaseUrl();
     if (!liteLLMBase.startsWith("http")) {
       healthStatus.isConfigured = false;
@@ -1101,7 +1223,17 @@ export class ProviderHealthChecker {
       healthStatus.recommendations.push(
         "Set LITELLM_BASE_URL to a valid URL (e.g., http://localhost:4000)",
       );
-      return;
+      return { ran: false, failed: false };
+    }
+
+    if (!allowRuntimeProbe) {
+      // Blacklisted: don't issue the request. A repeatedly unreachable
+      // local provider is not usable, which is what auto-select needs —
+      // but the caller's blacklist block (checkProviderHealth) already adds
+      // the error/warning/configurationIssue for this, so nothing is
+      // duplicated here.
+      healthStatus.isConfigured = false;
+      return { ran: false, failed: false };
     }
 
     // Only pin the availability check to a specific model when the user
@@ -1139,10 +1271,11 @@ export class ProviderHealthChecker {
       healthStatus.recommendations.push(
         "Start the LiteLLM proxy and ensure the configured model is available from /v1/models",
       );
-      return;
+      return { ran: true, failed: true };
     }
 
     healthStatus.isConfigured = true;
+    return { ran: true, failed: false };
   }
 
   /**
@@ -1151,7 +1284,8 @@ export class ProviderHealthChecker {
   private static async checkOllamaConfig(
     healthStatus: ProviderHealthStatusOptions,
     timeout: number = this.DEFAULT_TIMEOUT,
-  ): Promise<void> {
+    allowRuntimeProbe: boolean = true,
+  ): Promise<ProviderRuntimeProbeOutcome> {
     const ollamaBase = this.getOllamaBaseUrl();
     if (!ollamaBase.startsWith("http")) {
       healthStatus.isConfigured = false;
@@ -1161,7 +1295,17 @@ export class ProviderHealthChecker {
       healthStatus.recommendations.push(
         "Set OLLAMA_BASE_URL to a valid URL (e.g., http://localhost:11434). OLLAMA_API_BASE remains supported as a legacy alias.",
       );
-      return;
+      return { ran: false, failed: false };
+    }
+
+    if (!allowRuntimeProbe) {
+      // Blacklisted: don't issue the request. A repeatedly unreachable
+      // local provider is not usable, which is what auto-select needs —
+      // but the caller's blacklist block (checkProviderHealth) already adds
+      // the error/warning/configurationIssue for this, so nothing is
+      // duplicated here.
+      healthStatus.isConfigured = false;
+      return { ran: false, failed: false };
     }
 
     const availability = await this.checkOllamaAvailability({
@@ -1177,10 +1321,11 @@ export class ProviderHealthChecker {
       healthStatus.recommendations.push(
         "Start Ollama and install the configured model before using Ollama as a fallback provider",
       );
-      return;
+      return { ran: true, failed: true };
     }
 
     healthStatus.isConfigured = true;
+    return { ran: true, failed: false };
   }
 
   /**
@@ -1979,29 +2124,77 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Get health status for all registered providers
+   * Get health status for all registered providers.
+   *
+   * Membership: every descriptor in PROVIDER_DESCRIPTORS EXCEPT those that
+   * explicitly opt out via `excludeFromHealthSweep` (none currently do).
+   * Before issue #1305's fix, membership was implicit opt-IN via
+   * `defaultHealthSweepPriority`, which only 8 of ~38 descriptors carried —
+   * every other registered provider was silently invisible to this sweep,
+   * including anything a caller had actually configured and could use.
+   *
+   * Order: `defaultHealthSweepPriority` still decides ORDER for the
+   * providers that set it (lower = first — order is behaviour for
+   * first-healthy-wins callers like `getBestHealthyProvider`); everything
+   * else sorts after them, in PROVIDER_DESCRIPTORS's own declaration order
+   * (Array.prototype.sort is stable, so ties never reshuffle).
+   *
+   * Checks run through a worker pool of at most
+   * MAX_CONCURRENT_HEALTH_CHECKS, so a full sweep of every provider can't
+   * fire dozens of concurrent requests at once when a caller opts into
+   * `includeConnectivityTest`, and no check waits on a slower one beside
+   * it.
    */
   static async checkAllProvidersHealth(
     options: ProviderHealthCheckOptions = {},
   ): Promise<ProviderHealthStatusOptions[]> {
-    // Sweep membership and ORDER come from the descriptors. Order is
-    // behaviour: auto-select takes the first healthy provider, so the
-    // priority field, not the descriptor array's layout, decides preference.
     const providers: AIProviderName[] = PROVIDER_DESCRIPTORS.filter(
-      (d) => d.defaultHealthSweepPriority !== undefined,
+      (d) => d.excludeFromHealthSweep !== true,
     )
       .sort(
         (a, b) =>
-          (a.defaultHealthSweepPriority ?? 0) -
-          (b.defaultHealthSweepPriority ?? 0),
+          (a.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER) -
+          (b.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER),
       )
       .map((d) => d.name);
 
-    const healthChecks = providers.map((provider) =>
-      this.checkProviderHealth(provider, options),
+    // A fixed pool of workers pulling from a shared cursor, NOT
+    // chunk-and-await. Both bound concurrency to the same number, but
+    // chunking also makes every batch wait for its slowest member before
+    // the next one starts, so a sweep costs the SUM of the per-batch
+    // maxima. With `includeConnectivityTest` each check can burn the whole
+    // `timeout`, which turned a ~1x worst case into ~ceil(n/cap)x. Here a
+    // slot freed by a fast check immediately takes the next provider, so
+    // the bound costs nothing in latency.
+    const results: PromiseSettledResult<ProviderHealthStatusOptions>[] =
+      new Array(providers.length);
+    let cursor = 0;
+    const runWorker = async (): Promise<void> => {
+      // `cursor++` is atomic here: there is no await between reading and
+      // incrementing, so two workers can never claim the same provider.
+      for (let index = cursor++; index < providers.length; index = cursor++) {
+        try {
+          results[index] = {
+            status: "fulfilled",
+            value: await this.checkProviderHealth(providers[index], options),
+          };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    };
+    // Writing by index keeps results in provider order regardless of the
+    // order they complete in, which the rejected-case fallback below
+    // depends on. Zero providers means zero workers and an immediate
+    // return.
+    await Promise.all(
+      Array.from(
+        {
+          length: Math.min(this.MAX_CONCURRENT_HEALTH_CHECKS, providers.length),
+        },
+        () => runWorker(),
+      ),
     );
-
-    const results = await Promise.allSettled(healthChecks);
 
     return results.map((result, index) => {
       if (result.status === "fulfilled") {
