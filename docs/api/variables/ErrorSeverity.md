@@ -8,7 +8,7 @@
 
 > `const` **ErrorSeverity**: `object`
 
-Defined in: [types/server.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1091)
+Defined in: [types/server.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1100)
 
 Error severity levels
 

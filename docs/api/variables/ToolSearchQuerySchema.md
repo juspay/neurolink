@@ -8,6 +8,6 @@
 
 > `const` **ToolSearchQuerySchema**: `ZodObject`\<\{ `q`: `ZodOptional`\<`ZodString`\>; `source`: `ZodOptional`\<`ZodString`\>; `limit`: `ZodOptional`\<`ZodPipe`\<`ZodPipe`\<`ZodString`, `ZodTransform`\<`number`, `string`\>\>, `ZodNumber`\>\>; \}, `$strip`\>
 
-Defined in: [server/utils/validation.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L78)
+Defined in: [server/utils/validation.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L107)
 
 Tool search query schema

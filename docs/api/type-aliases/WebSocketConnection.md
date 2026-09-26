@@ -8,7 +8,7 @@
 
 > **WebSocketConnection** = `object`
 
-Defined in: [types/server.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L936)
+Defined in: [types/server.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L945)
 
 WebSocket connection
 
@@ -18,7 +18,7 @@ WebSocket connection
 
 > **id**: `string`
 
-Defined in: [types/server.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L937)
+Defined in: [types/server.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L946)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:937](https://github.com/juspay/neurolink/blob/relea
 
 > **socket**: `unknown`
 
-Defined in: [types/server.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L938)
+Defined in: [types/server.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L947)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:938](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **user?**: [`AuthenticatedUser`](AuthenticatedUser.md)
 
-Defined in: [types/server.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L939)
+Defined in: [types/server.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L948)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:939](https://github.com/juspay/neurolink/blob/relea
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L940)
+Defined in: [types/server.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L949)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:940](https://github.com/juspay/neurolink/blob/relea
 
 > **createdAt**: `number`
 
-Defined in: [types/server.ts:941](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L941)
+Defined in: [types/server.ts:950](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L950)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/server.ts:941](https://github.com/juspay/neurolink/blob/relea
 
 > **lastActivity**: `number`
 
-Defined in: [types/server.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L942)
+Defined in: [types/server.ts:951](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L951)

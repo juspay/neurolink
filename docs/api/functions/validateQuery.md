@@ -8,7 +8,7 @@
 
 > **validateQuery**\<`T`\>(`schema`, `query`, `requestId?`): [`ServerValidationResult`](../type-aliases/ServerValidationResult.md)\<`T`\>
 
-Defined in: [server/utils/validation.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L274)
+Defined in: [server/utils/validation.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L303)
 
 Validate query parameters against a Zod schema
 

@@ -8,7 +8,7 @@
 
 > **validateParams**\<`T`\>(`schema`, `params`, `requestId?`): [`ServerValidationResult`](../type-aliases/ServerValidationResult.md)\<`T`\>
 
-Defined in: [server/utils/validation.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L306)
+Defined in: [server/utils/validation.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L335)
 
 Validate path parameters against a Zod schema
 

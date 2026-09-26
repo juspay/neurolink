@@ -8,6 +8,6 @@
 
 > `const` **ToolArgumentsSchema**: `ZodRecord`\<`ZodString`, `ZodUnknown`\>
 
-Defined in: [server/utils/validation.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L52)
+Defined in: [server/utils/validation.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/server/utils/validation.ts#L81)
 
 Tool arguments schema (for direct tool execution)

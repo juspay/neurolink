@@ -320,6 +320,12 @@ export type StreamLoopArgs = {
     totalTokens: number;
   }) => void;
   resolveFinish: (reason: string) => void;
+  /**
+   * `response_format` for this turn's requests, computed once up front from
+   * `options.schema` (see `suppressResponseFormatWithTools`). Absent when no
+   * schema was requested, or when tools suppress it.
+   */
+  responseFormat?: OpenAICompatResponseFormat;
 };
 
 export type OpenAICompatBuildBodyArgs = {

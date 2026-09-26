@@ -8,7 +8,7 @@
 
 > **ServerVoiceWebSocketOptions** = `object`
 
-Defined in: [types/server.ts:1548](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1548)
+Defined in: [types/server.ts:1557](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1557)
 
 Options accepted by `setupWebSocket()` in `server/voice/voiceWebSocketHandler.ts`.
 
@@ -22,7 +22,7 @@ WebSocket upgrade handler, not CLI argument parsing.)
 
 > `optional` **authToken?**: `string`
 
-Defined in: [types/server.ts:1555](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1555)
+Defined in: [types/server.ts:1564](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1564)
 
 Optional shared-secret bearer token. When set, the WebSocket upgrade
 handshake must include `Authorization: Bearer <token>` or
@@ -35,7 +35,7 @@ network can open a session and consume Soniox / Cartesia / LLM credits.
 
 > `optional` **maxPayload?**: `number`
 
-Defined in: [types/server.ts:1561](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1561)
+Defined in: [types/server.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1570)
 
 Maximum WebSocket message size in bytes. Defaults to 1 MiB. Caps both
 inbound audio frames and any client control messages — guards against

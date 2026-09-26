@@ -8,7 +8,7 @@
 
 > `const` **ErrorCategory**: `object`
 
-Defined in: [types/server.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1073)
+Defined in: [types/server.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1082)
 
 Error categories for server adapter errors
 

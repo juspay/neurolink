@@ -8,7 +8,7 @@
 
 > **TrackedConnection** = `object`
 
-Defined in: [types/server.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1049)
+Defined in: [types/server.ts:1058](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1058)
 
 Tracked connection for graceful shutdown
 
@@ -18,7 +18,7 @@ Tracked connection for graceful shutdown
 
 > **id**: `string`
 
-Defined in: [types/server.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1051)
+Defined in: [types/server.ts:1060](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1060)
 
 Unique connection identifier
 
@@ -28,7 +28,7 @@ Unique connection identifier
 
 > **createdAt**: `number`
 
-Defined in: [types/server.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1054)
+Defined in: [types/server.ts:1063](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1063)
 
 Timestamp when connection was created
 
@@ -38,7 +38,7 @@ Timestamp when connection was created
 
 > `optional` **socket?**: `unknown`
 
-Defined in: [types/server.ts:1057](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1057)
+Defined in: [types/server.ts:1066](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1066)
 
 Underlying socket or connection object
 
@@ -48,7 +48,7 @@ Underlying socket or connection object
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/server.ts:1060](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1060)
+Defined in: [types/server.ts:1069](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1069)
 
 Request ID if associated with a request
 
@@ -58,6 +58,6 @@ Request ID if associated with a request
 
 > `optional` **isActive?**: `boolean`
 
-Defined in: [types/server.ts:1063](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1063)
+Defined in: [types/server.ts:1072](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1072)
 
 Whether the connection is currently processing a request

@@ -8,7 +8,7 @@
 
 > **DataStreamResponseConfig** = `object`
 
-Defined in: [types/server.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1446)
+Defined in: [types/server.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1455)
 
 Configuration for the DataStreamResponse wrapper.
 
@@ -18,7 +18,7 @@ Configuration for the DataStreamResponse wrapper.
 
 > `optional` **contentType?**: `"text/event-stream"` \| `"application/x-ndjson"`
 
-Defined in: [types/server.ts:1447](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1447)
+Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1456)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1447](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/server.ts:1448](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1448)
+Defined in: [types/server.ts:1457](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1457)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1448](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **keepAliveInterval?**: `number`
 
-Defined in: [types/server.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1449)
+Defined in: [types/server.ts:1458](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1458)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/server.ts:1449](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **includeTimestamps?**: `boolean`
 
-Defined in: [types/server.ts:1450](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1450)
+Defined in: [types/server.ts:1459](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1459)

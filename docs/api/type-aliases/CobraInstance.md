@@ -8,7 +8,7 @@
 
 > **CobraInstance** = `object`
 
-Defined in: [types/server.ts:1489](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1489)
+Defined in: [types/server.ts:1498](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1498)
 
 Structural type for Picovoice Cobra VAD instance.
 Defined here so the optional `@picovoice/cobra-node` package
@@ -20,7 +20,7 @@ is not required at typecheck time.
 
 > **frameLength**: `number`
 
-Defined in: [types/server.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1490)
+Defined in: [types/server.ts:1499](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1499)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/server.ts:1490](https://github.com/juspay/neurolink/blob/rele
 
 > **process**: (`pcm`) => `number`
 
-Defined in: [types/server.ts:1491](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1491)
+Defined in: [types/server.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1500)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/server.ts:1491](https://github.com/juspay/neurolink/blob/rele
 
 > **release**: () => `void`
 
-Defined in: [types/server.ts:1492](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1492)
+Defined in: [types/server.ts:1501](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1501)
 
 #### Returns
 

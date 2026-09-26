@@ -8,7 +8,7 @@
 
 > **TextGenerationResult** = `object` & [`MediaGenerationOutputs`](MediaGenerationOutputs.md)
 
-Defined in: [types/generate.ts:1778](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1778)
+Defined in: [types/generate.ts:1794](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1794)
 
 Text generation result (consolidated from core types)
 

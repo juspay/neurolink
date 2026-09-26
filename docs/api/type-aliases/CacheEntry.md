@@ -8,7 +8,7 @@
 
 > **CacheEntry** = `object`
 
-Defined in: [types/server.ts:1337](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1337)
+Defined in: [types/server.ts:1346](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1346)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/server.ts:1337](https://github.com/juspay/neurolink/blob/rele
 
 > **data**: `unknown`
 
-Defined in: [types/server.ts:1338](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1338)
+Defined in: [types/server.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1347)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/server.ts:1338](https://github.com/juspay/neurolink/blob/rele
 
 > **createdAt**: `number`
 
-Defined in: [types/server.ts:1339](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1339)
+Defined in: [types/server.ts:1348](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1348)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/server.ts:1339](https://github.com/juspay/neurolink/blob/rele
 
 > **ttlMs**: `number`
 
-Defined in: [types/server.ts:1340](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1340)
+Defined in: [types/server.ts:1349](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1349)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/server.ts:1340](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/server.ts:1341](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1341)
+Defined in: [types/server.ts:1350](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1350)

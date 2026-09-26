@@ -37,6 +37,35 @@ export const AgentExecuteRequestSchema = z.object({
 });
 
 /**
+ * Options a WebSocket `generate`/`stream` message may pass through to
+ * `neurolink.generate()`/`.stream()`. Deliberately an allowlist, not the full
+ * `GenerateOptions`/`StreamOptions` shape: the raw client JSON is untrusted,
+ * and `GenerateOptions.credentials` in particular carries a per-provider
+ * `baseURL` (see `NeurolinkCredentials`) that would otherwise let any caller
+ * redirect the server's own outbound request to an arbitrary host (SSRF) or
+ * swap in their own API key. `z.object` strips unknown keys by default, so
+ * `credentials` and anything else outside this list never reaches the SDK
+ * call — the same posture `AgentExecuteRequestSchema` already takes for the
+ * equivalent HTTP route.
+ */
+export const WebSocketAgentOptionsSchema = z.object({
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  maxSteps: z.number().positive().optional(),
+});
+
+/**
+ * WebSocket `generate`/`stream` message payload schema.
+ */
+export const WebSocketAgentRequestSchema = z.object({
+  prompt: z.string().min(1, "Prompt is required"),
+  options: WebSocketAgentOptionsSchema.optional(),
+});
+
+/**
  * Tool execute request schema
  */
 export const ToolExecuteRequestSchema = z.object({
