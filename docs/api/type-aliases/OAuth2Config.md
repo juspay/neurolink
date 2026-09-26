@@ -8,8 +8,6 @@
 
 > **OAuth2Config** = `object`
 
-Defined in: [types/auth.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L757)
-
 Generic OAuth2 provider configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Generic OAuth2 provider configuration
 ### authorizationUrl
 
 > **authorizationUrl**: `string`
-
-Defined in: [types/auth.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L759)
 
 Authorization endpoint URL
 
@@ -28,8 +24,6 @@ Authorization endpoint URL
 
 > **tokenUrl**: `string`
 
-Defined in: [types/auth.ts:761](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L761)
-
 Token endpoint URL
 
 ---
@@ -37,8 +31,6 @@ Token endpoint URL
 ### userInfoUrl?
 
 > `optional` **userInfoUrl?**: `string`
-
-Defined in: [types/auth.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L763)
 
 User info endpoint URL
 
@@ -48,8 +40,6 @@ User info endpoint URL
 
 > `optional` **jwksUrl?**: `string`
 
-Defined in: [types/auth.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L765)
-
 JWKS endpoint URL
 
 ---
@@ -57,8 +47,6 @@ JWKS endpoint URL
 ### clientId
 
 > **clientId**: `string`
-
-Defined in: [types/auth.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L767)
 
 Client ID
 
@@ -68,8 +56,6 @@ Client ID
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/auth.ts:769](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L769)
-
 Client secret
 
 ---
@@ -77,8 +63,6 @@ Client secret
 ### scopes?
 
 > `optional` **scopes?**: `string`[]
-
-Defined in: [types/auth.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L771)
 
 OAuth scopes
 
@@ -88,8 +72,6 @@ OAuth scopes
 
 > `optional` **redirectUrl?**: `string`
 
-Defined in: [types/auth.ts:773](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L773)
-
 Redirect URL
 
 ---
@@ -97,7 +79,5 @@ Redirect URL
 ### usePKCE?
 
 > `optional` **usePKCE?**: `boolean`
-
-Defined in: [types/auth.ts:775](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L775)
 
 Enable PKCE

@@ -8,6 +8,4 @@
 
 > **CliConfigProvider** = `"auto"` \| `"openai"` \| `"bedrock"` \| `"vertex"` \| `"anthropic"` \| `"azure"` \| `"google-ai"` \| `"huggingface"` \| `"ollama"` \| `"mistral"`
 
-Defined in: [types/cli.ts:1870](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1870)
-
 Provider identifier recognized by the `neurolink config` command.

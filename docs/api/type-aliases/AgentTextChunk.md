@@ -8,8 +8,6 @@
 
 > **AgentTextChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:783](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L783)
-
 Agent text generation event
 
 ## Type Declaration

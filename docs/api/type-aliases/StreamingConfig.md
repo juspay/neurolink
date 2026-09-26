@@ -8,8 +8,6 @@
 
 > **StreamingConfig** = `object`
 
-Defined in: [types/server.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L346)
-
 Streaming response configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Streaming response configuration
 ### enabled
 
 > **enabled**: `boolean`
-
-Defined in: [types/server.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L348)
 
 Enable streaming response
 
@@ -28,8 +24,6 @@ Enable streaming response
 
 > `optional` **contentType?**: `"text/event-stream"` \| `"application/x-ndjson"`
 
-Defined in: [types/server.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L351)
-
 Content type for streaming
 
 ---
@@ -37,7 +31,5 @@ Content type for streaming
 ### keepAliveInterval?
 
 > `optional` **keepAliveInterval?**: `number`
-
-Defined in: [types/server.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L354)
 
 Keep-alive interval in milliseconds

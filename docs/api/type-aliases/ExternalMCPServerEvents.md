@@ -8,8 +8,6 @@
 
 > **ExternalMCPServerEvents** = `object`
 
-Defined in: [types/externalMcp.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L339)
-
 External MCP server events
 
 ## Properties
@@ -17,8 +15,6 @@ External MCP server events
 ### statusChanged
 
 > **statusChanged**: `object`
-
-Defined in: [types/externalMcp.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L341)
 
 Server status changed
 
@@ -48,8 +44,6 @@ Server status changed
 
 > **connected**: `object`
 
-Defined in: [types/externalMcp.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L350)
-
 Server connected successfully
 
 #### serverId
@@ -73,8 +67,6 @@ Server connected successfully
 ### disconnected
 
 > **disconnected**: `object`
-
-Defined in: [types/externalMcp.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L358)
 
 Server disconnected
 
@@ -100,8 +92,6 @@ Server disconnected
 
 > **failed**: `object`
 
-Defined in: [types/externalMcp.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L366)
-
 Server failed
 
 #### serverId
@@ -125,8 +115,6 @@ Server failed
 ### toolDiscovered
 
 > **toolDiscovered**: `object`
-
-Defined in: [types/externalMcp.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L374)
 
 Tool discovered
 
@@ -156,8 +144,6 @@ Tool discovered
 
 > **toolRemoved**: `object`
 
-Defined in: [types/externalMcp.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L383)
-
 Tool removed
 
 #### serverId
@@ -181,8 +167,6 @@ Tool removed
 ### healthCheck
 
 > **healthCheck**: `object`
-
-Defined in: [types/externalMcp.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L391)
 
 Health check completed
 

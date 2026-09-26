@@ -6,8 +6,6 @@
 
 # Class: NetworkError
 
-Defined in: [types/errors.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L51)
-
 Thrown for network-related issues, such as connectivity problems or timeouts.
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown for network-related issues, such as connectivity problems or timeouts.
 ### Constructor
 
 > **new NetworkError**(`message`, `provider?`): `NetworkError`
-
-Defined in: [types/errors.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L52)
 
 #### Parameters
 
@@ -45,8 +41,6 @@ Defined in: [types/errors.ts:52](https://github.com/juspay/neurolink/blob/releas
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

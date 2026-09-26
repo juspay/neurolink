@@ -8,8 +8,6 @@
 
 > **isRetryableStatus**(`status`): `boolean`
 
-Defined in: [client/errors.ts:728](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L728)
-
 Check if a status code is retryable
 
 ## Parameters

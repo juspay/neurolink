@@ -8,8 +8,6 @@
 
 > **SpeechGrammar** = `object`
 
-Defined in: [types/client.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1222)
-
 Speech grammar interface
 
 ## Properties
@@ -18,12 +16,8 @@ Speech grammar interface
 
 > **src**: `string`
 
-Defined in: [types/client.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1223)
-
 ---
 
 ### weight
 
 > **weight**: `number`
-
-Defined in: [types/client.ts:1224](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1224)

@@ -8,15 +8,11 @@
 
 > **Context** = `object`
 
-Defined in: [types/common.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L253)
-
 ## Properties
 
 ### traceName?
 
 > `optional` **traceName?**: `string`
-
-Defined in: [types/common.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L254)
 
 ---
 
@@ -24,20 +20,14 @@ Defined in: [types/common.ts:254](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/common.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L255)
-
 ---
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/common.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L256)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
-
-Defined in: [types/common.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L257)

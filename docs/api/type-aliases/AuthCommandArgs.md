@@ -8,8 +8,6 @@
 
 > **AuthCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1117](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1117)
-
 Auth command arguments interface
 
 ## Type Declaration

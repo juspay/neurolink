@@ -8,8 +8,6 @@
 
 > **TimeoutResult**\<`T`\> = `object`
 
-Defined in: [types/utilities.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L28)
-
 ## Type Parameters
 
 ### T
@@ -22,15 +20,11 @@ Defined in: [types/utilities.ts:28](https://github.com/juspay/neurolink/blob/rel
 
 > **success**: `boolean`
 
-Defined in: [types/utilities.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L29)
-
 ---
 
 ### data?
 
 > `optional` **data?**: `T`
-
-Defined in: [types/utilities.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L30)
 
 ---
 
@@ -38,15 +32,11 @@ Defined in: [types/utilities.ts:30](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/utilities.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L31)
-
 ---
 
 ### timedOut
 
 > **timedOut**: `boolean`
-
-Defined in: [types/utilities.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L32)
 
 ---
 
@@ -54,12 +44,8 @@ Defined in: [types/utilities.ts:32](https://github.com/juspay/neurolink/blob/rel
 
 > **executionTime**: `number`
 
-Defined in: [types/utilities.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L33)
-
 ---
 
 ### retriesUsed
 
 > **retriesUsed**: `number`
-
-Defined in: [types/utilities.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L34)

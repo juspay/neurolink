@@ -8,8 +8,6 @@
 
 > **validateResponse**(`responseText`, `config`, `retryCount?`): [`ResponseValidationResult`](../type-aliases/ResponseValidationResult.md)
 
-Defined in: [utils/responseValidator.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/utils/responseValidator.ts#L243)
-
 Validate (and optionally mutate) an LLM response.
 
 ## Parameters

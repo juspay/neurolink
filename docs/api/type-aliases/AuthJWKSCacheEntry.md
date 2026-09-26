@@ -8,8 +8,6 @@
 
 > **AuthJWKSCacheEntry** = `object`
 
-Defined in: [types/auth.ts:1255](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1255)
-
 Cached JWKS entry with TTL. Used by Cognito and Keycloak providers.
 
 ## Properties
@@ -18,12 +16,8 @@ Cached JWKS entry with TTL. Used by Cognito and Keycloak providers.
 
 > **jwks**: [`JWKS`](JWKS.md)
 
-Defined in: [types/auth.ts:1256](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1256)
-
 ---
 
 ### expiresAt
 
 > **expiresAt**: `number`
-
-Defined in: [types/auth.ts:1257](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1257)

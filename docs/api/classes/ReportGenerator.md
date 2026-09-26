@@ -6,8 +6,6 @@
 
 # Class: ReportGenerator
 
-Defined in: [evaluation/reporting/reportGenerator.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L27)
-
 Report generator class
 
 ## Constructors
@@ -15,8 +13,6 @@ Report generator class
 ### Constructor
 
 > **new ReportGenerator**(`config?`): `ReportGenerator`
-
-Defined in: [evaluation/reporting/reportGenerator.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L30)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [evaluation/reporting/reportGenerator.ts:30](https://github.com/jusp
 ### generate()
 
 > **generate**(`data`): [`GeneratedReport`](../type-aliases/GeneratedReport.md)
-
-Defined in: [evaluation/reporting/reportGenerator.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L37)
 
 Generate a report
 
@@ -53,8 +47,6 @@ Generate a report
 ### configure()
 
 > **configure**(`config`): `void`
-
-Defined in: [evaluation/reporting/reportGenerator.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L419)
 
 Update configuration
 

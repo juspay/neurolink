@@ -6,8 +6,6 @@
 
 # Class: ExternalServerManager
 
-Defined in: [mcp/externalServerManager.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L466)
-
 MCP (Model Context Protocol) Plugin Ecosystem
 
 Extensible plugin architecture based on research blueprint for
@@ -39,8 +37,6 @@ await writeFile("output.txt", "Hello from MCP!");
 
 > **new ExternalServerManager**(`config?`, `options?`): `ExternalServerManager`
 
-Defined in: [mcp/externalServerManager.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L480)
-
 #### Parameters
 
 ##### config?
@@ -67,8 +63,6 @@ Defined in: [mcp/externalServerManager.ts:480](https://github.com/juspay/neuroli
 
 > **setOutputNormalizer**(`normalizer`): `void`
 
-Defined in: [mcp/externalServerManager.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L539)
-
 Attach a McpOutputNormalizer to the underlying ToolDiscoveryService.
 All tool outputs will be measured and (if oversized) replaced with compact
 surrogates before being returned to callers.
@@ -88,8 +82,6 @@ surrogates before being returned to callers.
 ### setHITLManager()
 
 > **setHITLManager**(`hitlManager?`): `void`
-
-Defined in: [mcp/externalServerManager.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L552)
 
 Set HITL manager for human-in-the-loop safety mechanisms
 
@@ -111,8 +103,6 @@ HITL manager instance (optional, can be undefined to disable)
 
 > **getHITLManager**(): `HITLManager` \| `undefined`
 
-Defined in: [mcp/externalServerManager.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L568)
-
 Get current HITL manager
 
 #### Returns
@@ -124,8 +114,6 @@ Get current HITL manager
 ### getServerName()
 
 > **getServerName**(`serverId`): `string`
-
-Defined in: [mcp/externalServerManager.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L576)
 
 Resolve the human-readable server name for an event payload.
 Falls back to serverId if the instance or config.name isn't available.
@@ -145,8 +133,6 @@ Falls back to serverId if the instance or config.name isn't available.
 ### loadMCPConfiguration()
 
 > **loadMCPConfiguration**(`configPath?`, `options?`): `Promise`\<[`ServerLoadResult`](../type-aliases/ServerLoadResult.md)\>
-
-Defined in: [mcp/externalServerManager.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L588)
 
 Load MCP server configurations from .mcp-config.json file with parallel loading support
 Automatically registers servers found in the configuration
@@ -179,8 +165,6 @@ Promise resolving to { serversLoaded, errors }
 
 > **loadMCPConfigurationParallel**(`configPath?`): `Promise`\<[`ServerLoadResult`](../type-aliases/ServerLoadResult.md)\>
 
-Defined in: [mcp/externalServerManager.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L603)
-
 Load MCP servers in parallel for improved performance
 
 #### Parameters
@@ -202,8 +186,6 @@ Promise resolving to batch operation result
 ### loadMCPConfigurationSequential()
 
 > **loadMCPConfigurationSequential**(`configPath?`): `Promise`\<[`ServerLoadResult`](../type-aliases/ServerLoadResult.md)\>
-
-Defined in: [mcp/externalServerManager.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L785)
 
 Load MCP servers sequentially (original implementation for backward compatibility)
 
@@ -227,8 +209,6 @@ Promise resolving to batch operation result
 
 > **validateConfig**(`config`): [`ExternalMCPConfigValidation`](../type-aliases/ExternalMCPConfigValidation.md)
 
-Defined in: [mcp/externalServerManager.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L942)
-
 Validate external MCP server configuration
 
 #### Parameters
@@ -249,8 +229,6 @@ Validate external MCP server configuration
 
 > **addServer**(`serverId`, `config`): `Promise`\<[`ExternalMCPOperationResult`](../type-aliases/ExternalMCPOperationResult.md)\<[`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md)\>\>
 
-Defined in: [mcp/externalServerManager.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L1043)
-
 Add a new external MCP server - Backward compatibility overload
 
 ##### Parameters
@@ -270,8 +248,6 @@ Add a new external MCP server - Backward compatibility overload
 #### Call Signature
 
 > **addServer**(`serverId`, `serverInfo`): `Promise`\<[`ExternalMCPOperationResult`](../type-aliases/ExternalMCPOperationResult.md)\<[`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md)\>\>
-
-Defined in: [mcp/externalServerManager.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L1051)
 
 Add a new external MCP server - Updated to accept MCPServerInfo
 
@@ -295,8 +271,6 @@ Add a new external MCP server - Updated to accept MCPServerInfo
 
 > **removeServer**(`serverId`): `Promise`\<[`ExternalMCPOperationResult`](../type-aliases/ExternalMCPOperationResult.md)\<`void`\>\>
 
-Defined in: [mcp/externalServerManager.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L1242)
-
 Remove an external MCP server
 
 #### Parameters
@@ -314,8 +288,6 @@ Remove an external MCP server
 ### getServer()
 
 > **getServer**(`serverId`): [`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md) \| `undefined`
-
-Defined in: [mcp/externalServerManager.ts:1952](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L1952)
 
 Get server instance - converted to ExternalMCPServerInstance for compatibility
 
@@ -335,8 +307,6 @@ Get server instance - converted to ExternalMCPServerInstance for compatibility
 
 > **getAllServers**(): `Map`\<`string`, [`ExternalMCPServerInstance`](../type-aliases/ExternalMCPServerInstance.md)\>
 
-Defined in: [mcp/externalServerManager.ts:1982](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L1982)
-
 Get all servers - converted to ExternalMCPServerInstance for compatibility
 
 #### Returns
@@ -348,8 +318,6 @@ Get all servers - converted to ExternalMCPServerInstance for compatibility
 ### listServers()
 
 > **listServers**(): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)[]
-
-Defined in: [mcp/externalServerManager.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2011)
 
 List servers as MCPServerInfo - ZERO conversion needed
 
@@ -363,8 +331,6 @@ List servers as MCPServerInfo - ZERO conversion needed
 
 > **getServerStatuses**(): [`ExternalMCPServerHealth`](../type-aliases/ExternalMCPServerHealth.md)[]
 
-Defined in: [mcp/externalServerManager.ts:2018](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2018)
-
 Get server statuses
 
 #### Returns
@@ -376,8 +342,6 @@ Get server statuses
 ### shutdown()
 
 > **shutdown**(): `Promise`\<`void`\>
-
-Defined in: [mcp/externalServerManager.ts:2047](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2047)
 
 Shutdown all servers and clean up resources
 This method should be called during application shutdown to prevent memory leaks
@@ -392,8 +356,6 @@ This method should be called during application shutdown to prevent memory leaks
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: [mcp/externalServerManager.ts:2084](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2084)
-
 Destroy the manager and all associated resources
 Alias for shutdown() to match the pattern used by other components
 
@@ -406,8 +368,6 @@ Alias for shutdown() to match the pattern used by other components
 ### getStatistics()
 
 > **getStatistics**(): `object`
-
-Defined in: [mcp/externalServerManager.ts:2091](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2091)
 
 Get manager statistics
 
@@ -445,8 +405,6 @@ Get manager statistics
 
 > **executeTool**(`serverId`, `toolName`, `parameters`, `options?`): `Promise`\<`unknown`\>
 
-Defined in: [mcp/externalServerManager.ts:2304](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2304)
-
 Execute a tool on a specific server
 
 #### Parameters
@@ -479,8 +437,6 @@ Execute a tool on a specific server
 
 > **getAllTools**(): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
 
-Defined in: [mcp/externalServerManager.ts:2515](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2515)
-
 Get all tools from all servers
 
 #### Returns
@@ -492,8 +448,6 @@ Get all tools from all servers
 ### getServerTools()
 
 > **getServerTools**(`serverId`): [`ExternalMCPToolInfo`](../type-aliases/ExternalMCPToolInfo.md)[]
-
-Defined in: [mcp/externalServerManager.ts:2522](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2522)
 
 Get tools for a specific server
 
@@ -512,8 +466,6 @@ Get tools for a specific server
 ### getToolDiscovery()
 
 > **getToolDiscovery**(): `ToolDiscoveryService`
-
-Defined in: [mcp/externalServerManager.ts:2529](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/externalServerManager.ts#L2529)
 
 Get tool discovery service
 

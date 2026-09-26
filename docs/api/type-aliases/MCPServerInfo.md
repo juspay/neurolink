@@ -8,8 +8,6 @@
 
 > **MCPServerInfo** = `object`
 
-Defined in: [types/mcp.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L89)
-
 Universal MCP Server - Unified configuration and runtime state
 MCP 2024-11-05 specification compliant
 Replaces both MCPServerInfo and MCPServerConfig
@@ -20,15 +18,11 @@ Replaces both MCPServerInfo and MCPServerConfig
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L91)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/mcp.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L92)
 
 ---
 
@@ -36,15 +30,11 @@ Defined in: [types/mcp.ts:92](https://github.com/juspay/neurolink/blob/release/s
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L93)
-
 ---
 
 ### transport
 
 > **transport**: [`MCPTransportType`](MCPTransportType.md)
-
-Defined in: [types/mcp.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L94)
 
 ---
 
@@ -52,15 +42,11 @@ Defined in: [types/mcp.ts:94](https://github.com/juspay/neurolink/blob/release/s
 
 > **status**: [`MCPServerConnectionStatus`](MCPServerConnectionStatus.md)
 
-Defined in: [types/mcp.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L95)
-
 ---
 
 ### tools
 
 > **tools**: `object`[]
-
-Defined in: [types/mcp.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L98)
 
 #### name
 
@@ -98,15 +84,11 @@ Defined in: [types/mcp.ts:98](https://github.com/juspay/neurolink/blob/release/s
 
 > `optional` **command?**: `string`
 
-Defined in: [types/mcp.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L109)
-
 ---
 
 ### args?
 
 > `optional` **args?**: `string`[]
-
-Defined in: [types/mcp.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L110)
 
 ---
 
@@ -114,15 +96,11 @@ Defined in: [types/mcp.ts:110](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/mcp.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L111)
-
 ---
 
 ### url?
 
 > `optional` **url?**: `string`
-
-Defined in: [types/mcp.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L112)
 
 ---
 
@@ -130,15 +108,11 @@ Defined in: [types/mcp.ts:112](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/mcp.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L113)
-
 ---
 
 ### httpOptions?
 
 > `optional` **httpOptions?**: [`MCPHTTPTransportOptions`](MCPHTTPTransportOptions.md)
-
-Defined in: [types/mcp.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L115)
 
 HTTP transport-specific options
 
@@ -148,15 +122,11 @@ HTTP transport-specific options
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/mcp.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L116)
-
 ---
 
 ### retries?
 
 > `optional` **retries?**: `number`
-
-Defined in: [types/mcp.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L117)
 
 ---
 
@@ -164,15 +134,11 @@ Defined in: [types/mcp.ts:117](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L118)
-
 ---
 
 ### installed?
 
 > `optional` **installed?**: `boolean`
-
-Defined in: [types/mcp.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L119)
 
 ---
 
@@ -180,15 +146,11 @@ Defined in: [types/mcp.ts:119](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **cwd?**: `string`
 
-Defined in: [types/mcp.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L122)
-
 ---
 
 ### autoRestart?
 
 > `optional` **autoRestart?**: `boolean`
-
-Defined in: [types/mcp.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L123)
 
 ---
 
@@ -196,15 +158,11 @@ Defined in: [types/mcp.ts:123](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **healthCheckInterval?**: `number`
 
-Defined in: [types/mcp.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L124)
-
 ---
 
 ### minTools?
 
 > `optional` **minTools?**: `number`
-
-Defined in: [types/mcp.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L135)
 
 Minimum number of tools that must be discovered for this server's
 registration to be considered ready (default: 0 — no minimum, so a
@@ -219,8 +177,6 @@ server connected/healthy, and tears the connection back down.
 ### retryConfig?
 
 > `optional` **retryConfig?**: `object`
-
-Defined in: [types/mcp.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L138)
 
 Retry configuration for HTTP transport
 
@@ -245,8 +201,6 @@ Retry configuration for HTTP transport
 ### rateLimiting?
 
 > `optional` **rateLimiting?**: `object`
-
-Defined in: [types/mcp.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L146)
 
 Rate limiting configuration for HTTP transport
 
@@ -280,15 +234,11 @@ Use token bucket algorithm (default: true)
 
 > `optional` **blockedTools?**: `string`[]
 
-Defined in: [types/mcp.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L158)
-
 ---
 
 ### auth?
 
 > `optional` **auth?**: `object`
-
-Defined in: [types/mcp.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L161)
 
 Authentication configuration for HTTP/SSE/WebSocket transports
 
@@ -369,8 +319,6 @@ Header name for API key (default: "X-API-Key")
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/mcp.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L190)
 
 #### Index Signature
 

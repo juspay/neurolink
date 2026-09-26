@@ -8,8 +8,6 @@
 
 > **RedactionConfig** = `object`
 
-Defined in: [types/server.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L211)
-
 Configuration for stream redaction
 
 IMPORTANT: Redaction is DISABLED by default (enabled: false)
@@ -20,8 +18,6 @@ This is an opt-in security feature to prevent accidental data exposure.
 ### enabled?
 
 > `optional` **enabled?**: `boolean`
-
-Defined in: [types/server.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L218)
 
 Enable stream redaction (default: false)
 
@@ -34,8 +30,6 @@ Must be explicitly set to true to enable redaction.
 
 > `optional` **additionalFields?**: `string`[]
 
-Defined in: [types/server.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L221)
-
 Additional field names to redact (case-insensitive)
 
 ---
@@ -43,8 +37,6 @@ Additional field names to redact (case-insensitive)
 ### preserveFields?
 
 > `optional` **preserveFields?**: `string`[]
-
-Defined in: [types/server.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L224)
 
 Field names to preserve (not redact)
 
@@ -54,8 +46,6 @@ Field names to preserve (not redact)
 
 > `optional` **redactToolArgs?**: `boolean`
 
-Defined in: [types/server.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L227)
-
 Whether to redact tool arguments when enabled (default: true)
 
 ---
@@ -64,8 +54,6 @@ Whether to redact tool arguments when enabled (default: true)
 
 > `optional` **redactToolResults?**: `boolean`
 
-Defined in: [types/server.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L230)
-
 Whether to redact tool results when enabled (default: true)
 
 ---
@@ -73,7 +61,5 @@ Whether to redact tool results when enabled (default: true)
 ### placeholder?
 
 > `optional` **placeholder?**: `string`
-
-Defined in: [types/server.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L233)
 
 Custom redaction placeholder (default: "[REDACTED]")

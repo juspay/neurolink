@@ -8,8 +8,6 @@
 
 > **OutgoingResponse** = `object`
 
-Defined in: [types/auth.ts:1307](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1307)
-
 Minimal Express-style response object used by the auth middleware.
 
 ## Methods
@@ -17,8 +15,6 @@ Minimal Express-style response object used by the auth middleware.
 ### status()
 
 > **status**(`code`): `OutgoingResponse`
-
-Defined in: [types/auth.ts:1308](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1308)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [types/auth.ts:1308](https://github.com/juspay/neurolink/blob/releas
 ### json()
 
 > **json**(`body`): `void`
-
-Defined in: [types/auth.ts:1309](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1309)
 
 #### Parameters
 

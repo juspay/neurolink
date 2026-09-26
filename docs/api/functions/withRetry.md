@@ -8,8 +8,6 @@
 
 > **withRetry**\<`T`\>(`operation`, `options`): `Promise`\<`T`\>
 
-Defined in: [core/infrastructure/retry.ts:3](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/retry.ts#L3)
-
 ## Type Parameters
 
 ### T

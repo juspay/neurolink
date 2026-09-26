@@ -6,8 +6,6 @@
 
 # Class: CharacterChunker
 
-Defined in: [rag/chunking/characterChunker.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/characterChunker.ts#L21)
-
 Character-based chunker implementation
 Splits text by character count with optional separator
 
@@ -31,8 +29,6 @@ Splits text by character count with optional separator
 
 > `readonly` **strategy**: `"character"`
 
-Defined in: [rag/chunking/characterChunker.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/characterChunker.ts#L22)
-
 Strategy name for identification
 
 #### Implementation of
@@ -44,8 +40,6 @@ Strategy name for identification
 ### chunk()
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
-
-Defined in: [rag/chunking/characterChunker.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/characterChunker.ts#L24)
 
 Split text into chunks
 
@@ -78,8 +72,6 @@ Array of chunks
 ### validateConfig()
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
-
-Defined in: [rag/chunking/characterChunker.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/characterChunker.ts#L145)
 
 #### Parameters
 

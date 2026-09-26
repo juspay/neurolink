@@ -8,8 +8,6 @@
 
 > **ProcessedConfig** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L560)
-
 Processed configuration file result.
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **AgentPrimitive** = [`NetworkPrimitive`](NetworkPrimitive.md) & `object`
 
-Defined in: [types/agentNetwork.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L203)
-
 Agent as a network primitive
 
 ## Type Declaration

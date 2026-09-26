@@ -8,8 +8,6 @@
 
 > **ToolRouterEvents** = `object`
 
-Defined in: [types/mcp.ts:2547](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2547)
-
 Tool Router events
 
 ## Properties
@@ -17,8 +15,6 @@ Tool Router events
 ### routeDecision
 
 > **routeDecision**: `object`
-
-Defined in: [types/mcp.ts:2548](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2548)
 
 #### toolName
 
@@ -33,8 +29,6 @@ Defined in: [types/mcp.ts:2548](https://github.com/juspay/neurolink/blob/release
 ### routeFailed
 
 > **routeFailed**: `object`
-
-Defined in: [types/mcp.ts:2552](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2552)
 
 #### toolName
 
@@ -54,8 +48,6 @@ Defined in: [types/mcp.ts:2552](https://github.com/juspay/neurolink/blob/release
 
 > **affinitySet**: `object`
 
-Defined in: [types/mcp.ts:2557](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2557)
-
 #### key
 
 > **key**: `string`
@@ -70,8 +62,6 @@ Defined in: [types/mcp.ts:2557](https://github.com/juspay/neurolink/blob/release
 
 > **affinityExpired**: `object`
 
-Defined in: [types/mcp.ts:2561](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2561)
-
 #### key
 
 > **key**: `string`
@@ -81,8 +71,6 @@ Defined in: [types/mcp.ts:2561](https://github.com/juspay/neurolink/blob/release
 ### healthUpdate
 
 > **healthUpdate**: `object`
-
-Defined in: [types/mcp.ts:2564](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2564)
 
 #### serverId
 

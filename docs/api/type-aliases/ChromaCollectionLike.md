@@ -8,8 +8,6 @@
 
 > **ChromaCollectionLike** = `object`
 
-Defined in: [types/vectorStoreChroma.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L55)
-
 Minimal structural interface for a Chroma collection handle, matching the
 subset of `Collection` (from `chromadb`) the adapter calls.
 
@@ -18,8 +16,6 @@ subset of `Collection` (from `chromadb`) the adapter calls.
 ### upsert()
 
 > **upsert**(`params`): `Promise`\<`unknown`\>
-
-Defined in: [types/vectorStoreChroma.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L56)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [types/vectorStoreChroma.ts:56](https://github.com/juspay/neurolink/
 
 > **query**(`params`): `Promise`\<[`ChromaQueryResponse`](ChromaQueryResponse.md)\>
 
-Defined in: [types/vectorStoreChroma.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L57)
-
 #### Parameters
 
 ##### params
@@ -54,8 +48,6 @@ Defined in: [types/vectorStoreChroma.ts:57](https://github.com/juspay/neurolink/
 ### delete()
 
 > **delete**(`params`): `Promise`\<`unknown`\>
-
-Defined in: [types/vectorStoreChroma.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L58)
 
 #### Parameters
 

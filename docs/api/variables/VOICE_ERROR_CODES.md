@@ -8,8 +8,6 @@
 
 > `const` **VOICE_ERROR_CODES**: `object`
 
-Defined in: [types/voice.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L271)
-
 Voice error codes (general)
 
 ## Type Declaration

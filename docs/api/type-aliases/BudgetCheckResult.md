@@ -8,8 +8,6 @@
 
 > **BudgetCheckResult** = `object`
 
-Defined in: [types/context.ts:641](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L641)
-
 Result of a context budget check.
 
 ## Properties
@@ -17,8 +15,6 @@ Result of a context budget check.
 ### withinBudget
 
 > **withinBudget**: `boolean`
-
-Defined in: [types/context.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L643)
 
 Whether the request fits within the context window
 
@@ -28,8 +24,6 @@ Whether the request fits within the context window
 
 > **estimatedInputTokens**: `number`
 
-Defined in: [types/context.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L645)
-
 Estimated total input tokens
 
 ---
@@ -37,8 +31,6 @@ Estimated total input tokens
 ### availableInputTokens
 
 > **availableInputTokens**: `number`
-
-Defined in: [types/context.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L647)
 
 Available input tokens for this model
 
@@ -48,8 +40,6 @@ Available input tokens for this model
 
 > **usageRatio**: `number`
 
-Defined in: [types/context.ts:649](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L649)
-
 Usage ratio (0.0 - 1.0+)
 
 ---
@@ -58,8 +48,6 @@ Usage ratio (0.0 - 1.0+)
 
 > **shouldCompact**: `boolean`
 
-Defined in: [types/context.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L651)
-
 Whether auto-compaction should trigger
 
 ---
@@ -67,8 +55,6 @@ Whether auto-compaction should trigger
 ### breakdown
 
 > **breakdown**: `object`
-
-Defined in: [types/context.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L653)
 
 Breakdown of token usage by category
 

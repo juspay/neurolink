@@ -8,8 +8,6 @@
 
 > **BatchExecutor**\<`T`\> = (`requests`) => `Promise`\<`object`[]\>
 
-Defined in: [types/mcp.ts:2360](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2360)
-
 Batch executor function type
 
 ## Type Parameters

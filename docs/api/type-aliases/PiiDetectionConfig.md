@@ -8,15 +8,11 @@
 
 > **PiiDetectionConfig** = `object`
 
-Defined in: [types/ioProcessor.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L26)
-
 ## Properties
 
 ### enabled?
 
 > `optional` **enabled?**: `boolean`
-
-Defined in: [types/ioProcessor.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L27)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/ioProcessor.ts:27](https://github.com/juspay/neurolink/blob/r
 
 > **action**: `"redact"` \| `"abort"` \| `"warn"`
 
-Defined in: [types/ioProcessor.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L28)
-
 ---
 
 ### detectTypes?
 
 > `optional` **detectTypes?**: [`PiiType`](PiiType.md)[]
-
-Defined in: [types/ioProcessor.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L29)
 
 ---
 
@@ -40,20 +32,14 @@ Defined in: [types/ioProcessor.ts:29](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **customPatterns?**: `RegExp`[]
 
-Defined in: [types/ioProcessor.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L30)
-
 ---
 
 ### allowList?
 
 > `optional` **allowList?**: `string`[]
 
-Defined in: [types/ioProcessor.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L31)
-
 ---
 
 ### redactionText?
 
 > `optional` **redactionText?**: `string`
-
-Defined in: [types/ioProcessor.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L32)

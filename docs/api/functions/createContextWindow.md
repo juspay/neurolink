@@ -8,8 +8,6 @@
 
 > **createContextWindow**(`results`, `options?`): [`ContextWindow`](../type-aliases/ContextWindow.md)
 
-Defined in: [rag/pipeline/contextAssembly.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/contextAssembly.ts#L204)
-
 Create a context window with detailed tracking
 
 ## Parameters

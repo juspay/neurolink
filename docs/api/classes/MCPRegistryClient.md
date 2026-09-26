@@ -6,8 +6,6 @@
 
 # Class: MCPRegistryClient
 
-Defined in: [mcp/mcpRegistryClient.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L199)
-
 MCP Registry Client
 
 Provides methods to discover and install MCP servers from registries.
@@ -37,8 +35,6 @@ const serverInfo = client.toServerInfo(entry);
 
 > **new MCPRegistryClient**(`config?`): `MCPRegistryClient`
 
-Defined in: [mcp/mcpRegistryClient.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L204)
-
 #### Parameters
 
 ##### config?
@@ -59,8 +55,6 @@ Defined in: [mcp/mcpRegistryClient.ts:204](https://github.com/juspay/neurolink/b
 
 > **search**(`options?`): `Promise`\<[`RegistrySearchResult`](../type-aliases/RegistrySearchResult.md)\>
 
-Defined in: [mcp/mcpRegistryClient.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L221)
-
 Search the registry
 
 #### Parameters
@@ -78,8 +72,6 @@ Search the registry
 ### getEntry()
 
 > **getEntry**(`id`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md) \| `undefined`\>
-
-Defined in: [mcp/mcpRegistryClient.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L310)
 
 Get a specific entry by ID
 
@@ -99,8 +91,6 @@ Get a specific entry by ID
 
 > **getAllEntries**(): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L329)
-
 Get all available entries
 
 #### Returns
@@ -112,8 +102,6 @@ Get all available entries
 ### getByCategory()
 
 > **getByCategory**(`category`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
-
-Defined in: [mcp/mcpRegistryClient.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L362)
 
 Get entries by category
 
@@ -133,8 +121,6 @@ Get entries by category
 
 > **getByTag**(`tag`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L370)
-
 Get entries by tag
 
 #### Parameters
@@ -153,8 +139,6 @@ Get entries by tag
 
 > **getCategories**(): `Promise`\<`string`[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L378)
-
 Get all categories
 
 #### Returns
@@ -167,8 +151,6 @@ Get all categories
 
 > **getTags**(): `Promise`\<`string`[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L394)
-
 Get all tags
 
 #### Returns
@@ -180,8 +162,6 @@ Get all tags
 ### toServerInfo()
 
 > **toServerInfo**(`entry`): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)
-
-Defined in: [mcp/mcpRegistryClient.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L410)
 
 Convert registry entry to MCPServerInfo
 
@@ -201,8 +181,6 @@ Convert registry entry to MCPServerInfo
 
 > **addCustomEntry**(`entry`): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L443)
-
 Add a custom registry entry
 
 #### Parameters
@@ -220,8 +198,6 @@ Add a custom registry entry
 ### removeCustomEntry()
 
 > **removeCustomEntry**(`id`): `boolean`
-
-Defined in: [mcp/mcpRegistryClient.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L452)
 
 Remove a custom registry entry
 
@@ -241,8 +217,6 @@ Remove a custom registry entry
 
 > **addRegistry**(`config`): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L464)
-
 Add a registry configuration
 
 #### Parameters
@@ -261,8 +235,6 @@ Add a registry configuration
 
 > **clearCache**(): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L474)
-
 Clear the cache
 
 #### Returns
@@ -274,8 +246,6 @@ Clear the cache
 ### checkRequiredEnvVars()
 
 > **checkRequiredEnvVars**(`entry`): `object`
-
-Defined in: [mcp/mcpRegistryClient.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L482)
 
 Check if required environment variables are set
 
@@ -303,8 +273,6 @@ Check if required environment variables are set
 
 > **getInstallCommand**(`entry`): `string` \| `undefined`
 
-Defined in: [mcp/mcpRegistryClient.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L503)
-
 Get installation command for an entry
 
 #### Parameters
@@ -322,8 +290,6 @@ Get installation command for an entry
 ### getPopularServers()
 
 > **getPopularServers**(`limit?`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
-
-Defined in: [mcp/mcpRegistryClient.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L518)
 
 Get popular servers
 
@@ -343,8 +309,6 @@ Get popular servers
 
 > **getVerifiedServers**(): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L531)
-
 Get verified servers
 
 #### Returns
@@ -356,8 +320,6 @@ Get verified servers
 ### getStatistics()
 
 > **getStatistics**(): `Promise`\<\{ `totalEntries`: `number`; `verifiedEntries`: `number`; `categories`: `number`; `tags`: `number`; `customEntries`: `number`; \}\>
-
-Defined in: [mcp/mcpRegistryClient.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpRegistryClient.ts#L542)
 
 Get statistics
 

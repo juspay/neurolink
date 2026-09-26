@@ -8,8 +8,6 @@
 
 > **ClientGenerateResponse** = `object`
 
-Defined in: [types/client.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L258)
-
 Generate response (client-side version)
 
 ## Properties
@@ -17,8 +15,6 @@ Generate response (client-side version)
 ### content
 
 > **content**: `string`
-
-Defined in: [types/client.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L260)
 
 Generated content
 
@@ -28,8 +24,6 @@ Generated content
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L262)
-
 Provider used
 
 ---
@@ -38,8 +32,6 @@ Provider used
 
 > `optional` **model?**: `string`
 
-Defined in: [types/client.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L264)
-
 Model used
 
 ---
@@ -47,8 +39,6 @@ Model used
 ### usage?
 
 > `optional` **usage?**: `object`
-
-Defined in: [types/client.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L266)
 
 Token usage
 
@@ -70,8 +60,6 @@ Token usage
 
 > `optional` **toolCalls?**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/client.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L272)
-
 Tool calls made
 
 ---
@@ -79,8 +67,6 @@ Tool calls made
 ### toolResults?
 
 > `optional` **toolResults?**: [`StreamToolResult`](StreamToolResult.md)[]
-
-Defined in: [types/client.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L274)
 
 Tool results
 
@@ -90,8 +76,6 @@ Tool results
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/client.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L276)
-
 Finish reason
 
 ---
@@ -99,7 +83,5 @@ Finish reason
 ### metadata?
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/client.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L278)
 
 Response metadata

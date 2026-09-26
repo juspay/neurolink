@@ -8,8 +8,6 @@
 
 > **createCacheMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/cache.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L107)
-
 Create cache middleware
 
 Response headers set by this middleware:

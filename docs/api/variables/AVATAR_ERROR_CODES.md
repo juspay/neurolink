@@ -8,8 +8,6 @@
 
 > `const` **AVATAR_ERROR_CODES**: `object`
 
-Defined in: [utils/avatarProcessor.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L32)
-
 Avatar-specific error codes.
 
 ## Type Declaration

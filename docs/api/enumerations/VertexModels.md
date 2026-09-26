@@ -6,8 +6,6 @@
 
 # Enumeration: VertexModels
 
-Defined in: [constants/enums.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L438)
-
 Supported Models for Google Vertex AI
 
 ## Enumeration Members
@@ -16,15 +14,11 @@ Supported Models for Google Vertex AI
 
 > **CLAUDE_4_6_OPUS**: `"claude-opus-4-6"`
 
-Defined in: [constants/enums.ts:440](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L440)
-
 ---
 
 ### CLAUDE_4_6_SONNET
 
 > **CLAUDE_4_6_SONNET**: `"claude-sonnet-4-6"`
-
-Defined in: [constants/enums.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L441)
 
 ---
 
@@ -32,15 +26,11 @@ Defined in: [constants/enums.ts:441](https://github.com/juspay/neurolink/blob/re
 
 > **CLAUDE_4_5_OPUS**: `"claude-opus-4-5@20251101"`
 
-Defined in: [constants/enums.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L444)
-
 ---
 
 ### CLAUDE_4_5_SONNET
 
 > **CLAUDE_4_5_SONNET**: `"claude-sonnet-4-5@20250929"`
-
-Defined in: [constants/enums.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L445)
 
 ---
 
@@ -48,15 +38,11 @@ Defined in: [constants/enums.ts:445](https://github.com/juspay/neurolink/blob/re
 
 > **CLAUDE_4_5_HAIKU**: `"claude-haiku-4-5@20251001"`
 
-Defined in: [constants/enums.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L446)
-
 ---
 
 ### CLAUDE_4_0_SONNET
 
 > **CLAUDE_4_0_SONNET**: `"claude-sonnet-4@20250514"`
-
-Defined in: [constants/enums.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L449)
 
 ---
 
@@ -64,15 +50,11 @@ Defined in: [constants/enums.ts:449](https://github.com/juspay/neurolink/blob/re
 
 > **CLAUDE_4_0_OPUS**: `"claude-opus-4@20250514"`
 
-Defined in: [constants/enums.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L450)
-
 ---
 
 ### ~~CLAUDE_3_7_SONNET~~
 
 > **CLAUDE_3_7_SONNET**: `"claude-3-7-sonnet@20250219"`
-
-Defined in: [constants/enums.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L454)
 
 #### Deprecated
 
@@ -84,8 +66,6 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 
 > **CLAUDE_3_5_SONNET**: `"claude-3-5-sonnet-20241022"`
 
-Defined in: [constants/enums.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L458)
-
 #### Deprecated
 
 Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
@@ -95,8 +75,6 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 ### ~~CLAUDE_3_5_HAIKU~~
 
 > **CLAUDE_3_5_HAIKU**: `"claude-3-5-haiku-20241022"`
-
-Defined in: [constants/enums.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L460)
 
 #### Deprecated
 
@@ -108,8 +86,6 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 
 > **CLAUDE_3_SONNET**: `"claude-3-sonnet-20240229"`
 
-Defined in: [constants/enums.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L464)
-
 #### Deprecated
 
 Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
@@ -119,8 +95,6 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 ### ~~CLAUDE_3_OPUS~~
 
 > **CLAUDE_3_OPUS**: `"claude-3-opus-20240229"`
-
-Defined in: [constants/enums.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L466)
 
 #### Deprecated
 
@@ -132,8 +106,6 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 
 > **CLAUDE_3_HAIKU**: `"claude-3-haiku-20240307"`
 
-Defined in: [constants/enums.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L468)
-
 #### Deprecated
 
 Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
@@ -144,15 +116,11 @@ Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead.
 
 > **GEMINI_3_1_PRO_PREVIEW**: `"gemini-3.1-pro-preview"`
 
-Defined in: [constants/enums.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L471)
-
 ---
 
 ### GEMINI_3_1_FLASH_LITE_PREVIEW
 
 > **GEMINI_3_1_FLASH_LITE_PREVIEW**: `"gemini-3.1-flash-lite-preview"`
-
-Defined in: [constants/enums.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L472)
 
 ---
 
@@ -160,15 +128,11 @@ Defined in: [constants/enums.ts:472](https://github.com/juspay/neurolink/blob/re
 
 > **GEMINI_3_1_FLASH_IMAGE_PREVIEW**: `"gemini-3.1-flash-image-preview"`
 
-Defined in: [constants/enums.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L473)
-
 ---
 
 ### GEMINI_3_1_PRO_PREVIEW_CUSTOMTOOLS
 
 > **GEMINI_3_1_PRO_PREVIEW_CUSTOMTOOLS**: `"gemini-3.1-pro-preview-customtools"`
-
-Defined in: [constants/enums.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L474)
 
 ---
 
@@ -176,23 +140,17 @@ Defined in: [constants/enums.ts:474](https://github.com/juspay/neurolink/blob/re
 
 > **GEMINI_3_FLASH_PREVIEW**: `"gemini-3-flash-preview"`
 
-Defined in: [constants/enums.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L477)
-
 ---
 
 ### GEMINI_3_PRO_IMAGE_PREVIEW
 
 > **GEMINI_3_PRO_IMAGE_PREVIEW**: `"gemini-3-pro-image-preview"`
 
-Defined in: [constants/enums.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L478)
-
 ---
 
 ### ~~GEMINI_3_PRO_PREVIEW~~
 
 > **GEMINI_3_PRO_PREVIEW**: `"gemini-3-pro-preview"`
-
-Defined in: [constants/enums.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L480)
 
 #### Deprecated
 
@@ -204,15 +162,11 @@ SHUT DOWN March 9, 2026. Migrate to GEMINI_3_1_PRO_PREVIEW.
 
 > **GEMINI_2_5_PRO**: `"gemini-2.5-pro"`
 
-Defined in: [constants/enums.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L483)
-
 ---
 
 ### GEMINI_2_5_FLASH
 
 > **GEMINI_2_5_FLASH**: `"gemini-2.5-flash"`
-
-Defined in: [constants/enums.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L484)
 
 ---
 
@@ -220,15 +174,11 @@ Defined in: [constants/enums.ts:484](https://github.com/juspay/neurolink/blob/re
 
 > **GEMINI_2_5_FLASH_LITE**: `"gemini-2.5-flash-lite"`
 
-Defined in: [constants/enums.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L485)
-
 ---
 
 ### GEMINI_2_5_FLASH_IMAGE
 
 > **GEMINI_2_5_FLASH_IMAGE**: `"gemini-2.5-flash-image"`
-
-Defined in: [constants/enums.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L486)
 
 ---
 
@@ -236,15 +186,11 @@ Defined in: [constants/enums.ts:486](https://github.com/juspay/neurolink/blob/re
 
 > **GEMINI_2_0_FLASH**: `"gemini-2.0-flash"`
 
-Defined in: [constants/enums.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L489)
-
 ---
 
 ### GEMINI_2_0_FLASH_001
 
 > **GEMINI_2_0_FLASH_001**: `"gemini-2.0-flash-001"`
-
-Defined in: [constants/enums.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L490)
 
 ---
 
@@ -252,15 +198,11 @@ Defined in: [constants/enums.ts:490](https://github.com/juspay/neurolink/blob/re
 
 > **GEMINI_2_0_FLASH_LITE**: `"gemini-2.0-flash-lite"`
 
-Defined in: [constants/enums.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L491)
-
 ---
 
 ### ~~GEMINI_1_5_PRO~~
 
 > **GEMINI_1_5_PRO**: `"gemini-1.5-pro-002"`
-
-Defined in: [constants/enums.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L495)
 
 #### Deprecated
 
@@ -271,8 +213,6 @@ SHUT DOWN. Returns 404. Use GEMINI_2_5_FLASH or newer.
 ### ~~GEMINI_1_5_FLASH~~
 
 > **GEMINI_1_5_FLASH**: `"gemini-1.5-flash-002"`
-
-Defined in: [constants/enums.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L497)
 
 #### Deprecated
 

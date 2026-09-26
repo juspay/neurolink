@@ -8,8 +8,6 @@
 
 > **ClientAgentInfo** = `object`
 
-Defined in: [types/client.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L350)
-
 Agent information
 
 ## Properties
@@ -17,8 +15,6 @@ Agent information
 ### id
 
 > **id**: `string`
-
-Defined in: [types/client.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L352)
 
 Agent ID
 
@@ -28,8 +24,6 @@ Agent ID
 
 > **name**: `string`
 
-Defined in: [types/client.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L354)
-
 Agent name
 
 ---
@@ -37,8 +31,6 @@ Agent name
 ### description
 
 > **description**: `string`
-
-Defined in: [types/client.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L356)
 
 Agent description
 
@@ -48,8 +40,6 @@ Agent description
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/client.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L358)
-
 Available tools for this agent
 
 ---
@@ -57,8 +47,6 @@ Available tools for this agent
 ### capabilities?
 
 > `optional` **capabilities?**: `object`
-
-Defined in: [types/client.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L360)
 
 Agent capabilities
 

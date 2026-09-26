@@ -8,8 +8,6 @@
 
 > **ImageGenToolDefinition** = `object`
 
-Defined in: [types/imageGen.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L316)
-
 Tool definition interface compatible with AI SDK / MCP
 (moved from image-gen/imageGenTools.ts)
 
@@ -19,23 +17,17 @@ Tool definition interface compatible with AI SDK / MCP
 
 > **name**: `string`
 
-Defined in: [types/imageGen.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L317)
-
 ---
 
 ### description
 
 > **description**: `string`
 
-Defined in: [types/imageGen.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L318)
-
 ---
 
 ### inputSchema
 
 > **inputSchema**: `object`
-
-Defined in: [types/imageGen.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L319)
 
 #### type
 
@@ -54,8 +46,6 @@ Defined in: [types/imageGen.ts:319](https://github.com/juspay/neurolink/blob/rel
 ### execute
 
 > **execute**: (`params`, `context?`) => `Promise`\<[`ImageGenToolResponse`](ImageGenToolResponse.md)\>
-
-Defined in: [types/imageGen.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L331)
 
 #### Parameters
 

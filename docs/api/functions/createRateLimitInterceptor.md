@@ -8,8 +8,6 @@
 
 > **createRateLimitInterceptor**(`options`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L435)
-
 Rate limiting interceptor
 
 Limits the rate of requests to prevent overwhelming the API.

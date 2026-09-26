@@ -8,23 +8,17 @@
 
 > **RealtimeHandler** = `object`
 
-Defined in: [types/realtime.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L249)
-
 ## Properties
 
 ### name
 
 > `readonly` **name**: `string`
 
-Defined in: [types/realtime.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L250)
-
 ## Methods
 
 ### connect()
 
 > **connect**(`config`): `Promise`\<[`RealtimeSession`](RealtimeSession.md)\>
-
-Defined in: [types/realtime.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L251)
 
 #### Parameters
 
@@ -42,8 +36,6 @@ Defined in: [types/realtime.ts:251](https://github.com/juspay/neurolink/blob/rel
 
 > **disconnect**(): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L252)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -53,8 +45,6 @@ Defined in: [types/realtime.ts:252](https://github.com/juspay/neurolink/blob/rel
 ### isConnected()
 
 > **isConnected**(): `boolean`
-
-Defined in: [types/realtime.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L253)
 
 #### Returns
 
@@ -66,8 +56,6 @@ Defined in: [types/realtime.ts:253](https://github.com/juspay/neurolink/blob/rel
 
 > **getSession**(): [`RealtimeSession`](RealtimeSession.md) \| `null`
 
-Defined in: [types/realtime.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L254)
-
 #### Returns
 
 [`RealtimeSession`](RealtimeSession.md) \| `null`
@@ -77,8 +65,6 @@ Defined in: [types/realtime.ts:254](https://github.com/juspay/neurolink/blob/rel
 ### sendAudio()
 
 > **sendAudio**(`audio`): `Promise`\<`void`\>
-
-Defined in: [types/realtime.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L255)
 
 #### Parameters
 
@@ -96,8 +82,6 @@ Defined in: [types/realtime.ts:255](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **sendText**(`text`): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L256)
-
 #### Parameters
 
 ##### text
@@ -114,8 +98,6 @@ Defined in: [types/realtime.ts:256](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **triggerResponse**(): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L257)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -126,8 +108,6 @@ Defined in: [types/realtime.ts:257](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **cancelResponse**(): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L258)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -137,8 +117,6 @@ Defined in: [types/realtime.ts:258](https://github.com/juspay/neurolink/blob/rel
 ### on()
 
 > **on**(`handlers`): `void`
-
-Defined in: [types/realtime.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L259)
 
 #### Parameters
 
@@ -156,8 +134,6 @@ Defined in: [types/realtime.ts:259](https://github.com/juspay/neurolink/blob/rel
 
 > **off**(): `void`
 
-Defined in: [types/realtime.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L260)
-
 #### Returns
 
 `void`
@@ -168,8 +144,6 @@ Defined in: [types/realtime.ts:260](https://github.com/juspay/neurolink/blob/rel
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/realtime.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L261)
-
 #### Returns
 
 `boolean`
@@ -179,8 +153,6 @@ Defined in: [types/realtime.ts:261](https://github.com/juspay/neurolink/blob/rel
 ### getSupportedFormats()
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](TTSAudioFormat.md)[]
-
-Defined in: [types/realtime.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L262)
 
 #### Returns
 

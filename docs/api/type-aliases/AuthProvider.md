@@ -8,8 +8,6 @@
 
 > **AuthProvider** = [`AuthTokenValidator`](AuthTokenValidator.md) & [`AuthUserAuthorizer`](AuthUserAuthorizer.md) & [`AuthSessionManager`](AuthSessionManager.md) & [`AuthRequestHandler`](AuthRequestHandler.md) & [`AuthUserManager`](AuthUserManager.md) & [`AuthLifecycle`](AuthLifecycle.md) & `object`
 
-Defined in: [types/auth.ts:1207](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1207)
-
 Base interface for all authentication providers.
 
 Composed from focused sub-types so consumers can depend on only the

@@ -8,8 +8,6 @@
 
 > **ProviderStatusArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L400)
-
 Provider status command arguments
 
 ## Type Declaration

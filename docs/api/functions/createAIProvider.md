@@ -8,8 +8,6 @@
 
 > **createAIProvider**(`providerName?`, `modelName?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [index.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L493)
-
 Quick start factory function for creating AI provider instances.
 
 Creates a configured AI provider instance ready for immediate use.

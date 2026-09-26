@@ -8,8 +8,6 @@
 
 > **AzureTTSOptions** = [`TTSOptions`](TTSOptions.md) & `object`
 
-Defined in: [types/voice.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L451)
-
 ## Type Declaration
 
 ### useSSML?

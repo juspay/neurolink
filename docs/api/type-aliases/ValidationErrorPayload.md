@@ -8,8 +8,6 @@
 
 > **ValidationErrorPayload** = `object`
 
-Defined in: [types/middleware.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L463)
-
 Per-field entry inside a ServerValidationError's `errors` array.
 
 ## Properties
@@ -18,20 +16,14 @@ Per-field entry inside a ServerValidationError's `errors` array.
 
 > **field**: `string`
 
-Defined in: [types/middleware.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L464)
-
 ---
 
 ### message
 
 > **message**: `string`
 
-Defined in: [types/middleware.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L465)
-
 ---
 
 ### value?
 
 > `optional` **value?**: `unknown`
-
-Defined in: [types/middleware.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L466)

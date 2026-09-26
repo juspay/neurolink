@@ -8,8 +8,6 @@
 
 > **createToneConsistencyScorer**(`config?`): `Promise`\<[`ToneConsistencyScorer`](../classes/ToneConsistencyScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/toneConsistencyScorer.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/toneConsistencyScorer.ts#L129)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

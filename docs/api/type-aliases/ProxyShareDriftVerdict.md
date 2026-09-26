@@ -8,8 +8,6 @@
 
 > **ProxyShareDriftVerdict** = \{ `drifted`: `false`; `reason`: `"no_baseline"` \| `"attributable"` \| `"quiet"`; \} \| \{ `drifted`: `true`; `unexplainedSessionPct`: `number`; `unexplainedWeeklyPct`: `number`; `detail`: `string`; \}
 
-Defined in: [types/proxy.ts:4999](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4999)
-
 The verdict of comparing one heartbeat against the account's real movement.
 
 ## Union Members

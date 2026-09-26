@@ -8,8 +8,6 @@
 
 > **ProcessedYaml** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L644)
-
 Processed YAML file result.
 
 ## Type Declaration

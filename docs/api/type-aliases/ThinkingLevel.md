@@ -8,6 +8,4 @@
 
 > **ThinkingLevel** = `"minimal"` \| `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/config.ts:614](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L614)
-
 ThinkingLevel type for Gemini 3 models.

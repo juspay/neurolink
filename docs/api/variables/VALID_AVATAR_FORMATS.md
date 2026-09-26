@@ -8,6 +8,4 @@
 
 > `const` **VALID_AVATAR_FORMATS**: readonly [`AvatarVideoFormat`](../type-aliases/AvatarVideoFormat.md)[]
 
-Defined in: [types/avatar.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L139)
-
 Valid avatar video formats — runtime validation array.

@@ -6,8 +6,6 @@
 
 # Class: STTProcessor
 
-Defined in: [utils/sttProcessor.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L40)
-
 STT processor class for orchestrating speech-to-text operations
 
 Follows the same pattern as TTSProcessor, CSVProcessor, ImageProcessor, and PDFProcessor.
@@ -40,8 +38,6 @@ if (STTProcessor.supports("whisper")) {
 ### registerHandler()
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
-
-Defined in: [utils/sttProcessor.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L80)
 
 Register an STT handler for a specific provider
 
@@ -83,8 +79,6 @@ STTProcessor.registerHandler('whisper', whisperHandler);
 
 > `static` **getHandler**(`providerName`): [`STTHandler`](../type-aliases/STTHandler.md) \| `undefined`
 
-Defined in: [utils/sttProcessor.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L99)
-
 Get a registered STT handler by provider name.
 
 Exposed publicly so module-level auto-registration code can reuse an
@@ -110,8 +104,6 @@ Handler instance or undefined if not registered
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/sttProcessor.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L106)
-
 List the names of all registered providers.
 
 #### Returns
@@ -123,8 +115,6 @@ List the names of all registered providers.
 ### clearHandlers()
 
 > `static` **clearHandlers**(): `void`
-
-Defined in: [utils/sttProcessor.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L114)
 
 Removes every registered STT handler. Primarily for test isolation —
 production code should not need to call this.
@@ -138,8 +128,6 @@ production code should not need to call this.
 ### supports()
 
 > `static` **supports**(`providerName`): `boolean`
-
-Defined in: [utils/sttProcessor.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L131)
 
 Check if a provider is supported (has a registered STT handler)
 
@@ -170,8 +158,6 @@ if (STTProcessor.supports("whisper")) {
 ### transcribe()
 
 > `static` **transcribe**(`audio`, `provider`, `options`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
-
-Defined in: [utils/sttProcessor.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/utils/sttProcessor.ts#L175)
 
 Transcribe audio to text using a registered STT provider
 

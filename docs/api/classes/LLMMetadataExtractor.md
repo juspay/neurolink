@@ -6,8 +6,6 @@
 
 # Class: LLMMetadataExtractor
 
-Defined in: [rag/metadata/metadataExtractor.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/rag/metadata/metadataExtractor.ts#L62)
-
 LLM-powered metadata extractor
 Extracts title, summary, keywords, Q&A pairs, and custom schema data
 
@@ -16,8 +14,6 @@ Extracts title, summary, keywords, Q&A pairs, and custom schema data
 ### Constructor
 
 > **new LLMMetadataExtractor**(`options?`): `LLMMetadataExtractor`
-
-Defined in: [rag/metadata/metadataExtractor.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/rag/metadata/metadataExtractor.ts#L66)
 
 #### Parameters
 
@@ -40,8 +36,6 @@ Defined in: [rag/metadata/metadataExtractor.ts:66](https://github.com/juspay/neu
 ### extract()
 
 > **extract**(`chunks`, `params`): `Promise`\<[`ExtractionResult`](../type-aliases/ExtractionResult.md)[]\>
-
-Defined in: [rag/metadata/metadataExtractor.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/rag/metadata/metadataExtractor.ts#L77)
 
 Extract metadata from chunks based on configuration
 

@@ -8,8 +8,6 @@
 
 > **AudioProviderConfig** = `object`
 
-Defined in: [types/file.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L568)
-
 Audio provider configuration for transcription services
 
 Describes the capabilities and limitations of each audio transcription provider
@@ -45,8 +43,6 @@ const googleConfig: AudioProviderConfig = {
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/file.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L570)
-
 Maximum audio file size in megabytes
 
 ---
@@ -54,8 +50,6 @@ Maximum audio file size in megabytes
 ### maxDurationSeconds
 
 > **maxDurationSeconds**: `number`
-
-Defined in: [types/file.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L572)
 
 Maximum audio duration in seconds
 
@@ -65,8 +59,6 @@ Maximum audio duration in seconds
 
 > **supportedFormats**: `string`[]
 
-Defined in: [types/file.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L574)
-
 Supported audio formats (e.g., 'mp3', 'wav', 'm4a', 'flac', 'ogg')
 
 ---
@@ -74,8 +66,6 @@ Supported audio formats (e.g., 'mp3', 'wav', 'm4a', 'flac', 'ogg')
 ### supportsLanguageDetection
 
 > **supportsLanguageDetection**: `boolean`
-
-Defined in: [types/file.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L576)
 
 Whether the provider supports automatic language detection
 
@@ -85,8 +75,6 @@ Whether the provider supports automatic language detection
 
 > **requiresApiKey**: `boolean`
 
-Defined in: [types/file.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L578)
-
 Whether the provider requires an API key for authentication
 
 ---
@@ -95,8 +83,6 @@ Whether the provider requires an API key for authentication
 
 > `optional` **costPer60s?**: `number`
 
-Defined in: [types/file.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L580)
-
 Optional: Cost per 60 seconds of audio in USD
 
 ---
@@ -104,7 +90,5 @@ Optional: Cost per 60 seconds of audio in USD
 ### costPer15s?
 
 > `optional` **costPer15s?**: `number`
-
-Defined in: [types/file.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L582)
 
 Optional: Cost per 15 seconds of audio in USD

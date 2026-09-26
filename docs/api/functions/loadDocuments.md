@@ -8,8 +8,6 @@
 
 > **loadDocuments**(`sources`, `options?`): `Promise`\<[`MDocument`](../classes/MDocument.md)[]\>
 
-Defined in: [rag/document/loaders.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L674)
-
 Load multiple documents
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **TokenUsageStats** = `object`
 
-Defined in: [types/observability.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L457)
-
 Aggregated token usage statistics
 
 ## Properties
@@ -18,15 +16,11 @@ Aggregated token usage statistics
 
 > **totalInputTokens**: `number`
 
-Defined in: [types/observability.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L458)
-
 ---
 
 ### totalOutputTokens
 
 > **totalOutputTokens**: `number`
-
-Defined in: [types/observability.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L459)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/observability.ts:459](https://github.com/juspay/neurolink/blo
 
 > **totalTokens**: `number`
 
-Defined in: [types/observability.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L460)
-
 ---
 
 ### cacheReadTokens
 
 > **cacheReadTokens**: `number`
-
-Defined in: [types/observability.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L461)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/observability.ts:461](https://github.com/juspay/neurolink/blo
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/observability.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L462)
-
 ---
 
 ### reasoningTokens
 
 > **reasoningTokens**: `number`
-
-Defined in: [types/observability.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L463)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/observability.ts:463](https://github.com/juspay/neurolink/blo
 
 > **totalCost**: `number`
 
-Defined in: [types/observability.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L464)
-
 ---
 
 ### byProvider
 
 > **byProvider**: `Map`\<`string`, [`ProviderTokenStats`](ProviderTokenStats.md)\>
-
-Defined in: [types/observability.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L465)
 
 ---
 
@@ -82,12 +64,8 @@ Defined in: [types/observability.ts:465](https://github.com/juspay/neurolink/blo
 
 > **byModel**: `Map`\<`string`, [`ModelTokenStats`](ModelTokenStats.md)\>
 
-Defined in: [types/observability.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L466)
-
 ---
 
 ### bySpanType
 
 > **bySpanType**: `Map`\<`string`, `number`\>
-
-Defined in: [types/observability.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L467)

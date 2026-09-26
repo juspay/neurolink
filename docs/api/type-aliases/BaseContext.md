@@ -8,8 +8,6 @@
 
 > **BaseContext** = `object`
 
-Defined in: [types/context.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L14)
-
 Base context type for all AI operations
 
 ## Indexable
@@ -22,15 +20,11 @@ Base context type for all AI operations
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L16)
-
 ---
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
-
-Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L17)
 
 ---
 
@@ -38,15 +32,11 @@ Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/context.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L18)
-
 ---
 
 ### userRole?
 
 > `optional` **userRole?**: `string`
-
-Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L21)
 
 ---
 
@@ -54,23 +44,17 @@ Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **userPreferences?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L22)
-
 ---
 
 ### userMetadata?
 
 > `optional` **userMetadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L23)
-
 ---
 
 ### applicationContext?
 
 > `optional` **applicationContext?**: `object`
-
-Defined in: [types/context.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L26)
 
 #### name
 
@@ -90,20 +74,14 @@ Defined in: [types/context.ts:26](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **organizationId?**: `string`
 
-Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L33)
-
 ---
 
 ### departmentId?
 
 > `optional` **departmentId?**: `string`
 
-Defined in: [types/context.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L34)
-
 ---
 
 ### projectId?
 
 > `optional` **projectId?**: `string`
-
-Defined in: [types/context.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L35)

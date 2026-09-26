@@ -8,8 +8,6 @@
 
 > **ToolRoutingConfig** = `object`
 
-Defined in: [types/toolRouting.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L114)
-
 Constructor-level configuration for pre-call tool routing.
 
 ## Properties
@@ -18,8 +16,6 @@ Constructor-level configuration for pre-call tool routing.
 
 > **enabled**: `boolean`
 
-Defined in: [types/toolRouting.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L116)
-
 Master switch. Routing runs only when true AND the server catalog is non-empty.
 
 ---
@@ -27,8 +23,6 @@ Master switch. Routing runs only when true AND the server catalog is non-empty.
 ### servers?
 
 > `optional` **servers?**: [`ToolRoutingServerDescriptor`](ToolRoutingServerDescriptor.md)[]
-
-Defined in: [types/toolRouting.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L122)
 
 Routable server catalog. Hosts that only know their servers after
 constructing NeuroLink can supply it later via
@@ -40,8 +34,6 @@ constructing NeuroLink can supply it later via
 
 > `optional` **alwaysIncludeServerIds?**: `string`[]
 
-Defined in: [types/toolRouting.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L127)
-
 Server ids whose tools are always kept and never offered to the router
 (e.g. utility / reasoning / chart servers every turn may need).
 
@@ -51,8 +43,6 @@ Server ids whose tools are always kept and never offered to the router
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/toolRouting.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L129)
-
 Hard ceiling for the router LLM call before failing open. Default: 15000.
 
 ---
@@ -61,8 +51,6 @@ Hard ceiling for the router LLM call before failing open. Default: 15000.
 
 > `optional` **routerModel?**: [`ToolRoutingModelConfig`](ToolRoutingModelConfig.md)
 
-Defined in: [types/toolRouting.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L131)
-
 Router LLM override. Defaults to the stream call's provider/model/region at temperature 0.
 
 ---
@@ -70,8 +58,6 @@ Router LLM override. Defaults to the stream call's provider/model/region at temp
 ### routerPromptPrefix?
 
 > `optional` **routerPromptPrefix?**: `string`
-
-Defined in: [types/toolRouting.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L138)
 
 Override for the instruction text placed before the user query in the
 router prompt (role + task framing). When omitted, the SDK built-in
@@ -83,8 +69,6 @@ always appended by the SDK regardless of this value.
 ### cache?
 
 > `optional` **cache?**: `object`
-
-Defined in: [types/toolRouting.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L144)
 
 LRU+TTL cache for routing decisions. When enabled, identical routing
 queries within the TTL window skip the router LLM entirely and reuse
@@ -114,8 +98,6 @@ Maximum number of entries in the LRU cache. Default: 256.
 
 > `optional` **stickiness?**: `object`
 
-Defined in: [types/toolRouting.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L157)
-
 Session stickiness: once the router picks a set of servers for a session,
 those servers are kept warm (not excluded) for the next N turns to prevent
 flapping.
@@ -138,8 +120,6 @@ Number of turns for which a previously-selected server stays warm. Default: 3.
 
 > `optional` **embedding?**: [`ToolRoutingEmbeddingConfig`](ToolRoutingEmbeddingConfig.md)
 
-Defined in: [types/toolRouting.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L169)
-
 L2 embedding fast-path (ITEM B). When enabled the SDK ranks tools by
 semantic + lexical relevance using a hybrid cosine/BM25 score and narrows
 the candidate set BEFORE (or instead of) the LLM router. Disabled by
@@ -150,8 +130,6 @@ default for backward compatibility.
 ### granularity?
 
 > `optional` **granularity?**: `"server"` \| `"tool"`
-
-Defined in: [types/toolRouting.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L180)
 
 Routing granularity (ITEM D).
 
@@ -167,8 +145,6 @@ Routing granularity (ITEM D).
 ### minDropConfidence?
 
 > `optional` **minDropConfidence?**: `number`
-
-Defined in: [types/toolRouting.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L191)
 
 How confidently a decision model must rule a server OUT before its tools
 are withheld. Default 0.6.

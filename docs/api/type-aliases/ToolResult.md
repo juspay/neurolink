@@ -8,8 +8,6 @@
 
 > **ToolResult**\<`T`\> = [`Result`](Result.md)\<`T`, [`ErrorInfo`](ErrorInfo.md) \| `string`\> & `object`
 
-Defined in: [types/tools.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L346)
-
 Tool execution result
 
 ## Type Declaration

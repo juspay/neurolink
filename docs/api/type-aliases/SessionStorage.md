@@ -8,8 +8,6 @@
 
 > **SessionStorage** = `object`
 
-Defined in: [types/auth.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L292)
-
 Session storage interface
 
 ## Methods
@@ -17,8 +15,6 @@ Session storage interface
 ### get()
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
-
-Defined in: [types/auth.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L294)
 
 Get a session by ID
 
@@ -38,8 +34,6 @@ Get a session by ID
 
 > **save**(`session`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L296)
-
 Save a session
 
 #### Parameters
@@ -57,8 +51,6 @@ Save a session
 ### delete()
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L298)
 
 Delete a session
 
@@ -78,8 +70,6 @@ Delete a session
 
 > **deleteAllForUser**(`userId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L300)
-
 Delete all sessions for a user
 
 #### Parameters
@@ -97,8 +87,6 @@ Delete all sessions for a user
 ### getForUser()
 
 > **getForUser**(`userId`): `Promise`\<[`AuthSession`](AuthSession.md)[]\>
-
-Defined in: [types/auth.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L302)
 
 Get all sessions for a user
 
@@ -118,8 +106,6 @@ Get all sessions for a user
 
 > **exists**(`sessionId`): `Promise`\<`boolean`\>
 
-Defined in: [types/auth.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L304)
-
 Check if a session exists
 
 #### Parameters
@@ -138,8 +124,6 @@ Check if a session exists
 
 > **touch**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L306)
-
 Update session last activity
 
 #### Parameters
@@ -157,8 +141,6 @@ Update session last activity
 ### clear()
 
 > **clear**(): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L308)
 
 Clear all sessions
 

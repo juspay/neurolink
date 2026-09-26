@@ -6,8 +6,6 @@
 
 # Class: GraphRAG
 
-Defined in: [rag/graphRag/graphRAG.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L29)
-
 Graph-based Retrieval Augmented Generation
 
 Creates a knowledge graph from document chunks where nodes represent
@@ -19,8 +17,6 @@ embedding similarity.
 ### Constructor
 
 > **new GraphRAG**(`config?`): `GraphRAG`
-
-Defined in: [rag/graphRag/graphRAG.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L35)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [rag/graphRag/graphRAG.ts:35](https://github.com/juspay/neurolink/bl
 ### createGraph()
 
 > **createGraph**(`chunks`, `embeddings`): `void`
-
-Defined in: [rag/graphRag/graphRAG.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L46)
 
 Create a knowledge graph from document chunks and embeddings
 
@@ -66,8 +60,6 @@ Corresponding embedding vectors
 
 > **query**(`params`): [`RankedNode`](../type-aliases/RankedNode.md)[]
 
-Defined in: [rag/graphRag/graphRAG.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L122)
-
 Query the graph using random walk with restart
 
 #### Parameters
@@ -89,8 +81,6 @@ Ranked nodes by relevance
 ### addNode()
 
 > **addNode**(`chunk`, `embedding`): `string`
-
-Defined in: [rag/graphRag/graphRAG.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L224)
 
 Add a single node to the graph
 
@@ -120,8 +110,6 @@ Node ID
 
 > **removeNode**(`id`): `boolean`
 
-Defined in: [rag/graphRag/graphRAG.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L280)
-
 Remove a node and its edges from the graph
 
 #### Parameters
@@ -144,8 +132,6 @@ True if node was removed
 
 > **getStats**(): [`GraphStats`](../type-aliases/GraphStats.md)
 
-Defined in: [rag/graphRag/graphRAG.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L303)
-
 Get graph statistics
 
 #### Returns
@@ -157,8 +143,6 @@ Get graph statistics
 ### getNode()
 
 > **getNode**(`id`): [`GraphNode`](../type-aliases/GraphNode.md) \| `undefined`
-
-Defined in: [rag/graphRag/graphRAG.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L320)
 
 Get a node by ID
 
@@ -178,8 +162,6 @@ Get a node by ID
 
 > **getAllNodes**(): [`GraphNode`](../type-aliases/GraphNode.md)[]
 
-Defined in: [rag/graphRag/graphRAG.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L327)
-
 Get all nodes
 
 #### Returns
@@ -191,8 +173,6 @@ Get all nodes
 ### getEdges()
 
 > **getEdges**(`nodeId`): [`GraphEdge`](../type-aliases/GraphEdge.md)[]
-
-Defined in: [rag/graphRag/graphRAG.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L334)
 
 Get edges for a node
 
@@ -212,8 +192,6 @@ Get edges for a node
 
 > **findConnectedComponents**(): `string`[][]
 
-Defined in: [rag/graphRag/graphRAG.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L341)
-
 Find connected components in the graph
 
 #### Returns
@@ -225,8 +203,6 @@ Find connected components in the graph
 ### updateThreshold()
 
 > **updateThreshold**(`threshold`): `void`
-
-Defined in: [rag/graphRag/graphRAG.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L428)
 
 Update similarity threshold and rebuild edges
 
@@ -245,8 +221,6 @@ Update similarity threshold and rebuild edges
 ### toJSON()
 
 > **toJSON**(): `object`
-
-Defined in: [rag/graphRag/graphRAG.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L476)
 
 Serialize graph to JSON
 
@@ -279,8 +253,6 @@ Serialize graph to JSON
 ### fromJSON()
 
 > `static` **fromJSON**(`json`): `GraphRAG`
-
-Defined in: [rag/graphRag/graphRAG.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/rag/graphRag/graphRAG.ts#L497)
 
 Load graph from JSON
 

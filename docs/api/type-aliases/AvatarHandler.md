@@ -8,8 +8,6 @@
 
 > **AvatarHandler** = `object`
 
-Defined in: [types/avatar.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L120)
-
 Handler contract for avatar / lip-sync providers.
 
 Implementations enforce their own timeouts. Recommended:
@@ -23,8 +21,6 @@ Implementations enforce their own timeouts. Recommended:
 
 > `readonly` `optional` **maxAudioDurationSeconds?**: `number`
 
-Defined in: [types/avatar.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L130)
-
 Maximum supported audio length in seconds (provider-specific).
 
 ---
@@ -33,8 +29,6 @@ Maximum supported audio length in seconds (provider-specific).
 
 > `readonly` `optional` **supportedFormats?**: readonly [`AvatarVideoFormat`](AvatarVideoFormat.md)[]
 
-Defined in: [types/avatar.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L133)
-
 Output formats supported by this handler.
 
 ## Methods
@@ -42,8 +36,6 @@ Output formats supported by this handler.
 ### generate()
 
 > **generate**(`options`): `Promise`\<[`AvatarResult`](AvatarResult.md)\>
-
-Defined in: [types/avatar.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L124)
 
 Generate a talking-head video from an image + audio (or pre-rendered text).
 
@@ -62,8 +54,6 @@ Generate a talking-head video from an image + audio (or pre-rendered text).
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [types/avatar.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L127)
 
 Validate the provider is configured (auth, base URL, etc.).
 

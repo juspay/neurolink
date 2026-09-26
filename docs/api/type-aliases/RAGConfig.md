@@ -8,8 +8,6 @@
 
 > **RAGConfig** = `object`
 
-Defined in: [types/rag.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L738)
-
 RAG configuration for generate() and stream() APIs.
 
 When provided, NeuroLink automatically:
@@ -41,8 +39,6 @@ const result = await neurolink.generate({
 
 > **files**: `string`[]
 
-Defined in: [types/rag.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L740)
-
 File paths to load and index for retrieval
 
 ---
@@ -50,8 +46,6 @@ File paths to load and index for retrieval
 ### strategy?
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
-
-Defined in: [types/rag.ts:746](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L746)
 
 Chunking strategy to use. If not specified, auto-detected from file extension.
 
@@ -67,8 +61,6 @@ Chunking strategy to use. If not specified, auto-detected from file extension.
 
 > `optional` **chunkSize?**: `number`
 
-Defined in: [types/rag.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L752)
-
 Maximum chunk size in characters.
 
 #### Default
@@ -82,8 +74,6 @@ Maximum chunk size in characters.
 ### chunkOverlap?
 
 > `optional` **chunkOverlap?**: `number`
-
-Defined in: [types/rag.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L758)
 
 Overlap between adjacent chunks in characters.
 
@@ -99,8 +89,6 @@ Overlap between adjacent chunks in characters.
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L764)
-
 Number of top results to retrieve per query.
 
 #### Default
@@ -114,8 +102,6 @@ Number of top results to retrieve per query.
 ### toolName?
 
 > `optional` **toolName?**: `string`
-
-Defined in: [types/rag.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L770)
 
 Tool name visible to the AI model.
 
@@ -131,8 +117,6 @@ Tool name visible to the AI model.
 
 > `optional` **toolDescription?**: `string`
 
-Defined in: [types/rag.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L776)
-
 Tool description for the AI model explaining what the knowledge base contains.
 
 #### Default
@@ -147,8 +131,6 @@ Tool description for the AI model explaining what the knowledge base contains.
 
 > `optional` **embeddingProvider?**: `string`
 
-Defined in: [types/rag.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L782)
-
 Embedding model provider for generating embeddings.
 Defaults to the same provider used for generation.
 
@@ -157,8 +139,6 @@ Defaults to the same provider used for generation.
 ### embeddingModel?
 
 > `optional` **embeddingModel?**: `string`
-
-Defined in: [types/rag.ts:788](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L788)
 
 Embedding model name.
 Defaults to the provider's default embedding model.

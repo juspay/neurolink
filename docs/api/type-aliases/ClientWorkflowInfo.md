@@ -8,8 +8,6 @@
 
 > **ClientWorkflowInfo** = `object`
 
-Defined in: [types/client.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L417)
-
 Workflow information
 
 ## Properties
@@ -17,8 +15,6 @@ Workflow information
 ### id
 
 > **id**: `string`
-
-Defined in: [types/client.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L419)
 
 Workflow ID
 
@@ -28,8 +24,6 @@ Workflow ID
 
 > **name**: `string`
 
-Defined in: [types/client.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L421)
-
 Workflow name
 
 ---
@@ -37,8 +31,6 @@ Workflow name
 ### description
 
 > **description**: `string`
-
-Defined in: [types/client.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L423)
 
 Workflow description
 
@@ -48,8 +40,6 @@ Workflow description
 
 > **version**: `string`
 
-Defined in: [types/client.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L425)
-
 Workflow version
 
 ---
@@ -57,8 +47,6 @@ Workflow version
 ### steps?
 
 > `optional` **steps?**: `object`[]
-
-Defined in: [types/client.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L427)
 
 Steps in the workflow
 

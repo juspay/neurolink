@@ -8,8 +8,6 @@
 
 > **createSessionStorage**(`config`): [`SessionManagerStorage`](../type-aliases/SessionManagerStorage.md)
 
-Defined in: [auth/sessionManager.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L629)
-
 Create session storage based on configuration
 
 ## Parameters

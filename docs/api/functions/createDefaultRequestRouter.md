@@ -8,8 +8,6 @@
 
 > **createDefaultRequestRouter**(`config?`): [`RequestRouter`](../type-aliases/RequestRouter.md)
 
-Defined in: [routing/requestRouter.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/routing/requestRouter.ts#L73)
-
 Creates a heuristic `RequestRouter` from a `DefaultRequestRouterConfig`.
 
 ## Parameters

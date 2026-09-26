@@ -8,8 +8,6 @@
 
 > **UseVoiceReturn** = `object`
 
-Defined in: [types/client.ts:746](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L746)
-
 useVoice hook return type
 
 ## Properties
@@ -17,8 +15,6 @@ useVoice hook return type
 ### startListening
 
 > **startListening**: () => `void`
-
-Defined in: [types/client.ts:748](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L748)
 
 Start listening for voice input
 
@@ -32,8 +28,6 @@ Start listening for voice input
 
 > **stopListening**: () => `void`
 
-Defined in: [types/client.ts:750](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L750)
-
 Stop listening
 
 #### Returns
@@ -45,8 +39,6 @@ Stop listening
 ### speak
 
 > **speak**: (`text`) => `Promise`\<`void`\>
-
-Defined in: [types/client.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L752)
 
 Speak text
 
@@ -66,8 +58,6 @@ Speak text
 
 > **stopSpeaking**: () => `void`
 
-Defined in: [types/client.ts:754](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L754)
-
 Stop speaking
 
 #### Returns
@@ -79,8 +69,6 @@ Stop speaking
 ### submit
 
 > **submit**: (`text`) => `Promise`\<`string`\>
-
-Defined in: [types/client.ts:756](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L756)
 
 Submit voice input
 
@@ -100,8 +88,6 @@ Submit voice input
 
 > **isListening**: `boolean`
 
-Defined in: [types/client.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L758)
-
 Whether currently listening
 
 ---
@@ -109,8 +95,6 @@ Whether currently listening
 ### isSpeaking
 
 > **isSpeaking**: `boolean`
-
-Defined in: [types/client.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L760)
 
 Whether currently speaking
 
@@ -120,8 +104,6 @@ Whether currently speaking
 
 > **isProcessing**: `boolean`
 
-Defined in: [types/client.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L762)
-
 Whether processing
 
 ---
@@ -129,8 +111,6 @@ Whether processing
 ### transcript
 
 > **transcript**: `string`
-
-Defined in: [types/client.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L764)
 
 Current transcript
 
@@ -140,8 +120,6 @@ Current transcript
 
 > **response**: `string` \| `null`
 
-Defined in: [types/client.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L766)
-
 Last response
 
 ---
@@ -150,8 +128,6 @@ Last response
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L768)
-
 Error state
 
 ---
@@ -159,7 +135,5 @@ Error state
 ### isSupported
 
 > **isSupported**: `boolean`
-
-Defined in: [types/client.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L770)
 
 Supported by browser

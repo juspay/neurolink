@@ -8,8 +8,6 @@
 
 > **ModelPricingInfo** = `object`
 
-Defined in: [types/model.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L137)
-
 Model pricing information
 
 ## Properties
@@ -18,20 +16,14 @@ Model pricing information
 
 > **inputCostPer1K**: `number`
 
-Defined in: [types/model.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L138)
-
 ---
 
 ### outputCostPer1K
 
 > **outputCostPer1K**: `number`
 
-Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L139)
-
 ---
 
 ### currency
 
 > **currency**: `string`
-
-Defined in: [types/model.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L140)

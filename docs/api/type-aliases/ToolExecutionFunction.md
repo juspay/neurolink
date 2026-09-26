@@ -8,8 +8,6 @@
 
 > **ToolExecutionFunction**\<`TParams`, `TResult`\> = (`params`, `context?`) => `Promise`\<`TResult`\>
 
-Defined in: [types/aliases.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L111)
-
 Tool execution function with context
 Standard pattern for MCP tool execution
 

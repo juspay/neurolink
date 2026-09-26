@@ -8,8 +8,6 @@
 
 > **RealtimeVoiceProvider** = `object`
 
-Defined in: [types/realtime.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L213)
-
 Realtime voice provider type (bidirectional audio)
 
 ## Properties
@@ -18,8 +16,6 @@ Realtime voice provider type (bidirectional audio)
 
 > `readonly` **name**: `string`
 
-Defined in: [types/realtime.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L215)
-
 Provider name identifier
 
 ## Methods
@@ -27,8 +23,6 @@ Provider name identifier
 ### getCapabilities()
 
 > **getCapabilities**(): `RealtimeProviderCapability`[]
-
-Defined in: [types/realtime.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L217)
 
 Get supported capabilities
 
@@ -42,8 +36,6 @@ Get supported capabilities
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/realtime.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L219)
-
 Check if provider is properly configured
 
 #### Returns
@@ -55,8 +47,6 @@ Check if provider is properly configured
 ### validateConfig()
 
 > **validateConfig**(): `Promise`\<\{ `valid`: `boolean`; `errors`: `string`[]; \}\>
-
-Defined in: [types/realtime.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L221)
 
 Validate provider configuration
 
@@ -70,8 +60,6 @@ Validate provider configuration
 
 > `optional` **getOptionsSchema**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [types/realtime.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L223)
-
 Get provider-specific options schema
 
 #### Returns
@@ -83,8 +71,6 @@ Get provider-specific options schema
 ### connect()
 
 > **connect**(`config`): `Promise`\<[`RealtimeSession`](RealtimeSession.md)\>
-
-Defined in: [types/realtime.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L227)
 
 Create a new realtime session
 
@@ -104,8 +90,6 @@ Create a new realtime session
 
 > **isConnected**(): `boolean`
 
-Defined in: [types/realtime.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L232)
-
 Check if connected
 
 #### Returns
@@ -118,8 +102,6 @@ Check if connected
 
 > **disconnect**(): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L237)
-
 Disconnect from realtime session
 
 #### Returns
@@ -131,8 +113,6 @@ Disconnect from realtime session
 ### getSessionConfig()
 
 > **getSessionConfig**(): [`RealtimeConfig`](RealtimeConfig.md) \| `null`
-
-Defined in: [types/realtime.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L242)
 
 Get current session configuration
 

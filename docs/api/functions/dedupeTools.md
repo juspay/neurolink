@@ -8,8 +8,6 @@
 
 > **dedupeTools**\<`T`\>(`tools`, `options`): [`ToolDedupResult`](../type-aliases/ToolDedupResult.md)\<`Record`\<`string`, `T`\>\>
 
-Defined in: [core/toolDedup.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolDedup.ts#L157)
-
 Collapse near-duplicate tools in a name→Tool record.
 
 When `options.enabled` is falsy (the default), returns the original record

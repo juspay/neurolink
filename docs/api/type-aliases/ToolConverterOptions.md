@@ -8,8 +8,6 @@
 
 > **ToolConverterOptions** = `object`
 
-Defined in: [types/mcp.ts:2233](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2233)
-
 Tool converter options
 
 ## Properties
@@ -17,8 +15,6 @@ Tool converter options
 ### inferAnnotations?
 
 > `optional` **inferAnnotations?**: `boolean`
-
-Defined in: [types/mcp.ts:2237](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2237)
 
 Automatically infer annotations from tool definition
 
@@ -28,8 +24,6 @@ Automatically infer annotations from tool definition
 
 > `optional` **defaultAnnotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
 
-Defined in: [types/mcp.ts:2242](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2242)
-
 Default annotations to apply
 
 ---
@@ -38,8 +32,6 @@ Default annotations to apply
 
 > `optional` **preserveMetadata?**: `boolean`
 
-Defined in: [types/mcp.ts:2247](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2247)
-
 Whether to preserve original metadata
 
 ---
@@ -47,7 +39,5 @@ Whether to preserve original metadata
 ### namespacePrefix?
 
 > `optional` **namespacePrefix?**: `string`
-
-Defined in: [types/mcp.ts:2252](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2252)
 
 Namespace prefix for tool names

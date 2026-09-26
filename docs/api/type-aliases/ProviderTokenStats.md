@@ -8,8 +8,6 @@
 
 > **ProviderTokenStats** = `object`
 
-Defined in: [types/observability.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L431)
-
 Token usage statistics by provider
 
 ## Properties
@@ -18,15 +16,11 @@ Token usage statistics by provider
 
 > **provider**: `string`
 
-Defined in: [types/observability.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L432)
-
 ---
 
 ### inputTokens
 
 > **inputTokens**: `number`
-
-Defined in: [types/observability.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L433)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/observability.ts:433](https://github.com/juspay/neurolink/blo
 
 > **outputTokens**: `number`
 
-Defined in: [types/observability.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L434)
-
 ---
 
 ### totalTokens
 
 > **totalTokens**: `number`
-
-Defined in: [types/observability.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L435)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/observability.ts:435](https://github.com/juspay/neurolink/blo
 
 > **cost**: `number`
 
-Defined in: [types/observability.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L436)
-
 ---
 
 ### requestCount
 
 > **requestCount**: `number`
-
-Defined in: [types/observability.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L437)

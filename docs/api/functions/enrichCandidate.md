@@ -8,8 +8,6 @@
 
 > **enrichCandidate**(`id`, `member`, `difficulty`, `registry?`): [`ClassifierCandidate`](../type-aliases/ClassifierCandidate.md)
 
-Defined in: [routing/modelCatalog.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelCatalog.ts#L312)
-
 Enrich a pool member into a classifier candidate, pulling registry metadata
 the member did not declare.
 

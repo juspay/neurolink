@@ -8,8 +8,6 @@
 
 > `const` **AGGRESSIVE_FALLBACK_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/fallbackWorkflow.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/fallbackWorkflow.ts#L157)
-
 Aggressive Fallback Workflow
 
 More aggressive fallback with parallel premium tier:

@@ -8,8 +8,6 @@
 
 > **WhisperSTTOptions** = [`STTOptions`](STTOptions.md) & `object`
 
-Defined in: [types/stt.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L382)
-
 ## Type Declaration
 
 ### model?

@@ -8,8 +8,6 @@
 
 > **createResponseTransformInterceptor**(`transform`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L499)
-
 Response transformation interceptor
 
 Transform response before returning.

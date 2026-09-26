@@ -8,6 +8,4 @@
 
 > **ElicitationType** = `"confirmation"` \| `"text"` \| `"select"` \| `"multiselect"` \| `"form"` \| `"file"` \| `"secret"`
 
-Defined in: [types/elicitation.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L16)
-
 Elicitation request types

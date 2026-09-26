@@ -8,8 +8,6 @@
 
 > **parseAllowedModels**(`message`): `string`[] \| `undefined`
 
-Defined in: [types/errors.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L294)
-
 Parse the `allowed_models` array out of a provider error message body.
 Currently targets the LiteLLM team-whitelist response shape:
 

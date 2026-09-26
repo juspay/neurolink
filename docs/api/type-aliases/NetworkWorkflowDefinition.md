@@ -8,8 +8,6 @@
 
 > **NetworkWorkflowDefinition** = `object`
 
-Defined in: [types/agentNetwork.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L223)
-
 Workflow definition config
 
 ## Properties
@@ -18,15 +16,11 @@ Workflow definition config
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L224)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/agentNetwork.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L225)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/agentNetwork.ts:225](https://github.com/juspay/neurolink/blob
 
 > **description**: `string`
 
-Defined in: [types/agentNetwork.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L226)
-
 ---
 
 ### inputSchema?
 
 > `optional` **inputSchema?**: `z.ZodSchema`
-
-Defined in: [types/agentNetwork.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L227)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/agentNetwork.ts:227](https://github.com/juspay/neurolink/blob
 
 > `optional` **outputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L228)
-
 ---
 
 ### workflow
 
 > **workflow**: [`NetworkWorkflow`](NetworkWorkflow.md)
-
-Defined in: [types/agentNetwork.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L229)

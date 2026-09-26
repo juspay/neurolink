@@ -8,8 +8,6 @@
 
 > **ElicitationHandler** = (`request`) => `Promise`\<[`ElicitationResponse`](ElicitationResponse.md)\>
 
-Defined in: [types/elicitation.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L259)
-
 Elicitation handler function type
 
 ## Parameters

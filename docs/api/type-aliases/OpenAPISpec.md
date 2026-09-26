@@ -8,8 +8,6 @@
 
 > **OpenAPISpec** = `object`
 
-Defined in: [types/server.ts:1382](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1382)
-
 Structured OpenAPI 3.1 specification object.
 
 ## Properties
@@ -18,15 +16,11 @@ Structured OpenAPI 3.1 specification object.
 
 > **openapi**: `"3.1.0"`
 
-Defined in: [types/server.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1383)
-
 ---
 
 ### info
 
 > **info**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/server.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1384)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/server.ts:1384](https://github.com/juspay/neurolink/blob/rele
 
 > **servers**: [`JsonObject`](JsonObject.md)[]
 
-Defined in: [types/server.ts:1385](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1385)
-
 ---
 
 ### tags
 
 > **tags**: [`JsonObject`](JsonObject.md)[]
-
-Defined in: [types/server.ts:1386](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1386)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/server.ts:1386](https://github.com/juspay/neurolink/blob/rele
 
 > **paths**: `Record`\<`string`, [`JsonObject`](JsonObject.md)\>
 
-Defined in: [types/server.ts:1387](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1387)
-
 ---
 
 ### components
 
 > **components**: `object`
-
-Defined in: [types/server.ts:1388](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1388)
 
 #### schemas
 
@@ -77,5 +63,3 @@ Defined in: [types/server.ts:1388](https://github.com/juspay/neurolink/blob/rele
 ### security?
 
 > `optional` **security?**: [`JsonObject`](JsonObject.md)[]
-
-Defined in: [types/server.ts:1393](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1393)

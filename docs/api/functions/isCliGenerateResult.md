@@ -8,8 +8,6 @@
 
 > **isCliGenerateResult**(`value`): `value is CliGenerateResult`
 
-Defined in: [types/cli.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L600)
-
 Type guard for generate result
 
 ## Parameters

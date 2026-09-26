@@ -8,6 +8,4 @@
 
 > **ProxyHistoryField** = `"messages"` \| `"input"` \| `"conversationMessages"`
 
-Defined in: [types/proxyContext.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L54)
-
 The history container a proxy body carries.

@@ -8,8 +8,6 @@
 
 > **isNeuroLinkError**(`error`): `error is ClientNeuroLinkError`
 
-Defined in: [client/errors.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L757)
-
 Type guard for NeuroLinkError
 
 ## Parameters

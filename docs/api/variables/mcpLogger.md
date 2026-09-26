@@ -8,8 +8,6 @@
 
 > `const` **mcpLogger**: `NeuroLinkLogger` = `neuroLinkLogger`
 
-Defined in: [utils/logger.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/utils/logger.ts#L585)
-
 MCP compatibility exports - all use the same unified logger instance.
 These exports maintain backward compatibility with code that expects
 separate loggers for different MCP components, while actually using

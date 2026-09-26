@@ -6,8 +6,6 @@
 
 # Class: JWTTokenManager
 
-Defined in: [client/auth.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L198)
-
 JWT Token Manager with automatic refresh
 
 Manages JWT tokens with automatic refresh using a provided refresh function.
@@ -34,8 +32,6 @@ const tokenManager = new JWTTokenManager({
 ### Constructor
 
 > **new JWTTokenManager**(`config`): `JWTTokenManager`
-
-Defined in: [client/auth.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L204)
 
 #### Parameters
 
@@ -67,8 +63,6 @@ Defined in: [client/auth.ts:204](https://github.com/juspay/neurolink/blob/releas
 
 > **getToken**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L220)
-
 Get a valid access token
 
 #### Returns
@@ -81,8 +75,6 @@ Get a valid access token
 
 > **forceRefresh**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L240)
-
 Force token refresh
 
 #### Returns
@@ -94,8 +86,6 @@ Force token refresh
 ### setToken()
 
 > **setToken**(`token`, `expiresAt`): `void`
-
-Defined in: [client/auth.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L252)
 
 Update token manually
 
@@ -118,8 +108,6 @@ Update token manually
 ### isValid()
 
 > **isValid**(): `boolean`
-
-Defined in: [client/auth.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L260)
 
 Check if token is valid
 

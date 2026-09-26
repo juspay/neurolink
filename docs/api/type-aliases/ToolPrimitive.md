@@ -8,8 +8,6 @@
 
 > **ToolPrimitive** = [`NetworkPrimitive`](NetworkPrimitive.md) & `object`
 
-Defined in: [types/agentNetwork.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L253)
-
 Tool as a network primitive
 
 ## Type Declaration

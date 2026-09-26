@@ -8,8 +8,6 @@
 
 > **getVideoProviderConfig**(`provider`, `model?`): [`VideoProviderConfig`](../type-aliases/VideoProviderConfig.md) \| `null`
 
-Defined in: [adapters/videoFormatSupport.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/videoFormatSupport.ts#L292)
-
 The video-handling row for `provider`, or null when there is none.
 
 Null means "not described here", which is not the same as "takes frames":

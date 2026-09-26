@@ -8,8 +8,6 @@
 
 > **StreamingClientConfig** = `object`
 
-Defined in: [types/client.ts:1549](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1549)
-
 Streaming client configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Streaming client configuration
 ### baseUrl
 
 > **baseUrl**: `string`
-
-Defined in: [types/client.ts:1551](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1551)
 
 Base URL for the API
 
@@ -28,8 +24,6 @@ Base URL for the API
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/client.ts:1553](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1553)
-
 API key
 
 ---
@@ -37,8 +31,6 @@ API key
 ### token?
 
 > `optional` **token?**: `string`
-
-Defined in: [types/client.ts:1555](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1555)
 
 Bearer token
 
@@ -48,8 +40,6 @@ Bearer token
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:1557](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1557)
-
 Default headers
 
 ---
@@ -57,7 +47,5 @@ Default headers
 ### transport?
 
 > `optional` **transport?**: `"sse"` \| `"websocket"`
-
-Defined in: [types/client.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1559)
 
 Preferred transport: 'sse' or 'websocket'

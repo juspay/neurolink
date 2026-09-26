@@ -8,8 +8,6 @@
 
 > **AiSdkStreamChunk** = `object`
 
-Defined in: [types/client.ts:1617](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1617)
-
 Internal stream chunk format used by the AI-SDK adapter's push/pull queue.
 Distinct from the public NeuroLink `StreamChunk` (stream.ts) — this one
 mirrors the underlying `ai` package event shape (text-delta / finish).
@@ -20,15 +18,11 @@ mirrors the underlying `ai` package event shape (text-delta / finish).
 
 > **type**: `"text-delta"` \| `"finish"`
 
-Defined in: [types/client.ts:1618](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1618)
-
 ---
 
 ### textDelta?
 
 > `optional` **textDelta?**: `string`
-
-Defined in: [types/client.ts:1619](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1619)
 
 ---
 
@@ -36,15 +30,11 @@ Defined in: [types/client.ts:1619](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/client.ts:1620](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1620)
-
 ---
 
 ### usage?
 
 > `optional` **usage?**: `object`
-
-Defined in: [types/client.ts:1621](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1621)
 
 #### promptTokens
 

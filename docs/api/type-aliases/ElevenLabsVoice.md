@@ -8,15 +8,11 @@
 
 > **ElevenLabsVoice** = `object`
 
-Defined in: [types/stt.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L596)
-
 ## Properties
 
 ### voice_id
 
 > **voice_id**: `string`
-
-Defined in: [types/stt.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L597)
 
 ---
 
@@ -24,23 +20,17 @@ Defined in: [types/stt.ts:597](https://github.com/juspay/neurolink/blob/release/
 
 > **name**: `string`
 
-Defined in: [types/stt.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L598)
-
 ---
 
 ### category
 
 > **category**: `string`
 
-Defined in: [types/stt.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L599)
-
 ---
 
 ### labels?
 
 > `optional` **labels?**: `object`
-
-Defined in: [types/stt.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L600)
 
 #### accent?
 
@@ -67,5 +57,3 @@ Defined in: [types/stt.ts:600](https://github.com/juspay/neurolink/blob/release/
 ### preview_url?
 
 > `optional` **preview_url?**: `string`
-
-Defined in: [types/stt.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L607)

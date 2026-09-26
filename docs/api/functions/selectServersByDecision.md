@@ -8,8 +8,6 @@
 
 > **selectServersByDecision**(`userQuery`, `routableServers`, `decide`, `options?`): `Promise`\<[`ToolRoutingDecisionOutcome`](../type-aliases/ToolRoutingDecisionOutcome.md) \| `null`\>
 
-Defined in: [core/toolRoutingDecision.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingDecision.ts#L108)
-
 Ask one yes/no question per routable server and return the servers to keep.
 
 Returns `null` when the caller should fall through to its existing path:

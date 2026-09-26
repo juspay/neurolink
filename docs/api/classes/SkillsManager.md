@@ -6,15 +6,11 @@
 
 # Class: SkillsManager
 
-Defined in: [skills/skillsManager.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L37)
-
 ## Constructors
 
 ### Constructor
 
 > **new SkillsManager**(`config`): `SkillsManager`
-
-Defined in: [skills/skillsManager.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L46)
 
 #### Parameters
 
@@ -32,8 +28,6 @@ Defined in: [skills/skillsManager.ts:46](https://github.com/juspay/neurolink/blo
 
 > `readonly` **sessions**: `SkillSessionTracker`
 
-Defined in: [skills/skillsManager.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L44)
-
 Per-session activation state (pinned skills).
 
 ## Accessors
@@ -43,8 +37,6 @@ Per-session activation state (pinned skills).
 #### Get Signature
 
 > **get** **mutationsAllowed**(): `boolean`
-
-Defined in: [skills/skillsManager.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L212)
 
 Whether skill create/update/delete is enabled on this instance. Gates the
 LLM-facing `skill_*` tools (registration) and the server REST mutation
@@ -60,8 +52,6 @@ gated, so a host can still seed skills at startup.
 ### getIndex()
 
 > **getIndex**(`forceRefresh?`): `Promise`\<[`SkillIndexItem`](../type-aliases/SkillIndexItem.md)[]\>
-
-Defined in: [skills/skillsManager.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L55)
 
 Cached index read, sorted by name. TTL 0 disables caching. Sorting
 here (not per render) keeps every downstream listing byte-stable
@@ -83,8 +73,6 @@ regardless of store enumeration order.
 
 > **search**(`query`): `Promise`\<[`SkillDefinition`](../type-aliases/SkillDefinition.md)[]\>
 
-Defined in: [skills/skillsManager.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L80)
-
 Index-first search: filter the cached index, hydrate only the matched
 entries (max `limit`) with instructions. Cost: one cached index read +
 N_matched store gets.
@@ -105,8 +93,6 @@ N_matched store gets.
 
 > **list**(`scopeId?`): `Promise`\<[`SkillIndexItem`](../type-aliases/SkillIndexItem.md)[]\>
 
-Defined in: [skills/skillsManager.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L97)
-
 Index entries only — no instructions. For discovery/listing.
 
 #### Parameters
@@ -125,8 +111,6 @@ Index entries only — no instructions. For discovery/listing.
 
 > **get**(`idOrName`): `Promise`\<[`SkillDefinition`](../type-aliases/SkillDefinition.md) \| `null`\>
 
-Defined in: [skills/skillsManager.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L106)
-
 Fetch one skill by id, falling back to name lookup.
 
 #### Parameters
@@ -144,8 +128,6 @@ Fetch one skill by id, falling back to name lookup.
 ### buildPromptIndex()
 
 > **buildPromptIndex**(`options?`): `Promise`\<`string` \| `null`\>
-
-Defined in: [skills/skillsManager.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L136)
 
 Render the system-prompt skills index for one call, or null when
 nothing is visible. Never includes instructions.
@@ -171,8 +153,6 @@ nothing is visible. Never includes instructions.
 ### buildToolListing()
 
 > **buildToolListing**(`options?`): `Promise`\<`string` \| `null`\>
-
-Defined in: [skills/skillsManager.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L152)
 
 Render the `<available_skills>` block for the use_skill tool
 description ("tool" discovery mode), or null when nothing is visible.
@@ -200,8 +180,6 @@ Bounded by listingBudgetChars; entries are never dropped.
 
 > **getResource**(`idOrName`, `resourcePath`): `Promise`\<`string` \| `null`\>
 
-Defined in: [skills/skillsManager.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L183)
-
 Read an auxiliary resource file bundled with a skill. Paths are
 relative to the skill; traversal segments are rejected. Null when the
 skill, the resource, or store resource support is absent.
@@ -225,8 +203,6 @@ skill, the resource, or store resource support is absent.
 ### requestMutation()
 
 > **requestMutation**(`action`): `Promise`\<[`SkillMutationResult`](../type-aliases/SkillMutationResult.md)\>
-
-Defined in: [skills/skillsManager.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillsManager.ts#L221)
 
 Gate a proposed mutation through the host's onMutationRequest hook,
 then apply it when approved. No hook configured means direct apply

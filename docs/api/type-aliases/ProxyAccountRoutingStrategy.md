@@ -7,5 +7,3 @@
 # Type Alias: ProxyAccountRoutingStrategy
 
 > **ProxyAccountRoutingStrategy** = _typeof_ `PROXY_ACCOUNT_ROUTING_STRATEGIES`\[`number`\]
-
-Defined in: [types/proxy.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L548)

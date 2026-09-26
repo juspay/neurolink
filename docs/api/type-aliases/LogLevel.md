@@ -8,8 +8,6 @@
 
 > **LogLevel** = `"debug"` \| `"info"` \| `"warn"` \| `"error"`
 
-Defined in: [types/utilities.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L16)
-
 Represents the available logging severity levels.
 
 - debug: Detailed information for debugging purposes

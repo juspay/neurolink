@@ -8,8 +8,6 @@
 
 > **OtelSpan** = `object`
 
-Defined in: [types/span.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L267)
-
 OpenTelemetry span format
 
 ## Properties
@@ -18,15 +16,11 @@ OpenTelemetry span format
 
 > **traceId**: `string`
 
-Defined in: [types/span.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L268)
-
 ---
 
 ### spanId
 
 > **spanId**: `string`
-
-Defined in: [types/span.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L269)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/span.ts:269](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **parentSpanId?**: `string`
 
-Defined in: [types/span.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L270)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/span.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L271)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/span.ts:271](https://github.com/juspay/neurolink/blob/release
 
 > **kind**: `number`
 
-Defined in: [types/span.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L272)
-
 ---
 
 ### startTimeUnixNano
 
 > **startTimeUnixNano**: `number`
-
-Defined in: [types/span.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L273)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/span.ts:273](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **endTimeUnixNano?**: `number`
 
-Defined in: [types/span.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L274)
-
 ---
 
 ### attributes
 
 > **attributes**: `object`[]
-
-Defined in: [types/span.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L275)
 
 #### key
 
@@ -102,8 +84,6 @@ Defined in: [types/span.ts:275](https://github.com/juspay/neurolink/blob/release
 
 > **status**: `object`
 
-Defined in: [types/span.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L279)
-
 #### code
 
 > **code**: `number`
@@ -117,8 +97,6 @@ Defined in: [types/span.ts:279](https://github.com/juspay/neurolink/blob/release
 ### events
 
 > **events**: `object`[]
-
-Defined in: [types/span.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L283)
 
 #### name
 

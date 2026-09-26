@@ -8,8 +8,6 @@
 
 > **ProcessedHtml** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:626](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L626)
-
 Processed HTML file result.
 
 ## Type Declaration

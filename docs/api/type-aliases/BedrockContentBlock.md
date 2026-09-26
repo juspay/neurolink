@@ -8,8 +8,6 @@
 
 > **BedrockContentBlock** = `object`
 
-Defined in: [types/providers.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1089)
-
 Bedrock content block structure
 
 ## Properties
@@ -18,15 +16,11 @@ Bedrock content block structure
 
 > `optional` **text?**: `string`
 
-Defined in: [types/providers.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1090)
-
 ---
 
 ### image?
 
 > `optional` **image?**: `object`
-
-Defined in: [types/providers.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1091)
 
 #### format
 
@@ -45,8 +39,6 @@ Defined in: [types/providers.ts:1091](https://github.com/juspay/neurolink/blob/r
 ### document?
 
 > `optional` **document?**: `object`
-
-Defined in: [types/providers.ts:1097](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1097)
 
 #### format
 
@@ -70,12 +62,8 @@ Defined in: [types/providers.ts:1097](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **toolUse?**: [`BedrockToolUse`](BedrockToolUse.md)
 
-Defined in: [types/providers.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1113)
-
 ---
 
 ### toolResult?
 
 > `optional` **toolResult?**: [`BedrockToolResult`](BedrockToolResult.md)
-
-Defined in: [types/providers.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1114)

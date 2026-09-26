@@ -8,8 +8,6 @@
 
 > **BuildContentPlanningPromptOptions** = `object`
 
-Defined in: [types/ppt.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1223)
-
 Options for buildContentPlanningPrompt
 
 ## Properties
@@ -18,15 +16,11 @@ Options for buildContentPlanningPrompt
 
 > **topic**: `string`
 
-Defined in: [types/ppt.ts:1224](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1224)
-
 ---
 
 ### pages
 
 > **pages**: `number`
-
-Defined in: [types/ppt.ts:1225](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1225)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/ppt.ts:1225](https://github.com/juspay/neurolink/blob/release
 
 > **audience**: `string`
 
-Defined in: [types/ppt.ts:1226](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1226)
-
 ---
 
 ### tone
 
 > **tone**: `string`
-
-Defined in: [types/ppt.ts:1227](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1227)
 
 ---
 
@@ -50,20 +40,14 @@ Defined in: [types/ppt.ts:1227](https://github.com/juspay/neurolink/blob/release
 
 > **theme**: `string`
 
-Defined in: [types/ppt.ts:1228](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1228)
-
 ---
 
 ### generateAIImages
 
 > **generateAIImages**: `boolean`
 
-Defined in: [types/ppt.ts:1229](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1229)
-
 ---
 
 ### modelInfo
 
 > **modelInfo**: [`PPTModelInfo`](PPTModelInfo.md)
-
-Defined in: [types/ppt.ts:1230](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1230)

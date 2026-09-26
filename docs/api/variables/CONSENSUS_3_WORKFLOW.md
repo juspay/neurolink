@@ -8,8 +8,6 @@
 
 > `const` **CONSENSUS_3_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/consensusWorkflow.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/consensusWorkflow.ts#L44)
-
 Consensus-3 Workflow Configuration
 
 Uses 3 high-quality models in parallel:

@@ -8,8 +8,6 @@
 
 > **createTokenManagerMiddleware**(`tokenManager`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/auth.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L326)
-
 Create a dynamic authentication middleware with token manager
 
 ## Parameters

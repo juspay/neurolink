@@ -8,8 +8,6 @@
 
 > **OpenAIRealtimeEvent** = `object`
 
-Defined in: [types/stt.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L676)
-
 ## Indexable
 
 > \[`key`: `string`\]: `unknown`
@@ -20,12 +18,8 @@ Defined in: [types/stt.ts:676](https://github.com/juspay/neurolink/blob/release/
 
 > **type**: `string`
 
-Defined in: [types/stt.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L677)
-
 ---
 
 ### event_id?
 
 > `optional` **event_id?**: `string`
-
-Defined in: [types/stt.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L678)

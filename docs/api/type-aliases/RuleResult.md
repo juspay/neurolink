@@ -8,8 +8,6 @@
 
 > **RuleResult** = `object`
 
-Defined in: [types/scorer.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L207)
-
 Rule evaluation result
 
 ## Properties
@@ -17,8 +15,6 @@ Rule evaluation result
 ### ruleId
 
 > **ruleId**: `string`
-
-Defined in: [types/scorer.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L209)
 
 Rule identifier
 
@@ -28,8 +24,6 @@ Rule identifier
 
 > **passed**: `boolean`
 
-Defined in: [types/scorer.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L211)
-
 Whether the rule passed
 
 ---
@@ -38,8 +32,6 @@ Whether the rule passed
 
 > **score**: `number`
 
-Defined in: [types/scorer.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L213)
-
 Score from this rule
 
 ---
@@ -47,7 +39,5 @@ Score from this rule
 ### reasoning?
 
 > `optional` **reasoning?**: `string`
-
-Defined in: [types/scorer.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L215)
 
 Reasoning for the result

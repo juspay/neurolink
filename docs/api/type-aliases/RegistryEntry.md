@@ -8,8 +8,6 @@
 
 > **RegistryEntry** = `object`
 
-Defined in: [types/workflow.ts:655](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L655)
-
 Registry entry with metadata (internal)
 
 ## Properties
@@ -18,15 +16,11 @@ Registry entry with metadata (internal)
 
 > **config**: [`WorkflowConfig`](WorkflowConfig.md)
 
-Defined in: [types/workflow.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L656)
-
 ---
 
 ### registeredAt
 
 > **registeredAt**: `string`
-
-Defined in: [types/workflow.ts:657](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L657)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/workflow.ts:657](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **lastUsed?**: `string`
 
-Defined in: [types/workflow.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L658)
-
 ---
 
 ### usageCount
 
 > **usageCount**: `number`
-
-Defined in: [types/workflow.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L659)

@@ -8,8 +8,6 @@
 
 > **getRecommendedStrategy**(`contentType`): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)
 
-Defined in: [rag/index.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/rag/index.ts#L241)
-
 Get recommended chunking strategy based on content type
 
 ## Parameters

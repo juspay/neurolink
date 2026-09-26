@@ -8,8 +8,6 @@
 
 > **ProxyAnalysisFinalRequestRecord** = `object`
 
-Defined in: [types/proxy.ts:2716](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2716)
-
 Final request fields retained while joining offline proxy log records.
 
 ## Properties
@@ -18,15 +16,11 @@ Final request fields retained while joining offline proxy log records.
 
 > `optional` **accountingScope?**: `"client"` \| `"internal"`
 
-Defined in: [types/proxy.ts:2717](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2717)
-
 ---
 
 ### parentRequestId?
 
 > `optional` **parentRequestId?**: `string`
-
-Defined in: [types/proxy.ts:2718](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2718)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/proxy.ts:2718](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **usageOwnerRequestId?**: `string`
 
-Defined in: [types/proxy.ts:2719](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2719)
-
 ---
 
 ### firstUsefulOutputMs
 
 > **firstUsefulOutputMs**: `number` \| `null`
-
-Defined in: [types/proxy.ts:2720](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2720)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/proxy.ts:2720](https://github.com/juspay/neurolink/blob/relea
 
 > **timestamp**: `string`
 
-Defined in: [types/proxy.ts:2721](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2721)
-
 ---
 
 ### status
 
 > **status**: `number`
-
-Defined in: [types/proxy.ts:2722](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2722)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/proxy.ts:2722](https://github.com/juspay/neurolink/blob/relea
 
 > **durationMs**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2723](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2723)
-
 ---
 
 ### account
 
 > **account**: `string`
-
-Defined in: [types/proxy.ts:2724](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2724)
 
 ---
 
@@ -82,15 +64,11 @@ Defined in: [types/proxy.ts:2724](https://github.com/juspay/neurolink/blob/relea
 
 > **accountType**: `string`
 
-Defined in: [types/proxy.ts:2725](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2725)
-
 ---
 
 ### model
 
 > **model**: `string` \| `null`
-
-Defined in: [types/proxy.ts:2726](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2726)
 
 ---
 
@@ -98,15 +76,11 @@ Defined in: [types/proxy.ts:2726](https://github.com/juspay/neurolink/blob/relea
 
 > **provider**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2727](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2727)
-
 ---
 
 ### inputIncludesCachedTokens?
 
 > `optional` **inputIncludesCachedTokens?**: `boolean`
-
-Defined in: [types/proxy.ts:2728](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2728)
 
 ---
 
@@ -114,15 +88,11 @@ Defined in: [types/proxy.ts:2728](https://github.com/juspay/neurolink/blob/relea
 
 > **inputTokens**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2729](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2729)
-
 ---
 
 ### outputTokens
 
 > **outputTokens**: `number` \| `null`
-
-Defined in: [types/proxy.ts:2730](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2730)
 
 ---
 
@@ -130,23 +100,17 @@ Defined in: [types/proxy.ts:2730](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheReadTokens**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2731](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2731)
-
 ---
 
 ### cacheCreationTokens
 
 > **cacheCreationTokens**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2732](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2732)
-
 ---
 
 ### cacheReadTokensObserved?
 
 > `optional` **cacheReadTokensObserved?**: `boolean`
-
-Defined in: [types/proxy.ts:2738](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2738)
 
 False when the provider reported no cache breakdown. Such a turn is not a
 cache miss, so it is excluded from the hit-rate denominator rather than
@@ -158,15 +122,11 @@ counted as a zero.
 
 > `optional` **cacheCreationTokensObserved?**: `boolean`
 
-Defined in: [types/proxy.ts:2739](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2739)
-
 ---
 
 ### errorType
 
 > **errorType**: `string` \| `null`
-
-Defined in: [types/proxy.ts:2740](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2740)
 
 ---
 
@@ -174,12 +134,8 @@ Defined in: [types/proxy.ts:2740](https://github.com/juspay/neurolink/blob/relea
 
 > **errorCode**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2741](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2741)
-
 ---
 
 ### routingDecision
 
 > **routingDecision**: [`ProxyAccountRoutingDecision`](ProxyAccountRoutingDecision.md) \| `null`
-
-Defined in: [types/proxy.ts:2742](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2742)

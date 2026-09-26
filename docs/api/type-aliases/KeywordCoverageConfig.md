@@ -8,8 +8,6 @@
 
 > **KeywordCoverageConfig** = [`RuleScorerConfig`](RuleScorerConfig.md) & `object`
 
-Defined in: [types/scorer.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L567)
-
 Configuration specific to keyword coverage scoring.
 
 ## Type Declaration

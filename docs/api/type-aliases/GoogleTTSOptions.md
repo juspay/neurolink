@@ -8,8 +8,6 @@
 
 > **GoogleTTSOptions** = [`TTSOptions`](TTSOptions.md) & `object`
 
-Defined in: [types/voice.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L491)
-
 ## Type Declaration
 
 ### voiceType?

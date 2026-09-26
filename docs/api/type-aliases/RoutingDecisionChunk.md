@@ -8,8 +8,6 @@
 
 > **RoutingDecisionChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:749](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L749)
-
 Routing decision event
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **SpeechRecognitionInternal** = `EventTarget` & `object`
 
-Defined in: [types/client.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1165)
-
 Internal speech recognition interface for browser Web Speech API
 
 ## Type Declaration

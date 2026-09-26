@@ -8,8 +8,6 @@
 
 > **EnhancementOptions** = `object`
 
-Defined in: [types/utilities.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L127)
-
 Enhancement options for modifying GenerateOptions
 
 ## Properties
@@ -18,15 +16,11 @@ Enhancement options for modifying GenerateOptions
 
 > **enhancementType**: [`EnhancementType`](EnhancementType.md)
 
-Defined in: [types/utilities.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L128)
-
 ---
 
 ### streamingOptions?
 
 > `optional` **streamingOptions?**: `object`
-
-Defined in: [types/utilities.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L129)
 
 #### enabled?
 
@@ -54,8 +48,6 @@ Defined in: [types/utilities.ts:129](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **mcpOptions?**: `object`
 
-Defined in: [types/utilities.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L136)
-
 #### enableToolRegistry?
 
 > `optional` **enableToolRegistry?**: `boolean`
@@ -74,8 +66,6 @@ Defined in: [types/utilities.ts:136](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **legacyMigration?**: `object`
 
-Defined in: [types/utilities.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L141)
-
 #### legacyContext?
 
 > `optional` **legacyContext?**: `Record`\<`string`, `unknown`\>
@@ -93,8 +83,6 @@ Defined in: [types/utilities.ts:141](https://github.com/juspay/neurolink/blob/re
 ### domainConfiguration?
 
 > `optional` **domainConfiguration?**: `object`
-
-Defined in: [types/utilities.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L146)
 
 #### domainType
 
@@ -121,8 +109,6 @@ Defined in: [types/utilities.ts:146](https://github.com/juspay/neurolink/blob/re
 ### performance?
 
 > `optional` **performance?**: `object`
-
-Defined in: [types/utilities.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L153)
 
 #### enableAnalytics?
 

@@ -8,8 +8,6 @@
 
 > **AuthMiddlewareConfig** = `object`
 
-Defined in: [types/auth.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L594)
-
 Auth middleware configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Auth middleware configuration
 ### provider
 
 > **provider**: [`AuthProviderType`](AuthProviderType.md)
-
-Defined in: [types/auth.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L596)
 
 Auth provider to use
 
@@ -28,8 +24,6 @@ Auth provider to use
 
 > **providerConfig**: [`AuthProviderConfig`](AuthProviderConfig.md)
 
-Defined in: [types/auth.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L598)
-
 Provider configuration
 
 ---
@@ -37,8 +31,6 @@ Provider configuration
 ### tokenExtraction?
 
 > `optional` **tokenExtraction?**: [`TokenExtractionConfig`](TokenExtractionConfig.md)
-
-Defined in: [types/auth.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L600)
 
 Token extraction configuration
 
@@ -48,8 +40,6 @@ Token extraction configuration
 
 > `optional` **publicRoutes?**: `string`[]
 
-Defined in: [types/auth.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L602)
-
 Routes that don't require authentication
 
 ---
@@ -58,8 +48,6 @@ Routes that don't require authentication
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/auth.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L604)
-
 Whether authentication is optional (request proceeds with or without auth)
 
 ---
@@ -67,8 +55,6 @@ Whether authentication is optional (request proceeds with or without auth)
 ### onError?
 
 > `optional` **onError?**: (`error`, `context`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L606)
 
 Custom error handler
 
@@ -91,8 +77,6 @@ Custom error handler
 ### onAuthenticated?
 
 > `optional` **onAuthenticated?**: (`context`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:611](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L611)
 
 Hook called after successful authentication
 

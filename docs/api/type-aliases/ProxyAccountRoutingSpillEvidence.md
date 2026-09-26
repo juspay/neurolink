@@ -8,15 +8,11 @@
 
 > **ProxyAccountRoutingSpillEvidence** = `object`
 
-Defined in: [types/proxy.ts:732](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L732)
-
 ## Properties
 
 ### from
 
 > **from**: `string`
-
-Defined in: [types/proxy.ts:733](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L733)
 
 ---
 
@@ -24,12 +20,8 @@ Defined in: [types/proxy.ts:733](https://github.com/juspay/neurolink/blob/releas
 
 > **to**: `string`
 
-Defined in: [types/proxy.ts:734](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L734)
-
 ---
 
 ### inflight
 
 > **inflight**: `number`
-
-Defined in: [types/proxy.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L735)

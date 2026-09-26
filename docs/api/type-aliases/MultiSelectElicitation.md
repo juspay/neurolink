@@ -8,8 +8,6 @@
 
 > **MultiSelectElicitation** = [`ElicitationRequest`](ElicitationRequest.md) & `object`
 
-Defined in: [types/elicitation.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L138)
-
 Multi-select elicitation
 
 ## Type Declaration

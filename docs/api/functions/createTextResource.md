@@ -8,8 +8,6 @@
 
 > **createTextResource**(`uri`, `name`, `content`, `options?`): [`RegisteredResource`](../type-aliases/RegisteredResource.md)
 
-Defined in: [mcp/serverCapabilities.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L603)
-
 Create a simple text resource
 
 ## Parameters

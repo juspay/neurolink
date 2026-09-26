@@ -8,8 +8,6 @@
 
 > **AgentExecuteRequest** = `object`
 
-Defined in: [types/server.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L551)
-
 Agent execution request
 
 ## Properties
@@ -17,8 +15,6 @@ Agent execution request
 ### input
 
 > **input**: `string` \| \{ `text`: `string`; `images?`: `string`[]; `files?`: `string`[]; \}
-
-Defined in: [types/server.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L553)
 
 Input prompt or message
 
@@ -28,8 +24,6 @@ Input prompt or message
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/server.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L556)
-
 Provider to use (optional)
 
 ---
@@ -37,8 +31,6 @@ Provider to use (optional)
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/server.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L559)
 
 Model to use (optional)
 
@@ -48,8 +40,6 @@ Model to use (optional)
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/server.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L562)
-
 System prompt (optional)
 
 ---
@@ -57,8 +47,6 @@ System prompt (optional)
 ### temperature?
 
 > `optional` **temperature?**: `number`
-
-Defined in: [types/server.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L565)
 
 Temperature (0-1)
 
@@ -68,8 +56,6 @@ Temperature (0-1)
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/server.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L568)
-
 Maximum tokens
 
 ---
@@ -77,8 +63,6 @@ Maximum tokens
 ### tools?
 
 > `optional` **tools?**: `string`[]
-
-Defined in: [types/server.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L571)
 
 Tools to enable
 
@@ -88,8 +72,6 @@ Tools to enable
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/server.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L574)
-
 Enable streaming
 
 ---
@@ -98,8 +80,6 @@ Enable streaming
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/server.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L577)
-
 Session ID for conversation memory
 
 ---
@@ -107,7 +87,5 @@ Session ID for conversation memory
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/server.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L580)
 
 User ID for context

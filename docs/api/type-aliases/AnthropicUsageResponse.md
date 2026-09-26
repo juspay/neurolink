@@ -8,8 +8,6 @@
 
 > **AnthropicUsageResponse** = `object`
 
-Defined in: [types/proxy.ts:1853](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1853)
-
 Response body of GET https://api.anthropic.com/api/oauth/usage (loose —
 unknown keys are ignored, known keys may be absent or null).
 
@@ -19,15 +17,11 @@ unknown keys are ignored, known keys may be absent or null).
 
 > `optional` **five_hour?**: [`AnthropicUsageWindow`](AnthropicUsageWindow.md) \| `null`
 
-Defined in: [types/proxy.ts:1854](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1854)
-
 ---
 
 ### seven_day?
 
 > `optional` **seven_day?**: [`AnthropicUsageWindow`](AnthropicUsageWindow.md) \| `null`
-
-Defined in: [types/proxy.ts:1855](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1855)
 
 ---
 
@@ -35,12 +29,8 @@ Defined in: [types/proxy.ts:1855](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **limits?**: [`AnthropicUsageLimit`](AnthropicUsageLimit.md)[] \| `null`
 
-Defined in: [types/proxy.ts:1856](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1856)
-
 ---
 
 ### extra_usage?
 
 > `optional` **extra_usage?**: \{ `is_enabled?`: `boolean` \| `null`; \} \| `null`
-
-Defined in: [types/proxy.ts:1857](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1857)

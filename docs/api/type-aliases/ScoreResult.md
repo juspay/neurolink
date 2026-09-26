@@ -8,8 +8,6 @@
 
 > **ScoreResult** = `object`
 
-Defined in: [types/scorer.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L41)
-
 Individual score result from a scorer
 
 ## Properties
@@ -17,8 +15,6 @@ Individual score result from a scorer
 ### scorerId
 
 > **scorerId**: `string`
-
-Defined in: [types/scorer.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L43)
 
 Unique identifier for the scorer
 
@@ -28,8 +24,6 @@ Unique identifier for the scorer
 
 > **scorerName**: `string`
 
-Defined in: [types/scorer.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L45)
-
 Display name of the scorer
 
 ---
@@ -37,8 +31,6 @@ Display name of the scorer
 ### score
 
 > **score**: `number`
-
-Defined in: [types/scorer.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L47)
 
 Numeric score value
 
@@ -48,8 +40,6 @@ Numeric score value
 
 > **normalizedScore**: `number`
 
-Defined in: [types/scorer.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L49)
-
 Normalized score (0-1 scale)
 
 ---
@@ -57,8 +47,6 @@ Normalized score (0-1 scale)
 ### scale
 
 > **scale**: [`ScoreScale`](ScoreScale.md)
-
-Defined in: [types/scorer.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L51)
 
 Score scale used
 
@@ -68,8 +56,6 @@ Score scale used
 
 > **reasoning**: `string`
 
-Defined in: [types/scorer.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L53)
-
 Human-readable reasoning for the score
 
 ---
@@ -77,8 +63,6 @@ Human-readable reasoning for the score
 ### passed
 
 > **passed**: `boolean`
-
-Defined in: [types/scorer.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L55)
 
 Whether the score passes the threshold
 
@@ -88,8 +72,6 @@ Whether the score passes the threshold
 
 > **threshold**: `number`
 
-Defined in: [types/scorer.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L57)
-
 Threshold used for pass/fail determination
 
 ---
@@ -97,8 +79,6 @@ Threshold used for pass/fail determination
 ### confidence?
 
 > `optional` **confidence?**: `number`
-
-Defined in: [types/scorer.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L59)
 
 Confidence level (0-1) for LLM-based scores
 
@@ -108,8 +88,6 @@ Confidence level (0-1) for LLM-based scores
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/scorer.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L61)
-
 Additional metadata from the scorer
 
 ---
@@ -118,8 +96,6 @@ Additional metadata from the scorer
 
 > **computeTime**: `number`
 
-Defined in: [types/scorer.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L63)
-
 Time taken to compute the score (ms)
 
 ---
@@ -127,7 +103,5 @@ Time taken to compute the score (ms)
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/scorer.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L65)
 
 Error if scoring failed

@@ -8,8 +8,6 @@
 
 > **PptxTextRun** = `object`
 
-Defined in: [types/ppt.ts:965](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L965)
-
 Rich text run for pptxgenjs
 Represents a single formatted text segment within a text block
 
@@ -19,15 +17,11 @@ Represents a single formatted text segment within a text block
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:966](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L966)
-
 ---
 
 ### options?
 
 > `optional` **options?**: `object`
-
-Defined in: [types/ppt.ts:967](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L967)
 
 #### bold?
 

@@ -8,8 +8,6 @@
 
 > **collectStream**(`stream`): `Promise`\<[`ClientStreamResult`](../type-aliases/ClientStreamResult.md)\>
 
-Defined in: [client/streamingClient.ts:1081](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L1081)
-
 Collect streaming events into a single result
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **isRetryableStatusCode**(`status`, `config?`): `boolean`
 
-Defined in: [mcp/httpRetryHandler.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/httpRetryHandler.ts#L44)
-
 Check if an HTTP status code is retryable based on configuration
 
 ## Parameters

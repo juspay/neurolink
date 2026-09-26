@@ -8,8 +8,6 @@
 
 > **ModelComparison** = `object`
 
-Defined in: [types/model.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L244)
-
 Model comparison result
 
 ## Properties
@@ -18,15 +16,11 @@ Model comparison result
 
 > **models**: [`ModelInfo`](ModelInfo.md)[]
 
-Defined in: [types/model.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L245)
-
 ---
 
 ### comparison
 
 > **comparison**: `object`
-
-Defined in: [types/model.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L246)
 
 #### capabilities
 

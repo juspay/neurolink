@@ -8,8 +8,6 @@
 
 > `const` **AUTORESEARCH_DEFAULTS**: `object`
 
-Defined in: [types/autoresearch.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L247)
-
 ## Type Declaration
 
 ### programPath

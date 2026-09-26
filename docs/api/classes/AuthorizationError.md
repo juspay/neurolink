@@ -6,8 +6,6 @@
 
 # Class: AuthorizationError
 
-Defined in: [types/errors.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L42)
-
 Thrown for authorization errors, where the user does not have permission.
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown for authorization errors, where the user does not have permission.
 ### Constructor
 
 > **new AuthorizationError**(`message`, `provider?`): `AuthorizationError`
-
-Defined in: [types/errors.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L43)
 
 #### Parameters
 
@@ -45,8 +41,6 @@ Defined in: [types/errors.ts:43](https://github.com/juspay/neurolink/blob/releas
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

@@ -8,8 +8,6 @@
 
 > **createEvaluationFailedError**(`message`, `context?`, `cause?`): [`NeuroLinkFeatureError`](../classes/NeuroLinkFeatureError.md)
 
-Defined in: [evaluation/errors/EvaluationError.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/errors/EvaluationError.ts#L100)
-
 Helper function to create an evaluation failed error with context.
 
 ## Parameters

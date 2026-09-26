@@ -6,8 +6,6 @@
 
 # Class: ConfigManager
 
-Defined in: [config/configManager.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L25)
-
 Enhanced Config Manager with automatic backup/restore capabilities
 
 ## Constructors
@@ -26,8 +24,6 @@ Enhanced Config Manager with automatic backup/restore capabilities
 
 > **loadConfig**(): `Promise`\<[`NeuroLinkConfig`](../type-aliases/NeuroLinkConfig.md)\>
 
-Defined in: [config/configManager.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L37)
-
 Load configuration with caching
 
 #### Returns
@@ -39,8 +35,6 @@ Load configuration with caching
 ### updateConfig()
 
 > **updateConfig**(`updates`, `options?`): `Promise`\<`void`\>
-
-Defined in: [config/configManager.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L47)
 
 Update configuration with automatic backup
 
@@ -64,8 +58,6 @@ Update configuration with automatic backup
 
 > **createBackup**(`reason?`): `Promise`\<`string`\>
 
-Defined in: [config/configManager.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L107)
-
 Create a backup with metadata
 
 #### Parameters
@@ -84,8 +76,6 @@ Create a backup with metadata
 
 > **listBackups**(): `Promise`\<[`BackupInfo`](../type-aliases/BackupInfo.md)[]\>
 
-Defined in: [config/configManager.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L141)
-
 List all available backups
 
 #### Returns
@@ -97,8 +87,6 @@ List all available backups
 ### restoreFromBackup()
 
 > **restoreFromBackup**(`backupFilename`): `Promise`\<`void`\>
-
-Defined in: [config/configManager.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L185)
 
 Restore from specific backup
 
@@ -118,8 +106,6 @@ Restore from specific backup
 
 > **restoreLatestBackup**(): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L218)
-
 Restore from latest backup
 
 #### Returns
@@ -131,8 +117,6 @@ Restore from latest backup
 ### cleanupOldBackups()
 
 > **cleanupOldBackups**(`keepCount?`): `Promise`\<`void`\>
-
-Defined in: [config/configManager.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L230)
 
 Clean up old backups
 
@@ -151,8 +135,6 @@ Clean up old backups
 ### updateProviderStatus()
 
 > **updateProviderStatus**(`providerId`, `status`): `Promise`\<`void`\>
-
-Defined in: [config/configManager.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L250)
 
 Update provider status
 
@@ -176,8 +158,6 @@ Update provider status
 
 > **validateConfig**(`config`): `Promise`\<[`ConfigValidationResult`](../type-aliases/ConfigValidationResult.md)\>
 
-Defined in: [config/configManager.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L274)
-
 Validate configuration
 
 #### Parameters
@@ -195,8 +175,6 @@ Validate configuration
 ### generateDefaultConfig()
 
 > **generateDefaultConfig**(): `Promise`\<[`NeuroLinkConfig`](../type-aliases/NeuroLinkConfig.md)\>
-
-Defined in: [config/configManager.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/config/configManager.ts#L326)
 
 Generate default configuration
 

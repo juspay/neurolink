@@ -8,8 +8,6 @@
 
 > **FileModality** = `"image"` \| `"audio"` \| `"video"` \| `"document"` \| `"data"` \| `"archive"`
 
-Defined in: [types/file.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L234)
-
 Broad category a file format belongs to, as a human would name it.
 
 Distinct from [FileType](FileType.md), which is the _routing_ type the detector

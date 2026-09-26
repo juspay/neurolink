@@ -8,8 +8,6 @@
 
 > **BackgroundCommandCounts** = `object`
 
-Defined in: [types/backgroundCommand.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/backgroundCommand.ts#L177)
-
 Outstanding commands for a session: `running` have not settled yet, and
 `finished` have settled without anyone having looked at them since.
 
@@ -28,12 +26,8 @@ Carried on every command tool result and — via the checklist — on every
 
 > **running**: `number`
 
-Defined in: [types/backgroundCommand.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/backgroundCommand.ts#L177)
-
 ---
 
 ### finished
 
 > **finished**: `number`
-
-Defined in: [types/backgroundCommand.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/backgroundCommand.ts#L177)

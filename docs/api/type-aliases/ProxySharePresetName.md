@@ -8,6 +8,4 @@
 
 > **ProxySharePresetName** = `"spare"` \| `"spillover"` \| `"metered"` \| `"open"`
 
-Defined in: [types/cli.ts:2222](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2222)
-
 Named starting points for a grant's gate set.

@@ -8,6 +8,4 @@
 
 > **CodexProxyStatusAccountIdentity** = \{ `provider`: `"anthropic"`; `key`: `string`; \} \| \{ `provider`: `"codex"`; `key`: `string`; \} \| \{ `provider`: `"vertex"`; `key`: `string`; \} \| \{ `provider`: `"other"`; `key`: `null`; \}
 
-Defined in: [types/codex.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L137)
-
 Provider-qualified account identity used by proxy status rendering.

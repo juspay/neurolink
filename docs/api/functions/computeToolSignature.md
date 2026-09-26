@@ -8,8 +8,6 @@
 
 > **computeToolSignature**(`name`, `tool`): `string`
 
-Defined in: [core/toolDedup.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolDedup.ts#L104)
-
 Build a canonical, order-insensitive signature string for a named tool.
 
 The signature is composed of:

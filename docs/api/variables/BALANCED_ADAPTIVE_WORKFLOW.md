@@ -8,8 +8,6 @@
 
 > `const` **BALANCED_ADAPTIVE_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/adaptiveWorkflow.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/adaptiveWorkflow.ts#L275)
-
 Balanced Adaptive Workflow
 
 Balances speed, cost, and quality:

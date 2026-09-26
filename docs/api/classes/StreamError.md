@@ -6,8 +6,6 @@
 
 # Class: StreamError
 
-Defined in: [client/errors.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L460)
-
 Error for stream processing failures
 
 ## Extends
@@ -19,8 +17,6 @@ Error for stream processing failures
 ### Constructor
 
 > **new StreamError**(`message?`, `options?`): `StreamError`
-
-Defined in: [client/errors.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L461)
 
 #### Parameters
 
@@ -56,8 +52,6 @@ Defined in: [client/errors.ts:461](https://github.com/juspay/neurolink/blob/rele
 
 > `readonly` **code**: [`ErrorCodeType`](../type-aliases/ErrorCodeType.md)
 
-Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L76)
-
 Error code for programmatic handling
 
 #### Inherited from
@@ -69,8 +63,6 @@ Error code for programmatic handling
 ### status?
 
 > `readonly` `optional` **status?**: `number`
-
-Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L78)
 
 HTTP status code (if applicable)
 
@@ -84,8 +76,6 @@ HTTP status code (if applicable)
 
 > `readonly` `optional` **details?**: [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L80)
-
 Additional error details
 
 #### Inherited from
@@ -97,8 +87,6 @@ Additional error details
 ### retryable
 
 > `readonly` **retryable**: `boolean`
-
-Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L82)
 
 Whether the error is retryable
 
@@ -112,8 +100,6 @@ Whether the error is retryable
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L84)
-
 Request ID for error tracking
 
 #### Inherited from
@@ -125,8 +111,6 @@ Request ID for error tracking
 ### toApiError()
 
 > **toApiError**(): [`ClientApiError`](../type-aliases/ClientApiError.md)
-
-Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L109)
 
 Convert error to API error format
 
@@ -143,8 +127,6 @@ Convert error to API error format
 ### toJSON()
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
-
-Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L123)
 
 Convert error to JSON
 

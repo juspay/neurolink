@@ -8,8 +8,6 @@
 
 > **isAuthenticated**(): `boolean`
 
-Defined in: [auth/authContext.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L102)
-
 Check if the current request is authenticated
 
 ## Returns

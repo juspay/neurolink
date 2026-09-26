@@ -6,8 +6,6 @@
 
 # Class: AuthProviderRegistry
 
-Defined in: [auth/AuthProviderRegistry.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderRegistry.ts#L44)
-
 AuthProviderRegistry - registers all auth providers with the factory
 
 Call `AuthProviderRegistry.registerAllProviders()` once during
@@ -29,8 +27,6 @@ application startup. The method is idempotent and concurrency-safe.
 
 > `static` **registerAllProviders**(): `Promise`\<`void`\>
 
-Defined in: [auth/AuthProviderRegistry.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderRegistry.ts#L51)
-
 Register all auth providers with the factory
 
 #### Returns
@@ -43,8 +39,6 @@ Register all auth providers with the factory
 
 > `static` **isRegistered**(): `boolean`
 
-Defined in: [auth/AuthProviderRegistry.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderRegistry.ts#L274)
-
 Check if providers are registered
 
 #### Returns
@@ -56,8 +50,6 @@ Check if providers are registered
 ### clearRegistrations()
 
 > `static` **clearRegistrations**(): `void`
-
-Defined in: [auth/AuthProviderRegistry.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderRegistry.ts#L281)
 
 Clear registrations (for testing)
 

@@ -8,8 +8,6 @@
 
 > **createFormRequest**(`message`, `fields`, `options`): [`ElicitationRequestMessage`](../type-aliases/ElicitationRequestMessage.md)
 
-Defined in: [mcp/elicitationProtocol.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L493)
-
 Create protocol-compliant form request
 
 ## Parameters

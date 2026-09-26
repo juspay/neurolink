@@ -8,8 +8,6 @@
 
 > **RecommendationContext** = `object`
 
-Defined in: [types/model.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L221)
-
 Model recommendation context
 
 ## Properties
@@ -18,15 +16,11 @@ Model recommendation context
 
 > `optional` **useCase?**: keyof [`UseCaseSuitability`](UseCaseSuitability.md)
 
-Defined in: [types/model.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L222)
-
 ---
 
 ### maxCost?
 
 > `optional` **maxCost?**: `number`
-
-Defined in: [types/model.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L223)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/model.ts:223](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **minQuality?**: `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/model.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L224)
-
 ---
 
 ### requireCapabilities?
 
 > `optional` **requireCapabilities?**: keyof [`ModelCapabilities`](ModelCapabilities.md)[]
-
-Defined in: [types/model.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L225)
 
 ---
 
@@ -50,20 +40,14 @@ Defined in: [types/model.ts:225](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **excludeProviders?**: [`AIProviderName`](../enumerations/AIProviderName.md)[]
 
-Defined in: [types/model.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L226)
-
 ---
 
 ### contextSize?
 
 > `optional` **contextSize?**: `number`
 
-Defined in: [types/model.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L227)
-
 ---
 
 ### preferLocal?
 
 > `optional` **preferLocal?**: `boolean`
-
-Defined in: [types/model.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L228)

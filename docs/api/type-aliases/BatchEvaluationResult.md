@@ -8,8 +8,6 @@
 
 > **BatchEvaluationResult** = `object`
 
-Defined in: [types/evaluation.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L449)
-
 Superset batch-result. `results` is a union of both item-result flavors;
 summary field names chosen from BatchEvaluator (`succeeded`, `passingRate`).
 
@@ -19,15 +17,11 @@ summary field names chosen from BatchEvaluator (`succeeded`, `passingRate`).
 
 > **results**: [`BatchEvaluationItemResult`](BatchEvaluationItemResult.md)[] \| [`BatchItemResult`](BatchItemResult.md)[]
 
-Defined in: [types/evaluation.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L450)
-
 ---
 
 ### summary
 
 > **summary**: `object`
-
-Defined in: [types/evaluation.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L451)
 
 #### total
 
@@ -62,5 +56,3 @@ Defined in: [types/evaluation.ts:451](https://github.com/juspay/neurolink/blob/r
 ### allSucceeded?
 
 > `optional` **allSucceeded?**: `boolean`
-
-Defined in: [types/evaluation.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L460)

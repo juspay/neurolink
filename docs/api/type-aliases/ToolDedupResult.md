@@ -8,8 +8,6 @@
 
 > **ToolDedupResult**\<`T`\> = `object`
 
-Defined in: [types/toolDedup.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L44)
-
 Return type of `dedupeTools()`.
 
 ## Type Parameters
@@ -24,8 +22,6 @@ Return type of `dedupeTools()`.
 
 > **tools**: `T`
 
-Defined in: [types/toolDedup.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L46)
-
 Deduplicated tool set (or original set when dedup is disabled/errored).
 
 ---
@@ -33,7 +29,5 @@ Deduplicated tool set (or original set when dedup is disabled/errored).
 ### removed
 
 > **removed**: [`ToolDedupRemoved`](ToolDedupRemoved.md)[]
-
-Defined in: [types/toolDedup.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L48)
 
 Tools that were removed along with the reason. Empty when dedup is off.

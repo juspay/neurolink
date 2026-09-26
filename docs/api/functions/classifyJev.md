@@ -8,8 +8,6 @@
 
 > **classifyJev**(`input`, `decide`, `timeoutMs?`, `candidates?`, `thresholds?`): `Promise`\<[`ClassifierDecision`](../type-aliases/ClassifierDecision.md)\>
 
-Defined in: [routing/classifierStrategies.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierStrategies.ts#L325)
-
 Decision-model classifier — one request answers difficulty, capabilities,
 risk and model selection at once.
 

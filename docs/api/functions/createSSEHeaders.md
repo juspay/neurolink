@@ -8,8 +8,6 @@
 
 > **createSSEHeaders**(`additionalHeaders?`): `Record`\<`string`, `string`\>
 
-Defined in: [server/streaming/dataStream.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/server/streaming/dataStream.ts#L406)
-
 Create SSE headers for streaming responses
 
 ## Parameters

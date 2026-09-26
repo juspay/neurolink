@@ -8,8 +8,6 @@
 
 > **FormatScorerConfig** = [`RuleScorerConfig`](RuleScorerConfig.md) & `object`
 
-Defined in: [types/scorer.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L532)
-
 Configuration specific to format scoring.
 
 ## Type Declaration

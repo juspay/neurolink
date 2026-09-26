@@ -8,8 +8,6 @@
 
 > **ImageValidationResult** = `object`
 
-Defined in: [types/ppt.ts:1250](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1250)
-
 Result of image buffer validation
 
 ## Properties
@@ -18,15 +16,11 @@ Result of image buffer validation
 
 > **isValid**: `boolean`
 
-Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1251)
-
 ---
 
 ### mimeType
 
 > **mimeType**: `string`
-
-Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1252)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/release
 
 > **format**: `string`
 
-Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1253)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/ppt.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1254)

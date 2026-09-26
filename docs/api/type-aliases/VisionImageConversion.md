@@ -8,8 +8,6 @@
 
 > **VisionImageConversion** = `object`
 
-Defined in: [types/file.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L45)
-
 Outcome of a vision-compatibility pass over one image.
 
 See `adapters/imageFormatSupport.ts` — `converted` is false both when the
@@ -22,22 +20,16 @@ read it, so callers must not treat it as a success flag.
 
 > `readonly` **buffer**: `Buffer`
 
-Defined in: [types/file.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L46)
-
 ---
 
 ### mimeType
 
 > `readonly` **mimeType**: `string`
 
-Defined in: [types/file.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L47)
-
 ---
 
 ### converted
 
 > `readonly` **converted**: `boolean`
-
-Defined in: [types/file.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L49)
 
 True when the bytes were re-encoded; false when they were left alone.

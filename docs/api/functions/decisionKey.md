@@ -8,8 +8,6 @@
 
 > **decisionKey**(`namespace`, `index`): `string`
 
-Defined in: [utils/decisionAnswers.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L127)
-
 Build a question id that survives a round trip.
 
 Question ids are the only thing tying an answer back to what it was asked

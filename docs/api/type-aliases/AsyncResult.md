@@ -8,8 +8,6 @@
 
 > **AsyncResult**\<`TData`, `TError`\> = `Promise`\<[`Result`](Result.md)\<`TData`, `TError`\>\>
 
-Defined in: [types/aliases.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L259)
-
 Async result type
 
 ## Type Parameters

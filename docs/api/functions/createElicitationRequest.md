@@ -8,8 +8,6 @@
 
 > **createElicitationRequest**(`params`): [`ElicitationRequestMessage`](../type-aliases/ElicitationRequestMessage.md)
 
-Defined in: [mcp/elicitationProtocol.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L46)
-
 Create an elicitation request protocol message
 
 ## Parameters

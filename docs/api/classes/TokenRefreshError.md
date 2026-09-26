@@ -6,8 +6,6 @@
 
 # Class: TokenRefreshError
 
-Defined in: [client/auth.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L463)
-
 Error thrown when token refresh fails
 
 ## Extends
@@ -19,8 +17,6 @@ Error thrown when token refresh fails
 ### Constructor
 
 > **new TokenRefreshError**(`message`, `cause?`): `TokenRefreshError`
-
-Defined in: [client/auth.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L466)
 
 #### Parameters
 
@@ -45,8 +41,6 @@ Defined in: [client/auth.ts:466](https://github.com/juspay/neurolink/blob/releas
 ### cause?
 
 > `readonly` `optional` **cause?**: `Error`
-
-Defined in: [client/auth.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L464)
 
 #### Overrides
 

@@ -8,6 +8,4 @@
 
 > **TelemetryListExportersArgs** = [`TelemetryCommandArgs`](TelemetryCommandArgs.md)
 
-Defined in: [types/cli.ts:1216](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1216)
-
 Telemetry list-exporters sub-command args

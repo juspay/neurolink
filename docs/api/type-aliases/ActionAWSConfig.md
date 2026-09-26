@@ -8,8 +8,6 @@
 
 > **ActionAWSConfig** = `object`
 
-Defined in: [types/action.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L35)
-
 AWS credentials for Bedrock/SageMaker
 
 ## Properties
@@ -18,15 +16,11 @@ AWS credentials for Bedrock/SageMaker
 
 > `optional` **awsAccessKeyId?**: `string`
 
-Defined in: [types/action.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L36)
-
 ---
 
 ### awsSecretAccessKey?
 
 > `optional` **awsSecretAccessKey?**: `string`
-
-Defined in: [types/action.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L37)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/action.ts:37](https://github.com/juspay/neurolink/blob/releas
 
 > **awsRegion**: `string`
 
-Defined in: [types/action.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L38)
-
 ---
 
 ### awsSessionToken?
 
 > `optional` **awsSessionToken?**: `string`
-
-Defined in: [types/action.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L39)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/action.ts:39](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **bedrockModelId?**: `string`
 
-Defined in: [types/action.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L40)
-
 ---
 
 ### sagemakerEndpoint?
 
 > `optional` **sagemakerEndpoint?**: `string`
-
-Defined in: [types/action.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L41)

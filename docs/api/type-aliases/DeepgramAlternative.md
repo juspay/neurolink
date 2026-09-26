@@ -8,15 +8,11 @@
 
 > **DeepgramAlternative** = `object`
 
-Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L443)
-
 ## Properties
 
 ### transcript
 
 > **transcript**: `string`
-
-Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L444)
 
 ---
 
@@ -24,23 +20,17 @@ Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/release/
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L445)
-
 ---
 
 ### words
 
 > **words**: [`DeepgramWord`](DeepgramWord.md)[]
 
-Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L446)
-
 ---
 
 ### paragraphs?
 
 > `optional` **paragraphs?**: `object`
-
-Defined in: [types/stt.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L447)
 
 #### transcript
 

@@ -8,8 +8,6 @@
 
 > **PrimitiveEndChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L770)
-
 Primitive end event
 
 ## Type Declaration

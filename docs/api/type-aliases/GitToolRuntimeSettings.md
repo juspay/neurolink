@@ -8,8 +8,6 @@
 
 > **GitToolRuntimeSettings** = `object`
 
-Defined in: [types/gitTools.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L83)
-
 Resolved git toolset settings for one host.
 
 Deliberately not marked internal: it is the return type of
@@ -25,15 +23,11 @@ in the doc comment, so it cannot even be named here to explain itself.)
 
 > **repoRoot**: `string`
 
-Defined in: [types/gitTools.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L84)
-
 ---
 
 ### timeoutMs
 
 > **timeoutMs**: `number`
-
-Defined in: [types/gitTools.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L85)
 
 ---
 
@@ -41,20 +35,14 @@ Defined in: [types/gitTools.ts:85](https://github.com/juspay/neurolink/blob/rele
 
 > **maxOutputBytes**: `number`
 
-Defined in: [types/gitTools.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L86)
-
 ---
 
 ### previewChars
 
 > **previewChars**: `number`
 
-Defined in: [types/gitTools.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L87)
-
 ---
 
 ### gitExecutable
 
 > **gitExecutable**: `string`
-
-Defined in: [types/gitTools.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/gitTools.ts#L88)

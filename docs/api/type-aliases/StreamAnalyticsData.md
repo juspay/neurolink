@@ -8,8 +8,6 @@
 
 > **StreamAnalyticsData** = `object`
 
-Defined in: [types/analytics.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L67)
-
 Stream Analytics Data - Enhanced for performance tracking
 
 ## Properties
@@ -17,8 +15,6 @@ Stream Analytics Data - Enhanced for performance tracking
 ### toolResults?
 
 > `optional` **toolResults?**: `Promise`\<`unknown`[]\>
-
-Defined in: [types/analytics.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L69)
 
 Tool execution results with timing
 
@@ -28,8 +24,6 @@ Tool execution results with timing
 
 > `optional` **toolCalls?**: `Promise`\<`unknown`[]\>
 
-Defined in: [types/analytics.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L71)
-
 Tool calls made during stream
 
 ---
@@ -37,8 +31,6 @@ Tool calls made during stream
 ### performance?
 
 > `optional` **performance?**: `object`
-
-Defined in: [types/analytics.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L73)
 
 Stream performance metrics
 
@@ -67,7 +59,5 @@ Stream performance metrics
 ### providerAnalytics?
 
 > `optional` **providerAnalytics?**: [`AnalyticsData`](AnalyticsData.md)
-
-Defined in: [types/analytics.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L81)
 
 Provider analytics

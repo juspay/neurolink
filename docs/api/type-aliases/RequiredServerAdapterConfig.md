@@ -8,8 +8,6 @@
 
 > **RequiredServerAdapterConfig** = `object`
 
-Defined in: [types/server.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L65)
-
 Required server adapter configuration (with defaults applied)
 
 ## Properties
@@ -18,15 +16,11 @@ Required server adapter configuration (with defaults applied)
 
 > **port**: `number`
 
-Defined in: [types/server.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L66)
-
 ---
 
 ### host
 
 > **host**: `string`
-
-Defined in: [types/server.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L67)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/server.ts:67](https://github.com/juspay/neurolink/blob/releas
 
 > **basePath**: `string`
 
-Defined in: [types/server.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L68)
-
 ---
 
 ### cors
 
 > **cors**: [`RequiredCORSConfig`](RequiredCORSConfig.md)
-
-Defined in: [types/server.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L69)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/server.ts:69](https://github.com/juspay/neurolink/blob/releas
 
 > **rateLimit**: [`RequiredRateLimitConfig`](RequiredRateLimitConfig.md)
 
-Defined in: [types/server.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L70)
-
 ---
 
 ### bodyParser
 
 > **bodyParser**: [`RequiredBodyParserConfig`](RequiredBodyParserConfig.md)
-
-Defined in: [types/server.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L71)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/server.ts:71](https://github.com/juspay/neurolink/blob/releas
 
 > **logging**: [`RequiredLoggingConfig`](RequiredLoggingConfig.md)
 
-Defined in: [types/server.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L72)
-
 ---
 
 ### timeout
 
 > **timeout**: `number`
-
-Defined in: [types/server.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L73)
 
 ---
 
@@ -82,15 +64,11 @@ Defined in: [types/server.ts:73](https://github.com/juspay/neurolink/blob/releas
 
 > **enableMetrics**: `boolean`
 
-Defined in: [types/server.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L74)
-
 ---
 
 ### enableSwagger
 
 > **enableSwagger**: `boolean`
-
-Defined in: [types/server.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L75)
 
 ---
 
@@ -98,20 +76,14 @@ Defined in: [types/server.ts:75](https://github.com/juspay/neurolink/blob/releas
 
 > **disableBuiltInHealth**: `boolean`
 
-Defined in: [types/server.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L76)
-
 ---
 
 ### redaction?
 
 > `optional` **redaction?**: [`RequiredRedactionConfig`](RequiredRedactionConfig.md)
 
-Defined in: [types/server.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L77)
-
 ---
 
 ### shutdown
 
 > **shutdown**: [`RequiredShutdownConfig`](RequiredShutdownConfig.md)
-
-Defined in: [types/server.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L78)

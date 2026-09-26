@@ -8,8 +8,6 @@
 
 > **SupervisedResult** = [`AgentResult`](AgentResult.md) & `object`
 
-Defined in: [types/agentNetwork.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1017)
-
 Result of supervised execution
 
 ## Type Declaration

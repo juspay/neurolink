@@ -6,8 +6,6 @@
 
 # Class: TopologyBuilder
 
-Defined in: [agent/orchestration/topology.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L581)
-
 Topology builder for fluent API
 
 ## Constructors
@@ -15,8 +13,6 @@ Topology builder for fluent API
 ### Constructor
 
 > **new TopologyBuilder**(`type`): `TopologyBuilder`
-
-Defined in: [agent/orchestration/topology.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L585)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [agent/orchestration/topology.ts:585](https://github.com/juspay/neur
 ### addAgent()
 
 > **addAgent**(`agent`): `TopologyBuilder`
-
-Defined in: [agent/orchestration/topology.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L592)
 
 Add an agent
 
@@ -54,8 +48,6 @@ Add an agent
 
 > **addAgents**(`agents`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L600)
-
 Add multiple agents
 
 #### Parameters
@@ -73,8 +65,6 @@ Add multiple agents
 ### setCoordinator()
 
 > **setCoordinator**(`agentId`): `TopologyBuilder`
-
-Defined in: [agent/orchestration/topology.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L608)
 
 Set coordinator (for star topology)
 
@@ -94,8 +84,6 @@ Set coordinator (for star topology)
 
 > **setRoot**(`agentId`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L616)
-
 Set root (for hierarchical topology)
 
 #### Parameters
@@ -114,8 +102,6 @@ Set root (for hierarchical topology)
 
 > **setMaxChildren**(`max`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L624)
-
 Set max children (for hierarchical topology)
 
 #### Parameters
@@ -133,8 +119,6 @@ Set max children (for hierarchical topology)
 ### addCustomEdge()
 
 > **addCustomEdge**(`sourceAgentId`, `targetAgentId`, `bidirectional?`): `TopologyBuilder`
-
-Defined in: [agent/orchestration/topology.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L632)
 
 Add custom edge
 
@@ -161,8 +145,6 @@ Add custom edge
 ### build()
 
 > **build**(): [`NetworkTopology`](NetworkTopology.md)
-
-Defined in: [agent/orchestration/topology.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L651)
 
 Build the topology
 

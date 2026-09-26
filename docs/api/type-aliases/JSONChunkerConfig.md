@@ -8,8 +8,6 @@
 
 > **JSONChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L987)
-
 JSON chunker configuration
 JSON structure-aware splitting
 

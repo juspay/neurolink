@@ -8,8 +8,6 @@
 
 > **ProcessorRetryConfig** = `object`
 
-Defined in: [types/processor.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L167)
-
 Configuration for retry behavior on transient failures.
 Implements exponential backoff with optional custom retry predicate.
 
@@ -19,8 +17,6 @@ Implements exponential backoff with optional custom retry predicate.
 
 > **maxRetries**: `number`
 
-Defined in: [types/processor.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L169)
-
 Maximum number of retry attempts
 
 ---
@@ -28,8 +24,6 @@ Maximum number of retry attempts
 ### baseDelayMs
 
 > **baseDelayMs**: `number`
-
-Defined in: [types/processor.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L171)
 
 Base delay between retries in milliseconds
 
@@ -39,8 +33,6 @@ Base delay between retries in milliseconds
 
 > **maxDelayMs**: `number`
 
-Defined in: [types/processor.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L173)
-
 Maximum delay between retries in milliseconds
 
 ---
@@ -48,8 +40,6 @@ Maximum delay between retries in milliseconds
 ### retryOn?
 
 > `optional` **retryOn?**: (`error`) => `boolean`
-
-Defined in: [types/processor.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L175)
 
 Optional custom function to determine if an error is retryable
 

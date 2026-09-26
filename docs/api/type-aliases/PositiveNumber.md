@@ -8,8 +8,6 @@
 
 > **PositiveNumber** = `number` & `object`
 
-Defined in: [types/aliases.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L302)
-
 Positive number type
 Useful for validated numeric inputs
 

@@ -8,8 +8,6 @@
 
 > **createOAuthProviderFromConfig**(`authConfig`, `storage?`): [`NeuroLinkOAuthProvider`](../classes/NeuroLinkOAuthProvider.md)
 
-Defined in: [mcp/auth/oauthClientProvider.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/oauthClientProvider.ts#L426)
-
 Create an OAuth provider from MCP server auth configuration
 
 ## Parameters

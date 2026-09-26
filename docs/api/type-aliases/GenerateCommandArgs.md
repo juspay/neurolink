@@ -8,8 +8,6 @@
 
 > **GenerateCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & [`CliToolRoutingFlags`](CliToolRoutingFlags.md) & [`CliClassifierRouterFlags`](CliClassifierRouterFlags.md) & `object`
 
-Defined in: [types/cli.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L62)
-
 Generate command arguments
 
 ## Type Declaration

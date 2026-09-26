@@ -8,8 +8,6 @@
 
 > **PrimitiveExecutionResult** = `object`
 
-Defined in: [types/agentNetwork.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L587)
-
 Result from executing a primitive
 
 ## Properties
@@ -17,8 +15,6 @@ Result from executing a primitive
 ### output
 
 > **output**: `unknown`
-
-Defined in: [types/agentNetwork.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L589)
 
 Output from the primitive
 
@@ -28,8 +24,6 @@ Output from the primitive
 
 > `optional` **error?**: `string`
 
-Defined in: [types/agentNetwork.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L592)
-
 Error message if execution failed
 
 ---
@@ -38,8 +32,6 @@ Error message if execution failed
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/agentNetwork.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L595)
-
 Token usage
 
 ---
@@ -47,7 +39,5 @@ Token usage
 ### duration?
 
 > `optional` **duration?**: `number`
-
-Defined in: [types/agentNetwork.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L598)
 
 Execution duration in ms

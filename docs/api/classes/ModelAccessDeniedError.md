@@ -6,8 +6,6 @@
 
 # Class: ModelAccessDeniedError
 
-Defined in: [types/errors.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L253)
-
 Curator P1-1: thrown when a provider rejects a request because the
 caller's team / API key is not whitelisted for the requested model.
 
@@ -25,8 +23,6 @@ can choose a whitelisted alternative without scraping strings.
 ### Constructor
 
 > **new ModelAccessDeniedError**(`message`, `options?`): `ModelAccessDeniedError`
-
-Defined in: [types/errors.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L258)
 
 #### Parameters
 
@@ -62,8 +58,6 @@ Defined in: [types/errors.ts:258](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
-
 #### Inherited from
 
 [`ProviderError`](ProviderError.md).[`provider`](ProviderError.md#provider)
@@ -74,20 +68,14 @@ Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/releas
 
 > `readonly` **requestedModel**: `string` \| `undefined`
 
-Defined in: [types/errors.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L254)
-
 ---
 
 ### allowedModels
 
 > `readonly` **allowedModels**: `string`[] \| `undefined`
 
-Defined in: [types/errors.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L255)
-
 ---
 
 ### code
 
 > `readonly` **code**: `"MODEL_ACCESS_DENIED"`
-
-Defined in: [types/errors.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L256)

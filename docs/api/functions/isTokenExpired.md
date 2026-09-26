@@ -8,8 +8,6 @@
 
 > **isTokenExpired**(`tokens`, `bufferSeconds?`): `boolean`
 
-Defined in: [mcp/auth/tokenStorage.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L146)
-
 Check if tokens are expired or about to expire
 
 ## Parameters

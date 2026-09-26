@@ -6,8 +6,6 @@
 
 # Class: NeuroLinkAIProvider
 
-Defined in: [client/aiSdkAdapter.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L318)
-
 NeuroLink Provider for Vercel AI SDK
 
 Creates model instances that are compatible with the Vercel AI SDK.
@@ -38,8 +36,6 @@ const result = await generateText({
 
 > **new NeuroLinkAIProvider**(`options`): `NeuroLinkProvider`
 
-Defined in: [client/aiSdkAdapter.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L323)
-
 #### Parameters
 
 ##### options
@@ -55,8 +51,6 @@ Defined in: [client/aiSdkAdapter.ts:323](https://github.com/juspay/neurolink/blo
 ### model()
 
 > **model**(`modelId?`, `options?`): [`NeuroLinkLanguageModel`](NeuroLinkLanguageModel.md)
-
-Defined in: [client/aiSdkAdapter.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L340)
 
 Create a language model instance
 
@@ -84,8 +78,6 @@ Additional model options
 
 > **call**(`modelId?`, `options?`): [`NeuroLinkLanguageModel`](NeuroLinkLanguageModel.md)
 
-Defined in: [client/aiSdkAdapter.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L353)
-
 Alias for model() - makes the provider callable
 
 #### Parameters
@@ -107,8 +99,6 @@ Alias for model() - makes the provider callable
 ### getClient()
 
 > **getClient**(): [`NeuroLinkClient`](NeuroLinkClient.md)
-
-Defined in: [client/aiSdkAdapter.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L385)
 
 Get the underlying client
 

@@ -8,8 +8,6 @@
 
 > **SonioxMessage** = `object`
 
-Defined in: [types/server.ts:1472](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1472)
-
 Envelope received from the Soniox STT WebSocket.
 
 ## Properties
@@ -18,15 +16,11 @@ Envelope received from the Soniox STT WebSocket.
 
 > `optional` **error?**: `string`
 
-Defined in: [types/server.ts:1473](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1473)
-
 ---
 
 ### status?
 
 > `optional` **status?**: `string`
-
-Defined in: [types/server.ts:1474](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1474)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/server.ts:1474](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **type?**: `string`
 
-Defined in: [types/server.ts:1475](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1475)
-
 ---
 
 ### tokens?
 
 > `optional` **tokens?**: [`SonioxToken`](SonioxToken.md)[]
-
-Defined in: [types/server.ts:1476](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1476)

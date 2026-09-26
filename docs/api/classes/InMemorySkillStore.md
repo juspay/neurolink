@@ -6,8 +6,6 @@
 
 # Class: InMemorySkillStore
 
-Defined in: [skills/skillStores.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L54)
-
 In-process store backed by a Map.
 
 ## Implements
@@ -19,8 +17,6 @@ In-process store backed by a Map.
 ### Constructor
 
 > **new InMemorySkillStore**(`seed?`, `resources?`): `InMemorySkillStore`
-
-Defined in: [skills/skillStores.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L59)
 
 #### Parameters
 
@@ -41,8 +37,6 @@ Defined in: [skills/skillStores.ts:59](https://github.com/juspay/neurolink/blob/
 ### get()
 
 > **get**(`id`): `Promise`\<[`SkillDefinition`](../type-aliases/SkillDefinition.md) \| `null`\>
-
-Defined in: [skills/skillStores.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L81)
 
 Fetch one skill (with instructions) by id. Null when absent.
 
@@ -66,8 +60,6 @@ Fetch one skill (with instructions) by id. Null when absent.
 
 > **put**(`skill`): `Promise`\<`void`\>
 
-Defined in: [skills/skillStores.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L85)
-
 Create or replace a skill.
 
 #### Parameters
@@ -89,8 +81,6 @@ Create or replace a skill.
 ### delete()
 
 > **delete**(`id`): `Promise`\<`void`\>
-
-Defined in: [skills/skillStores.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L89)
 
 Hard-remove a skill from storage. (Soft deletes go through put().)
 
@@ -114,8 +104,6 @@ Hard-remove a skill from storage. (Soft deletes go through put().)
 
 > **index**(): `Promise`\<[`SkillIndexItem`](../type-aliases/SkillIndexItem.md)[]\>
 
-Defined in: [skills/skillStores.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L93)
-
 List index entries (no instructions) for all stored skills.
 
 #### Returns
@@ -131,8 +119,6 @@ List index entries (no instructions) for all stored skills.
 ### getResource()
 
 > **getResource**(`id`, `resourcePath`): `Promise`\<`string` \| `null`\>
-
-Defined in: [skills/skillStores.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStores.ts#L97)
 
 Optional: fetch an auxiliary resource file bundled with a skill.
 `resourcePath` is relative to the skill (e.g. "references/forms.md").

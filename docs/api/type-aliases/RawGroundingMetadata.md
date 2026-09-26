@@ -8,8 +8,6 @@
 
 > **RawGroundingMetadata** = `object`
 
-Defined in: [types/grounding.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L227)
-
 Raw grounding metadata as returned directly from AI providers.
 This is the unprocessed format that gets transformed into
 EnhancedGroundingMetadata for consistent consumption across the SDK.
@@ -37,8 +35,6 @@ const rawMetadata: RawGroundingMetadata = {
 
 > `optional` **webSearchQueries?**: `string`[]
 
-Defined in: [types/grounding.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L229)
-
 Array of search queries used by the provider for web grounding
 
 ---
@@ -46,8 +42,6 @@ Array of search queries used by the provider for web grounding
 ### searchEntryPoint?
 
 > `optional` **searchEntryPoint?**: `object`
-
-Defined in: [types/grounding.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L231)
 
 Search entry point with rendered HTML content for display
 
@@ -63,8 +57,6 @@ HTML content that can be rendered to show search results
 
 > `optional` **groundingChunks?**: [`GroundingChunk`](GroundingChunk.md)[]
 
-Defined in: [types/grounding.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L236)
-
 Array of grounding chunks from the provider
 
 ---
@@ -72,7 +64,5 @@ Array of grounding chunks from the provider
 ### groundingSupports?
 
 > `optional` **groundingSupports?**: [`GroundingSupport`](GroundingSupport.md)[]
-
-Defined in: [types/grounding.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L238)
 
 Array of grounding support information linking segments to chunks

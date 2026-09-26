@@ -6,8 +6,6 @@
 
 # Class: RedisSessionStorage
 
-Defined in: [auth/sessionManager.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L125)
-
 Redis session storage
 
 Distributed session storage using Redis. Suitable for multi-instance
@@ -24,8 +22,6 @@ Note: Redis client must be provided or configured via environment.
 ### Constructor
 
 > **new RedisSessionStorage**(`config`): `RedisSessionStorage`
-
-Defined in: [auth/sessionManager.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L132)
 
 #### Parameters
 
@@ -53,8 +49,6 @@ Defined in: [auth/sessionManager.ts:132](https://github.com/juspay/neurolink/blo
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L189)
-
 Get a session by ID
 
 #### Parameters
@@ -76,8 +70,6 @@ Get a session by ID
 ### set()
 
 > **set**(`session`): `Promise`\<`void`\>
-
-Defined in: [auth/sessionManager.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L226)
 
 Store a session
 
@@ -101,8 +93,6 @@ Store a session
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L254)
-
 Delete a session
 
 #### Parameters
@@ -124,8 +114,6 @@ Delete a session
 ### getUserSessions()
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
-
-Defined in: [auth/sessionManager.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L288)
 
 Get all sessions for a user
 
@@ -149,8 +137,6 @@ Get all sessions for a user
 
 > **deleteUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L308)
-
 Delete all sessions for a user
 
 #### Parameters
@@ -173,8 +159,6 @@ Delete all sessions for a user
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L323)
-
 Clear all sessions (for cleanup)
 
 #### Returns
@@ -191,8 +175,6 @@ Clear all sessions (for cleanup)
 
 > **isHealthy**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/sessionManager.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L345)
-
 Health check
 
 #### Returns
@@ -208,8 +190,6 @@ Health check
 ### disconnect()
 
 > **disconnect**(): `Promise`\<`void`\>
-
-Defined in: [auth/sessionManager.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L355)
 
 #### Returns
 

@@ -8,8 +8,6 @@
 
 > **CacheInterceptorOptions** = `object`
 
-Defined in: [types/client.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1345)
-
 Cache options
 
 ## Properties
@@ -17,8 +15,6 @@ Cache options
 ### ttl
 
 > **ttl**: `number`
-
-Defined in: [types/client.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1347)
 
 Cache TTL in milliseconds
 
@@ -28,8 +24,6 @@ Cache TTL in milliseconds
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/client.ts:1349](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1349)
-
 Maximum cache size
 
 ---
@@ -37,8 +31,6 @@ Maximum cache size
 ### keyGenerator?
 
 > `optional` **keyGenerator?**: (`request`) => `string`
-
-Defined in: [types/client.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1351)
 
 Cache key generator
 
@@ -58,8 +50,6 @@ Cache key generator
 
 > `optional` **methods?**: `string`[]
 
-Defined in: [types/client.ts:1353](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1353)
-
 Methods to cache (default: ['GET'])
 
 ---
@@ -68,8 +58,6 @@ Methods to cache (default: ['GET'])
 
 > `optional` **includePaths?**: `RegExp`[]
 
-Defined in: [types/client.ts:1355](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1355)
-
 Paths to cache (regex patterns)
 
 ---
@@ -77,7 +65,5 @@ Paths to cache (regex patterns)
 ### excludePaths?
 
 > `optional` **excludePaths?**: `RegExp`[]
-
-Defined in: [types/client.ts:1357](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1357)
 
 Paths to exclude from cache

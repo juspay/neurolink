@@ -8,8 +8,6 @@
 
 > **ParsedJudgeResponse** = `object`
 
-Defined in: [types/workflow.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L592)
-
 Parsed judge response (internal)
 
 ## Properties
@@ -18,15 +16,11 @@ Parsed judge response (internal)
 
 > **scores**: `Record`\<`string`, `number`\>
 
-Defined in: [types/workflow.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L593)
-
 ---
 
 ### ranking?
 
 > `optional` **ranking?**: `string`[]
-
-Defined in: [types/workflow.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L594)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/workflow.ts:594](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **bestResponse?**: `string`
 
-Defined in: [types/workflow.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L595)
-
 ---
 
 ### reasoning?
 
 > `optional` **reasoning?**: `string`
-
-Defined in: [types/workflow.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L596)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/workflow.ts:596](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **synthesizedResponse?**: `string`
 
-Defined in: [types/workflow.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L597)
-
 ---
 
 ### confidenceInJudgment?
 
 > `optional` **confidenceInJudgment?**: `number`
-
-Defined in: [types/workflow.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L598)

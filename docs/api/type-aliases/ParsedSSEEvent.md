@@ -8,8 +8,6 @@
 
 > **ParsedSSEEvent** = `object`
 
-Defined in: [types/proxy.ts:1434](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1434)
-
 One complete Server-Sent Event extracted from an incremental buffer.
 
 ## Properties
@@ -18,12 +16,8 @@ One complete Server-Sent Event extracted from an incremental buffer.
 
 > **event**: `string`
 
-Defined in: [types/proxy.ts:1434](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1434)
-
 ---
 
 ### data
 
 > **data**: `string`
-
-Defined in: [types/proxy.ts:1434](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1434)

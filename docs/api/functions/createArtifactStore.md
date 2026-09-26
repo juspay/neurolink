@@ -8,8 +8,6 @@
 
 > **createArtifactStore**(`config?`, `fallbackRedis?`): [`ArtifactStore`](../type-aliases/ArtifactStore.md)
 
-Defined in: [artifacts/artifactStoreFactory.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStoreFactory.ts#L106)
-
 Build the artifact store `config` asks for.
 
 ## Parameters

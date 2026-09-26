@@ -8,8 +8,6 @@
 
 > **NetworkExecutionOptions** = `object`
 
-Defined in: [types/agentNetwork.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L402)
-
 Options for network execution
 
 ## Properties
@@ -17,8 +15,6 @@ Options for network execution
 ### maxSteps?
 
 > `optional` **maxSteps?**: `number`
-
-Defined in: [types/agentNetwork.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L404)
 
 Maximum execution steps across the network
 
@@ -28,8 +24,6 @@ Maximum execution steps across the network
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L407)
-
 Timeout in milliseconds
 
 ---
@@ -37,8 +31,6 @@ Timeout in milliseconds
 ### stream?
 
 > `optional` **stream?**: `boolean`
-
-Defined in: [types/agentNetwork.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L410)
 
 Enable streaming
 
@@ -48,8 +40,6 @@ Enable streaming
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L413)
-
 Additional context
 
 ---
@@ -57,8 +47,6 @@ Additional context
 ### tracing?
 
 > `optional` **tracing?**: `object`
-
-Defined in: [types/agentNetwork.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L416)
 
 Tracing configuration
 
@@ -80,8 +68,6 @@ Tracing configuration
 
 > `optional` **modelSettings?**: `object`
 
-Defined in: [types/agentNetwork.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L423)
-
 Model settings override
 
 #### temperature?
@@ -101,7 +87,5 @@ Model settings override
 ### outputSchema?
 
 > `optional` **outputSchema?**: `z.ZodSchema`
-
-Defined in: [types/agentNetwork.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L430)
 
 Output schema for structured output

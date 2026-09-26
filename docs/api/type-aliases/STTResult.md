@@ -8,8 +8,6 @@
 
 > **STTResult** = `object`
 
-Defined in: [types/stt.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L61)
-
 STT result from transcription
 
 ## Properties
@@ -17,8 +15,6 @@ STT result from transcription
 ### text
 
 > **text**: `string`
-
-Defined in: [types/stt.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L63)
 
 Full transcribed text
 
@@ -28,8 +24,6 @@ Full transcribed text
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L65)
-
 Confidence score (0-1)
 
 ---
@@ -37,8 +31,6 @@ Confidence score (0-1)
 ### language?
 
 > `optional` **language?**: `string`
-
-Defined in: [types/stt.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L67)
 
 Detected language code
 
@@ -48,8 +40,6 @@ Detected language code
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/stt.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L69)
-
 Audio duration in seconds
 
 ---
@@ -57,8 +47,6 @@ Audio duration in seconds
 ### words?
 
 > `optional` **words?**: [`WordTiming`](WordTiming.md)[]
-
-Defined in: [types/stt.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L71)
 
 Word-level timings
 
@@ -68,8 +56,6 @@ Word-level timings
 
 > `optional` **segments?**: [`TranscriptionSegment`](TranscriptionSegment.md)[]
 
-Defined in: [types/stt.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L73)
-
 Transcription segments
 
 ---
@@ -78,8 +64,6 @@ Transcription segments
 
 > `optional` **speakers?**: `string`[]
 
-Defined in: [types/stt.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L75)
-
 Speaker labels (for diarization)
 
 ---
@@ -87,8 +71,6 @@ Speaker labels (for diarization)
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/stt.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L77)
 
 Performance metadata
 

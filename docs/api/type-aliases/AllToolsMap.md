@@ -8,8 +8,6 @@
 
 > **AllToolsMap** = `object`
 
-Defined in: [types/tools.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L532)
-
 Full directAgentTools map, with the opt-in bashTool appended.
 
 ## Properties
@@ -18,15 +16,11 @@ Full directAgentTools map, with the opt-in bashTool appended.
 
 > **getCurrentTime**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L533)
-
 ---
 
 ### calculateMath
 
 > **calculateMath**: [`Tool`](Tool.md)
-
-Defined in: [types/tools.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L534)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/tools.ts:534](https://github.com/juspay/neurolink/blob/releas
 
 > **readFile**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L535)
-
 ---
 
 ### listDirectory
 
 > **listDirectory**: [`Tool`](Tool.md)
-
-Defined in: [types/tools.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L536)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/tools.ts:536](https://github.com/juspay/neurolink/blob/releas
 
 > **writeFile**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L537)
-
 ---
 
 ### executeBashCommand?
 
 > `optional` **executeBashCommand?**: [`Tool`](Tool.md)
-
-Defined in: [types/tools.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L538)

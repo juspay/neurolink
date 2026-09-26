@@ -8,8 +8,6 @@
 
 > **createAnswerRelevancyScorer**(`config?`): `Promise`\<[`AnswerRelevancyScorer`](../classes/AnswerRelevancyScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/answerRelevancyScorer.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/answerRelevancyScorer.ts#L128)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

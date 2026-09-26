@@ -8,8 +8,6 @@
 
 > **generateOpenAPISpec**(`routes`, `config?`): [`OpenAPISpec`](../type-aliases/OpenAPISpec.md)
 
-Defined in: [server/openapi/generator.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/server/openapi/generator.ts#L544)
-
 Generate OpenAPI spec from routes
 
 ## Parameters

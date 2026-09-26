@@ -8,23 +8,17 @@
 
 > **AgenticLoopStepRequest** = `object`
 
-Defined in: [types/loopEngine.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L74)
-
 ## Properties
 
 ### raw
 
 > **raw**: `unknown`
 
-Defined in: [types/loopEngine.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L75)
-
 ---
 
 ### hydratedToolNames?
 
 > `optional` **hydratedToolNames?**: `string`[]
-
-Defined in: [types/loopEngine.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L87)
 
 Tools that became callable while this step's request was being built —
 mid-turn discovery hydrating a name the model had already tried.

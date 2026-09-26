@@ -8,8 +8,6 @@
 
 > **runWorkflow**(`config`, `options`): `Promise`\<[`WorkflowResult`](../type-aliases/WorkflowResult.md)\>
 
-Defined in: [workflow/core/workflowRunner.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/core/workflowRunner.ts#L74)
-
 Execute a complete workflow
 
 This is the main entry point that orchestrates:

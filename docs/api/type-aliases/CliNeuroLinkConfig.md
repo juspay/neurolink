@@ -8,8 +8,6 @@
 
 > **CliNeuroLinkConfig** = `object`
 
-Defined in: [types/cli.ts:1924](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1924)
-
 Materialized shape of the CLI config parsed from `~/.neurolink/config.json`.
 Matches the output of `ConfigSchema.parse()` defined in
 `src/cli/commands/config.ts`. The schema is annotated with
@@ -21,15 +19,11 @@ Matches the output of `ConfigSchema.parse()` defined in
 
 > **defaultProvider**: [`CliConfigProvider`](CliConfigProvider.md)
 
-Defined in: [types/cli.ts:1925](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1925)
-
 ---
 
 ### providers
 
 > **providers**: `object`
-
-Defined in: [types/cli.ts:1926](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1926)
 
 #### openai?
 
@@ -193,15 +187,11 @@ Defined in: [types/cli.ts:1926](https://github.com/juspay/neurolink/blob/release
 
 > **profiles**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/cli.ts:1956](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1956)
-
 ---
 
 ### preferences
 
 > **preferences**: `object`
-
-Defined in: [types/cli.ts:1957](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1957)
 
 #### outputFormat
 
@@ -244,8 +234,6 @@ Defined in: [types/cli.ts:1957](https://github.com/juspay/neurolink/blob/release
 ### domains
 
 > **domains**: `object`
-
-Defined in: [types/cli.ts:1968](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1968)
 
 #### healthcare
 

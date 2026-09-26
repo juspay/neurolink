@@ -6,8 +6,6 @@
 
 # Class: FishAudioTTS
 
-Defined in: [voice/providers/FishAudioTTS.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/FishAudioTTS.ts#L41)
-
 Fish Audio Text-to-Speech Handler.
 
 Auth: `Authorization: Bearer ${FISH_AUDIO_API_KEY}`.
@@ -22,8 +20,6 @@ Models: speech-1.5 (standard), speech-1.6, s1 (default; latest).
 ### Constructor
 
 > **new FishAudioTTS**(`apiKey?`): `FishAudioTTS`
-
-Defined in: [voice/providers/FishAudioTTS.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/FishAudioTTS.ts#L47)
 
 #### Parameters
 
@@ -40,8 +36,6 @@ Defined in: [voice/providers/FishAudioTTS.ts:47](https://github.com/juspay/neuro
 ### maxTextLength
 
 > `readonly` **maxTextLength**: `5000` = `5000`
-
-Defined in: [voice/providers/FishAudioTTS.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/FishAudioTTS.ts#L42)
 
 Maximum text length supported by this provider (in bytes)
 Different providers have different limits
@@ -62,8 +56,6 @@ Different providers have different limits
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/FishAudioTTS.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/FishAudioTTS.ts#L55)
-
 Validate that the provider is properly configured
 
 #### Returns
@@ -81,8 +73,6 @@ True if provider can generate TTS
 ### synthesize()
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
-
-Defined in: [voice/providers/FishAudioTTS.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/FishAudioTTS.ts#L59)
 
 Generate audio from text using provider-specific TTS API
 

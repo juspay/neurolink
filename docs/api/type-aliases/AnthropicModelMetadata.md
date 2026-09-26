@@ -8,8 +8,6 @@
 
 > **AnthropicModelMetadata** = `object`
 
-Defined in: [types/subscription.ts:1135](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1135)
-
 Model metadata definition for Anthropic models
 
 ## Properties
@@ -17,8 +15,6 @@ Model metadata definition for Anthropic models
 ### displayName
 
 > **displayName**: `string`
-
-Defined in: [types/subscription.ts:1137](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1137)
 
 Human-readable display name
 
@@ -28,8 +24,6 @@ Human-readable display name
 
 > **contextWindow**: `number`
 
-Defined in: [types/subscription.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1139)
-
 Maximum context window size in tokens
 
 ---
@@ -37,8 +31,6 @@ Maximum context window size in tokens
 ### maxOutputTokens
 
 > **maxOutputTokens**: `number`
-
-Defined in: [types/subscription.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1141)
 
 Maximum output tokens
 
@@ -48,8 +40,6 @@ Maximum output tokens
 
 > **supportsVision**: `boolean`
 
-Defined in: [types/subscription.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1143)
-
 Whether the model supports vision/image input
 
 ---
@@ -57,8 +47,6 @@ Whether the model supports vision/image input
 ### supportsExtendedThinking
 
 > **supportsExtendedThinking**: `boolean`
-
-Defined in: [types/subscription.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1145)
 
 Whether the model supports extended thinking mode
 
@@ -68,8 +56,6 @@ Whether the model supports extended thinking mode
 
 > **supportsToolUse**: `boolean`
 
-Defined in: [types/subscription.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1147)
-
 Whether the model supports tool/function calling
 
 ---
@@ -77,8 +63,6 @@ Whether the model supports tool/function calling
 ### supportsStreaming
 
 > **supportsStreaming**: `boolean`
-
-Defined in: [types/subscription.ts:1149](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1149)
 
 Whether the model supports streaming
 
@@ -88,8 +72,6 @@ Whether the model supports streaming
 
 > **deprecated**: `boolean`
 
-Defined in: [types/subscription.ts:1151](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1151)
-
 Whether the model is deprecated
 
 ---
@@ -98,8 +80,6 @@ Whether the model is deprecated
 
 > **family**: `"haiku"` \| `"sonnet"` \| `"opus"`
 
-Defined in: [types/subscription.ts:1153](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1153)
-
 Model family (haiku, sonnet, opus)
 
 ---
@@ -107,7 +87,5 @@ Model family (haiku, sonnet, opus)
 ### description
 
 > **description**: `string`
-
-Defined in: [types/subscription.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1155)
 
 Short description of the model

@@ -8,8 +8,6 @@
 
 > **ClientMiddleware** = (`request`, `next`) => `Promise`\<[`ClientMiddlewareResponse`](ClientMiddlewareResponse.md)\>
 
-Defined in: [types/client.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L463)
-
 ClientMiddleware function type
 
 ## Parameters

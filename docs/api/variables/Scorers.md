@@ -8,8 +8,6 @@
 
 > `const` **Scorers**: `object`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerBuilder.ts#L482)
-
 Quick builder factory functions
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **createSlidingWindowRateLimitMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/rateLimit.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L172)
-
 Create a sliding window rate limiter
 More accurate than fixed window but slightly more complex
 

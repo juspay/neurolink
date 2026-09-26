@@ -8,8 +8,6 @@
 
 > **VideoOutputOptions** = `object`
 
-Defined in: [types/multimodal.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L176)
-
 Video output configuration options for video generation
 
 Used with `output.video` in GenerateOptions when `output.mode` is "video".
@@ -32,8 +30,6 @@ const videoOptions: VideoOutputOptions = {
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/multimodal.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L182)
-
 Per-call cancellation signal forwarded to provider requests and polling
 loops. When aborted, long-running video generation is interrupted and
 the handler throws a non-retriable abort error.
@@ -43,8 +39,6 @@ the handler throws a non-retriable abort error.
 ### provider?
 
 > `optional` **provider?**: [`VideoProviderName`](VideoProviderName.md)
-
-Defined in: [types/multimodal.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L192)
 
 Override the video-gen provider. Defaults to `"vertex"` when omitted.
 
@@ -60,8 +54,6 @@ fallback to the LLM provider name.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/multimodal.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L198)
-
 Specific model to use within the provider. Provider-specific shape
 (e.g. "veo-3.1-generate-001" for vertex; "atonamy/wan-alpha:..." for
 replicate).
@@ -72,8 +64,6 @@ replicate).
 
 > `optional` **resolution?**: `"720p"` \| `"1080p"`
 
-Defined in: [types/multimodal.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L200)
-
 Output resolution - "720p" (1280x720) or "1080p" (1920x1080)
 
 ---
@@ -81,8 +71,6 @@ Output resolution - "720p" (1280x720) or "1080p" (1920x1080)
 ### length?
 
 > `optional` **length?**: `4` \| `5` \| `6` \| `8` \| `10` \| `number` & `object`
-
-Defined in: [types/multimodal.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L207)
 
 Video duration in seconds. Provider-specific support — Vertex Veo
 accepts 4 / 6 / 8 s, Kling and Runway accept 5 / 10 s, Replicate is
@@ -95,8 +83,6 @@ values; pass any other positive number for custom Replicate models.
 
 > `optional` **aspectRatio?**: `"9:16"` \| `"16:9"` \| `"1:1"`
 
-Defined in: [types/multimodal.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L209)
-
 Aspect ratio - "9:16" for portrait, "16:9" for landscape, "1:1" for square
 
 ---
@@ -105,8 +91,6 @@ Aspect ratio - "9:16" for portrait, "16:9" for landscape, "1:1" for square
 
 > `optional` **audio?**: `boolean`
 
-Defined in: [types/multimodal.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L211)
-
 Enable audio generation (default: true)
 
 ---
@@ -114,8 +98,6 @@ Enable audio generation (default: true)
 ### imageUrl?
 
 > `optional` **imageUrl?**: `string`
-
-Defined in: [types/multimodal.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L218)
 
 Publicly accessible URL of the input image.
 Required by providers that do not accept inline base64 data (e.g. PiAPI Kling).
@@ -127,8 +109,6 @@ When provided and the provider requires a URL, this takes precedence over the
 ### imageInputKey?
 
 > `optional` **imageInputKey?**: `string`
-
-Defined in: [types/multimodal.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L230)
 
 Replicate only: the input-schema key the model expects the image under.
 Replicate image-to-video models disagree on this — e.g.
@@ -145,8 +125,6 @@ the default `image` key.
 ### credentials?
 
 > `optional` **credentials?**: [`NeurolinkCredentials`](NeurolinkCredentials.md)
-
-Defined in: [types/multimodal.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L235)
 
 Per-call provider credentials. Takes precedence over instance-level
 credentials set at construction time, which in turn override env vars.

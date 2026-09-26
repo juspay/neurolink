@@ -8,8 +8,6 @@
 
 > **getTracer**(`name?`, `version?`): `Tracer`
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1551](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1551)
-
 Get an OpenTelemetry Tracer for creating custom spans
 
 This allows applications to create their own spans that will be

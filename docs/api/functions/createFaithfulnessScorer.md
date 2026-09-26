@@ -8,8 +8,6 @@
 
 > **createFaithfulnessScorer**(`config?`): `Promise`\<[`FaithfulnessScorer`](../classes/FaithfulnessScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L148)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

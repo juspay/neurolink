@@ -8,8 +8,6 @@
 
 > **createJsonResource**\<`T`\>(`uri`, `name`, `content`, `options?`): [`RegisteredResource`](../type-aliases/RegisteredResource.md)
 
-Defined in: [mcp/serverCapabilities.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L629)
-
 Create a JSON resource
 
 ## Type Parameters

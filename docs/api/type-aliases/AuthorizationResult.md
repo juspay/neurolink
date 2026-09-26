@@ -8,8 +8,6 @@
 
 > **AuthorizationResult** = `object`
 
-Defined in: [types/auth.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L318)
-
 Authorization check result
 
 ## Properties
@@ -17,8 +15,6 @@ Authorization check result
 ### authorized
 
 > **authorized**: `boolean`
-
-Defined in: [types/auth.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L320)
 
 Whether the user is authorized
 
@@ -28,8 +24,6 @@ Whether the user is authorized
 
 > `optional` **user?**: [`AuthUser`](AuthUser.md)
 
-Defined in: [types/auth.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L322)
-
 User being authorized
 
 ---
@@ -37,8 +31,6 @@ User being authorized
 ### requiredRoles?
 
 > `optional` **requiredRoles?**: `string`[]
-
-Defined in: [types/auth.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L324)
 
 Required roles that were checked
 
@@ -48,8 +40,6 @@ Required roles that were checked
 
 > `optional` **requiredPermissions?**: `string`[]
 
-Defined in: [types/auth.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L326)
-
 Required permissions that were checked
 
 ---
@@ -57,8 +47,6 @@ Required permissions that were checked
 ### reason?
 
 > `optional` **reason?**: `string`
-
-Defined in: [types/auth.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L328)
 
 Reason for denial if not authorized
 
@@ -68,8 +56,6 @@ Reason for denial if not authorized
 
 > `optional` **missingPermissions?**: `string`[]
 
-Defined in: [types/auth.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L330)
-
 Missing permissions if denied
 
 ---
@@ -77,7 +63,5 @@ Missing permissions if denied
 ### missingRoles?
 
 > `optional` **missingRoles?**: `string`[]
-
-Defined in: [types/auth.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L332)
 
 Missing roles if denied

@@ -8,8 +8,6 @@
 
 > **AudioConversionOptions** = `object`
 
-Defined in: [types/voice.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L108)
-
 Audio conversion options
 
 ## Properties
@@ -17,8 +15,6 @@ Audio conversion options
 ### targetFormat
 
 > **targetFormat**: [`TTSAudioFormat`](TTSAudioFormat.md)
-
-Defined in: [types/voice.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L110)
 
 Target format
 
@@ -28,8 +24,6 @@ Target format
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/voice.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L112)
-
 Target sample rate
 
 ---
@@ -37,8 +31,6 @@ Target sample rate
 ### bitDepth?
 
 > `optional` **bitDepth?**: `number`
-
-Defined in: [types/voice.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L114)
 
 Target bit depth
 
@@ -48,8 +40,6 @@ Target bit depth
 
 > `optional` **channels?**: `number`
 
-Defined in: [types/voice.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L116)
-
 Number of channels
 
 ---
@@ -57,7 +47,5 @@ Number of channels
 ### normalize?
 
 > `optional` **normalize?**: `boolean`
-
-Defined in: [types/voice.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L118)
 
 Normalize audio level

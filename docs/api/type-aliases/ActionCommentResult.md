@@ -8,8 +8,6 @@
 
 > **ActionCommentResult** = `object`
 
-Defined in: [types/action.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L223)
-
 GitHub comment posting result
 
 ## Properties
@@ -18,15 +16,11 @@ GitHub comment posting result
 
 > **success**: `boolean`
 
-Defined in: [types/action.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L224)
-
 ---
 
 ### commentId?
 
 > `optional` **commentId?**: `number`
-
-Defined in: [types/action.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L225)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/action.ts:225](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **commentUrl?**: `string`
 
-Defined in: [types/action.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L226)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/action.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L227)

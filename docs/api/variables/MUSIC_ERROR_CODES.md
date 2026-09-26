@@ -8,8 +8,6 @@
 
 > `const` **MUSIC_ERROR_CODES**: `object`
 
-Defined in: [utils/musicProcessor.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L32)
-
 Music-specific error codes.
 
 ## Type Declaration

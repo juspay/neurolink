@@ -8,8 +8,6 @@
 
 > **createRoleMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/auth.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/auth.ts#L228)
-
 Role-based access control middleware
 Use after authentication middleware
 

@@ -8,8 +8,6 @@
 
 > **ArtifactStorageType** = `"local"` \| `"redis"`
 
-Defined in: [types/artifact.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L255)
-
 Where artifacts live. Mirrors conversation memory's `STORAGE_TYPE`:
 
 - "local" OS temp directory, per-process index with a cross-process

@@ -8,8 +8,6 @@
 
 > **RateLimiterPendingRequest** = `object`
 
-Defined in: [types/utilities.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L294)
-
 Pending request held by TokenBucketRateLimiter's queue.
 Named RateLimiterPendingRequest to disambiguate from the MCP
 PendingRequest in mcp.ts (Rule 9).
@@ -20,8 +18,6 @@ PendingRequest in mcp.ts (Rule 9).
 
 > **resolve**: () => `void`
 
-Defined in: [types/utilities.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L295)
-
 #### Returns
 
 `void`
@@ -31,8 +27,6 @@ Defined in: [types/utilities.ts:295](https://github.com/juspay/neurolink/blob/re
 ### reject
 
 > **reject**: (`error`) => `void`
-
-Defined in: [types/utilities.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L296)
 
 #### Parameters
 
@@ -50,12 +44,8 @@ Defined in: [types/utilities.ts:296](https://github.com/juspay/neurolink/blob/re
 
 > **timestamp**: `number`
 
-Defined in: [types/utilities.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L297)
-
 ---
 
 ### timeoutTimer?
 
 > `optional` **timeoutTimer?**: `ReturnType`\<_typeof_ `setTimeout`\>
-
-Defined in: [types/utilities.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L298)

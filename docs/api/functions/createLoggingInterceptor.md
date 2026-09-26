@@ -8,8 +8,6 @@
 
 > **createLoggingInterceptor**(`options?`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L148)
-
 Logging interceptor
 
 Logs request and response details for debugging.

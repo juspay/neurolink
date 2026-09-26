@@ -8,8 +8,6 @@
 
 > **createAuthWithRetryMiddleware**(`tokenManager`, `maxRetries?`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/auth.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L349)
-
 Create an authentication middleware with retry on 401
 
 Automatically refreshes token and retries request when receiving 401.

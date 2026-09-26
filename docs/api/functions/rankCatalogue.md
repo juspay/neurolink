@@ -8,8 +8,6 @@
 
 > **rankCatalogue**(`candidates`, `difficulty`, `input?`, `requiredCapabilities?`): [`ClassifierCandidate`](../type-aliases/ClassifierCandidate.md)[]
 
-Defined in: [routing/modelCatalog.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelCatalog.ts#L205)
-
 Rank candidates deterministically for a difficulty. The fallback that makes
 the catalogue safe to enable: with no decision provider configured this is
 the whole selection, and it never consults the network.

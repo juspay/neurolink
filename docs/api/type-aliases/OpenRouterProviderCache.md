@@ -8,8 +8,6 @@
 
 > **OpenRouterProviderCache** = `object`
 
-Defined in: [types/providers.ts:2100](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2100)
-
 OpenRouter provider static cache properties (for testing/internal use)
 
 ## Properties
@@ -18,15 +16,11 @@ OpenRouter provider static cache properties (for testing/internal use)
 
 > **modelsCache**: `string`[]
 
-Defined in: [types/providers.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2101)
-
 ---
 
 ### modelsCacheTime
 
 > **modelsCacheTime**: `number`
-
-Defined in: [types/providers.ts:2102](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2102)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/providers.ts:2102](https://github.com/juspay/neurolink/blob/r
 
 > **toolCapableModels**: `Set`\<`string`\>
 
-Defined in: [types/providers.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2103)
-
 ---
 
 ### capabilitiesCached
 
 > **capabilitiesCached**: `boolean`
-
-Defined in: [types/providers.ts:2104](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2104)

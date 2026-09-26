@@ -8,8 +8,6 @@
 
 > **RouteHandler**\<`T`\> = (`ctx`) => `Promise`\<`T` \| [`ServerResponse`](ServerResponse.md)\<`T`\> \| `AsyncIterable`\<`unknown`\>\>
 
-Defined in: [types/server.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L436)
-
 Route handler function
 
 ## Type Parameters

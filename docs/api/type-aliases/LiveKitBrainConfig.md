@@ -8,8 +8,6 @@
 
 > **LiveKitBrainConfig** = `object`
 
-Defined in: [types/livekit.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L39)
-
 Configuration for the transport-agnostic voice brain.
 
 The brain owns the conversation: it calls `neurolink.stream()` with a stable
@@ -22,8 +20,6 @@ leaves tool-calling to the NeuroLink instance.
 
 > **neurolink**: [`LiveKitNeuroLinkStreamer`](LiveKitNeuroLinkStreamer.md)
 
-Defined in: [types/livekit.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L41)
-
 Configured NeuroLink instance (memory + tools registered on it).
 
 ---
@@ -31,8 +27,6 @@ Configured NeuroLink instance (memory + tools registered on it).
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/livekit.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L43)
 
 LLM provider name passed to `stream()` (e.g. "bedrock").
 
@@ -42,8 +36,6 @@ LLM provider name passed to `stream()` (e.g. "bedrock").
 
 > `optional` **model?**: `string`
 
-Defined in: [types/livekit.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L45)
-
 LLM model name passed to `stream()` (e.g. "claude-sonnet-4-6").
 
 ---
@@ -51,8 +43,6 @@ LLM model name passed to `stream()` (e.g. "claude-sonnet-4-6").
 ### systemPrompt?
 
 > `optional` **systemPrompt?**: `string`
-
-Defined in: [types/livekit.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L47)
 
 System prompt applied to every turn.
 
@@ -62,8 +52,6 @@ System prompt applied to every turn.
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/livekit.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L49)
-
 Sampling temperature for spoken-style responses.
 
 ---
@@ -72,8 +60,6 @@ Sampling temperature for spoken-style responses.
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/livekit.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L51)
-
 Upper bound on tokens per turn.
 
 ---
@@ -81,7 +67,5 @@ Upper bound on tokens per turn.
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/livekit.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L53)
 
 Optional user identifier recorded alongside memory.

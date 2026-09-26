@@ -8,8 +8,6 @@
 
 > **NonEmptyString** = `string` & `object`
 
-Defined in: [types/aliases.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L296)
-
 Non-empty string type
 Useful for validated string inputs
 

@@ -8,8 +8,6 @@
 
 > **createDataStreamWriter**(`config`): [`DataStreamWriter`](../type-aliases/DataStreamWriter.md)
 
-Defined in: [server/streaming/dataStream.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/server/streaming/dataStream.ts#L24)
-
 Creates a data stream writer
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **MiddlewareContext** = `object`
 
-Defined in: [types/middleware.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L91)
-
 Context passed to middleware for decision making
 
 ## Properties
@@ -17,8 +15,6 @@ Context passed to middleware for decision making
 ### provider
 
 > **provider**: `string`
-
-Defined in: [types/middleware.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L93)
 
 Provider name
 
@@ -28,8 +24,6 @@ Provider name
 
 > **model**: `string`
 
-Defined in: [types/middleware.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L95)
-
 Model name
 
 ---
@@ -38,8 +32,6 @@ Model name
 
 > **options**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middleware.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L97)
-
 Request options
 
 ---
@@ -47,8 +39,6 @@ Request options
 ### session?
 
 > `optional` **session?**: `object`
-
-Defined in: [types/middleware.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L99)
 
 Session information
 
@@ -65,7 +55,5 @@ Session information
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/middleware.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L104)
 
 Additional metadata

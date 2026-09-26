@@ -8,8 +8,6 @@
 
 > **HippocampusConfig** = `object`
 
-Defined in: [types/memory.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L71)
-
 Constructor config accepted by the Hippocampus class.
 
 ## Properties
@@ -18,23 +16,17 @@ Constructor config accepted by the Hippocampus class.
 
 > `optional` **storage?**: [`HippocampusStorageConfig`](HippocampusStorageConfig.md)
 
-Defined in: [types/memory.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L72)
-
 ---
 
 ### prompt?
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/memory.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L73)
-
 ---
 
 ### neurolink?
 
 > `optional` **neurolink?**: `object`
-
-Defined in: [types/memory.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L74)
 
 #### provider?
 
@@ -53,5 +45,3 @@ Defined in: [types/memory.ts:74](https://github.com/juspay/neurolink/blob/releas
 ### maxWords?
 
 > `optional` **maxWords?**: `number`
-
-Defined in: [types/memory.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L79)

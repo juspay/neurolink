@@ -8,8 +8,6 @@
 
 > **TTSResult** = `object`
 
-Defined in: [types/tts.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L119)
-
 TTS audio result returned from generation
 
 ## Properties
@@ -17,8 +15,6 @@ TTS audio result returned from generation
 ### buffer
 
 > **buffer**: `Buffer`
-
-Defined in: [types/tts.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L121)
 
 Audio data as Buffer
 
@@ -28,8 +24,6 @@ Audio data as Buffer
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/tts.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L123)
-
 Audio format
 
 ---
@@ -37,8 +31,6 @@ Audio format
 ### size
 
 > **size**: `number`
-
-Defined in: [types/tts.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L125)
 
 Audio file size in bytes
 
@@ -48,8 +40,6 @@ Audio file size in bytes
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/tts.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L127)
-
 Duration in seconds (if available)
 
 ---
@@ -57,8 +47,6 @@ Duration in seconds (if available)
 ### voice?
 
 > `optional` **voice?**: `string`
-
-Defined in: [types/tts.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L129)
 
 Voice used for generation
 
@@ -68,8 +56,6 @@ Voice used for generation
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/tts.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L131)
-
 Sample rate in Hz
 
 ---
@@ -77,8 +63,6 @@ Sample rate in Hz
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/tts.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L133)
 
 Performance and request metadata
 

@@ -8,8 +8,6 @@
 
 > **PptxPresentation** = `object`
 
-Defined in: [types/ppt.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1183)
-
 PptxGenJS Presentation interface
 Defines the methods we use from a pptxgenjs presentation instance
 
@@ -18,8 +16,6 @@ Defines the methods we use from a pptxgenjs presentation instance
 ### addSlide
 
 > **addSlide**: () => [`PptxSlide`](PptxSlide.md)
-
-Defined in: [types/ppt.ts:1185](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1185)
 
 Add a new slide to the presentation
 
@@ -32,8 +28,6 @@ Add a new slide to the presentation
 ### defineLayout
 
 > **defineLayout**: (`layout`) => `void`
-
-Defined in: [types/ppt.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1187)
 
 Define a custom layout
 
@@ -63,8 +57,6 @@ Define a custom layout
 
 > **layout**: `string`
 
-Defined in: [types/ppt.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1193)
-
 Current layout name
 
 ---
@@ -72,8 +64,6 @@ Current layout name
 ### title?
 
 > `optional` **title?**: `string`
-
-Defined in: [types/ppt.ts:1195](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1195)
 
 Presentation title metadata
 
@@ -83,8 +73,6 @@ Presentation title metadata
 
 > `optional` **subject?**: `string`
 
-Defined in: [types/ppt.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1197)
-
 Presentation subject metadata
 
 ---
@@ -92,8 +80,6 @@ Presentation subject metadata
 ### author?
 
 > `optional` **author?**: `string`
-
-Defined in: [types/ppt.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1199)
 
 Presentation author metadata
 
@@ -103,8 +89,6 @@ Presentation author metadata
 
 > `optional` **company?**: `string`
 
-Defined in: [types/ppt.ts:1201](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1201)
-
 Presentation company metadata
 
 ---
@@ -112,8 +96,6 @@ Presentation company metadata
 ### writeFile
 
 > **writeFile**: (`options`) => `Promise`\<`string`\>
-
-Defined in: [types/ppt.ts:1203](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1203)
 
 Write presentation to file
 
@@ -134,8 +116,6 @@ Write presentation to file
 ### write
 
 > **write**: (`options`) => `Promise`\<`unknown`\>
-
-Defined in: [types/ppt.ts:1205](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1205)
 
 Write presentation to buffer/stream
 

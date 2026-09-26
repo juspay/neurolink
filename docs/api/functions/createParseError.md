@@ -8,8 +8,6 @@
 
 > **createParseError**(`rawResponse`, `cause?`): [`NeuroLinkFeatureError`](../classes/NeuroLinkFeatureError.md)
 
-Defined in: [evaluation/errors/EvaluationError.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/errors/EvaluationError.ts#L121)
-
 Helper function to create a parse error with raw response.
 
 ## Parameters

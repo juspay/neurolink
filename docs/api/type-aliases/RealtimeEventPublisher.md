@@ -8,8 +8,6 @@
 
 > **RealtimeEventPublisher** = (`type`, `data`) => `void`
 
-Defined in: [types/livekit.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L509)
-
 Publishes a single voice event envelope onto the room data channel.
 
 ## Parameters

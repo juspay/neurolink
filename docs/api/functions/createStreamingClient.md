@@ -8,8 +8,6 @@
 
 > **createStreamingClient**(`config`): `object`
 
-Defined in: [client/streamingClient.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L815)
-
 Streaming Client Factory
 
 Creates streaming clients for real-time communication with NeuroLink API.

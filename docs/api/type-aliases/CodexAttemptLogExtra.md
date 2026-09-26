@@ -8,6 +8,4 @@
 
 > **CodexAttemptLogExtra** = `Partial`\<`Pick`\<[`RequestAttemptLogEntry`](RequestAttemptLogEntry.md), `"inputTokens"` \| `"outputTokens"` \| `"cacheReadTokens"` \| `"cacheCreationTokens"` \| `"reasoningTokens"` \| `"inputIncludesCachedTokens"` \| `"errorType"` \| `"errorMessage"` \| `"errorCode"` \| `"transportScope"` \| `"retryable"` \| `"rateLimitKind"` \| `"cooldownReason"` \| `"quotaResetAt"` \| `"quotaScope"`\>\>
 
-Defined in: [types/proxy.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1199)
-
 Additional fields recorded for each upstream Codex account attempt.

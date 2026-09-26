@@ -8,8 +8,6 @@
 
 > **BetterAuthConfig** = `object`
 
-Defined in: [types/auth.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L797)
-
 Better Auth provider configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Better Auth provider configuration
 ### secret
 
 > **secret**: `string`
-
-Defined in: [types/auth.ts:799](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L799)
 
 Better Auth secret
 
@@ -28,8 +24,6 @@ Better Auth secret
 
 > **baseUrl**: `string`
 
-Defined in: [types/auth.ts:801](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L801)
-
 Better Auth base URL
 
 ---
@@ -38,8 +32,6 @@ Better Auth base URL
 
 > `optional` **databaseUrl?**: `string`
 
-Defined in: [types/auth.ts:803](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L803)
-
 Database connection string
 
 ---
@@ -47,8 +39,6 @@ Database connection string
 ### socialProviders?
 
 > `optional` **socialProviders?**: `object`
-
-Defined in: [types/auth.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L805)
 
 Social providers configuration
 

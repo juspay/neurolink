@@ -8,8 +8,6 @@
 
 > **ProxyAccount** = `object`
 
-Defined in: [types/subscription.ts:1163](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1163)
-
 A single Claude account in the pool
 
 ## Properties
@@ -18,15 +16,11 @@ A single Claude account in the pool
 
 > **id**: `string`
 
-Defined in: [types/subscription.ts:1164](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1164)
-
 ---
 
 ### label?
 
 > `optional` **label?**: `string`
-
-Defined in: [types/subscription.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1165)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/subscription.ts:1165](https://github.com/juspay/neurolink/blo
 
 > **type**: `"oauth"` \| `"api_key"`
 
-Defined in: [types/subscription.ts:1166](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1166)
-
 ---
 
 ### tokens?
 
 > `optional` **tokens?**: [`StoredOAuthTokens`](StoredOAuthTokens.md)
-
-Defined in: [types/subscription.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1167)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/subscription.ts:1167](https://github.com/juspay/neurolink/blo
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/subscription.ts:1168](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1168)
-
 ---
 
 ### status
 
 > **status**: `"healthy"` \| `"cooling"` \| `"disabled"`
-
-Defined in: [types/subscription.ts:1169](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1169)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/subscription.ts:1169](https://github.com/juspay/neurolink/blo
 
 > `optional` **cooldownUntil?**: `number`
 
-Defined in: [types/subscription.ts:1170](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1170)
-
 ---
 
 ### consecutiveFailures
 
 > **consecutiveFailures**: `number`
-
-Defined in: [types/subscription.ts:1171](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1171)
 
 ---
 
@@ -82,20 +64,14 @@ Defined in: [types/subscription.ts:1171](https://github.com/juspay/neurolink/blo
 
 > **requestCount**: `number`
 
-Defined in: [types/subscription.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1172)
-
 ---
 
 ### lastUsed
 
 > **lastUsed**: `number`
 
-Defined in: [types/subscription.ts:1173](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1173)
-
 ---
 
 ### subscriptionTier?
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
-
-Defined in: [types/subscription.ts:1174](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1174)

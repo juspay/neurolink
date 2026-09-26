@@ -8,15 +8,11 @@
 
 > **ExcelJSWorksheet** = `object`
 
-Defined in: [types/processor.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L702)
-
 ## Properties
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/processor.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L703)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/processor.ts:703](https://github.com/juspay/neurolink/blob/re
 
 > **rowCount**: `number`
 
-Defined in: [types/processor.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L704)
-
 ---
 
 ### eachRow
 
 > **eachRow**: \{(`callback`): `void`; (`opts`, `callback`): `void`; \}
-
-Defined in: [types/processor.ts:705](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L705)
 
 #### Call Signature
 
@@ -73,8 +65,6 @@ Defined in: [types/processor.ts:705](https://github.com/juspay/neurolink/blob/re
 ### getRow
 
 > **getRow**: (`rowNumber`) => [`ExcelJSRow`](ExcelJSRow.md)
-
-Defined in: [types/processor.ts:712](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L712)
 
 #### Parameters
 

@@ -8,8 +8,6 @@
 
 > **startLangfuseAdapter**(`config`): `LangfuseAdapter`
 
-Defined in: [evaluation/hooks/langfuseAdapter.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/langfuseAdapter.ts#L197)
-
 Create and start a Langfuse adapter
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **createTimeoutInterceptor**(`options`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:649](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L649)
-
 Timeout interceptor
 
 Adds a timeout to requests.

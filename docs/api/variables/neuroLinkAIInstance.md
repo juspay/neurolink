@@ -8,8 +8,6 @@
 
 > `const` **neuroLinkAIInstance**: (`options`) => [`NeuroLinkAIProvider`](../classes/NeuroLinkAIProvider.md) & (`modelId?`, `modelOptions?`) => [`NeuroLinkLanguageModel`](../classes/NeuroLinkLanguageModel.md) = `createNeuroLinkProvider`
 
-Defined in: [client/aiSdkAdapter.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L489)
-
 Default export for easy provider creation
 
 Create a NeuroLink provider for Vercel AI SDK

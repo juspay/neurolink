@@ -8,8 +8,6 @@
 
 > **WorkflowValidationResult** = `object`
 
-Defined in: [types/workflow.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L469)
-
 Workflow validation result
 
 ## Properties
@@ -18,20 +16,14 @@ Workflow validation result
 
 > **valid**: `boolean`
 
-Defined in: [types/workflow.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L470)
-
 ---
 
 ### errors
 
 > **errors**: [`WorkflowValidationError`](WorkflowValidationError.md)[]
 
-Defined in: [types/workflow.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L471)
-
 ---
 
 ### warnings
 
 > **warnings**: [`WorkflowValidationWarning`](WorkflowValidationWarning.md)[]
-
-Defined in: [types/workflow.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L472)

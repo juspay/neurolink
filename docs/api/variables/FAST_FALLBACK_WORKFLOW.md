@@ -8,8 +8,6 @@
 
 > `const` **FAST_FALLBACK_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/fallbackWorkflow.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/fallbackWorkflow.ts#L43)
-
 Fast-Fallback Workflow Configuration
 
 Uses layer-based execution with sequential groups:

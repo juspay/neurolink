@@ -8,8 +8,6 @@
 
 > **AsyncTransformFunction**\<`TInput`, `TOutput`\> = (`input`) => `Promise`\<`TOutput`\>
 
-Defined in: [types/aliases.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L148)
-
 Async transformation function type
 
 ## Type Parameters

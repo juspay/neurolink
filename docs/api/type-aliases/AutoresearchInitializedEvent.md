@@ -8,15 +8,11 @@
 
 > **AutoresearchInitializedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L134)
-
 ## Properties
 
 ### tag
 
 > **tag**: `string`
-
-Defined in: [types/autoresearch.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L135)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/autoresearch.ts:135](https://github.com/juspay/neurolink/blob
 
 > **branch**: `string`
 
-Defined in: [types/autoresearch.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L136)
-
 ---
 
 ### config
 
 > **config**: `object`
-
-Defined in: [types/autoresearch.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L137)
 
 #### repoPath
 

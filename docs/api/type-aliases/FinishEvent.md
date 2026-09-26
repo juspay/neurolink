@@ -8,8 +8,6 @@
 
 > **FinishEvent** = [`DataStreamEvent`](DataStreamEvent.md) & `object`
 
-Defined in: [types/server.ts:1425](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1425)
-
 Data stream finish event.
 
 ## Type Declaration

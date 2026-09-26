@@ -8,8 +8,6 @@
 
 > **UsageContext** = `object`
 
-Defined in: [types/proxy.ts:2254](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2254)
-
 Token usage and rate-limit utilisation recorded at end of request.
 
 ## Properties
@@ -17,8 +15,6 @@ Token usage and rate-limit utilisation recorded at end of request.
 ### inputIncludesCachedTokens?
 
 > `optional` **inputIncludesCachedTokens?**: `boolean`
-
-Defined in: [types/proxy.ts:2256](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2256)
 
 True when input includes the cache breakdown (native Codex wire usage).
 
@@ -28,15 +24,11 @@ True when input includes the cache breakdown (native Codex wire usage).
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxy.ts:2257](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2257)
-
 ---
 
 ### outputTokens
 
 > **outputTokens**: `number`
-
-Defined in: [types/proxy.ts:2258](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2258)
 
 ---
 
@@ -44,23 +36,17 @@ Defined in: [types/proxy.ts:2258](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/proxy.ts:2259](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2259)
-
 ---
 
 ### cacheReadTokens
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/proxy.ts:2260](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2260)
-
 ---
 
 ### cacheReadTokensObserved?
 
 > `optional` **cacheReadTokensObserved?**: `boolean`
-
-Defined in: [types/proxy.ts:2268](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2268)
 
 Whether the provider actually reported each cache count. Omitted means
 observed, so every path that genuinely reports a breakdown is unchanged.
@@ -74,15 +60,11 @@ biases every rate built on that counter downward.
 
 > `optional` **cacheCreationTokensObserved?**: `boolean`
 
-Defined in: [types/proxy.ts:2269](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2269)
-
 ---
 
 ### reasoningTokens?
 
 > `optional` **reasoningTokens?**: `number`
-
-Defined in: [types/proxy.ts:2270](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2270)
 
 ---
 
@@ -90,12 +72,8 @@ Defined in: [types/proxy.ts:2270](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **rateLimitAfter5h?**: `number`
 
-Defined in: [types/proxy.ts:2271](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2271)
-
 ---
 
 ### rateLimitAfter7d?
 
 > `optional` **rateLimitAfter7d?**: `number`
-
-Defined in: [types/proxy.ts:2272](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2272)

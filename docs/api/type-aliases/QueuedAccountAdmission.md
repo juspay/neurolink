@@ -8,8 +8,6 @@
 
 > **QueuedAccountAdmission** = `object`
 
-Defined in: [types/proxy.ts:1398](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1398)
-
 A cancellable queued request for per-account admission capacity.
 
 ## Properties
@@ -18,23 +16,17 @@ A cancellable queued request for per-account admission capacity.
 
 > **accountKey**: `string`
 
-Defined in: [types/proxy.ts:1399](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1399)
-
 ---
 
 ### promise
 
 > **promise**: `Promise`\<[`AccountAdmissionLease`](AccountAdmissionLease.md)\>
 
-Defined in: [types/proxy.ts:1400](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1400)
-
 ## Methods
 
 ### cancel()
 
 > **cancel**(): `void`
-
-Defined in: [types/proxy.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1401)
 
 #### Returns
 

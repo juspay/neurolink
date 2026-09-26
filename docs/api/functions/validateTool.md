@@ -8,8 +8,6 @@
 
 > **validateTool**(`name`, `tool`): `void`
 
-Defined in: [sdk/toolRegistration.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/sdk/toolRegistration.ts#L331)
-
 Validate tool configuration with detailed error messages
 
 ## Parameters

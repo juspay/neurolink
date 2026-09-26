@@ -8,8 +8,6 @@
 
 > **createPromptAlignmentScorer**(`config?`): `Promise`\<[`PromptAlignmentScorer`](../classes/PromptAlignmentScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/promptAlignmentScorer.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/promptAlignmentScorer.ts#L129)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

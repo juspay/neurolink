@@ -8,8 +8,6 @@
 
 > **createNeuroLinkModel**(`options`): [`NeuroLinkLanguageModel`](../classes/NeuroLinkLanguageModel.md)
 
-Defined in: [client/aiSdkAdapter.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L460)
-
 Create a standalone NeuroLink model for Vercel AI SDK
 
 ## Parameters

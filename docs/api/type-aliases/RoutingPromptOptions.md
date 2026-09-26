@@ -8,8 +8,6 @@
 
 > **RoutingPromptOptions** = `object`
 
-Defined in: [types/agentNetwork.ts:1644](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1644)
-
 Options for routing prompt generation
 
 ## Properties
@@ -17,8 +15,6 @@ Options for routing prompt generation
 ### includeAlternatives?
 
 > `optional` **includeAlternatives?**: `boolean`
-
-Defined in: [types/agentNetwork.ts:1646](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1646)
 
 Include alternative primitives in response
 
@@ -28,8 +24,6 @@ Include alternative primitives in response
 
 > `optional` **maxPrimitivesToShow?**: `number`
 
-Defined in: [types/agentNetwork.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1649)
-
 Maximum primitives to include in prompt
 
 ---
@@ -38,8 +32,6 @@ Maximum primitives to include in prompt
 
 > `optional` **additionalContext?**: `string`
 
-Defined in: [types/agentNetwork.ts:1652](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1652)
-
 Additional context for routing
 
 ---
@@ -47,8 +39,6 @@ Additional context for routing
 ### conversationHistory?
 
 > `optional` **conversationHistory?**: `object`[]
-
-Defined in: [types/agentNetwork.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1655)
 
 Conversation history for context
 

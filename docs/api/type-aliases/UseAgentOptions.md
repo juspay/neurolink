@@ -8,8 +8,6 @@
 
 > **UseAgentOptions** = `object`
 
-Defined in: [types/client.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L625)
-
 useAgent hook options
 
 ## Properties
@@ -17,8 +15,6 @@ useAgent hook options
 ### agentId
 
 > **agentId**: `string`
-
-Defined in: [types/client.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L627)
 
 Agent ID
 
@@ -28,8 +24,6 @@ Agent ID
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/client.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L629)
-
 Initial session ID
 
 ---
@@ -37,8 +31,6 @@ Initial session ID
 ### onResponse?
 
 > `optional` **onResponse?**: (`result`) => `void`
-
-Defined in: [types/client.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L631)
 
 Called on agent response
 
@@ -58,8 +50,6 @@ Called on agent response
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L633)
-
 Called on error
 
 #### Parameters
@@ -78,8 +68,6 @@ Called on error
 
 > `optional` **onToolCall?**: (`toolCall`) => `void`
 
-Defined in: [types/client.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L635)
-
 Called when tool is called
 
 #### Parameters
@@ -97,7 +85,5 @@ Called when tool is called
 ### initialInput?
 
 > `optional` **initialInput?**: `string`
-
-Defined in: [types/client.ts:637](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L637)
 
 Auto-execute on mount with initial input

@@ -8,8 +8,6 @@
 
 > **StoredProviderTokens** = `object`
 
-Defined in: [types/auth.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L76)
-
 Per-provider token storage structure
 
 ## Properties
@@ -17,8 +15,6 @@ Per-provider token storage structure
 ### tokens
 
 > **tokens**: [`StoredOAuthTokens`](StoredOAuthTokens.md)
-
-Defined in: [types/auth.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L78)
 
 The stored tokens
 
@@ -28,8 +24,6 @@ The stored tokens
 
 > **createdAt**: `number`
 
-Defined in: [types/auth.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L80)
-
 When the tokens were stored
 
 ---
@@ -37,8 +31,6 @@ When the tokens were stored
 ### lastAccessed
 
 > **lastAccessed**: `number`
-
-Defined in: [types/auth.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L82)
 
 When the tokens were last accessed
 
@@ -48,8 +40,6 @@ When the tokens were last accessed
 
 > `optional` **disabled?**: `boolean`
 
-Defined in: [types/auth.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L84)
-
 Whether this provider's tokens are permanently disabled
 
 ---
@@ -58,8 +48,6 @@ Whether this provider's tokens are permanently disabled
 
 > `optional` **disabledAt?**: `number`
 
-Defined in: [types/auth.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L86)
-
 When the tokens were disabled (Unix ms)
 
 ---
@@ -67,7 +55,5 @@ When the tokens were disabled (Unix ms)
 ### disabledReason?
 
 > `optional` **disabledReason?**: `string`
-
-Defined in: [types/auth.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L88)
 
 Reason the tokens were disabled (e.g., "refresh_invalid")

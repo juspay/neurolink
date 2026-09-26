@@ -8,8 +8,6 @@
 
 > **BearerAuthOptions** = `object`
 
-Defined in: [types/middleware.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L403)
-
 Options for the bearer-token auth middleware.
 
 ## Properties
@@ -18,20 +16,14 @@ Options for the bearer-token auth middleware.
 
 > `optional` **required?**: `boolean`
 
-Defined in: [types/middleware.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L404)
-
 ---
 
 ### headerName?
 
 > `optional` **headerName?**: `string`
 
-Defined in: [types/middleware.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L405)
-
 ---
 
 ### skipPaths?
 
 > `optional` **skipPaths?**: `string`[]
-
-Defined in: [types/middleware.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L406)

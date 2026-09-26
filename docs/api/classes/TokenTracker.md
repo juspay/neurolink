@@ -6,8 +6,6 @@
 
 # Class: TokenTracker
 
-Defined in: [observability/tokenTracker.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L81)
-
 Token tracker for aggregating usage across spans
 
 ## Constructors
@@ -25,8 +23,6 @@ Token tracker for aggregating usage across spans
 ### setObservabilityModelPricing()
 
 > **setObservabilityModelPricing**(`modelName`, `pricing`): `void`
-
-Defined in: [observability/tokenTracker.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L102)
 
 Set custom pricing for a single model
 
@@ -54,8 +50,6 @@ The pricing information
 
 > **updatePricing**(`model`, `pricing`): `void`
 
-Defined in: [observability/tokenTracker.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L114)
-
 Update pricing for an existing model (alias for setObservabilityModelPricing)
 
 #### Parameters
@@ -82,8 +76,6 @@ The new pricing information
 
 > **loadPricingFromConfig**(`config`): `void`
 
-Defined in: [observability/tokenTracker.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L123)
-
 Load pricing configuration from a config object
 Useful for loading pricing from environment or config files
 
@@ -104,8 +96,6 @@ Record of model names to pricing information
 ### getModelPricing()
 
 > **getModelPricing**(`model`): [`ObservabilityModelPricing`](../type-aliases/ObservabilityModelPricing.md) \| `undefined`
-
-Defined in: [observability/tokenTracker.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L136)
 
 Get pricing for a specific model
 
@@ -129,8 +119,6 @@ The pricing information or undefined if not found
 
 > **getAllPricing**(): `Record`\<`string`, [`ObservabilityModelPricing`](../type-aliases/ObservabilityModelPricing.md)\>
 
-Defined in: [observability/tokenTracker.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L144)
-
 Get all available model pricing (custom + built-in)
 
 #### Returns
@@ -144,8 +132,6 @@ Record of all model pricing
 ### removeCustomPricing()
 
 > **removeCustomPricing**(`model`): `boolean`
-
-Defined in: [observability/tokenTracker.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L160)
 
 Remove custom pricing for a model (falls back to built-in)
 
@@ -167,8 +153,6 @@ The model name to remove custom pricing for
 
 > **trackSpan**(`span`): `void`
 
-Defined in: [observability/tokenTracker.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L167)
-
 Track token usage from a span
 
 #### Parameters
@@ -186,8 +170,6 @@ Track token usage from a span
 ### trackUsage()
 
 > **trackUsage**(`usage`): `void`
-
-Defined in: [observability/tokenTracker.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L274)
 
 Track token usage from a simple usage object
 This is a convenience method for tracking usage without a full span
@@ -228,8 +210,6 @@ Token usage data
 
 > **getStats**(): [`TokenUsageStats`](../type-aliases/TokenUsageStats.md)
 
-Defined in: [observability/tokenTracker.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L347)
-
 Get current stats
 
 #### Returns
@@ -241,8 +221,6 @@ Get current stats
 ### getStatsForWindow()
 
 > **getStatsForWindow**(`spans`): [`TokenUsageStats`](../type-aliases/TokenUsageStats.md)
-
-Defined in: [observability/tokenTracker.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L354)
 
 Get stats for a specific time window of spans
 
@@ -262,8 +240,6 @@ Get stats for a specific time window of spans
 
 > **reset**(): `void`
 
-Defined in: [observability/tokenTracker.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L369)
-
 Reset all stats
 
 #### Returns
@@ -276,8 +252,6 @@ Reset all stats
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [observability/tokenTracker.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L387)
-
 Export stats as JSON
 
 #### Returns
@@ -289,8 +263,6 @@ Export stats as JSON
 ### formatCost()
 
 > **formatCost**(`cost`, `currency?`): `string`
-
-Defined in: [observability/tokenTracker.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L405)
 
 Format cost as currency string
 
@@ -313,8 +285,6 @@ Format cost as currency string
 ### getSummary()
 
 > **getSummary**(): `string`
-
-Defined in: [observability/tokenTracker.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/observability/tokenTracker.ts#L416)
 
 Get a summary string of current stats
 

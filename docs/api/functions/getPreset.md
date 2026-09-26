@@ -8,8 +8,6 @@
 
 > **getPreset**(`name`): [`PipelineConfig`](../type-aliases/PipelineConfig.md)
 
-Defined in: [evaluation/pipeline/presets.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/presets.ts#L228)
-
 Get a preset pipeline configuration by name
 
 ## Parameters

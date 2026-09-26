@@ -8,8 +8,6 @@
 
 > **getEvaluatorRegistry**(): `EvaluatorRegistry`
 
-Defined in: [evaluation/EvaluatorRegistry.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/EvaluatorRegistry.ts#L245)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

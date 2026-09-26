@@ -7,5 +7,3 @@
 # Type Alias: CatalogBillingPolicy
 
 > **CatalogBillingPolicy** = `"free-tier"` \| `"free-with-card"` \| `"no-free-tier"`
-
-Defined in: [types/providerCatalog.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L87)

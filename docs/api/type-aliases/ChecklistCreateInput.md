@@ -8,12 +8,8 @@
 
 > **ChecklistCreateInput** = `object`
 
-Defined in: [types/tasks.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/tasks.ts#L36)
-
 ## Properties
 
 ### titles
 
 > **titles**: `string`[]
-
-Defined in: [types/tasks.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/tasks.ts#L36)

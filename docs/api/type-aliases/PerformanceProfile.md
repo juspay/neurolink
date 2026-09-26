@@ -8,6 +8,4 @@
 
 > **PerformanceProfile** = keyof _typeof_ `PERFORMANCE_PROFILES`
 
-Defined in: [types/config.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L581)
-
 Performance profile keys from PERFORMANCE_PROFILES.

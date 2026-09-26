@@ -8,8 +8,6 @@
 
 > **ExecuteModelOptions** = `object`
 
-Defined in: [types/workflow.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L559)
-
 Options for single model execution (internal)
 
 ## Properties
@@ -18,15 +16,11 @@ Options for single model execution (internal)
 
 > **model**: [`WorkflowModelConfig`](WorkflowModelConfig.md)
 
-Defined in: [types/workflow.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L560)
-
 ---
 
 ### prompt
 
 > **prompt**: `string`
-
-Defined in: [types/workflow.ts:561](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L561)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/workflow.ts:561](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/workflow.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L562)
-
 ---
 
 ### timeout
 
 > **timeout**: `number`
-
-Defined in: [types/workflow.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L563)

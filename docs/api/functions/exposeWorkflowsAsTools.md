@@ -8,8 +8,6 @@
 
 > **exposeWorkflowsAsTools**(`workflows`, `options?`): [`ExposureResult`](../type-aliases/ExposureResult.md)[]
 
-Defined in: [mcp/agentExposure.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L374)
-
 Batch expose workflows as MCP tools
 
 ## Parameters

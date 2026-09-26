@@ -8,8 +8,6 @@
 
 > **ClassificationScores** = `object`
 
-Defined in: [types/taskClassification.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L26)
-
 Internal scoring data used during classification analysis
 
 ## Properties
@@ -17,8 +15,6 @@ Internal scoring data used during classification analysis
 ### fastScore
 
 > **fastScore**: `number`
-
-Defined in: [types/taskClassification.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L28)
 
 Score indicating likelihood of fast task
 
@@ -28,8 +24,6 @@ Score indicating likelihood of fast task
 
 > **reasoningScore**: `number`
 
-Defined in: [types/taskClassification.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L30)
-
 Score indicating likelihood of reasoning task
 
 ---
@@ -37,7 +31,5 @@ Score indicating likelihood of reasoning task
 ### reasons
 
 > **reasons**: `string`[]
-
-Defined in: [types/taskClassification.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L32)
 
 Array of reasons contributing to the scores

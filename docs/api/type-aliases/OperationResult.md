@@ -8,8 +8,6 @@
 
 > **OperationResult**\<`TData`\> = [`Result`](Result.md)\<`TData`\> & `object`
 
-Defined in: [types/aliases.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L267)
-
 Operation result with metadata
 Enhanced result type with additional context
 

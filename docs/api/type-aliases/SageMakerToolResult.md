@@ -8,8 +8,6 @@
 
 > **SageMakerToolResult** = `object`
 
-Defined in: [types/providers.ts:1669](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1669)
-
 Tool result information
 
 ## Properties
@@ -17,8 +15,6 @@ Tool result information
 ### toolCallId
 
 > **toolCallId**: `string`
-
-Defined in: [types/providers.ts:1671](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1671)
 
 Tool call identifier
 
@@ -28,8 +24,6 @@ Tool call identifier
 
 > **toolName**: `string`
 
-Defined in: [types/providers.ts:1673](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1673)
-
 Tool name
 
 ---
@@ -37,8 +31,6 @@ Tool name
 ### result
 
 > **result**: `unknown`
-
-Defined in: [types/providers.ts:1675](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1675)
 
 Tool result data
 
@@ -48,8 +40,6 @@ Tool result data
 
 > **status**: `"success"` \| `"error"`
 
-Defined in: [types/providers.ts:1677](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1677)
-
 Execution status
 
 ---
@@ -57,7 +47,5 @@ Execution status
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/providers.ts:1679](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1679)
 
 Error message if status is error

@@ -8,8 +8,6 @@
 
 > **ExternalMCPToolResult** = `object`
 
-Defined in: [types/externalMcp.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L306)
-
 External MCP tool execution result
 
 ## Properties
@@ -17,8 +15,6 @@ External MCP tool execution result
 ### success
 
 > **success**: `boolean`
-
-Defined in: [types/externalMcp.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L308)
 
 Whether the execution was successful
 
@@ -28,8 +24,6 @@ Whether the execution was successful
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/externalMcp.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L311)
-
 Result data if successful
 
 ---
@@ -38,8 +32,6 @@ Result data if successful
 
 > `optional` **error?**: `string`
 
-Defined in: [types/externalMcp.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L314)
-
 Error message if failed
 
 ---
@@ -47,8 +39,6 @@ Error message if failed
 ### isErrorResult?
 
 > `optional` **isErrorResult?**: `boolean`
-
-Defined in: [types/externalMcp.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L322)
 
 True when the call completed at the transport level but the MCP result
 itself is `{ isError: true }`. `success` stays true for such results so
@@ -61,8 +51,6 @@ flag is what lets stats and telemetry count the call as a failure.
 
 > **duration**: `number`
 
-Defined in: [types/externalMcp.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L325)
-
 Execution duration in milliseconds
 
 ---
@@ -70,8 +58,6 @@ Execution duration in milliseconds
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/externalMcp.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L328)
 
 Tool execution metadata
 

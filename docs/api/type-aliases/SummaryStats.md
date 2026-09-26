@@ -8,8 +8,6 @@
 
 > **SummaryStats** = `object`
 
-Defined in: [types/workflow.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L735)
-
 Summary statistics for workflow executions
 
 ## Properties
@@ -18,15 +16,11 @@ Summary statistics for workflow executions
 
 > **totalExecutions**: `number`
 
-Defined in: [types/workflow.ts:736](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L736)
-
 ---
 
 ### averageScore
 
 > **averageScore**: `number`
-
-Defined in: [types/workflow.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L737)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/workflow.ts:737](https://github.com/juspay/neurolink/blob/rel
 
 > **averageConfidence**: `number`
 
-Defined in: [types/workflow.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L738)
-
 ---
 
 ### averageExecutionTime
 
 > **averageExecutionTime**: `number`
-
-Defined in: [types/workflow.ts:739](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L739)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/workflow.ts:739](https://github.com/juspay/neurolink/blob/rel
 
 > **successRate**: `number`
 
-Defined in: [types/workflow.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L740)
-
 ---
 
 ### totalCost
 
 > **totalCost**: `number`
-
-Defined in: [types/workflow.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L741)

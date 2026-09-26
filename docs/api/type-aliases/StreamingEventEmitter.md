@@ -8,8 +8,6 @@
 
 > **StreamingEventEmitter** = `object`
 
-Defined in: [types/client.ts:1527](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1527)
-
 Streaming event emitter interface
 
 ## Methods
@@ -19,8 +17,6 @@ Streaming event emitter interface
 #### Call Signature
 
 > **on**(`event`, `callback`): `void`
-
-Defined in: [types/client.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1528)
 
 ##### Parameters
 
@@ -40,8 +36,6 @@ Defined in: [types/client.ts:1528](https://github.com/juspay/neurolink/blob/rele
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1529](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1529)
-
 ##### Parameters
 
 ###### event
@@ -59,8 +53,6 @@ Defined in: [types/client.ts:1529](https://github.com/juspay/neurolink/blob/rele
 #### Call Signature
 
 > **on**(`event`, `callback`): `void`
-
-Defined in: [types/client.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1530)
 
 ##### Parameters
 
@@ -80,8 +72,6 @@ Defined in: [types/client.ts:1530](https://github.com/juspay/neurolink/blob/rele
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1534)
-
 ##### Parameters
 
 ###### event
@@ -100,8 +90,6 @@ Defined in: [types/client.ts:1534](https://github.com/juspay/neurolink/blob/rele
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1535](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1535)
-
 ##### Parameters
 
 ###### event
@@ -119,8 +107,6 @@ Defined in: [types/client.ts:1535](https://github.com/juspay/neurolink/blob/rele
 #### Call Signature
 
 > **on**(`event`, `callback`): `void`
-
-Defined in: [types/client.ts:1536](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1536)
 
 ##### Parameters
 
@@ -142,8 +128,6 @@ Defined in: [types/client.ts:1536](https://github.com/juspay/neurolink/blob/rele
 
 > **off**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1537](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1537)
-
 #### Parameters
 
 ##### event
@@ -163,8 +147,6 @@ Defined in: [types/client.ts:1537](https://github.com/juspay/neurolink/blob/rele
 ### emit()
 
 > **emit**(`event`, ...`args`): `void`
-
-Defined in: [types/client.ts:1538](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1538)
 
 #### Parameters
 

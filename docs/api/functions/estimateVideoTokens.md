@@ -8,8 +8,6 @@
 
 > **estimateVideoTokens**(`options`): `number`
 
-Defined in: [adapters/videoFormatSupport.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/videoFormatSupport.ts#L333)
-
 Rough token cost of putting one video in front of one provider.
 
 Two quite different prices, because two quite different payloads: a native

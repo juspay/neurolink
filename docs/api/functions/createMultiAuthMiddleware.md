@@ -8,8 +8,6 @@
 
 > **createMultiAuthMiddleware**(`config`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/auth.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L389)
-
 Create a multi-auth middleware that supports multiple authentication methods
 
 ## Parameters

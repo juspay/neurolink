@@ -8,8 +8,6 @@
 
 > **AgentToolResultChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L804)
-
 Agent tool result event
 
 ## Type Declaration

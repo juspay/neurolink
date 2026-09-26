@@ -8,8 +8,6 @@
 
 > **AuthProviderFactoryFn** = (`config`) => `Promise`\<[`AuthProvider`](AuthProvider.md)\>
 
-Defined in: [types/auth.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L977)
-
 Auth provider factory function type
 
 ## Parameters

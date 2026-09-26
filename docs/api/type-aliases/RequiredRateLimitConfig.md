@@ -8,8 +8,6 @@
 
 > **RequiredRateLimitConfig** = `object`
 
-Defined in: [types/server.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L142)
-
 Required rate limit configuration
 
 ## Properties
@@ -18,15 +16,11 @@ Required rate limit configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L143)
-
 ---
 
 ### windowMs
 
 > **windowMs**: `number`
-
-Defined in: [types/server.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L144)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/server.ts:144](https://github.com/juspay/neurolink/blob/relea
 
 > **maxRequests**: `number`
 
-Defined in: [types/server.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L145)
-
 ---
 
 ### message
 
 > **message**: `string`
-
-Defined in: [types/server.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L146)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/server.ts:146](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/server.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L147)
-
 ---
 
 ### keyGenerator?
 
 > `optional` **keyGenerator?**: (`ctx`) => `string`
-
-Defined in: [types/server.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L148)
 
 #### Parameters
 

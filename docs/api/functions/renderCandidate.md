@@ -8,8 +8,6 @@
 
 > **renderCandidate**(`candidate`): `string`
 
-Defined in: [routing/modelCatalog.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelCatalog.ts#L372)
-
 Render one candidate as a single criteria line for the decision model.
 
 Terse on purpose: this text is multiplied by the candidate count inside a

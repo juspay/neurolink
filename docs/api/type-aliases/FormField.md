@@ -8,8 +8,6 @@
 
 > **FormField** = `object`
 
-Defined in: [types/elicitation.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L148)
-
 Form field definition
 
 ## Properties
@@ -18,15 +16,11 @@ Form field definition
 
 > **name**: `string`
 
-Defined in: [types/elicitation.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L149)
-
 ---
 
 ### label
 
 > **label**: `string`
-
-Defined in: [types/elicitation.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L150)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/elicitation.ts:150](https://github.com/juspay/neurolink/blob/
 
 > **type**: `"text"` \| `"number"` \| `"boolean"` \| `"select"` \| `"date"` \| `"password"`
 
-Defined in: [types/elicitation.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L151)
-
 ---
 
 ### required?
 
 > `optional` **required?**: `boolean`
-
-Defined in: [types/elicitation.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L152)
 
 ---
 
@@ -50,23 +40,17 @@ Defined in: [types/elicitation.ts:152](https://github.com/juspay/neurolink/blob/
 
 > `optional` **defaultValue?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/elicitation.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L153)
-
 ---
 
 ### options?
 
 > `optional` **options?**: [`SelectOption`](SelectOption.md)[]
 
-Defined in: [types/elicitation.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L154)
-
 ---
 
 ### validation?
 
 > `optional` **validation?**: `object`
-
-Defined in: [types/elicitation.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L155)
 
 #### min?
 
@@ -90,12 +74,8 @@ Defined in: [types/elicitation.ts:155](https://github.com/juspay/neurolink/blob/
 
 > `optional` **placeholder?**: `string`
 
-Defined in: [types/elicitation.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L161)
-
 ---
 
 ### description?
 
 > `optional` **description?**: `string`
-
-Defined in: [types/elicitation.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L162)

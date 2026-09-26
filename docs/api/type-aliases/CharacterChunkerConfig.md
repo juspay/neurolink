@@ -8,8 +8,6 @@
 
 > **CharacterChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L905)
-
 Character chunker configuration
 Simple character-based splitting
 

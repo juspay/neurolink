@@ -8,8 +8,6 @@
 
 > **UseToolsReturn** = `object`
 
-Defined in: [types/client.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L816)
-
 useTools hook return type
 
 ## Properties
@@ -18,8 +16,6 @@ useTools hook return type
 
 > **tools**: [`ClientToolInfo`](ClientToolInfo.md)[]
 
-Defined in: [types/client.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L818)
-
 Available tools
 
 ---
@@ -27,8 +23,6 @@ Available tools
 ### execute
 
 > **execute**: (`toolName`, `params`) => `Promise`\<`unknown`\>
-
-Defined in: [types/client.ts:820](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L820)
 
 Execute a tool
 
@@ -52,8 +46,6 @@ Execute a tool
 
 > **refresh**: () => `Promise`\<`void`\>
 
-Defined in: [types/client.ts:822](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L822)
-
 Refresh tool list
 
 #### Returns
@@ -66,8 +58,6 @@ Refresh tool list
 
 > **isLoading**: `boolean`
 
-Defined in: [types/client.ts:824](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L824)
-
 Loading state
 
 ---
@@ -75,7 +65,5 @@ Loading state
 ### error
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
-
-Defined in: [types/client.ts:826](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L826)
 
 Error state

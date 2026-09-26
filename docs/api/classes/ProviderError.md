@@ -6,8 +6,6 @@
 
 # Class: ProviderError
 
-Defined in: [types/errors.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L15)
-
 Thrown when a provider encounters a generic error.
 
 ## Extends
@@ -28,8 +26,6 @@ Thrown when a provider encounters a generic error.
 ### Constructor
 
 > **new ProviderError**(`message`, `provider?`): `ProviderError`
-
-Defined in: [types/errors.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L16)
 
 #### Parameters
 
@@ -54,5 +50,3 @@ Defined in: [types/errors.ts:16](https://github.com/juspay/neurolink/blob/releas
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)

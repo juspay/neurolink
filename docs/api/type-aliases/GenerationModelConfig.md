@@ -8,8 +8,6 @@
 
 > **GenerationModelConfig** = `object`
 
-Defined in: [types/rag.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L241)
-
 Generation model configuration
 
 ## Properties
@@ -18,15 +16,11 @@ Generation model configuration
 
 > **provider**: `string`
 
-Defined in: [types/rag.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L242)
-
 ---
 
 ### modelName
 
 > **modelName**: `string`
-
-Defined in: [types/rag.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L243)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/rag.ts:243](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L244)
-
 ---
 
 ### maxTokens?
 
 > `optional` **maxTokens?**: `number`
-
-Defined in: [types/rag.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L245)

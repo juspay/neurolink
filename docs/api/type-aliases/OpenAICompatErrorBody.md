@@ -8,15 +8,11 @@
 
 > **OpenAICompatErrorBody** = `object`
 
-Defined in: [types/openaiCompatible.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L190)
-
 ## Properties
 
 ### error?
 
 > `optional` **error?**: `object`
-
-Defined in: [types/openaiCompatible.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L191)
 
 #### message?
 
@@ -39,5 +35,3 @@ Defined in: [types/openaiCompatible.ts:191](https://github.com/juspay/neurolink/
 ### detail?
 
 > `optional` **detail?**: `string`
-
-Defined in: [types/openaiCompatible.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L197)

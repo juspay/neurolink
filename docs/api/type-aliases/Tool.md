@@ -8,8 +8,6 @@
 
 > **Tool**\<`INPUT`, `OUTPUT`\> = `object` & `ToolOutputProperties`\<`INPUT`, `OUTPUT`\> & `object` & \{ `type?`: `"function"`; \} \| \{ `type`: `"dynamic"`; \} \| \{ `type`: `"provider"`; `id`: `` `${string}.${string}` ``; `args`: `Record`\<`string`, `unknown`\>; `supportsDeferredResults?`: `boolean`; \}
 
-Defined in: [types/aiCompat.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L127)
-
 ## Type Declaration
 
 ### description?

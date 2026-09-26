@@ -8,8 +8,6 @@
 
 > **GraphStats** = `object`
 
-Defined in: [types/rag.ts:1467](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1467)
-
 Graph statistics
 
 ## Properties
@@ -18,15 +16,11 @@ Graph statistics
 
 > **nodeCount**: `number`
 
-Defined in: [types/rag.ts:1468](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1468)
-
 ---
 
 ### edgeCount
 
 > **edgeCount**: `number`
-
-Defined in: [types/rag.ts:1469](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1469)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/rag.ts:1469](https://github.com/juspay/neurolink/blob/release
 
 > **avgDegree**: `number`
 
-Defined in: [types/rag.ts:1470](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1470)
-
 ---
 
 ### threshold
 
 > **threshold**: `number`
-
-Defined in: [types/rag.ts:1471](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1471)

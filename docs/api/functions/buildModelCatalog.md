@@ -8,8 +8,6 @@
 
 > **buildModelCatalog**(`config?`): [`ClassifierRouterPoolMember`](../type-aliases/ClassifierRouterPoolMember.md)[]
 
-Defined in: [routing/modelCatalog.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelCatalog.ts#L249)
-
 Build catalogue pool members from the registry.
 
 Returns `[]` when the catalogue is disabled or nothing is reachable, which

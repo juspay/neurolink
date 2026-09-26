@@ -8,8 +8,6 @@
 
 > **ModelRecommendation** = `object`
 
-Defined in: [types/model.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L234)
-
 Model recommendation result
 
 ## Properties
@@ -18,15 +16,11 @@ Model recommendation result
 
 > **model**: [`ModelInfo`](ModelInfo.md)
 
-Defined in: [types/model.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L235)
-
 ---
 
 ### score
 
 > **score**: `number`
-
-Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L236)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/releas
 
 > **reasoning**: `string`[]
 
-Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L237)
-
 ---
 
 ### alternatives
 
 > **alternatives**: [`ModelInfo`](ModelInfo.md)[]
-
-Defined in: [types/model.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L238)

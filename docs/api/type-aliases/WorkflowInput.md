@@ -8,8 +8,6 @@
 
 > **WorkflowInput** = `object`
 
-Defined in: [types/workflow.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L230)
-
 Input for workflow execution
 
 ## Properties
@@ -18,20 +16,14 @@ Input for workflow execution
 
 > **text**: `string`
 
-Defined in: [types/workflow.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L231)
-
 ---
 
 ### context?
 
 > `optional` **context?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/workflow.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L232)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/workflow.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L233)

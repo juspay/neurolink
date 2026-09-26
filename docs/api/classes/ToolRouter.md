@@ -6,8 +6,6 @@
 
 # Class: ToolRouter
 
-Defined in: [mcp/routing/toolRouter.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L50)
-
 Tool Router - Intelligent routing for MCP tool calls
 
 ## Example
@@ -36,8 +34,6 @@ console.log(`Routing to: ${decision.serverId}`);
 
 > **new ToolRouter**(`config?`): `ToolRouter`
 
-Defined in: [mcp/routing/toolRouter.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L59)
-
 #### Parameters
 
 ##### config?
@@ -58,8 +54,6 @@ Defined in: [mcp/routing/toolRouter.ts:59](https://github.com/juspay/neurolink/b
 
 > **destroy**(): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L83)
-
 #### Returns
 
 `void`
@@ -69,8 +63,6 @@ Defined in: [mcp/routing/toolRouter.ts:83](https://github.com/juspay/neurolink/b
 ### registerServer()
 
 > **registerServer**(`serverId`, `capabilities?`): `void`
-
-Defined in: [mcp/routing/toolRouter.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L104)
 
 Register a server as available for routing
 
@@ -94,8 +86,6 @@ Register a server as available for routing
 
 > **unregisterServer**(`serverId`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L125)
-
 Unregister a server from routing
 
 #### Parameters
@@ -113,8 +103,6 @@ Unregister a server from routing
 ### route()
 
 > **route**(`tool`, `context?`): [`RoutingDecision`](../type-aliases/RoutingDecision.md)
-
-Defined in: [mcp/routing/toolRouter.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L146)
 
 Route a tool call to the best server
 
@@ -144,8 +132,6 @@ Route a tool call to the best server
 
 > **routeByCategory**(`tool`, `category`): `string`[]
 
-Defined in: [mcp/routing/toolRouter.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L208)
-
 Route by tool category
 
 #### Parameters
@@ -168,8 +154,6 @@ Route by tool category
 
 > **routeByAnnotation**(`tool`): `string`[]
 
-Defined in: [mcp/routing/toolRouter.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L216)
-
 Route by tool annotation hints
 
 #### Parameters
@@ -187,8 +171,6 @@ Route by tool annotation hints
 ### routeByCapability()
 
 > **routeByCapability**(`tool`, `requiredCapabilities`): `string`[]
-
-Defined in: [mcp/routing/toolRouter.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L262)
 
 Route by required capabilities
 
@@ -212,8 +194,6 @@ Route by required capabilities
 
 > **updateServerLoad**(`serverId`, `delta`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L292)
-
 Update server load for least-loaded routing
 
 #### Parameters
@@ -235,8 +215,6 @@ Update server load for least-loaded routing
 ### updateHealthStatus()
 
 > **updateHealthStatus**(`serverId`, `healthy`): `void`
-
-Defined in: [mcp/routing/toolRouter.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L300)
 
 Update server health status
 
@@ -260,8 +238,6 @@ Update server health status
 
 > **setAffinity**(`key`, `serverId`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L312)
-
 Set session/user affinity
 
 #### Parameters
@@ -284,8 +260,6 @@ Set session/user affinity
 
 > **clearAffinity**(`key`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L324)
-
 Clear affinity for a key
 
 #### Parameters
@@ -303,8 +277,6 @@ Clear affinity for a key
 ### getStats()
 
 > **getStats**(): `object`
-
-Defined in: [mcp/routing/toolRouter.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L331)
 
 Get current routing statistics
 

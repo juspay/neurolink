@@ -8,8 +8,6 @@
 
 > **createErrorFromResponse**(`apiError`, `options?`): [`ClientNeuroLinkError`](../classes/ClientNeuroLinkError.md)
 
-Defined in: [client/errors.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L603)
-
 Create an error from an API error response
 
 ## Parameters

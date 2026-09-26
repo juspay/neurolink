@@ -8,8 +8,6 @@
 
 > `const` **LengthScorerPresets**: `object`
 
-Defined in: [evaluation/scorers/rule/lengthScorer.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/lengthScorer.ts#L371)
-
 Pre-configured length scorer presets
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **SkillS3ModuleSurface** = `object`
 
-Defined in: [types/skills.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L187)
-
 Structural surface of the lazily-required @aws-sdk/client-s3 module —
 only the pieces the S3 skill store touches (same pattern as
 HippocampusModule for the optional memory peer).
@@ -19,8 +17,6 @@ HippocampusModule for the optional memory peer).
 ### S3Client
 
 > **S3Client**: (`config`) => `object`
-
-Defined in: [types/skills.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L188)
 
 #### Parameters
 
@@ -52,8 +48,6 @@ Defined in: [types/skills.ts:188](https://github.com/juspay/neurolink/blob/relea
 
 > **GetObjectCommand**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L191)
-
 #### Parameters
 
 ##### input
@@ -69,8 +63,6 @@ Defined in: [types/skills.ts:191](https://github.com/juspay/neurolink/blob/relea
 ### PutObjectCommand
 
 > **PutObjectCommand**: (`input`) => `unknown`
-
-Defined in: [types/skills.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L192)
 
 #### Parameters
 
@@ -88,8 +80,6 @@ Defined in: [types/skills.ts:192](https://github.com/juspay/neurolink/blob/relea
 
 > **DeleteObjectCommand**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L193)
-
 #### Parameters
 
 ##### input
@@ -105,8 +95,6 @@ Defined in: [types/skills.ts:193](https://github.com/juspay/neurolink/blob/relea
 ### ListObjectsV2Command
 
 > **ListObjectsV2Command**: (`input`) => `unknown`
-
-Defined in: [types/skills.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L194)
 
 #### Parameters
 

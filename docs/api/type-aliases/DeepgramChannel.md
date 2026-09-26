@@ -8,12 +8,8 @@
 
 > **DeepgramChannel** = `object`
 
-Defined in: [types/stt.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L459)
-
 ## Properties
 
 ### alternatives
 
 > **alternatives**: [`DeepgramAlternative`](DeepgramAlternative.md)[]
-
-Defined in: [types/stt.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L460)

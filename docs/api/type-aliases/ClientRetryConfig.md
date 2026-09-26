@@ -8,8 +8,6 @@
 
 > **ClientRetryConfig** = `object`
 
-Defined in: [types/client.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L46)
-
 Retry configuration for failed requests
 
 ## Properties
@@ -17,8 +15,6 @@ Retry configuration for failed requests
 ### maxAttempts
 
 > **maxAttempts**: `number`
-
-Defined in: [types/client.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L48)
 
 Maximum number of retry attempts (default: 3)
 
@@ -28,8 +24,6 @@ Maximum number of retry attempts (default: 3)
 
 > **initialDelayMs**: `number`
 
-Defined in: [types/client.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L50)
-
 Initial delay in milliseconds before first retry (default: 1000)
 
 ---
@@ -37,8 +31,6 @@ Initial delay in milliseconds before first retry (default: 1000)
 ### maxDelayMs
 
 > **maxDelayMs**: `number`
-
-Defined in: [types/client.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L52)
 
 Maximum delay in milliseconds between retries (default: 10000)
 
@@ -48,8 +40,6 @@ Maximum delay in milliseconds between retries (default: 10000)
 
 > **backoffMultiplier**: `number`
 
-Defined in: [types/client.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L54)
-
 Backoff multiplier for exponential backoff (default: 2)
 
 ---
@@ -58,8 +48,6 @@ Backoff multiplier for exponential backoff (default: 2)
 
 > `optional` **retryableStatusCodes?**: `number`[]
 
-Defined in: [types/client.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L56)
-
 HTTP status codes to retry on (default: [408, 429, 500, 502, 503, 504])
 
 ---
@@ -67,7 +55,5 @@ HTTP status codes to retry on (default: [408, 429, 500, 502, 503, 504])
 ### retryOnNetworkError?
 
 > `optional` **retryOnNetworkError?**: `boolean`
-
-Defined in: [types/client.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L58)
 
 Whether to retry on network errors (default: true)

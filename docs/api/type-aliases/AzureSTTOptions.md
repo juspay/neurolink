@@ -8,8 +8,6 @@
 
 > **AzureSTTOptions** = [`STTOptions`](STTOptions.md) & `object`
 
-Defined in: [types/stt.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L281)
-
 ## Type Declaration
 
 ### recognitionMode?

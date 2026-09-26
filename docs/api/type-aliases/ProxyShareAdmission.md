@@ -8,8 +8,6 @@
 
 > **ProxyShareAdmission** = \{ `admitted`: `true`; `grant`: [`ProxyShareGrant`](ProxyShareGrant.md); \} \| \{ `admitted`: `false`; `status`: `number`; `reason`: [`ProxyShareRefusalReason`](ProxyShareRefusalReason.md); `message`: `string`; `retryAfterSeconds?`: `number`; `grant?`: [`ProxyShareGrant`](ProxyShareGrant.md); \}
 
-Defined in: [types/proxy.ts:4310](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4310)
-
 Result of evaluating an inbound borrowed request.
 
 A refusal carries its own status and reason so the borrower can distinguish

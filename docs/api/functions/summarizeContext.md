@@ -8,8 +8,6 @@
 
 > **summarizeContext**(`context`, `maxLength?`, `provider?`): `Promise`\<`string`\>
 
-Defined in: [rag/pipeline/contextAssembly.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/contextAssembly.ts#L273)
-
 Summarize context using LLM
 
 ## Parameters

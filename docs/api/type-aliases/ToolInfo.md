@@ -8,8 +8,6 @@
 
 > **ToolInfo** = `object`
 
-Defined in: [types/tools.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L119)
-
 Tool information with extensibility
 Moved from src/lib/mcp/contracts/mcpContract.ts
 
@@ -23,15 +21,11 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > **name**: `string`
 
-Defined in: [types/tools.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L120)
-
 ---
 
 ### description?
 
 > `optional` **description?**: `string`
-
-Defined in: [types/tools.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L121)
 
 ---
 
@@ -39,15 +33,11 @@ Defined in: [types/tools.ts:121](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **category?**: `string`
 
-Defined in: [types/tools.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L122)
-
 ---
 
 ### serverId?
 
 > `optional` **serverId?**: `string`
-
-Defined in: [types/tools.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L123)
 
 ---
 
@@ -55,23 +45,17 @@ Defined in: [types/tools.ts:123](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **inputSchema?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/tools.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L124)
-
 ---
 
 ### outputSchema?
 
 > `optional` **outputSchema?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/tools.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L125)
-
 ---
 
 ### annotations?
 
 > `optional` **annotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
-
-Defined in: [types/tools.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L127)
 
 MCP tool annotations (safety hints, metadata). Auto-inferred when mcp.annotations.autoInfer is enabled.
 
@@ -81,8 +65,6 @@ MCP tool annotations (safety hints, metadata). Auto-inferred when mcp.annotation
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/tools.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L129)
-
 Per-tool timeout in milliseconds, set at registration time
 
 ---
@@ -91,15 +73,11 @@ Per-tool timeout in milliseconds, set at registration time
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/tools.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L130)
-
 ---
 
 ### totalTimeoutMs?
 
 > `optional` **totalTimeoutMs?**: `number`
-
-Defined in: [types/tools.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L136)
 
 Ceiling on the WHOLE execution — every attempt plus the delays between
 them. Declared explicitly rather than left to the index signature below,

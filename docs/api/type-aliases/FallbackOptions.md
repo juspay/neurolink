@@ -8,8 +8,6 @@
 
 > **FallbackOptions** = `object`
 
-Defined in: [types/tools.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L108)
-
 Fallback configuration options
 Moved from src/lib/mcp/contracts/mcpContract.ts
 
@@ -19,15 +17,11 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tools.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L109)
-
 ---
 
 ### maxAttempts?
 
 > `optional` **maxAttempts?**: `number`
-
-Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L110)
 
 ---
 
@@ -35,12 +29,8 @@ Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **delayMs?**: `number`
 
-Defined in: [types/tools.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L111)
-
 ---
 
 ### circuitBreaker?
 
 > `optional` **circuitBreaker?**: `boolean`
-
-Defined in: [types/tools.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L112)

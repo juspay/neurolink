@@ -8,8 +8,6 @@
 
 > **TTSProvider** = `object`
 
-Defined in: [types/voice.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L212)
-
 TTS-capable voice provider type
 
 ## Deprecated
@@ -28,8 +26,6 @@ alias.
 
 > `readonly` **maxTextLength**: `number`
 
-Defined in: [types/voice.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L234)
-
 Maximum text length supported
 
 ## Methods
@@ -37,8 +33,6 @@ Maximum text length supported
 ### ~~synthesize()~~
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](TTSResult.md)\>
-
-Defined in: [types/voice.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L216)
 
 Synthesize text to speech
 
@@ -62,8 +56,6 @@ Synthesize text to speech
 
 > `optional` **synthesizeStream**(`text`, `options`): `AsyncIterable`\<[`TTSStreamChunk`](TTSStreamChunk.md)\>
 
-Defined in: [types/voice.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L221)
-
 Stream synthesized audio chunks
 
 #### Parameters
@@ -85,8 +77,6 @@ Stream synthesized audio chunks
 ### ~~getVoices()~~
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](TTSVoice.md)[]\>
-
-Defined in: [types/voice.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L229)
 
 Get available voices
 

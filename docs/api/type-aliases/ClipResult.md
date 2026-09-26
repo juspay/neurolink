@@ -8,8 +8,6 @@
 
 > **ClipResult** = `object`
 
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)
-
 Result of a single director-mode clip generation.
 
 ## Properties
@@ -18,12 +16,8 @@ Result of a single director-mode clip generation.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)
-
 ---
 
 ### processingTime
 
 > **processingTime**: `number`
-
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)

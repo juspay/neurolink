@@ -8,8 +8,6 @@
 
 > **RegisterResult** = `object`
 
-Defined in: [types/workflow.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L673)
-
 Result of registration operation
 
 ## Properties
@@ -18,15 +16,11 @@ Result of registration operation
 
 > **success**: `boolean`
 
-Defined in: [types/workflow.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L674)
-
 ---
 
 ### workflowId
 
 > **workflowId**: `string`
-
-Defined in: [types/workflow.ts:675](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L675)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/workflow.ts:675](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **validation?**: [`WorkflowValidationResult`](WorkflowValidationResult.md)
 
-Defined in: [types/workflow.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L676)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/workflow.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L677)

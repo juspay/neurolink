@@ -8,8 +8,6 @@
 
 > **ExcelWorksheet** = `object`
 
-Defined in: [types/processor.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L726)
-
 Single worksheet extracted from an Excel file.
 
 ## Properties
@@ -17,8 +15,6 @@ Single worksheet extracted from an Excel file.
 ### name
 
 > **name**: `string`
-
-Defined in: [types/processor.ts:728](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L728)
 
 Name of the worksheet (tab name in Excel)
 
@@ -28,8 +24,6 @@ Name of the worksheet (tab name in Excel)
 
 > **rows**: (`string` \| `number` \| `boolean` \| `null`)[][]
 
-Defined in: [types/processor.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L730)
-
 Row data as a 2D array. Each inner array represents a row.
 
 ---
@@ -37,8 +31,6 @@ Row data as a 2D array. Each inner array represents a row.
 ### headers
 
 > **headers**: `string`[]
-
-Defined in: [types/processor.ts:732](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L732)
 
 Headers extracted from the first row
 
@@ -48,8 +40,6 @@ Headers extracted from the first row
 
 > **rowCount**: `number`
 
-Defined in: [types/processor.ts:734](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L734)
-
 Number of rows extracted (may be less than actual if truncated)
 
 ---
@@ -57,7 +47,5 @@ Number of rows extracted (may be less than actual if truncated)
 ### columnCount
 
 > **columnCount**: `number`
-
-Defined in: [types/processor.ts:736](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L736)
 
 Number of columns (based on headers or first row)

@@ -6,8 +6,6 @@
 
 # Class: SSEClient
 
-Defined in: [client/streamingClient.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L65)
-
 Server-Sent Events (SSE) Client
 
 Provides a robust SSE connection with automatic reconnection,
@@ -40,8 +38,6 @@ for await (const event of sse.events({ body: { prompt: "Hello" } })) {
 
 > **new SSEClient**(`url`, `options?`): `SSEClient`
 
-Defined in: [client/streamingClient.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L74)
-
 #### Parameters
 
 ##### url
@@ -61,8 +57,6 @@ Defined in: [client/streamingClient.ts:74](https://github.com/juspay/neurolink/b
 ### connect()
 
 > **connect**(`requestOptions?`): `Promise`\<`void`\>
-
-Defined in: [client/streamingClient.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L87)
 
 Connect to SSE endpoint
 
@@ -88,8 +82,6 @@ Connect to SSE endpoint
 
 > **disconnect**(): `void`
 
-Defined in: [client/streamingClient.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L179)
-
 Disconnect from SSE endpoint
 
 #### Returns
@@ -101,8 +93,6 @@ Disconnect from SSE endpoint
 ### on()
 
 > **on**(`event`, `callback`): `void`
-
-Defined in: [client/streamingClient.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L326)
 
 Register event handler
 
@@ -126,8 +116,6 @@ Register event handler
 
 > **off**(`event`, `callback`): `void`
 
-Defined in: [client/streamingClient.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L338)
-
 Remove event handler
 
 #### Parameters
@@ -150,8 +138,6 @@ Remove event handler
 
 > **getState**(): [`SSEConnectionState`](../type-aliases/SSEConnectionState.md)
 
-Defined in: [client/streamingClient.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L355)
-
 Get current connection state
 
 #### Returns
@@ -163,8 +149,6 @@ Get current connection state
 ### events()
 
 > **events**(`requestOptions?`): `AsyncGenerator`\<[`ClientStreamEvent`](../type-aliases/ClientStreamEvent.md), `void`, `unknown`\>
-
-Defined in: [client/streamingClient.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L369)
 
 Create async iterator for events
 

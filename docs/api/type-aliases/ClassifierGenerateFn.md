@@ -8,8 +8,6 @@
 
 > **ClassifierGenerateFn** = (`options`) => `Promise`\<[`ClassifierGenerateResult`](ClassifierGenerateResult.md)\>
 
-Defined in: [types/classifierRouter.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L362)
-
 Injected LLM caller — typically a bound `NeuroLink.generate`.
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **ResearchToolsDeps** = `object`
 
-Defined in: [types/autoresearch.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L262)
-
 Dependencies required to create research tools.
 
 ## Properties
@@ -18,15 +16,11 @@ Dependencies required to create research tools.
 
 > **config**: [`ResearchConfig`](ResearchConfig.md)
 
-Defined in: [types/autoresearch.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L263)
-
 ---
 
 ### stateStore
 
 > **stateStore**: `ResearchStateStore`
-
-Defined in: [types/autoresearch.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L264)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/autoresearch.ts:264](https://github.com/juspay/neurolink/blob
 
 > **repoPolicy**: `RepoPolicy`
 
-Defined in: [types/autoresearch.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L265)
-
 ---
 
 ### runner
 
 > **runner**: `ExperimentRunner`
 
-Defined in: [types/autoresearch.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L266)
-
 ---
 
 ### recorder
 
 > **recorder**: `ResultRecorder`
-
-Defined in: [types/autoresearch.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L267)

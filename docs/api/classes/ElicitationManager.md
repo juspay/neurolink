@@ -6,8 +6,6 @@
 
 # Class: ElicitationManager
 
-Defined in: [mcp/elicitation/elicitationManager.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L70)
-
 Manager for handling elicitation requests during tool execution
 
 The elicitation protocol allows MCP tools to request interactive user input
@@ -60,8 +58,6 @@ if (response.value === true) {
 
 > **new ElicitationManager**(`config?`): `ElicitationManager`
 
-Defined in: [mcp/elicitation/elicitationManager.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L82)
-
 #### Parameters
 
 ##### config?
@@ -82,8 +78,6 @@ Defined in: [mcp/elicitation/elicitationManager.ts:82](https://github.com/juspay
 
 > **setHandler**(`handler`): `void`
 
-Defined in: [mcp/elicitation/elicitationManager.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L96)
-
 Set the elicitation handler
 
 #### Parameters
@@ -101,8 +95,6 @@ Set the elicitation handler
 ### setEnabled()
 
 > **setEnabled**(`enabled`): `void`
-
-Defined in: [mcp/elicitation/elicitationManager.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L103)
 
 Enable or disable elicitation
 
@@ -122,8 +114,6 @@ Enable or disable elicitation
 
 > **isEnabled**(): `boolean`
 
-Defined in: [mcp/elicitation/elicitationManager.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L125)
-
 Check if elicitation is enabled
 
 #### Returns
@@ -135,8 +125,6 @@ Check if elicitation is enabled
 ### request()
 
 > **request**(`elicitation`): `Promise`\<[`ElicitationResponse`](../type-aliases/ElicitationResponse.md)\>
-
-Defined in: [mcp/elicitation/elicitationManager.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L132)
 
 Request user input
 
@@ -155,8 +143,6 @@ Request user input
 ### confirm()
 
 > **confirm**(`message`, `options?`): `Promise`\<`boolean`\>
-
-Defined in: [mcp/elicitation/elicitationManager.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L206)
 
 Convenience method for confirmation requests
 
@@ -198,8 +184,6 @@ Convenience method for confirmation requests
 
 > **getText**(`message`, `options?`): `Promise`\<`string` \| `undefined`\>
 
-Defined in: [mcp/elicitation/elicitationManager.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L233)
-
 Convenience method for text input
 
 #### Parameters
@@ -235,8 +219,6 @@ Convenience method for text input
 ### select()
 
 > **select**\<`T`\>(`message`, `options`, `config?`): `Promise`\<`T` \| `undefined`\>
-
-Defined in: [mcp/elicitation/elicitationManager.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L258)
 
 Convenience method for selection
 
@@ -275,8 +257,6 @@ Convenience method for selection
 ### multiSelect()
 
 > **multiSelect**\<`T`\>(`message`, `options`, `config?`): `Promise`\<`T`[] \| `undefined`\>
-
-Defined in: [mcp/elicitation/elicitationManager.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L281)
 
 Convenience method for multiple selection
 
@@ -324,8 +304,6 @@ Convenience method for multiple selection
 
 > **form**\<`T`\>(`message`, `fields`, `config?`): `Promise`\<`T` \| `undefined`\>
 
-Defined in: [mcp/elicitation/elicitationManager.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L308)
-
 Convenience method for form input
 
 #### Type Parameters
@@ -372,8 +350,6 @@ Convenience method for form input
 
 > **getSecret**(`message`, `options?`): `Promise`\<`string` \| `undefined`\>
 
-Defined in: [mcp/elicitation/elicitationManager.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L335)
-
 Convenience method for secret input
 
 #### Parameters
@@ -406,8 +382,6 @@ Convenience method for secret input
 
 > **cancel**(`requestId`, `reason?`): `void`
 
-Defined in: [mcp/elicitation/elicitationManager.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L358)
-
 Cancel a pending request
 
 #### Parameters
@@ -430,8 +404,6 @@ Cancel a pending request
 
 > **getPendingCount**(): `number`
 
-Defined in: [mcp/elicitation/elicitationManager.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L481)
-
 Get pending request count
 
 #### Returns
@@ -444,8 +416,6 @@ Get pending request count
 
 > **getPendingRequests**(): [`Elicitation`](../type-aliases/Elicitation.md)[]
 
-Defined in: [mcp/elicitation/elicitationManager.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L488)
-
 Get all pending requests
 
 #### Returns
@@ -457,8 +427,6 @@ Get all pending requests
 ### clearPending()
 
 > **clearPending**(`reason?`): `void`
-
-Defined in: [mcp/elicitation/elicitationManager.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitation/elicitationManager.ts#L495)
 
 Clear all pending requests
 

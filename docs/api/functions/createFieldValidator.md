@@ -8,8 +8,6 @@
 
 > **createFieldValidator**(`fieldName`, `rules`): (`value`) => `void`
 
-Defined in: [server/middleware/validation.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/validation.ts#L312)
-
 Create a field validator helper
 
 ## Parameters

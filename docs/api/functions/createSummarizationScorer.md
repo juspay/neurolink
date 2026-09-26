@@ -8,8 +8,6 @@
 
 > **createSummarizationScorer**(`config?`): `Promise`\<[`SummarizationScorer`](../classes/SummarizationScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/summarizationScorer.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/summarizationScorer.ts#L141)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

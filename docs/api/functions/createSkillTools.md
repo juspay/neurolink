@@ -8,8 +8,6 @@
 
 > **createSkillTools**(`resolveManager`, `options?`): `Record`\<`string`, [`Tool`](../type-aliases/Tool.md)\>
 
-Defined in: [skills/skillTools.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillTools.ts#L275)
-
 Instance skill tools bound to a lazily-resolved manager: list_skills
 plus the gated mutation tools. Returns Vercel AI SDK tool() objects
 (description + Zod inputSchema + execute) keyed by tool name.

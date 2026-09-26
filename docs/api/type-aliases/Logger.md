@@ -8,8 +8,6 @@
 
 > **Logger** = `object`
 
-Defined in: [types/utilities.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L81)
-
 Logger interface matching the logger object shape
 Used for SDK tool contexts and other components that need a logger
 
@@ -18,8 +16,6 @@ Used for SDK tool contexts and other components that need a logger
 ### debug
 
 > **debug**: (...`args`) => `void`
-
-Defined in: [types/utilities.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L82)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [types/utilities.ts:82](https://github.com/juspay/neurolink/blob/rel
 
 > **info**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L83)
-
 #### Parameters
 
 ##### args
@@ -54,8 +48,6 @@ Defined in: [types/utilities.ts:83](https://github.com/juspay/neurolink/blob/rel
 ### warn
 
 > **warn**: (...`args`) => `void`
-
-Defined in: [types/utilities.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L84)
 
 #### Parameters
 
@@ -73,8 +65,6 @@ Defined in: [types/utilities.ts:84](https://github.com/juspay/neurolink/blob/rel
 
 > **error**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L85)
-
 #### Parameters
 
 ##### args
@@ -90,8 +80,6 @@ Defined in: [types/utilities.ts:85](https://github.com/juspay/neurolink/blob/rel
 ### always
 
 > **always**: (...`args`) => `void`
-
-Defined in: [types/utilities.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L86)
 
 #### Parameters
 
@@ -109,8 +97,6 @@ Defined in: [types/utilities.ts:86](https://github.com/juspay/neurolink/blob/rel
 
 > **table**: (`data`) => `void`
 
-Defined in: [types/utilities.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L87)
-
 #### Parameters
 
 ##### data
@@ -126,8 +112,6 @@ Defined in: [types/utilities.ts:87](https://github.com/juspay/neurolink/blob/rel
 ### setLogLevel
 
 > **setLogLevel**: (`level`) => `void`
-
-Defined in: [types/utilities.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L88)
 
 #### Parameters
 
@@ -145,8 +129,6 @@ Defined in: [types/utilities.ts:88](https://github.com/juspay/neurolink/blob/rel
 
 > **getLogs**: (`level?`) => [`LogEntry`](LogEntry.md)[]
 
-Defined in: [types/utilities.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L89)
-
 #### Parameters
 
 ##### level?
@@ -163,8 +145,6 @@ Defined in: [types/utilities.ts:89](https://github.com/juspay/neurolink/blob/rel
 
 > **clearLogs**: () => `void`
 
-Defined in: [types/utilities.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L90)
-
 #### Returns
 
 `void`
@@ -174,8 +154,6 @@ Defined in: [types/utilities.ts:90](https://github.com/juspay/neurolink/blob/rel
 ### setEventEmitter
 
 > **setEventEmitter**: (`emitter`) => `void`
-
-Defined in: [types/utilities.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L91)
 
 #### Parameters
 
@@ -194,8 +172,6 @@ Defined in: [types/utilities.ts:91](https://github.com/juspay/neurolink/blob/rel
 ### clearEventEmitter
 
 > **clearEventEmitter**: () => `void`
-
-Defined in: [types/utilities.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L94)
 
 #### Returns
 

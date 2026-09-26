@@ -8,8 +8,6 @@
 
 > **NeuroLinkTool** = `object`
 
-Defined in: [types/mcp.ts:2148](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2148)
-
 NeuroLink internal tool format
 
 ## Properties
@@ -17,8 +15,6 @@ NeuroLink internal tool format
 ### name
 
 > **name**: `string`
-
-Defined in: [types/mcp.ts:2152](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2152)
 
 Tool name
 
@@ -28,8 +24,6 @@ Tool name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:2157](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2157)
-
 Tool description
 
 ---
@@ -38,8 +32,6 @@ Tool description
 
 > `optional` **parameters?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:2162](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2162)
-
 Input parameters schema
 
 ---
@@ -47,8 +39,6 @@ Input parameters schema
 ### execute
 
 > **execute**: (`params`, `context?`) => `Promise`\<[`ToolResult`](ToolResult.md) \| `unknown`\>
-
-Defined in: [types/mcp.ts:2167](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2167)
 
 Tool execution function
 
@@ -72,8 +62,6 @@ Tool execution function
 
 > `optional` **category?**: `string`
 
-Defined in: [types/mcp.ts:2175](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2175)
-
 Category for organization
 
 ---
@@ -81,8 +69,6 @@ Category for organization
 ### tags?
 
 > `optional` **tags?**: `string`[]
-
-Defined in: [types/mcp.ts:2180](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2180)
 
 Tags for filtering
 
@@ -92,8 +78,6 @@ Tags for filtering
 
 > `optional` **isAsync?**: `boolean`
 
-Defined in: [types/mcp.ts:2185](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2185)
-
 Whether the tool is async
 
 ---
@@ -101,7 +85,5 @@ Whether the tool is async
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/mcp.ts:2190](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2190)
 
 Custom metadata

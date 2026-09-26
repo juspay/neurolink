@@ -8,8 +8,6 @@
 
 > **LiveKitNeuroLinkStreamer** = `object`
 
-Defined in: [types/livekit.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L27)
-
 Minimal structural shape of the NeuroLink instance the brain depends on.
 
 Declared structurally (rather than importing the `NeuroLink` class) so the
@@ -26,8 +24,6 @@ to forward tool/text/HITL events to the browser.
 
 > **stream**: (`options`) => `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/livekit.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L28)
-
 #### Parameters
 
 ##### options
@@ -43,8 +39,6 @@ Defined in: [types/livekit.ts:28](https://github.com/juspay/neurolink/blob/relea
 ### getEventEmitter?
 
 > `optional` **getEventEmitter?**: () => `TypedEventEmitter`\<[`NeuroLinkEvents`](NeuroLinkEvents.md)\>
-
-Defined in: [types/livekit.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L29)
 
 #### Returns
 

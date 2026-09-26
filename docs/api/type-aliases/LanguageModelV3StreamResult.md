@@ -8,15 +8,11 @@
 
 > **LanguageModelV3StreamResult** = `object`
 
-Defined in: [types/aiCompat.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L485)
-
 ## Properties
 
 ### stream
 
 > **stream**: `ReadableStream`\<[`LanguageModelV3StreamPart`](LanguageModelV3StreamPart.md)\>
-
-Defined in: [types/aiCompat.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L486)
 
 ---
 
@@ -24,12 +20,8 @@ Defined in: [types/aiCompat.ts:486](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **request?**: `unknown`
 
-Defined in: [types/aiCompat.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L487)
-
 ---
 
 ### response?
 
 > `optional` **response?**: `unknown`
-
-Defined in: [types/aiCompat.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L488)

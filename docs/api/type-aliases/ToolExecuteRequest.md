@@ -8,8 +8,6 @@
 
 > **ToolExecuteRequest** = `object`
 
-Defined in: [types/server.ts:696](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L696)
-
 Tool execution request
 
 ## Properties
@@ -17,8 +15,6 @@ Tool execution request
 ### name
 
 > **name**: `string`
-
-Defined in: [types/server.ts:698](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L698)
 
 Tool name
 
@@ -28,8 +24,6 @@ Tool name
 
 > **arguments**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L701)
-
 Tool arguments
 
 ---
@@ -38,8 +32,6 @@ Tool arguments
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/server.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L704)
-
 Session context
 
 ---
@@ -47,7 +39,5 @@ Session context
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/server.ts:707](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L707)
 
 User context

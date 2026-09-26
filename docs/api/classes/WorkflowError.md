@@ -6,8 +6,6 @@
 
 # Class: WorkflowError
 
-Defined in: [types/workflow.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L510)
-
 Workflow execution error class
 
 ## Extends
@@ -19,8 +17,6 @@ Workflow execution error class
 ### Constructor
 
 > **new WorkflowError**(`message`, `details`): `WorkflowError`
-
-Defined in: [types/workflow.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L513)
 
 #### Parameters
 
@@ -45,5 +41,3 @@ Defined in: [types/workflow.ts:513](https://github.com/juspay/neurolink/blob/rel
 ### details
 
 > `readonly` **details**: [`WorkflowErrorDetails`](../type-aliases/WorkflowErrorDetails.md)
-
-Defined in: [types/workflow.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L511)

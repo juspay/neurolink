@@ -8,8 +8,6 @@
 
 > **SpeechRecognitionEventMap** = `object`
 
-Defined in: [types/client.ts:1132](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1132)
-
 Web Speech API event map for SpeechRecognition
 
 ## Properties
@@ -18,15 +16,11 @@ Web Speech API event map for SpeechRecognition
 
 > **audioend**: `Event`
 
-Defined in: [types/client.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1133)
-
 ---
 
 ### audiostart
 
 > **audiostart**: `Event`
-
-Defined in: [types/client.ts:1134](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1134)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/client.ts:1134](https://github.com/juspay/neurolink/blob/rele
 
 > **end**: `Event`
 
-Defined in: [types/client.ts:1135](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1135)
-
 ---
 
 ### error
 
 > **error**: [`SpeechRecognitionErrorEventInternal`](SpeechRecognitionErrorEventInternal.md)
-
-Defined in: [types/client.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1136)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/client.ts:1136](https://github.com/juspay/neurolink/blob/rele
 
 > **nomatch**: [`SpeechRecognitionEventInternal`](SpeechRecognitionEventInternal.md)
 
-Defined in: [types/client.ts:1137](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1137)
-
 ---
 
 ### result
 
 > **result**: [`SpeechRecognitionEventInternal`](SpeechRecognitionEventInternal.md)
-
-Defined in: [types/client.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1138)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/client.ts:1138](https://github.com/juspay/neurolink/blob/rele
 
 > **soundend**: `Event`
 
-Defined in: [types/client.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1139)
-
 ---
 
 ### soundstart
 
 > **soundstart**: `Event`
-
-Defined in: [types/client.ts:1140](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1140)
 
 ---
 
@@ -82,20 +64,14 @@ Defined in: [types/client.ts:1140](https://github.com/juspay/neurolink/blob/rele
 
 > **speechend**: `Event`
 
-Defined in: [types/client.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1141)
-
 ---
 
 ### speechstart
 
 > **speechstart**: `Event`
 
-Defined in: [types/client.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1142)
-
 ---
 
 ### start
 
 > **start**: `Event`
-
-Defined in: [types/client.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1143)

@@ -8,8 +8,6 @@
 
 > **linearCombination**(`vectorScores`, `bm25Scores`, `alpha?`): `Map`\<`string`, `number`\>
 
-Defined in: [rag/retrieval/hybridSearch.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/hybridSearch.ts#L175)
-
 Linear Combination of normalized scores
 
 ## Parameters

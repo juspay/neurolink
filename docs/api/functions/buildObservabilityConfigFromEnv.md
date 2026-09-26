@@ -8,8 +8,6 @@
 
 > **buildObservabilityConfigFromEnv**(): [`ObservabilityConfig`](../type-aliases/ObservabilityConfig.md) \| `undefined`
 
-Defined in: [utils/observabilityHelpers.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/utils/observabilityHelpers.ts#L29)
-
 Build observability config from environment variables
 
 Reads Langfuse configuration from environment:

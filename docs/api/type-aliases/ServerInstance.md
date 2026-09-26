@@ -8,8 +8,6 @@
 
 > **ServerInstance** = `object`
 
-Defined in: [types/cli.ts:1698](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1698)
-
 Minimal server instance contract used by `neurolink serve`.
 
 ## Properties
@@ -17,8 +15,6 @@ Minimal server instance contract used by `neurolink serve`.
 ### initialize
 
 > **initialize**: () => `Promise`\<`void`\>
-
-Defined in: [types/cli.ts:1699](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1699)
 
 #### Returns
 
@@ -30,8 +26,6 @@ Defined in: [types/cli.ts:1699](https://github.com/juspay/neurolink/blob/release
 
 > **start**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1700](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1700)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -42,8 +36,6 @@ Defined in: [types/cli.ts:1700](https://github.com/juspay/neurolink/blob/release
 
 > **stop**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1701](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1701)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -53,8 +45,6 @@ Defined in: [types/cli.ts:1701](https://github.com/juspay/neurolink/blob/release
 ### registerRouteGroup
 
 > **registerRouteGroup**: (`group`) => `void`
-
-Defined in: [types/cli.ts:1702](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1702)
 
 #### Parameters
 
@@ -71,8 +61,6 @@ Defined in: [types/cli.ts:1702](https://github.com/juspay/neurolink/blob/release
 ### listRoutes?
 
 > `optional` **listRoutes?**: () => [`RouteDefinition`](RouteDefinition.md)[]
-
-Defined in: [types/cli.ts:1703](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1703)
 
 #### Returns
 

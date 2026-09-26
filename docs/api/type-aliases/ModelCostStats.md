@@ -8,8 +8,6 @@
 
 > **ModelCostStats** = `object`
 
-Defined in: [types/observability.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L353)
-
 Cost breakdown by model
 
 ## Properties
@@ -18,15 +16,11 @@ Cost breakdown by model
 
 > **model**: `string`
 
-Defined in: [types/observability.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L354)
-
 ---
 
 ### provider
 
 > **provider**: `string`
-
-Defined in: [types/observability.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L355)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/observability.ts:355](https://github.com/juspay/neurolink/blo
 
 > **totalCost**: `number`
 
-Defined in: [types/observability.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L356)
-
 ---
 
 ### requestCount
 
 > **requestCount**: `number`
-
-Defined in: [types/observability.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L357)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/observability.ts:357](https://github.com/juspay/neurolink/blo
 
 > **avgCostPerRequest**: `number`
 
-Defined in: [types/observability.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L358)
-
 ---
 
 ### inputTokens
 
 > **inputTokens**: `number`
-
-Defined in: [types/observability.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L359)
 
 ---
 
@@ -66,20 +52,14 @@ Defined in: [types/observability.ts:359](https://github.com/juspay/neurolink/blo
 
 > **outputTokens**: `number`
 
-Defined in: [types/observability.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L360)
-
 ---
 
 ### inputCost
 
 > **inputCost**: `number`
 
-Defined in: [types/observability.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L361)
-
 ---
 
 ### outputCost
 
 > **outputCost**: `number`
-
-Defined in: [types/observability.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L362)

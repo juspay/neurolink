@@ -8,8 +8,6 @@
 
 > **OrchestrationState** = `object`
 
-Defined in: [types/ppt.ts:1400](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1400)
-
 Internal orchestration state
 
 ## Properties
@@ -18,15 +16,11 @@ Internal orchestration state
 
 > **startTime**: `number`
 
-Defined in: [types/ppt.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1401)
-
 ---
 
 ### contentPlan
 
 > **contentPlan**: [`ContentPlan`](ContentPlan.md) \| `null`
-
-Defined in: [types/ppt.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1402)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/ppt.ts:1402](https://github.com/juspay/neurolink/blob/release
 
 > **slides**: [`CompleteSlide`](CompleteSlide.md)[] \| `null`
 
-Defined in: [types/ppt.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1403)
-
 ---
 
 ### outputPath
 
 > **outputPath**: `string` \| `null`
-
-Defined in: [types/ppt.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1404)

@@ -6,8 +6,6 @@
 
 # Class: AuthContextHolder
 
-Defined in: [auth/authContext.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L286)
-
 Context holder for non-async-local-storage environments
 
 Use this when async local storage is not available.
@@ -28,8 +26,6 @@ Use this when async local storage is not available.
 
 > **set**(`context`): `void`
 
-Defined in: [auth/authContext.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L292)
-
 Set the auth context
 
 #### Parameters
@@ -48,8 +44,6 @@ Set the auth context
 
 > **get**(): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L299)
-
 Get the auth context
 
 #### Returns
@@ -61,8 +55,6 @@ Get the auth context
 ### clear()
 
 > **clear**(): `void`
-
-Defined in: [auth/authContext.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L306)
 
 Clear the auth context
 
@@ -76,8 +68,6 @@ Clear the auth context
 
 > **getUser**(): [`AuthUser`](../type-aliases/AuthUser.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L313)
-
 Get the current user
 
 #### Returns
@@ -89,8 +79,6 @@ Get the current user
 ### getSession()
 
 > **getSession**(): [`AuthSession`](../type-aliases/AuthSession.md) \| `undefined`
-
-Defined in: [auth/authContext.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L320)
 
 Get the current session
 
@@ -104,8 +92,6 @@ Get the current session
 
 > **isAuthenticated**(): `boolean`
 
-Defined in: [auth/authContext.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L327)
-
 Check if authenticated
 
 #### Returns
@@ -117,8 +103,6 @@ Check if authenticated
 ### hasPermission()
 
 > **hasPermission**(`permission`): `boolean`
-
-Defined in: [auth/authContext.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L334)
 
 Check if user has permission
 
@@ -137,8 +121,6 @@ Check if user has permission
 ### hasRole()
 
 > **hasRole**(`role`): `boolean`
-
-Defined in: [auth/authContext.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L362)
 
 Check if user has role
 

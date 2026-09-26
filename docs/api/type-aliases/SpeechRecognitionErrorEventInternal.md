@@ -8,8 +8,6 @@
 
 > **SpeechRecognitionErrorEventInternal** = `Event` & `object`
 
-Defined in: [types/client.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1157)
-
 Internal speech recognition error event
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **SpanProcessor** = `object`
 
-Defined in: [types/observability.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L234)
-
 Span processor type for composable span processing pipelines.
 
 ## Properties
@@ -18,8 +16,6 @@ Span processor type for composable span processing pipelines.
 
 > `readonly` **name**: `string`
 
-Defined in: [types/observability.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L236)
-
 Processor name for identification
 
 ## Methods
@@ -27,8 +23,6 @@ Processor name for identification
 ### process()
 
 > **process**(`span`): [`SpanData`](SpanData.md) \| `null`
-
-Defined in: [types/observability.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L239)
 
 Process a span before export, returns null to drop the span
 
@@ -48,8 +42,6 @@ Process a span before export, returns null to drop the span
 
 > `optional` **processAsync**(`span`): `Promise`\<[`SpanData`](SpanData.md) \| `null`\>
 
-Defined in: [types/observability.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L242)
-
 Optional async processing (for external lookups, etc.)
 
 #### Parameters
@@ -67,8 +59,6 @@ Optional async processing (for external lookups, etc.)
 ### shutdown()?
 
 > `optional` **shutdown**(): `Promise`\<`void`\>
-
-Defined in: [types/observability.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L245)
 
 Shutdown the processor (cleanup resources)
 

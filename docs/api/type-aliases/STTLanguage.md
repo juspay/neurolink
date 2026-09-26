@@ -8,8 +8,6 @@
 
 > **STTLanguage** = `object`
 
-Defined in: [types/stt.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L92)
-
 STT language information
 
 ## Properties
@@ -17,8 +15,6 @@ STT language information
 ### code
 
 > **code**: `string`
-
-Defined in: [types/stt.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L94)
 
 Language code (e.g., "en-US")
 
@@ -28,8 +24,6 @@ Language code (e.g., "en-US")
 
 > **name**: `string`
 
-Defined in: [types/stt.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L96)
-
 Language name
 
 ---
@@ -38,8 +32,6 @@ Language name
 
 > `optional` **supportsDiarization?**: `boolean`
 
-Defined in: [types/stt.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L98)
-
 Whether the language supports speaker diarization
 
 ---
@@ -47,7 +39,5 @@ Whether the language supports speaker diarization
 ### supportsPunctuation?
 
 > `optional` **supportsPunctuation?**: `boolean`
-
-Defined in: [types/stt.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L100)
 
 Whether the language supports punctuation

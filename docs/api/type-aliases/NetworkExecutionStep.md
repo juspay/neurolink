@@ -8,8 +8,6 @@
 
 > **NetworkExecutionStep** = `object`
 
-Defined in: [types/agentNetwork.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L482)
-
 Single execution step in the trace
 
 ## Properties
@@ -18,8 +16,6 @@ Single execution step in the trace
 
 > **index**: `number`
 
-Defined in: [types/agentNetwork.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L484)
-
 Step index
 
 ---
@@ -27,8 +23,6 @@ Step index
 ### primitive
 
 > **primitive**: `object`
-
-Defined in: [types/agentNetwork.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L487)
 
 Primitive that was executed
 
@@ -50,8 +44,6 @@ Primitive that was executed
 
 > **input**: `unknown`
 
-Defined in: [types/agentNetwork.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L494)
-
 Input to the primitive
 
 ---
@@ -59,8 +51,6 @@ Input to the primitive
 ### output?
 
 > `optional` **output?**: `unknown`
-
-Defined in: [types/agentNetwork.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L497)
 
 Output from the primitive
 
@@ -70,8 +60,6 @@ Output from the primitive
 
 > `optional` **error?**: `string`
 
-Defined in: [types/agentNetwork.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L500)
-
 Error if step failed
 
 ---
@@ -79,8 +67,6 @@ Error if step failed
 ### duration
 
 > **duration**: `number`
-
-Defined in: [types/agentNetwork.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L503)
 
 Duration in milliseconds
 
@@ -90,8 +76,6 @@ Duration in milliseconds
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/agentNetwork.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L506)
-
 Token usage for this step
 
 ---
@@ -99,7 +83,5 @@ Token usage for this step
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/agentNetwork.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L509)
 
 Timestamp

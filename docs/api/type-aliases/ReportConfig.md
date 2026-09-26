@@ -8,8 +8,6 @@
 
 > **ReportConfig** = `object`
 
-Defined in: [types/scorer.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L452)
-
 Report configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Report configuration
 ### format
 
 > **format**: [`ReportFormat`](ReportFormat.md)
-
-Defined in: [types/scorer.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L454)
 
 Report format
 
@@ -28,8 +24,6 @@ Report format
 
 > `optional` **includeReasoning?**: `boolean`
 
-Defined in: [types/scorer.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L456)
-
 Include detailed reasoning
 
 ---
@@ -38,8 +32,6 @@ Include detailed reasoning
 
 > `optional` **includeMetadata?**: `boolean`
 
-Defined in: [types/scorer.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L458)
-
 Include metadata
 
 ---
@@ -47,7 +39,5 @@ Include metadata
 ### includeTiming?
 
 > `optional` **includeTiming?**: `boolean`
-
-Defined in: [types/scorer.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L460)
 
 Include timing information

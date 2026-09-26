@@ -8,8 +8,6 @@
 
 > **VideoContent** = `object`
 
-Defined in: [types/multimodal.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L370)
-
 Video content type for multimodal messages
 
 NOTE: This is for FILE-BASED video input.
@@ -36,15 +34,11 @@ const videoContent: VideoContent = {
 
 > **type**: `"video"`
 
-Defined in: [types/multimodal.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L371)
-
 ---
 
 ### data
 
 > **data**: `Buffer` \| `string`
-
-Defined in: [types/multimodal.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L372)
 
 ---
 
@@ -52,15 +46,11 @@ Defined in: [types/multimodal.ts:372](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **mediaType?**: `"video/mp4"` \| `"video/webm"` \| `"video/ogg"` \| `"video/quicktime"` \| `"video/x-msvideo"` \| `"video/x-matroska"`
 
-Defined in: [types/multimodal.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L373)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/multimodal.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L380)
 
 #### filename?
 

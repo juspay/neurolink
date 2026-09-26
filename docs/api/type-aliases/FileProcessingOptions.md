@@ -8,8 +8,6 @@
 
 > **FileProcessingOptions** = [`ProcessOptions`](ProcessOptions.md) & `object`
 
-Defined in: [types/processor.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1059)
-
 Options for processing files through the registry.
 Extends base ProcessOptions with registry-specific options.
 

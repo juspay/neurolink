@@ -8,15 +8,11 @@
 
 > **GoogleOperationResponse** = `object`
 
-Defined in: [types/stt.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L526)
-
 ## Properties
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/stt.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L527)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/stt.ts:527](https://github.com/juspay/neurolink/blob/release/
 
 > **done**: `boolean`
 
-Defined in: [types/stt.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L528)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/stt.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L529)
 
 #### progressPercent?
 
@@ -52,15 +44,11 @@ Defined in: [types/stt.ts:529](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **response?**: [`GoogleLongRunningRecognizeResponse`](GoogleLongRunningRecognizeResponse.md)
 
-Defined in: [types/stt.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L534)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `object`
-
-Defined in: [types/stt.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L535)
 
 #### code
 

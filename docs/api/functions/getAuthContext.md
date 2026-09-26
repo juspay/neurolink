@@ -8,8 +8,6 @@
 
 > **getAuthContext**(): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L63)
-
 Get the current authentication context
 
 Returns the authenticated context for the current request,

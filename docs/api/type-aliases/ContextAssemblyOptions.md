@@ -8,8 +8,6 @@
 
 > **ContextAssemblyOptions** = `object`
 
-Defined in: [types/rag.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L44)
-
 Context assembly options
 
 ## Properties
@@ -17,8 +15,6 @@ Context assembly options
 ### maxChars?
 
 > `optional` **maxChars?**: `number`
-
-Defined in: [types/rag.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L46)
 
 Maximum characters in assembled context
 
@@ -28,8 +24,6 @@ Maximum characters in assembled context
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L48)
-
 Maximum tokens (approximate, 4 chars/token)
 
 ---
@@ -37,8 +31,6 @@ Maximum tokens (approximate, 4 chars/token)
 ### citationFormat?
 
 > `optional` **citationFormat?**: [`CitationFormat`](CitationFormat.md)
-
-Defined in: [types/rag.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L50)
 
 Citation format to use
 
@@ -48,8 +40,6 @@ Citation format to use
 
 > `optional` **separator?**: `string`
 
-Defined in: [types/rag.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L52)
-
 Separator between chunks
 
 ---
@@ -57,8 +47,6 @@ Separator between chunks
 ### includeMetadata?
 
 > `optional` **includeMetadata?**: `boolean`
-
-Defined in: [types/rag.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L54)
 
 Include chunk metadata in context
 
@@ -68,8 +56,6 @@ Include chunk metadata in context
 
 > `optional` **deduplicate?**: `boolean`
 
-Defined in: [types/rag.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L56)
-
 Deduplicate overlapping content
 
 ---
@@ -77,8 +63,6 @@ Deduplicate overlapping content
 ### dedupeThreshold?
 
 > `optional` **dedupeThreshold?**: `number`
-
-Defined in: [types/rag.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L58)
 
 Similarity threshold for deduplication (0-1)
 
@@ -88,8 +72,6 @@ Similarity threshold for deduplication (0-1)
 
 > `optional` **orderByRelevance?**: `boolean`
 
-Defined in: [types/rag.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L60)
-
 Order by relevance score
 
 ---
@@ -98,8 +80,6 @@ Order by relevance score
 
 > `optional` **includeSectionHeaders?**: `boolean`
 
-Defined in: [types/rag.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L62)
-
 Include section headers
 
 ---
@@ -107,7 +87,5 @@ Include section headers
 ### headerTemplate?
 
 > `optional` **headerTemplate?**: `string`
-
-Defined in: [types/rag.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L64)
 
 Header template (use {index}, {source}, {score} placeholders)

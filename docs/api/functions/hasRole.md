@@ -8,8 +8,6 @@
 
 > **hasRole**(`role`): `boolean`
 
-Defined in: [auth/authContext.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L188)
-
 Check if current user has a role
 
 ## Parameters

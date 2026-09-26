@@ -8,8 +8,6 @@
 
 > **isRetryableHTTPError**(`error`, `config?`): `boolean`
 
-Defined in: [mcp/httpRetryHandler.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/httpRetryHandler.ts#L64)
-
 Check if an error is retryable for HTTP operations
 
 Considers:

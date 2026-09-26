@@ -8,8 +8,6 @@
 
 > **FileProcessingResult** = `object`
 
-Defined in: [types/file.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L309)
-
 File processing result after detection and conversion
 
 ## Properties
@@ -18,15 +16,11 @@ File processing result after detection and conversion
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L310)
-
 ---
 
 ### content
 
 > **content**: `string` \| `Buffer`
-
-Defined in: [types/file.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L311)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/file.ts:311](https://github.com/juspay/neurolink/blob/release
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L312)
-
 ---
 
 ### images?
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
-
-Defined in: [types/file.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L314)
 
 Additional images extracted from the file (e.g., video keyframes, audio cover art)
 
@@ -51,8 +41,6 @@ Additional images extracted from the file (e.g., video keyframes, audio cover ar
 ### metadata
 
 > **metadata**: `object`
-
-Defined in: [types/file.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L315)
 
 #### confidence
 

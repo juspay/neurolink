@@ -8,8 +8,6 @@
 
 > **EmbedResponse** = `object`
 
-Defined in: [types/server.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L645)
-
 Embed response (single text)
 
 ## Properties
@@ -17,8 +15,6 @@ Embed response (single text)
 ### embedding
 
 > **embedding**: `number`[]
-
-Defined in: [types/server.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L647)
 
 The embedding vector
 
@@ -28,8 +24,6 @@ The embedding vector
 
 > **provider**: `string`
 
-Defined in: [types/server.ts:650](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L650)
-
 Provider used
 
 ---
@@ -38,8 +32,6 @@ Provider used
 
 > **model**: `string`
 
-Defined in: [types/server.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L653)
-
 Model used
 
 ---
@@ -47,7 +39,5 @@ Model used
 ### dimension
 
 > **dimension**: `number`
-
-Defined in: [types/server.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L656)
 
 Embedding dimension

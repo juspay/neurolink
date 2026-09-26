@@ -8,8 +8,6 @@
 
 > **LocalUsageRequestUnit** = `"turn"` \| `"session-snapshot"`
 
-Defined in: [types/localUsage.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L128)
-
 What one unit of `LocalUsageTotals.requests` actually counts.
 
 Not cosmetic. Every reader but one counts assistant turns, so the CLI could

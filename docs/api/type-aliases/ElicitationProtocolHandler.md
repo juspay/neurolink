@@ -8,8 +8,6 @@
 
 > **ElicitationProtocolHandler** = (`message`) => `Promise`\<[`ElicitationProtocolPayload`](ElicitationProtocolPayload.md) \| `void`\>
 
-Defined in: [types/mcp.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1421)
-
 Protocol handler function type
 
 ## Parameters

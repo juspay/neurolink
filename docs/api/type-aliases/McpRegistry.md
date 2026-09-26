@@ -8,8 +8,6 @@
 
 > **McpRegistry** = `object`
 
-Defined in: [types/mcp.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L804)
-
 MCP Registry type with optional methods for maximum flexibility
 Moved from src/lib/mcp/registry.ts
 
@@ -18,8 +16,6 @@ Moved from src/lib/mcp/registry.ts
 ### registerServer()?
 
 > `optional` **registerServer**(`serverId`, `serverConfig?`, `context?`): `Promise`\<`void`\>
-
-Defined in: [types/mcp.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L806)
 
 #### Parameters
 
@@ -44,8 +40,6 @@ Defined in: [types/mcp.ts:806](https://github.com/juspay/neurolink/blob/release/
 ### executeTool()?
 
 > `optional` **executeTool**\<`T`\>(`toolName`, `args?`, `context?`): `Promise`\<`T`\>
-
-Defined in: [types/mcp.ts:811](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L811)
 
 #### Type Parameters
 
@@ -76,8 +70,6 @@ Defined in: [types/mcp.ts:811](https://github.com/juspay/neurolink/blob/release/
 ### listTools()?
 
 > `optional` **listTools**(`context?`): `Promise`\<[`ToolInfo`](ToolInfo.md)[]\>
-
-Defined in: [types/mcp.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L816)
 
 #### Parameters
 

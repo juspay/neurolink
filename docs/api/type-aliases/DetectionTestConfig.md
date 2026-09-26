@@ -8,8 +8,6 @@
 
 > **DetectionTestConfig** = `object`
 
-Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
-
 Configuration object for a detection test wrapper.
 
 ## Properties
@@ -17,8 +15,6 @@ Configuration object for a detection test wrapper.
 ### test
 
 > **test**: () => `Promise`\<`void`\>
-
-Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
 
 #### Returns
 
@@ -30,15 +26,11 @@ Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/r
 
 > **index**: `number`
 
-Defined in: [types/providers.ts:2400](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2400)
-
 ---
 
 ### testName
 
 > **testName**: `string`
-
-Defined in: [types/providers.ts:2401](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2401)
 
 ---
 
@@ -46,15 +38,11 @@ Defined in: [types/providers.ts:2401](https://github.com/juspay/neurolink/blob/r
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:2402](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2402)
-
 ---
 
 ### semaphore
 
 > **semaphore**: `object`
-
-Defined in: [types/providers.ts:2403](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2403)
 
 #### acquire()
 
@@ -78,8 +66,6 @@ Defined in: [types/providers.ts:2403](https://github.com/juspay/neurolink/blob/r
 
 > **incrementRateLimit**: () => `void`
 
-Defined in: [types/providers.ts:2407](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2407)
-
 #### Returns
 
 `void`
@@ -90,15 +76,11 @@ Defined in: [types/providers.ts:2407](https://github.com/juspay/neurolink/blob/r
 
 > **maxRateLimitRetries**: `number`
 
-Defined in: [types/providers.ts:2408](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2408)
-
 ---
 
 ### rateLimitState
 
 > **rateLimitState**: `object`
-
-Defined in: [types/providers.ts:2409](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2409)
 
 #### count
 

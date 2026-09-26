@@ -8,8 +8,6 @@
 
 > **ExtendedPropertySchema** = [`PropertySchema`](PropertySchema.md) & `object`
 
-Defined in: [types/middleware.ts:516](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L516)
-
 PropertySchema with an extra `format` tag for common schemas.
 
 ## Type Declaration

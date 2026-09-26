@@ -8,8 +8,6 @@
 
 > **AudioFormatDetails** = `object`
 
-Defined in: [types/voice.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L90)
-
 Audio format details
 
 ## Properties
@@ -17,8 +15,6 @@ Audio format details
 ### format
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
-
-Defined in: [types/voice.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L92)
 
 Format name
 
@@ -28,8 +24,6 @@ Format name
 
 > **mimeType**: `string`
 
-Defined in: [types/voice.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L94)
-
 MIME type
 
 ---
@@ -37,8 +31,6 @@ MIME type
 ### extension
 
 > **extension**: `string`
-
-Defined in: [types/voice.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L96)
 
 File extension
 
@@ -48,8 +40,6 @@ File extension
 
 > **supportsStreaming**: `boolean`
 
-Defined in: [types/voice.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L98)
-
 Whether format supports streaming
 
 ---
@@ -58,8 +48,6 @@ Whether format supports streaming
 
 > **sampleRates**: `number`[]
 
-Defined in: [types/voice.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L100)
-
 Typical sample rates
 
 ---
@@ -67,7 +55,5 @@ Typical sample rates
 ### bitDepths
 
 > **bitDepths**: `number`[]
-
-Defined in: [types/voice.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L102)
 
 Bit depths

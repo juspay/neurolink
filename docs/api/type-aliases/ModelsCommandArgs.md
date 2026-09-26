@@ -8,8 +8,6 @@
 
 > **ModelsCommandArgs** = `Omit`\<[`BaseCommandArgs`](BaseCommandArgs.md), `"format"`\> & `object`
 
-Defined in: [types/cli.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L245)
-
 Models command arguments - Enhanced for model management
 
 ## Type Declaration

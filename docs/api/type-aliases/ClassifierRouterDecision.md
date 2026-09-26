@@ -8,8 +8,6 @@
 
 > **ClassifierRouterDecision** = `object`
 
-Defined in: [types/classifierRouter.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L289)
-
 The router's combined decision: a provider/model/region override plus an
 optional tool narrowing. Any undefined field means "keep what the caller
 already configured". Returning `null` from the router is a valid no-op.
@@ -20,15 +18,11 @@ already configured". Returning `null` from the router is a valid no-op.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/classifierRouter.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L290)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/classifierRouter.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L291)
 
 ---
 
@@ -36,15 +30,11 @@ Defined in: [types/classifierRouter.ts:291](https://github.com/juspay/neurolink/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L292)
-
 ---
 
 ### toolFilter?
 
 > `optional` **toolFilter?**: `string`[]
-
-Defined in: [types/classifierRouter.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L294)
 
 Allowlist applied to `options.toolFilter`.
 
@@ -54,8 +44,6 @@ Allowlist applied to `options.toolFilter`.
 
 > `optional` **excludeTools?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L296)
-
 Denylist appended to `options.excludeTools`.
 
 ---
@@ -64,8 +52,6 @@ Denylist appended to `options.excludeTools`.
 
 > `optional` **difficulty?**: [`ClassifierDifficulty`](ClassifierDifficulty.md)
 
-Defined in: [types/classifierRouter.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L298)
-
 The difficulty this decision was made for (debug/telemetry).
 
 ---
@@ -73,8 +59,6 @@ The difficulty this decision was made for (debug/telemetry).
 ### compactionThreshold?
 
 > `optional` **compactionThreshold?**: `number`
-
-Defined in: [types/classifierRouter.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L310)
 
 Fraction of the model's window at which compaction should trigger for
 THIS request, replacing the fixed 0.8 default.
@@ -92,8 +76,6 @@ unrecoverable.
 
 > `optional` **contextScope?**: [`ClassifierContextScope`](ClassifierContextScope.md)
 
-Defined in: [types/classifierRouter.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L312)
-
 The scope reading `compactionThreshold` was derived from.
 
 ---
@@ -102,8 +84,6 @@ The scope reading `compactionThreshold` was derived from.
 
 > `optional` **modelFallbacks?**: [`ClassifierRouterPoolMember`](ClassifierRouterPoolMember.md)[]
 
-Defined in: [types/classifierRouter.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L314)
-
 Remaining ranked candidates, best-first, for downstream failover.
 
 ---
@@ -111,7 +91,5 @@ Remaining ranked candidates, best-first, for downstream failover.
 ### reason?
 
 > `optional` **reason?**: `string`
-
-Defined in: [types/classifierRouter.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L316)
 
 Human-readable explanation, emitted at debug level.

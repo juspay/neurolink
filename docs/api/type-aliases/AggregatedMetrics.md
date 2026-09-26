@@ -8,8 +8,6 @@
 
 > **AggregatedMetrics** = `object`
 
-Defined in: [types/evaluation.ts:754](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L754)
-
 Aggregated metrics across pipelines and scorers.
 
 ## Properties
@@ -18,15 +16,11 @@ Aggregated metrics across pipelines and scorers.
 
 > **totalEvaluations**: `number`
 
-Defined in: [types/evaluation.ts:755](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L755)
-
 ---
 
 ### overallPassRate
 
 > **overallPassRate**: `number`
-
-Defined in: [types/evaluation.ts:756](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L756)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/evaluation.ts:756](https://github.com/juspay/neurolink/blob/r
 
 > **averageScore**: `number`
 
-Defined in: [types/evaluation.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L757)
-
 ---
 
 ### averageDuration
 
 > **averageDuration**: `number`
 
-Defined in: [types/evaluation.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L758)
-
 ---
 
 ### scoreDistribution
 
 > **scoreDistribution**: `object`
-
-Defined in: [types/evaluation.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L759)
 
 #### excellent
 
@@ -78,15 +66,11 @@ Defined in: [types/evaluation.ts:759](https://github.com/juspay/neurolink/blob/r
 
 > **pipelineMetrics**: `Map`\<`string`, [`PipelineMetrics`](PipelineMetrics.md)\>
 
-Defined in: [types/evaluation.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L766)
-
 ---
 
 ### scorerMetrics
 
 > **scorerMetrics**: `Map`\<`string`, [`ScorerMetrics`](ScorerMetrics.md)\>
-
-Defined in: [types/evaluation.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L767)
 
 ---
 
@@ -94,12 +78,8 @@ Defined in: [types/evaluation.ts:767](https://github.com/juspay/neurolink/blob/r
 
 > **collectionStartTime**: `number`
 
-Defined in: [types/evaluation.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L768)
-
 ---
 
 ### lastUpdateTime
 
 > **lastUpdateTime**: `number`
-
-Defined in: [types/evaluation.ts:769](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L769)

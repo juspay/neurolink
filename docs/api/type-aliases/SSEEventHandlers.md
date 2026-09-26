@@ -8,8 +8,6 @@
 
 > **SSEEventHandlers** = `object`
 
-Defined in: [types/client.ts:1448](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1448)
-
 SSE event handlers
 
 ## Properties
@@ -17,8 +15,6 @@ SSE event handlers
 ### onOpen?
 
 > `optional` **onOpen?**: () => `void`
-
-Defined in: [types/client.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1449)
 
 #### Returns
 
@@ -30,8 +26,6 @@ Defined in: [types/client.ts:1449](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **onClose?**: () => `void`
 
-Defined in: [types/client.ts:1450](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1450)
-
 #### Returns
 
 `void`
@@ -41,8 +35,6 @@ Defined in: [types/client.ts:1450](https://github.com/juspay/neurolink/blob/rele
 ### onError?
 
 > `optional` **onError?**: (`error`) => `void`
-
-Defined in: [types/client.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1451)
 
 #### Parameters
 
@@ -60,8 +52,6 @@ Defined in: [types/client.ts:1451](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **onEvent?**: (`event`) => `void`
 
-Defined in: [types/client.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1452)
-
 #### Parameters
 
 ##### event
@@ -78,8 +68,6 @@ Defined in: [types/client.ts:1452](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **onReconnect?**: (`attempt`) => `void`
 
-Defined in: [types/client.ts:1453](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1453)
-
 #### Parameters
 
 ##### attempt
@@ -95,8 +83,6 @@ Defined in: [types/client.ts:1453](https://github.com/juspay/neurolink/blob/rele
 ### onStateChange?
 
 > `optional` **onStateChange?**: (`state`) => `void`
-
-Defined in: [types/client.ts:1454](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1454)
 
 #### Parameters
 

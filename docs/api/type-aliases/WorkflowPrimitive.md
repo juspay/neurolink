@@ -8,8 +8,6 @@
 
 > **WorkflowPrimitive** = [`NetworkPrimitive`](NetworkPrimitive.md) & `object`
 
-Defined in: [types/agentNetwork.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L235)
-
 Workflow as a network primitive
 
 ## Type Declaration

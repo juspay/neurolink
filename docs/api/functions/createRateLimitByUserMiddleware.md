@@ -8,8 +8,6 @@
 
 > **createRateLimitByUserMiddleware**(`config`, `storage?`): (`context`) => `Promise`\<[`RateLimitMiddlewareResult`](../type-aliases/RateLimitMiddlewareResult.md)\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L557)
-
 Create rate limiting middleware for authenticated requests
 
 ## Parameters

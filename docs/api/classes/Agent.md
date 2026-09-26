@@ -6,8 +6,6 @@
 
 # Class: Agent
 
-Defined in: [agent/agent.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L49)
-
 Agent - Wraps a NeuroLink instance with specialized behavior
 
 Features:
@@ -45,8 +43,6 @@ const result = await agent.execute("Find information about quantum computing");
 
 > **new Agent**(`definition`, `neurolink`): `Agent`
 
-Defined in: [agent/agent.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L70)
-
 #### Parameters
 
 ##### definition
@@ -67,8 +63,6 @@ Defined in: [agent/agent.ts:70](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` **id**: `string`
 
-Defined in: [agent/agent.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L50)
-
 Agent ID
 
 #### Implementation of
@@ -80,8 +74,6 @@ Agent ID
 ### name
 
 > `readonly` **name**: `string`
-
-Defined in: [agent/agent.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L51)
 
 Agent name
 
@@ -95,8 +87,6 @@ Agent name
 
 > `readonly` **description**: `string`
 
-Defined in: [agent/agent.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L52)
-
 Agent description
 
 #### Implementation of
@@ -108,8 +98,6 @@ Agent description
 ### instructions
 
 > `readonly` **instructions**: `string`
-
-Defined in: [agent/agent.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L53)
 
 Agent instructions
 
@@ -123,15 +111,11 @@ Agent instructions
 
 > `readonly` `optional` **provider?**: `string`
 
-Defined in: [agent/agent.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L54)
-
 ---
 
 ### model?
 
 > `readonly` `optional` **model?**: `string`
-
-Defined in: [agent/agent.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L55)
 
 ---
 
@@ -139,15 +123,11 @@ Defined in: [agent/agent.ts:55](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` `optional` **tools?**: `string`[]
 
-Defined in: [agent/agent.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L56)
-
 ---
 
 ### inputSchema?
 
 > `readonly` `optional` **inputSchema?**: `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
-
-Defined in: [agent/agent.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L57)
 
 ---
 
@@ -155,15 +135,11 @@ Defined in: [agent/agent.ts:57](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` `optional` **outputSchema?**: `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
 
-Defined in: [agent/agent.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L58)
-
 ---
 
 ### maxSteps
 
 > `readonly` **maxSteps**: `number`
-
-Defined in: [agent/agent.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L59)
 
 ---
 
@@ -171,15 +147,11 @@ Defined in: [agent/agent.ts:59](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` **temperature**: `number`
 
-Defined in: [agent/agent.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L60)
-
 ---
 
 ### canDelegate
 
 > `readonly` **canDelegate**: `boolean`
-
-Defined in: [agent/agent.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L61)
 
 ---
 
@@ -187,15 +159,11 @@ Defined in: [agent/agent.ts:61](https://github.com/juspay/neurolink/blob/release
 
 > `readonly` `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [agent/agent.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L62)
-
 ## Methods
 
 ### execute()
 
 > **execute**(`input`, `options?`): `Promise`\<[`AgentResult`](../type-aliases/AgentResult.md)\>
-
-Defined in: [agent/agent.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L131)
 
 Execute the agent with given input
 
@@ -228,8 +196,6 @@ Agent result with content and metadata
 ### stream()
 
 > **stream**(`input`, `options?`): `AsyncIterable`\<[`AgentStreamChunk`](../type-aliases/AgentStreamChunk.md)\>
-
-Defined in: [agent/agent.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L269)
 
 Stream execution results
 
@@ -265,8 +231,6 @@ Agent stream chunks
 
 > **getStatus**(): [`AgentStatus`](../type-aliases/AgentStatus.md)
 
-Defined in: [agent/agent.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L409)
-
 Get agent status
 
 #### Returns
@@ -283,8 +247,6 @@ Get agent status
 
 > **getAverageExecutionTime**(): `number`
 
-Defined in: [agent/agent.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L422)
-
 Get average execution time
 
 #### Returns
@@ -296,8 +258,6 @@ Get average execution time
 ### on()
 
 > **on**(`event`, `handler`): `void`
-
-Defined in: [agent/agent.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L432)
 
 Subscribe to agent events
 
@@ -320,8 +280,6 @@ Subscribe to agent events
 ### off()
 
 > **off**(`event`, `handler`): `void`
-
-Defined in: [agent/agent.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agent.ts#L439)
 
 Unsubscribe from agent events
 

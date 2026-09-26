@@ -8,8 +8,6 @@
 
 > **ProxyOtelExportFailure** = `object`
 
-Defined in: [types/proxy.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1010)
-
 Bounded metadata-only evidence for an unconfirmed or locally rejected OTLP batch.
 
 ## Properties
@@ -18,15 +16,11 @@ Bounded metadata-only evidence for an unconfirmed or locally rejected OTLP batch
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:1011](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1011)
-
 ---
 
 ### at
 
 > **at**: `string`
-
-Defined in: [types/proxy.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1012)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/proxy.ts:1012](https://github.com/juspay/neurolink/blob/relea
 
 > **reason**: `"export_unconfirmed"` \| `"queue_full"`
 
-Defined in: [types/proxy.ts:1013](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1013)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
 
-Defined in: [types/proxy.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1014)
-
 ---
 
 ### records
 
 > **records**: `object`[]
-
-Defined in: [types/proxy.ts:1015](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1015)
 
 #### eventId
 

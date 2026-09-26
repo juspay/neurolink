@@ -6,8 +6,6 @@
 
 # Class: AuthProviderFactory
 
-Defined in: [auth/AuthProviderFactory.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L40)
-
 AuthProviderFactory - Creates authentication provider instances
 
 Pure static factory with no hardcoded imports. All providers are
@@ -41,8 +39,6 @@ const provider = await AuthProviderFactory.createProvider("auth0", {
 
 > `static` **registerProvider**(`type`, `factory`, `aliases?`, `metadata?`): `void`
 
-Defined in: [auth/AuthProviderFactory.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L50)
-
 Register a provider with the factory
 
 #### Parameters
@@ -73,8 +69,6 @@ Register a provider with the factory
 
 > `static` **createProvider**(`typeOrAlias`, `config`): `Promise`\<[`AuthProvider`](../type-aliases/AuthProvider.md)\>
 
-Defined in: [auth/AuthProviderFactory.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L68)
-
 Create a provider instance
 
 #### Parameters
@@ -97,8 +91,6 @@ Create a provider instance
 
 > `static` **hasProvider**(`typeOrAlias`): `boolean`
 
-Defined in: [auth/AuthProviderFactory.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L96)
-
 Check if a provider is registered
 
 #### Parameters
@@ -117,8 +109,6 @@ Check if a provider is registered
 
 > `static` **getAvailableProviders**(): `string`[]
 
-Defined in: [auth/AuthProviderFactory.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L106)
-
 Get list of available provider types (excludes aliases)
 
 #### Returns
@@ -130,8 +120,6 @@ Get list of available provider types (excludes aliases)
 ### getProviderMetadata()
 
 > `static` **getProviderMetadata**(`typeOrAlias`): [`AuthProviderMetadata`](../type-aliases/AuthProviderMetadata.md) \| `undefined`
-
-Defined in: [auth/AuthProviderFactory.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L113)
 
 Get provider metadata
 
@@ -151,8 +139,6 @@ Get provider metadata
 
 > `static` **getAllProviderInfo**(): `object`[]
 
-Defined in: [auth/AuthProviderFactory.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L123)
-
 Get all registered providers with their metadata
 
 #### Returns
@@ -164,8 +150,6 @@ Get all registered providers with their metadata
 ### clearRegistrations()
 
 > `static` **clearRegistrations**(): `void`
-
-Defined in: [auth/AuthProviderFactory.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L140)
 
 Clear all registrations (for testing)
 

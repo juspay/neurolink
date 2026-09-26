@@ -8,8 +8,6 @@
 
 > **createRequestIdMiddleware**(`options?`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/common.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/common.ts#L105)
-
 Create request ID middleware
 Ensures every request has a unique ID
 

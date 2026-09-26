@@ -8,8 +8,6 @@
 
 > **BedrockToolUse** = `object`
 
-Defined in: [types/providers.ts:1071](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1071)
-
 Bedrock tool usage structure
 
 ## Properties
@@ -18,20 +16,14 @@ Bedrock tool usage structure
 
 > **toolUseId**: `string`
 
-Defined in: [types/providers.ts:1072](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1072)
-
 ---
 
 ### name
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1073)
-
 ---
 
 ### input
 
 > **input**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/providers.ts:1074](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1074)

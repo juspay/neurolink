@@ -8,8 +8,6 @@
 
 > **SkillFilesystemStorageConfig** = `object`
 
-Defined in: [types/skills.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L126)
-
 Directory-backed store. Reads three layouts:
 
 - `<dir>/<id>.json` — one JSON-serialized SkillDefinition per file
@@ -23,14 +21,10 @@ Directory-backed store. Reads three layouts:
 
 > **type**: `"filesystem"`
 
-Defined in: [types/skills.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L127)
-
 ---
 
 ### path
 
 > **path**: `string`
-
-Defined in: [types/skills.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L129)
 
 Directory containing skill files. Created on first write if absent.

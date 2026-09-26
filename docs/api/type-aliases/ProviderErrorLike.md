@@ -8,8 +8,6 @@
 
 > **ProviderErrorLike** = `Error` & `object`
 
-Defined in: [types/providers.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L149)
-
 Structural type for provider errors from external sources.
 For throwing errors, use the ProviderError class from errors.ts.
 

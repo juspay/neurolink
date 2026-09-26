@@ -8,8 +8,6 @@
 
 > **generateText**(`options`): `Promise`\<[`TextGenerationResult`](../type-aliases/TextGenerationResult.md)\>
 
-Defined in: [index.ts:1009](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L1009)
-
 Legacy generateText function for backward compatibility.
 
 Provides standalone text generation function for existing code.

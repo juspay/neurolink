@@ -8,8 +8,6 @@
 
 > **createLoggingMiddleware**(`options?`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/common.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/common.ts#L318)
-
 Create request logging middleware
 Logs request and response information
 

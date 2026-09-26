@@ -6,8 +6,6 @@
 
 # Class: ServerAdapterFactory
 
-Defined in: [server/factory/serverAdapterFactory.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L20)
-
 Factory for creating server adapters
 Supports multiple web frameworks with consistent API
 
@@ -26,8 +24,6 @@ Supports multiple web frameworks with consistent API
 ### registerAdapter()
 
 > `static` **registerAdapter**(`framework`, `adapterClass`): `void`
-
-Defined in: [server/factory/serverAdapterFactory.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L32)
 
 Register an adapter class for a framework
 
@@ -51,8 +47,6 @@ Register an adapter class for a framework
 
 > `static` **create**(`options`): `Promise`\<[`BaseServerAdapter`](BaseServerAdapter.md)\>
 
-Defined in: [server/factory/serverAdapterFactory.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L49)
-
 Create a server adapter for the specified framework
 Uses dynamic imports to avoid bundling unused frameworks
 
@@ -71,8 +65,6 @@ Uses dynamic imports to avoid bundling unused frameworks
 ### createHono()
 
 > `static` **createHono**(`neurolink`, `config?`): `Promise`\<[`BaseServerAdapter`](BaseServerAdapter.md)\>
-
-Defined in: [server/factory/serverAdapterFactory.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L104)
 
 Create a Hono server adapter (convenience method)
 Hono is the recommended framework for its multi-runtime support
@@ -97,8 +89,6 @@ Hono is the recommended framework for its multi-runtime support
 
 > `static` **createExpress**(`neurolink`, `config?`): `Promise`\<[`BaseServerAdapter`](BaseServerAdapter.md)\>
 
-Defined in: [server/factory/serverAdapterFactory.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L118)
-
 Create an Express server adapter (convenience method)
 
 #### Parameters
@@ -120,8 +110,6 @@ Create an Express server adapter (convenience method)
 ### createFastify()
 
 > `static` **createFastify**(`neurolink`, `config?`): `Promise`\<[`BaseServerAdapter`](BaseServerAdapter.md)\>
-
-Defined in: [server/factory/serverAdapterFactory.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L133)
 
 Create a Fastify server adapter (convenience method)
 Fastify is known for high performance and low overhead
@@ -146,8 +134,6 @@ Fastify is known for high performance and low overhead
 
 > `static` **createKoa**(`neurolink`, `config?`): `Promise`\<[`BaseServerAdapter`](BaseServerAdapter.md)\>
 
-Defined in: [server/factory/serverAdapterFactory.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L148)
-
 Create a Koa server adapter (convenience method)
 Koa provides elegant middleware composition
 
@@ -171,8 +157,6 @@ Koa provides elegant middleware composition
 
 > `static` **isSupported**(`framework`): `framework is ServerFramework`
 
-Defined in: [server/factory/serverAdapterFactory.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L162)
-
 Check if a framework is supported
 
 #### Parameters
@@ -191,8 +175,6 @@ Check if a framework is supported
 
 > `static` **getSupportedFrameworks**(): `object`[]
 
-Defined in: [server/factory/serverAdapterFactory.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L169)
-
 Get list of supported frameworks
 
 #### Returns
@@ -204,8 +186,6 @@ Get list of supported frameworks
 ### getRecommendedFramework()
 
 > `static` **getRecommendedFramework**(): [`ServerFramework`](../type-aliases/ServerFramework.md)
-
-Defined in: [server/factory/serverAdapterFactory.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L202)
 
 Get recommended framework based on runtime
 

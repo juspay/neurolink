@@ -8,8 +8,6 @@
 
 > `const` **TASK_DEFAULTS**: `object`
 
-Defined in: [types/task.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L385)
-
 ## Type Declaration
 
 ### enabled

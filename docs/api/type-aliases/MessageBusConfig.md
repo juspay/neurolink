@@ -8,8 +8,6 @@
 
 > **MessageBusConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1156](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1156)
-
 Message bus configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Message bus configuration
 ### maxHistorySize?
 
 > `optional` **maxHistorySize?**: `number`
-
-Defined in: [types/agentNetwork.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1158)
 
 Maximum messages to retain in history
 
@@ -28,8 +24,6 @@ Maximum messages to retain in history
 
 > `optional` **defaultTtl?**: `number`
 
-Defined in: [types/agentNetwork.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1161)
-
 Default message TTL in ms
 
 ---
@@ -37,8 +31,6 @@ Default message TTL in ms
 ### enablePersistence?
 
 > `optional` **enablePersistence?**: `boolean`
-
-Defined in: [types/agentNetwork.ts:1164](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1164)
 
 Enable message persistence
 
@@ -48,8 +40,6 @@ Enable message persistence
 
 > `optional` **enableDeadLetterQueue?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1167)
-
 Dead letter queue for failed messages
 
 ---
@@ -57,7 +47,5 @@ Dead letter queue for failed messages
 ### requestTimeout?
 
 > `optional` **requestTimeout?**: `number`
-
-Defined in: [types/agentNetwork.ts:1170](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1170)
 
 Request timeout for request-response pattern

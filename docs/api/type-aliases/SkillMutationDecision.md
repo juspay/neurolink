@@ -8,8 +8,6 @@
 
 > **SkillMutationDecision** = \{ `outcome`: `"approved"`; \} \| \{ `outcome`: `"rejected"`; `reason?`: `string`; \} \| \{ `outcome`: `"pending"`; `reference?`: `string`; \}
 
-Defined in: [types/skills.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L289)
-
 Host decision for a proposed mutation.
 
 - "approved": NeuroLink applies the mutation immediately.

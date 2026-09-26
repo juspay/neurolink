@@ -8,8 +8,6 @@
 
 > **ClientGenerateRequestOptions** = `object`
 
-Defined in: [types/client.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L230)
-
 Generate request options (client-side version)
 
 ## Properties
@@ -17,8 +15,6 @@ Generate request options (client-side version)
 ### input
 
 > **input**: `object`
-
-Defined in: [types/client.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L232)
 
 Input for generation
 
@@ -40,8 +36,6 @@ Input for generation
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L238)
-
 Provider to use
 
 ---
@@ -49,8 +43,6 @@ Provider to use
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/client.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L240)
 
 Model to use
 
@@ -60,8 +52,6 @@ Model to use
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/client.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L242)
-
 Temperature for generation
 
 ---
@@ -69,8 +59,6 @@ Temperature for generation
 ### maxTokens?
 
 > `optional` **maxTokens?**: `number`
-
-Defined in: [types/client.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L244)
 
 Maximum tokens to generate
 
@@ -80,8 +68,6 @@ Maximum tokens to generate
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/client.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L246)
-
 System prompt
 
 ---
@@ -89,8 +75,6 @@ System prompt
 ### enableTools?
 
 > `optional` **enableTools?**: `boolean`
-
-Defined in: [types/client.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L248)
 
 Enable tool usage
 
@@ -100,8 +84,6 @@ Enable tool usage
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/client.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L250)
-
 Specific tools to enable
 
 ---
@@ -109,7 +91,5 @@ Specific tools to enable
 ### context?
 
 > `optional` **context?**: [`UnknownRecord`](UnknownRecord.md)
-
-Defined in: [types/client.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L252)
 
 Context data

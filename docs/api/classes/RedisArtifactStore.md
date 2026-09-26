@@ -6,8 +6,6 @@
 
 # Class: RedisArtifactStore
 
-Defined in: [artifacts/redisArtifactStore.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L145)
-
 Redis-backed artifact store: shared across replicas, expired by TTL,
 range reads for ASCII payloads.
 
@@ -28,8 +26,6 @@ const neurolink = new NeuroLink({ artifacts: { store } });
 ### Constructor
 
 > **new RedisArtifactStore**(`config?`): `RedisArtifactStore`
-
-Defined in: [artifacts/redisArtifactStore.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L158)
 
 #### Parameters
 
@@ -54,8 +50,6 @@ meaningless here and ignored.
 
 > **generatePreview**(`payload`): `string`
 
-Defined in: [artifacts/redisArtifactStore.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L172)
-
 Generate a short preview string from a serialized payload.
 
 #### Parameters
@@ -77,8 +71,6 @@ Generate a short preview string from a serialized payload.
 ### store()
 
 > **store**(`payload`, `meta`): `Promise`\<[`ArtifactRef`](../type-aliases/ArtifactRef.md)\>
-
-Defined in: [artifacts/redisArtifactStore.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L176)
 
 Persist a payload and return a lightweight reference.
 
@@ -110,8 +102,6 @@ Descriptor without `createdAt` (assigned internally).
 
 > **retrieve**(`id`): `Promise`\<`string` \| `null`\>
 
-Defined in: [artifacts/redisArtifactStore.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L214)
-
 Retrieve the full payload by artifact ID.
 Returns `null` if the artifact is not found or has been cleaned up.
 
@@ -134,8 +124,6 @@ Returns `null` if the artifact is not found or has been cleaned up.
 ### retrieveRange()
 
 > **retrieveRange**(`id`, `range`): `Promise`\<[`ArtifactWindow`](../type-aliases/ArtifactWindow.md) \| `null`\>
-
-Defined in: [artifacts/redisArtifactStore.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L223)
 
 Retrieve one character window without materialising the whole payload.
 
@@ -175,8 +163,6 @@ Returns `null` if the artifact is not found or has expired.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [artifacts/redisArtifactStore.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L264)
-
 Delete a single artifact. No-op if the ID does not exist.
 
 #### Parameters
@@ -198,8 +184,6 @@ Delete a single artifact. No-op if the ID does not exist.
 ### cleanup()
 
 > **cleanup**(`olderThanMs`): `Promise`\<`number`\>
-
-Defined in: [artifacts/redisArtifactStore.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L277)
 
 Nothing to sweep: Redis expires every artifact `ttl` seconds after it was
 written, on every replica at once, which is what `cleanup()` on the local
@@ -224,8 +208,6 @@ store could never do.
 ### close()
 
 > **close**(): `Promise`\<`void`\>
-
-Defined in: [artifacts/redisArtifactStore.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/redisArtifactStore.ts#L292)
 
 Release this store's reference on the pooled connection.
 

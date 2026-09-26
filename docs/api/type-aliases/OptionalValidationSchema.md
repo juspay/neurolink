@@ -8,7 +8,5 @@
 
 > **OptionalValidationSchema** = [`ValidationSchema`](ValidationSchema.md) \| `undefined`
 
-Defined in: [types/aliases.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L54)
-
 Optional validation schema type
 Used in optional schema parameters across the codebase

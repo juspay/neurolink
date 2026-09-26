@@ -8,8 +8,6 @@
 
 > **ClientToolInfo** = `object`
 
-Defined in: [types/client.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L441)
-
 Tool information for client use
 
 ## Properties
@@ -17,8 +15,6 @@ Tool information for client use
 ### name
 
 > **name**: `string`
-
-Defined in: [types/client.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L443)
 
 Tool name
 
@@ -28,8 +24,6 @@ Tool name
 
 > **description**: `string`
 
-Defined in: [types/client.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L445)
-
 Tool description
 
 ---
@@ -37,8 +31,6 @@ Tool description
 ### category?
 
 > `optional` **category?**: `string`
-
-Defined in: [types/client.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L447)
 
 Tool category
 
@@ -48,8 +40,6 @@ Tool category
 
 > **serverId**: `string`
 
-Defined in: [types/client.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L449)
-
 Server ID
 
 ---
@@ -58,8 +48,6 @@ Server ID
 
 > **inputSchema**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/client.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L451)
-
 Input schema
 
 ---
@@ -67,7 +55,5 @@ Input schema
 ### requiresConfirmation?
 
 > `optional` **requiresConfirmation?**: `boolean`
-
-Defined in: [types/client.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L453)
 
 Whether tool requires confirmation

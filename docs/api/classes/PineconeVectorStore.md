@@ -6,8 +6,6 @@
 
 # Class: PineconeVectorStore
 
-Defined in: [rag/stores/pinecone.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L137)
-
 Pinecone-backed implementation of the `VectorStore` contract.
 
 ## Example
@@ -33,8 +31,6 @@ const results = await store.query({ indexName: 'tenant-a', queryVector: [...], t
 
 > **new PineconeVectorStore**(`client`): `PineconeVectorStore`
 
-Defined in: [rag/stores/pinecone.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L138)
-
 #### Parameters
 
 ##### client
@@ -50,8 +46,6 @@ Defined in: [rag/stores/pinecone.ts:138](https://github.com/juspay/neurolink/blo
 ### query()
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
-
-Defined in: [rag/stores/pinecone.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L147)
 
 #### Parameters
 
@@ -91,8 +85,6 @@ Defined in: [rag/stores/pinecone.ts:147](https://github.com/juspay/neurolink/blo
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/pinecone.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L185)
-
 Add or update vectors in the namespace mapped from `indexName`.
 
 #### Parameters
@@ -114,8 +106,6 @@ Add or update vectors in the namespace mapped from `indexName`.
 ### delete()
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
-
-Defined in: [rag/stores/pinecone.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L204)
 
 Delete vectors by id from the namespace mapped from `indexName`.
 

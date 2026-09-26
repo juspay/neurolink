@@ -8,8 +8,6 @@
 
 > **createSecurityHeadersMiddleware**(`options?`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/common.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/common.ts#L241)
-
 Create security headers middleware
 Adds common security headers to responses
 

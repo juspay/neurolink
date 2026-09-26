@@ -8,8 +8,6 @@
 
 > **LengthScorerConfig** = [`RuleScorerConfig`](RuleScorerConfig.md) & `object`
 
-Defined in: [types/scorer.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L606)
-
 Configuration specific to length scoring.
 
 ## Type Declaration

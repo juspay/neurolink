@@ -8,8 +8,6 @@
 
 > **LangfuseClient** = `object`
 
-Defined in: [types/evaluation.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L627)
-
 Minimal Langfuse client interface for evaluation hooks.
 
 ## Properties
@@ -17,8 +15,6 @@ Minimal Langfuse client interface for evaluation hooks.
 ### score
 
 > **score**: (`params`) => `Promise`\<`unknown`\>
-
-Defined in: [types/evaluation.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L628)
 
 #### Parameters
 
@@ -58,8 +54,6 @@ Defined in: [types/evaluation.ts:628](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **trace?**: (`params`) => `object`
 
-Defined in: [types/evaluation.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L636)
-
 #### Parameters
 
 ##### params
@@ -89,8 +83,6 @@ Defined in: [types/evaluation.ts:636](https://github.com/juspay/neurolink/blob/r
 ### shutdown?
 
 > `optional` **shutdown?**: () => `Promise`\<`void`\>
-
-Defined in: [types/evaluation.ts:641](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L641)
 
 #### Returns
 

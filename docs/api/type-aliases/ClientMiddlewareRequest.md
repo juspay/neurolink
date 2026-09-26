@@ -8,8 +8,6 @@
 
 > **ClientMiddlewareRequest** = `object`
 
-Defined in: [types/client.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L471)
-
 ClientMiddleware request object
 
 ## Properties
@@ -17,8 +15,6 @@ ClientMiddleware request object
 ### url
 
 > **url**: `string`
-
-Defined in: [types/client.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L473)
 
 Request URL
 
@@ -28,8 +24,6 @@ Request URL
 
 > **method**: `string`
 
-Defined in: [types/client.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L475)
-
 HTTP method
 
 ---
@@ -37,8 +31,6 @@ HTTP method
 ### headers
 
 > **headers**: `Record`\<`string`, `string`\>
-
-Defined in: [types/client.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L477)
 
 Request headers
 
@@ -48,8 +40,6 @@ Request headers
 
 > `optional` **body?**: `unknown`
 
-Defined in: [types/client.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L479)
-
 Request body
 
 ---
@@ -57,7 +47,5 @@ Request body
 ### context
 
 > **context**: [`ClientMiddlewareContext`](ClientMiddlewareContext.md)
-
-Defined in: [types/client.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L481)
 
 ClientMiddleware context

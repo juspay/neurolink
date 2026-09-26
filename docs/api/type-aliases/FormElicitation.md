@@ -8,8 +8,6 @@
 
 > **FormElicitation** = [`ElicitationRequest`](ElicitationRequest.md) & `object`
 
-Defined in: [types/elicitation.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L168)
-
 Form elicitation
 
 ## Type Declaration

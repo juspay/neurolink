@@ -8,8 +8,6 @@
 
 > **TaskDistributorConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1435](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1435)
-
 Task Distributor configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Task Distributor configuration
 ### strategy
 
 > **strategy**: [`DistributionStrategy`](DistributionStrategy.md)
-
-Defined in: [types/agentNetwork.ts:1437](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1437)
 
 Distribution strategy
 
@@ -28,8 +24,6 @@ Distribution strategy
 
 > `optional` **maxQueueSize?**: `number`
 
-Defined in: [types/agentNetwork.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1440)
-
 Maximum queue size
 
 ---
@@ -37,8 +31,6 @@ Maximum queue size
 ### maxRetries?
 
 > `optional` **maxRetries?**: `number`
-
-Defined in: [types/agentNetwork.ts:1443](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1443)
 
 Maximum retries per task
 
@@ -48,8 +40,6 @@ Maximum retries per task
 
 > `optional` **retryDelay?**: `number`
 
-Defined in: [types/agentNetwork.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1446)
-
 Retry delay in ms
 
 ---
@@ -57,8 +47,6 @@ Retry delay in ms
 ### taskTimeout?
 
 > `optional` **taskTimeout?**: `number`
-
-Defined in: [types/agentNetwork.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1449)
 
 Task timeout in ms
 
@@ -68,8 +56,6 @@ Task timeout in ms
 
 > `optional` **enableDecomposition?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1452)
-
 Enable task decomposition
 
 ---
@@ -77,8 +63,6 @@ Enable task decomposition
 ### skillMatcher?
 
 > `optional` **skillMatcher?**: (`task`, `agent`) => `number`
-
-Defined in: [types/agentNetwork.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1455)
 
 Custom skill matcher
 

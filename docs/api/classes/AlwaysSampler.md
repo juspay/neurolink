@@ -6,8 +6,6 @@
 
 # Class: AlwaysSampler
 
-Defined in: [observability/sampling/samplers.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L18)
-
 Always sample all spans
 
 ## Implements
@@ -30,8 +28,6 @@ Always sample all spans
 
 > `readonly` **name**: `"always"` = `"always"`
 
-Defined in: [observability/sampling/samplers.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L19)
-
 Sampler name for identification
 
 #### Implementation of
@@ -43,8 +39,6 @@ Sampler name for identification
 ### shouldSample()
 
 > **shouldSample**(`_span`): `boolean`
-
-Defined in: [observability/sampling/samplers.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L21)
 
 Determine if a span should be sampled
 
@@ -67,8 +61,6 @@ Determine if a span should be sampled
 ### getDescription()
 
 > **getDescription**(): `string`
-
-Defined in: [observability/sampling/samplers.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L25)
 
 Get sampling decision description
 

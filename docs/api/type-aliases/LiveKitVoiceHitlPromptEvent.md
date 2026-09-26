@@ -8,8 +8,6 @@
 
 > **LiveKitVoiceHitlPromptEvent** = `object`
 
-Defined in: [types/livekit.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L292)
-
 A human-in-the-loop confirmation the user must approve or reject.
 
 ## Properties
@@ -18,15 +16,11 @@ A human-in-the-loop confirmation the user must approve or reject.
 
 > **type**: `"hitl-prompt"`
 
-Defined in: [types/livekit.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L293)
-
 ---
 
 ### data
 
 > **data**: `object`
-
-Defined in: [types/livekit.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L294)
 
 #### confirmationId
 

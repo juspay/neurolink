@@ -8,8 +8,6 @@
 
 > **LoopGuardEntry** = `object`
 
-Defined in: [types/context.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L860)
-
 Provider-neutral view of ONE message in an agent loop's history.
 
 Every native provider loop keeps its history in a different shape (AI-SDK
@@ -24,8 +22,6 @@ do, and apply the answer themselves.
 
 > **kind**: `"other"` \| `"toolCall"` \| `"toolResult"`
 
-Defined in: [types/context.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L862)
-
 `toolCall` and `toolResult` form the batches the policy keeps intact.
 
 ---
@@ -34,8 +30,6 @@ Defined in: [types/context.ts:862](https://github.com/juspay/neurolink/blob/rele
 
 > **tokens**: `number`
 
-Defined in: [types/context.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L864)
-
 Estimated tokens this entry currently costs.
 
 ---
@@ -43,8 +37,6 @@ Estimated tokens this entry currently costs.
 ### previewTokens?
 
 > `optional` **previewTokens?**: `number`
-
-Defined in: [types/context.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L870)
 
 Tokens this entry would cost with its payload replaced by a head/tail
 preview. Omitted when the entry cannot usefully shrink — which is exactly

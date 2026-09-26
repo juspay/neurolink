@@ -8,8 +8,6 @@
 
 > **createSelectRequest**(`message`, `selectOptions`, `options`): [`ElicitationRequestMessage`](../type-aliases/ElicitationRequestMessage.md)
 
-Defined in: [mcp/elicitationProtocol.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L467)
-
 Create protocol-compliant select request
 
 ## Parameters

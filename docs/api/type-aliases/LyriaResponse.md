@@ -8,8 +8,6 @@
 
 > **LyriaResponse** = `object`
 
-Defined in: [types/music.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L194)
-
 Google Lyria 3 Pro :generateContent response shape.
 
 The audio comes back as a part with `inlineData: { mimeType, data }`
@@ -20,8 +18,6 @@ where `data` is base64-encoded WAV.
 ### candidates?
 
 > `optional` **candidates?**: `object`[]
-
-Defined in: [types/music.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L195)
 
 #### content?
 
@@ -44,8 +40,6 @@ Defined in: [types/music.ts:195](https://github.com/juspay/neurolink/blob/releas
 ### usageMetadata?
 
 > `optional` **usageMetadata?**: `object`
-
-Defined in: [types/music.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L208)
 
 #### promptTokenCount?
 

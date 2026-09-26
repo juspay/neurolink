@@ -8,8 +8,6 @@
 
 > **NeuroLinkMiddleware** = [`LanguageModelMiddleware`](LanguageModelMiddleware.md) & `object`
 
-Defined in: [types/middleware.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L57)
-
 NeuroLink middleware with metadata
 Combines standard AI SDK middleware with NeuroLink-specific metadata
 

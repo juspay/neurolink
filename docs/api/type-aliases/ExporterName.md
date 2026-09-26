@@ -8,6 +8,4 @@
 
 > **ExporterName** = `"langfuse"` \| `"langsmith"` \| `"otel"` \| `"datadog"` \| `"sentry"` \| `"braintrust"` \| `"arize"` \| `"posthog"` \| `"laminar"`
 
-Defined in: [types/cli.ts:1251](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1251)
-
 Available exporter names

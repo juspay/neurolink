@@ -6,8 +6,6 @@
 
 # Class: InMemoryRateLimitStore
 
-Defined in: [server/middleware/rateLimit.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L19)
-
 In-memory rate limit store
 
 ## Implements
@@ -20,8 +18,6 @@ In-memory rate limit store
 
 > **new InMemoryRateLimitStore**(): `InMemoryRateLimitStore`
 
-Defined in: [server/middleware/rateLimit.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L23)
-
 #### Returns
 
 `InMemoryRateLimitStore`
@@ -31,8 +27,6 @@ Defined in: [server/middleware/rateLimit.ts:23](https://github.com/juspay/neurol
 ### get()
 
 > **get**(`key`): `Promise`\<[`RateLimitEntry`](../type-aliases/RateLimitEntry.md) \| `undefined`\>
-
-Defined in: [server/middleware/rateLimit.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L28)
 
 #### Parameters
 
@@ -53,8 +47,6 @@ Defined in: [server/middleware/rateLimit.ts:28](https://github.com/juspay/neurol
 ### set()
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
-
-Defined in: [server/middleware/rateLimit.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L43)
 
 #### Parameters
 
@@ -80,8 +72,6 @@ Defined in: [server/middleware/rateLimit.ts:43](https://github.com/juspay/neurol
 
 > **increment**(`key`, `windowMs`): `Promise`\<[`RateLimitEntry`](../type-aliases/RateLimitEntry.md)\>
 
-Defined in: [server/middleware/rateLimit.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L47)
-
 #### Parameters
 
 ##### key
@@ -106,8 +96,6 @@ Defined in: [server/middleware/rateLimit.ts:47](https://github.com/juspay/neurol
 
 > **reset**(`key`): `Promise`\<`void`\>
 
-Defined in: [server/middleware/rateLimit.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L60)
-
 #### Parameters
 
 ##### key
@@ -127,8 +115,6 @@ Defined in: [server/middleware/rateLimit.ts:60](https://github.com/juspay/neurol
 ### destroy()
 
 > **destroy**(): `void`
-
-Defined in: [server/middleware/rateLimit.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L73)
 
 #### Returns
 

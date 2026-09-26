@@ -6,8 +6,6 @@
 
 # Class: SemanticChunker
 
-Defined in: [rag/chunking/semanticChunker.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/semanticChunker.ts#L24)
-
 Semantic chunker implementation
 Uses embedding similarity to find natural content boundaries
 
@@ -31,8 +29,6 @@ Uses embedding similarity to find natural content boundaries
 
 > `readonly` **strategy**: `"semantic"`
 
-Defined in: [rag/chunking/semanticChunker.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/semanticChunker.ts#L25)
-
 Strategy name for identification
 
 #### Implementation of
@@ -44,8 +40,6 @@ Strategy name for identification
 ### chunk()
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
-
-Defined in: [rag/chunking/semanticChunker.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/semanticChunker.ts#L27)
 
 Split text into chunks
 
@@ -78,8 +72,6 @@ Array of chunks
 ### validateConfig()
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
-
-Defined in: [rag/chunking/semanticChunker.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/semanticChunker.ts#L390)
 
 #### Parameters
 

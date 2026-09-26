@@ -8,8 +8,6 @@
 
 > **ConflictDetectionPlugin** = `object`
 
-Defined in: [types/utilities.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L179)
-
 Plugin-based conflict detection system
 Extensible and configurable enhancement conflict resolution
 
@@ -19,8 +17,6 @@ Extensible and configurable enhancement conflict resolution
 
 > **name**: `string`
 
-Defined in: [types/utilities.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L181)
-
 Plugin name for identification
 
 ---
@@ -29,8 +25,6 @@ Plugin name for identification
 
 > **version**: `string`
 
-Defined in: [types/utilities.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L183)
-
 Plugin version for compatibility checks
 
 ## Methods
@@ -38,8 +32,6 @@ Plugin version for compatibility checks
 ### detectConflict()
 
 > **detectConflict**(`enhancementA`, `enhancementB`, `optionsA?`, `optionsB?`): `boolean`
-
-Defined in: [types/utilities.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L185)
 
 Check if two enhancement types conflict
 
@@ -71,8 +63,6 @@ Check if two enhancement types conflict
 
 > `optional` **getConflictSeverity**(`enhancementA`, `enhancementB`): `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/utilities.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L192)
-
 Get conflict severity (low, medium, high)
 
 #### Parameters
@@ -94,8 +84,6 @@ Get conflict severity (low, medium, high)
 ### suggestResolution()?
 
 > `optional` **suggestResolution**(`enhancementA`, `enhancementB`): `string`[]
-
-Defined in: [types/utilities.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L197)
 
 Suggest resolution strategies
 

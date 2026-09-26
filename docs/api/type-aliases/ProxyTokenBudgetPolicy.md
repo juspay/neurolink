@@ -8,8 +8,6 @@
 
 > **ProxyTokenBudgetPolicy** = `object`
 
-Defined in: [types/proxyBudget.ts:2](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyBudget.ts#L2)
-
 Operator-configured proxy token caps. All caps are optional and disabled by default.
 
 ## Properties
@@ -17,8 +15,6 @@ Operator-configured proxy token caps. All caps are optional and disabled by defa
 ### maxInFlightTokens?
 
 > `optional` **maxInFlightTokens?**: `number`
-
-Defined in: [types/proxyBudget.ts:4](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyBudget.ts#L4)
 
 Per-provider/account estimated outstanding input plus maximum output.
 
@@ -28,8 +24,6 @@ Per-provider/account estimated outstanding input plus maximum output.
 
 > `optional` **accountWindowTokens?**: `number`
 
-Defined in: [types/proxyBudget.ts:6](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyBudget.ts#L6)
-
 Charged tokens in the account's fixed window, including outstanding reservations.
 
 ---
@@ -38,8 +32,6 @@ Charged tokens in the account's fixed window, including outstanding reservations
 
 > `optional` **sessionWindowTokens?**: `number`
 
-Defined in: [types/proxyBudget.ts:8](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyBudget.ts#L8)
-
 Charged tokens across providers/accounts sharing the same client session.
 
 ---
@@ -47,5 +39,3 @@ Charged tokens across providers/accounts sharing the same client session.
 ### windowMs?
 
 > `optional` **windowMs?**: `number`
-
-Defined in: [types/proxyBudget.ts:9](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyBudget.ts#L9)

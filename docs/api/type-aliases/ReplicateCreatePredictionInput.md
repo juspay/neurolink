@@ -8,8 +8,6 @@
 
 > **ReplicateCreatePredictionInput** = `object`
 
-Defined in: [types/replicate.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L51)
-
 Input shape for Replicate's createPrediction helper.
 
 ## Properties
@@ -17,8 +15,6 @@ Input shape for Replicate's createPrediction helper.
 ### model
 
 > **model**: `string`
-
-Defined in: [types/replicate.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L53)
 
 Model in "owner/name" or "owner/name:version" form.
 
@@ -28,8 +24,6 @@ Model in "owner/name" or "owner/name:version" form.
 
 > **input**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/replicate.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L55)
-
 Provider/model-specific input shape.
 
 ---
@@ -38,8 +32,6 @@ Provider/model-specific input shape.
 
 > `optional` **webhook?**: `string`
 
-Defined in: [types/replicate.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L57)
-
 Optional webhook URL for completion notifications.
 
 ---
@@ -47,7 +39,5 @@ Optional webhook URL for completion notifications.
 ### webhookEventsFilter?
 
 > `optional` **webhookEventsFilter?**: (`"start"` \| `"output"` \| `"logs"` \| `"completed"`)[]
-
-Defined in: [types/replicate.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L59)
 
 Optional webhook events filter.

@@ -8,8 +8,6 @@
 
 > **createToolRouter**(`config`): [`ToolRouter`](../classes/ToolRouter.md)
 
-Defined in: [mcp/routing/toolRouter.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/routing/toolRouter.ts#L530)
-
 Factory function to create a ToolRouter instance
 
 ## Parameters

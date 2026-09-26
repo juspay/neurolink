@@ -8,8 +8,6 @@
 
 > **WorkflowAnalytics** = [`AnalyticsData`](AnalyticsData.md) & `object`
 
-Defined in: [types/workflow.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L425)
-
 Workflow-specific analytics
 
 ## Type Declaration

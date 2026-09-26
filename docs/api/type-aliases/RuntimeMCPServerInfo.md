@@ -8,8 +8,6 @@
 
 > **RuntimeMCPServerInfo** = [`MCPServerInfo`](MCPServerInfo.md) & `object`
 
-Defined in: [types/externalMcp.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L436)
-
 Extended MCPServerInfo with runtime state for external servers
 Represents the transition towards zero-conversion architecture by combining
 configuration fields from MCPServerInfo with runtime-only state needed for

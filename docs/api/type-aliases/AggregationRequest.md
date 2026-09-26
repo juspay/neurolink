@@ -8,8 +8,6 @@
 
 > **AggregationRequest** = `object`
 
-Defined in: [types/agentNetwork.ts:1191](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1191)
-
 Aggregation request payload
 
 ## Properties
@@ -17,8 +15,6 @@ Aggregation request payload
 ### sessionId
 
 > **sessionId**: `string`
-
-Defined in: [types/agentNetwork.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1193)
 
 Protocol session ID
 
@@ -28,8 +24,6 @@ Protocol session ID
 
 > **state**: [`ProtocolState`](ProtocolState.md)
 
-Defined in: [types/agentNetwork.ts:1196](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1196)
-
 Protocol state
 
 ---
@@ -37,8 +31,6 @@ Protocol state
 ### data
 
 > **data**: `object`
-
-Defined in: [types/agentNetwork.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1199)
 
 Aggregation data
 

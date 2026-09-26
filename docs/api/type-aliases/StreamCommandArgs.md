@@ -8,8 +8,6 @@
 
 > **StreamCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & [`CliToolRoutingFlags`](CliToolRoutingFlags.md) & [`CliClassifierRouterFlags`](CliClassifierRouterFlags.md) & `object`
 
-Defined in: [types/cli.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L134)
-
 Stream command arguments
 
 ## Type Declaration

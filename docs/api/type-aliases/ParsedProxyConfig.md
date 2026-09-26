@@ -8,8 +8,6 @@
 
 > **ParsedProxyConfig** = `object`
 
-Defined in: [types/utilities.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L51)
-
 Parsed proxy configuration
 
 ## Properties
@@ -18,15 +16,11 @@ Parsed proxy configuration
 
 > **protocol**: `string`
 
-Defined in: [types/utilities.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L52)
-
 ---
 
 ### hostname
 
 > **hostname**: `string`
-
-Defined in: [types/utilities.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L53)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/utilities.ts:53](https://github.com/juspay/neurolink/blob/rel
 
 > **port**: `number`
 
-Defined in: [types/utilities.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L54)
-
 ---
 
 ### auth?
 
 > `optional` **auth?**: `object`
-
-Defined in: [types/utilities.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L55)
 
 #### username
 
@@ -57,5 +47,3 @@ Defined in: [types/utilities.ts:55](https://github.com/juspay/neurolink/blob/rel
 ### cleanUrl
 
 > **cleanUrl**: `string`
-
-Defined in: [types/utilities.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L59)

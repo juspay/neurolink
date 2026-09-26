@@ -8,8 +8,6 @@
 
 > **SessionValidationResult** = `object`
 
-Defined in: [types/auth.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L276)
-
 Session validation result
 
 ## Properties
@@ -17,8 +15,6 @@ Session validation result
 ### valid
 
 > **valid**: `boolean`
-
-Defined in: [types/auth.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L278)
 
 Whether the session is valid
 
@@ -28,8 +24,6 @@ Whether the session is valid
 
 > `optional` **session?**: [`AuthSession`](AuthSession.md)
 
-Defined in: [types/auth.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L280)
-
 Validated session if valid
 
 ---
@@ -37,8 +31,6 @@ Validated session if valid
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/auth.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L282)
 
 Error message if validation failed
 
@@ -48,8 +40,6 @@ Error message if validation failed
 
 > `optional` **errorCode?**: [`AuthErrorCode`](AuthErrorCode.md)
 
-Defined in: [types/auth.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L284)
-
 Error code for programmatic handling
 
 ---
@@ -57,7 +47,5 @@ Error code for programmatic handling
 ### refreshed?
 
 > `optional` **refreshed?**: `boolean`
-
-Defined in: [types/auth.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L286)
 
 Whether session was refreshed

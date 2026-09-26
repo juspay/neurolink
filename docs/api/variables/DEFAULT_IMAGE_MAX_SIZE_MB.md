@@ -8,6 +8,4 @@
 
 > `const` **DEFAULT_IMAGE_MAX_SIZE_MB**: `10` = `10`
 
-Defined in: [types/processor.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L215)
-
 Default maximum size for image files (10 MB)

@@ -8,20 +8,14 @@
 
 > **GoogleAISetupArgv** = `object`
 
-Defined in: [types/cli.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L806)
-
 ## Properties
 
 ### check?
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:807](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L807)
-
 ---
 
 ### nonInteractive?
 
 > `optional` **nonInteractive?**: `boolean`
-
-Defined in: [types/cli.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L808)

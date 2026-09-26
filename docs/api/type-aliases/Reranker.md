@@ -8,8 +8,6 @@
 
 > **Reranker** = `object`
 
-Defined in: [types/rag.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L397)
-
 Reranker type - all rerankers implement this
 
 ## Properties
@@ -18,8 +16,6 @@ Reranker type - all rerankers implement this
 
 > `readonly` **type**: [`RerankerType`](RerankerType.md)
 
-Defined in: [types/rag.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L399)
-
 Reranker type identifier
 
 ## Methods
@@ -27,8 +23,6 @@ Reranker type identifier
 ### rerank()
 
 > **rerank**(`results`, `query`, `options?`): `Promise`\<[`RerankResult`](RerankResult.md)[]\>
-
-Defined in: [types/rag.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L408)
 
 Rerank results based on query relevance
 

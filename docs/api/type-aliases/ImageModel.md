@@ -7,5 +7,3 @@
 # Type Alias: ImageModel
 
 > **ImageModel** = `string` \| `Record`\<`string`, `unknown`\>
-
-Defined in: [types/aiCompat.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L538)

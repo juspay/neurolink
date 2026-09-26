@@ -8,8 +8,6 @@
 
 > **createErrorHandlerInterceptor**(`options?`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:713](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L713)
-
 Error handling interceptor
 
 Provides centralized error handling and transformation.

@@ -8,8 +8,6 @@
 
 > **RealtimeEventHandlers** = `object`
 
-Defined in: [types/realtime.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L184)
-
 Realtime event handler callbacks
 
 ## Properties
@@ -17,8 +15,6 @@ Realtime event handler callbacks
 ### onAudio?
 
 > `optional` **onAudio?**: (`chunk`) => `void`
-
-Defined in: [types/realtime.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L186)
 
 Called when audio is received
 
@@ -37,8 +33,6 @@ Called when audio is received
 ### onTranscript?
 
 > `optional` **onTranscript?**: (`text`, `isFinal`) => `void`
-
-Defined in: [types/realtime.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L188)
 
 Called when text/transcript is received
 
@@ -62,8 +56,6 @@ Called when text/transcript is received
 
 > `optional` **onText?**: (`text`, `isFinal`) => `void`
 
-Defined in: [types/realtime.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L190)
-
 Called when the model generates text
 
 #### Parameters
@@ -85,8 +77,6 @@ Called when the model generates text
 ### onFunctionCall?
 
 > `optional` **onFunctionCall?**: (`name`, `args`) => `Promise`\<`unknown`\>
-
-Defined in: [types/realtime.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L192)
 
 Called when a function call is requested
 
@@ -110,8 +100,6 @@ Called when a function call is requested
 
 > `optional` **onStateChange?**: (`state`) => `void`
 
-Defined in: [types/realtime.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L197)
-
 Called when session state changes
 
 #### Parameters
@@ -129,8 +117,6 @@ Called when session state changes
 ### onError?
 
 > `optional` **onError?**: (`error`) => `void`
-
-Defined in: [types/realtime.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L199)
 
 Called when an error occurs
 
@@ -150,8 +136,6 @@ Called when an error occurs
 
 > `optional` **onTurnStart?**: () => `void`
 
-Defined in: [types/realtime.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L201)
-
 Called when a turn starts
 
 #### Returns
@@ -163,8 +147,6 @@ Called when a turn starts
 ### onTurnEnd?
 
 > `optional` **onTurnEnd?**: () => `void`
-
-Defined in: [types/realtime.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L203)
 
 Called when a turn ends
 

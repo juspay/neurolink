@@ -8,8 +8,6 @@
 
 > **EvaluationEvents** = `object`
 
-Defined in: [types/evaluation.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L659)
-
 Events emitted by the evaluation pipeline.
 
 ## Properties
@@ -17,8 +15,6 @@ Events emitted by the evaluation pipeline.
 ### scorer:start
 
 > **scorer:start**: `object`
-
-Defined in: [types/evaluation.ts:660](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L660)
 
 #### scorerId
 
@@ -41,8 +37,6 @@ Defined in: [types/evaluation.ts:660](https://github.com/juspay/neurolink/blob/r
 ### scorer:end
 
 > **scorer:end**: `object`
-
-Defined in: [types/evaluation.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L666)
 
 #### scorerId
 
@@ -74,8 +68,6 @@ Defined in: [types/evaluation.ts:666](https://github.com/juspay/neurolink/blob/r
 
 > **scorer:error**: `object`
 
-Defined in: [types/evaluation.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L674)
-
 #### scorerId
 
 > **scorerId**: `string`
@@ -101,8 +93,6 @@ Defined in: [types/evaluation.ts:674](https://github.com/juspay/neurolink/blob/r
 ### pipeline:start
 
 > **pipeline:start**: `object`
-
-Defined in: [types/evaluation.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L681)
 
 #### pipelineName
 
@@ -130,8 +120,6 @@ Defined in: [types/evaluation.ts:681](https://github.com/juspay/neurolink/blob/r
 
 > **pipeline:end**: `object`
 
-Defined in: [types/evaluation.ts:688](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L688)
-
 #### pipelineName
 
 > **pipelineName**: `string`
@@ -157,8 +145,6 @@ Defined in: [types/evaluation.ts:688](https://github.com/juspay/neurolink/blob/r
 ### pipeline:error
 
 > **pipeline:error**: `object`
-
-Defined in: [types/evaluation.ts:695](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L695)
 
 #### pipelineName
 

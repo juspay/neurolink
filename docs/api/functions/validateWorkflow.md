@@ -8,8 +8,6 @@
 
 > **validateWorkflow**(`config`): [`WorkflowValidationResult`](../type-aliases/WorkflowValidationResult.md)
 
-Defined in: [workflow/utils/workflowValidation.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/utils/workflowValidation.ts#L34)
-
 Comprehensive workflow validation
 
 ## Parameters

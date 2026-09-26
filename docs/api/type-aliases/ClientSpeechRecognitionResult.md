@@ -8,8 +8,6 @@
 
 > **ClientSpeechRecognitionResult** = `object`
 
-Defined in: [types/client.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1044)
-
 Speech recognition result
 
 ## Properties
@@ -17,8 +15,6 @@ Speech recognition result
 ### transcript
 
 > **transcript**: `string`
-
-Defined in: [types/client.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1046)
 
 Transcript text
 
@@ -28,8 +24,6 @@ Transcript text
 
 > **confidence**: `number`
 
-Defined in: [types/client.ts:1048](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1048)
-
 Confidence score (0-1)
 
 ---
@@ -37,7 +31,5 @@ Confidence score (0-1)
 ### isFinal
 
 > **isFinal**: `boolean`
-
-Defined in: [types/client.ts:1050](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1050)
 
 Whether this is the final result

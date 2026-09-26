@@ -8,8 +8,6 @@
 
 > **createHybridSearch**(`options`): (`query`, `config?`) => `Promise`\<[`HybridSearchResult`](../type-aliases/HybridSearchResult.md)[]\>
 
-Defined in: [rag/retrieval/hybridSearch.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/hybridSearch.ts#L225)
-
 Create a hybrid search function
 
 ## Parameters

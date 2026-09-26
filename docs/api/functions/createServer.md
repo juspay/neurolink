@@ -8,8 +8,6 @@
 
 > **createServer**(`neurolink`, `options?`): `Promise`\<[`BaseServerAdapter`](../classes/BaseServerAdapter.md)\>
 
-Defined in: [server/factory/serverAdapterFactory.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/server/factory/serverAdapterFactory.ts#L219)
-
 Quick helper to create a server from NeuroLink instance
 
 ## Parameters

@@ -8,23 +8,17 @@
 
 > **CatalogQuirks** = `object`
 
-Defined in: [types/providerCatalog.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L71)
-
 ## Properties
 
 ### timeoutErrorClass?
 
 > `optional` **timeoutErrorClass?**: `"provider"`
 
-Defined in: [types/providerCatalog.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L72)
-
 ---
 
 ### messageContentFormat?
 
 > `optional` **messageContentFormat?**: `"string"`
-
-Defined in: [types/providerCatalog.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L78)
 
 Vendor speaks OpenAI for chat but restricts how message content is
 encoded. "string": `messages[].content` must be a plain string —
@@ -38,15 +32,11 @@ ConfiguredOpenAICompatProvider so tool round-trips work.
 
 > `optional` **registryDefaultIgnoresModelEnvVar?**: `boolean`
 
-Defined in: [types/providerCatalog.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L79)
-
 ---
 
 ### responseFormatDowngrade?
 
 > `optional` **responseFormatDowngrade?**: `"json-schema-to-json-object"`
-
-Defined in: [types/providerCatalog.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L84)
 
 Vendor rejects `response_format: { type: "json_schema" }` outright but
 accepts `{ type: "json_object" }`. Normalized by

@@ -8,8 +8,6 @@
 
 > **decodeJWTPayload**(`token`): `Record`\<`string`, `unknown`\>
 
-Defined in: [client/auth.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L486)
-
 Decode a JWT token payload without verification
 
 ## Parameters

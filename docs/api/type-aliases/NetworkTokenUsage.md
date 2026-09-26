@@ -8,8 +8,6 @@
 
 > **NetworkTokenUsage** = `object`
 
-Defined in: [types/agentNetwork.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L549)
-
 Token usage aggregated across the network
 
 ## Properties
@@ -17,8 +15,6 @@ Token usage aggregated across the network
 ### promptTokens
 
 > **promptTokens**: `number`
-
-Defined in: [types/agentNetwork.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L551)
 
 Total prompt tokens
 
@@ -28,8 +24,6 @@ Total prompt tokens
 
 > **completionTokens**: `number`
 
-Defined in: [types/agentNetwork.ts:554](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L554)
-
 Total completion tokens
 
 ---
@@ -38,8 +32,6 @@ Total completion tokens
 
 > **totalTokens**: `number`
 
-Defined in: [types/agentNetwork.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L557)
-
 Total tokens
 
 ---
@@ -47,7 +39,5 @@ Total tokens
 ### byAgent?
 
 > `optional` **byAgent?**: `Record`\<`string`, \{ `promptTokens`: `number`; `completionTokens`: `number`; `totalTokens`: `number`; \}\>
-
-Defined in: [types/agentNetwork.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L560)
 
 Breakdown by agent

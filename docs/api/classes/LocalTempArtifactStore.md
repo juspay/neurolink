@@ -6,8 +6,6 @@
 
 # Class: LocalTempArtifactStore
 
-Defined in: [artifacts/artifactStore.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L118)
-
 Filesystem-backed artifact store using the OS temp directory.
 
 Files are written with mode 0o600 (owner read/write only).
@@ -41,8 +39,6 @@ const full = await store.retrieve(ref.id);
 
 > **new LocalTempArtifactStore**(`dir?`, `options?`): `LocalTempArtifactStore`
 
-Defined in: [artifacts/artifactStore.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L132)
-
 #### Parameters
 
 ##### dir?
@@ -74,8 +70,6 @@ isolation: ids not stored by this process resolve to nothing.
 
 > **generatePreview**(`payload`): `string`
 
-Defined in: [artifacts/artifactStore.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L139)
-
 Generate a short preview string from a serialized payload.
 
 #### Parameters
@@ -97,8 +91,6 @@ Generate a short preview string from a serialized payload.
 ### store()
 
 > **store**(`payload`, `meta`): `Promise`\<[`ArtifactRef`](../type-aliases/ArtifactRef.md)\>
-
-Defined in: [artifacts/artifactStore.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L143)
 
 Persist a payload and return a lightweight reference.
 
@@ -130,8 +122,6 @@ Descriptor without `createdAt` (assigned internally).
 
 > **retrieve**(`id`): `Promise`\<`string` \| `null`\>
 
-Defined in: [artifacts/artifactStore.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L176)
-
 Retrieve the full payload by artifact ID.
 Returns `null` if the artifact is not found or has been cleaned up.
 
@@ -155,8 +145,6 @@ Returns `null` if the artifact is not found or has been cleaned up.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [artifacts/artifactStore.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L200)
-
 Delete a single artifact. No-op if the ID does not exist.
 
 #### Parameters
@@ -178,8 +166,6 @@ Delete a single artifact. No-op if the ID does not exist.
 ### cleanup()
 
 > **cleanup**(`olderThanMs`): `Promise`\<`number`\>
-
-Defined in: [artifacts/artifactStore.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/artifacts/artifactStore.ts#L216)
 
 Delete all artifacts older than `olderThanMs` milliseconds.
 Returns the number of artifacts deleted.

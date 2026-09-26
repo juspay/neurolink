@@ -8,8 +8,6 @@
 
 > **mergeAnnotations**(...`annotationSets`): [`MCPToolAnnotations`](../type-aliases/MCPToolAnnotations.md)
 
-Defined in: [mcp/toolAnnotations.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolAnnotations.ts#L143)
-
 Merge multiple annotation objects with precedence
 Later annotations override earlier ones
 

@@ -8,8 +8,6 @@
 
 > **NvidiaNimExtraBody** = `object`
 
-Defined in: [types/providers.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L370)
-
 NVIDIA NIM extra request body parameters passed via `providerOptions.openai.body`.
 Lives here (not in providers/nvidiaNim.ts) per CLAUDE.md rule 2.
 
@@ -19,15 +17,11 @@ Lives here (not in providers/nvidiaNim.ts) per CLAUDE.md rule 2.
 
 > `optional` **top_k?**: `number`
 
-Defined in: [types/providers.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L371)
-
 ---
 
 ### min_p?
 
 > `optional` **min_p?**: `number`
-
-Defined in: [types/providers.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L372)
 
 ---
 
@@ -35,15 +29,11 @@ Defined in: [types/providers.ts:372](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **repetition_penalty?**: `number`
 
-Defined in: [types/providers.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L373)
-
 ---
 
 ### min_tokens?
 
 > `optional` **min_tokens?**: `number`
-
-Defined in: [types/providers.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L374)
 
 ---
 
@@ -51,15 +41,11 @@ Defined in: [types/providers.ts:374](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **chat_template?**: `string`
 
-Defined in: [types/providers.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L375)
-
 ---
 
 ### request_id?
 
 > `optional` **request_id?**: `string`
-
-Defined in: [types/providers.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L376)
 
 ---
 
@@ -67,15 +53,11 @@ Defined in: [types/providers.ts:376](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **ignore_eos?**: `boolean`
 
-Defined in: [types/providers.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L377)
-
 ---
 
 ### chat_template_kwargs?
 
 > `optional` **chat_template_kwargs?**: `object`
-
-Defined in: [types/providers.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L378)
 
 #### thinking?
 

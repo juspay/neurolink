@@ -8,8 +8,6 @@
 
 > **TTSHandler** = `object`
 
-Defined in: [types/common.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L512)
-
 TTS Handler interface for provider-specific implementations
 
 Each provider (Google AI, OpenAI, etc.) implements this interface
@@ -48,8 +46,6 @@ class MyTTSHandler implements TTSHandler {
 ### synthesizeStream?
 
 > `optional` **synthesizeStream?**: `unknown`
-
-Defined in: [types/common.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L613)
 
 Stream provider-native audio for one pre-validated text segment.
 
@@ -142,8 +138,6 @@ within the provider's length limit.
 
 > `optional` **maxTextLength?**: `number`
 
-Defined in: [types/common.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L636)
-
 Maximum text length supported by this provider (in bytes)
 Different providers have different limits
 
@@ -158,8 +152,6 @@ Different providers have different limits
 ### synthesize()
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](TTSResult.md)\>
-
-Defined in: [types/common.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L525)
 
 Generate audio from text using provider-specific TTS API
 
@@ -197,8 +189,6 @@ On synthesis failure, timeout, or configuration issues
 
 > `optional` **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](TTSVoice.md)[]\>
 
-Defined in: [types/common.ts:621](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L621)
-
 Get available voices for the provider
 
 #### Parameters
@@ -220,8 +210,6 @@ List of available voices
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [types/common.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L628)
 
 Validate that the provider is properly configured
 

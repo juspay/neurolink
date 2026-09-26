@@ -8,8 +8,6 @@
 
 > **GeminiToolExecutionGuards** = [`ToolExecutionGuards`](ToolExecutionGuards.md)
 
-Defined in: [types/loopEngine.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L457)
-
 ## Deprecated
 
 Renamed to `ToolExecutionGuards` — the guards were never

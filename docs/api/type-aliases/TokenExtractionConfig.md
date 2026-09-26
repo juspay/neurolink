@@ -8,8 +8,6 @@
 
 > **TokenExtractionConfig** = `object`
 
-Defined in: [types/auth.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L456)
-
 Token extraction configuration (detailed, used by middleware)
 
 ## Properties
@@ -17,8 +15,6 @@ Token extraction configuration (detailed, used by middleware)
 ### fromHeader?
 
 > `optional` **fromHeader?**: `object`
-
-Defined in: [types/auth.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L458)
 
 Extract from Authorization header (Bearer token)
 
@@ -36,8 +32,6 @@ Extract from Authorization header (Bearer token)
 
 > `optional` **fromCookie?**: `object`
 
-Defined in: [types/auth.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L463)
-
 Extract from cookie
 
 #### name
@@ -50,8 +44,6 @@ Extract from cookie
 
 > `optional` **fromQuery?**: `object`
 
-Defined in: [types/auth.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L467)
-
 Extract from query parameter
 
 #### name
@@ -63,8 +55,6 @@ Extract from query parameter
 ### custom?
 
 > `optional` **custom?**: (`context`) => `string` \| `null` \| `Promise`\<`string` \| `null`\>
-
-Defined in: [types/auth.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L471)
 
 Custom extraction function
 

@@ -8,8 +8,6 @@
 
 > **AnthropicAuthMethod** = `"api_key"` \| `"oauth"`
 
-Defined in: [types/subscription.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L58)
-
 Authentication methods supported for Anthropic API access
 
 ## Description

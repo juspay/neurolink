@@ -8,8 +8,6 @@
 
 > **isErrorInfo**(`value`): `value is ErrorInfo`
 
-Defined in: [types/common.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L114)
-
 Type guard to check if value is ErrorInfo
 
 ## Parameters

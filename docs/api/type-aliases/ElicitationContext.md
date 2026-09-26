@@ -8,8 +8,6 @@
 
 > **ElicitationContext** = `object`
 
-Defined in: [types/elicitation.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L291)
-
 Elicitation context passed to tools
 
 ## Properties
@@ -17,8 +15,6 @@ Elicitation context passed to tools
 ### confirm
 
 > **confirm**: (`message`, `options?`) => `Promise`\<`boolean`\>
-
-Defined in: [types/elicitation.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L295)
 
 Request user confirmation
 
@@ -48,8 +44,6 @@ Request user confirmation
 
 > **getText**: (`message`, `options?`) => `Promise`\<`string` \| `undefined`\>
 
-Defined in: [types/elicitation.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L303)
-
 Request text input
 
 #### Parameters
@@ -77,8 +71,6 @@ Request text input
 ### select
 
 > **select**: \<`T`\>(`message`, `options`) => `Promise`\<`T` \| `undefined`\>
-
-Defined in: [types/elicitation.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L311)
 
 Request selection
 
@@ -108,8 +100,6 @@ Request selection
 
 > **multiSelect**: \<`T`\>(`message`, `options`) => `Promise`\<`T`[] \| `undefined`\>
 
-Defined in: [types/elicitation.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L319)
-
 Request multiple selections
 
 #### Type Parameters
@@ -138,8 +128,6 @@ Request multiple selections
 
 > **form**: \<`T`\>(`message`, `fields`) => `Promise`\<`T` \| `undefined`\>
 
-Defined in: [types/elicitation.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L327)
-
 Request form input
 
 #### Type Parameters
@@ -167,8 +155,6 @@ Request form input
 ### request
 
 > **request**: (`elicitation`) => `Promise`\<[`ElicitationResponse`](ElicitationResponse.md)\>
-
-Defined in: [types/elicitation.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L335)
 
 Request raw elicitation
 

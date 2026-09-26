@@ -8,8 +8,6 @@
 
 > **Scorer** = `object`
 
-Defined in: [types/scorer.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L260)
-
 Core Scorer interface - all scorers must implement this
 
 ## Properties
@@ -17,8 +15,6 @@ Core Scorer interface - all scorers must implement this
 ### metadata
 
 > `readonly` **metadata**: [`ScorerMetadata`](ScorerMetadata.md)
-
-Defined in: [types/scorer.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L262)
 
 Scorer metadata
 
@@ -28,8 +24,6 @@ Scorer metadata
 
 > `readonly` **config**: [`ScorerConfig`](ScorerConfig.md)
 
-Defined in: [types/scorer.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L265)
-
 Current configuration
 
 ## Methods
@@ -37,8 +31,6 @@ Current configuration
 ### score()
 
 > **score**(`input`): `Promise`\<[`ScoreResult`](ScoreResult.md)\>
-
-Defined in: [types/scorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L272)
 
 Execute the scorer and return a score result
 
@@ -61,8 +53,6 @@ Score result
 ### validateInput()
 
 > **validateInput**(`input`): `object`
-
-Defined in: [types/scorer.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L279)
 
 Validate that required inputs are present
 
@@ -93,8 +83,6 @@ Validation result
 ### configure()
 
 > **configure**(`config`): `void`
-
-Defined in: [types/scorer.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L285)
 
 Update scorer configuration
 

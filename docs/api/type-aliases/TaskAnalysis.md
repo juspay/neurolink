@@ -8,8 +8,6 @@
 
 > **TaskAnalysis** = `object`
 
-Defined in: [types/agentNetwork.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L850)
-
 Result of task analysis
 
 ## Properties
@@ -17,8 +15,6 @@ Result of task analysis
 ### intent
 
 > **intent**: `string`
-
-Defined in: [types/agentNetwork.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L852)
 
 Identified intent of the task
 
@@ -28,8 +24,6 @@ Identified intent of the task
 
 > **entities**: [`Entity`](Entity.md)[]
 
-Defined in: [types/agentNetwork.ts:855](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L855)
-
 Entities extracted from the task
 
 ---
@@ -37,8 +31,6 @@ Entities extracted from the task
 ### requirements
 
 > **requirements**: [`Requirement`](Requirement.md)[]
-
-Defined in: [types/agentNetwork.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L858)
 
 Requirements for completing the task
 
@@ -48,8 +40,6 @@ Requirements for completing the task
 
 > **complexity**: `"simple"` \| `"moderate"` \| `"complex"`
 
-Defined in: [types/agentNetwork.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L861)
-
 Task complexity assessment
 
 ---
@@ -57,7 +47,5 @@ Task complexity assessment
 ### suggestedPrimitives
 
 > **suggestedPrimitives**: `string`[]
-
-Defined in: [types/agentNetwork.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L864)
 
 Suggested primitives for handling

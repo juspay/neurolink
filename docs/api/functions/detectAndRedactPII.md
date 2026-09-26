@@ -8,8 +8,6 @@
 
 > **detectAndRedactPII**(`text`, `config`): `Promise`\<[`PiiDetectionResult`](../type-aliases/PiiDetectionResult.md)\>
 
-Defined in: [utils/piiDetector.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/utils/piiDetector.ts#L169)
-
 Detect and optionally redact PII from a text string.
 
 Detection runs per-field (each named segment scanned independently) so that

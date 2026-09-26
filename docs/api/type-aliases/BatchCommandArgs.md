@@ -8,8 +8,6 @@
 
 > **BatchCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & [`CliToolRoutingFlags`](CliToolRoutingFlags.md) & [`CliClassifierRouterFlags`](CliClassifierRouterFlags.md) & `object`
 
-Defined in: [types/cli.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L168)
-
 Batch command arguments
 
 ## Type Declaration

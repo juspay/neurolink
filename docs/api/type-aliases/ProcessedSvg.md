@@ -8,8 +8,6 @@
 
 > **ProcessedSvg** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L498)
-
 Processed SVG result.
 Extends ProcessedFileBase with SVG-specific fields.
 

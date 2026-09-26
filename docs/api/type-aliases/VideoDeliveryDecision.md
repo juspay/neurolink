@@ -8,8 +8,6 @@
 
 > **VideoDeliveryDecision** = \{ `deliver`: `true`; `reason?`: `undefined`; \} \| \{ `deliver`: `false`; `reason`: `string`; \}
 
-Defined in: [types/file.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L221)
-
 Outcome of asking whether one video may be handed to one provider as bytes.
 
 A plain boolean collapsed "this provider never watches video" with "this

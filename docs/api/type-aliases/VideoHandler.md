@@ -8,8 +8,6 @@
 
 > **VideoHandler** = `object`
 
-Defined in: [types/video.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L71)
-
 Handler contract for video generation providers.
 
 Every concrete handler (`VertexVideoHandler`, `KlingVideoHandler`,
@@ -26,8 +24,6 @@ total-deadline for image-to-video predictLongRunning APIs is
 
 > `readonly` `optional` **maxDurationSeconds?**: `number`
 
-Defined in: [types/video.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L108)
-
 Maximum video duration in seconds supported by this provider.
 
 ---
@@ -35,8 +31,6 @@ Maximum video duration in seconds supported by this provider.
 ### supportedAspectRatios?
 
 > `readonly` `optional` **supportedAspectRatios?**: readonly (`"9:16"` \| `"16:9"` \| `"1:1"` \| `"4:3"` \| `"3:4"`)[]
-
-Defined in: [types/video.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L111)
 
 Supported aspect ratios.
 
@@ -46,8 +40,6 @@ Supported aspect ratios.
 
 > `readonly` `optional` **supportedResolutions?**: readonly (`"480p"` \| `"720p"` \| `"1080p"` \| `"4k"`)[]
 
-Defined in: [types/video.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L120)
-
 Supported output resolutions.
 
 ## Methods
@@ -55,8 +47,6 @@ Supported output resolutions.
 ### generate()
 
 > **generate**(`image`, `prompt`, `options`, `region?`): `Promise`\<[`VideoGenerationResult`](VideoGenerationResult.md)\>
-
-Defined in: [types/video.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L81)
 
 Generate a single video clip from an input image and prompt.
 
@@ -98,8 +88,6 @@ Buffer + metadata
 
 > `optional` **generateTransition**(`firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
 
-Defined in: [types/video.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L96)
-
 Optional — generate a transition clip between two frames (Director Mode).
 
 Providers without first-and-last-frame interpolation omit this method;
@@ -138,8 +126,6 @@ Providers without first-and-last-frame interpolation omit this method;
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [types/video.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L105)
 
 Validate the provider is configured (auth, base URL, etc.).
 

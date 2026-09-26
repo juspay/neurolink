@@ -8,8 +8,6 @@
 
 > **RequestRouter** = (`context`) => [`RequestRouterDecision`](RequestRouterDecision.md) \| `Promise`\<[`RequestRouterDecision`](RequestRouterDecision.md)\>
 
-Defined in: [types/requestRouter.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L51)
-
 A pluggable pre-call router function.
 
 Receives a lightweight context snapshot and returns provider/model/region

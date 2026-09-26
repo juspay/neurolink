@@ -8,8 +8,6 @@
 
 > **NativeAnthropicToolDeclaration** = `object`
 
-Defined in: [types/nativeTools.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/types/nativeTools.ts#L10)
-
 A single tool declaration in Anthropic's native `input_schema` wire format.
 
 ## Properties
@@ -18,15 +16,11 @@ A single tool declaration in Anthropic's native `input_schema` wire format.
 
 > **name**: `string`
 
-Defined in: [types/nativeTools.ts:11](https://github.com/juspay/neurolink/blob/release/src/lib/types/nativeTools.ts#L11)
-
 ---
 
 ### description?
 
 > `optional` **description?**: `string`
-
-Defined in: [types/nativeTools.ts:12](https://github.com/juspay/neurolink/blob/release/src/lib/types/nativeTools.ts#L12)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/nativeTools.ts:12](https://github.com/juspay/neurolink/blob/r
 
 > **input_schema**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/nativeTools.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/types/nativeTools.ts#L13)
-
 ---
 
 ### cache_control?
 
 > `optional` **cache_control?**: `object`
-
-Defined in: [types/nativeTools.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/nativeTools.ts#L14)
 
 #### type
 

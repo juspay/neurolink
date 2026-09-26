@@ -8,8 +8,6 @@
 
 > **AutoresearchTaskConfig** = `object`
 
-Defined in: [types/task.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L28)
-
 Configuration for autoresearch tasks.
 Embedded in TaskDefinition/Task when type === "autoresearch".
 
@@ -19,15 +17,11 @@ Embedded in TaskDefinition/Task when type === "autoresearch".
 
 > **repoPath**: `string`
 
-Defined in: [types/task.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L29)
-
 ---
 
 ### mutablePaths
 
 > **mutablePaths**: `string`[]
-
-Defined in: [types/task.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L30)
 
 ---
 
@@ -35,15 +29,11 @@ Defined in: [types/task.ts:30](https://github.com/juspay/neurolink/blob/release/
 
 > **runCommand**: `string`
 
-Defined in: [types/task.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L31)
-
 ---
 
 ### metric
 
 > **metric**: [`MetricConfig`](MetricConfig.md)
-
-Defined in: [types/task.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L32)
 
 ---
 
@@ -51,15 +41,11 @@ Defined in: [types/task.ts:32](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **immutablePaths?**: `string`[]
 
-Defined in: [types/task.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L33)
-
 ---
 
 ### timeoutMs?
 
 > `optional` **timeoutMs?**: `number`
-
-Defined in: [types/task.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L34)
 
 ---
 
@@ -67,15 +53,11 @@ Defined in: [types/task.ts:34](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **maxExperiments?**: `number`
 
-Defined in: [types/task.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L35)
-
 ---
 
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/task.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L36)
 
 ---
 
@@ -83,15 +65,11 @@ Defined in: [types/task.ts:36](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/task.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L37)
-
 ---
 
 ### thinkingLevel?
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
-
-Defined in: [types/task.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L38)
 
 ---
 
@@ -99,15 +77,11 @@ Defined in: [types/task.ts:38](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **maxBudgetUsd?**: `number`
 
-Defined in: [types/task.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L39)
-
 ---
 
 ### programPath?
 
 > `optional` **programPath?**: `string`
-
-Defined in: [types/task.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L42)
 
 ---
 
@@ -115,15 +89,11 @@ Defined in: [types/task.ts:42](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **resultsPath?**: `string`
 
-Defined in: [types/task.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L43)
-
 ---
 
 ### statePath?
 
 > `optional` **statePath?**: `string`
-
-Defined in: [types/task.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L44)
 
 ---
 
@@ -131,20 +101,14 @@ Defined in: [types/task.ts:44](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **logPath?**: `string`
 
-Defined in: [types/task.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L45)
-
 ---
 
 ### branchPrefix?
 
 > `optional` **branchPrefix?**: `string`
 
-Defined in: [types/task.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L46)
-
 ---
 
 ### memoryMetric?
 
 > `optional` **memoryMetric?**: [`MemoryMetricConfig`](MemoryMetricConfig.md)
-
-Defined in: [types/task.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L47)

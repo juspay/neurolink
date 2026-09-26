@@ -8,8 +8,6 @@
 
 > `const` **Pipelines**: `object`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L216)
-
 Quick pipeline builder factory
 
 ## Type Declaration

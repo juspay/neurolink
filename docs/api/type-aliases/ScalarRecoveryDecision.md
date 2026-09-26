@@ -8,8 +8,6 @@
 
 > **ScalarRecoveryDecision** = \{ `kind`: `"empty"`; \} \| \{ `kind`: `"accepted"`; `value`: `unknown`; \} \| \{ `kind`: `"rejected"`; `value`: `unknown`; \} \| \{ `kind`: `"nullish"`; \} \| \{ `kind`: `"not-json"`; \}
 
-Defined in: [types/utilities.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L354)
-
 Decision returned by `recoverScalarRoot`. Each caller applies it to its own
 result shape and logger prefix, preserving its existing warning behaviour:
 

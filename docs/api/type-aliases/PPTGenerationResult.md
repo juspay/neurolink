@@ -8,8 +8,6 @@
 
 > **PPTGenerationResult** = `object`
 
-Defined in: [types/ppt.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L102)
-
 Result type for generated presentation content
 
 Returned in `GenerateResult.ppt` when presentation generation is successful.
@@ -37,8 +35,6 @@ if (result.ppt) {
 
 > **filePath**: `string`
 
-Defined in: [types/ppt.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L104)
-
 Path to the generated PPTX file
 
 ---
@@ -46,8 +42,6 @@ Path to the generated PPTX file
 ### totalSlides
 
 > **totalSlides**: `number`
-
-Defined in: [types/ppt.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L106)
 
 Total number of slides in the presentation
 
@@ -57,8 +51,6 @@ Total number of slides in the presentation
 
 > **format**: [`OutputFormatOption`](OutputFormatOption.md)
 
-Defined in: [types/ppt.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L108)
-
 Output format (always "pptx" currently)
 
 ---
@@ -66,8 +58,6 @@ Output format (always "pptx" currently)
 ### provider
 
 > **provider**: `string`
-
-Defined in: [types/ppt.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L110)
 
 Provider used for PPT generation
 
@@ -77,8 +67,6 @@ Provider used for PPT generation
 
 > **model**: `string`
 
-Defined in: [types/ppt.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L112)
-
 Model used for PPT generation
 
 ---
@@ -86,8 +74,6 @@ Model used for PPT generation
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/ppt.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L114)
 
 Presentation metadata
 

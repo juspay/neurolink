@@ -8,8 +8,6 @@
 
 > **CliProxyClientConfigurator** = `object`
 
-Defined in: [types/proxyClient.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L21)
-
 One AI coding CLI the proxy can point at itself.
 
 Adding a CLI means adding one implementation of this type and one line in
@@ -22,8 +20,6 @@ to know the client exists.
 
 > **id**: `string`
 
-Defined in: [types/proxyClient.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L23)
-
 Stable kebab-case identifier, e.g. "claude-code".
 
 ---
@@ -32,8 +28,6 @@ Stable kebab-case identifier, e.g. "claude-code".
 
 > **displayName**: `string`
 
-Defined in: [types/proxyClient.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L25)
-
 Human-readable name used in CLI output, e.g. "Claude Code".
 
 ---
@@ -41,8 +35,6 @@ Human-readable name used in CLI output, e.g. "Claude Code".
 ### detect
 
 > **detect**: () => `Promise`\<`boolean`\>
-
-Defined in: [types/proxyClient.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L30)
 
 Whether this CLI appears to be installed. Configurators must not create
 config files for a CLI the user never installed.
@@ -56,8 +48,6 @@ config files for a CLI the user never installed.
 ### apply
 
 > **apply**: (`proxyBaseUrl`, `options?`) => `Promise`\<`boolean`\>
-
-Defined in: [types/proxyClient.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L37)
 
 Point the CLI at the proxy. `proxyBaseUrl` is the bare proxy origin
 (e.g. "http://127.0.0.1:55669"); the configurator appends whatever path
@@ -84,8 +74,6 @@ never print a success message for work that did not happen.
 
 > **restore**: (`proxyBaseUrl`) => `Promise`\<`boolean`\>
 
-Defined in: [types/proxyClient.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L46)
-
 Restore the user's previous configuration. `proxyBaseUrl` is the same bare
 origin; a configurator that finds a different URL configured must leave it
 alone and return false.
@@ -105,8 +93,6 @@ alone and return false.
 ### postApplyNote?
 
 > `optional` **postApplyNote?**: (`proxyBaseUrl`) => `Promise`\<`string` \| `null`\>
-
-Defined in: [types/proxyClient.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L57)
 
 Something the user must still do for apply() to take effect.
 

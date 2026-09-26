@@ -8,15 +8,11 @@
 
 > **ProviderMetricItem** = `object`
 
-Defined in: [types/analytics.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L161)
-
 ## Properties
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/analytics.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L162)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/analytics.ts:162](https://github.com/juspay/neurolink/blob/re
 
 > **averageLatency**: `number`
 
-Defined in: [types/analytics.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L163)
-
 ---
 
 ### averageResponseTime
 
 > **averageResponseTime**: `number`
-
-Defined in: [types/analytics.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L164)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/analytics.ts:164](https://github.com/juspay/neurolink/blob/re
 
 > **totalTokens**: `number`
 
-Defined in: [types/analytics.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L165)
-
 ---
 
 ### inputTokens
 
 > **inputTokens**: `number`
-
-Defined in: [types/analytics.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L166)
 
 ---
 
@@ -56,15 +44,11 @@ Defined in: [types/analytics.ts:166](https://github.com/juspay/neurolink/blob/re
 
 > **outputTokens**: `number`
 
-Defined in: [types/analytics.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L167)
-
 ---
 
 ### errorRate
 
 > **errorRate**: `number`
-
-Defined in: [types/analytics.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L168)
 
 ---
 
@@ -72,15 +56,11 @@ Defined in: [types/analytics.ts:168](https://github.com/juspay/neurolink/blob/re
 
 > **successRate**: `number`
 
-Defined in: [types/analytics.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L169)
-
 ---
 
 ### costPerToken
 
 > **costPerToken**: `number`
-
-Defined in: [types/analytics.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L170)
 
 ---
 
@@ -88,12 +68,8 @@ Defined in: [types/analytics.ts:170](https://github.com/juspay/neurolink/blob/re
 
 > **totalCost**: `number`
 
-Defined in: [types/analytics.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L171)
-
 ---
 
 ### requestCount
 
 > **requestCount**: `number`
-
-Defined in: [types/analytics.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L172)

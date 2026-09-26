@@ -8,8 +8,6 @@
 
 > **ClaudeCodeIdentity** = `object`
 
-Defined in: [types/auth.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1281)
-
 Synthetic Claude Code client identity used for quota + identification.
 
 ## Properties
@@ -18,15 +16,11 @@ Synthetic Claude Code client identity used for quota + identification.
 
 > **deviceId**: `string`
 
-Defined in: [types/auth.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1282)
-
 ---
 
 ### accountUuid
 
 > **accountUuid**: `string`
-
-Defined in: [types/auth.ts:1283](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1283)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/auth.ts:1283](https://github.com/juspay/neurolink/blob/releas
 
 > **sessionId**: `string`
 
-Defined in: [types/auth.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1284)
-
 ---
 
 ### metadataUserId
 
 > **metadataUserId**: `string`
-
-Defined in: [types/auth.ts:1285](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1285)

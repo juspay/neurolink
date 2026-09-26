@@ -8,8 +8,6 @@
 
 > `const` **SamplingStrategies**: `object`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L266)
-
 Pre-configured sampling strategies
 
 ## Type Declaration

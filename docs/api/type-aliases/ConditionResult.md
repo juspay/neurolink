@@ -8,8 +8,6 @@
 
 > **ConditionResult** = `object`
 
-Defined in: [types/workflow.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L616)
-
 Result of response conditioning
 
 ## Properties
@@ -18,23 +16,17 @@ Result of response conditioning
 
 > **content**: `string`
 
-Defined in: [types/workflow.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L617)
-
 ---
 
 ### conditioningTime
 
 > **conditioningTime**: `number`
 
-Defined in: [types/workflow.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L618)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/workflow.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L619)
 
 #### conditioningApplied
 

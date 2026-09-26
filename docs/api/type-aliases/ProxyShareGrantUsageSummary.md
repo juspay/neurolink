@@ -8,8 +8,6 @@
 
 > **ProxyShareGrantUsageSummary** = `object`
 
-Defined in: [types/proxy.ts:4733](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4733)
-
 Per-grant rollup for `share status`.
 
 ## Properties
@@ -18,15 +16,11 @@ Per-grant rollup for `share status`.
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4734](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4734)
-
 ---
 
 ### coinsSpent
 
 > **coinsSpent**: `number`
-
-Defined in: [types/proxy.ts:4735](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4735)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/proxy.ts:4735](https://github.com/juspay/neurolink/blob/relea
 
 > **requests**: `number`
 
-Defined in: [types/proxy.ts:4736](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4736)
-
 ---
 
 ### accounts
 
 > **accounts**: `number`
 
-Defined in: [types/proxy.ts:4737](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4737)
-
 ---
 
 ### lastUsedAt
 
 > **lastUsedAt**: `number` \| `null`
-
-Defined in: [types/proxy.ts:4738](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4738)

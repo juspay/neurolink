@@ -6,8 +6,6 @@
 
 # Class: Evaluator
 
-Defined in: [evaluation/index.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/index.ts#L49)
-
 A centralized class for performing response evaluations. It supports different
 evaluation strategies, with RAGAS-style model-based evaluation as the default.
 This class orchestrates the context building and evaluation process.
@@ -17,8 +15,6 @@ This class orchestrates the context building and evaluation process.
 ### Constructor
 
 > **new Evaluator**(`config?`): `Evaluator`
-
-Defined in: [evaluation/index.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/index.ts#L54)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [evaluation/index.ts:54](https://github.com/juspay/neurolink/blob/re
 ### evaluate()
 
 > **evaluate**(`options`, `result`, `threshold`, `config`): `Promise`\<[`EvaluationData`](../type-aliases/EvaluationData.md)\>
-
-Defined in: [evaluation/index.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/index.ts#L73)
 
 The main entry point for performing an evaluation. It selects the evaluation
 strategy based on the configuration and executes it.

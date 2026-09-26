@@ -8,8 +8,6 @@
 
 > **ChecklistCommandCountsSource** = (`sessionId`) => [`ChecklistCommandCounts`](ChecklistCommandCounts.md)
 
-Defined in: [types/tasks.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/tasks.ts#L62)
-
 Supplies [ChecklistCommandCounts](ChecklistCommandCounts.md) to every checklist tool result.
 
 ## Parameters

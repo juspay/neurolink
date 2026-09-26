@@ -6,8 +6,6 @@
 
 # Class: TextLoader
 
-Defined in: [rag/document/loaders.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L56)
-
 Text file loader
 
 ## Extended by
@@ -36,8 +34,6 @@ Text file loader
 ### load()
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
-
-Defined in: [rag/document/loaders.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L57)
 
 Load document from source
 
@@ -71,8 +67,6 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L65)
-
 Check if loader can handle the source
 
 #### Parameters
@@ -99,8 +93,6 @@ True if loader can handle the source
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L70)
-
 #### Parameters
 
 ##### source
@@ -120,8 +112,6 @@ Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blo
 ### getSourceName()
 
 > `protected` **getSourceName**(`source`): `string`
-
-Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L81)
 
 #### Parameters
 

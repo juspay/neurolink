@@ -8,15 +8,11 @@
 
 > **DeepgramResponse** = `object`
 
-Defined in: [types/stt.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L479)
-
 ## Properties
 
 ### metadata
 
 > **metadata**: `object`
-
-Defined in: [types/stt.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L480)
 
 #### request_id
 
@@ -55,5 +51,3 @@ Defined in: [types/stt.ts:480](https://github.com/juspay/neurolink/blob/release/
 ### results
 
 > **results**: [`DeepgramResult`](DeepgramResult.md)
-
-Defined in: [types/stt.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L490)

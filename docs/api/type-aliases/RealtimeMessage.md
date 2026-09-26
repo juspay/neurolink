@@ -8,8 +8,6 @@
 
 > **RealtimeMessage** = `object`
 
-Defined in: [types/realtime.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L151)
-
 Realtime message
 
 ## Properties
@@ -17,8 +15,6 @@ Realtime message
 ### type
 
 > **type**: [`RealtimeMessageType`](RealtimeMessageType.md)
-
-Defined in: [types/realtime.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L153)
 
 Message type
 
@@ -28,8 +24,6 @@ Message type
 
 > `optional` **id?**: `string`
 
-Defined in: [types/realtime.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L155)
-
 Message ID
 
 ---
@@ -37,8 +31,6 @@ Message ID
 ### audio?
 
 > `optional` **audio?**: [`RealtimeAudioChunk`](RealtimeAudioChunk.md)
-
-Defined in: [types/realtime.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L157)
 
 Audio data (for audio messages)
 
@@ -48,8 +40,6 @@ Audio data (for audio messages)
 
 > `optional` **text?**: `string`
 
-Defined in: [types/realtime.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L159)
-
 Text content (for text/transcript messages)
 
 ---
@@ -58,8 +48,6 @@ Text content (for text/transcript messages)
 
 > `optional` **isPartial?**: `boolean`
 
-Defined in: [types/realtime.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L161)
-
 Whether this is a partial result
 
 ---
@@ -67,8 +55,6 @@ Whether this is a partial result
 ### functionCall?
 
 > `optional` **functionCall?**: `object`
-
-Defined in: [types/realtime.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L163)
 
 Function call data
 
@@ -86,8 +72,6 @@ Function call data
 
 > `optional` **functionResult?**: `object`
 
-Defined in: [types/realtime.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L168)
-
 Function result data
 
 #### name
@@ -104,8 +88,6 @@ Function result data
 
 > `optional` **error?**: `object`
 
-Defined in: [types/realtime.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L173)
-
 Error information
 
 #### code
@@ -121,7 +103,5 @@ Error information
 ### timestamp
 
 > **timestamp**: `Date`
-
-Defined in: [types/realtime.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L178)
 
 Timestamp

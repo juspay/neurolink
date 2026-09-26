@@ -8,8 +8,6 @@
 
 > **PptxChartData** = `object`
 
-Defined in: [types/ppt.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1018)
-
 Chart data structure for addChart method
 
 ## Properties
@@ -18,20 +16,14 @@ Chart data structure for addChart method
 
 > **name**: `string`
 
-Defined in: [types/ppt.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1019)
-
 ---
 
 ### labels
 
 > **labels**: `string`[]
 
-Defined in: [types/ppt.ts:1020](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1020)
-
 ---
 
 ### values
 
 > **values**: `number`[]
-
-Defined in: [types/ppt.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1021)

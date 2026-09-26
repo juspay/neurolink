@@ -8,6 +8,4 @@
 
 > **AuthEventType** = `"token:validated"` \| `"token:expired"` \| `"token:invalid"` \| `"session:created"` \| `"session:refreshed"` \| `"session:expired"` \| `"session:revoked"` \| `"auth:success"` \| `"auth:failed"` \| `"rbac:allowed"` \| `"rbac:denied"`
 
-Defined in: [types/auth.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L939)
-
 Auth event types for hooks

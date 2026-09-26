@@ -8,8 +8,6 @@
 
 > **EvaluationContext** = `object`
 
-Defined in: [types/evaluation.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L95)
-
 Enhanced evaluation context for comprehensive response assessment
 
 ## Properties
@@ -18,15 +16,11 @@ Enhanced evaluation context for comprehensive response assessment
 
 > **userQuery**: `string`
 
-Defined in: [types/evaluation.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L96)
-
 ---
 
 ### aiResponse
 
 > **aiResponse**: `string`
-
-Defined in: [types/evaluation.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L97)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/evaluation.ts:97](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/evaluation.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L98)
-
 ---
 
 ### primaryDomain?
 
 > `optional` **primaryDomain?**: `string`
-
-Defined in: [types/evaluation.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L99)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/evaluation.ts:99](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **assistantRole?**: `string`
 
-Defined in: [types/evaluation.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L100)
-
 ---
 
 ### conversationHistory?
 
 > `optional` **conversationHistory?**: `object`[]
-
-Defined in: [types/evaluation.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L101)
 
 #### role
 
@@ -77,8 +63,6 @@ Defined in: [types/evaluation.ts:101](https://github.com/juspay/neurolink/blob/r
 ### toolUsage?
 
 > `optional` **toolUsage?**: `object`[]
-
-Defined in: [types/evaluation.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L106)
 
 #### toolName
 
@@ -102,12 +86,8 @@ Defined in: [types/evaluation.ts:106](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **expectedOutcome?**: `string`
 
-Defined in: [types/evaluation.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L112)
-
 ---
 
 ### evaluationCriteria?
 
 > `optional` **evaluationCriteria?**: `string`[]
-
-Defined in: [types/evaluation.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L113)

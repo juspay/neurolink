@@ -8,8 +8,6 @@
 
 > **batchRerank**(`results`, `query`, `model`, `options?`): `Promise`\<[`RerankResult`](../type-aliases/RerankResult.md)[]\>
 
-Defined in: [rag/reranker/reranker.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L202)
-
 Batch rerank with optimized LLM calls
 Scores multiple documents in a single prompt for efficiency
 

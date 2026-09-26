@@ -8,8 +8,6 @@
 
 > **MCPServerBaseConfig** = `object`
 
-Defined in: [types/mcp.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1104)
-
 Base configuration for an MCP server.
 
 ## Properties
@@ -17,8 +15,6 @@ Base configuration for an MCP server.
 ### id
 
 > **id**: `string`
-
-Defined in: [types/mcp.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1106)
 
 Unique server identifier
 
@@ -28,8 +24,6 @@ Unique server identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1108](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1108)
-
 Human-readable server name
 
 ---
@@ -37,8 +31,6 @@ Human-readable server name
 ### description?
 
 > `optional` **description?**: `string`
-
-Defined in: [types/mcp.ts:1110](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1110)
 
 Server description
 
@@ -48,8 +40,6 @@ Server description
 
 > `optional` **version?**: `string`
 
-Defined in: [types/mcp.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1112)
-
 Server version
 
 ---
@@ -57,8 +47,6 @@ Server version
 ### category?
 
 > `optional` **category?**: [`MCPServerCategory`](MCPServerCategory.md)
-
-Defined in: [types/mcp.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1114)
 
 Server category for organization
 
@@ -68,8 +56,6 @@ Server category for organization
 
 > `optional` **transport?**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/mcp.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1116)
-
 Transport protocol preference
 
 ---
@@ -77,8 +63,6 @@ Transport protocol preference
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/mcp.ts:1118](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1118)
 
 Custom metadata
 
@@ -88,8 +72,6 @@ Custom metadata
 
 > `optional` **defaultTimeoutMs?**: `number`
 
-Defined in: [types/mcp.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1120)
-
 Default timeout for tool execution in milliseconds (default: 30000)
 
 ---
@@ -97,7 +79,5 @@ Default timeout for tool execution in milliseconds (default: 30000)
 ### defaultAnnotations?
 
 > `optional` **defaultAnnotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
-
-Defined in: [types/mcp.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1122)
 
 Global tool annotations applied to all tools

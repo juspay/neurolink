@@ -8,8 +8,6 @@
 
 > **FileInfo** = `object`
 
-Defined in: [types/processor.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L31)
-
 Generic file information - provider agnostic.
 Replaces Slack-specific SlackFileInfo with a universal interface.
 
@@ -31,8 +29,6 @@ const fileInfo: FileInfo = {
 
 > **id**: `string`
 
-Defined in: [types/processor.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L33)
-
 Unique identifier for the file
 
 ---
@@ -40,8 +36,6 @@ Unique identifier for the file
 ### name
 
 > **name**: `string`
-
-Defined in: [types/processor.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L35)
 
 Original filename
 
@@ -51,8 +45,6 @@ Original filename
 
 > **mimetype**: `string`
 
-Defined in: [types/processor.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L37)
-
 MIME type of the file
 
 ---
@@ -60,8 +52,6 @@ MIME type of the file
 ### size
 
 > **size**: `number`
-
-Defined in: [types/processor.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L39)
 
 File size in bytes
 
@@ -71,8 +61,6 @@ File size in bytes
 
 > `optional` **url?**: `string`
 
-Defined in: [types/processor.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L41)
-
 Download URL (optional - use when file needs to be fetched)
 
 ---
@@ -81,8 +69,6 @@ Download URL (optional - use when file needs to be fetched)
 
 > `optional` **buffer?**: `Buffer`
 
-Defined in: [types/processor.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L43)
-
 Direct file content (optional - use when file is already in memory)
 
 ---
@@ -90,7 +76,5 @@ Direct file content (optional - use when file is already in memory)
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/processor.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L45)
 
 Extensibility - additional provider-specific metadata

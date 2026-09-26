@@ -8,8 +8,6 @@
 
 > **HyperlinkProps** = `object`
 
-Defined in: [types/ppt.ts:834](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L834)
-
 Hyperlink properties
 Maps to: pptxgenjs HyperlinkProps
 
@@ -19,8 +17,6 @@ Maps to: pptxgenjs HyperlinkProps
 
 > `optional` **url?**: `string`
 
-Defined in: [types/ppt.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L836)
-
 Link to external URL
 
 ---
@@ -29,8 +25,6 @@ Link to external URL
 
 > `optional` **slide?**: `number`
 
-Defined in: [types/ppt.ts:838](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L838)
-
 Link to slide number
 
 ---
@@ -38,7 +32,5 @@ Link to slide number
 ### tooltip?
 
 > `optional` **tooltip?**: `string`
-
-Defined in: [types/ppt.ts:840](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L840)
 
 Tooltip text

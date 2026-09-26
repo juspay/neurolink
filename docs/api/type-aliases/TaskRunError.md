@@ -8,15 +8,11 @@
 
 > **TaskRunError** = `object`
 
-Defined in: [types/task.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L208)
-
 ## Properties
 
 ### taskId
 
 > **taskId**: `string`
-
-Defined in: [types/task.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L209)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/task.ts:209](https://github.com/juspay/neurolink/blob/release
 
 > **runId**: `string`
 
-Defined in: [types/task.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L210)
-
 ---
 
 ### error
 
 > **error**: `string`
-
-Defined in: [types/task.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L211)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/task.ts:211](https://github.com/juspay/neurolink/blob/release
 
 > **attempt**: `number`
 
-Defined in: [types/task.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L212)
-
 ---
 
 ### maxAttempts
 
 > **maxAttempts**: `number`
-
-Defined in: [types/task.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L213)
 
 ---
 
@@ -56,14 +44,10 @@ Defined in: [types/task.ts:213](https://github.com/juspay/neurolink/blob/release
 
 > **willRetry**: `boolean`
 
-Defined in: [types/task.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L214)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `string`
-
-Defined in: [types/task.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L216)
 
 ISO 8601

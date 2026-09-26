@@ -6,8 +6,6 @@
 
 # Class: InMemoryCacheStore
 
-Defined in: [server/middleware/cache.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L25)
-
 In-memory LRU cache store
 
 ## Implements
@@ -19,8 +17,6 @@ In-memory LRU cache store
 ### Constructor
 
 > **new InMemoryCacheStore**(`maxSize?`): `InMemoryCacheStore`
-
-Defined in: [server/middleware/cache.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L30)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [server/middleware/cache.ts:30](https://github.com/juspay/neurolink/
 ### get()
 
 > **get**(`key`): `Promise`\<[`CacheEntry`](../type-aliases/CacheEntry.md) \| `undefined`\>
-
-Defined in: [server/middleware/cache.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L34)
 
 #### Parameters
 
@@ -59,8 +53,6 @@ Defined in: [server/middleware/cache.ts:34](https://github.com/juspay/neurolink/
 ### set()
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
-
-Defined in: [server/middleware/cache.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L52)
 
 #### Parameters
 
@@ -86,8 +78,6 @@ Defined in: [server/middleware/cache.ts:52](https://github.com/juspay/neurolink/
 
 > **delete**(`key`): `Promise`\<`void`\>
 
-Defined in: [server/middleware/cache.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L66)
-
 #### Parameters
 
 ##### key
@@ -107,8 +97,6 @@ Defined in: [server/middleware/cache.ts:66](https://github.com/juspay/neurolink/
 ### clear()
 
 > **clear**(): `Promise`\<`void`\>
-
-Defined in: [server/middleware/cache.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L74)
 
 #### Returns
 

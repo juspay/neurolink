@@ -8,8 +8,6 @@
 
 > `const` **STT_ERROR_CODES**: `object`
 
-Defined in: [types/stt.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L178)
-
 STT error codes
 
 ## Type Declaration

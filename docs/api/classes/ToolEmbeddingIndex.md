@@ -6,8 +6,6 @@
 
 # Class: ToolEmbeddingIndex
 
-Defined in: [core/toolRoutingEmbedding.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingEmbedding.ts#L236)
-
 An in-process index that ranks tool catalog items by hybrid semantic +
 lexical relevance to a query.
 
@@ -34,8 +32,6 @@ deterministic for a given text).
 ### Constructor
 
 > **new ToolEmbeddingIndex**(`items`, `embedFn`, `sharedVectorCache?`): `ToolEmbeddingIndex`
-
-Defined in: [core/toolRoutingEmbedding.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingEmbedding.ts#L251)
 
 #### Parameters
 
@@ -64,8 +60,6 @@ into this same Map, making it warm for the next call.
 ### rank()
 
 > **rank**(`query`, `opts`): `Promise`\<[`ToolRetrievalRankedResult`](../type-aliases/ToolRetrievalRankedResult.md)[]\>
-
-Defined in: [core/toolRoutingEmbedding.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingEmbedding.ts#L272)
 
 Returns the top-K catalog items ranked by hybrid score descending.
 

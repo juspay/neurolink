@@ -8,8 +8,6 @@
 
 > **createMCPServer**(`config`): [`NeuroLinkMCPServer`](../type-aliases/NeuroLinkMCPServer.md)
 
-Defined in: [mcp/factory.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/factory.ts#L76)
-
 Create MCP Server Factory Function
 
 Core factory function for creating MCP servers.

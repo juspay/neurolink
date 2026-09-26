@@ -8,8 +8,6 @@
 
 > **SecretElicitation** = [`ElicitationRequest`](ElicitationRequest.md) & `object`
 
-Defined in: [types/elicitation.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L196)
-
 Secret elicitation
 
 ## Type Declaration

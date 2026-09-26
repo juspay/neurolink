@@ -8,8 +8,6 @@
 
 > **NativeThinkingConfig** = `object`
 
-Defined in: [types/config.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L651)
-
 Native SDK thinkingConfig structure for Gemini native SDK.
 
 `thinkingLevel` and `thinkingBudget` are mutually exclusive on the wire:
@@ -30,20 +28,14 @@ callers building the request pick whichever field the target model accepts.
 
 > **includeThoughts**: `boolean`
 
-Defined in: [types/config.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L652)
-
 ---
 
 ### thinkingLevel?
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/config.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L653)
-
 ---
 
 ### thinkingBudget?
 
 > `optional` **thinkingBudget?**: `number`
-
-Defined in: [types/config.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L654)

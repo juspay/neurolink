@@ -8,8 +8,6 @@
 
 > **createMetricsCollectorHook**(`collector`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L193)
-
 Helper: Create a metrics collector hook
 Accepts the actual MetricsCollector interface from reporting/metricsCollector
 

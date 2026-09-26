@@ -6,8 +6,6 @@
 
 # Class: RAGCircuitBreakerManager
 
-Defined in: [rag/resilience/CircuitBreaker.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L411)
-
 Circuit breaker manager for RAG operations
 
 ## Constructors
@@ -25,8 +23,6 @@ Circuit breaker manager for RAG operations
 ### getBreaker()
 
 > **getBreaker**(`name`, `config?`): [`RAGCircuitBreaker`](RAGCircuitBreaker.md)
-
-Defined in: [rag/resilience/CircuitBreaker.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L417)
 
 Get or create a circuit breaker
 
@@ -50,8 +46,6 @@ Get or create a circuit breaker
 
 > **removeBreaker**(`name`): `boolean`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L439)
-
 Remove a circuit breaker
 
 #### Parameters
@@ -70,8 +64,6 @@ Remove a circuit breaker
 
 > **getBreakerNames**(): `string`[]
 
-Defined in: [rag/resilience/CircuitBreaker.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L455)
-
 Get all circuit breaker names
 
 #### Returns
@@ -83,8 +75,6 @@ Get all circuit breaker names
 ### getAllStats()
 
 > **getAllStats**(): `Record`\<`string`, [`RAGCircuitBreakerStats`](../type-aliases/RAGCircuitBreakerStats.md)\>
-
-Defined in: [rag/resilience/CircuitBreaker.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L462)
 
 Get statistics for all circuit breakers
 
@@ -98,8 +88,6 @@ Get statistics for all circuit breakers
 
 > **resetAll**(): `void`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L473)
-
 Reset all circuit breakers
 
 #### Returns
@@ -111,8 +99,6 @@ Reset all circuit breakers
 ### getHealthSummary()
 
 > **getHealthSummary**(): `object`
-
-Defined in: [rag/resilience/CircuitBreaker.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L483)
 
 Get health summary
 
@@ -145,8 +131,6 @@ Get health summary
 ### destroyAll()
 
 > **destroyAll**(): `void`
-
-Defined in: [rag/resilience/CircuitBreaker.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L523)
 
 Destroy all circuit breakers
 

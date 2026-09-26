@@ -6,8 +6,6 @@
 
 # Class: OAuthCallbackServerError
 
-Defined in: [types/errors.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L191)
-
 Thrown when callback server operations fail
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown when callback server operations fail
 ### Constructor
 
 > **new OAuthCallbackServerError**(`message`): `OAuthCallbackServerError`
-
-Defined in: [types/errors.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L192)
 
 #### Parameters
 
@@ -41,8 +37,6 @@ Defined in: [types/errors.ts:192](https://github.com/juspay/neurolink/blob/relea
 ### code?
 
 > `optional` **code?**: `string`
-
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 

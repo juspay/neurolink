@@ -8,8 +8,6 @@
 
 > **VertexNativePart** = \{ `text`: `string`; \} \| \{ `inlineData`: \{ `mimeType`: `string`; `data`: `string`; \}; \}
 
-Defined in: [types/providers.ts:2483](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2483)
-
 Single part inside a Google Vertex "native" (non-AI-SDK) generateContent
 payload — either inline text or an inline base64 data blob.
 

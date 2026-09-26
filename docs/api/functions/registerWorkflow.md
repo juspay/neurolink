@@ -8,8 +8,6 @@
 
 > **registerWorkflow**(`config`, `options?`): [`RegisterResult`](../type-aliases/RegisterResult.md)
 
-Defined in: [workflow/core/workflowRegistry.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/core/workflowRegistry.ts#L39)
-
 Register a new workflow
 
 ## Parameters

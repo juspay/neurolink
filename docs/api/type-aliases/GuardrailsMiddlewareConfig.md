@@ -8,8 +8,6 @@
 
 > **GuardrailsMiddlewareConfig** = `object`
 
-Defined in: [types/guardrails.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L113)
-
 Configuration for the Guardrails middleware
 
 ## Properties
@@ -18,20 +16,14 @@ Configuration for the Guardrails middleware
 
 > `optional` **badWords?**: [`BadWordsConfig`](BadWordsConfig.md)
 
-Defined in: [types/guardrails.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L114)
-
 ---
 
 ### modelFilter?
 
 > `optional` **modelFilter?**: [`ModelFilterConfig`](ModelFilterConfig.md)
 
-Defined in: [types/guardrails.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L115)
-
 ---
 
 ### precallEvaluation?
 
 > `optional` **precallEvaluation?**: [`PrecallEvaluationConfig`](PrecallEvaluationConfig.md)
-
-Defined in: [types/guardrails.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L116)

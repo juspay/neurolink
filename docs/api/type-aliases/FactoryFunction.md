@@ -8,8 +8,6 @@
 
 > **FactoryFunction**\<`TInstance`, `TConfig`\> = (`config?`) => `Promise`\<`TInstance`\>
 
-Defined in: [types/common.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L436)
-
 Factory function type for creating instances.
 
 ## Type Parameters

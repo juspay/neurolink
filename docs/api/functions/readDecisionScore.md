@@ -8,8 +8,6 @@
 
 > **readDecisionScore**(`answers`, `id`): [`DecisionScoreReading`](../type-aliases/DecisionScoreReading.md) \| `undefined`
 
-Defined in: [utils/decisionAnswers.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L56)
-
 The `decide` inference type — typed, calibrated judgements from a model that
 generates no text, alongside `generate` and `stream`.
 

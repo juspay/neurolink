@@ -6,8 +6,6 @@
 
 # Class: MemoryRateLimitStorage
 
-Defined in: [auth/middleware/rateLimitByUser.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L25)
-
 In-memory storage for rate limiting (single instance deployments)
 
 ## Implements
@@ -19,8 +17,6 @@ In-memory storage for rate limiting (single instance deployments)
 ### Constructor
 
 > **new MemoryRateLimitStorage**(`cleanupIntervalMs?`, `expiryMs?`): `MemoryRateLimitStorage`
-
-Defined in: [auth/middleware/rateLimitByUser.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L30)
 
 #### Parameters
 
@@ -42,8 +38,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:30](https://github.com/juspay/ne
 
 > **getBucket**(`userId`): `Promise`\<[`TokenBucket`](../type-aliases/TokenBucket.md) \| `null`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L40)
-
 #### Parameters
 
 ##### userId
@@ -63,8 +57,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:40](https://github.com/juspay/ne
 ### setBucket()
 
 > **setBucket**(`userId`, `bucket`): `Promise`\<`void`\>
-
-Defined in: [auth/middleware/rateLimitByUser.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L44)
 
 #### Parameters
 
@@ -90,8 +82,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:44](https://github.com/juspay/ne
 
 > **deleteBucket**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L48)
-
 #### Parameters
 
 ##### userId
@@ -112,8 +102,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:48](https://github.com/juspay/ne
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L52)
-
 #### Returns
 
 `Promise`\<`boolean`\>
@@ -127,8 +115,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:52](https://github.com/juspay/ne
 ### cleanup()
 
 > **cleanup**(): `Promise`\<`void`\>
-
-Defined in: [auth/middleware/rateLimitByUser.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L56)
 
 #### Returns
 

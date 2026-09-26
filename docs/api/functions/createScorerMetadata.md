@@ -8,8 +8,6 @@
 
 > **createScorerMetadata**(`id`, `name`, `options?`): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L22)
-
 Create scorer metadata with defaults
 
 ## Parameters

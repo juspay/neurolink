@@ -8,8 +8,6 @@
 
 > **RateLimitConfig** = `object`
 
-Defined in: [types/server.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L119)
-
 Rate limiting configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Rate limiting configuration
 ### enabled?
 
 > `optional` **enabled?**: `boolean`
-
-Defined in: [types/server.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L121)
 
 Enable rate limiting (default: true)
 
@@ -28,8 +24,6 @@ Enable rate limiting (default: true)
 
 > `optional` **windowMs?**: `number`
 
-Defined in: [types/server.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L124)
-
 Time window in milliseconds (default: 15 minutes)
 
 ---
@@ -37,8 +31,6 @@ Time window in milliseconds (default: 15 minutes)
 ### maxRequests?
 
 > `optional` **maxRequests?**: `number`
-
-Defined in: [types/server.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L127)
 
 Maximum requests per window (default: 100)
 
@@ -48,8 +40,6 @@ Maximum requests per window (default: 100)
 
 > `optional` **message?**: `string`
 
-Defined in: [types/server.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L130)
-
 Custom error message
 
 ---
@@ -58,8 +48,6 @@ Custom error message
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/server.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L133)
-
 Skip rate limiting for certain paths
 
 ---
@@ -67,8 +55,6 @@ Skip rate limiting for certain paths
 ### keyGenerator?
 
 > `optional` **keyGenerator?**: (`ctx`) => `string`
-
-Defined in: [types/server.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L136)
 
 Custom key generator function
 

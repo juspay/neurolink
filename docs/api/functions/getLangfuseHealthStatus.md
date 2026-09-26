@@ -8,8 +8,6 @@
 
 > **getLangfuseHealthStatus**(): `object`
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1307](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1307)
-
 Get health status for Langfuse observability
 
 ## Returns

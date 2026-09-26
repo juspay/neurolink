@@ -8,8 +8,6 @@
 
 > **ProxyRestartControlOptions** = `object`
 
-Defined in: [types/proxyRestart.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L53)
-
 Supervisor-owned restart dependencies, injectable for isolated process tests.
 
 ## Properties
@@ -18,23 +16,17 @@ Supervisor-owned restart dependencies, injectable for isolated process tests.
 
 > **stateDir**: `string`
 
-Defined in: [types/proxyRestart.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L54)
-
 ---
 
 ### server
 
 > **server**: [`RollingProxyServer`](RollingProxyServer.md)
 
-Defined in: [types/proxyRestart.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L55)
-
 ---
 
 ### getInstalledVersion
 
 > **getInstalledVersion**: () => `Promise`\<`string` \| `undefined`\>
-
-Defined in: [types/proxyRestart.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L56)
 
 #### Returns
 
@@ -46,8 +38,6 @@ Defined in: [types/proxyRestart.ts:56](https://github.com/juspay/neurolink/blob/
 
 > **isUpdatePending**: () => `boolean`
 
-Defined in: [types/proxyRestart.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L57)
-
 #### Returns
 
 `boolean`
@@ -58,8 +48,6 @@ Defined in: [types/proxyRestart.ts:57](https://github.com/juspay/neurolink/blob/
 
 > **getStatus**: () => `Promise`\<`unknown`\>
 
-Defined in: [types/proxyRestart.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L58)
-
 #### Returns
 
 `Promise`\<`unknown`\>
@@ -69,8 +57,6 @@ Defined in: [types/proxyRestart.ts:58](https://github.com/juspay/neurolink/blob/
 ### getTelemetry?
 
 > `optional` **getTelemetry?**: () => [`ProxyProcessTelemetrySnapshot`](ProxyProcessTelemetrySnapshot.md)
-
-Defined in: [types/proxyRestart.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L60)
 
 Current supervisor process evidence; never infer it from a worker/plist.
 
@@ -83,8 +69,6 @@ Current supervisor process evidence; never infer it from a worker/plist.
 ### log?
 
 > `optional` **log?**: (`message`) => `void`
-
-Defined in: [types/proxyRestart.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L62)
 
 Report control-server errors without stopping the serving listener.
 

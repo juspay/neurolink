@@ -8,8 +8,6 @@
 
 > **createRateLimitStorage**(`config`): [`RateLimitStorage`](../type-aliases/RateLimitStorage.md)
 
-Defined in: [auth/middleware/rateLimitByUser.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L700)
-
 Create rate limit storage based on configuration
 
 ## Parameters

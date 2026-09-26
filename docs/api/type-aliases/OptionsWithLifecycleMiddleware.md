@@ -8,8 +8,6 @@
 
 > **OptionsWithLifecycleMiddleware** = `object`
 
-Defined in: [types/middleware.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L382)
-
 Structural view of the nested lifecycle config buried inside a request's
 middleware blob. Extracted so call sites that need to read it (e.g.
 `BaseProvider.wrapStreamWithLifecycleCallbacks`,
@@ -21,8 +19,6 @@ three-level cast.
 ### middleware?
 
 > `optional` **middleware?**: `object`
-
-Defined in: [types/middleware.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L383)
 
 #### middlewareConfig?
 

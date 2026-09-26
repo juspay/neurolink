@@ -8,8 +8,6 @@
 
 > **OpenAITranscriptDelta** = [`OpenAIRealtimeEvent`](OpenAIRealtimeEvent.md) & `object`
 
-Defined in: [types/stt.ts:714](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L714)
-
 ## Type Declaration
 
 ### type

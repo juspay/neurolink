@@ -8,8 +8,6 @@
 
 > **DistributableTask** = `object`
 
-Defined in: [types/agentNetwork.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1354)
-
 Task definition for distribution
 
 ## Properties
@@ -17,8 +15,6 @@ Task definition for distribution
 ### id
 
 > **id**: `string`
-
-Defined in: [types/agentNetwork.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1356)
 
 Unique task ID
 
@@ -28,8 +24,6 @@ Unique task ID
 
 > **input**: `string`
 
-Defined in: [types/agentNetwork.ts:1359](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1359)
-
 Task description/input
 
 ---
@@ -37,8 +31,6 @@ Task description/input
 ### priority
 
 > **priority**: [`TaskPriority`](TaskPriority.md)
-
-Defined in: [types/agentNetwork.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1362)
 
 Task priority
 
@@ -48,8 +40,6 @@ Task priority
 
 > `optional` **requiredSkills?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:1365](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1365)
-
 Required skills/capabilities
 
 ---
@@ -57,8 +47,6 @@ Required skills/capabilities
 ### preferredAgent?
 
 > `optional` **preferredAgent?**: `string`
-
-Defined in: [types/agentNetwork.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1368)
 
 Preferred agent (for affinity)
 
@@ -68,8 +56,6 @@ Preferred agent (for affinity)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:1371](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1371)
-
 Task metadata
 
 ---
@@ -77,8 +63,6 @@ Task metadata
 ### deadline?
 
 > `optional` **deadline?**: `number`
-
-Defined in: [types/agentNetwork.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1374)
 
 Deadline timestamp
 
@@ -88,8 +72,6 @@ Deadline timestamp
 
 > `optional` **parentTaskId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1377)
-
 Parent task ID (for subtasks)
 
 ---
@@ -97,7 +79,5 @@ Parent task ID (for subtasks)
 ### dependencies?
 
 > `optional` **dependencies?**: `string`[]
-
-Defined in: [types/agentNetwork.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1380)
 
 Dependencies (task IDs)

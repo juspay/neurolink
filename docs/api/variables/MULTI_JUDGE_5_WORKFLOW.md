@@ -8,8 +8,6 @@
 
 > `const` **MULTI_JUDGE_5_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/multiJudgeWorkflow.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/multiJudgeWorkflow.ts#L50)
-
 Multi-Judge-5 Workflow Configuration
 
 Uses 5 models across different providers:

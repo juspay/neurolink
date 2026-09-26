@@ -8,8 +8,6 @@
 
 > **InfraRegistryEntry**\<`TItem`, `TMetadata`\> = `object`
 
-Defined in: [types/common.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L451)
-
 Registry entry for lazy-loaded items in BaseRegistry.
 Named InfraRegistryEntry to avoid collision with workflowTypes.ts RegistryEntry.
 
@@ -29,8 +27,6 @@ Named InfraRegistryEntry to avoid collision with workflowTypes.ts RegistryEntry.
 
 > **factory**: () => `Promise`\<`TItem`\>
 
-Defined in: [types/common.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L452)
-
 #### Returns
 
 `Promise`\<`TItem`\>
@@ -41,12 +37,8 @@ Defined in: [types/common.ts:452](https://github.com/juspay/neurolink/blob/relea
 
 > **metadata**: `TMetadata`
 
-Defined in: [types/common.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L453)
-
 ---
 
 ### instance?
 
 > `optional` **instance?**: `TItem`
-
-Defined in: [types/common.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L454)

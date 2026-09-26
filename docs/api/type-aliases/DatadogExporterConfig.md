@@ -8,8 +8,6 @@
 
 > **DatadogExporterConfig** = [`ExporterConfig`](ExporterConfig.md) & `object`
 
-Defined in: [types/exporter.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L97)
-
 Datadog exporter configuration
 
 ## Type Declaration

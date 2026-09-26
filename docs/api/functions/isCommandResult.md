@@ -8,8 +8,6 @@
 
 > **isCommandResult**(`value`): `value is CommandResult`
 
-Defined in: [types/cli.ts:614](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L614)
-
 Type guard for command result
 
 ## Parameters

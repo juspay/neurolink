@@ -8,8 +8,6 @@
 
 > **resolveDefaultDecisionProvider**(`credentials?`): `string` \| `undefined`
 
-Defined in: [factories/providerDescriptors.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L702)
-
 The decision provider to use when a caller names none: the first
 DECISION_PROVIDERS entry that is fully configured, from the environment or
 from `credentials`.

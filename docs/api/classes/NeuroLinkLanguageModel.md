@@ -6,8 +6,6 @@
 
 # Class: NeuroLinkLanguageModel
 
-Defined in: [client/aiSdkAdapter.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L50)
-
 NeuroLink Language Model implementation compatible with Vercel AI SDK
 
 Implements the LanguageModelV1 interface for drop-in compatibility.
@@ -40,8 +38,6 @@ const result = await generateText({
 
 > **new NeuroLinkLanguageModel**(`client`, `modelId`, `provider`, `options?`): `NeuroLinkLanguageModel`
 
-Defined in: [client/aiSdkAdapter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L56)
-
 #### Parameters
 
 ##### client
@@ -70,8 +66,6 @@ Defined in: [client/aiSdkAdapter.ts:56](https://github.com/juspay/neurolink/blob
 
 > `readonly` **modelId**: `string`
 
-Defined in: [client/aiSdkAdapter.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L51)
-
 Model specification string
 
 #### Implementation of
@@ -84,8 +78,6 @@ Model specification string
 
 > `readonly` **provider**: `string`
 
-Defined in: [client/aiSdkAdapter.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L52)
-
 Provider name
 
 #### Implementation of
@@ -97,8 +89,6 @@ Provider name
 ### doGenerate()
 
 > **doGenerate**(`options`): `Promise`\<[`ClientLanguageModelResponse`](../type-aliases/ClientLanguageModelResponse.md)\>
-
-Defined in: [client/aiSdkAdapter.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L71)
 
 Generate a non-streaming response
 
@@ -121,8 +111,6 @@ Generate a non-streaming response
 ### doStream()
 
 > **doStream**(`options`): `Promise`\<[`ClientLanguageModelStreamResponse`](../type-aliases/ClientLanguageModelStreamResponse.md)\>
-
-Defined in: [client/aiSdkAdapter.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/client/aiSdkAdapter.ts#L130)
 
 Generate a streaming response
 

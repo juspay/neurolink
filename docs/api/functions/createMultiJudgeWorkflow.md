@@ -8,8 +8,6 @@
 
 > **createMultiJudgeWorkflow**(`modelCount`, `judgeCount`): [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/multiJudgeWorkflow.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/multiJudgeWorkflow.ts#L250)
-
 Create custom multi-judge workflow
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **createRequestContext**(`req`): [`AuthRequestContext`](../type-aliases/AuthRequestContext.md)
 
-Defined in: [auth/middleware/AuthMiddleware.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L630)
-
 Create request context from standard request object
 
 ## Parameters

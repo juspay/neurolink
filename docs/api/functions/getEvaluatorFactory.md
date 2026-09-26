@@ -8,8 +8,6 @@
 
 > **getEvaluatorFactory**(): [`EvaluatorFactory`](../classes/EvaluatorFactory.md)
 
-Defined in: [evaluation/EvaluatorFactory.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/EvaluatorFactory.ts#L373)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

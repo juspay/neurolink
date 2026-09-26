@@ -8,8 +8,6 @@
 
 > **TTSProviderName** = `"google-ai"` \| `"vertex"` \| `"openai-tts"` \| `"elevenlabs"` \| `"elevenlabs-tts"` \| `"azure-tts"` \| `"fish-audio"` \| `"cartesia"` \| `string` & `object`
 
-Defined in: [types/tts.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L41)
-
 Known TTS provider identifiers shipped with NeuroLink.
 
 The `(string & {})` intersection keeps the union open for custom

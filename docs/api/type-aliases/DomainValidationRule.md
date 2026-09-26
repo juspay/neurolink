@@ -8,8 +8,6 @@
 
 > **DomainValidationRule** = `object`
 
-Defined in: [types/domain.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L62)
-
 Domain validation rule
 
 ## Properties
@@ -18,23 +16,17 @@ Domain validation rule
 
 > **ruleName**: `string`
 
-Defined in: [types/domain.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L63)
-
 ---
 
 ### ruleType
 
 > **ruleType**: `"required"` \| `"pattern"` \| `"range"` \| `"custom"`
 
-Defined in: [types/domain.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L64)
-
 ---
 
 ### validation
 
 > **validation**: (`value`) => `boolean`
-
-Defined in: [types/domain.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L65)
 
 #### Parameters
 
@@ -51,5 +43,3 @@ Defined in: [types/domain.ts:65](https://github.com/juspay/neurolink/blob/releas
 ### errorMessage
 
 > **errorMessage**: `string`
-
-Defined in: [types/domain.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L66)

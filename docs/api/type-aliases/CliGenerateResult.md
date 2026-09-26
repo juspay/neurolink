@@ -8,8 +8,6 @@
 
 > **CliGenerateResult** = [`CommandResult`](CommandResult.md) & `object`
 
-Defined in: [types/cli.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L430)
-
 Generate command result
 
 ## Type Declaration

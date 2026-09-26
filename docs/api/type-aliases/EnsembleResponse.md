@@ -8,8 +8,6 @@
 
 > **EnsembleResponse** = `object`
 
-Defined in: [types/workflow.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L307)
-
 Single ensemble model response
 
 ## Properties
@@ -18,15 +16,11 @@ Single ensemble model response
 
 > **provider**: `string`
 
-Defined in: [types/workflow.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L309)
-
 ---
 
 ### model
 
 > **model**: `string`
-
-Defined in: [types/workflow.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L310)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/workflow.ts:310](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **modelLabel?**: `string`
 
-Defined in: [types/workflow.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L311)
-
 ---
 
 ### content
 
 > **content**: `string`
-
-Defined in: [types/workflow.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L314)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/workflow.ts:314](https://github.com/juspay/neurolink/blob/rel
 
 > **responseTime**: `number`
 
-Defined in: [types/workflow.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L317)
-
 ---
 
 ### usage?
 
 > `optional` **usage?**: `object`
-
-Defined in: [types/workflow.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L320)
 
 #### inputTokens
 
@@ -78,15 +64,11 @@ Defined in: [types/workflow.ts:320](https://github.com/juspay/neurolink/blob/rel
 
 > **status**: `"success"` \| `"failure"` \| `"timeout"` \| `"partial"`
 
-Defined in: [types/workflow.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L327)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/workflow.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L328)
 
 ---
 
@@ -94,12 +76,8 @@ Defined in: [types/workflow.ts:328](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/workflow.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L331)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `string`
-
-Defined in: [types/workflow.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L332)

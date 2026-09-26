@@ -8,8 +8,6 @@
 
 > **AsyncFunction**\<`TParams`, `TResult`\> = (`params`) => `Promise`\<`TResult`\>
 
-Defined in: [types/common.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L86)
-
 Generic async function type
 
 ## Type Parameters

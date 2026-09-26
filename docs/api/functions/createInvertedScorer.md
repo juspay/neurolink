@@ -8,8 +8,6 @@
 
 > **createInvertedScorer**(`id`, `name`, `scorer`, `options?`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L557)
-
 Create a scorer that inverts the score (10 - score)
 
 ## Parameters

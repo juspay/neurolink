@@ -8,8 +8,6 @@
 
 > **SamplingDecision** = `object`
 
-Defined in: [types/scorer.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L403)
-
 Sampling decision result
 
 ## Properties
@@ -17,8 +15,6 @@ Sampling decision result
 ### shouldSample
 
 > **shouldSample**: `boolean`
-
-Defined in: [types/scorer.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L405)
 
 Whether to sample this request
 
@@ -28,8 +24,6 @@ Whether to sample this request
 
 > **reason**: `string`
 
-Defined in: [types/scorer.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L407)
-
 Reason for decision
 
 ---
@@ -37,7 +31,5 @@ Reason for decision
 ### currentRate
 
 > **currentRate**: `number`
-
-Defined in: [types/scorer.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L409)
 
 Current sampling rate

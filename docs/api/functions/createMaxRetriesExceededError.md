@@ -8,8 +8,6 @@
 
 > **createMaxRetriesExceededError**(`attempts`, `lastScore`, `threshold`, `context?`): [`NeuroLinkFeatureError`](../classes/NeuroLinkFeatureError.md)
 
-Defined in: [evaluation/errors/EvaluationError.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/errors/EvaluationError.ts#L195)
-
 Helper function to create a max retries exceeded error.
 
 ## Parameters

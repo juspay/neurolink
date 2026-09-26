@@ -6,8 +6,6 @@
 
 # Class: NotFoundError
 
-Defined in: [client/errors.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L283)
-
 Error for not found (404)
 
 ## Extends
@@ -19,8 +17,6 @@ Error for not found (404)
 ### Constructor
 
 > **new NotFoundError**(`message?`, `options?`): `NotFoundError`
-
-Defined in: [client/errors.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L289)
 
 #### Parameters
 
@@ -60,8 +56,6 @@ Defined in: [client/errors.ts:289](https://github.com/juspay/neurolink/blob/rele
 
 > `readonly` **code**: [`ErrorCodeType`](../type-aliases/ErrorCodeType.md)
 
-Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L76)
-
 Error code for programmatic handling
 
 #### Inherited from
@@ -73,8 +67,6 @@ Error code for programmatic handling
 ### status?
 
 > `readonly` `optional` **status?**: `number`
-
-Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L78)
 
 HTTP status code (if applicable)
 
@@ -88,8 +80,6 @@ HTTP status code (if applicable)
 
 > `readonly` `optional` **details?**: [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L80)
-
 Additional error details
 
 #### Inherited from
@@ -101,8 +91,6 @@ Additional error details
 ### retryable
 
 > `readonly` **retryable**: `boolean`
-
-Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L82)
 
 Whether the error is retryable
 
@@ -116,8 +104,6 @@ Whether the error is retryable
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L84)
-
 Request ID for error tracking
 
 #### Inherited from
@@ -129,8 +115,6 @@ Request ID for error tracking
 ### headers?
 
 > `readonly` `optional` **headers?**: `Record`\<`string`, `string`\>
-
-Defined in: [client/errors.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L146)
 
 HTTP response headers
 
@@ -144,8 +128,6 @@ HTTP response headers
 
 > `readonly` `optional` **body?**: `unknown`
 
-Defined in: [client/errors.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L148)
-
 HTTP response body
 
 #### Inherited from
@@ -158,8 +140,6 @@ HTTP response body
 
 > `readonly` `optional` **resourceType?**: `string`
 
-Defined in: [client/errors.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L285)
-
 Resource type that was not found
 
 ---
@@ -168,8 +148,6 @@ Resource type that was not found
 
 > `readonly` `optional` **resourceId?**: `string`
 
-Defined in: [client/errors.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L287)
-
 Resource ID that was not found
 
 ## Methods
@@ -177,8 +155,6 @@ Resource ID that was not found
 ### toApiError()
 
 > **toApiError**(): [`ClientApiError`](../type-aliases/ClientApiError.md)
-
-Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L109)
 
 Convert error to API error format
 
@@ -195,8 +171,6 @@ Convert error to API error format
 ### toJSON()
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
-
-Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L123)
 
 Convert error to JSON
 

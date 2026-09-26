@@ -8,8 +8,6 @@
 
 > **selectRelevantToolNames**(`query`, `items`, `opts`): `Promise`\<`string`[]\>
 
-Defined in: [core/toolRoutingEmbedding.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingEmbedding.ts#L382)
-
 Selects the most relevant tool names from a catalog given a query.
 
 Creates a temporary `ToolEmbeddingIndex`, runs `rank()`, and returns just

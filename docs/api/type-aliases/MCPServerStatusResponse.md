@@ -8,8 +8,6 @@
 
 > **MCPServerStatusResponse** = `object`
 
-Defined in: [types/server.ts:733](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L733)
-
 MCP server status response
 
 ## Properties
@@ -17,8 +15,6 @@ MCP server status response
 ### serverId
 
 > **serverId**: `string`
-
-Defined in: [types/server.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L735)
 
 Server ID
 
@@ -28,8 +24,6 @@ Server ID
 
 > **name**: `string`
 
-Defined in: [types/server.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L738)
-
 Server name
 
 ---
@@ -37,8 +31,6 @@ Server name
 ### status
 
 > **status**: [`ExternalMCPServerStatus`](ExternalMCPServerStatus.md)
-
-Defined in: [types/server.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L741)
 
 Connection status
 
@@ -48,8 +40,6 @@ Connection status
 
 > **toolCount**: `number`
 
-Defined in: [types/server.ts:744](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L744)
-
 Available tools count
 
 ---
@@ -58,8 +48,6 @@ Available tools count
 
 > `optional` **lastHealthCheck?**: `string`
 
-Defined in: [types/server.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L747)
-
 Last health check time
 
 ---
@@ -67,7 +55,5 @@ Last health check time
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/server.ts:750](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L750)
 
 Error message if failed

@@ -8,8 +8,6 @@
 
 > **AIModelProviderConfig** = `object`
 
-Defined in: [types/providers.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L563)
-
 Provider configuration specifying provider and its available models (from core types)
 
 ## Properties
@@ -18,12 +16,8 @@ Provider configuration specifying provider and its available models (from core t
 
 > **provider**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/providers.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L564)
-
 ---
 
 ### models
 
 > **models**: [`SupportedModelName`](SupportedModelName.md)[]
-
-Defined in: [types/providers.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L565)

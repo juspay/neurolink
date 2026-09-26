@@ -8,8 +8,6 @@
 
 > **AuthSessionManager** = `object`
 
-Defined in: [types/auth.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1113)
-
 Session management: create, read, refresh, destroy.
 
 ## Methods
@@ -17,8 +15,6 @@ Session management: create, read, refresh, destroy.
 ### createSession()
 
 > **createSession**(`user`, `context?`): `Promise`\<[`AuthSession`](AuthSession.md)\>
-
-Defined in: [types/auth.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1115)
 
 Create a new session for a user
 
@@ -42,8 +38,6 @@ Create a new session for a user
 
 > **getSession**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
 
-Defined in: [types/auth.ts:1121](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1121)
-
 Get an existing session by ID
 
 #### Parameters
@@ -61,8 +55,6 @@ Get an existing session by ID
 ### refreshSession()
 
 > **refreshSession**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
-
-Defined in: [types/auth.ts:1124](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1124)
 
 Refresh/extend a session
 
@@ -82,8 +74,6 @@ Refresh/extend a session
 
 > **destroySession**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1127](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1127)
-
 Invalidate/destroy a session
 
 #### Parameters
@@ -102,8 +92,6 @@ Invalidate/destroy a session
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](AuthSession.md)[]\>
 
-Defined in: [types/auth.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1130)
-
 Get all active sessions for a user
 
 #### Parameters
@@ -121,8 +109,6 @@ Get all active sessions for a user
 ### destroyAllUserSessions()
 
 > **destroyAllUserSessions**(`userId`): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1133)
 
 Invalidate all sessions for a user (global logout)
 

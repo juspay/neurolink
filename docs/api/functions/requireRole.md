@@ -8,8 +8,6 @@
 
 > **requireRole**(`role`): `void`
 
-Defined in: [auth/authContext.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L248)
-
 Require a role
 
 Throws if user doesn't have the role.

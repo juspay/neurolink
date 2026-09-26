@@ -8,8 +8,6 @@
 
 > **MessageHandler** = (`message`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/agentNetwork.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1131)
-
 Message handler function type
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **extractToken**(`context`, `config?`): `Promise`\<`string` \| `null`\>
 
-Defined in: [auth/middleware/AuthMiddleware.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L85)
-
 Extract token from request context based on configuration
 
 ## Parameters

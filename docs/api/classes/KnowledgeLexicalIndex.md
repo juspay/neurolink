@@ -6,8 +6,6 @@
 
 # Class: KnowledgeLexicalIndex
 
-Defined in: [knowledge/knowledgeIndex.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L41)
-
 Field-aware BM25 over the document set. Query text is scored per field and
 the weighted per-field scores are summed. Satisfies the structural
 `KnowledgeLexicalSearcher` type held by a snapshot.
@@ -17,8 +15,6 @@ the weighted per-field scores are summed. Satisfies the structural
 ### Constructor
 
 > **new KnowledgeLexicalIndex**(`weights`): `KnowledgeLexicalIndex`
-
-Defined in: [knowledge/knowledgeIndex.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L59)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [knowledge/knowledgeIndex.ts:59](https://github.com/juspay/neurolink
 
 > **add**(`document`): `void`
 
-Defined in: [knowledge/knowledgeIndex.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L68)
-
 #### Parameters
 
 ##### document
@@ -54,8 +48,6 @@ Defined in: [knowledge/knowledgeIndex.ts:68](https://github.com/juspay/neurolink
 
 > **finalize**(): `void`
 
-Defined in: [knowledge/knowledgeIndex.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L97)
-
 #### Returns
 
 `void`
@@ -65,8 +57,6 @@ Defined in: [knowledge/knowledgeIndex.ts:97](https://github.com/juspay/neurolink
 ### search()
 
 > **search**(`queryTokens`, `topK`, `eligibleEntryIds?`): [`KnowledgeLexicalMatch`](../type-aliases/KnowledgeLexicalMatch.md)[]
-
-Defined in: [knowledge/knowledgeIndex.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L107)
 
 #### Parameters
 

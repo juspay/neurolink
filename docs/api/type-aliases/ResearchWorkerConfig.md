@@ -8,8 +8,6 @@
 
 > **ResearchWorkerConfig** = `Omit`\<`Partial`\<[`ResearchConfig`](ResearchConfig.md)\>, `"repoPath"` \| `"mutablePaths"` \| `"runCommand"` \| `"metric"`\> & `object`
 
-Defined in: [types/autoresearch.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L117)
-
 ## Type Declaration
 
 ### repoPath

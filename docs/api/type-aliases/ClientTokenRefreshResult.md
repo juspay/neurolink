@@ -8,8 +8,6 @@
 
 > **ClientTokenRefreshResult** = `object`
 
-Defined in: [types/client.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1112)
-
 Token refresh result
 
 ## Properties
@@ -17,8 +15,6 @@ Token refresh result
 ### accessToken
 
 > **accessToken**: `string`
-
-Defined in: [types/client.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1114)
 
 Access token
 
@@ -28,8 +24,6 @@ Access token
 
 > **expiresIn**: `number`
 
-Defined in: [types/client.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1116)
-
 Token expiry time in seconds
 
 ---
@@ -37,8 +31,6 @@ Token expiry time in seconds
 ### tokenType
 
 > **tokenType**: `string`
-
-Defined in: [types/client.ts:1118](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1118)
 
 Token type (usually "Bearer")
 
@@ -48,8 +40,6 @@ Token type (usually "Bearer")
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/client.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1120)
-
 Refresh token (if provided)
 
 ---
@@ -57,7 +47,5 @@ Refresh token (if provided)
 ### scope?
 
 > `optional` **scope?**: `string`
-
-Defined in: [types/client.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1122)
 
 OAuth2 scope (if provided)

@@ -8,8 +8,6 @@
 
 > **TTSOptions** = `object`
 
-Defined in: [types/tts.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L55)
-
 TTS configuration options
 
 ## Properties
@@ -18,8 +16,6 @@ TTS configuration options
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tts.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L57)
-
 Enable TTS output
 
 ---
@@ -27,8 +23,6 @@ Enable TTS output
 ### useAiResponse?
 
 > `optional` **useAiResponse?**: `boolean`
-
-Defined in: [types/tts.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L89)
 
 Use the AI-generated response for TTS instead of the input text
 
@@ -70,8 +64,6 @@ const result = await neurolink.generate({
 
 > `optional` **voice?**: `string`
 
-Defined in: [types/tts.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L91)
-
 Voice identifier (e.g., "en-US-Neural2-C")
 
 ---
@@ -79,8 +71,6 @@ Voice identifier (e.g., "en-US-Neural2-C")
 ### format?
 
 > `optional` **format?**: [`TTSAudioFormat`](TTSAudioFormat.md)
-
-Defined in: [types/tts.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L93)
 
 Audio format (default: mp3)
 
@@ -90,8 +80,6 @@ Audio format (default: mp3)
 
 > `optional` **speed?**: `number`
 
-Defined in: [types/tts.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L95)
-
 Speaking rate 0.25-4.0 (default: 1.0)
 
 ---
@@ -99,8 +87,6 @@ Speaking rate 0.25-4.0 (default: 1.0)
 ### pitch?
 
 > `optional` **pitch?**: `number`
-
-Defined in: [types/tts.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L97)
 
 Voice pitch adjustment -20.0 to 20.0 semitones (default: 0.0)
 
@@ -110,8 +96,6 @@ Voice pitch adjustment -20.0 to 20.0 semitones (default: 0.0)
 
 > `optional` **volumeGainDb?**: `number`
 
-Defined in: [types/tts.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L99)
-
 Volume gain in dB -96.0 to 16.0 (default: 0.0)
 
 ---
@@ -119,8 +103,6 @@ Volume gain in dB -96.0 to 16.0 (default: 0.0)
 ### quality?
 
 > `optional` **quality?**: [`TTSQuality`](TTSQuality.md)
-
-Defined in: [types/tts.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L101)
 
 Audio quality (default: standard)
 
@@ -130,8 +112,6 @@ Audio quality (default: standard)
 
 > `optional` **output?**: `string`
 
-Defined in: [types/tts.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L103)
-
 Output file path (optional)
 
 ---
@@ -139,8 +119,6 @@ Output file path (optional)
 ### play?
 
 > `optional` **play?**: `boolean`
-
-Defined in: [types/tts.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L105)
 
 Auto-play audio after generation (default: false)
 
@@ -150,8 +128,6 @@ Auto-play audio after generation (default: false)
 
 > `optional` **provider?**: [`TTSProviderName`](TTSProviderName.md)
 
-Defined in: [types/tts.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L107)
-
 Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts")
 
 ---
@@ -159,8 +135,6 @@ Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts")
 ### streamingBufferSize?
 
 > `optional` **streamingBufferSize?**: `number`
-
-Defined in: [types/tts.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L113)
 
 Minimum buffered text length before incremental stream synthesis flushes
 at a sentence boundary. The provider's maximum text length remains a hard

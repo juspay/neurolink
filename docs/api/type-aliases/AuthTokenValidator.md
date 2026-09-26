@@ -8,8 +8,6 @@
 
 > **AuthTokenValidator** = `object`
 
-Defined in: [types/auth.ts:1071](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1071)
-
 Token operations: validate, extract, refresh, revoke.
 
 ## Methods
@@ -17,8 +15,6 @@ Token operations: validate, extract, refresh, revoke.
 ### authenticateToken()
 
 > **authenticateToken**(`token`, `context?`): `Promise`\<[`TokenValidationResult`](TokenValidationResult.md)\>
-
-Defined in: [types/auth.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1073)
 
 Validate and decode an authentication token
 
@@ -42,8 +38,6 @@ Validate and decode an authentication token
 
 > **extractToken**(`context`): `string` \| `Promise`\<`string` \| `null`\> \| `null`
 
-Defined in: [types/auth.ts:1079](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1079)
-
 Extract token from request context
 
 #### Parameters
@@ -62,8 +56,6 @@ Extract token from request context
 
 > `optional` **refreshToken**(`refreshToken`): `Promise`\<[`TokenRefreshResult`](TokenRefreshResult.md)\>
 
-Defined in: [types/auth.ts:1084](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1084)
-
 Refresh an authentication token (optional)
 
 #### Parameters
@@ -81,8 +73,6 @@ Refresh an authentication token (optional)
 ### revokeToken()?
 
 > `optional` **revokeToken**(`token`): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1087)
 
 Revoke a token / logout (optional)
 

@@ -8,8 +8,6 @@
 
 > **createAuthMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/auth.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/auth.ts#L78)
-
 Create authentication middleware
 
 ## Parameters

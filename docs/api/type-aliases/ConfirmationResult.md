@@ -8,8 +8,6 @@
 
 > **ConfirmationResult** = `object`
 
-Defined in: [types/hitl.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L88)
-
 Result of a confirmation request
 Contains user decision and potentially modified arguments
 
@@ -19,8 +17,6 @@ Contains user decision and potentially modified arguments
 
 > **approved**: `boolean`
 
-Defined in: [types/hitl.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L90)
-
 Whether the user approved the tool execution
 
 ---
@@ -28,8 +24,6 @@ Whether the user approved the tool execution
 ### reason?
 
 > `optional` **reason?**: `string`
-
-Defined in: [types/hitl.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L93)
 
 Optional reason for rejection (if approved is false)
 
@@ -39,8 +33,6 @@ Optional reason for rejection (if approved is false)
 
 > `optional` **modifiedArguments?**: `unknown`
 
-Defined in: [types/hitl.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L96)
-
 User-modified arguments (if allowArgumentModification is enabled)
 
 ---
@@ -48,7 +40,5 @@ User-modified arguments (if allowArgumentModification is enabled)
 ### responseTime
 
 > **responseTime**: `number`
-
-Defined in: [types/hitl.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L99)
 
 Time taken for user to respond in milliseconds

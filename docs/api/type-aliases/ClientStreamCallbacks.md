@@ -8,8 +8,6 @@
 
 > **ClientStreamCallbacks** = `object`
 
-Defined in: [types/client.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L182)
-
 Streaming callback handlers
 
 ## Properties
@@ -17,8 +15,6 @@ Streaming callback handlers
 ### onText?
 
 > `optional` **onText?**: (`text`) => `void`
-
-Defined in: [types/client.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L184)
 
 Called for each text chunk
 
@@ -38,8 +34,6 @@ Called for each text chunk
 
 > `optional` **onToolCall?**: (`toolCall`) => `void`
 
-Defined in: [types/client.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L186)
-
 Called for each tool call
 
 #### Parameters
@@ -57,8 +51,6 @@ Called for each tool call
 ### onToolResult?
 
 > `optional` **onToolResult?**: (`toolResult`) => `void`
-
-Defined in: [types/client.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L188)
 
 Called for each tool result
 
@@ -78,8 +70,6 @@ Called for each tool result
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L190)
-
 Called on stream error
 
 #### Parameters
@@ -97,8 +87,6 @@ Called on stream error
 ### onDone?
 
 > `optional` **onDone?**: (`result`) => `void`
-
-Defined in: [types/client.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L192)
 
 Called when stream completes
 
@@ -118,8 +106,6 @@ Called when stream completes
 
 > `optional` **onMetadata?**: (`metadata`) => `void`
 
-Defined in: [types/client.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L194)
-
 Called for metadata updates
 
 #### Parameters
@@ -137,8 +123,6 @@ Called for metadata updates
 ### onAudio?
 
 > `optional` **onAudio?**: (`audio`) => `void`
-
-Defined in: [types/client.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L196)
 
 Called for audio chunks
 
@@ -163,8 +147,6 @@ Called for audio chunks
 ### onThinking?
 
 > `optional` **onThinking?**: (`thinking`) => `void`
-
-Defined in: [types/client.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L198)
 
 Called for thinking/reasoning output
 

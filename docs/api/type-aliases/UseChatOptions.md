@@ -8,8 +8,6 @@
 
 > **UseChatOptions** = `object`
 
-Defined in: [types/client.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L556)
-
 useChat hook options
 
 ## Properties
@@ -17,8 +15,6 @@ useChat hook options
 ### api?
 
 > `optional` **api?**: `string`
-
-Defined in: [types/client.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L558)
 
 API endpoint for chat
 
@@ -28,8 +24,6 @@ API endpoint for chat
 
 > `optional` **agentId?**: `string`
 
-Defined in: [types/client.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L560)
-
 Agent ID to use
 
 ---
@@ -37,8 +31,6 @@ Agent ID to use
 ### initialMessages?
 
 > `optional` **initialMessages?**: [`ClientChatMessage`](ClientChatMessage.md)[]
-
-Defined in: [types/client.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L562)
 
 Initial messages
 
@@ -48,8 +40,6 @@ Initial messages
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/client.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L564)
-
 Session ID for conversation continuity
 
 ---
@@ -58,8 +48,6 @@ Session ID for conversation continuity
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/client.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L566)
-
 System prompt
 
 ---
@@ -67,8 +55,6 @@ System prompt
 ### onResponse?
 
 > `optional` **onResponse?**: (`response`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/client.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L568)
 
 Called when response starts
 
@@ -88,8 +74,6 @@ Called when response starts
 
 > `optional` **onFinish?**: (`message`) => `void`
 
-Defined in: [types/client.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L570)
-
 Called when response finishes
 
 #### Parameters
@@ -107,8 +91,6 @@ Called when response finishes
 ### onError?
 
 > `optional` **onError?**: (`error`) => `void`
-
-Defined in: [types/client.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L572)
 
 Called on error
 
@@ -128,8 +110,6 @@ Called on error
 
 > `optional` **onToolCall?**: (`toolCall`) => `void`
 
-Defined in: [types/client.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L574)
-
 Called for each tool call
 
 #### Parameters
@@ -148,8 +128,6 @@ Called for each tool call
 
 > `optional` **body?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/client.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L576)
-
 Request body customization
 
 ---
@@ -157,8 +135,6 @@ Request body customization
 ### headers?
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
-
-Defined in: [types/client.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L578)
 
 Request headers
 
@@ -168,8 +144,6 @@ Request headers
 
 > `optional` **credentials?**: `RequestCredentials`
 
-Defined in: [types/client.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L580)
-
 Credentials mode
 
 ---
@@ -177,8 +151,6 @@ Credentials mode
 ### generateId?
 
 > `optional` **generateId?**: () => `string`
-
-Defined in: [types/client.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L582)
 
 Generate message ID
 

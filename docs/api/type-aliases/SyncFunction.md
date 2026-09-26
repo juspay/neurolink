@@ -8,8 +8,6 @@
 
 > **SyncFunction**\<`TParams`, `TResult`\> = (`params`) => `TResult`
 
-Defined in: [types/common.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L93)
-
 Sync function type
 
 ## Type Parameters

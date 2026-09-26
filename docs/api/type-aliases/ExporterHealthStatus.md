@@ -8,8 +8,6 @@
 
 > **ExporterHealthStatus** = `object`
 
-Defined in: [types/exporter.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L51)
-
 Exporter health status
 
 ## Properties
@@ -18,15 +16,11 @@ Exporter health status
 
 > **healthy**: `boolean`
 
-Defined in: [types/exporter.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L52)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/exporter.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L53)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/exporter.ts:53](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **latencyMs?**: `number`
 
-Defined in: [types/exporter.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L54)
-
 ---
 
 ### lastExportTime?
 
 > `optional` **lastExportTime?**: `number`
-
-Defined in: [types/exporter.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L55)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/exporter.ts:55](https://github.com/juspay/neurolink/blob/rele
 
 > **pendingSpans**: `number`
 
-Defined in: [types/exporter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L56)
-
 ---
 
 ### errors?
 
 > `optional` **errors?**: `string`[]
-
-Defined in: [types/exporter.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L57)

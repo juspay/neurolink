@@ -6,8 +6,6 @@
 
 # Class: NetworkOrchestrator
 
-Defined in: [agent/orchestration/orchestrator.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L37)
-
 Network Orchestrator - Central controller for agent networks
 
 ## Constructors
@@ -15,8 +13,6 @@ Network Orchestrator - Central controller for agent networks
 ### Constructor
 
 > **new NetworkOrchestrator**(`neurolink`, `config?`): `NetworkOrchestrator`
-
-Defined in: [agent/orchestration/orchestrator.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L53)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [agent/orchestration/orchestrator.ts:53](https://github.com/juspay/n
 ### createNetwork()
 
 > **createNetwork**(`config`, `mode?`): `Promise`\<[`AgentNetwork`](AgentNetwork.md)\>
-
-Defined in: [agent/orchestration/orchestrator.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L81)
 
 Create a new agent network
 
@@ -62,8 +56,6 @@ Create a new agent network
 
 > **createHierarchicalNetwork**(`config`, `parentNetworkId?`): `Promise`\<[`AgentNetwork`](AgentNetwork.md)\>
 
-Defined in: [agent/orchestration/orchestrator.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L160)
-
 Create a hierarchical network
 
 #### Parameters
@@ -86,8 +78,6 @@ Create a hierarchical network
 
 > **getNetwork**(`networkId`): [`AgentNetwork`](AgentNetwork.md) \| `undefined`
 
-Defined in: [agent/orchestration/orchestrator.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L209)
-
 Get a network by ID
 
 #### Parameters
@@ -105,8 +95,6 @@ Get a network by ID
 ### getNetworkInfo()
 
 > **getNetworkInfo**(`networkId`): [`NetworkInfo`](../type-aliases/NetworkInfo.md) \| `undefined`
-
-Defined in: [agent/orchestration/orchestrator.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L216)
 
 Get network info
 
@@ -126,8 +114,6 @@ Get network info
 
 > **getAllNetworks**(): [`NetworkInfo`](../type-aliases/NetworkInfo.md)[]
 
-Defined in: [agent/orchestration/orchestrator.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L223)
-
 Get all networks
 
 #### Returns
@@ -139,8 +125,6 @@ Get all networks
 ### executeNetwork()
 
 > **executeNetwork**(`networkId`, `input`, `options?`): `Promise`\<[`NetworkExecutionResult`](../type-aliases/NetworkExecutionResult.md)\>
-
-Defined in: [agent/orchestration/orchestrator.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L230)
 
 Execute a network
 
@@ -168,8 +152,6 @@ Execute a network
 
 > **streamNetwork**(`networkId`, `input`, `options?`): `AsyncIterable`\<[`NetworkStreamChunk`](../type-aliases/NetworkStreamChunk.md)\>
 
-Defined in: [agent/orchestration/orchestrator.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L376)
-
 Stream network execution
 
 #### Parameters
@@ -195,8 +177,6 @@ Stream network execution
 ### executeHierarchical()
 
 > **executeHierarchical**(`networkId`, `input`, `options?`): `Promise`\<[`HierarchicalExecutionTrace`](../type-aliases/HierarchicalExecutionTrace.md)\>
-
-Defined in: [agent/orchestration/orchestrator.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L424)
 
 Execute hierarchical network with delegation
 
@@ -224,8 +204,6 @@ Execute hierarchical network with delegation
 
 > **pauseNetwork**(`networkId`): `void`
 
-Defined in: [agent/orchestration/orchestrator.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L478)
-
 Pause a network
 
 #### Parameters
@@ -243,8 +221,6 @@ Pause a network
 ### resumeNetwork()
 
 > **resumeNetwork**(`networkId`): `void`
-
-Defined in: [agent/orchestration/orchestrator.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L489)
 
 Resume a network
 
@@ -264,8 +240,6 @@ Resume a network
 
 > **shutdownNetwork**(`networkId`): `Promise`\<`void`\>
 
-Defined in: [agent/orchestration/orchestrator.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L500)
-
 Shutdown a network
 
 #### Parameters
@@ -283,8 +257,6 @@ Shutdown a network
 ### coordinateNetworks()
 
 > **coordinateNetworks**(`networkIds`, `task`, `strategy?`): `Promise`\<`Map`\<`string`, [`NetworkExecutionResult`](../type-aliases/NetworkExecutionResult.md)\>\>
-
-Defined in: [agent/orchestration/orchestrator.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L534)
 
 Coordinate multiple networks
 
@@ -311,8 +283,6 @@ Coordinate multiple networks
 ### getStats()
 
 > **getStats**(): `object`
-
-Defined in: [agent/orchestration/orchestrator.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L578)
 
 Get orchestrator statistics
 
@@ -346,8 +316,6 @@ Get orchestrator statistics
 
 > **getMessageBus**(): [`MessageBus`](MessageBus.md)
 
-Defined in: [agent/orchestration/orchestrator.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L613)
-
 Get the shared message bus
 
 #### Returns
@@ -359,8 +327,6 @@ Get the shared message bus
 ### on()
 
 > **on**(`event`, `handler`): `void`
-
-Defined in: [agent/orchestration/orchestrator.ts:620](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L620)
 
 Subscribe to orchestrator events
 
@@ -384,8 +350,6 @@ Subscribe to orchestrator events
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [agent/orchestration/orchestrator.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L627)
-
 Unsubscribe from orchestrator events
 
 #### Parameters
@@ -407,8 +371,6 @@ Unsubscribe from orchestrator events
 ### shutdown()
 
 > **shutdown**(): `Promise`\<`void`\>
-
-Defined in: [agent/orchestration/orchestrator.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/orchestrator.ts#L634)
 
 Shutdown the orchestrator
 

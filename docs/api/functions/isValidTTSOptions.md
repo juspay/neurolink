@@ -8,8 +8,6 @@
 
 > **isValidTTSOptions**(`options`): `options is TTSOptions`
 
-Defined in: [types/tts.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L249)
-
 Type guard to check if TTSOptions are valid
 
 ## Parameters

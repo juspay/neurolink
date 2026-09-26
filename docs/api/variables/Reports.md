@@ -8,8 +8,6 @@
 
 > `const` **Reports**: `object`
 
-Defined in: [evaluation/reporting/reportGenerator.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L436)
-
 Quick report generation functions
 
 ## Type Declaration

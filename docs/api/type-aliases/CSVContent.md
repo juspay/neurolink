@@ -8,8 +8,6 @@
 
 > **CSVContent** = `object`
 
-Defined in: [types/multimodal.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L81)
-
 CSV content type for multimodal messages
 
 ## Properties
@@ -18,23 +16,17 @@ CSV content type for multimodal messages
 
 > **type**: `"csv"`
 
-Defined in: [types/multimodal.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L82)
-
 ---
 
 ### data
 
 > **data**: `Buffer` \| `string`
 
-Defined in: [types/multimodal.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L83)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/multimodal.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L84)
 
 #### filename?
 

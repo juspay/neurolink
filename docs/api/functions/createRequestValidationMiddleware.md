@@ -8,8 +8,6 @@
 
 > **createRequestValidationMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/validation.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/validation.ts#L38)
-
 Create request validation middleware
 
 ## Parameters
