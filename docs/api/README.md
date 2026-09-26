@@ -3077,6 +3077,7 @@ console.log(result.content);
 - [APIValidationResult](type-aliases/APIValidationResult.md)
 - [ParsedProxyConfig](type-aliases/ParsedProxyConfig.md)
 - [LogEntry](type-aliases/LogEntry.md)
+- [LogEventEmitter](type-aliases/LogEventEmitter.md)
 - [Logger](type-aliases/Logger.md)
 - [StructuredError](type-aliases/StructuredError.md)
 - [EnhancementType](type-aliases/EnhancementType.md)

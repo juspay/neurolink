@@ -218,10 +218,14 @@ separate surface and migrating it is out of scope here.
 
 ## 6c. Known limitations (follow-up work)
 
-- **Log-bridge attribution**: the NeuroLink logger is process-global with a
-  single active emitter, so a worker's `onLog` bridge receives all NeuroLink
-  log events in the process, stamped with the bridge's tag. Per-instance
-  attribution requires per-instance logger routing.
+- ~~**Log-bridge attribution**~~ — **resolved.** The logger now routes per
+  instance: `generate`/`stream`/`generateText` run their bodies inside an
+  AsyncLocalStorage scope carrying the emitting instance's id, and a worker's
+  `onLog` bridge is subscribed to that id instead of the host's process-wide
+  emitter. Residual scope gaps, documented on `WorkerInstanceOptions.onLog`:
+  logs emitted while a consumer drains a returned stream run in the
+  consumer's context, and logs emitted outside any call (construction,
+  background MCP reconnects) stay unattributed.
 - **`tool_call`/`tool_result` events fire post-execution** (driven by the
   capture record) — a pre-execution hook on the recorder wrapper is the
   natural extension when live in-flight status is needed.

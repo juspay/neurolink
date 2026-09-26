@@ -75,8 +75,24 @@ export type LogEntry = {
 };
 
 /**
+ * Minimal emitter shape the logger forwards `"log-event"` payloads to.
+ *
+ * Structurally satisfied by `node:events`' `EventEmitter` and by NeuroLink's
+ * own typed emitter, so a sink can be either.
+ */
+export type LogEventEmitter = {
+  emit: (event: string, ...args: unknown[]) => boolean;
+};
+
+/**
  * Logger interface matching the logger object shape
  * Used for SDK tool contexts and other components that need a logger
+ *
+ * Deliberately a subset of the real logger: the per-instance routing methods
+ * (`runInInstanceScope`, `addScopedEventEmitter`, …) are internal plumbing
+ * between the SDK entry points and the logger, and this type is a structural
+ * contract a caller can satisfy — `SDKToolContext.logger`. Adding required
+ * members here would break anyone constructing that context themselves.
  */
 export type Logger = {
   debug: (...args: unknown[]) => void;
@@ -88,9 +104,7 @@ export type Logger = {
   setLogLevel: (level: LogLevel) => void;
   getLogs: (level?: LogLevel) => LogEntry[];
   clearLogs: () => void;
-  setEventEmitter: (emitter: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  }) => void;
+  setEventEmitter: (emitter: LogEventEmitter) => void;
   clearEventEmitter: () => void;
 };
 

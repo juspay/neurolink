@@ -55,13 +55,22 @@ export type WorkerInstanceOptions = {
    * Log bridge sink. Fire-and-forget: listener errors never disrupt the
    * worker.
    *
-   * KNOWN LIMITATION: the underlying NeuroLink logger is process-global with
-   * a single active emitter, so this bridge receives ALL NeuroLink log
-   * events emitted in the process (host, other workers, MCP) for the
-   * worker's lifetime, each stamped with this worker's `tag`. The tag
-   * identifies which bridge forwarded the event, not which instance emitted
-   * it. Per-instance log attribution requires per-instance logger routing —
-   * tracked as follow-up work in the RFC.
+   * Receives only log events this worker emitted. The logger routes per
+   * instance: the worker's `generate` / `stream` / `generateText` run their
+   * bodies inside an AsyncLocalStorage scope carrying the worker's id, and
+   * this bridge is subscribed to that id — so a sibling worker's, the host's
+   * or a background MCP reconnect's logs never arrive here, and `tag` is
+   * true attribution rather than "whichever bridge forwarded it".
+   *
+   * Two things stay outside the scope, by construction:
+   * - Logs emitted while a **consumer drains a returned stream**. Iteration
+   *   happens in the consumer's async context, after `stream()` resolved.
+   * - Logs emitted **outside any call** — construction, background MCP
+   *   reconnects, module init. These are unattributed rather than charged to
+   *   an arbitrary instance.
+   *
+   * A process-wide sink (`logger.setEventEmitter`) still sees everything, so
+   * a host bridge is unaffected by this narrowing.
    */
   onLog?: (event: WorkerLogEvent) => void;
   /**

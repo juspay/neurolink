@@ -191,9 +191,7 @@ Features:
 
 ##### emitter
 
-###### emit
-
-(`event`, ...`args`) => `boolean`
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
 
 #### Returns
 
@@ -207,9 +205,89 @@ Features:
 
 ##### ifEmitter?
 
-###### emit
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
 
-(`event`, ...`args`) => `boolean`
+#### Returns
+
+`void`
+
+### runInInstanceScope
+
+> **runInInstanceScope**: \<`T`\>(`instanceId`, `fn`) => `T`
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### fn
+
+() => `T`
+
+#### Returns
+
+`T`
+
+### getInstanceScope
+
+> **getInstanceScope**: () => `string` \| `undefined`
+
+#### Returns
+
+`string` \| `undefined`
+
+### addScopedEventEmitter
+
+> **addScopedEventEmitter**: (`instanceId`, `emitter`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### emitter
+
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
+
+#### Returns
+
+`void`
+
+### removeScopedEventEmitter
+
+> **removeScopedEventEmitter**: (`instanceId`, `emitter`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### emitter
+
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
+
+#### Returns
+
+`void`
+
+### clearScopedEventEmitters
+
+> **clearScopedEventEmitters**: (`instanceId`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
 
 #### Returns
 

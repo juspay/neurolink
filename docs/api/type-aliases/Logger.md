@@ -11,6 +11,12 @@
 Logger interface matching the logger object shape
 Used for SDK tool contexts and other components that need a logger
 
+Deliberately a subset of the real logger: the per-instance routing methods
+(`runInInstanceScope`, `addScopedEventEmitter`, …) are internal plumbing
+between the SDK entry points and the logger, and this type is a structural
+contract a caller can satisfy — `SDKToolContext.logger`. Adding required
+members here would break anyone constructing that context themselves.
+
 ## Properties
 
 ### debug
@@ -159,9 +165,7 @@ Used for SDK tool contexts and other components that need a logger
 
 ##### emitter
 
-###### emit
-
-(`event`, ...`args`) => `boolean`
+[`LogEventEmitter`](LogEventEmitter.md)
 
 #### Returns
 
