@@ -8,7 +8,7 @@
 
 > **AudioProcessorOptions** = `object`
 
-Defined in: [types/file.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L546)
+Defined in: [types/file.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L588)
 
 Audio processor options
 
@@ -18,7 +18,7 @@ Audio processor options
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/file.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L548)
+Defined in: [types/file.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L590)
 
 AI provider to use for transcription (e.g., 'openai', 'google', 'azure')
 
@@ -28,7 +28,7 @@ AI provider to use for transcription (e.g., 'openai', 'google', 'azure')
 
 > `optional` **transcriptionModel?**: `string`
 
-Defined in: [types/file.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L550)
+Defined in: [types/file.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L592)
 
 Transcription model to use (e.g., 'whisper-1', 'chirp-3')
 
@@ -38,7 +38,7 @@ Transcription model to use (e.g., 'whisper-1', 'chirp-3')
 
 > `optional` **language?**: `string`
 
-Defined in: [types/file.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L552)
+Defined in: [types/file.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L594)
 
 Language code for transcription (e.g., 'en', 'es', 'fr')
 
@@ -48,7 +48,7 @@ Language code for transcription (e.g., 'en', 'es', 'fr')
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/file.ts:554](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L554)
+Defined in: [types/file.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L596)
 
 Context or prompt to guide transcription accuracy
 
@@ -58,7 +58,7 @@ Context or prompt to guide transcription accuracy
 
 > `optional` **maxDurationSeconds?**: `number`
 
-Defined in: [types/file.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L556)
+Defined in: [types/file.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L598)
 
 Maximum audio duration in seconds (default: 600)
 
@@ -68,6 +68,6 @@ Maximum audio duration in seconds (default: 600)
 
 > `optional` **maxSizeMB?**: `number`
 
-Defined in: [types/file.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L558)
+Defined in: [types/file.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L600)
 
 Maximum file size in megabytes

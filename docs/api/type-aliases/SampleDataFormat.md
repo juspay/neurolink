@@ -8,7 +8,7 @@
 
 > **SampleDataFormat** = `"object"` \| `"json"` \| `"csv"` \| `"markdown"`
 
-Defined in: [types/file.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L342)
+Defined in: [types/file.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L384)
 
 Sample data format options for CSV metadata
 

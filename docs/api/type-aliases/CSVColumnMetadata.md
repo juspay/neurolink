@@ -8,7 +8,7 @@
 
 > **CSVColumnMetadata** = `object`
 
-Defined in: [types/file.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L380)
+Defined in: [types/file.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L422)
 
 Rich metadata for a single CSV column
 
@@ -18,7 +18,7 @@ Rich metadata for a single CSV column
 
 > **name**: `string`
 
-Defined in: [types/file.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L381)
+Defined in: [types/file.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L423)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:381](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **originalName?**: `string`
 
-Defined in: [types/file.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L383)
+Defined in: [types/file.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L425)
 
 Original header text before sanitization, when sanitizeColumnNames rewrote it (#378)
 
@@ -36,7 +36,7 @@ Original header text before sanitization, when sanitizeColumnNames rewrote it (#
 
 > **index**: `number`
 
-Defined in: [types/file.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L384)
+Defined in: [types/file.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L426)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/file.ts:384](https://github.com/juspay/neurolink/blob/release
 
 > **detectedType**: [`CSVColumnDataType`](CSVColumnDataType.md)
 
-Defined in: [types/file.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L385)
+Defined in: [types/file.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L427)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/file.ts:385](https://github.com/juspay/neurolink/blob/release
 
 > **typeConfidence**: `number`
 
-Defined in: [types/file.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L387)
+Defined in: [types/file.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L429)
 
 Confidence of type detection (0-100)
 
@@ -62,7 +62,7 @@ Confidence of type detection (0-100)
 
 > **nullCount**: `number`
 
-Defined in: [types/file.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L389)
+Defined in: [types/file.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L431)
 
 Count of null/empty values
 
@@ -72,7 +72,7 @@ Count of null/empty values
 
 > **uniqueCount**: `number`
 
-Defined in: [types/file.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L391)
+Defined in: [types/file.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L433)
 
 Count of unique values
 
@@ -82,7 +82,7 @@ Count of unique values
 
 > **sampleValues**: `string`[]
 
-Defined in: [types/file.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L393)
+Defined in: [types/file.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L435)
 
 Sample values from this column (up to 5)
 
@@ -92,7 +92,7 @@ Sample values from this column (up to 5)
 
 > `optional` **minValue?**: `number`
 
-Defined in: [types/file.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L395)
+Defined in: [types/file.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L437)
 
 For numeric columns: min value
 
@@ -102,7 +102,7 @@ For numeric columns: min value
 
 > `optional` **maxValue?**: `number`
 
-Defined in: [types/file.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L397)
+Defined in: [types/file.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L439)
 
 For numeric columns: max value
 
@@ -112,7 +112,7 @@ For numeric columns: max value
 
 > `optional` **avgValue?**: `number`
 
-Defined in: [types/file.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L399)
+Defined in: [types/file.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L441)
 
 For numeric columns: average value
 
@@ -122,7 +122,7 @@ For numeric columns: average value
 
 > `optional` **dateFormat?**: `string`
 
-Defined in: [types/file.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L401)
+Defined in: [types/file.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L443)
 
 For date columns: detected format (e.g., 'YYYY-MM-DD', 'MM/DD/YYYY')
 
@@ -132,6 +132,6 @@ For date columns: detected format (e.g., 'YYYY-MM-DD', 'MM/DD/YYYY')
 
 > `optional` **nameIssues?**: `string`[]
 
-Defined in: [types/file.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L403)
+Defined in: [types/file.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L445)
 
 Column name validation issues

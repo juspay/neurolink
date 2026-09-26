@@ -8,7 +8,7 @@
 
 > **FileWithMetadata** = `object`
 
-Defined in: [types/file.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L233)
+Defined in: [types/file.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L275)
 
 File with metadata — allows callers to pass filename alongside a Buffer.
 
@@ -34,7 +34,7 @@ files: [
 
 > **buffer**: `Buffer`
 
-Defined in: [types/file.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L234)
+Defined in: [types/file.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L276)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:234](https://github.com/juspay/neurolink/blob/release
 
 > **filename**: `string`
 
-Defined in: [types/file.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L235)
+Defined in: [types/file.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L277)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/file.ts:235](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **mimetype?**: `string`
 
-Defined in: [types/file.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L236)
+Defined in: [types/file.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L278)
