@@ -43,6 +43,49 @@ import { TelemetryService } from "../telemetry/telemetryService.js";
 import { tracers } from "../telemetry/tracers.js";
 import { SpanStatusCode } from "@opentelemetry/api";
 
+// `@modelcontextprotocol/sdk`'s stdio transport (imported above) does
+// `import process from "node:process"` at module scope. Node's ESM/CJS
+// interop builds a synthetic module facade for that import by walking every
+// property getter on the builtin `process` singleton — including the
+// lazily-initialized `stdin` getter — so merely importing this module
+// creates and permanently refs a stdin handle, whether or not an MCP stdio
+// client is ever constructed. A single ref'd handle is enough to keep the
+// event loop, and the whole process, alive forever. unref() does not close
+// stdin or stop it from being read (a consumer that later actually reads
+// from it — e.g. the CLI's piped-input path — calls `.ref()` again right
+// before it does), it only stops an otherwise-idle stdin from blocking exit.
+//
+// This unref runs at import time, before any consumer of THIS package —
+// this package's own CLI paths and an external SDK caller alike — has had a
+// chance to attach its own stdin listeners. A CLI code path knows to call
+// `ensureStdinRef()` first (see src/cli/utils/stdinRef.ts), but an external
+// script that just does `import { NeuroLink } from "@juspay/neurolink"` and
+// then reads `process.stdin` itself — an ordinary, previously-working
+// pattern — has no reason to know this package touched stdin at all, and
+// without a safety net the process can exit before the piped data ever
+// arrives: silently, with no error, because an unref'd handle simply stops
+// keeping the event loop alive on its own.
+//
+// So: re-ref stdin the first time anything registers a listener that
+// actually consumes it. "data" covers `.on("data", ...)` directly and
+// `.pipe()` (which attaches its own "data" listener internally); "readable"
+// covers paused-mode reads and the async iterator
+// (`for await (const chunk of process.stdin)`, which attaches a "readable"
+// listener under the hood). This restores stdin's normal, non-unref'd
+// behavior for any real consumer — internal or external — while a process
+// that never touches stdin still exits on its own.
+if (process.stdin && typeof process.stdin.unref === "function") {
+  process.stdin.unref();
+  process.stdin.prependListener(
+    "newListener",
+    (event: string | symbol): void => {
+      if (event === "data" || event === "readable") {
+        process.stdin.ref();
+      }
+    },
+  );
+}
+
 /**
  * Recursively substitute environment variables in strings
  * Replaces ${VAR_NAME} with the value from process.env.VAR_NAME
@@ -280,10 +323,128 @@ function isValidExternalMCPServerConfig(
 const liveManagers = new Set<ExternalServerManager>();
 let processCleanupInstalled = false;
 
-const shutdownLiveManagers = (): void => {
-  for (const manager of liveManagers) {
-    void manager.shutdown();
-  }
+const cleanupLiveManagers = async (): Promise<void> => {
+  // Concurrent across managers, matching the pattern one level down: a
+  // single manager's own shutdown() already fans its servers out via
+  // Promise.all rather than awaiting them one at a time. A sequential
+  // for-await here would make total SIGTERM/beforeExit cleanup time scale
+  // with the number of concurrently-alive managers instead of being bounded
+  // by the slowest one — real for this codebase, since the shared handler
+  // set above exists specifically because multiple managers are commonly
+  // alive at once (one per worker an agent delegates to).
+  await Promise.all(
+    Array.from(liveManagers).map((manager) =>
+      manager.shutdown().catch((error) => {
+        mcpLogger.error(
+          "[ExternalServerManager] Error during process-exit cleanup:",
+          error,
+        );
+      }),
+    ),
+  );
+};
+
+/**
+ * beforeExit fires when the event loop is about to go idle. The cleanup it
+ * kicks off does its own async I/O, so this cycle will not drain — Node
+ * fires beforeExit again once that work resolves and finds nothing left,
+ * which is how the process is meant to exit on its own here, without an
+ * explicit process.exit() call.
+ */
+const shutdownOnBeforeExit = (): void => {
+  void cleanupLiveManagers();
+};
+
+/**
+ * signal-exit@4 (reached at runtime through `ora` -> `cli-cursor` ->
+ * `restore-cursor`, a direct dependency this package's CLI spinners use)
+ * makes the mirror-image decision to the gate below: it skips its own
+ * post-cleanup re-raise whenever it sees another listener for the signal
+ * still registered. Counting signal-exit's listener as host-owned here means
+ * both sides defer to the other and neither ever re-raises — a live
+ * spinner's cursor-restore listener would silently reintroduce the exact
+ * defect this file exists to fix.
+ *
+ * There's no reference to signal-exit's own listener function to compare
+ * against (it's private state inside that package), so it's detected the
+ * same way signal-exit's v3/v4 majors detect each other: a shared marker
+ * signal-exit itself defines. Every signal-exit v4 instance is a
+ * `globalThis`-wide singleton keyed by `Symbol.for("signal-exit emitter")`
+ * — but that key is shared across ANY number of distinct resolved copies of
+ * the package, not just identical ones. If two transitive dependencies pin
+ * non-overlapping signal-exit@4 ranges, npm/pnpm will not dedupe them, and
+ * each loaded copy independently increments the shared emitter's `count` by
+ * one AND registers its own real, distinct listener per signal it covers
+ * (SIGINT and SIGTERM both are, in every signal-exit v4 release). So `count`
+ * is a faithful running total of real signal-exit-owned listeners on
+ * `process` — one per loaded copy — and has to be discounted in full,
+ * never clamped to at most one, or a second loaded copy's very real
+ * listener gets miscounted as a host's own and silently defeats the
+ * re-raise this file exists to perform.
+ */
+const SIGNAL_EXIT_EMITTER: unique symbol = Symbol.for("signal-exit emitter");
+const getSignalExitOwnedListenerCount = (): number => {
+  const globalWithSignalExit = globalThis as {
+    [SIGNAL_EXIT_EMITTER]?: { count?: unknown };
+  };
+  const count = globalWithSignalExit[SIGNAL_EXIT_EMITTER]?.count;
+  return typeof count === "number" && count > 0 ? count : 0;
+};
+
+/**
+ * SIGINT/SIGTERM: registering a listener for either suppresses Node's
+ * default immediate-termination behavior for that signal. The previous
+ * handler ran cleanup fire-and-forget and never terminated the process
+ * afterward, so the process survived a signal it claimed to handle and
+ * needed SIGKILL to actually stop.
+ *
+ * This must NOT call process.exit() itself — this is library code that can
+ * run inside a host application, and unilaterally choosing the process's
+ * exit code/timing pre-empts whatever shutdown behavior the host installed
+ * for this same signal. Instead, once cleanup settles, remove our own
+ * listener and re-send the signal: if the host registered its own handler
+ * it now runs (we are no longer in front of it), and if nothing else is
+ * listening, Node's default terminate-on-signal behavior applies and the
+ * exit code is the correct signal-based one without us deciding it. Either
+ * way the process actually stops in response to the signal, which is the
+ * behavior this fixes — we just stop being the one that forces it down.
+ */
+const shutdownOnSignal = (signal: NodeJS.Signals): void => {
+  // Whether anyone ELSE is listening has to be decided HERE, synchronously, at
+  // the top of the dispatch — not after cleanup resolves. Node removes a
+  // `process.once` listener as it dispatches to it, so a host using the very
+  // common one-shot shutdown shape leaves a listener count of zero behind
+  // while its own async drain is still running. Reading the count later would
+  // see that zero, conclude nobody was listening, re-raise, and kill the host
+  // mid-shutdown — the exact harm this gate exists to prevent, reached from
+  // the other side. Pairing this snapshot with `prependListener` at
+  // registration is what makes it correct: we run before any other listener,
+  // so nothing has been consumed yet and every host listener is still counted.
+  //
+  // signal-exit's own listener (if loaded) is subtracted out first: it is a
+  // cursor-restore helper, not a host that owns this process's shutdown
+  // decision, and counting it as one would defer to it forever (see above).
+  const hadOtherListeners =
+    process.listenerCount(signal) - getSignalExitOwnedListenerCount() > 1;
+  void cleanupLiveManagers().finally(() => {
+    // With a host handler present, that handler already received this delivery
+    // and already made its own keep-alive/exit decision; re-sending would run
+    // it a second time it never asked for, and for the common "first signal
+    // drains, second one forces" shape that tears it down early.
+    //
+    // Note what is NOT done in that case: the listener stays registered. A
+    // host that owns the signal may well decide to keep running, and
+    // `processCleanupInstalled` is a one-shot latch — so a listener removed
+    // here is never reinstalled, and any manager constructed afterwards would
+    // silently lose signal cleanup for the rest of the process's life. The
+    // removal exists for exactly one purpose, to let the re-raise reach Node's
+    // default disposition instead of coming back to us, so it belongs with the
+    // re-raise and nowhere else.
+    if (!hadOtherListeners) {
+      process.removeListener(signal, shutdownOnSignal);
+      process.kill(process.pid, signal);
+    }
+  });
 };
 
 const registerManagerForProcessCleanup = (
@@ -292,9 +453,13 @@ const registerManagerForProcessCleanup = (
   liveManagers.add(manager);
   if (!processCleanupInstalled) {
     processCleanupInstalled = true;
-    process.on("SIGINT", shutdownLiveManagers);
-    process.on("SIGTERM", shutdownLiveManagers);
-    process.on("beforeExit", shutdownLiveManagers);
+    // prependListener, not on: the gate above counts listeners at dispatch, and
+    // that count is only trustworthy if nothing has been consumed yet. Running
+    // first guarantees that. It also costs a host nothing — our handler only
+    // starts async cleanup and never blocks the listeners behind it.
+    process.prependListener("SIGINT", shutdownOnSignal);
+    process.prependListener("SIGTERM", shutdownOnSignal);
+    process.on("beforeExit", shutdownOnBeforeExit);
   }
 };
 
@@ -1287,9 +1452,18 @@ export class ExternalServerManager extends EventEmitter {
     instance.client.onclose = undefined;
     instance.client.onerror = undefined;
     try {
+      // Forward the child handle so the factory's SIGKILL escalation can run
+      // when the transport's own close does not bring the process down.
+      // NOTE: `instance.process` is currently always null for stdio servers —
+      // MCPClientFactory.createStdioTransport returns only `{ transport }`, so
+      // `clientResult.process` is never populated and the escalation inside
+      // closeClient remains unreachable. Surfacing the spawned child from the
+      // transport is a separate change; this argument is wired so that it
+      // starts working the moment it is.
       await MCPClientFactory.closeClient(
         instance.client,
         instance.transportInstance,
+        instance.process ?? undefined,
       );
     } catch (error) {
       mcpLogger.debug(
@@ -1646,6 +1820,15 @@ export class ExternalServerManager extends EventEmitter {
     instance.healthTimer = setInterval(async () => {
       await this.performHealthCheck(serverId);
     }, interval);
+    // Unref'd so a live health check on a connected server doesn't itself
+    // keep an otherwise-idle process alive — a caller that never calls
+    // shutdown()/stopServer() (e.g. a script that just uses the SDK and
+    // lets the process exit naturally) shouldn't be forced to wait out
+    // this interval. stopServer() still clearInterval()s it for explicit
+    // lifecycle management.
+    if (instance.healthTimer.unref) {
+      instance.healthTimer.unref();
+    }
   }
 
   /**
