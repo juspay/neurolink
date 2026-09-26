@@ -67,6 +67,21 @@ const NATIVE_AUDIO_PROVIDERS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The Vertex-family aliases within {@link NATIVE_AUDIO_PROVIDERS}.
+ *
+ * Vertex is a front end for two unrelated model families: Gemini, which
+ * accepts inline audio, and Claude (routed to `@anthropic-ai/vertex-sdk`),
+ * which does not. The provider name alone cannot tell them apart, so these
+ * aliases get an extra model check in {@link supportsNativeAudio}; the
+ * AI-Studio/Gemini aliases never serve Claude and skip it.
+ */
+const VERTEX_PROVIDER_NAMES: ReadonlySet<string> = new Set([
+  "vertex",
+  "google-vertex",
+  "googlevertex",
+]);
+
+/**
  * Audio MIME types the native providers accept as-is.
  *
  * Gemini's documented set. Anything outside it is transcoded rather than
@@ -90,9 +105,27 @@ const NATIVE_AUDIO_MIME_TYPES: ReadonlySet<string> = new Set([
 /** MIME type every transcode targets. Universally accepted and compact. */
 const TRANSCODE_TARGET_MIME = "audio/mpeg";
 
-/** Whether `provider` can be handed raw audio bytes. */
-export function supportsNativeAudio(provider: string): boolean {
-  return NATIVE_AUDIO_PROVIDERS.has(provider.toLowerCase().trim());
+/**
+ * Whether `provider` can be handed raw audio bytes.
+ *
+ * `model` is optional and only consulted for the Vertex aliases, which serve
+ * both Gemini (native audio) and Claude (no native audio — routed to
+ * `@anthropic-ai/vertex-sdk`, whose message builder never reads an audio
+ * part). The Claude test is the one `GoogleVertexProvider` routes by
+ * (`isAnthropicModel` in providers/googleVertex/client.ts: case-insensitive,
+ * anywhere in the id). A stricter test here would call a model Gemini that
+ * Vertex actually sends to Claude. A caller that omits `model` on Vertex keeps
+ * today's behaviour. AI Studio / bare "gemini" aliases never serve Claude.
+ */
+export function supportsNativeAudio(provider: string, model?: string): boolean {
+  const normalizedProvider = provider.toLowerCase().trim();
+  if (!NATIVE_AUDIO_PROVIDERS.has(normalizedProvider)) {
+    return false;
+  }
+  if (VERTEX_PROVIDER_NAMES.has(normalizedProvider)) {
+    return !(model ?? "").toLowerCase().includes("claude");
+  }
+  return true;
 }
 
 /** Whether `mimeType` must be re-encoded before a native provider will read it. */

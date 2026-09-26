@@ -1798,7 +1798,8 @@ export async function buildMultimodalMessagesArray(
   // below, where the collected bytes have nowhere to go and only the metadata
   // summary survives.
   const hasNativeAudio =
-    (inp.nativeAudioFiles?.length ?? 0) > 0 && supportsNativeAudio(provider);
+    (inp.nativeAudioFiles?.length ?? 0) > 0 &&
+    supportsNativeAudio(provider, model);
 
   // If no images, PDFs or audio, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs && !hasNativeAudio) {
@@ -2054,7 +2055,7 @@ async function appendCsvContentToText(
 async function convertContentToProviderFormat(
   content: Content[],
   provider: string,
-  _model: string,
+  model: string,
   pdfOptions?: GenerateOptions["pdfOptions"],
   audioFiles: MultimodalAudioEntry[] = [],
   outputFormat?: VisionImageOutputFormat,
@@ -2083,7 +2084,8 @@ async function convertContentToProviderFormat(
   // change exists to stop, reached through a different branch. Gated on the
   // provider accepting audio so one that cannot keeps the cheaper plain-text
   // shape rather than an array carrying a part it will ignore.
-  const deliversAudio = audioFiles.length > 0 && supportsNativeAudio(provider);
+  const deliversAudio =
+    audioFiles.length > 0 && supportsNativeAudio(provider, model);
   const hasMultimodal =
     imageContent.length > 0 || pdfContent.length > 0 || deliversAudio;
 
@@ -2127,7 +2129,7 @@ async function convertContentToProviderFormat(
     images,
     pdfFiles,
     provider,
-    _model,
+    model,
     {
       audioFiles,
       outputFormat,
@@ -2865,7 +2867,7 @@ async function convertMultimodalToProviderFormat(
   // itself rather than replacing the description — a model asked "how long is
   // this?" keeps the exact answer, and one asked "what is said?" can now
   // answer at all.
-  if (audioFiles.length > 0 && supportsNativeAudio(provider)) {
+  if (audioFiles.length > 0 && supportsNativeAudio(provider, model)) {
     for (const audio of audioFiles) {
       // Derived from the trimmed basename so a directory containing a dot
       // (`/srv/v1.2/recording`) cannot be mistaken for the file's extension.
