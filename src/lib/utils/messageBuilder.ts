@@ -50,6 +50,7 @@ import {
   supportsNativeAudio,
   toProviderCompatibleAudio,
 } from "../adapters/audioFormatSupport.js";
+import { supportsNativeVideo } from "../adapters/videoFormatSupport.js";
 import { getImageCache } from "./imageCache.js";
 import { ImageProcessor, imageUtils } from "./imageProcessor.js";
 import { logger } from "./logger.js";
@@ -905,6 +906,26 @@ async function appendDetectedFileResult(
       logger.info(
         `[FileDetector] Added ${result.images.length} video keyframes as images`,
       );
+    }
+    // Carry the bytes forward alongside the summary and the frames, the same
+    // way audio does. Whether the clip is sent is decided later, per provider:
+    // one that can watch receives it, one that cannot still gets the keyframes
+    // and is no worse off than before. This matters most where the frames are
+    // absent — ffmpeg is optional, and without it the summary was everything
+    // the model saw.
+    const videoBytes = await readFileInputBytes(file);
+    if (videoBytes) {
+      options.input.nativeVideoFiles = [
+        ...(options.input.nativeVideoFiles || []),
+        {
+          buffer: videoBytes,
+          filename,
+          mimeType: result.mimeType,
+          ...(typeof result.metadata?.durationSec === "number"
+            ? { durationSec: result.metadata.durationSec }
+            : {}),
+        },
+      ];
     }
     logger.info(`[FileDetector] ✅ Video: ${filename}`);
   } else if (result.type === "audio") {
@@ -1801,8 +1822,16 @@ export async function buildMultimodalMessagesArray(
     (inp.nativeAudioFiles?.length ?? 0) > 0 &&
     supportsNativeAudio(provider, model);
 
-  // If no images, PDFs or audio, use standard message building and convert to MultimodalChatMessage[]
-  if (!hasImages && !hasPDFs && !hasNativeAudio) {
+  // Video that is to be delivered natively is multimodal for exactly the
+  // reason audio is: it becomes a non-text part. Gated on the provider
+  // accepting video so one that only ever sees keyframes keeps the cheaper
+  // shape it already had.
+  const hasNativeVideo =
+    (inp.nativeVideoFiles?.length ?? 0) > 0 &&
+    supportsNativeVideo(provider, model);
+
+  // If no images, PDFs, audio or video, use standard message building and convert to MultimodalChatMessage[]
+  if (!hasImages && !hasPDFs && !hasNativeAudio && !hasNativeVideo) {
     // #289: CSV content[] items don't need vision, so they never reach the
     // multimodal converter below — process them into the prompt text here
     // (otherwise a `content: [{type:"csv"}]`-only request silently drops it).
@@ -1952,7 +1981,11 @@ export async function buildMultimodalMessagesArray(
       // audio-only turn fell through to the plain-text branch below, so the
       // recording was dropped and only its metadata summary — already folded
       // into `text` — ever reached the model.
-      (inp.nativeAudioFiles?.length ?? 0) > 0
+      (inp.nativeAudioFiles?.length ?? 0) > 0 ||
+      // Same for a video-only turn. On a machine without ffmpeg there are no
+      // keyframes to put in `images`, so this clause is the only thing keeping
+      // the clip out of the plain-text branch.
+      (inp.nativeVideoFiles?.length ?? 0) > 0
     ) {
       userContent = await convertMultimodalToProviderFormat(
         inp.text ?? "",
@@ -2084,6 +2117,13 @@ async function convertContentToProviderFormat(
   // change exists to stop, reached through a different branch. Gated on the
   // provider accepting audio so one that cannot keeps the cheaper plain-text
   // shape rather than an array carrying a part it will ignore.
+  //
+  // Video does not get the same treatment here: native delivery for the two
+  // Gemini provider classes never reaches this function with any consequence
+  // (both fully own their own request assembly — see the module comment on
+  // `appendNativeVideoParts` in googleNativeGemini3/utils.ts, the actual and
+  // only place a video clip is attached), so a `deliversVideo` flag here would
+  // gate nothing but a value nobody reads.
   const deliversAudio =
     audioFiles.length > 0 && supportsNativeAudio(provider, model);
   const hasMultimodal =
@@ -2901,6 +2941,23 @@ async function convertMultimodalToProviderFormat(
       );
     }
   }
+
+  // Video is deliberately not attached here. This function's output — an AI
+  // SDK `content` array — only ever reaches a real request for providers that
+  // call `BaseProvider`'s shared message building unmodified, and neither
+  // Gemini provider class does: `GoogleAIStudioProvider.generate()` and
+  // `GoogleVertexProvider.generate()` are full overrides that never call
+  // `super.generate()`, and `BaseProvider.stream()`'s early multimodal check
+  // builds a `messages` value only to test `hasVideoFrames()` on it before
+  // discarding it — so a video part built here never travels anywhere. The
+  // one delivery mechanism both Gemini front ends actually use is the
+  // hand-built `inlineData` request in `appendNativeVideoParts`
+  // (googleNativeGemini3/utils.ts), which carries its own aggregate-ceiling
+  // enforcement. An earlier version of this function duplicated that
+  // ceiling check here too, permanently inert and with no test able to
+  // reach it — that duplicate has been removed rather than left as a second
+  // place the same bug could be introduced without either delivery or a
+  // failing test ever showing it.
 
   // Check if provider supports native PDF processing
   const supportsNativePDF = PDFProcessor.supportsNativePDF(provider);

@@ -30,7 +30,7 @@ import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
 } from "./generate.js";
-import type { MultimodalAudioEntry } from "./file.js";
+import type { MultimodalAudioEntry, MultimodalVideoEntry } from "./file.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
 import type { ProviderError, ProviderErrorRule } from "./errors.js";
 import type { ExternalMCPToolInfo } from "./externalMcp.js";
@@ -2507,6 +2507,13 @@ export type GeminiMultimodalInput = {
    * are already-materialised bytes with a resolved mime type.
    */
   nativeAudioFiles?: MultimodalAudioEntry[];
+  /**
+   * Video collected during file detection, carried through to the native
+   * request as `inlineData`. Distinct from the user-facing `videoFiles`: these
+   * are already-materialised bytes with a resolved mime type and, where it
+   * could be measured, the clip's duration.
+   */
+  nativeVideoFiles?: MultimodalVideoEntry[];
 };
 
 /**

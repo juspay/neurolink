@@ -323,6 +323,21 @@ export {
   VertexVideoHandler,
 } from "./adapters/video/index.js";
 
+// Video *ingestion* capabilities — what each provider does with an attached
+// clip. Surfaced because the answer changes what a caller should send: a
+// provider on the native path is billed by duration and reads the audio
+// track, one on the frame path is billed per keyframe and hears nothing, and
+// without a way to ask, the only way to find out is to send a video and read
+// the reply.
+export {
+  canDeliverVideoNatively,
+  estimateVideoTokens,
+  getVideoProviderConfig,
+  isNativeVideoMimeType,
+  supportsNativeVideo,
+  VIDEO_PROVIDER_CONFIGS,
+} from "./adapters/videoFormatSupport.js";
+
 // Image generation + HITL — surfaced from their dedicated barrels
 export { ImageGenService } from "./image-gen/ImageGenService.js";
 export {
