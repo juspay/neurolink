@@ -1,0 +1,114 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "novita",
+  "displayName": "Novita AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.novita.ai/openai/v1"
+  },
+  "models": {
+    "default": "zai-org/glm-5.3-flash",
+    "testModel": "zai-org/glm-5.3-flash",
+    "fallbacks": [
+      "meta-llama/llama-3.3-70b-instruct",
+      "deepseek/deepseek-v3-0324",
+      "qwen/qwen-2.5-72b-instruct",
+      "google/gemma-3-27b-it"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "meta-llama/llama-3.3-70b-instruct": {
+        "vision": false,
+        "status": "production",
+        "description": "Meta Llama 3.3 70B Instruct; a plain non-reasoning chat model. Kept as a fallback for plain chat because it does not support structured output; the runtime/default model is zai-org/glm-5.3-flash (see evidence.liveMatrix)"
+      },
+      "zai-org/glm-5.3-flash": {
+        "pricingPerMTok": {
+          "input": 0.075,
+          "output": 0.25,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.3 Flash \u2014 Novita's own served default and the model exercised end-to-end by NeuroLink's live capability probe (chat, streaming, tool calling, tools+streaming, tools+schema together). Reasons internally via `reasoning_content` before answering, so it needs a generous max_tokens budget or replies get cut mid-thought \u2014 pin `testModel` here for the capability matrix. Pricing from the authenticated roster, 2026-09-05"
+      },
+      "deepseek/deepseek-v3-0324": {
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V3 (0324 snapshot) \u2014 the non-reasoning DeepSeek chat line (the reasoning variant is deepseek/deepseek-r1); fallback"
+      },
+      "qwen/qwen-2.5-72b-instruct": {
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 2.5 72B Instruct \u2014 plain (non-thinking) Alibaba Qwen chat model; fallback"
+      },
+      "google/gemma-3-27b-it": {
+        "vision": false,
+        "status": "production",
+        "description": "Google Gemma 3 27B IT \u2014 non-reasoning instruct chat model; fallback"
+      }
+    },
+    "topModels": [
+      "meta-llama/llama-3.3-70b-instruct",
+      "zai-org/glm-5.3-flash",
+      "deepseek/deepseek-v3-0324",
+      "qwen/qwen-2.5-72b-instruct",
+      "google/gemma-3-27b-it"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "failed to authenticate API key|FAILED_TO_AUTH",
+      "class": "authentication",
+      "message": "Invalid Novita API key. Check {apiKeyEnvVar}. Get one at https://novita.ai/settings/key-management"
+    },
+    {
+      "status": 404,
+      "pattern": "model not found|MODEL_NOT_FOUND",
+      "class": "invalid-model",
+      "message": "Novita model '{model}' not found. Pick a current model from the authenticated /openai/v1/models roster or https://novita.ai/models"
+    }
+  ],
+  "setup": {
+    "url": "https://novita.ai/settings/key-management",
+    "apiKeyFormat": "^sk_[A-Za-z0-9_-]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://novita.ai/settings/key-management and sign in (Google, GitHub, Hugging Face, or email)",
+      "2. Choose Create API Key, name it, and copy it immediately \u2014 it is shown in full only once and starts with sk_",
+      "3. New accounts start on a small trial voucher (a few dollars of Model API credit); manual top-ups go through Stripe with a $10 minimum, so keep early test calls small",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.novita.ai/openai/v1. New accounts start on a small trial voucher; the roster spans 150+ open-weight chat, reasoning and vision-named models."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-05",
+      "method": "authenticated GET /openai/v1/models \u2014 156 ids, e.g. zai-org/glm-5.3-flash, zai-org/glm-5.3, deepseek/deepseek-v4-pro-0813, moonshotai/kimi-k3",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-05",
+      "status": 401,
+      "code": "FAILED_TO_AUTH"
+    },
+    "liveMatrix": {
+      "date": "2026-09-05",
+      "result": "18-probe harness against zai-org/glm-5.3-flash (Novita's own served default) via https://api.novita.ai/openai/v1. Wire mechanics: chat, system role, array content parts, sampling params and max_completion_tokens all 200; SSE streaming 200 with a usage chunk and a terminal [DONE]. Reasoning is genuinely heavy on this model \u2014 several 200 responses show finish_reason=length with only 8 completion tokens, entirely spent on an unfinished reasoning_content and an empty visible content \u2014 but `default` and `testModel` are both pinned to the probed model itself (zai-org/glm-5.3-flash, Novita's own served default), which is exactly what the capability matrix below exercises — see the structured-output findings further down for why the reasoning-heavy default is still the right choice over the plain meta-llama/llama-3.3-70b-instruct fallback. Tool calling: a real tool_call (get_time, parsed tz argument) on the first turn, a null-content assistant tool_calls turn accepted on replay, and a tool_call surfacing mid-SSE-stream \u2014 tools and toolsWithStreaming true; tool_choice is tolerated even with no tools declared. response_format json_object returns 200 cleanly \u2014 structuredOutput true. response_format json_schema also returns 200, but at this token budget the content is unfinished reasoning text rather than schema-conformant JSON, same reasoning-budget effect as above \u2014 NeuroLink's coerceJsonToSchema repair layer is the safety net here, as for other reasoning-heavy vendors. Sending tools and a JSON schema together in one request succeeds (200, real tool_call returned) at the wire level. That single-shot result alone does not demonstrate the combined capability \u2014 the follow-up turn where the model must answer the original JSON-schema question from a tool result was untested at raw-probe time. It was proved separately through the SDK's public surface: `generate({ provider: 'novita', schema, ...})` with a registered getTime tool called end-to-end via dist/index.js \u2014 the model invoked getTime(tz='Asia/Tokyo') (toolsUsed=['getTime'], stepsUsed=2), then answered `{\"city\":\"Tokyo\",\"time\":\"09:00\"}`, which parsed against the request schema with no repair needed (jsonRepaired/jsonTruncated both unset) \u2014 passed 1/1 in the final live proof. structuredOutputWithTools is declared true on that basis. Vision: a 64x64 PNG sent to glm-5.3-flash (not a vision-tagged model; Novita has no live-verified vision model) returns 200 with reasoning_content correctly describing 'a solid blue rectangle' but an EMPTY final content \u2014 not a working, schema-usable vision reply, so no catalog entry is marked vision:true and models.visionModel is left unset. bad key -> 401 {\"code\":401,\"reason\":\"FAILED_TO_AUTH\",\"message\":\"failed to authenticate API key\"}; bad model -> 404 {\"code\":404,\"reason\":\"MODEL_NOT_FOUND\",\"message\":\"model not found\"}. Novita funds this account with a $1 Model API voucher, so only this one model was live-probed end-to-end; the other four catalog entries are roster-verified by id only, not capability-probed. Structured output on Novita is per-model, and the catalog schema can only express it per provider. Verified 2026-09-05 at the wire: meta-llama/llama-3.3-70b-instruct returns HTTP 400 for response_format json_schema (\"does not support 'json_schema' response format. Supported formats: json_object\") and also 400 for json_object, while zai-org/glm-5.3-flash returns 200 for json_object, json_schema and tools+json_schema together. The default is therefore zai-org/glm-5.3-flash, which is also Novita's own served default, so the provider-level structuredOutput and structuredOutputWithTools flags are true for the model a default-configuration caller actually gets. meta-llama/llama-3.3-70b-instruct remains a fallback for plain chat. Tool calling was verified separately on both models (finish_reason=tool_calls with a structured call). Note that glm-5.3-flash is a reasoning model: at very small max_tokens (observed at 40) the budget is consumed by reasoning and content comes back empty; the entry's defaultMaxOutputTokens of 4096 is well clear of that."
+    },
+    "addedInPR": "pending"
+  }
+}

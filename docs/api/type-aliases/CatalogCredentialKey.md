@@ -6,4 +6,4 @@
 
 # Type Alias: CatalogCredentialKey
 
-> **CatalogCredentialKey** = `"apiRoute"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"deepseek"` \| `"fireworks"` \| `"friendli"` \| `"gmicloud"` \| `"groq"` \| `"huggingFace"` \| `"inceptionLabs"` \| `"ioIntelligence"` \| `"mancer"` \| `"mistral"` \| `"perplexity"` \| `"sambanova"` \| `"together"` \| `"upstage"` \| `"xai"`
+> **CatalogCredentialKey** = `"apiRoute"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"deepseek"` \| `"fireworks"` \| `"friendli"` \| `"gmicloud"` \| `"groq"` \| `"huggingFace"` \| `"inceptionLabs"` \| `"ioIntelligence"` \| `"mancer"` \| `"mistral"` \| `"morph"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together"` \| `"upstage"` \| `"xai"`

@@ -178,6 +178,18 @@ Supported AI Provider Names
 
 ---
 
+### MORPH
+
+> **MORPH**: `"morph"`
+
+---
+
+### NOVITA
+
+> **NOVITA**: `"novita"`
+
+---
+
 ### PERPLEXITY
 
 > **PERPLEXITY**: `"perplexity"`

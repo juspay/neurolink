@@ -469,6 +469,34 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### morph?
+
+> `optional` **morph?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### novita?
+
+> `optional` **novita?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### perplexity?
 
 > `optional` **perplexity?**: `object`

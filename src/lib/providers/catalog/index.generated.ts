@@ -14,6 +14,8 @@ import inceptionLabsJson from "./inception-labs.json" with { type: "json" };
 import ioIntelligenceJson from "./io-intelligence.json" with { type: "json" };
 import mancerJson from "./mancer.json" with { type: "json" };
 import mistralJson from "./mistral.json" with { type: "json" };
+import morphJson from "./morph.json" with { type: "json" };
+import novitaJson from "./novita.json" with { type: "json" };
 import perplexityJson from "./perplexity.json" with { type: "json" };
 import sambanovaJson from "./sambanova.json" with { type: "json" };
 import togetherAiJson from "./together-ai.json" with { type: "json" };
@@ -36,6 +38,8 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   ioIntelligenceJson as ProviderCatalogJson,
   mancerJson as ProviderCatalogJson,
   mistralJson as ProviderCatalogJson,
+  morphJson as ProviderCatalogJson,
+  novitaJson as ProviderCatalogJson,
   perplexityJson as ProviderCatalogJson,
   sambanovaJson as ProviderCatalogJson,
   togetherAiJson as ProviderCatalogJson,
@@ -58,6 +62,8 @@ export const CATALOG_PROVIDER_IDS = [
   "io-intelligence",
   "mancer",
   "mistral",
+  "morph",
+  "novita",
   "perplexity",
   "sambanova",
   "together-ai",

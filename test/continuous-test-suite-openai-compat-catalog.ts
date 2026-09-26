@@ -67,6 +67,7 @@ import {
   ProviderError,
   RateLimitError,
   NetworkError,
+  jsonSchema,
 } from "../dist/index.js";
 import {
   installMockFetch,
@@ -158,6 +159,12 @@ const CATALOG_ENV_VARS = [
   "API_ROUTE_API_KEY",
   "API_ROUTE_BASE_URL",
   "API_ROUTE_MODEL",
+  "NOVITA_API_KEY",
+  "NOVITA_BASE_URL",
+  "NOVITA_MODEL",
+  "MORPH_API_KEY",
+  "MORPH_BASE_URL",
+  "MORPH_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1234,6 +1241,24 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     urlMatch: "global.api-route.com/v1/chat/completions",
     model: "claude-sonnet-4-6",
   },
+  {
+    alias: "novita",
+    envVar: "NOVITA_API_KEY",
+    urlMatch: "api.novita.ai/openai/v1/chat/completions",
+    model: "meta-llama/llama-3.3-70b-instruct",
+  },
+  {
+    alias: "morph",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
+  },
+  {
+    alias: "morphllm",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
+  },
 ];
 
 async function testCatalogStructuralInvariants(): Promise<void> {
@@ -1278,6 +1303,450 @@ async function testCatalogStructuralInvariants(): Promise<void> {
       },
     );
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Morph — messageContentFormat: "string" quirk
+//
+// The alias-routing check above only proves plain-chat "ping" reaches
+// Morph's own host. It does not exercise the catalog's declared
+// `quirks.messageContentFormat: "string"` coercion at all — the scenario
+// that would actually need it (an array-shaped `content` value reaching
+// the wire, which Morph's endpoint has historically rejected with a 500)
+// is unreachable through NeuroLink's public `generate()`/`stream()`
+// surface for this provider specifically:
+//
+//   - Morph's catalog marks every model `vision: false`, so any image/PDF
+//     input is rejected by `ProviderImageAdapter.supportsVision()` before
+//     any HTTP call is made (see the client-side-rejection case below) —
+//     the one path that builds array-shaped multimodal content.
+//   - Morph's catalog marks `capabilities.tools: false`, so
+//     `ConfiguredOpenAICompatProvider.supportsTools()` is false and
+//     NeuroLink never offers a `tools` array to the model. That closes off
+//     the *other* path that can produce non-string content (an
+//     assistant tool_calls turn, which is how the analogous Cloudflare
+//     `messageContentFormat` test in
+//     `continuous-test-suite-providers-mocked.ts` reaches it) — Cloudflare
+//     supports tools, Morph does not, so that template does not transfer.
+//   - Plain multi-turn chat (`conversationMessages` + the current turn)
+//     always carries `content: string` end to end: `ChatMessage.content`
+//     is a runtime string (`toModelMessage()` calls `.trim()` on it), and
+//     `buildMessagesArray()` — the path taken whenever there are no
+//     images/PDFs/audio — never touches `input.content` array items.
+//
+// So this section proves two things honestly instead of asserting a wire
+// coercion that cannot currently fire for Morph: (1) the historical 500 is
+// prevented by a *different*, earlier layer (the vision gate) rather than
+// by luck, and (2) ordinary Morph chat — including multi-turn history —
+// always sends plain string content, which is the invariant the quirk
+// exists to guarantee. If Morph's catalog ever gains `tools: true` or a
+// vision-capable model, the reachability analysis above changes and this
+// section should gain a real array-content coercion case at that point.
+// ───────────────────────────────────────────────────────────────────────
+
+const MORPH_MODEL = "morph-v3-large";
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+async function testMorphContentFormatSection(): Promise<void> {
+  const section = "Morph (messageContentFormat quirk)";
+
+  await runCase(
+    `${section}: an image is rejected client-side before any HTTP call reaches Morph`,
+    async () => {
+      setEnv("MORPH_API_KEY", "test-fake-morph-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.morphllm.com/v1/chat/completions",
+            respond: okResp(MORPH_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "morph",
+              model: MORPH_MODEL,
+              input: {
+                text: "Describe this image",
+                images: [`data:image/png;base64,${TINY_PNG_BASE64}`],
+              },
+              disableTools: true,
+            });
+          } catch (err) {
+            caught = err;
+          }
+          expect(
+            caught instanceof Error,
+            "generate() must reject an image sent to a vision:false provider, not silently drop it",
+          );
+          expect(
+            String((caught as Error)?.message ?? "").includes(
+              "does not support vision processing",
+            ),
+            `rejection must come from the vision-capability gate — got ${String(
+              (caught as Error)?.message,
+            )}`,
+          );
+          expectEq(
+            calls.length,
+            0,
+            "no HTTP request may reach Morph for an unsupported image — the wire-format coercion never gets a chance to run",
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: multi-turn chat always sends string content, never array parts`,
+    async () => {
+      setEnv("MORPH_API_KEY", "test-fake-morph-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.morphllm.com/v1/chat/completions",
+            respond: okResp(MORPH_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          const result = await newNL().generate({
+            provider: "morph",
+            model: MORPH_MODEL,
+            input: { text: "And what is 10 times that?" },
+            conversationMessages: [
+              { id: "turn-1-user", role: "user", content: "What is 2+2?" },
+              { id: "turn-1-assistant", role: "assistant", content: "4" },
+            ],
+            disableTools: true,
+          });
+          expect(calls.length > 0, "request captured");
+          const body = calls[0].bodyJson as {
+            messages?: Array<{ role?: string; content?: unknown }>;
+          };
+          expect(
+            Array.isArray(body.messages) && body.messages.length >= 3,
+            "request must carry the conversation history plus the new turn",
+          );
+          for (const [position, message] of (body.messages ?? []).entries()) {
+            expectEq(
+              typeof message.content,
+              "string",
+              `message ${position} (role=${String(message.role)}) content type`,
+            );
+          }
+          expect(
+            (result.content ?? "").toLowerCase().includes("pong"),
+            "response parses into GenerateResult.content",
+          );
+        },
+      );
+    },
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Novita — structuredOutput + tool-calling
+//
+// The alias-routing check above only proves plain-chat "ping" reaches
+// Novita's own host. Novita's catalog entry additionally claims
+// `structuredOutput`, `tools` and `structuredOutputWithTools` — none of
+// which the alias check exercises. Unlike Morph, none of these are gated
+// client-side (Novita declares no vision restriction relevant here and
+// `capabilities.tools: true`), so they are genuinely reachable through
+// `generate()` and are proven end to end below, mirroring the exact
+// scenario recorded in `catalog/novita.json`'s
+// `evidence.liveMatrix` (a getTime tool call for tz=Asia/Tokyo, followed
+// by a schema-bound `{"city":"Tokyo","time":"09:00"}` answer).
+//
+// A third case below covers the catalog's OTHER documented finding: the
+// capability schema declares `structuredOutput` per PROVIDER, not per
+// model (no per-model override exists the way `tools: "model-dependent"`
+// does), so a caller-selected fallback model can reject `response_format`
+// outright even though the default model accepts it. `novita.json`'s own
+// `meta-llama/llama-3.3-70b-instruct` entry documents exactly that. The
+// case proves the fallback degrades to a parsed `structuredData` object
+// instead of throwing — the generic `isResponseFormatUnsupportedError`
+// recovery in `structuredOutputPolicy.ts` catching what
+// `isToolsSchemaConflictError` / `isSchemaComplexityError` do not.
+// ───────────────────────────────────────────────────────────────────────
+
+const NOVITA_MODEL = "zai-org/glm-5.3-flash"; // catalog `models.default` / `testModel`
+const NOVITA_FALLBACK_MODEL = "meta-llama/llama-3.3-70b-instruct"; // catalog fallback that rejects response_format
+
+async function testNovitaCapabilitiesSection(): Promise<void> {
+  const section = "Novita (structuredOutput + tool-calling)";
+
+  await runCase(
+    `${section}: schema-bound generate() sends response_format and yields structuredData`,
+    async () => {
+      setEnv("NOVITA_API_KEY", "test-fake-novita-credential");
+      const { z } = await import("zod");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.novita.ai/openai/v1/chat/completions",
+            respond: {
+              status: 200,
+              json: openAIChatResponse(
+                JSON.stringify({ city: "Tokyo", time: "09:00" }),
+                NOVITA_MODEL,
+              ),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const result = await newNL().generate({
+            provider: "novita",
+            model: NOVITA_MODEL,
+            input: { text: "What time is it in Tokyo?" },
+            schema: z.object({ city: z.string(), time: z.string() }),
+            disableTools: true,
+          });
+
+          expect(calls.length > 0, "request captured");
+          const body = calls[0].bodyJson as {
+            response_format?: {
+              type?: string;
+              json_schema?: { schema?: unknown };
+            };
+          };
+          expectEq(
+            body.response_format?.type,
+            "json_schema",
+            "request must carry a json_schema response_format",
+          );
+          expect(
+            !!body.response_format?.json_schema?.schema,
+            "response_format.json_schema.schema must be present",
+          );
+
+          const structured = result.structuredData as
+            | { city?: string; time?: string }
+            | undefined;
+          expectEq(structured?.city, "Tokyo", "structuredData.city");
+          expectEq(structured?.time, "09:00", "structuredData.time");
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: tool-calling round-trip actually offers and executes a tool`,
+    async () => {
+      setEnv("NOVITA_API_KEY", "test-fake-novita-credential");
+      const toolCallResponse = {
+        id: "chatcmpl-mock",
+        object: "chat.completion",
+        created: 0,
+        model: NOVITA_MODEL,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: {
+                    name: "getTime",
+                    arguments: JSON.stringify({ tz: "Asia/Tokyo" }),
+                  },
+                },
+              ],
+            },
+            finish_reason: "tool_calls",
+          },
+        ],
+        usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+      };
+
+      let turn = 0;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.novita.ai/openai/v1/chat/completions",
+            respond: () => {
+              turn += 1;
+              return {
+                status: 200,
+                json:
+                  turn === 1
+                    ? toolCallResponse
+                    : openAIChatResponse("It is 09:00 in Tokyo.", NOVITA_MODEL),
+              };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const result = await newNL().generate({
+            provider: "novita",
+            model: NOVITA_MODEL,
+            input: { text: "What time is it in Tokyo? Use the getTime tool." },
+            tools: {
+              getTime: {
+                description: "Get the current time in a timezone",
+                inputSchema: jsonSchema<{ tz: string }>({
+                  type: "object",
+                  properties: { tz: { type: "string" } },
+                  required: ["tz"],
+                }),
+                execute: async ({ tz }) => ({ time: "09:00", tz }),
+              },
+            },
+          });
+
+          expect(
+            calls.length >= 2,
+            `expected a follow-up turn after the tool call — saw ${calls.length}`,
+          );
+
+          const firstBody = calls[0].bodyJson as {
+            tools?: Array<{ function?: { name?: string } }>;
+          };
+          expect(
+            Array.isArray(firstBody.tools) && firstBody.tools.length > 0,
+            "first request must actually offer the tools array to Novita",
+          );
+          expect(
+            !!firstBody.tools?.some((t) => t.function?.name === "getTime"),
+            "offered tools must include getTime",
+          );
+
+          const followUp = calls[1].bodyJson as {
+            messages?: Array<{
+              role?: string;
+              tool_calls?: unknown[];
+            }>;
+          };
+          const assistantWithCalls = (followUp.messages ?? []).find(
+            (m) => m.role === "assistant" && Array.isArray(m.tool_calls),
+          );
+          expect(
+            !!assistantWithCalls,
+            "follow-up turn must replay the assistant's tool_calls",
+          );
+          const toolResultMsg = (followUp.messages ?? []).find(
+            (m) => m.role === "tool",
+          );
+          expect(
+            !!toolResultMsg,
+            "follow-up turn must include the executed tool's result",
+          );
+
+          expect(
+            Array.isArray(result.toolsUsed) &&
+              result.toolsUsed.includes("getTime"),
+            "generate() must report the tool as used",
+          );
+          expect(
+            String(result.content ?? "").includes("09:00"),
+            "generate() must return the final answer after the tool round-trip",
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: a fallback model's response_format rejection degrades to structuredData instead of throwing`,
+    async () => {
+      setEnv("NOVITA_API_KEY", "test-fake-novita-credential");
+      const { z } = await import("zod");
+      let turn = 0;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.novita.ai/openai/v1/chat/completions",
+            respond: () => {
+              turn += 1;
+              if (turn === 1) {
+                // The exact shape novita.json's evidence.liveMatrix records
+                // for this model: json_schema rejected outright.
+                return {
+                  status: 400,
+                  json: {
+                    error: {
+                      message:
+                        `Model '${NOVITA_FALLBACK_MODEL}' does not support ` +
+                        "'json_schema' response format. Supported formats: json_object",
+                      type: "invalid_request_error",
+                    },
+                  },
+                };
+              }
+              return {
+                status: 200,
+                json: openAIChatResponse(
+                  JSON.stringify({ city: "Tokyo", time: "09:00" }),
+                  NOVITA_FALLBACK_MODEL,
+                ),
+              };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const result = await newNL().generate({
+            provider: "novita",
+            model: NOVITA_FALLBACK_MODEL,
+            input: { text: "What time is it in Tokyo?" },
+            schema: z.object({ city: z.string(), time: z.string() }),
+            disableTools: true,
+          });
+
+          expectEq(
+            calls.length,
+            2,
+            "a rejected response_format must be retried once with the schema spelled into the prompt, not left to throw",
+          );
+
+          const firstBody = calls[0].bodyJson as {
+            response_format?: { type?: string };
+          };
+          expectEq(
+            firstBody.response_format?.type,
+            "json_schema",
+            "first request must still ask for json_schema natively",
+          );
+
+          const secondBody = calls[1].bodyJson as {
+            response_format?: unknown;
+            messages?: Array<{ role?: string; content?: unknown }>;
+          };
+          expect(
+            secondBody.response_format === undefined,
+            "retry must drop response_format entirely — this model's own evidence shows json_object is rejected too, so re-sending any response_format would just fail again",
+          );
+          const systemMessage = (secondBody.messages ?? []).find(
+            (m) => m.role === "system",
+          );
+          expect(
+            typeof systemMessage?.content === "string" &&
+              (systemMessage.content as string).includes("JSON Schema"),
+            "retry must spell the schema into a system message instead of response_format",
+          );
+
+          const structured = result.structuredData as
+            | { city?: string; time?: string }
+            | undefined;
+          expectEq(
+            structured?.city,
+            "Tokyo",
+            "degraded structuredData.city — a model-specific response_format rejection must still yield a parsed object, not a thrown error",
+          );
+          expectEq(structured?.time, "09:00", "degraded structuredData.time");
+        },
+      );
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -1434,6 +1903,8 @@ async function main(): Promise<void> {
     await testFriendliNotFoundPatternNarrowing();
     await testCatalogStructuralInvariants();
     await testCatalogFallbackRule();
+    await testMorphContentFormatSection();
+    await testNovitaCapabilitiesSection();
   } finally {
     restoreEnv();
   }

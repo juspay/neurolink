@@ -106,6 +106,7 @@ import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
 import {
+  isResponseFormatUnsupportedError,
   isSchemaComplexityError,
   isToolsSchemaConflictError,
 } from "../core/modules/structuredOutputPolicy.js";
@@ -1307,7 +1308,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     } catch (error) {
       const recoverable =
         responseFormat !== undefined &&
-        (isToolsSchemaConflictError(error) || isSchemaComplexityError(error));
+        (isToolsSchemaConflictError(error) ||
+          isSchemaComplexityError(error) ||
+          isResponseFormatUnsupportedError(error));
       if (!recoverable) {
         throw error;
       }
