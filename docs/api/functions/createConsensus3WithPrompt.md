@@ -8,8 +8,6 @@
 
 > **createConsensus3WithPrompt**(`systemPrompt`): [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/consensusWorkflow.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/consensusWorkflow.ts#L129)
-
 Consensus-3 with Custom System Prompt
 
 Same as CONSENSUS_3_WORKFLOW but allows custom system prompt

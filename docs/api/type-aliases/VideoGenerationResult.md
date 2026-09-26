@@ -8,8 +8,6 @@
 
 > **VideoGenerationResult** = `object`
 
-Defined in: [types/multimodal.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L294)
-
 Result type for generated video content
 
 Returned in `GenerateResult.video` when video generation is successful.
@@ -37,8 +35,6 @@ if (result.video) {
 
 > **data**: `Buffer`
 
-Defined in: [types/multimodal.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L296)
-
 Raw video data as Buffer
 
 ---
@@ -47,8 +43,6 @@ Raw video data as Buffer
 
 > **mediaType**: `"video/mp4"` \| `"video/webm"`
 
-Defined in: [types/multimodal.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L298)
-
 Video media type
 
 ---
@@ -56,8 +50,6 @@ Video media type
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/multimodal.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L300)
 
 Video metadata
 

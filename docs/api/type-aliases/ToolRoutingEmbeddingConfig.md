@@ -8,8 +8,6 @@
 
 > **ToolRoutingEmbeddingConfig** = `object`
 
-Defined in: [types/toolRouting.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L71)
-
 Configuration for the L2 embedding fast-path (ITEM B).
 
 When enabled and the catalog's total tool count reaches `minToolsToActivate`,
@@ -27,8 +25,6 @@ path — the turn is never broken.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/toolRouting.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L78)
-
 Activate the embedding fast-path. Default: false (backward-compatible).
 Setting this to true without supplying `provider`/`model` causes the SDK
 to try the stream call's configured provider; if that provider does not
@@ -40,8 +36,6 @@ support embeddings the layer fails open.
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/toolRouting.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L83)
-
 Maximum number of top-ranked tool candidates passed to the post-embedding
 decision stage. Default: 20.
 
@@ -50,8 +44,6 @@ decision stage. Default: 20.
 ### minToolsToActivate?
 
 > `optional` **minToolsToActivate?**: `number`
-
-Defined in: [types/toolRouting.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L89)
 
 Minimum total tool count in the catalog before the embedding path
 activates. Below this threshold the catalog is small enough that the LLM
@@ -63,8 +55,6 @@ router alone is cheap and fast. Default: 20.
 
 > `optional` **weights?**: [`ToolRetrievalWeights`](ToolRetrievalWeights.md)
 
-Defined in: [types/toolRouting.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L95)
-
 Weights for the hybrid scoring formula:
 score = cosine _ cosineSim + bm25 _ bm25Score (both normalized to [0,1])
 Default: `{ cosine: 0.8, bm25: 0.2 }`.
@@ -74,8 +64,6 @@ Default: `{ cosine: 0.8, bm25: 0.2 }`.
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/toolRouting.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L101)
 
 Provider name to use for the embedding call (e.g. "openai", "vertex").
 Defaults to the stream/generate call's configured provider. The provider
@@ -87,8 +75,6 @@ must support `embedMany()`.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/toolRouting.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L106)
-
 Embedding model name (provider-specific). When omitted the provider's
 default embedding model is used (e.g. text-embedding-3-small for OpenAI).
 
@@ -97,7 +83,5 @@ default embedding model is used (e.g. text-embedding-3-small for OpenAI).
 ### timeoutMs?
 
 > `optional` **timeoutMs?**: `number`
-
-Defined in: [types/toolRouting.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L110)
 
 Timeout for embedding calls in milliseconds. Default: 10000.

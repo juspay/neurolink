@@ -8,8 +8,6 @@
 
 > **requirePermission**(`permission`): `void`
 
-Defined in: [auth/authContext.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L231)
-
 Require a permission
 
 Throws if user doesn't have the permission.

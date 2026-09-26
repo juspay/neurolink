@@ -6,8 +6,6 @@
 
 # Class: CohereRelevanceScorer
 
-Defined in: [rag/reranker/reranker.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L370)
-
 Cohere-style relevance scorer interface
 Placeholder for integration with Cohere's rerank API
 
@@ -16,8 +14,6 @@ Placeholder for integration with Cohere's rerank API
 ### Constructor
 
 > **new CohereRelevanceScorer**(`modelName?`): `CohereRelevanceScorer`
-
-Defined in: [rag/reranker/reranker.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L373)
 
 #### Parameters
 
@@ -34,8 +30,6 @@ Defined in: [rag/reranker/reranker.ts:373](https://github.com/juspay/neurolink/b
 ### score()
 
 > **score**(`_query`, `_documents`): `Promise`\<`object`[]\>
-
-Defined in: [rag/reranker/reranker.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L377)
 
 #### Parameters
 

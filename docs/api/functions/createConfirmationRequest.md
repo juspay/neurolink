@@ -8,8 +8,6 @@
 
 > **createConfirmationRequest**(`message`, `options`): [`ElicitationRequestMessage`](../type-aliases/ElicitationRequestMessage.md)
 
-Defined in: [mcp/elicitationProtocol.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L391)
-
 Create protocol-compliant confirmation request
 
 ## Parameters

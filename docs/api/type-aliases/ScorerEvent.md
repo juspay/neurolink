@@ -8,8 +8,6 @@
 
 > **ScorerEvent** = `object`
 
-Defined in: [types/scorer.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L221)
-
 Scorer execution events for observability
 
 ## Properties
@@ -17,8 +15,6 @@ Scorer execution events for observability
 ### type
 
 > **type**: `"scorer:start"` \| `"scorer:end"` \| `"scorer:error"`
-
-Defined in: [types/scorer.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L223)
 
 Event type
 
@@ -28,8 +24,6 @@ Event type
 
 > **scorerId**: `string`
 
-Defined in: [types/scorer.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L225)
-
 Scorer identifier
 
 ---
@@ -37,8 +31,6 @@ Scorer identifier
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/scorer.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L227)
 
 Event timestamp
 
@@ -48,8 +40,6 @@ Event timestamp
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/scorer.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L229)
-
 Duration (for end events)
 
 ---
@@ -57,8 +47,6 @@ Duration (for end events)
 ### score?
 
 > `optional` **score?**: `number`
-
-Defined in: [types/scorer.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L231)
 
 Score result (for end events)
 
@@ -68,8 +56,6 @@ Score result (for end events)
 
 > `optional` **error?**: `string`
 
-Defined in: [types/scorer.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L233)
-
 Error message (for error events)
 
 ---
@@ -77,7 +63,5 @@ Error message (for error events)
 ### metadata?
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/scorer.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L235)
 
 Additional metadata

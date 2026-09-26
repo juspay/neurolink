@@ -6,8 +6,6 @@
 
 # Class: BaseError
 
-Defined in: [types/errors.ts:5](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L5)
-
 Base error class for all NeuroLink-specific errors.
 This allows for easy identification of errors thrown by the SDK.
 
@@ -27,8 +25,6 @@ This allows for easy identification of errors thrown by the SDK.
 ### Constructor
 
 > **new BaseError**(`message`): `BaseError`
-
-Defined in: [types/errors.ts:6](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L6)
 
 #### Parameters
 

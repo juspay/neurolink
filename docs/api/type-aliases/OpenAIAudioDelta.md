@@ -8,8 +8,6 @@
 
 > **OpenAIAudioDelta** = [`OpenAIRealtimeEvent`](OpenAIRealtimeEvent.md) & `object`
 
-Defined in: [types/stt.ts:705](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L705)
-
 ## Type Declaration
 
 ### type

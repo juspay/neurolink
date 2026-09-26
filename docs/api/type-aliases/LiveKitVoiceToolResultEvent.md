@@ -8,8 +8,6 @@
 
 > **LiveKitVoiceToolResultEvent** = `object`
 
-Defined in: [types/livekit.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L271)
-
 A tool invocation has finished. `result` carries the tool's structured
 output (for example, a chart payload) for the client to render.
 
@@ -19,15 +17,11 @@ output (for example, a chart payload) for the client to render.
 
 > **type**: `"tool-result"`
 
-Defined in: [types/livekit.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L272)
-
 ---
 
 ### data
 
 > **data**: `object`
-
-Defined in: [types/livekit.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L273)
 
 #### id?
 

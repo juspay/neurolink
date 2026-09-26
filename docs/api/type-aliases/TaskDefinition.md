@@ -8,15 +8,11 @@
 
 > **TaskDefinition** = `object`
 
-Defined in: [types/task.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L96)
-
 ## Properties
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/task.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L97)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/task.ts:97](https://github.com/juspay/neurolink/blob/release/
 
 > **prompt**: `string`
 
-Defined in: [types/task.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L98)
-
 ---
 
 ### schedule
 
 > **schedule**: [`TaskSchedule`](TaskSchedule.md)
-
-Defined in: [types/task.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L99)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/task.ts:99](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **mode?**: [`TaskExecutionMode`](TaskExecutionMode.md)
 
-Defined in: [types/task.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L100)
-
 ---
 
 ### type?
 
 > `optional` **type?**: [`ScheduledTaskType`](ScheduledTaskType.md)
-
-Defined in: [types/task.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L103)
 
 Task type discriminator. Default: "standard"
 
@@ -58,8 +46,6 @@ Task type discriminator. Default: "standard"
 
 > `optional` **autoresearch?**: [`AutoresearchTaskConfig`](AutoresearchTaskConfig.md)
 
-Defined in: [types/task.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L105)
-
 Autoresearch config (required when type === "autoresearch")
 
 ---
@@ -68,15 +54,11 @@ Autoresearch config (required when type === "autoresearch")
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/task.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L108)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/task.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L109)
 
 ---
 
@@ -84,23 +66,17 @@ Defined in: [types/task.ts:109](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/task.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L110)
-
 ---
 
 ### systemPrompt?
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/task.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L111)
-
 ---
 
 ### tools?
 
 > `optional` **tools?**: `boolean`
-
-Defined in: [types/task.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L113)
 
 Enable/disable tools for this task. Default: true
 
@@ -110,23 +86,17 @@ Enable/disable tools for this task. Default: true
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/task.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L114)
-
 ---
 
 ### temperature?
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/task.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L115)
-
 ---
 
 ### maxRuns?
 
 > `optional` **maxRuns?**: `number`
-
-Defined in: [types/task.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L119)
 
 Max number of executions. Omit for unlimited.
 
@@ -136,8 +106,6 @@ Max number of executions. Omit for unlimited.
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/task.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L121)
-
 Per-run timeout in ms. Default: 120000
 
 ---
@@ -145,8 +113,6 @@ Per-run timeout in ms. Default: 120000
 ### retry?
 
 > `optional` **retry?**: `object`
-
-Defined in: [types/task.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L124)
 
 #### maxAttempts?
 
@@ -166,8 +132,6 @@ Default: [30000, 60000, 300000]
 
 > `optional` **onSuccess?**: (`result`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/task.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L132)
-
 #### Parameters
 
 ##### result
@@ -184,8 +148,6 @@ Defined in: [types/task.ts:132](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **onError?**: (`error`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/task.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L133)
-
 #### Parameters
 
 ##### error
@@ -201,8 +163,6 @@ Defined in: [types/task.ts:133](https://github.com/juspay/neurolink/blob/release
 ### onComplete?
 
 > `optional` **onComplete?**: (`task`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/task.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L135)
 
 Called when task reaches a terminal state (completed, failed, cancelled)
 
@@ -221,5 +181,3 @@ Called when task reaches a terminal state (completed, failed, cancelled)
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/task.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L137)

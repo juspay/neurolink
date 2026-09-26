@@ -8,8 +8,6 @@
 
 > **BackgroundCommandState** = `"queued"` \| `"running"` \| `"exited"` \| `"killed"` \| `"timeout"` \| `"output-limit"`
 
-Defined in: [types/backgroundCommand.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/backgroundCommand.ts#L37)
-
 Lifecycle of one background command.
 
 `queued` is the window between the handle being returned and the OS

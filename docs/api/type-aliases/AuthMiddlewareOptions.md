@@ -8,8 +8,6 @@
 
 > **AuthMiddlewareOptions** = `object`
 
-Defined in: [types/auth.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L573)
-
 Auth middleware options
 
 ## Properties
@@ -17,8 +15,6 @@ Auth middleware options
 ### provider
 
 > **provider**: [`AuthProvider`](AuthProvider.md)
-
-Defined in: [types/auth.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L575)
 
 Auth provider instance
 
@@ -28,8 +24,6 @@ Auth provider instance
 
 > `optional` **excludePaths?**: `string`[]
 
-Defined in: [types/auth.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L577)
-
 Routes to exclude from authentication
 
 ---
@@ -38,8 +32,6 @@ Routes to exclude from authentication
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/auth.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L579)
-
 Whether auth is optional (continue if no token)
 
 ---
@@ -47,8 +39,6 @@ Whether auth is optional (continue if no token)
 ### onUnauthorized?
 
 > `optional` **onUnauthorized?**: (`context`) => `Response` \| `Promise`\<`Response`\>
-
-Defined in: [types/auth.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L581)
 
 Custom unauthorized handler
 
@@ -67,8 +57,6 @@ Custom unauthorized handler
 ### onError?
 
 > `optional` **onError?**: (`error`, `context`) => `Response` \| `Promise`\<`Response`\>
-
-Defined in: [types/auth.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L585)
 
 Custom error handler
 

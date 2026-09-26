@@ -8,8 +8,6 @@
 
 > **JWK** = `object`
 
-Defined in: [types/auth.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L241)
-
 JWKS (JSON Web Key Set) types
 
 ## Properties
@@ -18,15 +16,11 @@ JWKS (JSON Web Key Set) types
 
 > **kty**: `string`
 
-Defined in: [types/auth.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L242)
-
 ---
 
 ### kid?
 
 > `optional` **kid?**: `string`
-
-Defined in: [types/auth.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L243)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/auth.ts:243](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **use?**: `string`
 
-Defined in: [types/auth.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L244)
-
 ---
 
 ### alg?
 
 > `optional` **alg?**: `string`
-
-Defined in: [types/auth.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L245)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/auth.ts:245](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **n?**: `string`
 
-Defined in: [types/auth.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L246)
-
 ---
 
 ### e?
 
 > `optional` **e?**: `string`
-
-Defined in: [types/auth.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L247)
 
 ---
 
@@ -66,20 +52,14 @@ Defined in: [types/auth.ts:247](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **x?**: `string`
 
-Defined in: [types/auth.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L248)
-
 ---
 
 ### y?
 
 > `optional` **y?**: `string`
 
-Defined in: [types/auth.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L249)
-
 ---
 
 ### crv?
 
 > `optional` **crv?**: `string`
-
-Defined in: [types/auth.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L250)

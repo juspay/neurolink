@@ -6,8 +6,6 @@
 
 # Class: InMemoryBM25Index
 
-Defined in: [rag/retrieval/hybridSearch.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/hybridSearch.ts#L28)
-
 In-memory BM25 implementation for testing and development
 
 ## Implements
@@ -29,8 +27,6 @@ In-memory BM25 implementation for testing and development
 ### search()
 
 > **search**(`query`, `topK?`): `Promise`\<[`BM25Result`](../type-aliases/BM25Result.md)[]\>
-
-Defined in: [rag/retrieval/hybridSearch.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/hybridSearch.ts#L37)
 
 Search documents using BM25 algorithm
 
@@ -63,8 +59,6 @@ Array of BM25 results
 ### addDocuments()
 
 > **addDocuments**(`documents`): `Promise`\<`void`\>
-
-Defined in: [rag/retrieval/hybridSearch.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/hybridSearch.ts#L95)
 
 Add documents to the index
 

@@ -8,8 +8,6 @@
 
 > **generateSummaryStats**(`results`): [`SummaryStats`](../type-aliases/SummaryStats.md)
 
-Defined in: [workflow/utils/workflowMetrics.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/utils/workflowMetrics.ts#L307)
-
 Generate summary statistics for multiple executions
 
 ## Parameters

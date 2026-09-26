@@ -8,8 +8,6 @@
 
 > **ClassificationStats** = `object`
 
-Defined in: [types/taskClassification.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L38)
-
 Statistics for batch classification analysis
 
 ## Properties
@@ -17,8 +15,6 @@ Statistics for batch classification analysis
 ### total
 
 > **total**: `number`
-
-Defined in: [types/taskClassification.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L40)
 
 Total number of prompts analyzed
 
@@ -28,8 +24,6 @@ Total number of prompts analyzed
 
 > **fast**: `number`
 
-Defined in: [types/taskClassification.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L42)
-
 Number of prompts classified as fast
 
 ---
@@ -38,8 +32,6 @@ Number of prompts classified as fast
 
 > **reasoning**: `number`
 
-Defined in: [types/taskClassification.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L44)
-
 Number of prompts classified as reasoning
 
 ---
@@ -47,7 +39,5 @@ Number of prompts classified as reasoning
 ### averageConfidence
 
 > **averageConfidence**: `number`
-
-Defined in: [types/taskClassification.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L46)
 
 Average confidence across all classifications

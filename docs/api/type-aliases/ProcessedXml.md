@@ -8,8 +8,6 @@
 
 > **ProcessedXml** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L512)
-
 Processed XML file result.
 
 ## Type Declaration

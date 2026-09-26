@@ -8,8 +8,6 @@
 
 > **getCurrentSession**(): [`AuthSession`](../type-aliases/AuthSession.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L93)
-
 Get the current session
 
 Convenience function to get just the session from context.

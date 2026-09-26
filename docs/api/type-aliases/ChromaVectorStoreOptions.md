@@ -8,15 +8,11 @@
 
 > **ChromaVectorStoreOptions** = `object`
 
-Defined in: [types/vectorStoreChroma.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L74)
-
 ## Properties
 
 ### distanceMetric?
 
 > `optional` **distanceMetric?**: [`ChromaDistanceMetric`](ChromaDistanceMetric.md)
-
-Defined in: [types/vectorStoreChroma.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L81)
 
 The distance metric configured on the underlying Chroma collection(s)
 (Chroma's `hnsw:space`). Used only to convert returned distances into a

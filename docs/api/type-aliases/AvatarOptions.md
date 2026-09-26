@@ -8,8 +8,6 @@
 
 > **AvatarOptions** = `object`
 
-Defined in: [types/avatar.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L42)
-
 Options for avatar video generation.
 
 ## Indexable
@@ -24,8 +22,6 @@ Provider-specific additional options.
 
 > **image**: `Buffer` \| `string`
 
-Defined in: [types/avatar.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L44)
-
 Source portrait image (Buffer, file path, or HTTPS URL).
 
 ---
@@ -33,8 +29,6 @@ Source portrait image (Buffer, file path, or HTTPS URL).
 ### audio?
 
 > `optional` **audio?**: `Buffer` \| `string`
-
-Defined in: [types/avatar.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L50)
 
 Audio source — direct lip-sync.
 Either provide `audio` OR `text` (with optional `ttsProvider` / `voice`).
@@ -44,8 +38,6 @@ Either provide `audio` OR `text` (with optional `ttsProvider` / `voice`).
 ### text?
 
 > `optional` **text?**: `string`
-
-Defined in: [types/avatar.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L57)
 
 Text for the avatar to speak. When provided without `audio`, the
 NeuroLink dispatcher first runs TTS (`ttsProvider`) to produce audio,
@@ -57,8 +49,6 @@ then passes the audio to the avatar handler.
 
 > `optional` **ttsProvider?**: `string`
 
-Defined in: [types/avatar.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L60)
-
 TTS provider for text → audio when `text` is used. Default: "openai-tts".
 
 ---
@@ -66,8 +56,6 @@ TTS provider for text → audio when `text` is used. Default: "openai-tts".
 ### voice?
 
 > `optional` **voice?**: `string`
-
-Defined in: [types/avatar.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L63)
 
 Voice id passed through to the TTS provider when `text` is used.
 
@@ -77,8 +65,6 @@ Voice id passed through to the TTS provider when `text` is used.
 
 > `optional` **provider?**: [`AvatarProviderName`](AvatarProviderName.md)
 
-Defined in: [types/avatar.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L66)
-
 Avatar provider override (e.g. "d-id", "heygen", "replicate").
 
 ---
@@ -86,8 +72,6 @@ Avatar provider override (e.g. "d-id", "heygen", "replicate").
 ### quality?
 
 > `optional` **quality?**: [`AvatarQuality`](AvatarQuality.md)
-
-Defined in: [types/avatar.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L69)
 
 Output quality preset.
 
@@ -97,8 +81,6 @@ Output quality preset.
 
 > `optional` **format?**: [`AvatarVideoFormat`](AvatarVideoFormat.md)
 
-Defined in: [types/avatar.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L72)
-
 Output format (default: "mp4").
 
 ---
@@ -107,8 +89,6 @@ Output format (default: "mp4").
 
 > `optional` **output?**: `string`
 
-Defined in: [types/avatar.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L75)
-
 Output file path (optional — buffer is always returned in the result).
 
 ---
@@ -116,7 +96,5 @@ Output file path (optional — buffer is always returned in the result).
 ### timeout?
 
 > `optional` **timeout?**: `number`
-
-Defined in: [types/avatar.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L78)
 
 Per-call timeout in ms (default: 5 minutes).

@@ -8,8 +8,6 @@
 
 > **RequiredRedactionConfig** = `object`
 
-Defined in: [types/server.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L239)
-
 Required redaction configuration (with defaults applied)
 
 ## Properties
@@ -18,15 +16,11 @@ Required redaction configuration (with defaults applied)
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L240)
-
 ---
 
 ### additionalFields
 
 > **additionalFields**: `string`[]
-
-Defined in: [types/server.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L241)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/server.ts:241](https://github.com/juspay/neurolink/blob/relea
 
 > **preserveFields**: `string`[]
 
-Defined in: [types/server.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L242)
-
 ---
 
 ### redactToolArgs
 
 > **redactToolArgs**: `boolean`
-
-Defined in: [types/server.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L243)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/server.ts:243](https://github.com/juspay/neurolink/blob/relea
 
 > **redactToolResults**: `boolean`
 
-Defined in: [types/server.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L244)
-
 ---
 
 ### placeholder
 
 > **placeholder**: `string`
-
-Defined in: [types/server.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L245)

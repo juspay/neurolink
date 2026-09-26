@@ -8,8 +8,6 @@
 
 > **createConditionalScorer**(`id`, `name`, `condition`, `scorer`, `options?`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L501)
-
 Create a conditional scorer that only runs if a condition is met
 
 ## Parameters

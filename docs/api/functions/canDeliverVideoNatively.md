@@ -8,8 +8,6 @@
 
 > **canDeliverVideoNatively**(`provider`, `video`, `priorNativeVideoBytes?`, `model?`): [`VideoDeliveryDecision`](../type-aliases/VideoDeliveryDecision.md)
 
-Defined in: [adapters/videoFormatSupport.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/videoFormatSupport.ts#L381)
-
 Whether one specific clip may go to one specific provider as bytes.
 
 Every rejection carries a reason the caller can log verbatim, because the

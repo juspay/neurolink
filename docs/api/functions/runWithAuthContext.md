@@ -8,8 +8,6 @@
 
 > **runWithAuthContext**\<`T`\>(`context`, `callback`): `T` \| `Promise`\<`T`\>
 
-Defined in: [auth/authContext.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L40)
-
 Run a function with authentication context
 
 Sets up async local storage so getAuthContext() can be called

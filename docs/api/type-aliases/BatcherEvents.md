@@ -8,8 +8,6 @@
 
 > **BatcherEvents**\<`T`\> = `object`
 
-Defined in: [types/mcp.ts:2368](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2368)
-
 Batcher events
 
 ## Type Parameters
@@ -23,8 +21,6 @@ Batcher events
 ### batchStarted
 
 > **batchStarted**: `object`
-
-Defined in: [types/mcp.ts:2369](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2369)
 
 #### batchId
 
@@ -40,8 +36,6 @@ Defined in: [types/mcp.ts:2369](https://github.com/juspay/neurolink/blob/release
 
 > **batchCompleted**: `object`
 
-Defined in: [types/mcp.ts:2370](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2370)
-
 #### batchId
 
 > **batchId**: `string`
@@ -55,8 +49,6 @@ Defined in: [types/mcp.ts:2370](https://github.com/juspay/neurolink/blob/release
 ### batchFailed
 
 > **batchFailed**: `object`
-
-Defined in: [types/mcp.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2371)
 
 #### batchId
 
@@ -72,8 +64,6 @@ Defined in: [types/mcp.ts:2371](https://github.com/juspay/neurolink/blob/release
 
 > **requestQueued**: `object`
 
-Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2372)
-
 #### requestId
 
 > **requestId**: `string`
@@ -87,8 +77,6 @@ Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/release
 ### flushTriggered
 
 > **flushTriggered**: `object`
-
-Defined in: [types/mcp.ts:2373](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2373)
 
 #### reason
 

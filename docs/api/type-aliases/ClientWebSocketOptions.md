@@ -8,8 +8,6 @@
 
 > **ClientWebSocketOptions** = `object`
 
-Defined in: [types/client.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L954)
-
 WebSocket connection options
 
 ## Properties
@@ -17,8 +15,6 @@ WebSocket connection options
 ### url
 
 > **url**: `string`
-
-Defined in: [types/client.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L956)
 
 WebSocket URL
 
@@ -28,8 +24,6 @@ WebSocket URL
 
 > `optional` **protocols?**: `string` \| `string`[]
 
-Defined in: [types/client.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L958)
-
 Protocols
 
 ---
@@ -37,8 +31,6 @@ Protocols
 ### autoReconnect?
 
 > `optional` **autoReconnect?**: `boolean`
-
-Defined in: [types/client.ts:960](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L960)
 
 Auto-reconnect on disconnect
 
@@ -48,8 +40,6 @@ Auto-reconnect on disconnect
 
 > `optional` **reconnectInterval?**: `number`
 
-Defined in: [types/client.ts:962](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L962)
-
 Reconnect interval in ms
 
 ---
@@ -58,8 +48,6 @@ Reconnect interval in ms
 
 > `optional` **maxReconnectAttempts?**: `number`
 
-Defined in: [types/client.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L964)
-
 Maximum reconnect attempts
 
 ---
@@ -67,7 +55,5 @@ Maximum reconnect attempts
 ### heartbeatInterval?
 
 > `optional` **heartbeatInterval?**: `number`
-
-Defined in: [types/client.ts:966](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L966)
 
 Heartbeat interval in ms

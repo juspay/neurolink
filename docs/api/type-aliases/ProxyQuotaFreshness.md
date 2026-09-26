@@ -7,5 +7,3 @@
 # Type Alias: ProxyQuotaFreshness
 
 > **ProxyQuotaFreshness** = `"unknown"` \| `"fresh"` \| `"stale_known"` \| `"refresh_due"`
-
-Defined in: [types/proxy.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L559)

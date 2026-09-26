@@ -8,8 +8,6 @@
 
 > **AgentStreamChunk** = `object`
 
-Defined in: [types/agentNetwork.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L656)
-
 Agent stream chunk
 
 ## Properties
@@ -17,8 +15,6 @@ Agent stream chunk
 ### type
 
 > **type**: [`AgentStreamChunkType`](AgentStreamChunkType.md)
-
-Defined in: [types/agentNetwork.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L658)
 
 Chunk type
 
@@ -28,8 +24,6 @@ Chunk type
 
 > **agentId**: `string`
 
-Defined in: [types/agentNetwork.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L661)
-
 Agent ID
 
 ---
@@ -37,8 +31,6 @@ Agent ID
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/agentNetwork.ts:664](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L664)
 
 Timestamp
 
@@ -48,8 +40,6 @@ Timestamp
 
 > **traceId**: `string`
 
-Defined in: [types/agentNetwork.ts:667](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L667)
-
 Trace ID
 
 ---
@@ -57,8 +47,6 @@ Trace ID
 ### content?
 
 > `optional` **content?**: `string`
-
-Defined in: [types/agentNetwork.ts:670](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L670)
 
 Content (for text chunks)
 
@@ -68,8 +56,6 @@ Content (for text chunks)
 
 > `optional` **isPartial?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L673)
-
 Whether content is partial (for text chunks)
 
 ---
@@ -77,8 +63,6 @@ Whether content is partial (for text chunks)
 ### usage?
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
-
-Defined in: [types/agentNetwork.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L676)
 
 Token usage (for complete chunks)
 
@@ -88,8 +72,6 @@ Token usage (for complete chunks)
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/agentNetwork.ts:679](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L679)
-
 Duration in ms (for complete chunks)
 
 ---
@@ -97,8 +79,6 @@ Duration in ms (for complete chunks)
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/agentNetwork.ts:682](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L682)
 
 Error message (for error chunks)
 
@@ -108,8 +88,6 @@ Error message (for error chunks)
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/agentNetwork.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L685)
-
 Tool name (for tool chunks)
 
 ---
@@ -117,8 +95,6 @@ Tool name (for tool chunks)
 ### toolCallId?
 
 > `optional` **toolCallId?**: `string`
-
-Defined in: [types/agentNetwork.ts:688](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L688)
 
 Tool call ID (for tool chunks)
 
@@ -128,8 +104,6 @@ Tool call ID (for tool chunks)
 
 > `optional` **args?**: `unknown`
 
-Defined in: [types/agentNetwork.ts:691](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L691)
-
 Tool arguments (for tool call chunks)
 
 ---
@@ -138,8 +112,6 @@ Tool arguments (for tool call chunks)
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/agentNetwork.ts:694](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L694)
-
 Tool result (for tool result chunks)
 
 ---
@@ -147,7 +119,5 @@ Tool result (for tool result chunks)
 ### success?
 
 > `optional` **success?**: `boolean`
-
-Defined in: [types/agentNetwork.ts:697](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L697)
 
 Whether tool succeeded (for tool result chunks)

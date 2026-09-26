@@ -8,6 +8,4 @@
 
 > **ServiceStatus** = `"active"` \| `"inactive"` \| `"error"` \| `"initializing"`
 
-Defined in: [types/service.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L32)
-
 Service status enumeration

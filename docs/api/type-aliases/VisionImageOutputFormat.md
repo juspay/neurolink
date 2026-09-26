@@ -8,8 +8,6 @@
 
 > **VisionImageOutputFormat** = `"png"` \| `"jpeg"`
 
-Defined in: [types/file.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L36)
-
 Transcode target for a vision-incompatible image (`adapters/imageFormatSupport.ts`).
 
 Defaults to `"png"` everywhere a caller does not pick one: sources routed

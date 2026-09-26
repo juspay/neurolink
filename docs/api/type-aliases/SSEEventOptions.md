@@ -8,8 +8,6 @@
 
 > **SSEEventOptions** = `object`
 
-Defined in: [types/server.ts:1454](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1454)
-
 Options for a single SSE message.
 
 ## Properties
@@ -18,15 +16,11 @@ Options for a single SSE message.
 
 > `optional` **event?**: `string`
 
-Defined in: [types/server.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1455)
-
 ---
 
 ### data
 
 > **data**: `string`
-
-Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1456)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **id?**: `string`
 
-Defined in: [types/server.ts:1457](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1457)
-
 ---
 
 ### retry?
 
 > `optional` **retry?**: `number`
-
-Defined in: [types/server.ts:1458](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1458)

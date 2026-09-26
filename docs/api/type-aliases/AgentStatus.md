@@ -8,8 +8,6 @@
 
 > **AgentStatus** = `object`
 
-Defined in: [types/agentNetwork.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L151)
-
 Agent status information
 
 ## Properties
@@ -17,8 +15,6 @@ Agent status information
 ### id
 
 > **id**: `string`
-
-Defined in: [types/agentNetwork.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L153)
 
 Agent ID
 
@@ -28,8 +24,6 @@ Agent ID
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L156)
-
 Agent name
 
 ---
@@ -37,8 +31,6 @@ Agent name
 ### executionCount
 
 > **executionCount**: `number`
-
-Defined in: [types/agentNetwork.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L159)
 
 Number of executions
 
@@ -48,8 +40,6 @@ Number of executions
 
 > `optional` **lastExecutionTime?**: `number`
 
-Defined in: [types/agentNetwork.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L162)
-
 Last execution time in ms
 
 ---
@@ -57,7 +47,5 @@ Last execution time in ms
 ### available
 
 > **available**: `boolean`
-
-Defined in: [types/agentNetwork.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L165)
 
 Whether agent is available

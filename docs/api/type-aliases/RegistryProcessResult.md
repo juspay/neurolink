@@ -8,8 +8,6 @@
 
 > **RegistryProcessResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L381)
-
 Result of processing a file through the registry.
 Includes type information for tracking which processor was used.
 
@@ -25,8 +23,6 @@ Includes type information for tracking which processor was used.
 
 > **type**: `string`
 
-Defined in: [types/processor.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L383)
-
 Type/name of the processor that handled the file
 
 ---
@@ -35,8 +31,6 @@ Type/name of the processor that handled the file
 
 > **data**: `T` \| `null`
 
-Defined in: [types/processor.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L386)
-
 Processed data (null if processing failed)
 
 ---
@@ -44,7 +38,5 @@ Processed data (null if processing failed)
 ### error?
 
 > `optional` **error?**: [`UnsupportedFileError`](UnsupportedFileError.md)
-
-Defined in: [types/processor.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L389)
 
 Error information if processing failed

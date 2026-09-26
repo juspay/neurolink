@@ -8,8 +8,6 @@
 
 > **ModelConfig** = `object`
 
-Defined in: [types/model.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L24)
-
 Model configuration for a specific provider
 
 ## Properties
@@ -17,8 +15,6 @@ Model configuration for a specific provider
 ### id
 
 > **id**: `string`
-
-Defined in: [types/model.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L26)
 
 Model identifier
 
@@ -28,8 +24,6 @@ Model identifier
 
 > **name**: `string`
 
-Defined in: [types/model.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L28)
-
 Display name
 
 ---
@@ -38,8 +32,6 @@ Display name
 
 > **tier**: [`ModelTier`](ModelTier.md)
 
-Defined in: [types/model.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L30)
-
 Performance tier
 
 ---
@@ -47,8 +39,6 @@ Performance tier
 ### cost
 
 > **cost**: `object`
-
-Defined in: [types/model.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L32)
 
 Cost per 1K tokens
 
@@ -66,8 +56,6 @@ Cost per 1K tokens
 
 > **capabilities**: `string`[]
 
-Defined in: [types/model.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L37)
-
 Model capabilities
 
 ---
@@ -75,7 +63,5 @@ Model capabilities
 ### options?
 
 > `optional` **options?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/model.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L39)
 
 Model-specific options

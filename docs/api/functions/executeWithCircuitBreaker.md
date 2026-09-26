@@ -8,8 +8,6 @@
 
 > **executeWithCircuitBreaker**\<`T`\>(`breakerName`, `operation`, `operationType?`, `config?`): `Promise`\<`T`\>
 
-Defined in: [rag/resilience/CircuitBreaker.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L550)
-
 Convenience function to execute with circuit breaker
 
 ## Type Parameters

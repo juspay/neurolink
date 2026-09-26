@@ -8,8 +8,6 @@
 
 > **LogoConfig** = `object`
 
-Defined in: [types/ppt.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1332)
-
 Logo configuration options
 
 ## Properties
@@ -17,8 +15,6 @@ Logo configuration options
 ### data
 
 > **data**: `Buffer` \| `string`
-
-Defined in: [types/ppt.ts:1334](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1334)
 
 Logo data - Buffer, base64 string, data URI, or file path
 
@@ -28,8 +24,6 @@ Logo data - Buffer, base64 string, data URI, or file path
 
 > `optional` **position?**: [`LogoPosition`](LogoPosition.md)
 
-Defined in: [types/ppt.ts:1336](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1336)
-
 Position on slides (default: "bottom-right")
 
 ---
@@ -37,8 +31,6 @@ Position on slides (default: "bottom-right")
 ### width?
 
 > `optional` **width?**: `number`
-
-Defined in: [types/ppt.ts:1338](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1338)
 
 Width in inches (default: 1)
 
@@ -48,8 +40,6 @@ Width in inches (default: 1)
 
 > `optional` **height?**: `number`
 
-Defined in: [types/ppt.ts:1340](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1340)
-
 Height in inches (default: 0.4)
 
 ---
@@ -57,7 +47,5 @@ Height in inches (default: 0.4)
 ### showOn?
 
 > `optional` **showOn?**: `"all-slides"` \| `"title-only"` \| `"title-and-closing"`
-
-Defined in: [types/ppt.ts:1342](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1342)
 
 Show on all slides or specific types (default: "all-slides")

@@ -6,8 +6,6 @@
 
 # Class: AgentExposureManager
 
-Defined in: [mcp/agentExposure.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L387)
-
 Agent Exposure Manager
 
 Manages the lifecycle of exposed agents and workflows,
@@ -18,8 +16,6 @@ providing registration, lookup, and invocation capabilities.
 ### Constructor
 
 > **new AgentExposureManager**(`options?`): `AgentExposureManager`
-
-Defined in: [mcp/agentExposure.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L391)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [mcp/agentExposure.ts:391](https://github.com/juspay/neurolink/blob/
 ### exposeAgent()
 
 > **exposeAgent**(`agent`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
-
-Defined in: [mcp/agentExposure.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L398)
 
 Expose an agent and register it
 
@@ -57,8 +51,6 @@ Expose an agent and register it
 
 > **exposeWorkflow**(`workflow`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/agentExposure.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L407)
-
 Expose a workflow and register it
 
 #### Parameters
@@ -77,8 +69,6 @@ Expose a workflow and register it
 
 > **getExposedTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/agentExposure.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L416)
-
 Get all exposed tools
 
 #### Returns
@@ -90,8 +80,6 @@ Get all exposed tools
 ### getExposedTool()
 
 > **getExposedTool**(`toolName`): [`MCPServerTool`](../type-aliases/MCPServerTool.md) \| `undefined`
-
-Defined in: [mcp/agentExposure.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L423)
 
 Get exposed tool by name
 
@@ -111,8 +99,6 @@ Get exposed tool by name
 
 > **getExposureResult**(`toolName`): [`ExposureResult`](../type-aliases/ExposureResult.md) \| `undefined`
 
-Defined in: [mcp/agentExposure.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L430)
-
 Get exposure result by tool name
 
 #### Parameters
@@ -130,8 +116,6 @@ Get exposure result by tool name
 ### getToolsBySourceType()
 
 > **getToolsBySourceType**(`sourceType`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
-
-Defined in: [mcp/agentExposure.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L437)
 
 Get tools by source type
 
@@ -151,8 +135,6 @@ Get tools by source type
 
 > **unexpose**(`toolName`): `boolean`
 
-Defined in: [mcp/agentExposure.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L446)
-
 Remove exposed tool
 
 #### Parameters
@@ -171,8 +153,6 @@ Remove exposed tool
 
 > **clear**(): `void`
 
-Defined in: [mcp/agentExposure.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L453)
-
 Clear all exposed tools
 
 #### Returns
@@ -184,8 +164,6 @@ Clear all exposed tools
 ### getStatistics()
 
 > **getStatistics**(): `object`
-
-Defined in: [mcp/agentExposure.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L460)
 
 Get statistics
 

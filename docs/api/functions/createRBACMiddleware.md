@@ -8,8 +8,6 @@
 
 > **createRBACMiddleware**(`config`): [`AuthMiddlewareHandler`](../type-aliases/AuthMiddlewareHandler.md)\<[`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md)\>
 
-Defined in: [auth/middleware/AuthMiddleware.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L351)
-
 Create RBAC (Role-Based Access Control) middleware
 
 Checks if authenticated user has required roles/permissions.

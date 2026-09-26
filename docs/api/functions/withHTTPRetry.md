@@ -8,8 +8,6 @@
 
 > **withHTTPRetry**\<`T`\>(`operation`, `config?`): `Promise`\<`T`\>
 
-Defined in: [mcp/httpRetryHandler.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/httpRetryHandler.ts#L166)
-
 Execute an HTTP operation with retry logic
 
 Implements exponential backoff with jitter to avoid thundering herd problems.

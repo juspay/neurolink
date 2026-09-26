@@ -8,8 +8,6 @@
 
 > **servesInferenceKind**(`descriptor`, `kind`): `boolean`
 
-Defined in: [utils/decisionAnswers.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L78)
-
 Whether a descriptor declares support for a given inference type.
 
 ## Parameters

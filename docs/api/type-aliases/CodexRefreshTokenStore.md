@@ -8,8 +8,6 @@
 
 > **CodexRefreshTokenStore** = `object`
 
-Defined in: [types/proxy.ts:1221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1221)
-
 Minimal persistence contract needed by Codex rotating-token refreshes.
 
 ## Methods
@@ -17,8 +15,6 @@ Minimal persistence contract needed by Codex rotating-token refreshes.
 ### peekTokens()
 
 > **peekTokens**(`provider`): `Promise`\<[`StoredOAuthTokens`](StoredOAuthTokens.md) \| `null`\>
-
-Defined in: [types/proxy.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1222)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [types/proxy.ts:1222](https://github.com/juspay/neurolink/blob/relea
 ### saveTokens()
 
 > **saveTokens**(`provider`, `tokens`): `Promise`\<`void`\>
-
-Defined in: [types/proxy.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1223)
 
 #### Parameters
 

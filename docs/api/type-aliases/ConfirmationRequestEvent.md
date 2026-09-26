@@ -8,8 +8,6 @@
 
 > **ConfirmationRequestEvent** = `object`
 
-Defined in: [types/hitl.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L106)
-
 Event payload for confirmation requests
 Sent to frontends via EventEmitter when tool needs approval
 
@@ -19,15 +17,11 @@ Sent to frontends via EventEmitter when tool needs approval
 
 > **type**: `"hitl:confirmation-request"`
 
-Defined in: [types/hitl.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L107)
-
 ---
 
 ### payload
 
 > **payload**: `object`
-
-Defined in: [types/hitl.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L108)
 
 #### confirmationId
 

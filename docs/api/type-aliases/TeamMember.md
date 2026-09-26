@@ -8,8 +8,6 @@
 
 > **TeamMember** = `object`
 
-Defined in: [types/ppt.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L386)
-
 Team member for team slides
 Maps to: addImage (photo) + addText (details)
 
@@ -19,23 +17,17 @@ Maps to: addImage (photo) + addText (details)
 
 > **name**: `string`
 
-Defined in: [types/ppt.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L387)
-
 ---
 
 ### role
 
 > **role**: `string`
 
-Defined in: [types/ppt.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L388)
-
 ---
 
 ### photoPrompt?
 
 > `optional` **photoPrompt?**: `string`
-
-Defined in: [types/ppt.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L390)
 
 Photo prompt for AI generation
 
@@ -45,8 +37,6 @@ Photo prompt for AI generation
 
 > `optional` **photoData?**: `string`
 
-Defined in: [types/ppt.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L392)
-
 Pre-existing photo URL or base64
 
 ---
@@ -54,7 +44,5 @@ Pre-existing photo URL or base64
 ### link?
 
 > `optional` **link?**: `string`
-
-Defined in: [types/ppt.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L394)
 
 Optional social/contact link

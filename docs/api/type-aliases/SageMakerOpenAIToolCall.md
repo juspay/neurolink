@@ -8,8 +8,6 @@
 
 > **SageMakerOpenAIToolCall** = `object`
 
-Defined in: [types/providers.ts:2450](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2450)
-
 SageMaker tool_call item in the OpenAI-compatible payload shape.
 
 ## Properties
@@ -18,23 +16,17 @@ SageMaker tool_call item in the OpenAI-compatible payload shape.
 
 > **type**: `"function"`
 
-Defined in: [types/providers.ts:2451](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2451)
-
 ---
 
 ### id
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:2452](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2452)
-
 ---
 
 ### function
 
 > **function**: `object`
-
-Defined in: [types/providers.ts:2453](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2453)
 
 #### name
 

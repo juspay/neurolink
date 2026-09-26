@@ -6,8 +6,6 @@
 
 # Class: MemorySessionStorage
 
-Defined in: [auth/sessionManager.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L31)
-
 In-memory session storage
 
 Simple session storage using Map. Suitable for single-instance deployments
@@ -33,8 +31,6 @@ or development. Sessions are lost on restart.
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L35)
-
 Get a session by ID
 
 #### Parameters
@@ -56,8 +52,6 @@ Get a session by ID
 ### set()
 
 > **set**(`session`): `Promise`\<`void`\>
-
-Defined in: [auth/sessionManager.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L51)
 
 Store a session
 
@@ -81,8 +75,6 @@ Store a session
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L63)
-
 Delete a session
 
 #### Parameters
@@ -104,8 +96,6 @@ Delete a session
 ### getUserSessions()
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
-
-Defined in: [auth/sessionManager.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L78)
 
 Get all sessions for a user
 
@@ -129,8 +119,6 @@ Get all sessions for a user
 
 > **deleteUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L96)
-
 Delete all sessions for a user
 
 #### Parameters
@@ -153,8 +141,6 @@ Delete all sessions for a user
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L107)
-
 Clear all sessions (for cleanup)
 
 #### Returns
@@ -170,8 +156,6 @@ Clear all sessions (for cleanup)
 ### isHealthy()
 
 > **isHealthy**(): `Promise`\<`boolean`\>
-
-Defined in: [auth/sessionManager.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/auth/sessionManager.ts#L112)
 
 Health check
 

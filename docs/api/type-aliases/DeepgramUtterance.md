@@ -8,15 +8,11 @@
 
 > **DeepgramUtterance** = `object`
 
-Defined in: [types/stt.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L463)
-
 ## Properties
 
 ### start
 
 > **start**: `number`
-
-Defined in: [types/stt.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L464)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/stt.ts:464](https://github.com/juspay/neurolink/blob/release/
 
 > **end**: `number`
 
-Defined in: [types/stt.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L465)
-
 ---
 
 ### confidence
 
 > **confidence**: `number`
-
-Defined in: [types/stt.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L466)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/stt.ts:466](https://github.com/juspay/neurolink/blob/release/
 
 > **channel**: `number`
 
-Defined in: [types/stt.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L467)
-
 ---
 
 ### transcript
 
 > **transcript**: `string`
-
-Defined in: [types/stt.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L468)
 
 ---
 
@@ -56,20 +44,14 @@ Defined in: [types/stt.ts:468](https://github.com/juspay/neurolink/blob/release/
 
 > **words**: [`DeepgramWord`](DeepgramWord.md)[]
 
-Defined in: [types/stt.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L469)
-
 ---
 
 ### speaker?
 
 > `optional` **speaker?**: `number`
 
-Defined in: [types/stt.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L470)
-
 ---
 
 ### id?
 
 > `optional` **id?**: `string`
-
-Defined in: [types/stt.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L471)

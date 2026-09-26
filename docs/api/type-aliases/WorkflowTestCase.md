@@ -8,8 +8,6 @@
 
 > **WorkflowTestCase** = `object`
 
-Defined in: [types/mcp.ts:2632](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2632)
-
 Synthesized test case produced by the AI workflow test-generator.
 
 ## Properties
@@ -18,15 +16,11 @@ Synthesized test case produced by the AI workflow test-generator.
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:2633](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2633)
-
 ---
 
 ### type
 
 > **type**: `string`
-
-Defined in: [types/mcp.ts:2634](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2634)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/mcp.ts:2634](https://github.com/juspay/neurolink/blob/release
 
 > **code**: `string`
 
-Defined in: [types/mcp.ts:2635](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2635)
-
 ---
 
 ### description
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:2636](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2636)
-
 ---
 
 ### assertions
 
 > **assertions**: `number`
-
-Defined in: [types/mcp.ts:2637](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2637)

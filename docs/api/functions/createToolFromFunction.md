@@ -8,8 +8,6 @@
 
 > **createToolFromFunction**\<`TParams`\>(`name`, `description`, `fn`, `options?`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/toolConverter.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolConverter.ts#L253)
-
 Create a tool from a function with automatic schema inference
 
 ## Type Parameters

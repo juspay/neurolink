@@ -8,8 +8,6 @@
 
 > **ShutdownConfig** = `object`
 
-Defined in: [types/server.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1017)
-
 Configuration for graceful shutdown behavior
 
 ## Properties
@@ -17,8 +15,6 @@ Configuration for graceful shutdown behavior
 ### gracefulShutdownTimeoutMs?
 
 > `optional` **gracefulShutdownTimeoutMs?**: `number`
-
-Defined in: [types/server.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1022)
 
 Maximum time to wait for graceful shutdown in milliseconds
 Default: 30000 (30 seconds)
@@ -29,8 +25,6 @@ Default: 30000 (30 seconds)
 
 > `optional` **drainTimeoutMs?**: `number`
 
-Defined in: [types/server.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1028)
-
 Maximum time to wait for connections to drain in milliseconds
 Default: 15000 (15 seconds)
 
@@ -39,8 +33,6 @@ Default: 15000 (15 seconds)
 ### forceClose?
 
 > `optional` **forceClose?**: `boolean`
-
-Defined in: [types/server.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1034)
 
 Whether to force close connections after timeout
 Default: true

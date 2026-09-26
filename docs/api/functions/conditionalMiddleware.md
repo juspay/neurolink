@@ -8,8 +8,6 @@
 
 > **conditionalMiddleware**(`condition`, `middleware`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L793)
-
 Conditionally apply middleware
 
 ## Parameters

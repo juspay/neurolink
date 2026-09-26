@@ -8,8 +8,6 @@
 
 > **VideoGenerateOptions** = [`VideoOutputOptions`](VideoOutputOptions.md) & `object`
 
-Defined in: [types/video.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L34)
-
 Bag-form input to `VideoProcessor.generate()` — the primary data (image,
 prompt, region) alongside the video-specific output options, collapsed
 into a single object matching Music/Avatar's existing `generate(provider,

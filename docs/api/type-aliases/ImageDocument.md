@@ -8,8 +8,6 @@
 
 > **ImageDocument** = `object`
 
-Defined in: [types/rag.ts:1768](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1768)
-
 Image document loaded for RAG ingestion
 
 ## Properties
@@ -17,8 +15,6 @@ Image document loaded for RAG ingestion
 ### id
 
 > **id**: `string`
-
-Defined in: [types/rag.ts:1770](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1770)
 
 Unique identifier for this image document
 
@@ -28,8 +24,6 @@ Unique identifier for this image document
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1772](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1772)
-
 Text representation (filename, alt text, or caption)
 
 ---
@@ -37,8 +31,6 @@ Text representation (filename, alt text, or caption)
 ### image
 
 > **image**: `Buffer`
-
-Defined in: [types/rag.ts:1774](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1774)
 
 Raw image data
 
@@ -48,8 +40,6 @@ Raw image data
 
 > **mimeType**: `string`
 
-Defined in: [types/rag.ts:1776](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1776)
-
 Image MIME type
 
 ---
@@ -57,8 +47,6 @@ Image MIME type
 ### metadata
 
 > **metadata**: `object`
-
-Defined in: [types/rag.ts:1778](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1778)
 
 Metadata about the image
 

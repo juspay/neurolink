@@ -8,8 +8,6 @@
 
 > **WSClientConfig** = [`ClientConfig`](ClientConfig.md) & `object`
 
-Defined in: [types/client.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1000)
-
 Configuration for the dedicated NeuroLinkWebSocket client
 
 ## Type Declaration

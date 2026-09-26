@@ -8,15 +8,11 @@
 
 > **BadWordsConfig** = `object`
 
-Defined in: [types/guardrails.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L88)
-
 ## Properties
 
 ### enabled?
 
 > `optional` **enabled?**: `boolean`
-
-Defined in: [types/guardrails.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L89)
 
 ---
 
@@ -24,23 +20,17 @@ Defined in: [types/guardrails.ts:89](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **list?**: `string`[]
 
-Defined in: [types/guardrails.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L90)
-
 ---
 
 ### regexPatterns?
 
 > `optional` **regexPatterns?**: `string`[]
 
-Defined in: [types/guardrails.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L91)
-
 ---
 
 ### replacementText?
 
 > `optional` **replacementText?**: `string`
-
-Defined in: [types/guardrails.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L102)
 
 Text to use when replacing filtered content.
 

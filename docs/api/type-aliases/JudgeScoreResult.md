@@ -8,8 +8,6 @@
 
 > **JudgeScoreResult** = `object`
 
-Defined in: [types/workflow.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L583)
-
 Result of judge scoring
 
 ## Properties
@@ -18,20 +16,14 @@ Result of judge scoring
 
 > **scores**: [`JudgeScores`](JudgeScores.md) \| [`MultiJudgeScores`](MultiJudgeScores.md)
 
-Defined in: [types/workflow.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L584)
-
 ---
 
 ### judgeTime
 
 > **judgeTime**: `number`
 
-Defined in: [types/workflow.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L585)
-
 ---
 
 ### error?
 
 > `optional` **error?**: [`WorkflowError`](../classes/WorkflowError.md)
-
-Defined in: [types/workflow.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L586)

@@ -8,8 +8,6 @@
 
 > **AudioStreamChunk** = `object`
 
-Defined in: [types/voice.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L124)
-
 Audio stream chunk for streaming operations
 
 ## Properties
@@ -17,8 +15,6 @@ Audio stream chunk for streaming operations
 ### data
 
 > **data**: `Buffer`
-
-Defined in: [types/voice.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L126)
 
 Audio data
 
@@ -28,8 +24,6 @@ Audio data
 
 > **index**: `number`
 
-Defined in: [types/voice.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L128)
-
 Chunk index
 
 ---
@@ -37,8 +31,6 @@ Chunk index
 ### isFinal
 
 > **isFinal**: `boolean`
-
-Defined in: [types/voice.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L130)
 
 Whether this is the final chunk
 
@@ -48,8 +40,6 @@ Whether this is the final chunk
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/voice.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L132)
-
 Audio format
 
 ---
@@ -57,8 +47,6 @@ Audio format
 ### sampleRate
 
 > **sampleRate**: `number`
-
-Defined in: [types/voice.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L134)
 
 Sample rate
 
@@ -68,8 +56,6 @@ Sample rate
 
 > **timestampMs**: `number`
 
-Defined in: [types/voice.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L136)
-
 Timestamp offset in milliseconds
 
 ---
@@ -77,7 +63,5 @@ Timestamp offset in milliseconds
 ### durationMs
 
 > **durationMs**: `number`
-
-Defined in: [types/voice.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L138)
 
 Duration of this chunk in milliseconds

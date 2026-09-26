@@ -8,8 +8,6 @@
 
 > **TraceNameFormat** = `"userId:operationName"` \| `"operationName:userId"` \| `"operationName"` \| `"userId"` \| ((`context`) => `string`)
 
-Defined in: [types/observability.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L28)
-
 Trace name format for Langfuse traces
 
 Controls how userId and operationName are combined to form the trace name.

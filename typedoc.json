@@ -3,6 +3,7 @@
   "entryPoints": ["./src/lib/index.ts"],
   "out": "./docs/api",
   "gitRevision": "release",
+  "disableSources": true,
   "cleanOutputDir": true,
   "plugin": ["typedoc-plugin-markdown"],
   "excludePrivate": true,

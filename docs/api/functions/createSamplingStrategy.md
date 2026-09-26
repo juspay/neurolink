@@ -8,8 +8,6 @@
 
 > **createSamplingStrategy**(`config?`): [`SamplingStrategy`](../classes/SamplingStrategy.md)
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L257)
-
 Create a sampling strategy
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **FileToolRootPolicy** = `object`
 
-Defined in: [types/fileToolRoots.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileToolRoots.ts#L16)
-
 The directories the built-in file tools (readFile, listDirectory,
 writeFile, analyzeCSV) and bash's `cwd` argument may touch for one request.
 
@@ -22,5 +20,3 @@ directory, read at call time. An empty array denies all file access.
 ### roots
 
 > `readonly` **roots**: readonly `string`[] \| `null`
-
-Defined in: [types/fileToolRoots.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileToolRoots.ts#L17)

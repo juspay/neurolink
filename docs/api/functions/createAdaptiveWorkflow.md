@@ -8,8 +8,6 @@
 
 > **createAdaptiveWorkflow**(`tiers`, `strategy`): [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/adaptiveWorkflow.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/adaptiveWorkflow.ts#L375)
-
 Create custom adaptive workflow
 
 ## Parameters

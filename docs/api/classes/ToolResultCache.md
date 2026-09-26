@@ -6,8 +6,6 @@
 
 # Class: ToolResultCache
 
-Defined in: [mcp/caching/toolCache.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L514)
-
 Tool-specific cache wrapper with automatic key generation
 
 ## Constructors
@@ -15,8 +13,6 @@ Tool-specific cache wrapper with automatic key generation
 ### Constructor
 
 > **new ToolResultCache**(`config?`): `ToolResultCache`
-
-Defined in: [mcp/caching/toolCache.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L517)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [mcp/caching/toolCache.ts:517](https://github.com/juspay/neurolink/b
 ### cacheResult()
 
 > **cacheResult**(`toolName`, `args`, `result`, `ttl?`): `void`
-
-Defined in: [mcp/caching/toolCache.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L528)
 
 Cache a tool result
 
@@ -66,8 +60,6 @@ Cache a tool result
 
 > **getCachedResult**(`toolName`, `args`): `unknown`
 
-Defined in: [mcp/caching/toolCache.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L541)
-
 Get a cached tool result
 
 #### Parameters
@@ -89,8 +81,6 @@ Get a cached tool result
 ### hasCachedResult()
 
 > **hasCachedResult**(`toolName`, `args`): `boolean`
-
-Defined in: [mcp/caching/toolCache.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L549)
 
 Check if a result is cached
 
@@ -114,8 +104,6 @@ Check if a result is cached
 
 > **invalidateTool**(`toolName`): `number`
 
-Defined in: [mcp/caching/toolCache.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L557)
-
 Invalidate all cached results for a tool
 
 #### Parameters
@@ -134,8 +122,6 @@ Invalidate all cached results for a tool
 
 > **getStats**(): [`CacheStats`](../type-aliases/CacheStats.md)
 
-Defined in: [mcp/caching/toolCache.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L564)
-
 Get cache statistics
 
 #### Returns
@@ -148,8 +134,6 @@ Get cache statistics
 
 > **clear**(): `void`
 
-Defined in: [mcp/caching/toolCache.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L571)
-
 Clear all cached results
 
 #### Returns
@@ -161,8 +145,6 @@ Clear all cached results
 ### destroy()
 
 > **destroy**(): `void`
-
-Defined in: [mcp/caching/toolCache.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L578)
 
 Destroy the cache
 

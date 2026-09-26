@@ -8,8 +8,6 @@
 
 > **ProxyReplayBundle** = `object`
 
-Defined in: [types/proxy.ts:2933](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2933)
-
 Deterministic, redacted reconstruction of one captured proxy request.
 
 ## Properties
@@ -18,15 +16,11 @@ Deterministic, redacted reconstruction of one captured proxy request.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:2934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2934)
-
 ---
 
 ### kind
 
 > **kind**: `"neurolink.proxy.replay-bundle"`
-
-Defined in: [types/proxy.ts:2935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2935)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/proxy.ts:2935](https://github.com/juspay/neurolink/blob/relea
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:2936](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2936)
-
 ---
 
 ### selectedAttempt
 
 > **selectedAttempt**: `number`
 
-Defined in: [types/proxy.ts:2937](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2937)
-
 ---
 
 ### source
 
 > **source**: `object`
-
-Defined in: [types/proxy.ts:2938](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2938)
 
 #### logsDirectory
 
@@ -65,8 +53,6 @@ Defined in: [types/proxy.ts:2938](https://github.com/juspay/neurolink/blob/relea
 ### completeness
 
 > **completeness**: `object`
-
-Defined in: [types/proxy.ts:2942](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2942)
 
 #### captures
 
@@ -101,8 +87,6 @@ Defined in: [types/proxy.ts:2942](https://github.com/juspay/neurolink/blob/relea
 ### request
 
 > **request**: `object`
-
-Defined in: [types/proxy.ts:2951](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2951)
 
 #### method
 
@@ -158,12 +142,8 @@ Defined in: [types/proxy.ts:2951](https://github.com/juspay/neurolink/blob/relea
 
 > **capturedResponse**: [`ProxyReplayCapture`](ProxyReplayCapture.md) \| `null`
 
-Defined in: [types/proxy.ts:2965](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2965)
-
 ---
 
 ### captures
 
 > **captures**: [`ProxyReplayCapture`](ProxyReplayCapture.md)[]
-
-Defined in: [types/proxy.ts:2966](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2966)

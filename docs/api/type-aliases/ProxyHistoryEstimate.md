@@ -8,8 +8,6 @@
 
 > **ProxyHistoryEstimate** = (`value`) => `number`
 
-Defined in: [types/proxyContext.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L51)
-
 Estimator injected into history truncation so it matches preflight accounting.
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **AccountQuotaSource** = `"headers"` \| `"usage-api"`
 
-Defined in: [types/proxy.ts:1790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1790)
-
 Where an AccountQuota snapshot came from.
 
 - "headers" : passive capture of anthropic-ratelimit-unified-\* response

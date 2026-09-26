@@ -6,8 +6,6 @@
 
 # Class: ToolCallBatcher
 
-Defined in: [mcp/batching/requestBatcher.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L486)
-
 Tool Call Batcher - Specialized batcher for MCP tool calls
 
 ## Constructors
@@ -15,8 +13,6 @@ Tool Call Batcher - Specialized batcher for MCP tool calls
 ### Constructor
 
 > **new ToolCallBatcher**(`config?`): `ToolCallBatcher`
-
-Defined in: [mcp/batching/requestBatcher.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L494)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [mcp/batching/requestBatcher.ts:494](https://github.com/juspay/neuro
 
 > **get** **queueSize**(): `number`
 
-Defined in: [mcp/batching/requestBatcher.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L574)
-
 Get current queue size
 
 ##### Returns
@@ -52,8 +46,6 @@ Get current queue size
 
 > **get** **isIdle**(): `boolean`
 
-Defined in: [mcp/batching/requestBatcher.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L581)
-
 Check if idle
 
 ##### Returns
@@ -65,8 +57,6 @@ Check if idle
 ### setToolExecutor()
 
 > **setToolExecutor**(`executor`): `void`
-
-Defined in: [mcp/batching/requestBatcher.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L536)
 
 Set the tool executor function
 
@@ -85,8 +75,6 @@ Set the tool executor function
 ### execute()
 
 > **execute**(`tool`, `args`, `serverId?`): `Promise`\<`unknown`\>
-
-Defined in: [mcp/batching/requestBatcher.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L549)
 
 Execute a tool call (will be batched automatically)
 
@@ -114,8 +102,6 @@ Execute a tool call (will be batched automatically)
 
 > **flush**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L560)
-
 Flush pending tool calls
 
 #### Returns
@@ -128,8 +114,6 @@ Flush pending tool calls
 
 > **drain**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L567)
-
 Wait for all pending tool calls to complete
 
 #### Returns
@@ -141,8 +125,6 @@ Wait for all pending tool calls to complete
 ### destroy()
 
 > **destroy**(): `void`
-
-Defined in: [mcp/batching/requestBatcher.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L588)
 
 Destroy the batcher
 

@@ -8,8 +8,6 @@
 
 > **SentryScope** = `object`
 
-Defined in: [types/observability.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L544)
-
 Sentry scope surface used by SentryExporter.withScope callbacks.
 
 ## Properties
@@ -17,8 +15,6 @@ Sentry scope surface used by SentryExporter.withScope callbacks.
 ### setTags
 
 > **setTags**: (`tags`) => `void`
-
-Defined in: [types/observability.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L545)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [types/observability.ts:545](https://github.com/juspay/neurolink/blo
 ### setContext
 
 > **setContext**: (`name`, `context`) => `void`
-
-Defined in: [types/observability.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L546)
 
 #### Parameters
 
@@ -57,8 +51,6 @@ Defined in: [types/observability.ts:546](https://github.com/juspay/neurolink/blo
 ### setUser
 
 > **setUser**: (`user`) => `void`
-
-Defined in: [types/observability.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L547)
 
 #### Parameters
 

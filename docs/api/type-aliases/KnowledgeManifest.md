@@ -8,8 +8,6 @@
 
 > **KnowledgeManifest** = `object`
 
-Defined in: [types/knowledge.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L146)
-
 The versioned build artifact a host emits at build time. NeuroLink can
 consume it directly (each catalog becomes a structured source) so hosts do
 not need to construct `KnowledgeSource[]` by hand.
@@ -20,15 +18,11 @@ not need to construct `KnowledgeSource[]` by hand.
 
 > **schemaVersion**: `string`
 
-Defined in: [types/knowledge.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L147)
-
 ---
 
 ### contentVersion
 
 > **contentVersion**: `string`
-
-Defined in: [types/knowledge.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L148)
 
 ---
 
@@ -36,12 +30,8 @@ Defined in: [types/knowledge.ts:148](https://github.com/juspay/neurolink/blob/re
 
 > **generatedAt**: `string`
 
-Defined in: [types/knowledge.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L149)
-
 ---
 
 ### catalogs
 
 > **catalogs**: [`KnowledgeManifestCatalog`](KnowledgeManifestCatalog.md)[]
-
-Defined in: [types/knowledge.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L150)

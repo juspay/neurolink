@@ -8,8 +8,6 @@
 
 > **ProcessedMarkdown** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L528)
-
 Processed Markdown result.
 
 ## Type Declaration

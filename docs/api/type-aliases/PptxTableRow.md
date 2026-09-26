@@ -8,8 +8,6 @@
 
 > **PptxTableRow** = `object`[]
 
-Defined in: [types/ppt.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L988)
-
 Table row for addTable method
 
 ## Type Declaration

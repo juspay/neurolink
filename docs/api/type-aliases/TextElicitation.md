@@ -8,8 +8,6 @@
 
 > **TextElicitation** = [`ElicitationRequest`](ElicitationRequest.md) & `object`
 
-Defined in: [types/elicitation.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L93)
-
 Text input elicitation
 
 ## Type Declaration

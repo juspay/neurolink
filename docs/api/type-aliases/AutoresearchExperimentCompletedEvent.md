@@ -8,15 +8,11 @@
 
 > **AutoresearchExperimentCompletedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L165)
-
 ## Properties
 
 ### tag
 
 > **tag**: `string`
-
-Defined in: [types/autoresearch.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L166)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/autoresearch.ts:166](https://github.com/juspay/neurolink/blob
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L167)
-
 ---
 
 ### status
 
 > **status**: [`ExperimentStatus`](ExperimentStatus.md)
-
-Defined in: [types/autoresearch.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L168)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/autoresearch.ts:168](https://github.com/juspay/neurolink/blob
 
 > **metric**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L169)
-
 ---
 
 ### commit
 
 > **commit**: `string`
-
-Defined in: [types/autoresearch.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L170)
 
 ---
 
@@ -56,12 +44,8 @@ Defined in: [types/autoresearch.ts:170](https://github.com/juspay/neurolink/blob
 
 > **description**: `string`
 
-Defined in: [types/autoresearch.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L171)
-
 ---
 
 ### durationMs
 
 > **durationMs**: `number`
-
-Defined in: [types/autoresearch.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L172)

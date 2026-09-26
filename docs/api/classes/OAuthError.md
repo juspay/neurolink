@@ -6,8 +6,6 @@
 
 # Class: OAuthError
 
-Defined in: [types/errors.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L119)
-
 Base class for OAuth-specific errors
 
 ## Extends
@@ -28,8 +26,6 @@ Base class for OAuth-specific errors
 ### Constructor
 
 > **new OAuthError**(`message`, `code?`): `OAuthError`
-
-Defined in: [types/errors.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L120)
 
 #### Parameters
 
@@ -54,5 +50,3 @@ Defined in: [types/errors.ts:120](https://github.com/juspay/neurolink/blob/relea
 ### code?
 
 > `optional` **code?**: `string`
-
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)

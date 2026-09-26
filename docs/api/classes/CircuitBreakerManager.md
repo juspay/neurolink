@@ -6,8 +6,6 @@
 
 # Class: CircuitBreakerManager
 
-Defined in: [mcp/mcpCircuitBreaker.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L483)
-
 Circuit breaker manager for multiple circuit breakers
 
 ## Constructors
@@ -25,8 +23,6 @@ Circuit breaker manager for multiple circuit breakers
 ### getBreaker()
 
 > **getBreaker**(`name`, `config?`): [`MCPCircuitBreaker`](MCPCircuitBreaker.md)
-
-Defined in: [mcp/mcpCircuitBreaker.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L489)
 
 Get or create a circuit breaker
 
@@ -50,8 +46,6 @@ Get or create a circuit breaker
 
 > **removeBreaker**(`name`): `boolean`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L512)
-
 Remove a circuit breaker and clean up its resources
 
 #### Parameters
@@ -70,8 +64,6 @@ Remove a circuit breaker and clean up its resources
 
 > **getBreakerNames**(): `string`[]
 
-Defined in: [mcp/mcpCircuitBreaker.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L530)
-
 Get all circuit breaker names
 
 #### Returns
@@ -83,8 +75,6 @@ Get all circuit breaker names
 ### getAllStats()
 
 > **getAllStats**(): `Record`\<`string`, [`CircuitBreakerStats`](../type-aliases/CircuitBreakerStats.md)\>
-
-Defined in: [mcp/mcpCircuitBreaker.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L537)
 
 Get statistics for all circuit breakers
 
@@ -98,8 +88,6 @@ Get statistics for all circuit breakers
 
 > **resetAll**(): `void`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L550)
-
 Reset all circuit breakers
 
 #### Returns
@@ -111,8 +99,6 @@ Reset all circuit breakers
 ### getHealthSummary()
 
 > **getHealthSummary**(): `object`
-
-Defined in: [mcp/mcpCircuitBreaker.ts:561](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L561)
 
 Get health summary
 
@@ -145,8 +131,6 @@ Get health summary
 ### destroyAll()
 
 > **destroyAll**(): `void`
-
-Defined in: [mcp/mcpCircuitBreaker.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpCircuitBreaker.ts#L603)
 
 Destroy all circuit breakers and clean up their resources
 This should be called during application shutdown to prevent memory leaks

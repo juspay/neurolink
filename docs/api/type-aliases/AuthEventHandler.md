@@ -8,8 +8,6 @@
 
 > **AuthEventHandler** = (`event`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L968)
-
 Auth event handler
 
 ## Parameters

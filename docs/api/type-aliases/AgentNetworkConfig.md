@@ -8,8 +8,6 @@
 
 > **AgentNetworkConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L273)
-
 Configuration for creating an agent network
 
 ## Properties
@@ -17,8 +15,6 @@ Configuration for creating an agent network
 ### id?
 
 > `optional` **id?**: `string`
-
-Defined in: [types/agentNetwork.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L275)
 
 Unique identifier for the network (auto-generated if not provided)
 
@@ -28,8 +24,6 @@ Unique identifier for the network (auto-generated if not provided)
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L278)
-
 Human-readable name
 
 ---
@@ -37,8 +31,6 @@ Human-readable name
 ### description?
 
 > `optional` **description?**: `string`
-
-Defined in: [types/agentNetwork.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L281)
 
 Description of the network's purpose
 
@@ -48,8 +40,6 @@ Description of the network's purpose
 
 > **agents**: [`AgentDefinition`](AgentDefinition.md)[]
 
-Defined in: [types/agentNetwork.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L284)
-
 Agents in the network
 
 ---
@@ -57,8 +47,6 @@ Agents in the network
 ### workflows?
 
 > `optional` **workflows?**: [`NetworkWorkflowDefinition`](NetworkWorkflowDefinition.md)[]
-
-Defined in: [types/agentNetwork.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L287)
 
 Workflows available in the network
 
@@ -68,8 +56,6 @@ Workflows available in the network
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L290)
-
 Additional tools available to all agents (tool names)
 
 ---
@@ -77,8 +63,6 @@ Additional tools available to all agents (tool names)
 ### router?
 
 > `optional` **router?**: [`RouterConfig`](RouterConfig.md)
-
-Defined in: [types/agentNetwork.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L293)
 
 Routing agent configuration
 
@@ -88,8 +72,6 @@ Routing agent configuration
 
 > `optional` **defaults?**: [`NetworkDefaults`](NetworkDefaults.md)
 
-Defined in: [types/agentNetwork.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L296)
-
 Default execution options
 
 ---
@@ -97,7 +79,5 @@ Default execution options
 ### memory?
 
 > `optional` **memory?**: [`NetworkMemoryConfig`](NetworkMemoryConfig.md)
-
-Defined in: [types/agentNetwork.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L299)
 
 Memory configuration for the network

@@ -8,8 +8,6 @@
 
 > **NormalizedKnowledgeEntry** = `object`
 
-Defined in: [types/knowledge.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L114)
-
 The complete, defaults-resolved record NeuroLink indexes and injects. Omitted
 optionals are materialized (arrays to `[]`, `body` to `""`, `kind` to "text",
 `status` to "active") so downstream code never re-checks the resolution chain.
@@ -21,15 +19,11 @@ Field meanings mirror `KnowledgeEntryInput`.
 
 > **id**: `string`
 
-Defined in: [types/knowledge.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L115)
-
 ---
 
 ### title
 
 > **title**: `string`
-
-Defined in: [types/knowledge.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L116)
 
 ---
 
@@ -37,15 +31,11 @@ Defined in: [types/knowledge.ts:116](https://github.com/juspay/neurolink/blob/re
 
 > **summary**: `string`
 
-Defined in: [types/knowledge.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L117)
-
 ---
 
 ### domain
 
 > **domain**: `string`
-
-Defined in: [types/knowledge.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L118)
 
 ---
 
@@ -53,15 +43,11 @@ Defined in: [types/knowledge.ts:118](https://github.com/juspay/neurolink/blob/re
 
 > **integrations**: `string`[]
 
-Defined in: [types/knowledge.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L119)
-
 ---
 
 ### kind
 
 > **kind**: [`KnowledgeEntryKind`](KnowledgeEntryKind.md)
-
-Defined in: [types/knowledge.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L120)
 
 ---
 
@@ -69,15 +55,11 @@ Defined in: [types/knowledge.ts:120](https://github.com/juspay/neurolink/blob/re
 
 > **status**: [`KnowledgeStatus`](KnowledgeStatus.md)
 
-Defined in: [types/knowledge.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L121)
-
 ---
 
 ### body
 
 > **body**: `string`
-
-Defined in: [types/knowledge.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L122)
 
 ---
 
@@ -85,15 +67,11 @@ Defined in: [types/knowledge.ts:122](https://github.com/juspay/neurolink/blob/re
 
 > **aliases**: `string`[]
 
-Defined in: [types/knowledge.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L123)
-
 ---
 
 ### keywords
 
 > **keywords**: `string`[]
-
-Defined in: [types/knowledge.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L124)
 
 ---
 
@@ -101,22 +79,16 @@ Defined in: [types/knowledge.ts:124](https://github.com/juspay/neurolink/blob/re
 
 > **relatedEntryIds**: `string`[]
 
-Defined in: [types/knowledge.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L125)
-
 ---
 
 ### parentEntryId?
 
 > `optional` **parentEntryId?**: `string`
 
-Defined in: [types/knowledge.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L126)
-
 ---
 
 ### version
 
 > **version**: `string`
-
-Defined in: [types/knowledge.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L128)
 
 Content version from the source/manifest; appears in citations as [KB:id@version].

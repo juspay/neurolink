@@ -8,8 +8,6 @@
 
 > **createClient**(`config`): [`NeuroLinkClient`](../classes/NeuroLinkClient.md)
 
-Defined in: [client/httpClient.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1147)
-
 Create a new NeuroLink client instance
 
 ## Parameters

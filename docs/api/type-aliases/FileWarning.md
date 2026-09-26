@@ -8,8 +8,6 @@
 
 > **FileWarning** = `object`
 
-Defined in: [types/processor.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L274)
-
 Warning about a file (non-fatal issue).
 
 ## Properties
@@ -17,8 +15,6 @@ Warning about a file (non-fatal issue).
 ### fileId
 
 > **fileId**: `string`
-
-Defined in: [types/processor.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L276)
 
 File identifier
 
@@ -28,8 +24,6 @@ File identifier
 
 > **filename**: `string`
 
-Defined in: [types/processor.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L278)
-
 Filename
 
 ---
@@ -37,7 +31,5 @@ Filename
 ### message
 
 > **message**: `string`
-
-Defined in: [types/processor.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L280)
 
 Warning message

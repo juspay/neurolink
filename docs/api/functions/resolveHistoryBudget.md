@@ -8,8 +8,6 @@
 
 > **resolveHistoryBudget**(`result`, `compactionThreshold?`): `number`
 
-Defined in: [context/budgetChecker.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/context/budgetChecker.ts#L52)
-
 Tokens the CONVERSATION HISTORY may occupy, i.e. the model's available input
 space minus everything that rides alongside it (system prompt, current
 prompt, tool definitions, file attachments).

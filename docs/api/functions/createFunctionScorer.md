@@ -8,8 +8,6 @@
 
 > **createFunctionScorer**(`id`, `name`, `scorerFn`, `options?`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L107)
-
 Create a simple function-based scorer
 
 ## Parameters

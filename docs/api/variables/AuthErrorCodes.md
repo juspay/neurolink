@@ -8,8 +8,6 @@
 
 > `const` **AuthErrorCodes**: `object`
 
-Defined in: [auth/errors.ts:5](https://github.com/juspay/neurolink/blob/release/src/lib/auth/errors.ts#L5)
-
 ## Type Declaration
 
 ### INVALID_TOKEN

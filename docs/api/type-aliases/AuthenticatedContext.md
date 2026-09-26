@@ -8,8 +8,6 @@
 
 > **AuthenticatedContext** = [`AuthRequestContext`](AuthRequestContext.md) & `object`
 
-Defined in: [types/auth.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L371)
-
 Enhanced request context with authenticated user.
 
 Extends AuthRequestContext so it can be passed wherever a plain

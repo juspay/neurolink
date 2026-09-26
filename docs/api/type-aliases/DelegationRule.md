@@ -8,8 +8,6 @@
 
 > **DelegationRule** = `object`
 
-Defined in: [types/agentNetwork.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L937)
-
 Delegation rule for hierarchical networks
 
 ## Properties
@@ -17,8 +15,6 @@ Delegation rule for hierarchical networks
 ### condition
 
 > **condition**: [`DelegationCondition`](DelegationCondition.md)
-
-Defined in: [types/agentNetwork.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L939)
 
 Rule condition
 
@@ -28,8 +24,6 @@ Rule condition
 
 > **targetNetwork**: `string`
 
-Defined in: [types/agentNetwork.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L942)
-
 Target network or agent
 
 ---
@@ -37,7 +31,5 @@ Target network or agent
 ### priority
 
 > **priority**: `number`
-
-Defined in: [types/agentNetwork.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L945)
 
 Priority (higher = checked first)

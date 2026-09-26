@@ -8,8 +8,6 @@
 
 > **Entity** = `object`
 
-Defined in: [types/agentNetwork.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L870)
-
 Entity extracted from task
 
 ## Properties
@@ -17,8 +15,6 @@ Entity extracted from task
 ### type
 
 > **type**: `string`
-
-Defined in: [types/agentNetwork.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L872)
 
 Entity type
 
@@ -28,8 +24,6 @@ Entity type
 
 > **value**: `string`
 
-Defined in: [types/agentNetwork.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L875)
-
 Entity value
 
 ---
@@ -37,7 +31,5 @@ Entity value
 ### confidence
 
 > **confidence**: `number`
-
-Defined in: [types/agentNetwork.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L878)
 
 Confidence score

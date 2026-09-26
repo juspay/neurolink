@@ -6,8 +6,6 @@
 
 # Class: ScorerRegistry
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L383)
-
 Central registry for all scorers
 Manages registration, discovery, and instantiation
 
@@ -29,8 +27,6 @@ Manages registration, discovery, and instantiation
 
 > **get** `static` **size**(): `number`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L617)
-
 Get the number of registered scorers (excluding aliases)
 
 ##### Returns
@@ -42,8 +38,6 @@ Get the number of registered scorers (excluding aliases)
 ### register()
 
 > `static` **register**(`entry`): `void`
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L391)
 
 Register a scorer with the registry
 
@@ -62,8 +56,6 @@ Register a scorer with the registry
 ### registerScorer()
 
 > `static` **registerScorer**(`metadata`, `factory`, `aliases?`): `void`
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L418)
 
 Register a scorer using a simple configuration
 
@@ -91,8 +83,6 @@ Register a scorer using a simple configuration
 
 > `static` **registerBuiltInScorers**(): `Promise`\<`void`\>
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L454)
-
 Register built-in scorers using dynamic imports
 
 #### Returns
@@ -104,8 +94,6 @@ Register built-in scorers using dynamic imports
 ### getScorer()
 
 > `static` **getScorer**(`scorerId`, `config?`): `Promise`\<[`Scorer`](../type-aliases/Scorer.md) \| `undefined`\>
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L483)
 
 Get a scorer instance by ID
 
@@ -129,8 +117,6 @@ Get a scorer instance by ID
 
 > `static` **getScorersByCategory**(`category`): [`ScorerRegistryEntry`](../type-aliases/ScorerRegistryEntry.md)[]
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L509)
-
 Get scorers by category
 
 #### Parameters
@@ -148,8 +134,6 @@ Get scorers by category
 ### getScorersByType()
 
 > `static` **getScorersByType**(`type`): [`ScorerRegistryEntry`](../type-aliases/ScorerRegistryEntry.md)[]
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L529)
 
 Get scorers by type
 
@@ -169,8 +153,6 @@ Get scorers by type
 
 > `static` **list**(): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)[]
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L546)
-
 List all registered scorer metadata
 
 #### Returns
@@ -182,8 +164,6 @@ List all registered scorer metadata
 ### has()
 
 > `static` **has**(`scorerId`): `boolean`
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L563)
 
 Check if a scorer is registered
 
@@ -203,8 +183,6 @@ Check if a scorer is registered
 
 > `static` **unregister**(`scorerId`): `boolean`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L570)
-
 Unregister a scorer
 
 #### Parameters
@@ -222,8 +200,6 @@ Unregister a scorer
 ### clear()
 
 > `static` **clear**(): `void`
-
-Defined in: [evaluation/scorers/scorerRegistry.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L595)
 
 Clear all registered scorers
 

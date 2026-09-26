@@ -8,8 +8,6 @@
 
 > **AnalyticsQualityScore** = `object`
 
-Defined in: [types/analytics.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L106)
-
 Quality score subset captured on an analytics telemetry record.
 
 ## Properties
@@ -18,15 +16,11 @@ Quality score subset captured on an analytics telemetry record.
 
 > **overall**: `number`
 
-Defined in: [types/analytics.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L107)
-
 ---
 
 ### relevance
 
 > **relevance**: `number`
-
-Defined in: [types/analytics.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L108)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/analytics.ts:108](https://github.com/juspay/neurolink/blob/re
 
 > **accuracy**: `number`
 
-Defined in: [types/analytics.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L109)
-
 ---
 
 ### completeness
 
 > **completeness**: `number`
 
-Defined in: [types/analytics.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L110)
-
 ---
 
 ### reasoning?
 
 > `optional` **reasoning?**: `string`
-
-Defined in: [types/analytics.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L111)

@@ -8,15 +8,11 @@
 
 > **STTHandler** = `object`
 
-Defined in: [types/stt.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L155)
-
 ## Properties
 
 ### maxAudioDuration?
 
 > `optional` **maxAudioDuration?**: `number`
-
-Defined in: [types/stt.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L167)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/stt.ts:167](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **supportsStreaming?**: `boolean`
 
-Defined in: [types/stt.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L168)
-
 ## Methods
 
 ### transcribe()
 
 > **transcribe**(`audio`, `options`): `Promise`\<[`STTResult`](STTResult.md)\>
-
-Defined in: [types/stt.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L156)
 
 #### Parameters
 
@@ -54,8 +46,6 @@ Defined in: [types/stt.ts:156](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](TranscriptionSegment.md)\>
 
-Defined in: [types/stt.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L160)
-
 #### Parameters
 
 ##### audioStream
@@ -76,8 +66,6 @@ Defined in: [types/stt.ts:160](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](STTLanguage.md)[]\>
 
-Defined in: [types/stt.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L164)
-
 #### Returns
 
 `Promise`\<[`STTLanguage`](STTLanguage.md)[]\>
@@ -88,8 +76,6 @@ Defined in: [types/stt.ts:164](https://github.com/juspay/neurolink/blob/release/
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](TTSAudioFormat.md)[]
 
-Defined in: [types/stt.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L165)
-
 #### Returns
 
 [`TTSAudioFormat`](TTSAudioFormat.md)[]
@@ -99,8 +85,6 @@ Defined in: [types/stt.ts:165](https://github.com/juspay/neurolink/blob/release/
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [types/stt.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L166)
 
 #### Returns
 

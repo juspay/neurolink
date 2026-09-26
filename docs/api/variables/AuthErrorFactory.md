@@ -8,8 +8,6 @@
 
 > `const` **AuthErrorFactory**: `object`
 
-Defined in: [auth/errors.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/auth/errors.ts#L42)
-
 ## Type Declaration
 
 ### codes

@@ -8,8 +8,6 @@
 
 > **assembleKnowledgeContext**(`selection`, `config`): [`KnowledgeAssembledContext`](../type-aliases/KnowledgeAssembledContext.md)
 
-Defined in: [knowledge/context.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/context.ts#L77)
-
 Assemble the selected entries into a bounded grounding block. Primary entries
 come first, then relationship-expanded ones. Returns the string, the
 citations for included entries, an estimated token count, and whether any

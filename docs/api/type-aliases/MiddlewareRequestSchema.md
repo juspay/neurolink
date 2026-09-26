@@ -8,8 +8,6 @@
 
 > **MiddlewareRequestSchema** = `object`
 
-Defined in: [types/middleware.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L494)
-
 Simple structural validation schema used by the request-validation
 middleware. Named MiddlewareRequestSchema to disambiguate from the zod
 `ValidationSchema` exported from aliases.ts (§Rule 9 domain prefix).
@@ -20,20 +18,14 @@ middleware. Named MiddlewareRequestSchema to disambiguate from the zod
 
 > `optional` **required?**: `string`[]
 
-Defined in: [types/middleware.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L495)
-
 ---
 
 ### properties?
 
 > `optional` **properties?**: `Record`\<`string`, [`PropertySchema`](PropertySchema.md)\>
 
-Defined in: [types/middleware.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L496)
-
 ---
 
 ### additionalProperties?
 
 > `optional` **additionalProperties?**: `boolean`
-
-Defined in: [types/middleware.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L497)

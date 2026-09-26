@@ -8,8 +8,6 @@
 
 > **AudioConversionResult** = `object`
 
-Defined in: [types/file.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L102)
-
 Outcome of an audio-compatibility pass over one file.
 
 See `adapters/audioFormatSupport.ts`. As with images, `converted` is false
@@ -23,22 +21,16 @@ from the resulting `mimeType`.
 
 > `readonly` **buffer**: `Buffer`
 
-Defined in: [types/file.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L103)
-
 ---
 
 ### mimeType
 
 > `readonly` **mimeType**: `string`
 
-Defined in: [types/file.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L104)
-
 ---
 
 ### converted
 
 > `readonly` **converted**: `boolean`
-
-Defined in: [types/file.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L106)
 
 True when the bytes were re-encoded; false when they were left alone.

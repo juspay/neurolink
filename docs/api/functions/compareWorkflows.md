@@ -8,8 +8,6 @@
 
 > **compareWorkflows**(`workflow1Results`, `workflow2Results`): [`WorkflowComparison`](../type-aliases/WorkflowComparison.md)
 
-Defined in: [workflow/utils/workflowMetrics.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/utils/workflowMetrics.ts#L341)
-
 Compare two workflows based on metrics
 
 ## Parameters

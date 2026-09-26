@@ -8,8 +8,6 @@
 
 > **BankArtifactOptions** = `object`
 
-Defined in: [types/artifact.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L67)
-
 How to bank one payload. Only `kind` and `label` are required.
 
 ## Properties
@@ -17,8 +15,6 @@ How to bank one payload. Only `kind` and `label` are required.
 ### kind
 
 > **kind**: [`BankedArtifactKind`](BankedArtifactKind.md)
-
-Defined in: [types/artifact.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L69)
 
 What this payload is.
 
@@ -28,8 +24,6 @@ What this payload is.
 
 > **label**: `string`
 
-Defined in: [types/artifact.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L71)
-
 Short human label, e.g. "delegate:auth-review" — shown in logs.
 
 ---
@@ -37,8 +31,6 @@ Short human label, e.g. "delegate:auth-review" — shown in logs.
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
-
-Defined in: [types/artifact.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L73)
 
 Session the payload belongs to, recorded on the artifact metadata.
 
@@ -48,8 +40,6 @@ Session the payload belongs to, recorded on the artifact metadata.
 
 > `optional` **contentType?**: `"json"` \| `"text"`
 
-Defined in: [types/artifact.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L75)
-
 Payload shape; decides the on-disk extension. Default "text".
 
 ---
@@ -57,7 +47,5 @@ Payload shape; decides the on-disk extension. Default "text".
 ### previewChars?
 
 > `optional` **previewChars?**: `number`
-
-Defined in: [types/artifact.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L77)
 
 Preview length in characters. Default 1000, hard cap 4000.

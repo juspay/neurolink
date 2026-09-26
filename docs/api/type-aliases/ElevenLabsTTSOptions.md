@@ -8,8 +8,6 @@
 
 > **ElevenLabsTTSOptions** = [`TTSOptions`](TTSOptions.md) & `object`
 
-Defined in: [types/voice.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L476)
-
 ## Type Declaration
 
 ### model?

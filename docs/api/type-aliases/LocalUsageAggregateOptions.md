@@ -8,8 +8,6 @@
 
 > **LocalUsageAggregateOptions** = [`LocalUsageScanOptions`](LocalUsageScanOptions.md) & `object`
 
-Defined in: [types/localUsage.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L441)
-
 Options for scanning every registered reader at once.
 
 `only` is not a convenience filter applied to the results — it decides which

@@ -8,8 +8,6 @@
 
 > **requireAuth**(): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md)
 
-Defined in: [auth/authContext.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L123)
-
 Require authentication
 
 Throws if no auth context is available.

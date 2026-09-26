@@ -8,8 +8,6 @@
 
 > **UpsertableVectorStore** = [`VectorStore`](VectorStore.md) & `object`
 
-Defined in: [types/rag.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L525)
-
 Structural extension of [VectorStore](VectorStore.md) for stores that can also write
 vectors via `upsert()` (e.g. [InMemoryVectorStore](../classes/InMemoryVectorStore.md)). Custom stores
 that expose an `upsert` method satisfy this type without a cast.

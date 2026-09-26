@@ -8,8 +8,6 @@
 
 > **RealtimeAudioChunk** = `object`
 
-Defined in: [types/realtime.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L119)
-
 Realtime audio chunk
 
 ## Properties
@@ -17,8 +15,6 @@ Realtime audio chunk
 ### data
 
 > **data**: `Buffer`
-
-Defined in: [types/realtime.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L121)
 
 Audio data
 
@@ -28,8 +24,6 @@ Audio data
 
 > **index**: `number`
 
-Defined in: [types/realtime.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L123)
-
 Chunk sequence number
 
 ---
@@ -37,8 +31,6 @@ Chunk sequence number
 ### isFinal
 
 > **isFinal**: `boolean`
-
-Defined in: [types/realtime.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L125)
 
 Whether this is the final chunk
 
@@ -48,8 +40,6 @@ Whether this is the final chunk
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/realtime.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L127)
-
 Audio format
 
 ---
@@ -58,8 +48,6 @@ Audio format
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/realtime.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L129)
-
 Sample rate
 
 ---
@@ -67,7 +55,5 @@ Sample rate
 ### durationMs?
 
 > `optional` **durationMs?**: `number`
-
-Defined in: [types/realtime.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L131)
 
 Duration of this chunk in milliseconds

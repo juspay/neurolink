@@ -8,8 +8,6 @@
 
 > **ConfirmationRequest** = `object`
 
-Defined in: [types/hitl.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L61)
-
 Internal confirmation request tracking
 Used by HITLManager to track pending confirmations
 
@@ -19,8 +17,6 @@ Used by HITLManager to track pending confirmations
 
 > **confirmationId**: `string`
 
-Defined in: [types/hitl.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L63)
-
 Unique identifier for this confirmation request
 
 ---
@@ -28,8 +24,6 @@ Unique identifier for this confirmation request
 ### toolName
 
 > **toolName**: `string`
-
-Defined in: [types/hitl.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L66)
 
 Name of the tool requiring confirmation
 
@@ -39,8 +33,6 @@ Name of the tool requiring confirmation
 
 > **arguments**: `unknown`
 
-Defined in: [types/hitl.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L69)
-
 Arguments that will be passed to the tool
 
 ---
@@ -48,8 +40,6 @@ Arguments that will be passed to the tool
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/hitl.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L72)
 
 Timestamp when the request was created
 
@@ -59,8 +49,6 @@ Timestamp when the request was created
 
 > **timeoutHandle**: `NodeJS.Timeout`
 
-Defined in: [types/hitl.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L75)
-
 Timeout handle for cleanup
 
 ---
@@ -68,8 +56,6 @@ Timeout handle for cleanup
 ### resolve
 
 > **resolve**: (`result`) => `void`
-
-Defined in: [types/hitl.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L78)
 
 Promise resolve function
 
@@ -88,8 +74,6 @@ Promise resolve function
 ### reject
 
 > **reject**: (`error`) => `void`
-
-Defined in: [types/hitl.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L81)
 
 Promise reject function
 

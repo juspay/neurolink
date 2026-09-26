@@ -8,8 +8,6 @@
 
 > **summaryPreservesContext**(`summary`, `replacedMessages`, `decide`, `options?`): `Promise`\<`boolean`\>
 
-Defined in: [context/contextDecision.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/context/contextDecision.ts#L223)
-
 Gate a generated summary before it replaces the messages it covers.
 
 Stage 3 accepts any non-empty string today, so a summarizer that returned

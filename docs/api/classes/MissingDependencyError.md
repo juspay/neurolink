@@ -6,8 +6,6 @@
 
 # Class: MissingDependencyError
 
-Defined in: [server/errors.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L530)
-
 Missing dependency error
 
 ## Extends
@@ -19,8 +17,6 @@ Missing dependency error
 ### Constructor
 
 > **new MissingDependencyError**(`dependency`, `framework`, `installCommand?`): `MissingDependencyError`
-
-Defined in: [server/errors.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L531)
 
 #### Parameters
 
@@ -50,8 +46,6 @@ Defined in: [server/errors.ts:531](https://github.com/juspay/neurolink/blob/rele
 
 > `readonly` **code**: [`ServerAdapterErrorCodeType`](../type-aliases/ServerAdapterErrorCodeType.md)
 
-Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L21)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`code`](ServerAdapterError.md#code)
@@ -61,8 +55,6 @@ Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/relea
 ### category
 
 > `readonly` **category**: [`ErrorCategoryType`](../type-aliases/ErrorCategoryType.md)
-
-Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L22)
 
 #### Inherited from
 
@@ -74,8 +66,6 @@ Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` **severity**: [`ErrorSeverityType`](../type-aliases/ErrorSeverityType.md)
 
-Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L23)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`severity`](ServerAdapterError.md#severity)
@@ -85,8 +75,6 @@ Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/relea
 ### retryable
 
 > `readonly` **retryable**: `boolean`
-
-Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L24)
 
 #### Inherited from
 
@@ -98,8 +86,6 @@ Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L25)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`retryAfterMs`](ServerAdapterError.md#retryafterms)
@@ -109,8 +95,6 @@ Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/relea
 ### requestId?
 
 > `readonly` `optional` **requestId?**: `string`
-
-Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L26)
 
 #### Inherited from
 
@@ -122,8 +106,6 @@ Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` `optional` **path?**: `string`
 
-Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L27)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`path`](ServerAdapterError.md#path)
@@ -133,8 +115,6 @@ Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/relea
 ### method?
 
 > `readonly` `optional` **method?**: `string`
-
-Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L28)
 
 #### Inherited from
 
@@ -146,8 +126,6 @@ Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L29)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`details`](ServerAdapterError.md#details)
@@ -158,8 +136,6 @@ Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L30)
-
 #### Inherited from
 
 [`ServerAdapterError`](ServerAdapterError.md).[`cause`](ServerAdapterError.md#cause)
@@ -169,8 +145,6 @@ Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/relea
 ### toJSON()
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
-
-Defined in: [server/errors.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L59)
 
 Convert to JSON for API responses
 
@@ -187,8 +161,6 @@ Convert to JSON for API responses
 ### getHttpStatus()
 
 > **getHttpStatus**(): `number`
-
-Defined in: [server/errors.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L77)
 
 Get HTTP status code for this error
 

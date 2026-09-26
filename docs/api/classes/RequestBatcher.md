@@ -6,8 +6,6 @@
 
 # Class: RequestBatcher\<T\>
 
-Defined in: [mcp/batching/requestBatcher.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L44)
-
 Request Batcher - Efficient batch processing for MCP tool calls
 
 ## Example
@@ -45,8 +43,6 @@ const result2 = await batcher.add("getUserById", { id: 2 });
 
 > **new RequestBatcher**\<`T`\>(`config`): `RequestBatcher`\<`T`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L55)
-
 #### Parameters
 
 ##### config
@@ -69,8 +65,6 @@ Defined in: [mcp/batching/requestBatcher.ts:55](https://github.com/juspay/neurol
 
 > **get** **queueSize**(): `number`
 
-Defined in: [mcp/batching/requestBatcher.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L155)
-
 Get current queue size
 
 ##### Returns
@@ -84,8 +78,6 @@ Get current queue size
 #### Get Signature
 
 > **get** **activeBatchCount**(): `number`
-
-Defined in: [mcp/batching/requestBatcher.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L162)
 
 Get number of active batches
 
@@ -101,8 +93,6 @@ Get number of active batches
 
 > **get** **isIdle**(): `boolean`
 
-Defined in: [mcp/batching/requestBatcher.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L169)
-
 Check if the batcher is idle (no pending requests)
 
 ##### Returns
@@ -114,8 +104,6 @@ Check if the batcher is idle (no pending requests)
 ### setExecutor()
 
 > **setExecutor**(`executor`): `void`
-
-Defined in: [mcp/batching/requestBatcher.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L70)
 
 Set the batch executor function
 
@@ -134,8 +122,6 @@ Set the batch executor function
 ### add()
 
 > **add**(`tool`, `args`, `serverId?`): `Promise`\<`T`\>
-
-Defined in: [mcp/batching/requestBatcher.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L77)
 
 Add a request to the batch queue
 
@@ -163,8 +149,6 @@ Add a request to the batch queue
 
 > **flush**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L137)
-
 Manually flush the current batch
 
 #### Returns
@@ -177,8 +161,6 @@ Manually flush the current batch
 
 > **drain**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L176)
-
 Wait for all pending requests to complete
 
 #### Returns
@@ -190,8 +172,6 @@ Wait for all pending requests to complete
 ### destroy()
 
 > **destroy**(): `void`
-
-Defined in: [mcp/batching/requestBatcher.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/batching/requestBatcher.ts#L194)
 
 Destroy the batcher and reject all pending requests
 

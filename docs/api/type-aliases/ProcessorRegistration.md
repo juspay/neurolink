@@ -8,8 +8,6 @@
 
 > **ProcessorRegistration**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:789](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L789)
-
 Registration entry for a file processor.
 
 ## Type Parameters
@@ -24,15 +22,11 @@ Registration entry for a file processor.
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L792)
-
 ---
 
 ### priority
 
 > **priority**: `number`
-
-Defined in: [types/processor.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L793)
 
 ---
 
@@ -40,15 +34,11 @@ Defined in: [types/processor.ts:793](https://github.com/juspay/neurolink/blob/re
 
 > **processor**: `BaseFileProcessor`
 
-Defined in: [types/processor.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L794)
-
 ---
 
 ### isSupported
 
 > **isSupported**: (`mimetype`, `filename`) => `boolean`
-
-Defined in: [types/processor.ts:795](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L795)
 
 #### Parameters
 
@@ -70,12 +60,8 @@ Defined in: [types/processor.ts:795](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **description?**: `string`
 
-Defined in: [types/processor.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L796)
-
 ---
 
 ### aliases?
 
 > `optional` **aliases?**: `string`[]
-
-Defined in: [types/processor.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L797)

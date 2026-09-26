@@ -8,8 +8,6 @@
 
 > **OpenAIStreamChunk** = `object`
 
-Defined in: [types/proxy.ts:4055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4055)
-
 OpenAI streaming chunk.
 
 ## Properties
@@ -18,15 +16,11 @@ OpenAI streaming chunk.
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:4056](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4056)
-
 ---
 
 ### object
 
 > **object**: `"chat.completion.chunk"`
-
-Defined in: [types/proxy.ts:4057](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4057)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/proxy.ts:4057](https://github.com/juspay/neurolink/blob/relea
 
 > **created**: `number`
 
-Defined in: [types/proxy.ts:4058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4058)
-
 ---
 
 ### model
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:4059](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4059)
-
 ---
 
 ### choices
 
 > **choices**: `object`[]
-
-Defined in: [types/proxy.ts:4060](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4060)
 
 #### index
 
@@ -81,5 +69,3 @@ Defined in: [types/proxy.ts:4060](https://github.com/juspay/neurolink/blob/relea
 ### usage?
 
 > `optional` **usage?**: [`OpenAIUsage`](OpenAIUsage.md)
-
-Defined in: [types/proxy.ts:4074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4074)

@@ -8,8 +8,6 @@
 
 > **AuthSession** = `object`
 
-Defined in: [types/auth.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L151)
-
 Session information
 
 ## Properties
@@ -17,8 +15,6 @@ Session information
 ### id
 
 > **id**: `string`
-
-Defined in: [types/auth.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L153)
 
 Session identifier
 
@@ -28,8 +24,6 @@ Session identifier
 
 > **user**: [`AuthUser`](AuthUser.md)
 
-Defined in: [types/auth.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L155)
-
 Associated user
 
 ---
@@ -37,8 +31,6 @@ Associated user
 ### accessToken?
 
 > `optional` **accessToken?**: `string`
-
-Defined in: [types/auth.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L157)
 
 Session access token
 
@@ -48,8 +40,6 @@ Session access token
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/auth.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L159)
-
 Session refresh token
 
 ---
@@ -57,8 +47,6 @@ Session refresh token
 ### createdAt
 
 > **createdAt**: `Date`
-
-Defined in: [types/auth.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L161)
 
 Session creation time
 
@@ -68,8 +56,6 @@ Session creation time
 
 > **expiresAt**: `Date`
 
-Defined in: [types/auth.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L163)
-
 Session expiration time
 
 ---
@@ -77,8 +63,6 @@ Session expiration time
 ### isValid
 
 > **isValid**: `boolean`
-
-Defined in: [types/auth.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L165)
 
 Whether session is still valid
 
@@ -88,8 +72,6 @@ Whether session is still valid
 
 > `optional` **lastActivityAt?**: `Date`
 
-Defined in: [types/auth.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L167)
-
 Last activity timestamp
 
 ---
@@ -97,8 +79,6 @@ Last activity timestamp
 ### ipAddress?
 
 > `optional` **ipAddress?**: `string`
-
-Defined in: [types/auth.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L169)
 
 IP address of session origin
 
@@ -108,8 +88,6 @@ IP address of session origin
 
 > `optional` **userAgent?**: `string`
 
-Defined in: [types/auth.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L171)
-
 User agent string
 
 ---
@@ -118,8 +96,6 @@ User agent string
 
 > `optional` **deviceId?**: `string`
 
-Defined in: [types/auth.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L173)
-
 Device fingerprint
 
 ---
@@ -127,7 +103,5 @@ Device fingerprint
 ### metadata?
 
 > `optional` **metadata?**: [`UnknownRecord`](UnknownRecord.md)
-
-Defined in: [types/auth.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L175)
 
 Session metadata

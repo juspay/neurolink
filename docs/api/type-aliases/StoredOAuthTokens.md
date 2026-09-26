@@ -8,8 +8,6 @@
 
 > **StoredOAuthTokens** = `object`
 
-Defined in: [types/auth.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L19)
-
 OAuth tokens structure for storage.
 Stricter version of OAuthTokens with required fields for persistent storage.
 
@@ -19,8 +17,6 @@ Stricter version of OAuthTokens with required fields for persistent storage.
 
 > **accessToken**: `string`
 
-Defined in: [types/auth.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L21)
-
 The access token for API authentication
 
 ---
@@ -28,8 +24,6 @@ The access token for API authentication
 ### refreshToken?
 
 > `optional` **refreshToken?**: `string`
-
-Defined in: [types/auth.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L23)
 
 The refresh token for obtaining new access tokens (optional for some OAuth flows)
 
@@ -39,8 +33,6 @@ The refresh token for obtaining new access tokens (optional for some OAuth flows
 
 > **expiresAt**: `number`
 
-Defined in: [types/auth.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L25)
-
 Unix timestamp (ms) when the access token expires
 
 ---
@@ -49,8 +41,6 @@ Unix timestamp (ms) when the access token expires
 
 > **tokenType**: `string`
 
-Defined in: [types/auth.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L27)
-
 Token type, typically "Bearer"
 
 ---
@@ -58,7 +48,5 @@ Token type, typically "Bearer"
 ### scope?
 
 > `optional` **scope?**: `string`
-
-Defined in: [types/auth.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L29)
 
 Optional OAuth scopes granted

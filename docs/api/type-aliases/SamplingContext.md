@@ -8,8 +8,6 @@
 
 > **SamplingContext** = `object`
 
-Defined in: [types/scorer.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L415)
-
 Sampling context for adaptive sampling
 
 ## Properties
@@ -17,8 +15,6 @@ Sampling context for adaptive sampling
 ### recentScores?
 
 > `optional` **recentScores?**: `number`[]
-
-Defined in: [types/scorer.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L417)
 
 Recent quality scores
 
@@ -28,8 +24,6 @@ Recent quality scores
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/scorer.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L419)
-
 User ID if available
 
 ---
@@ -38,8 +32,6 @@ User ID if available
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/scorer.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L421)
-
 Tags for this request
 
 ---
@@ -47,7 +39,5 @@ Tags for this request
 ### hasError?
 
 > `optional` **hasError?**: `boolean`
-
-Defined in: [types/scorer.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L423)
 
 Whether this request errored

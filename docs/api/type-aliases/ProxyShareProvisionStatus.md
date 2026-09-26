@@ -7,5 +7,3 @@
 # Type Alias: ProxyShareProvisionStatus
 
 > **ProxyShareProvisionStatus** = `"pending"` \| `"authorized"` \| `"consumed"`
-
-Defined in: [types/proxy.ts:4435](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4435)

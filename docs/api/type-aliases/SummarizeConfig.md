@@ -8,8 +8,6 @@
 
 > **SummarizeConfig** = `object`
 
-Defined in: [types/context.ts:1013](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1013)
-
 Configuration for structured LLM summarization (Stage 3).
 
 ## Properties
@@ -18,15 +16,11 @@ Configuration for structured LLM summarization (Stage 3).
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1014)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/context.ts:1015](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1015)
 
 ---
 
@@ -34,22 +28,16 @@ Defined in: [types/context.ts:1015](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **keepRecentRatio?**: `number`
 
-Defined in: [types/context.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1016)
-
 ---
 
 ### memoryConfig?
 
 > `optional` **memoryConfig?**: `Partial`\<[`ConversationMemoryConfig`](ConversationMemoryConfig.md)\>
 
-Defined in: [types/context.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1017)
-
 ---
 
 ### targetTokens?
 
 > `optional` **targetTokens?**: `number`
-
-Defined in: [types/context.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1019)
 
 Target token budget — when set, split uses token counting instead of message count

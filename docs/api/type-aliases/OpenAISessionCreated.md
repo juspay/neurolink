@@ -8,8 +8,6 @@
 
 > **OpenAISessionCreated** = [`OpenAIRealtimeEvent`](OpenAIRealtimeEvent.md) & `object`
 
-Defined in: [types/stt.ts:682](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L682)
-
 ## Type Declaration
 
 ### type

@@ -8,8 +8,6 @@
 
 > **isStandardRecord**(`value`): `value is StandardRecord`
 
-Defined in: [types/aliases.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L466)
-
 Type guard for checking if value is a StandardRecord
 
 ## Parameters

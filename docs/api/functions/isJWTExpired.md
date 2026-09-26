@@ -8,8 +8,6 @@
 
 > **isJWTExpired**(`token`, `bufferMs?`): `boolean`
 
-Defined in: [client/auth.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L511)
-
 Check if a JWT token is expired
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **isImageContent**(`content`): `content is ImageContent`
 
-Defined in: [types/multimodal.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L616)
-
 Type guard to check if content is ImageContent
 
 ## Parameters

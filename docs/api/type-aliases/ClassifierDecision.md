@@ -8,8 +8,6 @@
 
 > **ClassifierDecision** = `object`
 
-Defined in: [types/classifierRouter.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L60)
-
 The classifier's verdict for a single request. Strategy-agnostic: produced
 by both the heuristic and the LLM classifier.
 
@@ -19,8 +17,6 @@ by both the heuristic and the LLM classifier.
 
 > **difficulty**: [`ClassifierDifficulty`](ClassifierDifficulty.md)
 
-Defined in: [types/classifierRouter.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L62)
-
 The classified difficulty bucket.
 
 ---
@@ -28,8 +24,6 @@ The classified difficulty bucket.
 ### confidence
 
 > **confidence**: `number`
-
-Defined in: [types/classifierRouter.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L64)
 
 Confidence in the classification (0–1).
 
@@ -39,8 +33,6 @@ Confidence in the classification (0–1).
 
 > `optional` **requiredCapabilities?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L66)
-
 Capability tags the request needs (e.g. "vision", "tools", "reasoning").
 
 ---
@@ -48,8 +40,6 @@ Capability tags the request needs (e.g. "vision", "tools", "reasoning").
 ### suggestedTools?
 
 > `optional` **suggestedTools?**: `string`[]
-
-Defined in: [types/classifierRouter.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L68)
 
 Tool names the classifier thinks the task needs (allowlist hint).
 
@@ -59,8 +49,6 @@ Tool names the classifier thinks the task needs (allowlist hint).
 
 > `optional` **selectedModelId?**: `string`
 
-Defined in: [types/classifierRouter.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L73)
-
 When the LLM classifier picks a model directly, the chosen candidate id
 (matches a `ClassifierCandidate.id`). Ignored by the heuristic classifier.
 
@@ -69,8 +57,6 @@ When the LLM classifier picks a model directly, the chosen candidate id
 ### selectedModelConfidence?
 
 > `optional` **selectedModelConfidence?**: `number`
-
-Defined in: [types/classifierRouter.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L85)
 
 Confidence in `selectedModelId`, when the strategy reports one.
 
@@ -88,8 +74,6 @@ which case the pick is honoured as it always was.
 
 > `optional` **contextScope?**: [`ClassifierContextScope`](ClassifierContextScope.md)
 
-Defined in: [types/classifierRouter.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L92)
-
 How much context the request needs. Only the decision strategy produces
 this — the heuristic has no way to judge it and the LLM classifier is not
 asked, since for it every extra field costs output tokens. For a decision
@@ -101,8 +85,6 @@ model the question is very nearly free.
 
 > `optional` **contextScopeConfidence?**: `number`
 
-Defined in: [types/classifierRouter.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L94)
-
 Confidence in `contextScope`, 0-1. Calibrated for the decide strategy.
 
 ---
@@ -110,7 +92,5 @@ Confidence in `contextScope`, 0-1. Calibrated for the decide strategy.
 ### reason?
 
 > `optional` **reason?**: `string`
-
-Defined in: [types/classifierRouter.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L96)
 
 Human-readable explanation, emitted at debug level.

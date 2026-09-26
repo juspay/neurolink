@@ -8,8 +8,6 @@
 
 > `const` **GENAI_ATTRIBUTES**: `object`
 
-Defined in: [types/span.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L74)
-
 OpenTelemetry GenAI semantic conventions
 
 ## Type Declaration

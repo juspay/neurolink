@@ -8,8 +8,6 @@
 
 > **CostEstimationParams** = `object`
 
-Defined in: [types/evaluationProviders.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L94)
-
 Provider cost estimation parameters
 
 ## Properties
@@ -18,15 +16,11 @@ Provider cost estimation parameters
 
 > **provider**: `string`
 
-Defined in: [types/evaluationProviders.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L95)
-
 ---
 
 ### inputTokens
 
 > **inputTokens**: `number`
-
-Defined in: [types/evaluationProviders.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L96)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/evaluationProviders.ts:96](https://github.com/juspay/neurolin
 
 > **outputTokens**: `number`
 
-Defined in: [types/evaluationProviders.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L97)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/evaluationProviders.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L98)

@@ -8,8 +8,6 @@
 
 > **CliAnalytics** = `object`
 
-Defined in: [types/action.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L147)
-
 Raw CLI analytics format (actual CLI output)
 
 ## Properties
@@ -18,15 +16,11 @@ Raw CLI analytics format (actual CLI output)
 
 > **provider**: `string`
 
-Defined in: [types/action.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L148)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/action.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L149)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/action.ts:149](https://github.com/juspay/neurolink/blob/relea
 
 > **tokenUsage**: [`CliTokenUsage`](CliTokenUsage.md)
 
-Defined in: [types/action.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L150)
-
 ---
 
 ### requestDuration
 
 > **requestDuration**: `number`
-
-Defined in: [types/action.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L151)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/action.ts:151](https://github.com/juspay/neurolink/blob/relea
 
 > **timestamp**: `string`
 
-Defined in: [types/action.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L152)
-
 ---
 
 ### cost?
 
 > `optional` **cost?**: `number`
-
-Defined in: [types/action.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L153)

@@ -8,8 +8,6 @@
 
 > **formatContextWithCitations**(`results`, `options?`): `object`
 
-Defined in: [rag/pipeline/contextAssembly.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/contextAssembly.ts#L168)
-
 Format context with inline citations
 
 ## Parameters

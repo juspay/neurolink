@@ -8,8 +8,6 @@
 
 > `const` **SPEED_FIRST_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/adaptiveWorkflow.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/adaptiveWorkflow.ts#L180)
-
 Speed-First Adaptive Workflow
 
 Optimizes for speed with quality fallback:

@@ -8,8 +8,6 @@
 
 > **AvatarQuality** = `"standard"` \| `"hd"`
 
-Defined in: [types/avatar.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L24)
-
 Quality presets for avatar generation. Provider-specific mappings:
 
 - D-ID: "standard" → 720p, "hd" → 1080p

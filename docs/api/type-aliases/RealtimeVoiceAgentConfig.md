@@ -8,8 +8,6 @@
 
 > **RealtimeVoiceAgentConfig** = `object`
 
-Defined in: [types/livekit.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L473)
-
 Options for `defineRealtimeVoiceAgent`. Every field is optional: omitted
 values fall back to `resolveRealtimeVoiceConfig()` (i.e. the environment), so
 a caller can use `defineRealtimeVoiceAgent()` with no arguments and configure
@@ -21,15 +19,11 @@ everything via env.
 
 > `optional` **project?**: `string`
 
-Defined in: [types/livekit.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L474)
-
 ---
 
 ### location?
 
 > `optional` **location?**: `string`
-
-Defined in: [types/livekit.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L475)
 
 ---
 
@@ -37,15 +31,11 @@ Defined in: [types/livekit.ts:475](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **model?**: `string`
 
-Defined in: [types/livekit.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L476)
-
 ---
 
 ### voice?
 
 > `optional` **voice?**: `string`
-
-Defined in: [types/livekit.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L477)
 
 ---
 
@@ -53,15 +43,11 @@ Defined in: [types/livekit.ts:477](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **responseModality?**: `string`
 
-Defined in: [types/livekit.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L478)
-
 ---
 
 ### systemPrompt?
 
 > `optional` **systemPrompt?**: `string`
-
-Defined in: [types/livekit.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L479)
 
 ---
 
@@ -69,15 +55,11 @@ Defined in: [types/livekit.ts:479](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **greeting?**: `string`
 
-Defined in: [types/livekit.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L480)
-
 ---
 
 ### tools?
 
 > `optional` **tools?**: `object`
-
-Defined in: [types/livekit.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L482)
 
 MCP tool bridging overrides.
 
@@ -95,8 +77,6 @@ MCP tool bridging overrides.
 
 > `optional` **eventsTopic?**: `string`
 
-Defined in: [types/livekit.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L487)
-
 Data-channel topic for outbound events (default "ai-events").
 
 ---
@@ -105,8 +85,6 @@ Data-channel topic for outbound events (default "ai-events").
 
 > `optional` **controlTopic?**: `string`
 
-Defined in: [types/livekit.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L489)
-
 Data-channel topic for inbound control messages (default "ai-control").
 
 ---
@@ -114,8 +92,6 @@ Data-channel topic for inbound control messages (default "ai-control").
 ### onLog?
 
 > `optional` **onLog?**: (`entry`, `ctx`) => `void`
-
-Defined in: [types/livekit.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L497)
 
 Optional sink for the agent's own logs. When set, the realtime agent wires
 NeuroLink's logger to this callback for the duration of the call, so a host

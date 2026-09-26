@@ -8,8 +8,6 @@
 
 > `const` **REALTIME_ERROR_CODES**: `object`
 
-Defined in: [types/realtime.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L272)
-
 Realtime error codes
 
 ## Type Declaration

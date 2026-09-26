@@ -8,8 +8,6 @@
 
 > **SpeechGrammarList** = `object`
 
-Defined in: [types/client.ts:1211](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1211)
-
 Speech grammar list interface
 
 ## Indexable
@@ -22,15 +20,11 @@ Speech grammar list interface
 
 > `readonly` **length**: `number`
 
-Defined in: [types/client.ts:1212](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1212)
-
 ## Methods
 
 ### addFromString()
 
 > **addFromString**(`string`, `weight?`): `void`
-
-Defined in: [types/client.ts:1213](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1213)
 
 #### Parameters
 
@@ -52,8 +46,6 @@ Defined in: [types/client.ts:1213](https://github.com/juspay/neurolink/blob/rele
 
 > **addFromURI**(`src`, `weight?`): `void`
 
-Defined in: [types/client.ts:1214](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1214)
-
 #### Parameters
 
 ##### src
@@ -73,8 +65,6 @@ Defined in: [types/client.ts:1214](https://github.com/juspay/neurolink/blob/rele
 ### item()
 
 > **item**(`index`): [`SpeechGrammar`](SpeechGrammar.md)
-
-Defined in: [types/client.ts:1215](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1215)
 
 #### Parameters
 

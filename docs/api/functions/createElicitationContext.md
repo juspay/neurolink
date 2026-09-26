@@ -8,8 +8,6 @@
 
 > **createElicitationContext**(`toolName`, `serverId`, `manager`): [`ElicitationContext`](../type-aliases/ElicitationContext.md)
 
-Defined in: [mcp/toolIntegration.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L31)
-
 Create elicitation context for a tool
 
 ## Parameters

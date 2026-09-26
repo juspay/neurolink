@@ -8,8 +8,6 @@
 
 > **AutoresearchEventMap** = `object`
 
-Defined in: [types/autoresearch.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L219)
-
 Union map of all autoresearch event names to their payload types.
 Used by TypedEventEmitter consumers for documentation;
 NeuroLinkEvents uses `unknown` payloads for flexibility.
@@ -20,15 +18,11 @@ NeuroLinkEvents uses `unknown` payloads for flexibility.
 
 > **autoresearch:initialized**: [`AutoresearchInitializedEvent`](AutoresearchInitializedEvent.md)
 
-Defined in: [types/autoresearch.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L220)
-
 ---
 
 ### autoresearch:resumed
 
 > **autoresearch:resumed**: [`AutoresearchResumedEvent`](AutoresearchResumedEvent.md)
-
-Defined in: [types/autoresearch.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L221)
 
 ---
 
@@ -36,15 +30,11 @@ Defined in: [types/autoresearch.ts:221](https://github.com/juspay/neurolink/blob
 
 > **autoresearch:phase-changed**: [`AutoresearchPhaseChangedEvent`](AutoresearchPhaseChangedEvent.md)
 
-Defined in: [types/autoresearch.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L222)
-
 ---
 
 ### autoresearch:experiment-started
 
 > **autoresearch:experiment-started**: [`AutoresearchExperimentStartedEvent`](AutoresearchExperimentStartedEvent.md)
-
-Defined in: [types/autoresearch.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L223)
 
 ---
 
@@ -52,15 +42,11 @@ Defined in: [types/autoresearch.ts:223](https://github.com/juspay/neurolink/blob
 
 > **autoresearch:experiment-completed**: [`AutoresearchExperimentCompletedEvent`](AutoresearchExperimentCompletedEvent.md)
 
-Defined in: [types/autoresearch.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L224)
-
 ---
 
 ### autoresearch:metric-improved
 
 > **autoresearch:metric-improved**: [`AutoresearchMetricImprovedEvent`](AutoresearchMetricImprovedEvent.md)
-
-Defined in: [types/autoresearch.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L225)
 
 ---
 
@@ -68,15 +54,11 @@ Defined in: [types/autoresearch.ts:225](https://github.com/juspay/neurolink/blob
 
 > **autoresearch:revert**: [`AutoresearchRevertEvent`](AutoresearchRevertEvent.md)
 
-Defined in: [types/autoresearch.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L226)
-
 ---
 
 ### autoresearch:revert-failed
 
 > **autoresearch:revert-failed**: [`AutoresearchRevertFailedEvent`](AutoresearchRevertFailedEvent.md)
-
-Defined in: [types/autoresearch.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L227)
 
 ---
 
@@ -84,12 +66,8 @@ Defined in: [types/autoresearch.ts:227](https://github.com/juspay/neurolink/blob
 
 > **autoresearch:state-updated**: [`AutoresearchStateUpdatedEvent`](AutoresearchStateUpdatedEvent.md)
 
-Defined in: [types/autoresearch.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L228)
-
 ---
 
 ### autoresearch:error
 
 > **autoresearch:error**: [`AutoresearchErrorEvent`](AutoresearchErrorEvent.md)
-
-Defined in: [types/autoresearch.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L229)

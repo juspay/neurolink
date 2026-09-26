@@ -8,8 +8,6 @@
 
 > **createDefaultTripwireEvaluator**(): [`TripwireEvaluator`](../classes/TripwireEvaluator.md)
 
-Defined in: [utils/tripwireEvaluator.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L329)
-
 Create a TripwireEvaluator pre-loaded with all built-in tripwires.
 
 ## Returns

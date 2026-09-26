@@ -8,8 +8,6 @@
 
 > **ElicitationResponse** = `object`
 
-Defined in: [types/elicitation.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L219)
-
 Elicitation response
 
 ## Properties
@@ -17,8 +15,6 @@ Elicitation response
 ### requestId
 
 > **requestId**: `string`
-
-Defined in: [types/elicitation.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L223)
 
 Request ID this responds to
 
@@ -28,8 +24,6 @@ Request ID this responds to
 
 > **responded**: `boolean`
 
-Defined in: [types/elicitation.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L228)
-
 Whether the user provided a response
 
 ---
@@ -37,8 +31,6 @@ Whether the user provided a response
 ### value?
 
 > `optional` **value?**: [`JsonValue`](JsonValue.md)
-
-Defined in: [types/elicitation.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L233)
 
 The user's response value
 
@@ -48,8 +40,6 @@ The user's response value
 
 > `optional` **cancelled?**: `boolean`
 
-Defined in: [types/elicitation.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L238)
-
 Whether the request was cancelled
 
 ---
@@ -57,8 +47,6 @@ Whether the request was cancelled
 ### timedOut?
 
 > `optional` **timedOut?**: `boolean`
-
-Defined in: [types/elicitation.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L243)
 
 Whether the request timed out
 
@@ -68,8 +56,6 @@ Whether the request timed out
 
 > `optional` **error?**: `string`
 
-Defined in: [types/elicitation.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L248)
-
 Error message if response failed
 
 ---
@@ -77,7 +63,5 @@ Error message if response failed
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/elicitation.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L253)
 
 Response timestamp

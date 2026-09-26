@@ -8,8 +8,6 @@
 
 > **MiddlewareDefinition** = `object`
 
-Defined in: [types/server.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L467)
-
 Middleware definition
 
 ## Properties
@@ -17,8 +15,6 @@ Middleware definition
 ### name
 
 > **name**: `string`
-
-Defined in: [types/server.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L469)
 
 Middleware name
 
@@ -28,8 +24,6 @@ Middleware name
 
 > `optional` **order?**: `number`
 
-Defined in: [types/server.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L472)
-
 Execution order (lower = earlier)
 
 ---
@@ -37,8 +31,6 @@ Execution order (lower = earlier)
 ### handler
 
 > **handler**: [`MiddlewareHandler`](MiddlewareHandler.md)
-
-Defined in: [types/server.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L475)
 
 Middleware handler
 
@@ -48,8 +40,6 @@ Middleware handler
 
 > `optional` **paths?**: `string`[]
 
-Defined in: [types/server.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L478)
-
 Paths to apply middleware to (default: all)
 
 ---
@@ -57,7 +47,5 @@ Paths to apply middleware to (default: all)
 ### excludePaths?
 
 > `optional` **excludePaths?**: `string`[]
-
-Defined in: [types/server.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L481)
 
 Paths to exclude from middleware

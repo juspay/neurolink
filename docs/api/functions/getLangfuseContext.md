@@ -8,8 +8,6 @@
 
 > **getLangfuseContext**(): [`LangfuseContext`](../type-aliases/LangfuseContext.md) \| `undefined`
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1442](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1442)
-
 Get the current Langfuse context from AsyncLocalStorage
 
 Returns the current context including userId, sessionId, conversationId,

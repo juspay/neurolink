@@ -8,8 +8,6 @@
 
 > **SkillS3ObjectOps** = `object`
 
-Defined in: [types/skills.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L218)
-
 Minimal object-storage operations the S3 skill store runs on. The
 default implementation is created lazily from @aws-sdk/client-s3;
 tests and hosts with pre-built clients can inject their own.
@@ -19,8 +17,6 @@ tests and hosts with pre-built clients can inject their own.
 ### getObject()
 
 > **getObject**(`key`): `Promise`\<`string` \| `null`\>
-
-Defined in: [types/skills.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L220)
 
 Fetch an object's body as a UTF-8 string. Null when the key is absent.
 
@@ -39,8 +35,6 @@ Fetch an object's body as a UTF-8 string. Null when the key is absent.
 ### putObject()
 
 > **putObject**(`key`, `body`): `Promise`\<`void`\>
-
-Defined in: [types/skills.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L221)
 
 #### Parameters
 
@@ -62,8 +56,6 @@ Defined in: [types/skills.ts:221](https://github.com/juspay/neurolink/blob/relea
 
 > **deleteObject**(`key`): `Promise`\<`void`\>
 
-Defined in: [types/skills.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L222)
-
 #### Parameters
 
 ##### key
@@ -79,8 +71,6 @@ Defined in: [types/skills.ts:222](https://github.com/juspay/neurolink/blob/relea
 ### listKeys()
 
 > **listKeys**(`prefix`): `Promise`\<`string`[]\>
-
-Defined in: [types/skills.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L224)
 
 List all object keys under a prefix (paginated internally).
 
@@ -99,8 +89,6 @@ List all object keys under a prefix (paginated internally).
 ### getObjectConditional()?
 
 > `optional` **getObjectConditional**(`key`, `etag?`): `Promise`\<[`SkillS3ConditionalGetResult`](SkillS3ConditionalGetResult.md)\>
-
-Defined in: [types/skills.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L230)
 
 Optional: ETag-conditional read (If-None-Match). Used for index.json
 refreshes so an unchanged index costs a 304 instead of a full download.

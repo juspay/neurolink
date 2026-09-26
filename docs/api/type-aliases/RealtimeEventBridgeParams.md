@@ -8,8 +8,6 @@
 
 > **RealtimeEventBridgeParams** = `object`
 
-Defined in: [types/livekit.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L531)
-
 Inputs to `attachRealtimeEventBridge`.
 
 ## Properties
@@ -17,8 +15,6 @@ Inputs to `attachRealtimeEventBridge`.
 ### room
 
 > **room**: [`LiveKitBridgeRoom`](LiveKitBridgeRoom.md)
-
-Defined in: [types/livekit.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L533)
 
 The LiveKit room for this call (from the job context).
 
@@ -28,8 +24,6 @@ The LiveKit room for this call (from the job context).
 
 > `optional` **hitlTimeoutMs?**: `number`
 
-Defined in: [types/livekit.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L535)
-
 HITL confirmation timeout in ms before a request is auto-declined.
 
 ---
@@ -37,8 +31,6 @@ HITL confirmation timeout in ms before a request is auto-declined.
 ### eventsTopic?
 
 > `optional` **eventsTopic?**: `string`
-
-Defined in: [types/livekit.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L537)
 
 Outbound events topic (default "ai-events").
 
@@ -48,8 +40,6 @@ Outbound events topic (default "ai-events").
 
 > `optional` **controlTopic?**: `string`
 
-Defined in: [types/livekit.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L539)
-
 Inbound control topic (default "ai-control").
 
 ---
@@ -57,7 +47,5 @@ Inbound control topic (default "ai-control").
 ### maxInlineBytes?
 
 > `optional` **maxInlineBytes?**: `number`
-
-Defined in: [types/livekit.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L541)
 
 Payloads larger than this are sent via the chunked text stream (default 12000).

@@ -8,8 +8,6 @@
 
 > **PptxShapeOptions** = `object`
 
-Defined in: [types/ppt.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1085)
-
 Shape options for addShape method
 
 ## Properties
@@ -18,15 +16,11 @@ Shape options for addShape method
 
 > `optional` **x?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1086)
-
 ---
 
 ### y?
 
 > `optional` **y?**: `number` \| `string`
-
-Defined in: [types/ppt.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1087)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/ppt.ts:1087](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **w?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1088](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1088)
-
 ---
 
 ### h?
 
 > `optional` **h?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1089)
-
 ---
 
 ### fill?
 
 > `optional` **fill?**: `object`
-
-Defined in: [types/ppt.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1090)
 
 #### color
 
@@ -65,8 +53,6 @@ Defined in: [types/ppt.ts:1090](https://github.com/juspay/neurolink/blob/release
 ### line?
 
 > `optional` **line?**: `object`
-
-Defined in: [types/ppt.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1091)
 
 #### color?
 
@@ -86,20 +72,14 @@ Defined in: [types/ppt.ts:1091](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **rectRadius?**: `number`
 
-Defined in: [types/ppt.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1092)
-
 ---
 
 ### rotate?
 
 > `optional` **rotate?**: `number`
 
-Defined in: [types/ppt.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1093)
-
 ---
 
 ### shadow?
 
 > `optional` **shadow?**: [`ShadowProps`](ShadowProps.md)
-
-Defined in: [types/ppt.ts:1094](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1094)

@@ -8,8 +8,6 @@
 
 > **ServerAuthConfig** = `object`
 
-Defined in: [types/server.ts:953](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L953)
-
 Authentication configuration
 
 ## Properties
@@ -18,15 +16,11 @@ Authentication configuration
 
 > **strategy**: [`AuthStrategy`](AuthStrategy.md)
 
-Defined in: [types/server.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L954)
-
 ---
 
 ### required?
 
 > `optional` **required?**: `boolean`
-
-Defined in: [types/server.ts:955](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L955)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/server.ts:955](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **headerName?**: `string`
 
-Defined in: [types/server.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L956)
-
 ---
 
 ### queryParam?
 
 > `optional` **queryParam?**: `string`
 
-Defined in: [types/server.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L957)
-
 ---
 
 ### validate?
 
 > `optional` **validate?**: (`token`) => `Promise`\<[`AuthenticatedUser`](AuthenticatedUser.md) \| `null`\>
-
-Defined in: [types/server.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L958)
 
 #### Parameters
 
@@ -68,12 +56,8 @@ Defined in: [types/server.ts:958](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:959](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L959)
-
 ---
 
 ### permissions?
 
 > `optional` **permissions?**: `string`[]
-
-Defined in: [types/server.ts:960](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L960)

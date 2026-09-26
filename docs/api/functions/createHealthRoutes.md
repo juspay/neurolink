@@ -8,8 +8,6 @@
 
 > **createHealthRoutes**(`basePath?`): [`RouteGroup`](../type-aliases/RouteGroup.md)
 
-Defined in: [server/routes/healthRoutes.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/server/routes/healthRoutes.ts#L41)
-
 Create health check routes
 
 ## Parameters

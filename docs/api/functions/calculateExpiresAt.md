@@ -8,8 +8,6 @@
 
 > **calculateExpiresAt**(`expiresIn`): `number`
 
-Defined in: [mcp/auth/tokenStorage.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L165)
-
 Calculate token expiration timestamp from expires_in value
 
 ## Parameters

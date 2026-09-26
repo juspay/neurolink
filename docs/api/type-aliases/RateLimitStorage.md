@@ -8,8 +8,6 @@
 
 > **RateLimitStorage** = `object`
 
-Defined in: [types/auth.ts:1375](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1375)
-
 Storage contract for rate-limit buckets (memory or Redis).
 
 ## Methods
@@ -17,8 +15,6 @@ Storage contract for rate-limit buckets (memory or Redis).
 ### getBucket()
 
 > **getBucket**(`userId`): `Promise`\<[`TokenBucket`](TokenBucket.md) \| `null`\>
-
-Defined in: [types/auth.ts:1376](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1376)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [types/auth.ts:1376](https://github.com/juspay/neurolink/blob/releas
 ### setBucket()
 
 > **setBucket**(`userId`, `bucket`): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1377)
 
 #### Parameters
 
@@ -58,8 +52,6 @@ Defined in: [types/auth.ts:1377](https://github.com/juspay/neurolink/blob/releas
 
 > **deleteBucket**(`userId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1378)
-
 #### Parameters
 
 ##### userId
@@ -76,8 +68,6 @@ Defined in: [types/auth.ts:1378](https://github.com/juspay/neurolink/blob/releas
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [types/auth.ts:1379](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1379)
-
 #### Returns
 
 `Promise`\<`boolean`\>
@@ -88,8 +78,6 @@ Defined in: [types/auth.ts:1379](https://github.com/juspay/neurolink/blob/releas
 
 > **cleanup**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1380)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -99,8 +87,6 @@ Defined in: [types/auth.ts:1380](https://github.com/juspay/neurolink/blob/releas
 ### atomicConsume()?
 
 > `optional` **atomicConsume**(`userId`, `limit`, `windowMs`, `nowMs`): `Promise`\<[`AtomicConsumeResult`](AtomicConsumeResult.md) \| `null`\>
-
-Defined in: [types/auth.ts:1381](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1381)
 
 #### Parameters
 

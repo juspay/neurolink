@@ -6,8 +6,6 @@
 
 # Class: S3SkillStore
 
-Defined in: [skills/skillStoreS3.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L168)
-
 ## Implements
 
 - [`SkillStore`](../type-aliases/SkillStore.md)
@@ -17,8 +15,6 @@ Defined in: [skills/skillStoreS3.ts:168](https://github.com/juspay/neurolink/blo
 ### Constructor
 
 > **new S3SkillStore**(`config`, `injectedOps?`): `S3SkillStore`
-
-Defined in: [skills/skillStoreS3.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L175)
 
 #### Parameters
 
@@ -42,8 +38,6 @@ Test/host seam — omit to build ops from @aws-sdk/client-s3 lazily.
 
 > **invalidate**(): `void`
 
-Defined in: [skills/skillStoreS3.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L185)
-
 Optional: drop any internal caches (called after mutations).
 
 #### Returns
@@ -59,8 +53,6 @@ Optional: drop any internal caches (called after mutations).
 ### getResource()
 
 > **getResource**(`id`, `resourcePath`): `Promise`\<`string` \| `null`\>
-
-Defined in: [skills/skillStoreS3.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L210)
 
 Optional: fetch an auxiliary resource file bundled with a skill.
 `resourcePath` is relative to the skill (e.g. "references/forms.md").
@@ -91,8 +83,6 @@ support simply omit this method.
 
 > **get**(`id`): `Promise`\<[`SkillDefinition`](../type-aliases/SkillDefinition.md) \| `null`\>
 
-Defined in: [skills/skillStoreS3.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L217)
-
 Fetch one skill (with instructions) by id. Null when absent.
 
 #### Parameters
@@ -114,8 +104,6 @@ Fetch one skill (with instructions) by id. Null when absent.
 ### put()
 
 > **put**(`skill`): `Promise`\<`void`\>
-
-Defined in: [skills/skillStoreS3.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L233)
 
 Create or replace a skill.
 
@@ -139,8 +127,6 @@ Create or replace a skill.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [skills/skillStoreS3.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L250)
-
 Hard-remove a skill from storage. (Soft deletes go through put().)
 
 #### Parameters
@@ -162,8 +148,6 @@ Hard-remove a skill from storage. (Soft deletes go through put().)
 ### index()
 
 > **index**(): `Promise`\<[`SkillIndexItem`](../type-aliases/SkillIndexItem.md)[]\>
-
-Defined in: [skills/skillStoreS3.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreS3.ts#L258)
 
 List index entries (no instructions) for all stored skills.
 

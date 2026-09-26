@@ -8,15 +8,11 @@
 
 > **Counter** = `object`
 
-Defined in: [types/providers.ts:2050](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2050)
-
 ## Methods
 
 ### add()
 
 > **add**(`value`, `attributes?`): `void`
-
-Defined in: [types/providers.ts:2051](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2051)
 
 #### Parameters
 

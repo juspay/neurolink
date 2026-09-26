@@ -8,8 +8,6 @@
 
 > **BM25Result** = `object`
 
-Defined in: [types/rag.ts:1324](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1324)
-
 BM25 search result
 
 ## Properties
@@ -17,8 +15,6 @@ BM25 search result
 ### id
 
 > **id**: `string`
-
-Defined in: [types/rag.ts:1326](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1326)
 
 Document ID
 
@@ -28,8 +24,6 @@ Document ID
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1328](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1328)
-
 BM25 score
 
 ---
@@ -38,8 +32,6 @@ BM25 score
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1330](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1330)
-
 Document text
 
 ---
@@ -47,7 +39,5 @@ Document text
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/rag.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1332)
 
 Associated metadata

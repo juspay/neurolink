@@ -8,8 +8,6 @@
 
 > **assembleContext**(`results`, `options?`): `string`
 
-Defined in: [rag/pipeline/contextAssembly.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/contextAssembly.ts#L44)
-
 Assemble context from retrieved results
 
 Combines multiple chunks into a coherent context string

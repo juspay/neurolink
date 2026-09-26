@@ -8,8 +8,6 @@
 
 > **EphemeralContext** = `object`
 
-Defined in: [types/knowledge.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L367)
-
 A block of context assembled for a single generation call without becoming
 durable conversation. The NeuroLink call boundary injects its content into
 the effective system prompt and never persists it as a user message.
@@ -20,23 +18,17 @@ the effective system prompt and never persists it as a user message.
 
 > **content**: `string`
 
-Defined in: [types/knowledge.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L368)
-
 ---
 
 ### kind
 
 > **kind**: `"knowledge"`
 
-Defined in: [types/knowledge.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L369)
-
 ---
 
 ### trusted
 
 > **trusted**: `boolean`
-
-Defined in: [types/knowledge.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L371)
 
 Host-supplied reviewed content is trusted reference data.
 
@@ -46,12 +38,8 @@ Host-supplied reviewed content is trusted reference data.
 
 > `optional` **citations?**: [`KnowledgeCitation`](KnowledgeCitation.md)[]
 
-Defined in: [types/knowledge.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L372)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/knowledge.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L373)

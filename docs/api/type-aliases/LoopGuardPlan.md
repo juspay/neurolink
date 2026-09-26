@@ -8,8 +8,6 @@
 
 > **LoopGuardPlan** = `object`
 
-Defined in: [types/context.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L874)
-
 What the caller should do to reclaim budget. Indices refer to the input array.
 
 ## Properties
@@ -17,8 +15,6 @@ What the caller should do to reclaim budget. Indices refer to the input array.
 ### fire
 
 > **fire**: `boolean`
-
-Defined in: [types/context.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L876)
 
 False when the loop is under threshold and nothing should change.
 
@@ -28,8 +24,6 @@ False when the loop is under threshold and nothing should change.
 
 > **truncate**: `number`[]
 
-Defined in: [types/context.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L878)
-
 Entries whose payload should be replaced by a preview.
 
 ---
@@ -38,8 +32,6 @@ Entries whose payload should be replaced by a preview.
 
 > **drop**: `number`[]
 
-Defined in: [types/context.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L880)
-
 Entries to remove entirely — always whole batches, never a partial pair.
 
 ---
@@ -47,7 +39,5 @@ Entries to remove entirely — always whole batches, never a partial pair.
 ### projectedTokens
 
 > **projectedTokens**: `number`
-
-Defined in: [types/context.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L882)
 
 Estimated total after applying the plan, including fixed overhead.

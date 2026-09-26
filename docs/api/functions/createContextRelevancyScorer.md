@@ -8,8 +8,6 @@
 
 > **createContextRelevancyScorer**(`config?`): `Promise`\<[`ContextRelevancyScorer`](../classes/ContextRelevancyScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/contextRelevancyScorer.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/contextRelevancyScorer.ts#L130)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

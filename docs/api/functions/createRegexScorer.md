@@ -8,8 +8,6 @@
 
 > **createRegexScorer**(`id`, `name`, `options`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L136)
-
 Create a regex-based scorer
 
 ## Parameters

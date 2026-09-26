@@ -8,8 +8,6 @@
 
 > **LiveKitSttConfig** = `object`
 
-Defined in: [types/livekit.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L77)
-
 Speech-to-text plugin selection for the LiveKit worker.
 
 ## Properties
@@ -18,15 +16,11 @@ Speech-to-text plugin selection for the LiveKit worker.
 
 > **provider**: `string`
 
-Defined in: [types/livekit.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L78)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/livekit.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L79)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/livekit.ts:79](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **language?**: `string`
 
-Defined in: [types/livekit.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L80)
-
 ---
 
 ### maxEndpointDelayMs?
 
 > `optional` **maxEndpointDelayMs?**: `number`
-
-Defined in: [types/livekit.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L86)
 
 Soniox only: maximum delay (ms) between speech cessation and the STT
 endpoint. Raise it so Soniox does not finalize on short pauses — that lets

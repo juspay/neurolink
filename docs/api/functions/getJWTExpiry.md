@@ -8,8 +8,6 @@
 
 > **getJWTExpiry**(`token`): `number` \| `null`
 
-Defined in: [client/auth.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L529)
-
 Extract expiry time from a JWT token
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **MiddlewareExecutionContext** = `object`
 
-Defined in: [types/middleware.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L265)
-
 Middleware execution context
 
 ## Properties
@@ -18,15 +16,11 @@ Middleware execution context
 
 > **requestId**: `string`
 
-Defined in: [types/middleware.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L266)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/middleware.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L267)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/middleware.ts:267](https://github.com/juspay/neurolink/blob/r
 
 > **provider**: `string`
 
-Defined in: [types/middleware.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L268)
-
 ---
 
 ### model
 
 > **model**: `string`
-
-Defined in: [types/middleware.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L269)
 
 ---
 
@@ -50,20 +40,14 @@ Defined in: [types/middleware.ts:269](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/middleware.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L270)
-
 ---
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/middleware.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L271)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/middleware.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L272)

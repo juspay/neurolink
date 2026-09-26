@@ -6,8 +6,6 @@
 
 # Class: WebLoader
 
-Defined in: [rag/document/loaders.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L452)
-
 Web page loader
 
 Fetches and extracts content from web pages.
@@ -32,8 +30,6 @@ Supports basic HTML parsing without external dependencies.
 ### load()
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
-
-Defined in: [rag/document/loaders.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L456)
 
 Load document from source
 
@@ -66,8 +62,6 @@ Promise resolving to MDocument
 ### canHandle()
 
 > **canHandle**(`source`): `boolean`
-
-Defined in: [rag/document/loaders.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L505)
 
 Check if loader can handle the source
 

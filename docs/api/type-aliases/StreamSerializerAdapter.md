@@ -8,8 +8,6 @@
 
 > **StreamSerializerAdapter** = `object`
 
-Defined in: [types/proxy.ts:3940](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3940)
-
 Common adapter interface that hides the differences between
 Claude and OpenAI stream serializers from the unified translation engine.
 
@@ -18,8 +16,6 @@ Claude and OpenAI stream serializers from the unified translation engine.
 ### start()
 
 > **start**(): `Iterable`\<`string`\>
-
-Defined in: [types/proxy.ts:3941](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3941)
 
 #### Returns
 
@@ -30,8 +26,6 @@ Defined in: [types/proxy.ts:3941](https://github.com/juspay/neurolink/blob/relea
 ### pushDelta()
 
 > **pushDelta**(`text`): `Iterable`\<`string`\>
-
-Defined in: [types/proxy.ts:3942](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3942)
 
 #### Parameters
 
@@ -48,8 +42,6 @@ Defined in: [types/proxy.ts:3942](https://github.com/juspay/neurolink/blob/relea
 ### pushToolUse()
 
 > **pushToolUse**(`id`, `name`, `input`): `Iterable`\<`string`\>
-
-Defined in: [types/proxy.ts:3943](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3943)
 
 #### Parameters
 
@@ -74,8 +66,6 @@ Defined in: [types/proxy.ts:3943](https://github.com/juspay/neurolink/blob/relea
 ### finish()
 
 > **finish**(`finishReason`, `usage`): `Iterable`\<`string`\>
-
-Defined in: [types/proxy.ts:3944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3944)
 
 #### Parameters
 
@@ -106,8 +96,6 @@ Defined in: [types/proxy.ts:3944](https://github.com/juspay/neurolink/blob/relea
 ### emitError()
 
 > **emitError**(`message`): `Iterable`\<`string`\>
-
-Defined in: [types/proxy.ts:3948](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3948)
 
 #### Parameters
 

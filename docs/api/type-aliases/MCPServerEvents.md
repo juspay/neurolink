@@ -8,8 +8,6 @@
 
 > **MCPServerEvents** = `object`
 
-Defined in: [types/mcp.ts:1128](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1128)
-
 Server lifecycle events.
 
 ## Properties
@@ -17,8 +15,6 @@ Server lifecycle events.
 ### toolRegistered
 
 > **toolRegistered**: `object`
-
-Defined in: [types/mcp.ts:1129](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1129)
 
 #### toolName
 
@@ -33,8 +29,6 @@ Defined in: [types/mcp.ts:1129](https://github.com/juspay/neurolink/blob/release
 ### toolExecuted
 
 > **toolExecuted**: `object`
-
-Defined in: [types/mcp.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1130)
 
 #### toolName
 
@@ -54,8 +48,6 @@ Defined in: [types/mcp.ts:1130](https://github.com/juspay/neurolink/blob/release
 
 > **toolError**: `object`
 
-Defined in: [types/mcp.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1131)
-
 #### toolName
 
 > **toolName**: `string`
@@ -70,8 +62,6 @@ Defined in: [types/mcp.ts:1131](https://github.com/juspay/neurolink/blob/release
 
 > **serverReady**: `object`
 
-Defined in: [types/mcp.ts:1132](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1132)
-
 #### tools
 
 > **tools**: `string`[]
@@ -81,8 +71,6 @@ Defined in: [types/mcp.ts:1132](https://github.com/juspay/neurolink/blob/release
 ### serverStopped
 
 > **serverStopped**: `object`
-
-Defined in: [types/mcp.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1133)
 
 #### reason?
 

@@ -8,8 +8,6 @@
 
 > **OpenAIErrorResponse** = `object`
 
-Defined in: [types/proxy.ts:4078](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4078)
-
 OpenAI error response.
 
 ## Properties
@@ -17,8 +15,6 @@ OpenAI error response.
 ### error
 
 > **error**: `object`
-
-Defined in: [types/proxy.ts:4079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4079)
 
 #### message
 

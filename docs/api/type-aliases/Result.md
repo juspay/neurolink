@@ -8,8 +8,6 @@
 
 > **Result**\<`T`, `E`\> = `object`
 
-Defined in: [types/common.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L70)
-
 Generic success/error result type
 
 ## Type Parameters
@@ -28,20 +26,14 @@ Generic success/error result type
 
 > **success**: `boolean`
 
-Defined in: [types/common.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L71)
-
 ---
 
 ### data?
 
 > `optional` **data?**: `T`
 
-Defined in: [types/common.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L72)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `E`
-
-Defined in: [types/common.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L73)

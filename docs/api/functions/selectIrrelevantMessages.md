@@ -8,8 +8,6 @@
 
 > **selectIrrelevantMessages**(`messages`, `currentRequest`, `decide`, `options?`): `Promise`\<[`ContextRelevanceResult`](../type-aliases/ContextRelevanceResult.md) \| `null`\>
 
-Defined in: [context/contextDecision.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/context/contextDecision.ts#L104)
-
 Ask which earlier messages the current request still needs, and return the
 ones to drop.
 

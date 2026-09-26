@@ -8,8 +8,6 @@
 
 > **jsonSchema**\<`OBJECT`\>(`schema`, `options?`): [`Schema`](../type-aliases/Schema.md)\<`OBJECT`\>
 
-Defined in: [utils/tool.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tool.ts#L42)
-
 ## Type Parameters
 
 ### OBJECT

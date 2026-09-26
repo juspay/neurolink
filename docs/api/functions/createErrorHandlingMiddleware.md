@@ -8,8 +8,6 @@
 
 > **createErrorHandlingMiddleware**(`options?`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/common.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/common.ts#L148)
-
 Create error handling middleware
 Catches errors and formats them consistently
 

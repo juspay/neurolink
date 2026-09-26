@@ -8,8 +8,6 @@
 
 > **CliQwenSettings** = `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxyClient.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L147)
-
 Raw contents of a Qwen Code `settings.json`. Deliberately open-ended: the
 configurator rewrites only `security.auth` and must round-trip every other
 key the user has set, including ones this repo does not know about.

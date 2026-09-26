@@ -8,8 +8,6 @@
 
 > **VoiceTurn** = `object`
 
-Defined in: [types/voice.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L182)
-
 Voice conversation turn
 
 ## Properties
@@ -18,15 +16,11 @@ Voice conversation turn
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L183)
-
 ---
 
 ### text
 
 > **text**: `string`
-
-Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L184)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **audio?**: `Buffer`
 
-Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L185)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `Date`
 
-Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L186)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/voice.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L187)
 
 #### Index Signature
 

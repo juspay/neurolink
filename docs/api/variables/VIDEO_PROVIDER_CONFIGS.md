@@ -8,8 +8,6 @@
 
 > `const` **VIDEO_PROVIDER_CONFIGS**: `Readonly`\<`Record`\<`string`, [`VideoProviderConfig`](../type-aliases/VideoProviderConfig.md)\>\>
 
-Defined in: [adapters/videoFormatSupport.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/videoFormatSupport.ts#L114)
-
 Per-provider video handling.
 
 Keys are lowercase canonical names and the aliases each provider is

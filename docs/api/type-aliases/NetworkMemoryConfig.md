@@ -8,8 +8,6 @@
 
 > **NetworkMemoryConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L325)
-
 Memory configuration for the network
 
 ## Properties
@@ -17,8 +15,6 @@ Memory configuration for the network
 ### shared?
 
 > `optional` **shared?**: `boolean`
-
-Defined in: [types/agentNetwork.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L327)
 
 Enable shared memory across agents
 
@@ -28,8 +24,6 @@ Enable shared memory across agents
 
 > `optional` **provider?**: `"in-memory"` \| `"redis"`
 
-Defined in: [types/agentNetwork.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L330)
-
 Memory provider
 
 ---
@@ -38,8 +32,6 @@ Memory provider
 
 > `optional` **ttl?**: `number`
 
-Defined in: [types/agentNetwork.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L333)
-
 Memory TTL in seconds
 
 ---
@@ -47,7 +39,5 @@ Memory TTL in seconds
 ### maxMessages?
 
 > `optional` **maxMessages?**: `number`
-
-Defined in: [types/agentNetwork.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L336)
 
 Maximum messages to retain

@@ -8,8 +8,6 @@
 
 > **batchConvertToMCP**(`tools`, `options?`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/toolConverter.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolConverter.ts#L233)
-
 Batch convert NeuroLink tools to MCP format
 
 ## Parameters

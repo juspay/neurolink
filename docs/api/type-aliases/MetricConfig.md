@@ -8,15 +8,11 @@
 
 > **MetricConfig** = `object`
 
-Defined in: [types/autoresearch.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L19)
-
 ## Properties
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/autoresearch.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L20)
 
 ---
 
@@ -24,12 +20,8 @@ Defined in: [types/autoresearch.ts:20](https://github.com/juspay/neurolink/blob/
 
 > **direction**: [`MetricDirection`](MetricDirection.md)
 
-Defined in: [types/autoresearch.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L21)
-
 ---
 
 ### pattern
 
 > **pattern**: `string`
-
-Defined in: [types/autoresearch.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L22)

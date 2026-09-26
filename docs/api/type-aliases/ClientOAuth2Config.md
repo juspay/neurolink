@@ -8,8 +8,6 @@
 
 > **ClientOAuth2Config** = `object`
 
-Defined in: [types/client.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1096)
-
 OAuth2 client credentials configuration
 
 ## Properties
@@ -17,8 +15,6 @@ OAuth2 client credentials configuration
 ### tokenUrl
 
 > **tokenUrl**: `string`
-
-Defined in: [types/client.ts:1098](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1098)
 
 Token endpoint URL
 
@@ -28,8 +24,6 @@ Token endpoint URL
 
 > **clientId**: `string`
 
-Defined in: [types/client.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1100)
-
 OAuth2 client ID
 
 ---
@@ -37,8 +31,6 @@ OAuth2 client ID
 ### clientSecret
 
 > **clientSecret**: `string`
-
-Defined in: [types/client.ts:1102](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1102)
 
 OAuth2 client secret
 
@@ -48,8 +40,6 @@ OAuth2 client secret
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/client.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1104)
-
 OAuth2 scope (optional)
 
 ---
@@ -57,7 +47,5 @@ OAuth2 scope (optional)
 ### audience?
 
 > `optional` **audience?**: `string`
-
-Defined in: [types/client.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1106)
 
 Audience for the token (optional)

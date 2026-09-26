@@ -8,8 +8,6 @@
 
 > **AuthLifecycle** = `object`
 
-Defined in: [types/auth.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1175)
-
 Provider lifecycle hooks.
 
 ## Methods
@@ -17,8 +15,6 @@ Provider lifecycle hooks.
 ### healthCheck()?
 
 > `optional` **healthCheck**(): `Promise`\<[`AuthHealthCheck`](AuthHealthCheck.md)\>
-
-Defined in: [types/auth.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1177)
 
 Check provider health
 
@@ -32,8 +28,6 @@ Check provider health
 
 > `optional` **initialize**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1180](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1180)
-
 Initialize the provider
 
 #### Returns
@@ -46,8 +40,6 @@ Initialize the provider
 
 > `optional` **cleanup**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1183)
-
 Cleanup provider resources
 
 #### Returns
@@ -59,8 +51,6 @@ Cleanup provider resources
 ### dispose()?
 
 > `optional` **dispose**(): `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1186)
 
 Clean up resources (alias for cleanup)
 

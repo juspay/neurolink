@@ -8,8 +8,6 @@
 
 > **WorkflowValidationWarning** = `object`
 
-Defined in: [types/workflow.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L488)
-
 Validation warning
 
 ## Properties
@@ -18,15 +16,11 @@ Validation warning
 
 > **field**: `string`
 
-Defined in: [types/workflow.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L489)
-
 ---
 
 ### message
 
 > **message**: `string`
-
-Defined in: [types/workflow.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L490)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/workflow.ts:490](https://github.com/juspay/neurolink/blob/rel
 
 > **code**: `string`
 
-Defined in: [types/workflow.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L491)
-
 ---
 
 ### recommendation?
 
 > `optional` **recommendation?**: `string`
-
-Defined in: [types/workflow.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L492)

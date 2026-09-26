@@ -8,8 +8,6 @@
 
 > **HITLAuditLog** = `object`
 
-Defined in: [types/hitl.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L202)
-
 HITL audit log entry
 Used for compliance and debugging purposes
 
@@ -19,8 +17,6 @@ Used for compliance and debugging purposes
 
 > **timestamp**: `string`
 
-Defined in: [types/hitl.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L204)
-
 ISO timestamp of the event
 
 ---
@@ -28,8 +24,6 @@ ISO timestamp of the event
 ### eventType
 
 > **eventType**: `"confirmation-requested"` \| `"confirmation-approved"` \| `"confirmation-rejected"` \| `"confirmation-timeout"` \| `"confirmation-auto-approved"`
-
-Defined in: [types/hitl.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L207)
 
 Type of HITL event
 
@@ -39,8 +33,6 @@ Type of HITL event
 
 > **toolName**: `string`
 
-Defined in: [types/hitl.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L215)
-
 Tool that was involved
 
 ---
@@ -48,8 +40,6 @@ Tool that was involved
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/hitl.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L218)
 
 User who made the decision (if applicable)
 
@@ -59,8 +49,6 @@ User who made the decision (if applicable)
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/hitl.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L221)
-
 Session identifier
 
 ---
@@ -68,8 +56,6 @@ Session identifier
 ### arguments
 
 > **arguments**: `unknown`
-
-Defined in: [types/hitl.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L224)
 
 Tool arguments (may be sanitized for security)
 
@@ -79,8 +65,6 @@ Tool arguments (may be sanitized for security)
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/hitl.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L227)
-
 Reason for rejection (if applicable)
 
 ---
@@ -88,8 +72,6 @@ Reason for rejection (if applicable)
 ### ipAddress?
 
 > `optional` **ipAddress?**: `string`
-
-Defined in: [types/hitl.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L230)
 
 IP address of the user (if available)
 
@@ -99,8 +81,6 @@ IP address of the user (if available)
 
 > `optional` **userAgent?**: `string`
 
-Defined in: [types/hitl.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L233)
-
 User agent string (if available)
 
 ---
@@ -108,7 +88,5 @@ User agent string (if available)
 ### responseTime?
 
 > `optional` **responseTime?**: `number`
-
-Defined in: [types/hitl.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L236)
 
 Response time in milliseconds (if applicable)

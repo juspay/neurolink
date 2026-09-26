@@ -6,8 +6,6 @@
 
 # Abstract Class: BaseFactory\<TInstance, TConfig\>
 
-Defined in: [core/infrastructure/baseFactory.ts:7](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L7)
-
 ## Extended by
 
 - [`EvaluatorFactory`](EvaluatorFactory.md)
@@ -38,15 +36,11 @@ Defined in: [core/infrastructure/baseFactory.ts:7](https://github.com/juspay/neu
 
 > `protected` **items**: `Map`\<`string`, [`FactoryRegistration`](../type-aliases/FactoryRegistration.md)\<`TInstance`, `TConfig`\>\>
 
-Defined in: [core/infrastructure/baseFactory.ts:8](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L8)
-
 ---
 
 ### aliasMap
 
 > `protected` **aliasMap**: `Map`\<`string`, `string`\>
-
-Defined in: [core/infrastructure/baseFactory.ts:9](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L9)
 
 ---
 
@@ -54,23 +48,17 @@ Defined in: [core/infrastructure/baseFactory.ts:9](https://github.com/juspay/neu
 
 > `protected` **initialized**: `boolean` = `false`
 
-Defined in: [core/infrastructure/baseFactory.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L10)
-
 ---
 
 ### initPromise
 
 > `protected` **initPromise**: `Promise`\<`void`\> \| `null` = `null`
 
-Defined in: [core/infrastructure/baseFactory.ts:11](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L11)
-
 ## Methods
 
 ### registerAll()
 
 > `abstract` `protected` **registerAll**(): `Promise`\<`void`\>
-
-Defined in: [core/infrastructure/baseFactory.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L13)
 
 #### Returns
 
@@ -82,8 +70,6 @@ Defined in: [core/infrastructure/baseFactory.ts:13](https://github.com/juspay/ne
 
 > **ensureInitialized**(): `Promise`\<`void`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L15)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -93,8 +79,6 @@ Defined in: [core/infrastructure/baseFactory.ts:15](https://github.com/juspay/ne
 ### register()
 
 > **register**(`name`, `factory`, `aliases?`, `metadata?`): `void`
-
-Defined in: [core/infrastructure/baseFactory.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L27)
 
 #### Parameters
 
@@ -124,8 +108,6 @@ Defined in: [core/infrastructure/baseFactory.ts:27](https://github.com/juspay/ne
 
 > **create**(`nameOrAlias`, `config?`): `Promise`\<`TInstance`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L40)
-
 #### Parameters
 
 ##### nameOrAlias
@@ -146,8 +128,6 @@ Defined in: [core/infrastructure/baseFactory.ts:40](https://github.com/juspay/ne
 
 > **resolveName**(`nameOrAlias`): `string`
 
-Defined in: [core/infrastructure/baseFactory.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L50)
-
 #### Parameters
 
 ##### nameOrAlias
@@ -163,8 +143,6 @@ Defined in: [core/infrastructure/baseFactory.ts:50](https://github.com/juspay/ne
 ### has()
 
 > **has**(`nameOrAlias`): `boolean`
-
-Defined in: [core/infrastructure/baseFactory.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L55)
 
 #### Parameters
 
@@ -182,8 +160,6 @@ Defined in: [core/infrastructure/baseFactory.ts:55](https://github.com/juspay/ne
 
 > **getAvailable**(): `string`[]
 
-Defined in: [core/infrastructure/baseFactory.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L60)
-
 #### Returns
 
 `string`[]
@@ -194,8 +170,6 @@ Defined in: [core/infrastructure/baseFactory.ts:60](https://github.com/juspay/ne
 
 > **getAliases**(): `Map`\<`string`, `string`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L64)
-
 #### Returns
 
 `Map`\<`string`, `string`\>
@@ -205,8 +179,6 @@ Defined in: [core/infrastructure/baseFactory.ts:64](https://github.com/juspay/ne
 ### clear()
 
 > **clear**(): `void`
-
-Defined in: [core/infrastructure/baseFactory.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseFactory.ts#L68)
 
 #### Returns
 

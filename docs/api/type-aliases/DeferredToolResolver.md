@@ -8,8 +8,6 @@
 
 > **DeferredToolResolver** = (`name`) => [`Tool`](Tool.md) \| `undefined`
 
-Defined in: [types/toolResolution.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L88)
-
 Resolver attached (under a symbol key, invisible to enumeration) to the
 hot tool record by `partitionToolsForDiscovery`. Given a deferred tool's
 name it hydrates that tool into the record, persists the session pin, and

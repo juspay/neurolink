@@ -8,6 +8,4 @@
 
 > **WorkflowType** = `"ensemble"` \| `"chain"` \| `"adaptive"` \| `"custom"`
 
-Defined in: [types/workflow.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L20)
-
 Workflow type enumeration

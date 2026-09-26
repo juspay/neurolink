@@ -8,8 +8,6 @@
 
 > **neuroLinkToolToMCP**(`tool`, `options?`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/toolConverter.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolConverter.ts#L29)
-
 Convert NeuroLink tool to MCP server tool format
 
 ## Parameters

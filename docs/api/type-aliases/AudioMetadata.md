@@ -8,15 +8,11 @@
 
 > **AudioMetadata** = `object`
 
-Defined in: [types/voice.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L409)
-
 ## Properties
 
 ### format
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
-
-Defined in: [types/voice.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L410)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/voice.ts:410](https://github.com/juspay/neurolink/blob/releas
 
 > **duration**: `number`
 
-Defined in: [types/voice.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L411)
-
 ---
 
 ### sampleRate
 
 > **sampleRate**: `number`
-
-Defined in: [types/voice.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L412)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/voice.ts:412](https://github.com/juspay/neurolink/blob/releas
 
 > **channels**: `number`
 
-Defined in: [types/voice.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L413)
-
 ---
 
 ### bitDepth
 
 > **bitDepth**: `number`
-
-Defined in: [types/voice.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L414)
 
 ---
 
@@ -56,12 +44,8 @@ Defined in: [types/voice.ts:414](https://github.com/juspay/neurolink/blob/releas
 
 > **samples**: `number`
 
-Defined in: [types/voice.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L415)
-
 ---
 
 ### size
 
 > **size**: `number`
-
-Defined in: [types/voice.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L416)

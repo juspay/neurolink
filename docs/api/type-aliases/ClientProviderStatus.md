@@ -8,8 +8,6 @@
 
 > **ClientProviderStatus** = `object`
 
-Defined in: [types/client.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L116)
-
 Provider status information
 
 ## Properties
@@ -17,8 +15,6 @@ Provider status information
 ### name
 
 > **name**: `string`
-
-Defined in: [types/client.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L118)
 
 Provider name
 
@@ -28,8 +24,6 @@ Provider name
 
 > **status**: `"available"` \| `"degraded"` \| `"unavailable"`
 
-Defined in: [types/client.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L120)
-
 Provider availability status
 
 ---
@@ -38,8 +32,6 @@ Provider availability status
 
 > **models**: `string`[]
 
-Defined in: [types/client.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L122)
-
 Available models for this provider
 
 ---
@@ -47,8 +39,6 @@ Available models for this provider
 ### capabilities?
 
 > `optional` **capabilities?**: `object`
-
-Defined in: [types/client.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L124)
 
 Provider capabilities
 
@@ -73,7 +63,5 @@ Provider capabilities
 ### lastChecked?
 
 > `optional` **lastChecked?**: `number`
-
-Defined in: [types/client.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L131)
 
 Last health check timestamp

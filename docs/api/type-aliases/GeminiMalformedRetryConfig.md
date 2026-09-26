@@ -8,8 +8,6 @@
 
 > **GeminiMalformedRetryConfig** = \{ `enableMalformedRetry`: `true`; `buildMalformedRetryNote`: (`conversation`, `step`) => [`GeminiTurnContent`](GeminiTurnContent.md)[]; \} \| \{ `enableMalformedRetry?`: `false`; `buildMalformedRetryNote?`: `never`; \}
 
-Defined in: [types/loopEngine.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L590)
-
 Opt in to the single MALFORMED_FUNCTION_CALL retry.
 
 Vertex Gemini only. AI Studio has no such retry today (confirmed: zero

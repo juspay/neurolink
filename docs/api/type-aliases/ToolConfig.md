@@ -8,8 +8,6 @@
 
 > **ToolConfig** = `object`
 
-Defined in: [types/config.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L403)
-
 Instance-level tool configuration (`new NeuroLink({ tools: {...} })`).
 
 The four primary keys (`enabled`, `include`, `exclude`, `discovery`) form
@@ -23,8 +21,6 @@ merged with this config by `resolveToolPolicy()`.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L409)
-
 Master switch. `false` disables all tools for every call from this
 instance (equivalent to passing `disableTools: true` on each call).
 Default: true.
@@ -34,8 +30,6 @@ Default: true.
 ### include?
 
 > `optional` **include?**: `string`[]
-
-Defined in: [types/config.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L416)
 
 Allowlist of tool names. Supports `*` globs (e.g. `"github*"`).
 Undefined = all tools; an EMPTY array means no tools (fail-closed).
@@ -48,8 +42,6 @@ narrow it further but never widen past it).
 
 > `optional` **exclude?**: `string`[]
 
-Defined in: [types/config.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L418)
-
 Denylist of tool names (supports `*` globs). Applied after `include`.
 
 ---
@@ -57,8 +49,6 @@ Denylist of tool names (supports `*` globs). Applied after `include`.
 ### discovery?
 
 > `optional` **discovery?**: `boolean`
-
-Defined in: [types/config.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L430)
 
 Defer external MCP tool schemas behind a `search_tools` meta-tool: the
 model sees a compact name+summary catalog instead of full schemas and
@@ -76,8 +66,6 @@ Default: false.
 
 > `optional` **disableBuiltinTools?**: `boolean`
 
-Defined in: [types/config.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L432)
-
 Whether built-in tools should be disabled (equivalent to excluding all direct tools)
 
 ---
@@ -86,8 +74,6 @@ Whether built-in tools should be disabled (equivalent to excluding all direct to
 
 > `optional` **allowCustomTools?**: `boolean`
 
-Defined in: [types/config.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L434)
-
 Whether custom tools are allowed
 
 ---
@@ -95,8 +81,6 @@ Whether custom tools are allowed
 ### ~~maxToolsPerProvider?~~
 
 > `optional` **maxToolsPerProvider?**: `number`
-
-Defined in: [types/config.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L438)
 
 #### Deprecated
 
@@ -108,8 +92,6 @@ Never enforced; retained for compile compatibility only.
 
 > `optional` **enableMCPTools?**: `boolean`
 
-Defined in: [types/config.ts:440](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L440)
-
 Whether MCP tools should be enabled
 
 ---
@@ -118,8 +100,6 @@ Whether MCP tools should be enabled
 
 > `optional` **enableBashTool?**: `boolean`
 
-Defined in: [types/config.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L442)
-
 Whether the bash command execution tool should be enabled (opt-in, defaults to false)
 
 ---
@@ -127,8 +107,6 @@ Whether the bash command execution tool should be enabled (opt-in, defaults to f
 ### fileRoots?
 
 > `optional` **fileRoots?**: `string`[]
-
-Defined in: [types/config.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L451)
 
 Directories the built-in file tools (readFile, listDirectory, writeFile,
 analyzeCSV) and bash's `cwd` argument may touch. Resolved through
@@ -142,8 +120,6 @@ commands themselves — a command can still `cd` anywhere.
 ### outputTruncationMaxBytes?
 
 > `optional` **outputTruncationMaxBytes?**: `number`
-
-Defined in: [types/config.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L461)
 
 Byte ceiling for the safety-net truncation `ToolsManager` applies to
 every direct/custom/external-MCP tool result before it reaches the AI

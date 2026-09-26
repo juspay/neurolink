@@ -8,8 +8,6 @@
 
 > **ProcessedSourceCode** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L544)
-
 Processed source code result.
 
 ## Type Declaration

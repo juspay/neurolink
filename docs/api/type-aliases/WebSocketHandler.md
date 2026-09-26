@@ -8,8 +8,6 @@
 
 > **WebSocketHandler** = `object`
 
-Defined in: [types/server.ts:966](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L966)
-
 WebSocket handler interface
 
 ## Properties
@@ -17,8 +15,6 @@ WebSocket handler interface
 ### onOpen?
 
 > `optional` **onOpen?**: (`connection`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/server.ts:967](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L967)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [types/server.ts:967](https://github.com/juspay/neurolink/blob/relea
 ### onMessage?
 
 > `optional` **onMessage?**: (`connection`, `message`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/server.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L968)
 
 #### Parameters
 
@@ -57,8 +51,6 @@ Defined in: [types/server.ts:968](https://github.com/juspay/neurolink/blob/relea
 ### onClose?
 
 > `optional` **onClose?**: (`connection`, `code`, `reason`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/server.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L972)
 
 #### Parameters
 
@@ -83,8 +75,6 @@ Defined in: [types/server.ts:972](https://github.com/juspay/neurolink/blob/relea
 ### onError?
 
 > `optional` **onError?**: (`connection`, `error`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/server.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L977)
 
 #### Parameters
 

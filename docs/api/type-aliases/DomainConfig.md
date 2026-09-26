@@ -8,8 +8,6 @@
 
 > **DomainConfig** = `object`
 
-Defined in: [types/domain.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L37)
-
 Domain configuration type
 
 ## Properties
@@ -18,15 +16,11 @@ Domain configuration type
 
 > **domainType**: [`DomainType`](DomainType.md)
 
-Defined in: [types/domain.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L38)
-
 ---
 
 ### domainName
 
 > **domainName**: `string`
-
-Defined in: [types/domain.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L39)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/domain.ts:39](https://github.com/juspay/neurolink/blob/releas
 
 > **description**: `string`
 
-Defined in: [types/domain.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L40)
-
 ---
 
 ### evaluationCriteria
 
 > **evaluationCriteria**: [`DomainEvaluationCriteria`](DomainEvaluationCriteria.md)
-
-Defined in: [types/domain.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L41)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/domain.ts:41](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **customData?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/domain.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L42)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/domain.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/domain.ts#L43)
 
 #### version
 

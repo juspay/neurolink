@@ -8,8 +8,6 @@
 
 > **AuthRequestHandler** = `object`
 
-Defined in: [types/auth.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1139)
-
 Request-level authentication.
 
 ## Methods
@@ -17,8 +15,6 @@ Request-level authentication.
 ### authenticateRequest()
 
 > **authenticateRequest**(`context`): `Promise`\<[`AuthenticatedContext`](AuthenticatedContext.md) \| `null`\>
-
-Defined in: [types/auth.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1141)
 
 Authenticate a request and return full context
 

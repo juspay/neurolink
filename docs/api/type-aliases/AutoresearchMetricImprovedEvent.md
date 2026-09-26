@@ -8,15 +8,11 @@
 
 > **AutoresearchMetricImprovedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L175)
-
 ## Properties
 
 ### tag
 
 > **tag**: `string`
-
-Defined in: [types/autoresearch.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L176)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/autoresearch.ts:176](https://github.com/juspay/neurolink/blob
 
 > **previousBest**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L177)
-
 ---
 
 ### newBest
 
 > **newBest**: `number`
-
-Defined in: [types/autoresearch.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L178)
 
 ---
 
@@ -40,20 +32,14 @@ Defined in: [types/autoresearch.ts:178](https://github.com/juspay/neurolink/blob
 
 > **commit**: `string`
 
-Defined in: [types/autoresearch.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L179)
-
 ---
 
 ### direction
 
 > **direction**: [`MetricDirection`](MetricDirection.md)
 
-Defined in: [types/autoresearch.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L180)
-
 ---
 
 ### runCount
 
 > **runCount**: `number`
-
-Defined in: [types/autoresearch.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L181)

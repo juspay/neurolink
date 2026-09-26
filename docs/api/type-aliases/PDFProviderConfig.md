@@ -8,8 +8,6 @@
 
 > **PDFProviderConfig** = `object`
 
-Defined in: [types/file.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L505)
-
 PDF provider configuration
 
 ## Properties
@@ -18,15 +16,11 @@ PDF provider configuration
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/file.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L506)
-
 ---
 
 ### maxPages
 
 > **maxPages**: `number`
-
-Defined in: [types/file.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L507)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/file.ts:507](https://github.com/juspay/neurolink/blob/release
 
 > **supportsNative**: `boolean`
 
-Defined in: [types/file.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L508)
-
 ---
 
 ### requiresCitations
 
 > **requiresCitations**: `boolean` \| `"auto"`
-
-Defined in: [types/file.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L517)
 
 Whether this provider needs source citations enabled for visual PDF
 analysis (#349). `"auto"` = enable when the request requires visual
@@ -56,5 +46,3 @@ adapters can act on it instead of the value being dead config.
 ### apiType
 
 > **apiType**: [`PDFAPIType`](PDFAPIType.md)
-
-Defined in: [types/file.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L518)

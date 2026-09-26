@@ -6,8 +6,6 @@
 
 # Class: OAuthConfigurationError
 
-Defined in: [types/errors.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L132)
-
 Thrown when OAuth configuration is invalid or missing
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown when OAuth configuration is invalid or missing
 ### Constructor
 
 > **new OAuthConfigurationError**(`message`): `OAuthConfigurationError`
-
-Defined in: [types/errors.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L133)
 
 #### Parameters
 
@@ -41,8 +37,6 @@ Defined in: [types/errors.ts:133](https://github.com/juspay/neurolink/blob/relea
 ### code?
 
 > `optional` **code?**: `string`
-
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 

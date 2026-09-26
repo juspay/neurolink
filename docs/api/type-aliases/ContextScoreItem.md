@@ -8,8 +8,6 @@
 
 > **ContextScoreItem** = `object`
 
-Defined in: [types/scorer.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L651)
-
 Context score row reported by the context-relevancy scorer.
 
 ## Properties
@@ -18,15 +16,11 @@ Context score row reported by the context-relevancy scorer.
 
 > `optional` **index?**: `number`
 
-Defined in: [types/scorer.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L652)
-
 ---
 
 ### score?
 
 > `optional` **score?**: `number`
-
-Defined in: [types/scorer.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L653)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/scorer.ts:653](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/scorer.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L654)
-
 ---
 
 ### keyInfo?
 
 > `optional` **keyInfo?**: `string`[]
-
-Defined in: [types/scorer.ts:655](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L655)

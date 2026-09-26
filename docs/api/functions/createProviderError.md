@@ -8,8 +8,6 @@
 
 > **createProviderError**(`message`, `provider`, `cause?`, `options?`): [`NeuroLinkFeatureError`](../classes/NeuroLinkFeatureError.md)
 
-Defined in: [evaluation/errors/EvaluationError.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/errors/EvaluationError.ts#L170)
-
 Helper function to create a provider error.
 
 ## Parameters

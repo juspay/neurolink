@@ -8,8 +8,6 @@
 
 > **SubscriptionOptions** = `object`
 
-Defined in: [types/agentNetwork.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1136)
-
 Subscription options
 
 ## Properties
@@ -17,8 +15,6 @@ Subscription options
 ### filterBySender?
 
 > `optional` **filterBySender?**: `string`[]
-
-Defined in: [types/agentNetwork.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1138)
 
 Filter messages by sender
 
@@ -28,8 +24,6 @@ Filter messages by sender
 
 > `optional` **filterByType?**: [`MessageType`](MessageType.md)[]
 
-Defined in: [types/agentNetwork.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1141)
-
 Filter messages by type
 
 ---
@@ -38,8 +32,6 @@ Filter messages by type
 
 > `optional` **filterByPriority?**: [`MessagePriority`](MessagePriority.md)[]
 
-Defined in: [types/agentNetwork.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1144)
-
 Filter messages by priority
 
 ---
@@ -47,8 +39,6 @@ Filter messages by priority
 ### customFilter?
 
 > `optional` **customFilter?**: (`message`) => `boolean`
-
-Defined in: [types/agentNetwork.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1147)
 
 Custom filter function
 
@@ -67,7 +57,5 @@ Custom filter function
 ### maxMessages?
 
 > `optional` **maxMessages?**: `number`
-
-Defined in: [types/agentNetwork.ts:1150](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1150)
 
 Maximum messages to receive (-1 for unlimited)

@@ -8,8 +8,6 @@
 
 > **LangfuseExporterConfig** = [`ExporterConfig`](ExporterConfig.md) & `object`
 
-Defined in: [types/exporter.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L63)
-
 Langfuse exporter configuration
 
 ## Type Declaration

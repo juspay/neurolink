@@ -8,8 +8,6 @@
 
 > **FileRegistrationOptions** = `object`
 
-Defined in: [types/fileReference.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L111)
-
 Options for registering a file
 
 ## Properties
@@ -17,8 +15,6 @@ Options for registering a file
 ### filename?
 
 > `optional` **filename?**: `string`
-
-Defined in: [types/fileReference.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L113)
 
 Override filename detection
 
@@ -28,8 +24,6 @@ Override filename detection
 
 > `optional` **fileType?**: [`FileType`](FileType.md)
 
-Defined in: [types/fileReference.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L115)
-
 Override file type detection
 
 ---
@@ -37,8 +31,6 @@ Override file type detection
 ### mimetype?
 
 > `optional` **mimetype?**: `string`
-
-Defined in: [types/fileReference.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L124)
 
 Caller-provided MIME type hint (e.g. "text/plain", "application/json").
 Used when the filename has no extension and magic-byte detection cannot
@@ -53,8 +45,6 @@ override still wins over this hint.
 
 > `optional` **maxPreviewChars?**: `number`
 
-Defined in: [types/fileReference.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L126)
-
 Maximum preview length in characters
 
 ---
@@ -62,7 +52,5 @@ Maximum preview length in characters
 ### skipTempPersist?
 
 > `optional` **skipTempPersist?**: `boolean`
-
-Defined in: [types/fileReference.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L128)
 
 Skip persisting buffer to temp directory

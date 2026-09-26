@@ -8,8 +8,6 @@
 
 > **DynamicArgument**\<`T`\> = `T` \| (() => `T`) \| (() => `Promise`\<`T`\>) \| ((`context`) => `T`) \| ((`context`) => `Promise`\<`T`\>)
 
-Defined in: [types/dynamic.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L44)
-
 A value that can be static, a function, or a context-aware function.
 
 ## Type Parameters

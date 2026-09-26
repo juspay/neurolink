@@ -8,8 +8,6 @@
 
 > **createRequestTransformInterceptor**(`transform`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L472)
-
 Request transformation interceptor
 
 Transform request before sending.

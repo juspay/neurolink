@@ -8,8 +8,6 @@
 
 > **StorageConfig** = [`HippocampusStorageConfig`](HippocampusStorageConfig.md)
 
-Defined in: [types/conversation.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L67)
-
 Legacy public alias for the Hippocampus storage configuration.
 The structural definition lives in `./memory.ts`; this re-export keeps
 the SDK surface stable for callers who imported `StorageConfig` from

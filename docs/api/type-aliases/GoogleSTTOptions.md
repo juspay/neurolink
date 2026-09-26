@@ -8,8 +8,6 @@
 
 > **GoogleSTTOptions** = [`STTOptions`](STTOptions.md) & `object`
 
-Defined in: [types/stt.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L357)
-
 ## Type Declaration
 
 ### model?

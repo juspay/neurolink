@@ -6,8 +6,6 @@
 
 # Class: FileTokenStorage
 
-Defined in: [mcp/auth/tokenStorage.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L56)
-
 File-based token storage implementation
 Persists tokens to disk for cross-session use
 
@@ -20,8 +18,6 @@ Persists tokens to disk for cross-session use
 ### Constructor
 
 > **new FileTokenStorage**(`filePath`): `FileTokenStorage`
-
-Defined in: [mcp/auth/tokenStorage.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L61)
 
 #### Parameters
 
@@ -38,8 +34,6 @@ Defined in: [mcp/auth/tokenStorage.ts:61](https://github.com/juspay/neurolink/bl
 ### getTokens()
 
 > **getTokens**(`serverId`): `Promise`\<[`OAuthTokens`](../type-aliases/OAuthTokens.md) \| `null`\>
-
-Defined in: [mcp/auth/tokenStorage.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L112)
 
 Get stored tokens for a server
 
@@ -66,8 +60,6 @@ Stored tokens or null if not found
 ### saveTokens()
 
 > **saveTokens**(`serverId`, `tokens`): `Promise`\<`void`\>
-
-Defined in: [mcp/auth/tokenStorage.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L117)
 
 Save tokens for a server
 
@@ -99,8 +91,6 @@ OAuth tokens to store
 
 > **deleteTokens**(`serverId`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L123)
-
 Delete stored tokens for a server
 
 #### Parameters
@@ -124,8 +114,6 @@ Unique identifier for the MCP server
 ### hasTokens()
 
 > **hasTokens**(`serverId`): `Promise`\<`boolean`\>
-
-Defined in: [mcp/auth/tokenStorage.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L129)
 
 Check if tokens exist for a server
 
@@ -152,8 +140,6 @@ True if tokens exist
 ### clearAll()
 
 > **clearAll**(): `Promise`\<`void`\>
-
-Defined in: [mcp/auth/tokenStorage.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/auth/tokenStorage.ts#L134)
 
 Clear all stored tokens
 

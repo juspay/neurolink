@@ -8,8 +8,6 @@
 
 > **CircuitBreakerEvents** = `object`
 
-Defined in: [types/mcp.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L766)
-
 Circuit breaker events
 Moved from src/lib/mcp/mcpCircuitBreaker.ts
 
@@ -18,8 +16,6 @@ Moved from src/lib/mcp/mcpCircuitBreaker.ts
 ### stateChange
 
 > **stateChange**: `object`
-
-Defined in: [types/mcp.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L767)
 
 #### oldState
 
@@ -43,8 +39,6 @@ Defined in: [types/mcp.ts:767](https://github.com/juspay/neurolink/blob/release/
 
 > **callSuccess**: `object`
 
-Defined in: [types/mcp.ts:774](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L774)
-
 #### duration
 
 > **duration**: `number`
@@ -58,8 +52,6 @@ Defined in: [types/mcp.ts:774](https://github.com/juspay/neurolink/blob/release/
 ### callFailure
 
 > **callFailure**: `object`
-
-Defined in: [types/mcp.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L779)
 
 #### error
 
@@ -79,8 +71,6 @@ Defined in: [types/mcp.ts:779](https://github.com/juspay/neurolink/blob/release/
 
 > **circuitOpen**: `object`
 
-Defined in: [types/mcp.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L785)
-
 #### failureRate
 
 > **failureRate**: `number`
@@ -99,8 +89,6 @@ Defined in: [types/mcp.ts:785](https://github.com/juspay/neurolink/blob/release/
 
 > **circuitHalfOpen**: `object`
 
-Defined in: [types/mcp.ts:791](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L791)
-
 #### timestamp
 
 > **timestamp**: `Date`
@@ -110,8 +98,6 @@ Defined in: [types/mcp.ts:791](https://github.com/juspay/neurolink/blob/release/
 ### circuitClosed
 
 > **circuitClosed**: `object`
-
-Defined in: [types/mcp.ts:795](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L795)
 
 #### timestamp
 

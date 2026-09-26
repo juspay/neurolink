@@ -8,15 +8,11 @@
 
 > **AzureNBest** = `object`
 
-Defined in: [types/stt.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L405)
-
 ## Properties
 
 ### Confidence
 
 > **Confidence**: `number`
-
-Defined in: [types/stt.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L406)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/stt.ts:406](https://github.com/juspay/neurolink/blob/release/
 
 > **Lexical**: `string`
 
-Defined in: [types/stt.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L407)
-
 ---
 
 ### ITN
 
 > **ITN**: `string`
-
-Defined in: [types/stt.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L408)
 
 ---
 
@@ -40,20 +32,14 @@ Defined in: [types/stt.ts:408](https://github.com/juspay/neurolink/blob/release/
 
 > **MaskedITN**: `string`
 
-Defined in: [types/stt.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L409)
-
 ---
 
 ### Display
 
 > **Display**: `string`
 
-Defined in: [types/stt.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L410)
-
 ---
 
 ### Words?
 
 > `optional` **Words?**: [`AzureWord`](AzureWord.md)[]
-
-Defined in: [types/stt.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L411)

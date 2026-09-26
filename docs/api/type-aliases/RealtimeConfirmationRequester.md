@@ -8,8 +8,6 @@
 
 > **RealtimeConfirmationRequester** = (`toolName`, `args`) => `Promise`\<`boolean`\>
 
-Defined in: [types/livekit.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L515)
-
 Requests a HITL confirmation and resolves to the user's decision.
 
 ## Parameters

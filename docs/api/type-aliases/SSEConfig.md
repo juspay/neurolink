@@ -8,8 +8,6 @@
 
 > **SSEConfig** = [`ClientConfig`](ClientConfig.md) & `object`
 
-Defined in: [types/client.ts:1412](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1412)
-
 SSE client configuration
 
 ## Type Declaration

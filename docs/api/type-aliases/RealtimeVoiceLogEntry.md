@@ -8,8 +8,6 @@
 
 > **RealtimeVoiceLogEntry** = `object`
 
-Defined in: [types/livekit.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L456)
-
 A single log record handed to a `RealtimeVoiceAgentConfig.onLog` sink.
 
 ## Properties
@@ -18,15 +16,11 @@ A single log record handed to a `RealtimeVoiceAgentConfig.onLog` sink.
 
 > **level**: `"debug"` \| `"info"` \| `"warn"` \| `"error"`
 
-Defined in: [types/livekit.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L457)
-
 ---
 
 ### message
 
 > **message**: `string`
-
-Defined in: [types/livekit.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L458)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/livekit.ts:458](https://github.com/juspay/neurolink/blob/rele
 
 > **timestamp**: `number`
 
-Defined in: [types/livekit.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L459)
-
 ---
 
 ### data?
 
 > `optional` **data?**: `unknown`
-
-Defined in: [types/livekit.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L460)

@@ -8,15 +8,11 @@
 
 > **ProviderCatalogJson** = `object`
 
-Defined in: [types/providerCatalog.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L139)
-
 ## Properties
 
 ### $schema?
 
 > `optional` **$schema?**: `string`
-
-Defined in: [types/providerCatalog.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L141)
 
 Editor-only pointer to provider-catalog.schema.json — accepted and ignored.
 
@@ -26,23 +22,17 @@ Editor-only pointer to provider-catalog.schema.json — accepted and ignored.
 
 > **id**: `string`
 
-Defined in: [types/providerCatalog.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L142)
-
 ---
 
 ### displayName
 
 > **displayName**: `string`
 
-Defined in: [types/providerCatalog.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L143)
-
 ---
 
 ### enumTypeName?
 
 > `optional` **enumTypeName?**: `string`
-
-Defined in: [types/providerCatalog.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L150)
 
 Exported <Name>Models enum name override. Default: PascalCase(id) +
 "Models". REQUIRED where the derived name differs from a pre-existing
@@ -54,8 +44,6 @@ export ("together-ai" derives "TogetherAiModels"; the legacy export is
 ### credentialsKey?
 
 > `optional` **credentialsKey?**: `string`
-
-Defined in: [types/providerCatalog.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L159)
 
 NeurolinkCredentials key override. Default: toCamelCase(id). REQUIRED
 where the derived key differs from a pre-existing public credential
@@ -70,15 +58,11 @@ forbids).
 
 > **aliases**: `string`[]
 
-Defined in: [types/providerCatalog.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L160)
-
 ---
 
 ### tier
 
 > **tier**: `2`
-
-Defined in: [types/providerCatalog.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L161)
 
 ---
 
@@ -86,15 +70,11 @@ Defined in: [types/providerCatalog.ts:161](https://github.com/juspay/neurolink/b
 
 > **wire**: [`CatalogWire`](CatalogWire.md)
 
-Defined in: [types/providerCatalog.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L162)
-
 ---
 
 ### models
 
 > **models**: `object`
-
-Defined in: [types/providerCatalog.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L163)
 
 #### default
 
@@ -166,15 +146,11 @@ runtime default.
 
 > **capabilities**: [`CatalogCapabilities`](CatalogCapabilities.md)
 
-Defined in: [types/providerCatalog.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L194)
-
 ---
 
 ### errorRules
 
 > **errorRules**: [`CatalogErrorRuleJson`](CatalogErrorRuleJson.md)[]
-
-Defined in: [types/providerCatalog.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L195)
 
 ---
 
@@ -182,15 +158,11 @@ Defined in: [types/providerCatalog.ts:195](https://github.com/juspay/neurolink/b
 
 > `optional` **quirks?**: [`CatalogQuirks`](CatalogQuirks.md)
 
-Defined in: [types/providerCatalog.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L196)
-
 ---
 
 ### timeouts?
 
 > `optional` **timeouts?**: [`CatalogTimeouts`](CatalogTimeouts.md)
-
-Defined in: [types/providerCatalog.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L203)
 
 Descriptor-only generate/stream turn-budget override — see
 CatalogTimeouts. Absent = buildCatalogDescriptor() omits
@@ -202,8 +174,6 @@ behavior before this field existed.
 ### autoSelectPriority?
 
 > `optional` **autoSelectPriority?**: `number`
-
-Defined in: [types/providerCatalog.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L212)
 
 Descriptor-only ascending auto-select priority override — mirrors
 ProviderDescriptor.autoSelectPriority field-for-field (lower = tried
@@ -218,12 +188,8 @@ pre-migration hand-typed value).
 
 > **setup**: [`CatalogSetup`](CatalogSetup.md)
 
-Defined in: [types/providerCatalog.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L213)
-
 ---
 
 ### evidence
 
 > **evidence**: [`CatalogEvidence`](CatalogEvidence.md)
-
-Defined in: [types/providerCatalog.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L214)

@@ -8,8 +8,6 @@
 
 > **MiddlewareMetrics** = `object`
 
-Defined in: [types/middleware.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L278)
-
 Middleware performance metrics
 
 ## Properties
@@ -18,15 +16,11 @@ Middleware performance metrics
 
 > **name**: `string`
 
-Defined in: [types/middleware.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L279)
-
 ---
 
 ### executionTime
 
 > **executionTime**: `number`
-
-Defined in: [types/middleware.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L280)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/middleware.ts:280](https://github.com/juspay/neurolink/blob/r
 
 > **status**: `"success"` \| `"error"` \| `"skipped"`
 
-Defined in: [types/middleware.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L281)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/middleware.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L282)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/middleware.ts:282](https://github.com/juspay/neurolink/blob/r
 
 > **inputSize**: `number`
 
-Defined in: [types/middleware.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L283)
-
 ---
 
 ### outputSize
 
 > **outputSize**: `number`
-
-Defined in: [types/middleware.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L284)

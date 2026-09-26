@@ -8,8 +8,6 @@
 
 > **hasPermission**(`permission`): `boolean`
 
-Defined in: [auth/authContext.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L154)
-
 Check if current user has a permission
 
 ## Parameters

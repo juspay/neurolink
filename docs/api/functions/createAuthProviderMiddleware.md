@@ -8,8 +8,6 @@
 
 > **createAuthProviderMiddleware**(`config`): `Promise`\<[`AuthMiddlewareHandler`](../type-aliases/AuthMiddlewareHandler.md)\<[`AuthRequestContext`](../type-aliases/AuthRequestContext.md)\>\>
 
-Defined in: [auth/middleware/AuthMiddleware.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L186)
-
 Create authentication middleware
 
 Validates tokens and attaches user context to requests.

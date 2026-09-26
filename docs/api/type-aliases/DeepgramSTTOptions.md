@@ -8,8 +8,6 @@
 
 > **DeepgramSTTOptions** = [`STTOptions`](STTOptions.md) & `object`
 
-Defined in: [types/stt.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L315)
-
 ## Type Declaration
 
 ### model?

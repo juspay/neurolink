@@ -8,8 +8,6 @@
 
 > **GetPromptFunction** = (`context`) => `string`
 
-Defined in: [types/evaluation.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L313)
-
 A function that generates the main body of an evaluation prompt.
 
 ## Parameters

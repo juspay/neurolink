@@ -6,8 +6,6 @@
 
 # Class: OAuthTokenValidationError
 
-Defined in: [types/errors.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L168)
-
 Thrown when token validation fails
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown when token validation fails
 ### Constructor
 
 > **new OAuthTokenValidationError**(`message`): `OAuthTokenValidationError`
-
-Defined in: [types/errors.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L169)
 
 #### Parameters
 
@@ -41,8 +37,6 @@ Defined in: [types/errors.ts:169](https://github.com/juspay/neurolink/blob/relea
 ### code?
 
 > `optional` **code?**: `string`
-
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 

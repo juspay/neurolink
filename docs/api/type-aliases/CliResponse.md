@@ -8,8 +8,6 @@
 
 > **CliResponse** = `object`
 
-Defined in: [types/action.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L171)
-
 Raw CLI response format (actual output structure)
 
 ## Properties
@@ -18,15 +16,11 @@ Raw CLI response format (actual output structure)
 
 > **content**: `string`
 
-Defined in: [types/action.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L172)
-
 ---
 
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/action.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L173)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/action.ts:173](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/action.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L174)
-
 ---
 
 ### usage?
 
 > `optional` **usage?**: [`CliTokenUsage`](CliTokenUsage.md)
-
-Defined in: [types/action.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L175)
 
 ---
 
@@ -50,20 +40,14 @@ Defined in: [types/action.ts:175](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/action.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L176)
-
 ---
 
 ### analytics?
 
 > `optional` **analytics?**: [`CliAnalytics`](CliAnalytics.md)
 
-Defined in: [types/action.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L177)
-
 ---
 
 ### evaluation?
 
 > `optional` **evaluation?**: [`CliEvaluation`](CliEvaluation.md)
-
-Defined in: [types/action.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L178)

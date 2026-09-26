@@ -8,8 +8,6 @@
 
 > **AgenticLoopResult**\<`TConversation`\> = `object`
 
-Defined in: [types/loopEngine.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L677)
-
 ## Type Parameters
 
 ### TConversation
@@ -22,23 +20,17 @@ Defined in: [types/loopEngine.ts:677](https://github.com/juspay/neurolink/blob/r
 
 > **text**: `string`
 
-Defined in: [types/loopEngine.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L678)
-
 ---
 
 ### toolCalls
 
 > **toolCalls**: [`AgenticLoopToolCall`](AgenticLoopToolCall.md)[]
 
-Defined in: [types/loopEngine.ts:679](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L679)
-
 ---
 
 ### toolExecutions
 
 > **toolExecutions**: `object`[]
-
-Defined in: [types/loopEngine.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L692)
 
 Every tool dispatch the loop performed, in order, including the ones that
 failed.
@@ -77,15 +69,11 @@ refactor.
 
 > **usage**: [`AgenticLoopUsage`](AgenticLoopUsage.md)
 
-Defined in: [types/loopEngine.ts:699](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L699)
-
 ---
 
 ### finishReason
 
 > **finishReason**: `string`
-
-Defined in: [types/loopEngine.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L700)
 
 ---
 
@@ -93,23 +81,17 @@ Defined in: [types/loopEngine.ts:700](https://github.com/juspay/neurolink/blob/r
 
 > **rawStopReason**: `string` \| `undefined`
 
-Defined in: [types/loopEngine.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L701)
-
 ---
 
 ### conversation
 
 > **conversation**: `TConversation`
 
-Defined in: [types/loopEngine.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L702)
-
 ---
 
 ### aborted
 
 > **aborted**: `boolean`
-
-Defined in: [types/loopEngine.ts:716](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L716)
 
 True when the turn ended because its abort signal fired rather than
 because the model finished.

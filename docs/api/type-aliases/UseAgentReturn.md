@@ -8,8 +8,6 @@
 
 > **UseAgentReturn** = `object`
 
-Defined in: [types/client.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L643)
-
 useAgent hook return type
 
 ## Properties
@@ -17,8 +15,6 @@ useAgent hook return type
 ### execute
 
 > **execute**: (`input`, `options?`) => `Promise`\<[`ClientAgentExecuteResult`](ClientAgentExecuteResult.md)\>
-
-Defined in: [types/client.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L645)
 
 Execute the agent
 
@@ -42,8 +38,6 @@ Execute the agent
 
 > **stream**: (`input`, `callbacks?`) => `Promise`\<`void`\>
 
-Defined in: [types/client.ts:650](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L650)
-
 Stream execution
 
 #### Parameters
@@ -66,8 +60,6 @@ Stream execution
 
 > **sessionId**: `string` \| `null`
 
-Defined in: [types/client.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L652)
-
 Current session ID
 
 ---
@@ -75,8 +67,6 @@ Current session ID
 ### setSessionId
 
 > **setSessionId**: (`sessionId`) => `void`
-
-Defined in: [types/client.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L654)
 
 Set session ID
 
@@ -96,8 +86,6 @@ Set session ID
 
 > **isLoading**: `boolean`
 
-Defined in: [types/client.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L656)
-
 Loading state
 
 ---
@@ -105,8 +93,6 @@ Loading state
 ### isStreaming
 
 > **isStreaming**: `boolean`
-
-Defined in: [types/client.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L658)
 
 Streaming state
 
@@ -116,8 +102,6 @@ Streaming state
 
 > **result**: [`ClientAgentExecuteResult`](ClientAgentExecuteResult.md) \| `null`
 
-Defined in: [types/client.ts:660](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L660)
-
 Last result
 
 ---
@@ -126,8 +110,6 @@ Last result
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:662](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L662)
-
 Error state
 
 ---
@@ -135,8 +117,6 @@ Error state
 ### clearError
 
 > **clearError**: () => `void`
-
-Defined in: [types/client.ts:664](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L664)
 
 Clear error
 
@@ -149,8 +129,6 @@ Clear error
 ### abort
 
 > **abort**: () => `void`
-
-Defined in: [types/client.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L666)
 
 Abort current execution
 

@@ -8,8 +8,6 @@
 
 > **RuleScorer** = [`Scorer`](Scorer.md) & `object`
 
-Defined in: [types/scorer.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L314)
-
 Extended interface for rule-based scorers
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **RankedNode** = `object`
 
-Defined in: [types/rag.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1429)
-
 Ranked node result from graph query
 
 ## Properties
@@ -17,8 +15,6 @@ Ranked node result from graph query
 ### id
 
 > **id**: `string`
-
-Defined in: [types/rag.ts:1431](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1431)
 
 Node ID
 
@@ -28,8 +24,6 @@ Node ID
 
 > **content**: `string`
 
-Defined in: [types/rag.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1433)
-
 Node content
 
 ---
@@ -38,8 +32,6 @@ Node content
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1435](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1435)
-
 Node metadata
 
 ---
@@ -47,7 +39,5 @@ Node metadata
 ### score
 
 > **score**: `number`
-
-Defined in: [types/rag.ts:1437](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1437)
 
 Relevance score

@@ -8,8 +8,6 @@
 
 > **AnalyticsStorage** = `object`
 
-Defined in: [types/analytics.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L138)
-
 Pluggable storage backend for analytics telemetry records.
 
 ## Methods
@@ -17,8 +15,6 @@ Pluggable storage backend for analytics telemetry records.
 ### saveRecord()
 
 > **saveRecord**(`record`): `Promise`\<`void`\>
-
-Defined in: [types/analytics.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L140)
 
 Save a telemetry record
 
@@ -38,8 +34,6 @@ Save a telemetry record
 
 > **getRecords**(): `Promise`\<[`TelemetryRecord`](TelemetryRecord.md)[]\>
 
-Defined in: [types/analytics.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L142)
-
 Retrieve all records
 
 #### Returns
@@ -51,8 +45,6 @@ Retrieve all records
 ### clear()
 
 > **clear**(): `Promise`\<`void`\>
-
-Defined in: [types/analytics.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L144)
 
 Clear storage
 

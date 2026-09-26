@@ -8,8 +8,6 @@
 
 > **wrapToolsWithElicitation**(`tools`, `options?`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/toolIntegration.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L164)
-
 Batch wrap tools with elicitation support
 
 ## Parameters

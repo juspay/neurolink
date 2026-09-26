@@ -8,8 +8,6 @@
 
 > **ImageOrientationNormalization** = `object`
 
-Defined in: [types/file.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L88)
-
 Outcome of an EXIF-orientation pass over one image.
 
 See `adapters/imageFormatSupport.ts` — `normalized` is false both when the
@@ -23,14 +21,10 @@ treat it as a success flag; either way `buffer` is safe to send as-is.
 
 > `readonly` **buffer**: `Buffer`
 
-Defined in: [types/file.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L89)
-
 ---
 
 ### normalized
 
 > `readonly` **normalized**: `boolean`
-
-Defined in: [types/file.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L91)
 
 True when the bytes were re-encoded to apply and strip EXIF orientation.

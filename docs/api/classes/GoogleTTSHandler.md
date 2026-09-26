@@ -6,8 +6,6 @@
 
 # Class: GoogleTTSHandler
 
-Defined in: [adapters/tts/googleTTSHandler.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L29)
-
 ## Implements
 
 - [`TTSHandler`](../type-aliases/TTSHandler.md)
@@ -17,8 +15,6 @@ Defined in: [adapters/tts/googleTTSHandler.ts:29](https://github.com/juspay/neur
 ### Constructor
 
 > **new GoogleTTSHandler**(`credentialsPath?`): `GoogleTTSHandler`
-
-Defined in: [adapters/tts/googleTTSHandler.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L61)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [adapters/tts/googleTTSHandler.ts:61](https://github.com/juspay/neur
 
 > `readonly` **maxTextLength**: `number` = `GoogleTTSHandler.DEFAULT_MAX_TEXT_LENGTH`
 
-Defined in: [adapters/tts/googleTTSHandler.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L56)
-
 Maximum text length supported by Google Cloud TTS (in bytes).
 
 NOTE:
@@ -53,8 +47,6 @@ before invoking provider handlers, not inside this class.
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [adapters/tts/googleTTSHandler.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L71)
 
 Validate that the provider is properly configured
 
@@ -73,8 +65,6 @@ True if provider can generate TTS
 ### getVoices()
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
-
-Defined in: [adapters/tts/googleTTSHandler.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L103)
 
 Get available voices for the provider
 
@@ -104,8 +94,6 @@ List of available voices
 ### synthesize()
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
-
-Defined in: [adapters/tts/googleTTSHandler.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/tts/googleTTSHandler.ts#L221)
 
 Generate audio from text using provider-specific TTS API
 

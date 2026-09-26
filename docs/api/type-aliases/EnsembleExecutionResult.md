@@ -8,8 +8,6 @@
 
 > **EnsembleExecutionResult** = `object`
 
-Defined in: [types/workflow.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L548)
-
 Result of ensemble execution
 
 ## Properties
@@ -18,15 +16,11 @@ Result of ensemble execution
 
 > **responses**: [`EnsembleResponse`](EnsembleResponse.md)[]
 
-Defined in: [types/workflow.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L549)
-
 ---
 
 ### totalTime
 
 > **totalTime**: `number`
-
-Defined in: [types/workflow.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L550)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/workflow.ts:550](https://github.com/juspay/neurolink/blob/rel
 
 > **successCount**: `number`
 
-Defined in: [types/workflow.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L551)
-
 ---
 
 ### failureCount
 
 > **failureCount**: `number`
 
-Defined in: [types/workflow.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L552)
-
 ---
 
 ### errors
 
 > **errors**: [`WorkflowError`](../classes/WorkflowError.md)[]
-
-Defined in: [types/workflow.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L553)

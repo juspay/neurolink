@@ -8,8 +8,6 @@
 
 > **MiddlewareExecutionResult** = `object`
 
-Defined in: [types/middleware.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L122)
-
 Middleware execution result
 
 ## Properties
@@ -17,8 +15,6 @@ Middleware execution result
 ### applied
 
 > **applied**: `boolean`
-
-Defined in: [types/middleware.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L124)
 
 Whether the middleware was applied
 
@@ -28,8 +24,6 @@ Whether the middleware was applied
 
 > **executionTime**: `number`
 
-Defined in: [types/middleware.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L126)
-
 Execution time in milliseconds
 
 ---
@@ -38,8 +32,6 @@ Execution time in milliseconds
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/middleware.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L128)
-
 Any errors that occurred
 
 ---
@@ -47,7 +39,5 @@ Any errors that occurred
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/middleware.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L130)
 
 Additional metadata from the middleware

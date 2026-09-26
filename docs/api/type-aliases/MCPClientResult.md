@@ -8,8 +8,6 @@
 
 > **MCPClientResult** = `object`
 
-Defined in: [types/mcp.ts:823](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L823)
-
 MCP client creation result
 Moved from src/lib/mcp/mcpClientFactory.ts
 
@@ -19,8 +17,6 @@ Moved from src/lib/mcp/mcpClientFactory.ts
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:825](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L825)
-
 Whether client creation was successful
 
 ---
@@ -28,8 +24,6 @@ Whether client creation was successful
 ### client?
 
 > `optional` **client?**: `Client`
-
-Defined in: [types/mcp.ts:828](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L828)
 
 Created client instance
 
@@ -39,8 +33,6 @@ Created client instance
 
 > `optional` **transport?**: `Transport`
 
-Defined in: [types/mcp.ts:831](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L831)
-
 Created transport instance
 
 ---
@@ -48,8 +40,6 @@ Created transport instance
 ### process?
 
 > `optional` **process?**: `ChildProcess`
-
-Defined in: [types/mcp.ts:834](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L834)
 
 Created process (for stdio transport)
 
@@ -59,8 +49,6 @@ Created process (for stdio transport)
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:837](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L837)
-
 Error message if failed
 
 ---
@@ -69,8 +57,6 @@ Error message if failed
 
 > **duration**: `number`
 
-Defined in: [types/mcp.ts:840](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L840)
-
 Creation duration in milliseconds
 
 ---
@@ -78,7 +64,5 @@ Creation duration in milliseconds
 ### capabilities?
 
 > `optional` **capabilities?**: `ClientCapabilities`
-
-Defined in: [types/mcp.ts:843](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L843)
 
 Server capabilities reported during handshake

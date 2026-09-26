@@ -8,8 +8,6 @@
 
 > **VertexAccessTokenProvider** = () => `Promise`\<`string` \| `null` \| `undefined`\>
 
-Defined in: [types/providers.ts:2646](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2646)
-
 Supplies the bearer token for a Vertex publisher call.
 
 Exists so a test can stand in for the Google credential lookup: gaxios

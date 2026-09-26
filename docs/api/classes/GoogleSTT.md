@@ -6,8 +6,6 @@
 
 # Class: GoogleSTT
 
-Defined in: [voice/providers/GoogleSTT.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L33)
-
 Google Cloud Speech-to-Text Handler
 
 Supports transcription with speaker diarization, word timestamps, and punctuation.
@@ -25,8 +23,6 @@ https://cloud.google.com/speech-to-text/docs
 ### Constructor
 
 > **new GoogleSTT**(`apiKey?`, `credentialsPath?`): `GoogleSTT`
-
-Defined in: [voice/providers/GoogleSTT.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L50)
 
 #### Parameters
 
@@ -48,8 +44,6 @@ Defined in: [voice/providers/GoogleSTT.ts:50](https://github.com/juspay/neurolin
 
 > `readonly` **maxAudioDuration**: `60` = `60`
 
-Defined in: [voice/providers/GoogleSTT.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L42)
-
 Maximum audio duration in seconds for the synchronous recognize endpoint.
 For longer audio, use the async longrunningrecognize endpoint (not yet implemented).
 
@@ -63,8 +57,6 @@ For longer audio, use the async longrunningrecognize endpoint (not yet implement
 
 > `readonly` **supportsStreaming**: `false` = `false`
 
-Defined in: [voice/providers/GoogleSTT.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L48)
-
 True streaming requires gRPC (not yet implemented).
 transcribeStream() uses a chunk-and-batch workaround.
 
@@ -77,8 +69,6 @@ transcribeStream() uses a chunk-and-batch workaround.
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [voice/providers/GoogleSTT.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L70)
 
 #### Returns
 
@@ -94,8 +84,6 @@ Defined in: [voice/providers/GoogleSTT.ts:70](https://github.com/juspay/neurolin
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/providers/GoogleSTT.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L74)
-
 #### Returns
 
 [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
@@ -110,8 +98,6 @@ Defined in: [voice/providers/GoogleSTT.ts:74](https://github.com/juspay/neurolin
 
 > **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
 
-Defined in: [voice/providers/GoogleSTT.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L78)
-
 #### Returns
 
 `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
@@ -125,8 +111,6 @@ Defined in: [voice/providers/GoogleSTT.ts:78](https://github.com/juspay/neurolin
 ### transcribe()
 
 > **transcribe**(`audio`, `options?`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
-
-Defined in: [voice/providers/GoogleSTT.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L174)
 
 #### Parameters
 
@@ -151,8 +135,6 @@ Defined in: [voice/providers/GoogleSTT.ts:174](https://github.com/juspay/neuroli
 ### transcribeStream()
 
 > **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-Defined in: [voice/providers/GoogleSTT.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L382)
 
 Streaming transcription (placeholder - requires WebSocket/gRPC)
 

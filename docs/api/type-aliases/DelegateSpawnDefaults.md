@@ -8,8 +8,6 @@
 
 > **DelegateSpawnDefaults** = `object`
 
-Defined in: [types/delegation.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L171)
-
 Provider/model a model-invoked `delegate_task` spawn falls back to. The spawn
 schema deliberately exposes no `provider` — a model cannot name a provider it
 cannot see — so without a default the worker instance falls back to provider
@@ -24,12 +22,8 @@ unconfigured providers before reaching the configured one. The model's own
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/delegation.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L172)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/delegation.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L173)

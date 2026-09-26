@@ -8,8 +8,6 @@
 
 > **composeMiddleware**(...`middlewares`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L764)
-
 Compose multiple middleware into one
 
 ## Parameters

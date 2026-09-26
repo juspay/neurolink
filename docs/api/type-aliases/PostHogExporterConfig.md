@@ -8,8 +8,6 @@
 
 > **PostHogExporterConfig** = [`ExporterConfig`](ExporterConfig.md) & `object`
 
-Defined in: [types/exporter.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L158)
-
 PostHog exporter configuration
 
 ## Type Declaration

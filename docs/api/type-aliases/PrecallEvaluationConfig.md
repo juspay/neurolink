@@ -8,8 +8,6 @@
 
 > **PrecallEvaluationConfig** = `object`
 
-Defined in: [types/guardrails.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L55)
-
 Configuration for precall evaluation using AI models
 
 ## Properties
@@ -18,15 +16,11 @@ Configuration for precall evaluation using AI models
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/guardrails.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L56)
-
 ---
 
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/guardrails.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L57)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/guardrails.ts:57](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **evaluationModel?**: `string`
 
-Defined in: [types/guardrails.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L58)
-
 ---
 
 ### evaluationPrompt?
 
 > `optional` **evaluationPrompt?**: `string`
-
-Defined in: [types/guardrails.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L59)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/guardrails.ts:59](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **actions?**: [`EvaluationActions`](EvaluationActions.md)
 
-Defined in: [types/guardrails.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L60)
-
 ---
 
 ### thresholds?
 
 > `optional` **thresholds?**: [`EvaluationThresholds`](EvaluationThresholds.md)
-
-Defined in: [types/guardrails.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L61)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/guardrails.ts:61](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **blockUnsafeRequests?**: `boolean`
 
-Defined in: [types/guardrails.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L62)
-
 ---
 
 ### sanitizationPatterns?
 
 > `optional` **sanitizationPatterns?**: `string`[]
-
-Defined in: [types/guardrails.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L74)
 
 Regex patterns to use for sanitizing input when action is "sanitize".
 Each pattern will be applied with the 'gi' flags (global, case-insensitive).
@@ -92,8 +74,6 @@ Example patterns:
 ### replacementText?
 
 > `optional` **replacementText?**: `string`
-
-Defined in: [types/guardrails.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L85)
 
 Text to use when replacing sanitized content.
 

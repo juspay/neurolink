@@ -8,8 +8,6 @@
 
 > **getServerInfo**(`server`): `object`
 
-Defined in: [mcp/factory.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/factory.ts#L156)
-
 Utility function to get server info
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **decideSearchPlan**(`query`, `decide`, `capabilities`): `Promise`\<[`SearchPlanResult`](../type-aliases/SearchPlanResult.md) \| `null`\>
 
-Defined in: [rag/retrieval/searchDecision.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/searchDecision.ts#L60)
-
 Ask how this particular query should be retrieved.
 
 Returns `null` when nothing should change — no decision provider, a failed

@@ -8,8 +8,6 @@
 
 > **GenAIModelsAPI** = `object`
 
-Defined in: [types/providers.ts:1261](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1261)
-
 Google AI models API interface
 
 ## Properties
@@ -17,8 +15,6 @@ Google AI models API interface
 ### generateContentStream
 
 > **generateContentStream**: (`params`) => `Promise`\<`AsyncIterable`\<[`GenAIStreamChunk`](GenAIStreamChunk.md)\>\>
-
-Defined in: [types/providers.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1262)
 
 #### Parameters
 
@@ -46,8 +42,6 @@ Defined in: [types/providers.ts:1262](https://github.com/juspay/neurolink/blob/r
 
 > **generateContent**: (`params`) => `Promise`\<[`GenAIGenerateContentResponse`](GenAIGenerateContentResponse.md)\>
 
-Defined in: [types/providers.ts:1267](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1267)
-
 #### Parameters
 
 ##### params
@@ -73,8 +67,6 @@ Defined in: [types/providers.ts:1267](https://github.com/juspay/neurolink/blob/r
 ### embedContent
 
 > **embedContent**: (`params`) => `Promise`\<\{ `embeddings?`: `object`[]; \}\>
-
-Defined in: [types/providers.ts:1272](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1272)
 
 #### Parameters
 

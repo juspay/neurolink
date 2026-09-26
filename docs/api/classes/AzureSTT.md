@@ -6,8 +6,6 @@
 
 # Class: AzureSTT
 
-Defined in: [voice/providers/AzureSTT.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L29)
-
 Azure Cognitive Services Speech-to-Text Handler
 
 Supports speech recognition with custom models and detailed output.
@@ -25,8 +23,6 @@ https://docs.microsoft.com/azure/cognitive-services/speech-service/
 ### Constructor
 
 > **new AzureSTT**(`apiKey?`, `region?`): `AzureSTT`
-
-Defined in: [voice/providers/AzureSTT.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L46)
 
 #### Parameters
 
@@ -48,8 +44,6 @@ Defined in: [voice/providers/AzureSTT.ts:46](https://github.com/juspay/neurolink
 
 > `readonly` **maxAudioDuration**: `60` = `60`
 
-Defined in: [voice/providers/AzureSTT.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L39)
-
 Maximum audio duration in seconds (60s — Azure's REST API for short audio
 documented limit on `/speech/recognition/conversation/cognitiveservices/v1`).
 For longer audio, use Azure Batch Transcription (not yet implemented) or
@@ -65,8 +59,6 @@ pre-segment the input.
 
 > `readonly` **supportsStreaming**: `false` = `false`
 
-Defined in: [voice/providers/AzureSTT.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L44)
-
 Azure STT implementation buffers chunks via REST — not true streaming
 
 #### Implementation of
@@ -78,8 +70,6 @@ Azure STT implementation buffers chunks via REST — not true streaming
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [voice/providers/AzureSTT.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L57)
 
 #### Returns
 
@@ -95,8 +85,6 @@ Defined in: [voice/providers/AzureSTT.ts:57](https://github.com/juspay/neurolink
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/providers/AzureSTT.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L61)
-
 #### Returns
 
 [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
@@ -111,8 +99,6 @@ Defined in: [voice/providers/AzureSTT.ts:61](https://github.com/juspay/neurolink
 
 > **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
 
-Defined in: [voice/providers/AzureSTT.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L69)
-
 #### Returns
 
 `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
@@ -126,8 +112,6 @@ Defined in: [voice/providers/AzureSTT.ts:69](https://github.com/juspay/neurolink
 ### transcribe()
 
 > **transcribe**(`audio`, `options?`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
-
-Defined in: [voice/providers/AzureSTT.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L159)
 
 #### Parameters
 
@@ -152,8 +136,6 @@ Defined in: [voice/providers/AzureSTT.ts:159](https://github.com/juspay/neurolin
 ### transcribeStream()
 
 > **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-Defined in: [voice/providers/AzureSTT.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureSTT.ts#L312)
 
 Streaming transcription (placeholder - requires SDK)
 

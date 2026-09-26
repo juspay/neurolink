@@ -8,8 +8,6 @@
 
 > **NeurolinkConstructorConfig** = `object`
 
-Defined in: [types/config.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L70)
-
 Configuration object for NeuroLink constructor.
 
 ## Properties
@@ -18,15 +16,11 @@ Configuration object for NeuroLink constructor.
 
 > `optional` **conversationMemory?**: `Partial`\<[`ConversationMemoryConfig`](ConversationMemoryConfig.md)\>
 
-Defined in: [types/config.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L71)
-
 ---
 
 ### enableOrchestration?
 
 > `optional` **enableOrchestration?**: `boolean`
-
-Defined in: [types/config.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L72)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/config.ts:72](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **hitl?**: [`HITLConfig`](HITLConfig.md)
 
-Defined in: [types/config.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L73)
-
 ---
 
 ### tools?
 
 > `optional` **tools?**: [`ToolConfig`](ToolConfig.md)
-
-Defined in: [types/config.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L79)
 
 Instance-level tool policy: master switch, include/exclude lists
 (with `*` glob support), and on-demand MCP tool discovery.
@@ -54,15 +44,11 @@ See [ToolConfig](ToolConfig.md).
 
 > `optional` **toolRegistry?**: [`MCPToolRegistry`](../classes/MCPToolRegistry.md)
 
-Defined in: [types/config.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L80)
-
 ---
 
 ### observability?
 
 > `optional` **observability?**: [`ObservabilityConfig`](ObservabilityConfig.md)
-
-Defined in: [types/config.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L81)
 
 ---
 
@@ -70,15 +56,11 @@ Defined in: [types/config.ts:81](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **modelAliasConfig?**: [`ModelAliasConfig`](ModelAliasConfig.md)
 
-Defined in: [types/config.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L82)
-
 ---
 
 ### mcp?
 
 > `optional` **mcp?**: [`MCPEnhancementsConfig`](MCPEnhancementsConfig.md)
-
-Defined in: [types/config.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L84)
 
 MCP enhancement modules configuration (cache, router, batcher, annotations, middleware)
 
@@ -87,8 +69,6 @@ MCP enhancement modules configuration (cache, router, batcher, annotations, midd
 ### artifacts?
 
 > `optional` **artifacts?**: [`ArtifactStorageConfig`](ArtifactStorageConfig.md)
-
-Defined in: [types/config.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L90)
 
 Artifact storage: where externalized MCP tool outputs and banked payloads
 live. The backend follows `STORAGE_TYPE` exactly like conversation memory
@@ -100,8 +80,6 @@ unless chosen here. See [ArtifactStorageConfig](ArtifactStorageConfig.md).
 
 > `optional` **auth?**: [`NeuroLinkAuthConfig`](NeuroLinkAuthConfig.md)
 
-Defined in: [types/config.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L92)
-
 Authentication provider configuration
 
 ---
@@ -110,8 +88,6 @@ Authentication provider configuration
 
 > `optional` **tasks?**: [`TaskManagerConfig`](TaskManagerConfig.md)
 
-Defined in: [types/config.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L94)
-
 TaskManager configuration (scheduled and self-running tasks)
 
 ---
@@ -119,8 +95,6 @@ TaskManager configuration (scheduled and self-running tasks)
 ### credentials?
 
 > `optional` **credentials?**: [`NeurolinkCredentials`](NeurolinkCredentials.md)
-
-Defined in: [types/config.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L100)
 
 Per-provider credential overrides.
 When set here, applies as the default for all generate()/stream() calls
@@ -131,8 +105,6 @@ from this NeuroLink instance. Per-call credentials override these.
 ### providerFallback?
 
 > `optional` **providerFallback?**: [`ProviderFallbackCallback`](ProviderFallbackCallback.md)
-
-Defined in: [types/config.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L111)
 
 Curator P2-3: callback invoked when a generate/stream call fails with
 any error except a genuine caller cancel — i.e. the caller-supplied
@@ -149,8 +121,6 @@ error unmodified and returns the next `{ provider, model }` to try, or
 
 > `optional` **modelChain?**: `string`[]
 
-Defined in: [types/config.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L120)
-
 Curator P2-3: ordered list of model names to try in sequence. Sugar
 over `providerFallback`, but with a narrower trigger: without an
 explicit callback the chain only advances on model-access-denied
@@ -164,8 +134,6 @@ name changes.
 
 > `optional` **toolRouting?**: [`ToolRoutingConfig`](ToolRoutingConfig.md)
 
-Defined in: [types/config.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L127)
-
 Pre-call tool routing: a cheap router LLM picks the tool servers
 relevant to each stream() turn and the unpicked servers' tools are
 dropped from the request via `excludeTools`. Fails open (all tools) on
@@ -176,8 +144,6 @@ any router failure. See [ToolRoutingConfig](ToolRoutingConfig.md).
 ### toolDedup?
 
 > `optional` **toolDedup?**: [`ToolDedupConfig`](ToolDedupConfig.md)
-
-Defined in: [types/config.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L140)
 
 Opt-in tool-signature deduplication. When enabled, tools whose
 canonical signatures are sufficiently similar (Jaccard ≥ threshold) are
@@ -196,8 +162,6 @@ See [ToolDedupConfig](ToolDedupConfig.md).
 
 > `optional` **modelPool?**: [`ModelPoolConfig`](ModelPoolConfig.md)
 
-Defined in: [types/config.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L148)
-
 Multi-provider pool for error-class-aware failover with per-member
 cooldown. When set, generate() and stream() source their candidate
 provider sequence from the pool instead of (or in addition to) the
@@ -209,8 +173,6 @@ existing behavior unchanged.
 ### requestRouter?
 
 > `optional` **requestRouter?**: [`RequestRouter`](RequestRouter.md)
-
-Defined in: [types/config.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L156)
 
 Pluggable pre-call router: inspects lightweight request characteristics
 (token estimate, tools, vision, thinkingLevel) and returns an optional
@@ -224,8 +186,6 @@ error proceeds unrouted.
 
 > `optional` **classifierRouter?**: [`ClassifierRouterConfig`](ClassifierRouterConfig.md)
 
-Defined in: [types/config.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L165)
-
 Pre-call classifier router: classifies each request by difficulty and
 selects a provider/model from a configured "available base" pool — routing
 harder tasks to more capable models and easier tasks to cheaper/faster
@@ -238,8 +198,6 @@ caller pinned both `provider` and `model`. See [ClassifierRouterConfig](Classifi
 ### contextRelevance?
 
 > `optional` **contextRelevance?**: [`ContextRelevanceOptions`](ContextRelevanceOptions.md)
-
-Defined in: [types/config.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L176)
 
 Relevance-driven context compaction. When a decision provider is
 configured, compaction gains a stage-zero pass that drops the earlier
@@ -256,8 +214,6 @@ which is the same activation rule every other decision consumer uses.
 
 > `optional` **skills?**: [`SkillsConfig`](SkillsConfig.md)
 
-Defined in: [types/config.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L185)
-
 Native skills: versioned, discoverable instruction packs (SOPs,
 playbooks) with progressive disclosure. When enabled, each
 generate()/stream() call gets a skills discovery listing plus
@@ -270,8 +226,6 @@ Opt-in and fails open on read paths. See [SkillsConfig](SkillsConfig.md).
 ### knowledgeGrounding?
 
 > `optional` **knowledgeGrounding?**: [`KnowledgeGroundingConfig`](KnowledgeGroundingConfig.md)
-
-Defined in: [types/config.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L196)
 
 Knowledge grounding: lexical-first host-supplied knowledge retrieval. When
 enabled with at least one source, a deterministic in-memory retrieval runs

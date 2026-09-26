@@ -6,8 +6,6 @@
 
 # Class: CrossEncoderReranker
 
-Defined in: [rag/reranker/reranker.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L393)
-
 Cross-encoder style reranker interface
 Placeholder for integration with cross-encoder models
 
@@ -16,8 +14,6 @@ Placeholder for integration with cross-encoder models
 ### Constructor
 
 > **new CrossEncoderReranker**(`modelName?`): `CrossEncoderReranker`
-
-Defined in: [rag/reranker/reranker.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L396)
 
 #### Parameters
 
@@ -34,8 +30,6 @@ Defined in: [rag/reranker/reranker.ts:396](https://github.com/juspay/neurolink/b
 ### rerank()
 
 > **rerank**(`_query`, `_documents`): `Promise`\<`object`[]\>
-
-Defined in: [rag/reranker/reranker.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L400)
 
 #### Parameters
 

@@ -8,8 +8,6 @@
 
 > **composeScorers**(`id`, `name`, `scorers`, `options?`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L405)
-
 Compose multiple scorers into a single scorer with aggregation
 
 ## Parameters

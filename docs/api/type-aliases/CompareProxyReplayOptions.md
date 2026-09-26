@@ -8,8 +8,6 @@
 
 > **CompareProxyReplayOptions** = `object`
 
-Defined in: [types/proxy.ts:3020](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3020)
-
 Inputs for an explicitly authorized direct-upstream comparison.
 
 ## Properties
@@ -18,15 +16,11 @@ Inputs for an explicitly authorized direct-upstream comparison.
 
 > **execute**: `boolean`
 
-Defined in: [types/proxy.ts:3021](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3021)
-
 ---
 
 ### headerValues?
 
 > `optional` **headerValues?**: `Record`\<`string`, `string`\>
-
-Defined in: [types/proxy.ts:3022](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3022)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/proxy.ts:3022](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **bodyOverride?**: `string`
 
-Defined in: [types/proxy.ts:3023](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3023)
-
 ---
 
 ### urlOverride?
 
 > `optional` **urlOverride?**: `string`
-
-Defined in: [types/proxy.ts:3024](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3024)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/proxy.ts:3024](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:3025](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3025)
-
 ---
 
 ### now?
 
 > `optional` **now?**: () => `number`
-
-Defined in: [types/proxy.ts:3026](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3026)
 
 #### Returns
 
@@ -69,5 +55,3 @@ Defined in: [types/proxy.ts:3026](https://github.com/juspay/neurolink/blob/relea
 ### fetchImpl?
 
 > `optional` **fetchImpl?**: _typeof_ `fetch`
-
-Defined in: [types/proxy.ts:3027](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3027)

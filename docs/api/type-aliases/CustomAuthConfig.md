@@ -8,8 +8,6 @@
 
 > **CustomAuthConfig** = `object`
 
-Defined in: [types/auth.ts:827](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L827)
-
 Custom auth provider configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Custom auth provider configuration
 ### validateToken
 
 > **validateToken**: (`token`, `context?`) => `Promise`\<[`TokenValidationResult`](TokenValidationResult.md)\>
-
-Defined in: [types/auth.ts:829](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L829)
 
 Custom token validation function
 
@@ -42,8 +38,6 @@ Custom token validation function
 
 > `optional` **getUser?**: (`userId`) => `Promise`\<[`AuthUser`](AuthUser.md) \| `null`\>
 
-Defined in: [types/auth.ts:834](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L834)
-
 Custom user fetching function
 
 #### Parameters
@@ -61,8 +55,6 @@ Custom user fetching function
 ### createSession?
 
 > `optional` **createSession?**: (`user`, `context?`) => `Promise`\<[`AuthSession`](AuthSession.md)\>
-
-Defined in: [types/auth.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L836)
 
 Custom session creation function
 

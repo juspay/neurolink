@@ -6,8 +6,6 @@
 
 # Class: ElevenLabsMusic
 
-Defined in: [music/providers/ElevenLabsMusic.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L34)
-
 ElevenLabs Music / Sound Generation Handler.
 
 Auth: `xi-api-key: ${ELEVENLABS_API_KEY}` (shares the same env var as
@@ -26,8 +24,6 @@ music loops up to 22 seconds.
 
 > **new ElevenLabsMusic**(`apiKey?`): `ElevenLabsMusic`
 
-Defined in: [music/providers/ElevenLabsMusic.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L49)
-
 #### Parameters
 
 ##### apiKey?
@@ -44,8 +40,6 @@ Defined in: [music/providers/ElevenLabsMusic.ts:49](https://github.com/juspay/ne
 
 > `readonly` **maxDurationSeconds**: `22` = `22`
 
-Defined in: [music/providers/ElevenLabsMusic.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L35)
-
 Maximum supported track duration in seconds (provider-specific).
 
 #### Implementation of
@@ -57,8 +51,6 @@ Maximum supported track duration in seconds (provider-specific).
 ### supportedFormats
 
 > `readonly` **supportedFormats**: readonly [`MusicAudioFormat`](../type-aliases/MusicAudioFormat.md)[]
-
-Defined in: [music/providers/ElevenLabsMusic.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L36)
 
 Output formats supported by this handler.
 
@@ -72,8 +64,6 @@ Output formats supported by this handler.
 
 > `readonly` **supportedGenres**: readonly `string`[]
 
-Defined in: [music/providers/ElevenLabsMusic.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L37)
-
 Genres / styles the upstream advertises (informational).
 
 #### Implementation of
@@ -85,8 +75,6 @@ Genres / styles the upstream advertises (informational).
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [music/providers/ElevenLabsMusic.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L57)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -103,8 +91,6 @@ Validate the provider is configured (auth, base URL, etc.).
 ### generate()
 
 > **generate**(`options`): `Promise`\<[`MusicResult`](../type-aliases/MusicResult.md)\>
-
-Defined in: [music/providers/ElevenLabsMusic.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ElevenLabsMusic.ts#L61)
 
 Generate a music track from prompt + options.
 

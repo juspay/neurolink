@@ -8,8 +8,6 @@
 
 > **createVectorQueryTool**(`config`, `vectorStore`): `object`
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L32)
-
 Creates a vector query tool for semantic search
 Follows NeuroLink's factory pattern
 

@@ -8,8 +8,6 @@
 
 > **DIDTalkResponse** = `object`
 
-Defined in: [types/avatar.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L156)
-
 D-ID `/talks` API response shape.
 
 Used by `DIDAvatar` handler to type-check upstream responses. Lives here
@@ -22,15 +20,11 @@ the types barrel.
 
 > **id**: `string`
 
-Defined in: [types/avatar.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L157)
-
 ---
 
 ### status?
 
 > `optional` **status?**: `string`
-
-Defined in: [types/avatar.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L158)
 
 ---
 
@@ -38,15 +32,11 @@ Defined in: [types/avatar.ts:158](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **result_url?**: `string`
 
-Defined in: [types/avatar.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L159)
-
 ---
 
 ### error?
 
 > `optional` **error?**: `object`
-
-Defined in: [types/avatar.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L160)
 
 #### kind?
 
@@ -61,5 +51,3 @@ Defined in: [types/avatar.ts:160](https://github.com/juspay/neurolink/blob/relea
 ### duration?
 
 > `optional` **duration?**: `number`
-
-Defined in: [types/avatar.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L161)

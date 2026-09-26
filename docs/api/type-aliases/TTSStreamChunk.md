@@ -8,8 +8,6 @@
 
 > **TTSStreamChunk** = `object`
 
-Defined in: [types/voice.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L249)
-
 TTS stream chunk for streaming synthesis
 
 ## Deprecated
@@ -25,8 +23,6 @@ is not a drop-in replacement.
 
 > **data**: `Buffer`
 
-Defined in: [types/voice.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L251)
-
 Audio data chunk
 
 ---
@@ -34,8 +30,6 @@ Audio data chunk
 ### ~~index~~
 
 > **index**: `number`
-
-Defined in: [types/voice.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L253)
 
 Chunk sequence number
 
@@ -45,8 +39,6 @@ Chunk sequence number
 
 > **isFinal**: `boolean`
 
-Defined in: [types/voice.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L255)
-
 Whether this is the final chunk
 
 ---
@@ -54,8 +46,6 @@ Whether this is the final chunk
 ### ~~format~~
 
 > **format**: `string`
-
-Defined in: [types/voice.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L257)
 
 Audio format
 
@@ -65,8 +55,6 @@ Audio format
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/voice.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L259)
-
 Sample rate
 
 ---
@@ -74,7 +62,5 @@ Sample rate
 ### ~~timestampMs?~~
 
 > `optional` **timestampMs?**: `number`
-
-Defined in: [types/voice.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L261)
 
 Timestamp offset in audio (milliseconds)

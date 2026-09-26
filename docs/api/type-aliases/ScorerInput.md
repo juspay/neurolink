@@ -8,8 +8,6 @@
 
 > **ScorerInput** = `object`
 
-Defined in: [types/scorer.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L119)
-
 Input context for scorer execution
 
 ## Properties
@@ -17,8 +15,6 @@ Input context for scorer execution
 ### query
 
 > **query**: `string`
-
-Defined in: [types/scorer.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L121)
 
 The user's original query/prompt
 
@@ -28,8 +24,6 @@ The user's original query/prompt
 
 > **response**: `string`
 
-Defined in: [types/scorer.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L123)
-
 The AI-generated response to evaluate
 
 ---
@@ -37,8 +31,6 @@ The AI-generated response to evaluate
 ### context?
 
 > `optional` **context?**: `string`[]
-
-Defined in: [types/scorer.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L125)
 
 Retrieved context (for RAG evaluations)
 
@@ -48,8 +40,6 @@ Retrieved context (for RAG evaluations)
 
 > `optional` **groundTruth?**: `string`
 
-Defined in: [types/scorer.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L127)
-
 Ground truth/expected answer (for accuracy checks)
 
 ---
@@ -57,8 +47,6 @@ Ground truth/expected answer (for accuracy checks)
 ### generationResult?
 
 > `optional` **generationResult?**: [`GenerateResult`](GenerateResult.md)
-
-Defined in: [types/scorer.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L129)
 
 Full generation result with metadata
 
@@ -68,8 +56,6 @@ Full generation result with metadata
 
 > `optional` **evaluationContext?**: [`EnhancedEvaluationContext`](EnhancedEvaluationContext.md)
 
-Defined in: [types/scorer.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L131)
-
 Enhanced evaluation context
 
 ---
@@ -77,8 +63,6 @@ Enhanced evaluation context
 ### conversationHistory?
 
 > `optional` **conversationHistory?**: `object`[]
-
-Defined in: [types/scorer.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L133)
 
 Conversation history for multi-turn evaluation
 
@@ -95,7 +79,5 @@ Conversation history for multi-turn evaluation
 ### custom?
 
 > `optional` **custom?**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/scorer.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L135)
 
 Custom input data for specific scorers

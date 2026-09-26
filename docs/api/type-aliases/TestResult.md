@@ -8,8 +8,6 @@
 
 > **TestResult** = `object`
 
-Defined in: [types/common.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L289)
-
 Result of a single test execution.
 
 ## Properties
@@ -17,8 +15,6 @@ Result of a single test execution.
 ### name
 
 > **name**: `string`
-
-Defined in: [types/common.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L291)
 
 Display name of the test
 
@@ -28,8 +24,6 @@ Display name of the test
 
 > **result**: `boolean`
 
-Defined in: [types/common.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L293)
-
 Whether the test passed
 
 ---
@@ -37,8 +31,6 @@ Whether the test passed
 ### error
 
 > **error**: `string` \| `null`
-
-Defined in: [types/common.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L295)
 
 Error message if the test failed, null otherwise
 
@@ -48,8 +40,6 @@ Error message if the test failed, null otherwise
 
 > `optional` **category?**: `string`
 
-Defined in: [types/common.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L297)
-
 Optional grouping category
 
 ---
@@ -57,7 +47,5 @@ Optional grouping category
 ### duration?
 
 > `optional` **duration?**: `number`
-
-Defined in: [types/common.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L299)
 
 Optional execution duration in milliseconds

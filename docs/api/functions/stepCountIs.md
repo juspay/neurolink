@@ -8,8 +8,6 @@
 
 > **stepCountIs**(`stepCount`): (`__namedParameters`) => `boolean`
 
-Defined in: [utils/tool.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tool.ts#L66)
-
 ## Parameters
 
 ### stepCount

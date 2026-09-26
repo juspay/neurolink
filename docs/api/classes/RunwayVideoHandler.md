@@ -6,8 +6,6 @@
 
 # Class: RunwayVideoHandler
 
-Defined in: [adapters/video/runwayVideoHandler.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L35)
-
 Runway Video Handler.
 
 Auth: `Authorization: Bearer ${RUNWAY_API_KEY}` + `X-Runway-Version`
@@ -22,8 +20,6 @@ header. Models: gen3a_turbo (Gen-3 Alpha Turbo, default), gen4_turbo.
 ### Constructor
 
 > **new RunwayVideoHandler**(`apiKey?`): `RunwayVideoHandler`
-
-Defined in: [adapters/video/runwayVideoHandler.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L50)
 
 #### Parameters
 
@@ -41,8 +37,6 @@ Defined in: [adapters/video/runwayVideoHandler.ts:50](https://github.com/juspay/
 
 > `readonly` **maxDurationSeconds**: `10` = `10`
 
-Defined in: [adapters/video/runwayVideoHandler.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L36)
-
 Maximum video duration in seconds supported by this provider.
 
 #### Implementation of
@@ -54,8 +48,6 @@ Maximum video duration in seconds supported by this provider.
 ### supportedAspectRatios
 
 > `readonly` **supportedAspectRatios**: readonly (`"9:16"` \| `"16:9"`)[]
-
-Defined in: [adapters/video/runwayVideoHandler.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L37)
 
 Supported aspect ratios.
 
@@ -69,8 +61,6 @@ Supported aspect ratios.
 
 > `readonly` **supportedResolutions**: readonly (`"720p"` \| `"1080p"`)[]
 
-Defined in: [adapters/video/runwayVideoHandler.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L41)
-
 Supported output resolutions.
 
 #### Implementation of
@@ -82,8 +72,6 @@ Supported output resolutions.
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [adapters/video/runwayVideoHandler.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L60)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -100,8 +88,6 @@ Validate the provider is configured (auth, base URL, etc.).
 ### generate()
 
 > **generate**(`image`, `prompt`, `options`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
-
-Defined in: [adapters/video/runwayVideoHandler.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L64)
 
 Generate a single video clip from an input image and prompt.
 

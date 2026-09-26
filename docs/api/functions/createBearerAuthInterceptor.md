@@ -8,8 +8,6 @@
 
 > **createBearerAuthInterceptor**(`token`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L89)
-
 Bearer token authentication interceptor
 
 Adds Authorization header with Bearer token.

@@ -8,8 +8,6 @@
 
 > **LiveConnectCallbacks** = `object`
 
-Defined in: [types/providers.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1186)
-
 Live connection callbacks
 
 ## Properties
@@ -17,8 +15,6 @@ Live connection callbacks
 ### onopen?
 
 > `optional` **onopen?**: () => `void`
-
-Defined in: [types/providers.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1187)
 
 #### Returns
 
@@ -29,8 +25,6 @@ Defined in: [types/providers.ts:1187](https://github.com/juspay/neurolink/blob/r
 ### onmessage?
 
 > `optional` **onmessage?**: (`message`) => `void`
-
-Defined in: [types/providers.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1188)
 
 #### Parameters
 
@@ -47,8 +41,6 @@ Defined in: [types/providers.ts:1188](https://github.com/juspay/neurolink/blob/r
 ### onerror?
 
 > `optional` **onerror?**: (`e`) => `void`
-
-Defined in: [types/providers.ts:1189](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1189)
 
 #### Parameters
 
@@ -67,8 +59,6 @@ Defined in: [types/providers.ts:1189](https://github.com/juspay/neurolink/blob/r
 ### onclose?
 
 > `optional` **onclose?**: (`e`) => `void`
-
-Defined in: [types/providers.ts:1190](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1190)
 
 #### Parameters
 

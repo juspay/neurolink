@@ -8,8 +8,6 @@
 
 > **ValidationFunction**\<`T`\> = (`value`) => `boolean`
 
-Defined in: [types/aliases.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L135)
-
 Validation function type
 Common pattern for input validation
 

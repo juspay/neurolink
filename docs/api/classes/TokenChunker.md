@@ -6,8 +6,6 @@
 
 # Class: TokenChunker
 
-Defined in: [rag/chunking/tokenChunker.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/tokenChunker.ts#L24)
-
 Token-aware chunker implementation
 Splits text based on approximate token counts
 
@@ -34,8 +32,6 @@ For exact token counts, integrate with tiktoken or model-specific tokenizers.
 
 > `readonly` **strategy**: `"token"`
 
-Defined in: [rag/chunking/tokenChunker.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/tokenChunker.ts#L25)
-
 Strategy name for identification
 
 #### Implementation of
@@ -47,8 +43,6 @@ Strategy name for identification
 ### chunk()
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
-
-Defined in: [rag/chunking/tokenChunker.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/tokenChunker.ts#L35)
 
 Split text into chunks
 
@@ -82,8 +76,6 @@ Array of chunks
 
 > **estimateTokenCount**(`text`, `tokenizer?`): `number`
 
-Defined in: [rag/chunking/tokenChunker.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/tokenChunker.ts#L200)
-
 Estimate token count for text
 
 #### Parameters
@@ -105,8 +97,6 @@ Estimate token count for text
 ### validateConfig()
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
-
-Defined in: [rag/chunking/tokenChunker.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/tokenChunker.ts#L204)
 
 #### Parameters
 

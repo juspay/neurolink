@@ -8,8 +8,6 @@
 
 > **AuthRateLimitConfig** = `object`
 
-Defined in: [types/auth.ts:1350](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1350)
-
 Rate limit configuration per user or role.
 
 ## Properties
@@ -18,15 +16,11 @@ Rate limit configuration per user or role.
 
 > **maxRequests**: `number`
 
-Defined in: [types/auth.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1351)
-
 ---
 
 ### windowMs
 
 > **windowMs**: `number`
-
-Defined in: [types/auth.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1352)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/auth.ts:1352](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **roleLimits?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/auth.ts:1353](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1353)
-
 ---
 
 ### userLimits?
 
 > `optional` **userLimits?**: `Record`\<`string`, `number`\>
-
-Defined in: [types/auth.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1354)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/auth.ts:1354](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **skipRoles?**: `string`[]
 
-Defined in: [types/auth.ts:1355](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1355)
-
 ---
 
 ### message?
 
 > `optional` **message?**: `string`
-
-Defined in: [types/auth.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1356)

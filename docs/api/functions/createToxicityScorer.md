@@ -8,8 +8,6 @@
 
 > **createToxicityScorer**(`config?`): `Promise`\<[`ToxicityScorer`](../classes/ToxicityScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/toxicityScorer.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/toxicityScorer.ts#L152)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

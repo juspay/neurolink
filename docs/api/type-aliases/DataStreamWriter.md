@@ -8,8 +8,6 @@
 
 > **DataStreamWriter** = `object`
 
-Defined in: [types/server.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L864)
-
 Data stream writer interface
 
 ## Methods
@@ -17,8 +15,6 @@ Data stream writer interface
 ### writeTextStart()
 
 > **writeTextStart**(`id`): `Promise`\<`void`\>
-
-Defined in: [types/server.ts:866](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L866)
 
 Write text start event
 
@@ -37,8 +33,6 @@ Write text start event
 ### writeTextDelta()
 
 > **writeTextDelta**(`id`, `delta`): `Promise`\<`void`\>
-
-Defined in: [types/server.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L869)
 
 Write text delta event
 
@@ -62,8 +56,6 @@ Write text delta event
 
 > **writeTextEnd**(`id`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L872)
-
 Write text end event
 
 #### Parameters
@@ -81,8 +73,6 @@ Write text end event
 ### writeToolCall()
 
 > **writeToolCall**(`toolCall`): `Promise`\<`void`\>
-
-Defined in: [types/server.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L875)
 
 Write tool call event
 
@@ -112,8 +102,6 @@ Write tool call event
 
 > **writeToolResult**(`toolResult`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L882)
-
 Write tool result event
 
 #### Parameters
@@ -142,8 +130,6 @@ Write tool result event
 
 > **writeData**(`data`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:889](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L889)
-
 Write arbitrary data event
 
 #### Parameters
@@ -161,8 +147,6 @@ Write arbitrary data event
 ### writeError()
 
 > **writeError**(`error`): `Promise`\<`void`\>
-
-Defined in: [types/server.ts:892](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L892)
 
 Write error event
 
@@ -187,8 +171,6 @@ Write error event
 ### close()
 
 > **close**(): `Promise`\<`void`\>
-
-Defined in: [types/server.ts:895](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L895)
 
 Close the stream
 

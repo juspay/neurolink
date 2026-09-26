@@ -8,6 +8,4 @@
 
 > **AgenticLoopReportStatus** = `"INPROGRESS"` \| `"COMPLETED"` \| `"CANCELLED"` \| `"FAILED"`
 
-Defined in: [types/conversation.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L556)
-
 Status of an agentic loop report

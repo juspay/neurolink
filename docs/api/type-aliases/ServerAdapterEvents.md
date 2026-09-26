@@ -8,8 +8,6 @@
 
 > **ServerAdapterEvents** = `object`
 
-Defined in: [types/server.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L499)
-
 Server adapter events
 
 ## Properties
@@ -17,8 +15,6 @@ Server adapter events
 ### initialized
 
 > **initialized**: `object`
-
-Defined in: [types/server.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L501)
 
 Server initialized
 
@@ -40,8 +36,6 @@ Server initialized
 
 > **started**: `object`
 
-Defined in: [types/server.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L508)
-
 Server started
 
 #### port
@@ -62,8 +56,6 @@ Server started
 
 > **stopped**: `object`
 
-Defined in: [types/server.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L515)
-
 Server stopped
 
 #### uptime
@@ -79,8 +71,6 @@ Server stopped
 ### request
 
 > **request**: `object`
-
-Defined in: [types/server.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L521)
 
 Request received
 
@@ -106,8 +96,6 @@ Request received
 
 > **response**: `object`
 
-Defined in: [types/server.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L529)
-
 Response sent
 
 #### requestId
@@ -131,8 +119,6 @@ Response sent
 ### error
 
 > **error**: `object`
-
-Defined in: [types/server.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L537)
 
 Error occurred
 

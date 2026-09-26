@@ -8,8 +8,6 @@
 
 > `const` **TOOL_COMPATIBILITY**: `object`
 
-Defined in: [mcp/toolConverter.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolConverter.ts#L338)
-
 Tool compatibility matrix
 
 ## Type Declaration

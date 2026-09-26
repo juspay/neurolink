@@ -8,8 +8,6 @@
 
 > **getApiKeyFromEnv**(`envVar`, `options?`): `string` \| `undefined`
 
-Defined in: [client/auth.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L551)
-
 Create an API key from environment variable with validation
 
 ## Parameters

@@ -6,8 +6,6 @@
 
 # Class: RequestContext\<T\>
 
-Defined in: [auth/RequestContext.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L13)
-
 ## Type Parameters
 
 ### T
@@ -19,8 +17,6 @@ Defined in: [auth/RequestContext.ts:13](https://github.com/juspay/neurolink/blob
 ### Constructor
 
 > **new RequestContext**\<`T`\>(`initial?`): `RequestContext`\<`T`\>
-
-Defined in: [auth/RequestContext.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L18)
 
 #### Parameters
 
@@ -40,8 +36,6 @@ Defined in: [auth/RequestContext.ts:18](https://github.com/juspay/neurolink/blob
 
 > **get** **size**(): `number`
 
-Defined in: [auth/RequestContext.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L46)
-
 ##### Returns
 
 `number`
@@ -51,8 +45,6 @@ Defined in: [auth/RequestContext.ts:46](https://github.com/juspay/neurolink/blob
 ### set()
 
 > **set**\<`K`\>(`key`, `value`): `void`
-
-Defined in: [auth/RequestContext.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L30)
 
 #### Type Parameters
 
@@ -80,8 +72,6 @@ Defined in: [auth/RequestContext.ts:30](https://github.com/juspay/neurolink/blob
 
 > **get**\<`K`\>(`key`): `unknown`
 
-Defined in: [auth/RequestContext.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L34)
-
 #### Type Parameters
 
 ##### K
@@ -104,8 +94,6 @@ Defined in: [auth/RequestContext.ts:34](https://github.com/juspay/neurolink/blob
 
 > **has**(`key`): `boolean`
 
-Defined in: [auth/RequestContext.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L38)
-
 #### Parameters
 
 ##### key
@@ -122,8 +110,6 @@ Defined in: [auth/RequestContext.ts:38](https://github.com/juspay/neurolink/blob
 
 > **delete**(`key`): `boolean`
 
-Defined in: [auth/RequestContext.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L42)
-
 #### Parameters
 
 ##### key
@@ -139,8 +125,6 @@ Defined in: [auth/RequestContext.ts:42](https://github.com/juspay/neurolink/blob
 ### mergeClientContext()
 
 > **mergeClientContext**(`clientContext`): `void`
-
-Defined in: [auth/RequestContext.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L54)
 
 Merge client-provided values, but SKIP reserved keys that are already set.
 This prevents clients from overriding auth middleware values.
@@ -160,8 +144,6 @@ This prevents clients from overriding auth middleware values.
 ### toJSON()
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
-
-Defined in: [auth/RequestContext.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/auth/RequestContext.ts#L65)
 
 #### Returns
 

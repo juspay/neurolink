@@ -8,8 +8,6 @@
 
 > **TaskBackendFactoryFn** = (`config`) => `Promise`\<[`TaskBackend`](TaskBackend.md)\>
 
-Defined in: [types/task.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L327)
-
 ## Parameters
 
 ### config

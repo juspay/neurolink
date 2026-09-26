@@ -8,8 +8,6 @@
 
 > **chunkText**(`text`, `strategy?`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/chunkerRegistry.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L217)
-
 Convenience function to chunk text with a given strategy
 
 ## Parameters

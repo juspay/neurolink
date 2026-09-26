@@ -8,8 +8,6 @@
 
 > **CoordinationContext** = [`AgentExecutionContext`](AgentExecutionContext.md) & `object`
 
-Defined in: [types/agentNetwork.ts:1255](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1255)
-
 Context passed during coordination
 
 ## Type Declaration

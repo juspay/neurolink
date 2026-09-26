@@ -8,8 +8,6 @@
 
 > **ToolContext** = `object`
 
-Defined in: [types/tools.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L280)
-
 Tool execution context
 
 ## Properties
@@ -18,15 +16,11 @@ Tool execution context
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/tools.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L281)
-
 ---
 
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/tools.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L282)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/tools.ts:282](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **aiProvider?**: `string`
 
-Defined in: [types/tools.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L283)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: [`ToolExecutionMetadata`](ToolExecutionMetadata.md)
-
-Defined in: [types/tools.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L284)

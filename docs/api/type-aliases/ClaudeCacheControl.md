@@ -8,8 +8,6 @@
 
 > **ClaudeCacheControl** = `object`
 
-Defined in: [types/proxy.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L73)
-
 Anthropic prompt-cache breakpoint marker.
 
 Anthropic caching is explicit: the prefix up to each marker is cached, and a
@@ -21,15 +19,11 @@ request carrying none is cached not at all. Four markers is the hard ceiling.
 
 > **type**: `"ephemeral"`
 
-Defined in: [types/proxy.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L74)
-
 ---
 
 ### ttl?
 
 > `optional` **ttl?**: `"5m"` \| `"1h"`
-
-Defined in: [types/proxy.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L81)
 
 How long the marked prefix stays cached. The API accepts a 5-minute or a
 1-hour window, priced at 1.25x and 2x base input respectively; omitting it

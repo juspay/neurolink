@@ -8,8 +8,6 @@
 
 > `const` **logger**: `object`
 
-Defined in: [utils/logger.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/utils/logger.ts#L525)
-
 Main unified logger export that provides a simplified API for logging.
 This is the primary interface that should be used by application code.
 

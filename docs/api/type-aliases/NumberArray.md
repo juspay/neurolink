@@ -8,7 +8,5 @@
 
 > **NumberArray** = `number`[]
 
-Defined in: [types/aliases.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L172)
-
 Number array type
 Common for metrics, coordinates, etc.

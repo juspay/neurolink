@@ -8,8 +8,6 @@
 
 > **TopologyEdge** = `object`
 
-Defined in: [types/agentNetwork.ts:1580](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1580)
-
 Edge in the topology
 
 ## Properties
@@ -17,8 +15,6 @@ Edge in the topology
 ### id
 
 > **id**: `string`
-
-Defined in: [types/agentNetwork.ts:1582](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1582)
 
 Unique edge ID
 
@@ -28,8 +24,6 @@ Unique edge ID
 
 > **sourceId**: `string`
 
-Defined in: [types/agentNetwork.ts:1585](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1585)
-
 Source node ID
 
 ---
@@ -37,8 +31,6 @@ Source node ID
 ### targetId
 
 > **targetId**: `string`
-
-Defined in: [types/agentNetwork.ts:1588](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1588)
 
 Target node ID
 
@@ -48,8 +40,6 @@ Target node ID
 
 > **type**: `"bidirectional"` \| `"unidirectional"`
 
-Defined in: [types/agentNetwork.ts:1591](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1591)
-
 Edge type
 
 ---
@@ -58,8 +48,6 @@ Edge type
 
 > **weight**: `number`
 
-Defined in: [types/agentNetwork.ts:1594](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1594)
-
 Communication weight (for routing optimization)
 
 ---
@@ -67,7 +55,5 @@ Communication weight (for routing optimization)
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/agentNetwork.ts:1597](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1597)
 
 Edge metadata

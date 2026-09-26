@@ -8,8 +8,6 @@
 
 > **ModelCapabilities** = `object`
 
-Defined in: [types/model.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L116)
-
 Model capabilities interface
 
 ## Properties
@@ -18,15 +16,11 @@ Model capabilities interface
 
 > **vision**: `boolean`
 
-Defined in: [types/model.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L117)
-
 ---
 
 ### functionCalling
 
 > **functionCalling**: `boolean`
-
-Defined in: [types/model.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L118)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/model.ts:118](https://github.com/juspay/neurolink/blob/releas
 
 > **codeGeneration**: `boolean`
 
-Defined in: [types/model.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L119)
-
 ---
 
 ### reasoning
 
 > **reasoning**: `boolean`
-
-Defined in: [types/model.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L120)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/model.ts:120](https://github.com/juspay/neurolink/blob/releas
 
 > **multimodal**: `boolean`
 
-Defined in: [types/model.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L121)
-
 ---
 
 ### streaming
 
 > **streaming**: `boolean`
-
-Defined in: [types/model.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L122)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/model.ts:122](https://github.com/juspay/neurolink/blob/releas
 
 > **jsonMode**: `boolean`
 
-Defined in: [types/model.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L123)
-
 ---
 
 ### samplingParams?
 
 > `optional` **samplingParams?**: `boolean`
-
-Defined in: [types/model.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L131)
 
 Whether the model accepts classic sampling parameters
 (`temperature` / `topP`). Reasoning-effort models (Claude Sonnet 5,

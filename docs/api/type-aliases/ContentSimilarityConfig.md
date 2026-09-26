@@ -8,8 +8,6 @@
 
 > **ContentSimilarityConfig** = [`RuleScorerConfig`](RuleScorerConfig.md) & `object`
 
-Defined in: [types/scorer.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L476)
-
 Configuration specific to content similarity scoring.
 
 ## Type Declaration

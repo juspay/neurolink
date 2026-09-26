@@ -8,8 +8,6 @@
 
 > `const` **PROCESSOR_PRIORITIES**: `object`
 
-Defined in: [types/processor.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L405)
-
 Priority levels for file processors.
 Lower number = higher priority = matched first.
 

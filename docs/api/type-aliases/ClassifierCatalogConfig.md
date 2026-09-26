@@ -8,8 +8,6 @@
 
 > **ClassifierCatalogConfig** = `object`
 
-Defined in: [types/classifierRouter.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L262)
-
 How the model catalogue widens the declared pool.
 
 ## Properties
@@ -18,15 +16,11 @@ How the model catalogue widens the declared pool.
 
 > **enabled**: `boolean`
 
-Defined in: [types/classifierRouter.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L263)
-
 ---
 
 ### maxModels?
 
 > `optional` **maxModels?**: `number`
-
-Defined in: [types/classifierRouter.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L275)
 
 Cap on catalogue-derived members. The binding constraint is the decision
 model's input ceiling — state plus the longest single question must stay
@@ -44,8 +38,6 @@ grows past what one question can carry, not a limit anyone is hitting.
 
 > `optional` **providers?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L277)
-
 Restrict the catalogue to these provider names. Omit for all configured.
 
 ---
@@ -54,8 +46,6 @@ Restrict the catalogue to these provider names. Omit for all configured.
 
 > `optional` **minContextWindow?**: `number`
 
-Defined in: [types/classifierRouter.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L279)
-
 Drop models whose context window is below this. Default: 0 (keep all).
 
 ---
@@ -63,7 +53,5 @@ Drop models whose context window is below this. Default: 0 (keep all).
 ### includeDeprecated?
 
 > `optional` **includeDeprecated?**: `boolean`
-
-Defined in: [types/classifierRouter.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L281)
 
 Include models flagged deprecated in the registry. Default: false.

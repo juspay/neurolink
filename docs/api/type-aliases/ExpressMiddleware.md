@@ -8,8 +8,6 @@
 
 > **ExpressMiddleware** = (`req`, `res`, `next`) => `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1332)
-
 Express-style auth middleware signature.
 
 ## Parameters

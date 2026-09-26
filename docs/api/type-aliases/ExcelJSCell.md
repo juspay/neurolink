@@ -8,8 +8,6 @@
 
 > **ExcelJSCell** = `object`
 
-Defined in: [types/processor.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L690)
-
 Structural types for exceljs objects.
 Defined here so the optional exceljs package is not required at typecheck time.
 
@@ -18,5 +16,3 @@ Defined here so the optional exceljs package is not required at typecheck time.
 ### value
 
 > **value**: [`CellValue`](CellValue.md)
-
-Defined in: [types/processor.ts:691](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L691)

@@ -8,8 +8,6 @@
 
 > **LiveKitVoiceStatusEvent** = `object`
 
-Defined in: [types/livekit.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L283)
-
 Coarse agent state, useful for UI indicators (e.g. "thinking…").
 
 ## Properties
@@ -18,15 +16,11 @@ Coarse agent state, useful for UI indicators (e.g. "thinking…").
 
 > **type**: `"status"`
 
-Defined in: [types/livekit.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L284)
-
 ---
 
 ### data
 
 > **data**: `object`
-
-Defined in: [types/livekit.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L285)
 
 #### state
 

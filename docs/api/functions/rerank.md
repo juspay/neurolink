@@ -8,8 +8,6 @@
 
 > **rerank**(`results`, `query`, `model`, `options?`): `Promise`\<[`RerankResult`](../type-aliases/RerankResult.md)[]\>
 
-Defined in: [rag/reranker/reranker.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L41)
-
 Rerank vector search results using multi-factor scoring
 
 Combines three scoring factors:

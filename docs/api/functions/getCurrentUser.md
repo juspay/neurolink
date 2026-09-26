@@ -8,8 +8,6 @@
 
 > **getCurrentUser**(): [`AuthUser`](../type-aliases/AuthUser.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L82)
-
 Get the current authenticated user
 
 Convenience function to get just the user from context.

@@ -8,8 +8,6 @@
 
 > `const` **VIDEO_ERROR_CODES**: `object`
 
-Defined in: [constants/videoErrors.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/constants/videoErrors.ts#L17)
-
 ## Type Declaration
 
 ### GENERATION_FAILED

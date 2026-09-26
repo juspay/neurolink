@@ -7,5 +7,3 @@
 # Type Alias: GeminiLoopAdapterConfig
 
 > **GeminiLoopAdapterConfig** = [`GeminiLoopAdapterCoreConfig`](GeminiLoopAdapterCoreConfig.md) & [`GeminiMalformedRetryConfig`](GeminiMalformedRetryConfig.md)
-
-Defined in: [types/loopEngine.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L608)

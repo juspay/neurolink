@@ -8,6 +8,4 @@
 
 > **SupportedModelName** = [`BedrockModels`](../enumerations/BedrockModels.md) \| `DeepSeekModels` \| [`OpenAIModels`](../enumerations/OpenAIModels.md) \| [`VertexModels`](../enumerations/VertexModels.md) \| `GoogleAIModels` \| `AnthropicModels` \| `NvidiaNimModels` \| `LMStudioModels` \| `LlamaCppModels`
 
-Defined in: [types/providers.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L90)
-
 Union type of all supported model names

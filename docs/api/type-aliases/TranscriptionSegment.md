@@ -8,8 +8,6 @@
 
 > **TranscriptionSegment** = `object`
 
-Defined in: [types/stt.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L126)
-
 Transcription segment for streaming STT
 
 ## Properties
@@ -17,8 +15,6 @@ Transcription segment for streaming STT
 ### index?
 
 > `optional` **index?**: `number`
-
-Defined in: [types/stt.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L128)
 
 Segment index
 
@@ -28,8 +24,6 @@ Segment index
 
 > **text**: `string`
 
-Defined in: [types/stt.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L130)
-
 Transcribed text
 
 ---
@@ -37,8 +31,6 @@ Transcribed text
 ### isFinal
 
 > **isFinal**: `boolean`
-
-Defined in: [types/stt.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L132)
 
 Whether this is a final result
 
@@ -48,8 +40,6 @@ Whether this is a final result
 
 > `optional` **confidence?**: `number`
 
-Defined in: [types/stt.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L134)
-
 Confidence score (0-1)
 
 ---
@@ -57,8 +47,6 @@ Confidence score (0-1)
 ### startTime?
 
 > `optional` **startTime?**: `number`
-
-Defined in: [types/stt.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L136)
 
 Start time in audio (seconds)
 
@@ -68,8 +56,6 @@ Start time in audio (seconds)
 
 > `optional` **start?**: `number`
 
-Defined in: [types/stt.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L138)
-
 Start time (alias for startTime)
 
 ---
@@ -77,8 +63,6 @@ Start time (alias for startTime)
 ### endTime?
 
 > `optional` **endTime?**: `number`
-
-Defined in: [types/stt.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L140)
 
 End time in audio (seconds)
 
@@ -88,8 +72,6 @@ End time in audio (seconds)
 
 > `optional` **end?**: `number`
 
-Defined in: [types/stt.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L142)
-
 End time (alias for endTime)
 
 ---
@@ -97,8 +79,6 @@ End time (alias for endTime)
 ### words?
 
 > `optional` **words?**: [`WordTiming`](WordTiming.md)[]
-
-Defined in: [types/stt.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L144)
 
 Word-level timings
 
@@ -108,8 +88,6 @@ Word-level timings
 
 > `optional` **speaker?**: `string`
 
-Defined in: [types/stt.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L146)
-
 Speaker label
 
 ---
@@ -117,7 +95,5 @@ Speaker label
 ### language?
 
 > `optional` **language?**: `string`
-
-Defined in: [types/stt.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L148)
 
 Detected language

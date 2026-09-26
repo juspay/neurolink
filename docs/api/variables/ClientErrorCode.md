@@ -8,8 +8,6 @@
 
 > `const` **ClientErrorCode**: `object`
 
-Defined in: [client/errors.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L23)
-
 Standard error codes for NeuroLink API errors
 
 ## Type Declaration

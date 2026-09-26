@@ -8,8 +8,6 @@
 
 > **LLMScorer** = [`Scorer`](Scorer.md) & `object`
 
-Defined in: [types/scorer.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L291)
-
 Extended interface for LLM-based scorers
 
 ## Type Declaration

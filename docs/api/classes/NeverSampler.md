@@ -6,8 +6,6 @@
 
 # Class: NeverSampler
 
-Defined in: [observability/sampling/samplers.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L33)
-
 Never sample any spans
 
 ## Implements
@@ -30,8 +28,6 @@ Never sample any spans
 
 > `readonly` **name**: `"never"` = `"never"`
 
-Defined in: [observability/sampling/samplers.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L34)
-
 Sampler name for identification
 
 #### Implementation of
@@ -43,8 +39,6 @@ Sampler name for identification
 ### shouldSample()
 
 > **shouldSample**(`_span`): `boolean`
-
-Defined in: [observability/sampling/samplers.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L36)
 
 Determine if a span should be sampled
 
@@ -67,8 +61,6 @@ Determine if a span should be sampled
 ### getDescription()
 
 > **getDescription**(): `string`
-
-Defined in: [observability/sampling/samplers.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/observability/sampling/samplers.ts#L40)
 
 Get sampling decision description
 

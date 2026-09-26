@@ -8,7 +8,5 @@
 
 > **CliValidatedFileOption** = `"--image"` \| `"--csv"` \| `"--pdf"` \| `"--video"` \| `"--file"`
 
-Defined in: [types/cli.ts:2194](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2194)
-
 The CLI flags validated by `validateCliInputFiles` before a
 generate/stream/batch run starts (--image/--csv/--pdf/--video/--file).

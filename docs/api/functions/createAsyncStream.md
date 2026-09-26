@@ -8,8 +8,6 @@
 
 > **createAsyncStream**(`responsePromise`): `AsyncGenerator`\<[`ClientStreamEvent`](../type-aliases/ClientStreamEvent.md), `void`, `unknown`\>
 
-Defined in: [client/streamingClient.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L1016)
-
 Create an async iterable from streaming response
 
 ## Parameters

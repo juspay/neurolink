@@ -8,8 +8,6 @@
 
 > **createProtectedMiddleware**(`config`): `Promise`\<[`AuthMiddlewareHandler`](../type-aliases/AuthMiddlewareHandler.md)\<[`AuthRequestContext`](../type-aliases/AuthRequestContext.md)\>\>
 
-Defined in: [auth/middleware/AuthMiddleware.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L546)
-
 Create combined auth + RBAC middleware
 
 Convenience function that combines authentication and authorization.

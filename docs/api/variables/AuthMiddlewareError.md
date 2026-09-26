@@ -8,8 +8,6 @@
 
 > `const` **AuthMiddlewareError**: `object`
 
-Defined in: [auth/middleware/AuthMiddleware.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/AuthMiddleware.ts#L51)
-
 Auth middleware error factory
 
 ## Type Declaration

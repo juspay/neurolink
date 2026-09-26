@@ -8,8 +8,6 @@
 
 > **LiveKitVoiceBrain** = `object`
 
-Defined in: [types/livekit.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L70)
-
 The brain's public surface: stream the assistant reply as text deltas.
 The transport layer converts these deltas into audio (TTS).
 
@@ -18,8 +16,6 @@ The transport layer converts these deltas into audio (TTS).
 ### streamReply
 
 > **streamReply**: (`turn`) => `AsyncGenerator`\<`string`, `void`, `unknown`\>
-
-Defined in: [types/livekit.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L71)
 
 #### Parameters
 

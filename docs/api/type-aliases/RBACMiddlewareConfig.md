@@ -8,8 +8,6 @@
 
 > **RBACMiddlewareConfig** = `object`
 
-Defined in: [types/auth.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L617)
-
 RBAC middleware configuration
 
 ## Properties
@@ -17,8 +15,6 @@ RBAC middleware configuration
 ### roles?
 
 > `optional` **roles?**: `string`[]
-
-Defined in: [types/auth.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L619)
 
 Required roles (user must have at least one)
 
@@ -28,8 +24,6 @@ Required roles (user must have at least one)
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/auth.ts:621](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L621)
-
 Required permissions (user must have all)
 
 ---
@@ -37,8 +31,6 @@ Required permissions (user must have all)
 ### requireAllRoles?
 
 > `optional` **requireAllRoles?**: `boolean`
-
-Defined in: [types/auth.ts:623](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L623)
 
 Whether all roles are required (default: false, any role matches)
 
@@ -48,8 +40,6 @@ Whether all roles are required (default: false, any role matches)
 
 > `optional` **superAdminRoles?**: `string`[]
 
-Defined in: [types/auth.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L625)
-
 Super admin roles that bypass all role/permission checks
 
 ---
@@ -57,8 +47,6 @@ Super admin roles that bypass all role/permission checks
 ### rolePermissions?
 
 > `optional` **rolePermissions?**: `Record`\<`string`, `string`[]\>
-
-Defined in: [types/auth.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L627)
 
 Mapping from role name to granted permissions
 
@@ -68,8 +56,6 @@ Mapping from role name to granted permissions
 
 > `optional` **roleHierarchy?**: `Record`\<`string`, `string`[]\>
 
-Defined in: [types/auth.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L629)
-
 Role hierarchy: a role inherits permissions from its children
 
 ---
@@ -77,8 +63,6 @@ Role hierarchy: a role inherits permissions from its children
 ### custom?
 
 > `optional` **custom?**: (`user`, `context`) => `boolean` \| `Promise`\<`boolean`\>
-
-Defined in: [types/auth.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L631)
 
 Custom authorization function
 
@@ -101,8 +85,6 @@ Custom authorization function
 ### onDenied?
 
 > `optional` **onDenied?**: (`result`, `context`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/auth.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L636)
 
 Custom error handler
 

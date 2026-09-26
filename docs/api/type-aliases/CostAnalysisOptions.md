@@ -8,15 +8,11 @@
 
 > **CostAnalysisOptions** = `object`
 
-Defined in: [types/analytics.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L189)
-
 ## Properties
 
 ### timeRange?
 
 > `optional` **timeRange?**: [`TimeRangeOption`](TimeRangeOption.md) \| `string`
-
-Defined in: [types/analytics.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L190)
 
 ---
 
@@ -24,12 +20,8 @@ Defined in: [types/analytics.ts:190](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **groupBy?**: `string` \| `string`[]
 
-Defined in: [types/analytics.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L191)
-
 ---
 
 ### includeProjections?
 
 > `optional` **includeProjections?**: `boolean`
-
-Defined in: [types/analytics.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L192)

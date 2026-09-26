@@ -8,8 +8,6 @@
 
 > **ExecutionControlOptions** = `object`
 
-Defined in: [types/stream.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L305)
-
 Opt-in execution policy for one streamed turn. Supported only on the native
 Anthropic stream path today; any other provider REJECTS it rather than
 ignoring it, because silently dropping a policy the caller set is how a turn
@@ -32,8 +30,6 @@ restores exactly the old behaviour.
 
 > **requestTimeoutMs**: `number`
 
-Defined in: [types/stream.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L314)
-
 Hard deadline for a single HTTP request (ms). Required, finite, positive.
 
 This is the floor that makes the rest of the contract safe: whatever the
@@ -46,8 +42,6 @@ error. A step boundary cannot reset a deadline already running.
 ### lifetimeTimeoutMs?
 
 > `optional` **lifetimeTimeoutMs?**: `number` \| `null`
-
-Defined in: [types/stream.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L334)
 
 The turn's wall-clock ceiling (ms).
 
@@ -73,8 +67,6 @@ present holding `undefined`: both say "no opinion", and both inherit.
 
 > `optional` **beforeStep?**: (`context`) => [`ExecutionControlDecision`](ExecutionControlDecision.md) \| `undefined` \| `Promise`\<[`ExecutionControlDecision`](ExecutionControlDecision.md) \| `undefined`\>
 
-Defined in: [types/stream.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L341)
-
 Runs at each step boundary. May renew the step cap and append a planning
 nudge. It is itself bounded by `beforeStepTimeoutMs` and cancelled with
 the turn; a callback that throws, or outlives its budget, is treated as
@@ -95,8 +87,6 @@ declining to renew.
 ### beforeStepTimeoutMs?
 
 > `optional` **beforeStepTimeoutMs?**: `number`
-
-Defined in: [types/stream.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L352)
 
 Bound on `beforeStep` itself (ms, finite and positive; default 30_000).
 A boundary callback sits between two model calls, so an unbounded one

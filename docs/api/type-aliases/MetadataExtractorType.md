@@ -8,6 +8,4 @@
 
 > **MetadataExtractorType** = `"llm"` \| `"title"` \| `"summary"` \| `"keywords"` \| `"questions"` \| `"custom"` \| `"composite"`
 
-Defined in: [types/rag.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L92)
-
 Supported metadata extractor types

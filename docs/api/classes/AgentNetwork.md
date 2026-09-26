@@ -6,8 +6,6 @@
 
 # Class: AgentNetwork
 
-Defined in: [agent/agentNetwork.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L65)
-
 AgentNetwork - Multi-agent orchestration using the ai SDK tool loop
 
 Each agent in the network is registered as an ai SDK `tool()`. A single
@@ -36,8 +34,6 @@ const result = await network.execute({
 
 > **new AgentNetwork**(`config`, `neurolink`): `AgentNetwork`
 
-Defined in: [agent/agentNetwork.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L81)
-
 #### Parameters
 
 ##### config
@@ -58,15 +54,11 @@ Defined in: [agent/agentNetwork.ts:81](https://github.com/juspay/neurolink/blob/
 
 > `readonly` **id**: `string`
 
-Defined in: [agent/agentNetwork.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L66)
-
 ---
 
 ### name
 
 > `readonly` **name**: `string`
-
-Defined in: [agent/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L67)
 
 ---
 
@@ -74,15 +66,11 @@ Defined in: [agent/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/
 
 > `readonly` `optional` **description?**: `string`
 
-Defined in: [agent/agentNetwork.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L68)
-
 ## Methods
 
 ### execute()
 
 > **execute**(`input`, `options?`): `Promise`\<[`NetworkExecutionResult`](../type-aliases/NetworkExecutionResult.md)\>
-
-Defined in: [agent/agentNetwork.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L378)
 
 Execute the network with intelligent routing via the ai SDK tool loop.
 
@@ -110,8 +98,6 @@ agent tool(s) to call; the SDK executes them and loops until `stop` or
 
 > **stream**(`input`, `options?`): `AsyncIterable`\<[`NetworkStreamChunk`](../type-aliases/NetworkStreamChunk.md)\>
 
-Defined in: [agent/agentNetwork.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L467)
-
 Stream network execution using the ai SDK tool loop.
 
 Calls `neurolink.stream()` with agent tools. Text chunks, tool calls, and
@@ -137,8 +123,6 @@ tool results are forwarded as typed NetworkStreamChunk events.
 
 > **getAgent**(`id`): [`Agent`](Agent.md) \| `undefined`
 
-Defined in: [agent/agentNetwork.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L597)
-
 #### Parameters
 
 ##### id
@@ -155,8 +139,6 @@ Defined in: [agent/agentNetwork.ts:597](https://github.com/juspay/neurolink/blob
 
 > **getAllAgents**(): [`Agent`](Agent.md)[]
 
-Defined in: [agent/agentNetwork.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L601)
-
 #### Returns
 
 [`Agent`](Agent.md)[]
@@ -167,8 +149,6 @@ Defined in: [agent/agentNetwork.ts:601](https://github.com/juspay/neurolink/blob
 
 > **getAllPrimitives**(): [`Primitive`](../type-aliases/Primitive.md)[]
 
-Defined in: [agent/agentNetwork.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L605)
-
 #### Returns
 
 [`Primitive`](../type-aliases/Primitive.md)[]
@@ -178,8 +158,6 @@ Defined in: [agent/agentNetwork.ts:605](https://github.com/juspay/neurolink/blob
 ### on()
 
 > **on**(`event`, `handler`): `void`
-
-Defined in: [agent/agentNetwork.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L609)
 
 #### Parameters
 
@@ -200,8 +178,6 @@ Defined in: [agent/agentNetwork.ts:609](https://github.com/juspay/neurolink/blob
 ### off()
 
 > **off**(`event`, `handler`): `void`
-
-Defined in: [agent/agentNetwork.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L613)
 
 #### Parameters
 

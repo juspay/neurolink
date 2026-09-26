@@ -8,8 +8,6 @@
 
 > **WSClientEventHandlers** = `object`
 
-Defined in: [types/client.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1028)
-
 Event handlers for the dedicated NeuroLinkWebSocket client
 
 ## Properties
@@ -17,8 +15,6 @@ Event handlers for the dedicated NeuroLinkWebSocket client
 ### onOpen?
 
 > `optional` **onOpen?**: () => `void`
-
-Defined in: [types/client.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1029)
 
 #### Returns
 
@@ -29,8 +25,6 @@ Defined in: [types/client.ts:1029](https://github.com/juspay/neurolink/blob/rele
 ### onClose?
 
 > `optional` **onClose?**: (`code`, `reason`) => `void`
-
-Defined in: [types/client.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1030)
 
 #### Parameters
 
@@ -52,8 +46,6 @@ Defined in: [types/client.ts:1030](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1031)
-
 #### Parameters
 
 ##### error
@@ -69,8 +61,6 @@ Defined in: [types/client.ts:1031](https://github.com/juspay/neurolink/blob/rele
 ### onMessage?
 
 > `optional` **onMessage?**: (`event`) => `void`
-
-Defined in: [types/client.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1032)
 
 #### Parameters
 
@@ -88,8 +78,6 @@ Defined in: [types/client.ts:1032](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **onReconnect?**: (`attempt`) => `void`
 
-Defined in: [types/client.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1033)
-
 #### Parameters
 
 ##### attempt
@@ -105,8 +93,6 @@ Defined in: [types/client.ts:1033](https://github.com/juspay/neurolink/blob/rele
 ### onStateChange?
 
 > `optional` **onStateChange?**: (`state`) => `void`
-
-Defined in: [types/client.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1034)
 
 #### Parameters
 

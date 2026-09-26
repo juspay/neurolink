@@ -8,8 +8,6 @@
 
 > **NetworkStartChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L740)
-
 Network start event
 
 ## Type Declaration

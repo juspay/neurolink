@@ -8,23 +8,17 @@
 
 > **SSEMessageDelta** = `object`
 
-Defined in: [types/proxy.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L243)
-
 ## Properties
 
 ### type
 
 > **type**: `"message_delta"`
 
-Defined in: [types/proxy.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L244)
-
 ---
 
 ### delta
 
 > **delta**: `object`
-
-Defined in: [types/proxy.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L245)
 
 #### stop_reason
 
@@ -39,8 +33,6 @@ Defined in: [types/proxy.ts:245](https://github.com/juspay/neurolink/blob/releas
 ### usage
 
 > **usage**: `object`
-
-Defined in: [types/proxy.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L246)
 
 #### output_tokens
 

@@ -8,8 +8,6 @@
 
 > **SkillsManagerLike** = `object`
 
-Defined in: [types/skills.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L398)
-
 Structural view of SkillsManager consumed by the skill tools factory —
 keeps skillTools.ts decoupled from the concrete manager class.
 
@@ -18,8 +16,6 @@ keeps skillTools.ts decoupled from the concrete manager class.
 ### search
 
 > **search**: (`query`) => `Promise`\<[`SkillDefinition`](SkillDefinition.md)[]\>
-
-Defined in: [types/skills.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L399)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [types/skills.ts:399](https://github.com/juspay/neurolink/blob/relea
 
 > **list**: (`scopeId?`) => `Promise`\<[`SkillIndexItem`](SkillIndexItem.md)[]\>
 
-Defined in: [types/skills.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L400)
-
 #### Parameters
 
 ##### scopeId?
@@ -55,8 +49,6 @@ Defined in: [types/skills.ts:400](https://github.com/juspay/neurolink/blob/relea
 
 > **get**: (`idOrName`) => `Promise`\<[`SkillDefinition`](SkillDefinition.md) \| `null`\>
 
-Defined in: [types/skills.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L401)
-
 #### Parameters
 
 ##### idOrName
@@ -72,8 +64,6 @@ Defined in: [types/skills.ts:401](https://github.com/juspay/neurolink/blob/relea
 ### getResource
 
 > **getResource**: (`idOrName`, `resourcePath`) => `Promise`\<`string` \| `null`\>
-
-Defined in: [types/skills.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L402)
 
 #### Parameters
 
@@ -95,15 +85,11 @@ Defined in: [types/skills.ts:402](https://github.com/juspay/neurolink/blob/relea
 
 > **sessions**: [`SkillSessionStateLike`](SkillSessionStateLike.md)
 
-Defined in: [types/skills.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L406)
-
 ---
 
 ### requestMutation
 
 > **requestMutation**: (`action`) => `Promise`\<[`SkillMutationResult`](SkillMutationResult.md)\>
-
-Defined in: [types/skills.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L407)
 
 #### Parameters
 

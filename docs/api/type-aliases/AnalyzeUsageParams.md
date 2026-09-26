@@ -8,8 +8,6 @@
 
 > **AnalyzeUsageParams** = `object`
 
-Defined in: [types/mcp.ts:2690](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2690)
-
 Parsed input for the analyze-ai-usage MCP tool.
 
 ## Properties
@@ -18,15 +16,11 @@ Parsed input for the analyze-ai-usage MCP tool.
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/mcp.ts:2691](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2691)
-
 ---
 
 ### timeRange
 
 > **timeRange**: `"1h"` \| `"24h"` \| `"7d"` \| `"30d"`
-
-Defined in: [types/mcp.ts:2692](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2692)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/mcp.ts:2692](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **provider?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)
 
-Defined in: [types/mcp.ts:2693](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2693)
-
 ---
 
 ### includeTokenBreakdown
 
 > **includeTokenBreakdown**: `boolean`
 
-Defined in: [types/mcp.ts:2694](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2694)
-
 ---
 
 ### includeCostEstimation
 
 > **includeCostEstimation**: `boolean`
-
-Defined in: [types/mcp.ts:2695](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2695)

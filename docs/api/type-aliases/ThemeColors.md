@@ -8,8 +8,6 @@
 
 > **ThemeColors** = `object`
 
-Defined in: [types/ppt.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L737)
-
 Color palette for a theme
 
 ## Properties
@@ -18,15 +16,11 @@ Color palette for a theme
 
 > **primary**: `string`
 
-Defined in: [types/ppt.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L738)
-
 ---
 
 ### secondary
 
 > **secondary**: `string`
-
-Defined in: [types/ppt.ts:739](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L739)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/ppt.ts:739](https://github.com/juspay/neurolink/blob/release/
 
 > **accent**: `string`
 
-Defined in: [types/ppt.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L740)
-
 ---
 
 ### background
 
 > **background**: `string`
-
-Defined in: [types/ppt.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L741)
 
 ---
 
@@ -50,20 +40,14 @@ Defined in: [types/ppt.ts:741](https://github.com/juspay/neurolink/blob/release/
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L742)
-
 ---
 
 ### textOnPrimary
 
 > **textOnPrimary**: `string`
 
-Defined in: [types/ppt.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L743)
-
 ---
 
 ### muted
 
 > **muted**: `string`
-
-Defined in: [types/ppt.ts:744](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L744)

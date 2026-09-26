@@ -6,8 +6,6 @@
 
 # Class: InvalidModelError
 
-Defined in: [types/errors.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L69)
-
 Thrown when a specified model is not found or is invalid for the provider.
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown when a specified model is not found or is invalid for the provider.
 ### Constructor
 
 > **new InvalidModelError**(`message`, `provider?`): `InvalidModelError`
-
-Defined in: [types/errors.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L70)
 
 #### Parameters
 
@@ -45,8 +41,6 @@ Defined in: [types/errors.ts:70](https://github.com/juspay/neurolink/blob/releas
 ### provider?
 
 > `optional` **provider?**: `string`
-
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

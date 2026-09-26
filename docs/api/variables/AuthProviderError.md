@@ -8,8 +8,6 @@
 
 > `const` **AuthProviderError**: `object` = `AuthError`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L44)
-
 ## Type Declaration
 
 ### ~~codes~~

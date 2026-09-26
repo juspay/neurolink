@@ -8,8 +8,6 @@
 
 > **ContextWindow** = `object`
 
-Defined in: [types/rag.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L70)
-
 Context window representation
 
 ## Properties
@@ -17,8 +15,6 @@ Context window representation
 ### text
 
 > **text**: `string`
-
-Defined in: [types/rag.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L72)
 
 Assembled context text
 
@@ -28,8 +24,6 @@ Assembled context text
 
 > **chunkCount**: `number`
 
-Defined in: [types/rag.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L74)
-
 Number of chunks included
 
 ---
@@ -37,8 +31,6 @@ Number of chunks included
 ### charCount
 
 > **charCount**: `number`
-
-Defined in: [types/rag.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L76)
 
 Total character count
 
@@ -48,8 +40,6 @@ Total character count
 
 > **tokenCount**: `number`
 
-Defined in: [types/rag.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L78)
-
 Estimated token count
 
 ---
@@ -58,8 +48,6 @@ Estimated token count
 
 > **truncatedChunks**: `number`
 
-Defined in: [types/rag.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L80)
-
 Chunks that were truncated/excluded
 
 ---
@@ -67,7 +55,5 @@ Chunks that were truncated/excluded
 ### citations
 
 > **citations**: `Map`\<`string`, `string`\>
-
-Defined in: [types/rag.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L82)
 
 Citation map (id -> citation text)

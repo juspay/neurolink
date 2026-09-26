@@ -8,8 +8,6 @@
 
 > **ProcessorMatch**\<`_T`\> = `object`
 
-Defined in: [types/processor.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L314)
-
 Result of finding a matching processor for a file.
 Includes both the processor and metadata about the match quality.
 
@@ -28,8 +26,6 @@ on BaseFileProcessor. The registry module uses the properly typed version.
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L316)
-
 Name of the matched processor
 
 ---
@@ -37,8 +33,6 @@ Name of the matched processor
 ### processor
 
 > **processor**: `unknown`
-
-Defined in: [types/processor.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L319)
 
 The processor instance
 
@@ -48,8 +42,6 @@ The processor instance
 
 > **priority**: `number`
 
-Defined in: [types/processor.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L322)
-
 Priority level of this processor
 
 ---
@@ -57,8 +49,6 @@ Priority level of this processor
 ### confidence
 
 > **confidence**: `number`
-
-Defined in: [types/processor.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L332)
 
 Confidence score for the match (0-100).
 Higher values indicate better match quality:

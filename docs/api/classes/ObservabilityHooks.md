@@ -6,8 +6,6 @@
 
 # Class: ObservabilityHooks
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L19)
-
 Observability hooks manager
 
 ## Constructors
@@ -28,8 +26,6 @@ Observability hooks manager
 
 > **get** **enabled**(): `boolean`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L31)
-
 ##### Returns
 
 `boolean`
@@ -37,8 +33,6 @@ Defined in: [evaluation/hooks/observabilityHooks.ts:31](https://github.com/juspa
 #### Set Signature
 
 > **set** **enabled**(`value`): `void`
-
-Defined in: [evaluation/hooks/observabilityHooks.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L27)
 
 Enable/disable observability
 
@@ -58,8 +52,6 @@ Enable/disable observability
 
 > **setTraceContext**(`context`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L38)
-
 Set trace context for all events
 
 #### Parameters
@@ -78,8 +70,6 @@ Set trace context for all events
 
 > **clearTraceContext**(): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L45)
-
 Clear trace context
 
 #### Returns
@@ -92,8 +82,6 @@ Clear trace context
 
 > **getTraceContext**(): [`EvaluationTraceContext`](../type-aliases/EvaluationTraceContext.md) \| `undefined`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L52)
-
 Get current trace context
 
 #### Returns
@@ -105,8 +93,6 @@ Get current trace context
 ### on()
 
 > **on**\<`K`\>(`event`, `handler`): () => `void`
-
-Defined in: [evaluation/hooks/observabilityHooks.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L59)
 
 Register an event handler
 
@@ -136,8 +122,6 @@ Register an event handler
 
 > **off**\<`K`\>(`event`, `handler`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L80)
-
 Remove an event handler
 
 #### Type Parameters
@@ -165,8 +149,6 @@ Remove an event handler
 ### emit()
 
 > **emit**\<`K`\>(`event`, `data`): `Promise`\<`void`\>
-
-Defined in: [evaluation/hooks/observabilityHooks.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L90)
 
 Emit an event
 
@@ -196,8 +178,6 @@ Emit an event
 
 > **clear**(): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L132)
-
 Clear all handlers
 
 #### Returns
@@ -209,8 +189,6 @@ Clear all handlers
 ### listenerCount()
 
 > **listenerCount**(`event`): `number`
-
-Defined in: [evaluation/hooks/observabilityHooks.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L139)
 
 Get handler count for an event
 

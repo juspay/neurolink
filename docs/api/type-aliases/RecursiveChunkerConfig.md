@@ -8,8 +8,6 @@
 
 > **RecursiveChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:916](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L916)
-
 Recursive chunker configuration
 Smart splitting based on content structure
 

@@ -8,8 +8,6 @@
 
 > **ClaudeErrorResponse** = `object`
 
-Defined in: [types/proxy.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L197)
-
 Claude API error envelope.
 
 ## Properties
@@ -18,15 +16,11 @@ Claude API error envelope.
 
 > **type**: `"error"`
 
-Defined in: [types/proxy.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L198)
-
 ---
 
 ### error
 
 > **error**: `object`
-
-Defined in: [types/proxy.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L199)
 
 #### type
 

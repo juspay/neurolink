@@ -8,15 +8,11 @@
 
 > **WhisperVerboseResponse** = `object`
 
-Defined in: [types/stt.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L581)
-
 ## Properties
 
 ### task
 
 > **task**: `string`
-
-Defined in: [types/stt.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L582)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/stt.ts:582](https://github.com/juspay/neurolink/blob/release/
 
 > **language**: `string`
 
-Defined in: [types/stt.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L583)
-
 ---
 
 ### duration
 
 > **duration**: `number`
-
-Defined in: [types/stt.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L584)
 
 ---
 
@@ -40,20 +32,14 @@ Defined in: [types/stt.ts:584](https://github.com/juspay/neurolink/blob/release/
 
 > **text**: `string`
 
-Defined in: [types/stt.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L585)
-
 ---
 
 ### segments?
 
 > `optional` **segments?**: [`WhisperTranscriptionSegment`](WhisperTranscriptionSegment.md)[]
 
-Defined in: [types/stt.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L586)
-
 ---
 
 ### words?
 
 > `optional` **words?**: [`WhisperTranscriptionWord`](WhisperTranscriptionWord.md)[]
-
-Defined in: [types/stt.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L587)

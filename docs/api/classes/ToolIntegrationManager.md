@@ -6,8 +6,6 @@
 
 # Class: ToolIntegrationManager
 
-Defined in: [mcp/toolIntegration.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L386)
-
 Tool Integration Manager
 
 Manages tool execution with middleware and elicitation support.
@@ -17,8 +15,6 @@ Manages tool execution with middleware and elicitation support.
 ### Constructor
 
 > **new ToolIntegrationManager**(`elicitationManager?`): `ToolIntegrationManager`
-
-Defined in: [mcp/toolIntegration.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L391)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [mcp/toolIntegration.ts:391](https://github.com/juspay/neurolink/blo
 ### setElicitationHandler()
 
 > **setElicitationHandler**(`handler`): `void`
-
-Defined in: [mcp/toolIntegration.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L398)
 
 Set the elicitation handler
 
@@ -56,8 +50,6 @@ Set the elicitation handler
 
 > **use**(`middleware`): `this`
 
-Defined in: [mcp/toolIntegration.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L405)
-
 Add middleware
 
 #### Parameters
@@ -76,8 +68,6 @@ Add middleware
 
 > **registerTool**(`tool`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/toolIntegration.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L413)
-
 Register a tool with integration
 
 #### Parameters
@@ -95,8 +85,6 @@ Register a tool with integration
 ### executeTool()
 
 > **executeTool**(`toolName`, `params`, `context?`): `Promise`\<`unknown`\>
-
-Defined in: [mcp/toolIntegration.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L425)
 
 Execute a tool with full middleware chain
 
@@ -124,8 +112,6 @@ Execute a tool with full middleware chain
 
 > **getTool**(`name`): [`MCPServerTool`](../type-aliases/MCPServerTool.md) \| `undefined`
 
-Defined in: [mcp/toolIntegration.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L477)
-
 Get registered tool
 
 #### Parameters
@@ -144,8 +130,6 @@ Get registered tool
 
 > **getAllTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/toolIntegration.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L484)
-
 Get all registered tools
 
 #### Returns
@@ -157,8 +141,6 @@ Get all registered tools
 ### getElicitationManager()
 
 > **getElicitationManager**(): [`ElicitationManager`](ElicitationManager.md)
-
-Defined in: [mcp/toolIntegration.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L491)
 
 Get the elicitation manager
 

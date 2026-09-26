@@ -8,8 +8,6 @@
 
 > **requireUser**(`userId`): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md)
 
-Defined in: [auth/authContext.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L140)
-
 Require a specific user
 
 Throws if no auth context or user doesn't match.

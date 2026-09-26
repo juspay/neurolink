@@ -6,8 +6,6 @@
 
 # Class: InMemoryVectorStore
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L198)
-
 In-memory vector store implementation for testing and development
 
 ## Implements
@@ -30,8 +28,6 @@ In-memory vector store implementation for testing and development
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L207)
-
 Add vectors to an index
 
 #### Parameters
@@ -53,8 +49,6 @@ Add vectors to an index
 ### query()
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
-
-Defined in: [rag/retrieval/vectorQueryTool.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L231)
 
 Query vectors by similarity
 
@@ -95,8 +89,6 @@ Query vectors by similarity
 ### delete()
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
-
-Defined in: [rag/retrieval/vectorQueryTool.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L288)
 
 Delete vectors from an index
 

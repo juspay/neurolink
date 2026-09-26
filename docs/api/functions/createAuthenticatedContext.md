@@ -8,8 +8,6 @@
 
 > **createAuthenticatedContext**(`user`, `session`, `request`, `provider`): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md)
 
-Defined in: [auth/authContext.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L265)
-
 Create an authenticated context
 
 Helper to build an AuthenticatedContext object.

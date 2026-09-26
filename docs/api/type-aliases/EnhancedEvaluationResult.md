@@ -8,8 +8,6 @@
 
 > **EnhancedEvaluationResult** = [`EvaluationData`](EvaluationData.md) & `object`
 
-Defined in: [types/evaluation.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L120)
-
 Evaluation result type
 Extends EvaluationData with additional fields
 

@@ -8,8 +8,6 @@
 
 > **Gender** = [`TTSGender`](TTSGender.md)
 
-Defined in: [types/tts.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L184)
-
 ## Deprecated
 
 Use `TTSGender` instead.

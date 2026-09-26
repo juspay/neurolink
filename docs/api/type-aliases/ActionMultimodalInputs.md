@@ -8,8 +8,6 @@
 
 > **ActionMultimodalInputs** = `object`
 
-Defined in: [types/action.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L65)
-
 Multimodal input paths
 
 ## Properties
@@ -18,15 +16,11 @@ Multimodal input paths
 
 > `optional` **imagePaths?**: `string`[]
 
-Defined in: [types/action.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L66)
-
 ---
 
 ### pdfPaths?
 
 > `optional` **pdfPaths?**: `string`[]
-
-Defined in: [types/action.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L67)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/action.ts:67](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **csvPaths?**: `string`[]
 
-Defined in: [types/action.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L68)
-
 ---
 
 ### videoPaths?
 
 > `optional` **videoPaths?**: `string`[]
-
-Defined in: [types/action.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L69)

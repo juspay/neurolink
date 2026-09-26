@@ -8,8 +8,6 @@
 
 > **ExecuteEnsembleOptions** = `object`
 
-Defined in: [types/workflow.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L535)
-
 Options for ensemble execution
 
 ## Properties
@@ -18,15 +16,11 @@ Options for ensemble execution
 
 > **prompt**: `string`
 
-Defined in: [types/workflow.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L536)
-
 ---
 
 ### models
 
 > **models**: [`WorkflowModelConfig`](WorkflowModelConfig.md)[]
-
-Defined in: [types/workflow.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L537)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/workflow.ts:537](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **executionConfig?**: [`ExecutionConfig`](ExecutionConfig.md)
 
-Defined in: [types/workflow.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L538)
-
 ---
 
 ### systemPrompt?
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/workflow.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L539)
-
 ---
 
 ### workflowDefaults?
 
 > `optional` **workflowDefaults?**: `object`
-
-Defined in: [types/workflow.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L540)
 
 #### systemPrompt?
 

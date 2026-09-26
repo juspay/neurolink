@@ -8,8 +8,6 @@
 
 > **isVertexVideoConfigured**(): `boolean`
 
-Defined in: [adapters/video/vertexVideoHandler.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L101)
-
 Check if Vertex AI is configured for video generation
 
 ## Returns

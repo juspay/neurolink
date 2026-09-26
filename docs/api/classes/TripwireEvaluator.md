@@ -6,8 +6,6 @@
 
 # Class: TripwireEvaluator
 
-Defined in: [utils/tripwireEvaluator.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L42)
-
 Manages and evaluates tripwire conditions against LLM response data.
 
 ## Example
@@ -42,8 +40,6 @@ if (result.triggered && result.action === "abort") {
 
 > **register**(`tripwire`): `void`
 
-Defined in: [utils/tripwireEvaluator.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L48)
-
 Register a tripwire. Replaces any existing tripwire with the same id.
 
 #### Parameters
@@ -61,8 +57,6 @@ Register a tripwire. Replaces any existing tripwire with the same id.
 ### unregister()
 
 > **unregister**(`id`): `boolean`
-
-Defined in: [utils/tripwireEvaluator.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L61)
 
 Remove a registered tripwire by id.
 
@@ -83,8 +77,6 @@ true if the tripwire was found and removed, false otherwise.
 ### evaluate()
 
 > **evaluate**(`data`): [`TripwireResult`](../type-aliases/TripwireResult.md)
-
-Defined in: [utils/tripwireEvaluator.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L80)
 
 Evaluate all tripwires and return the highest-priority triggered result.
 
@@ -111,8 +103,6 @@ and promotes the highest-severity action.
 
 > **evaluateAll**(`data`): [`TripwireResult`](../type-aliases/TripwireResult.md)[]
 
-Defined in: [utils/tripwireEvaluator.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L135)
-
 Evaluate all tripwires and return every triggered result.
 
 #### Parameters
@@ -130,8 +120,6 @@ Evaluate all tripwires and return every triggered result.
 ### getTripwires()
 
 > **getTripwires**(): [`TripwireConfig`](../type-aliases/TripwireConfig.md)[]
-
-Defined in: [utils/tripwireEvaluator.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L169)
 
 Return a shallow copy of all registered tripwires.
 

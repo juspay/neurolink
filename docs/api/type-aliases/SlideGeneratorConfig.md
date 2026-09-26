@@ -8,8 +8,6 @@
 
 > **SlideGeneratorConfig** = `object`
 
-Defined in: [types/ppt.ts:1348](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1348)
-
 Configuration for slide generation
 
 ## Properties
@@ -17,8 +15,6 @@ Configuration for slide generation
 ### theme
 
 > **theme**: `string` \| [`PresentationTheme`](PresentationTheme.md)
-
-Defined in: [types/ppt.ts:1350](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1350)
 
 Theme name or custom theme
 
@@ -28,8 +24,6 @@ Theme name or custom theme
 
 > **generateAIImages**: `boolean`
 
-Defined in: [types/ppt.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1352)
-
 Whether to generate AI images (user-provided images are always used)
 
 ---
@@ -37,8 +31,6 @@ Whether to generate AI images (user-provided images are always used)
 ### aspectRatio
 
 > **aspectRatio**: [`AspectRatioOption`](AspectRatioOption.md)
-
-Defined in: [types/ppt.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1354)
 
 Aspect ratio for slides
 
@@ -48,8 +40,6 @@ Aspect ratio for slides
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/ppt.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1356)
-
 Provider for image generation
 
 ---
@@ -57,8 +47,6 @@ Provider for image generation
 ### imageModel?
 
 > `optional` **imageModel?**: `string`
-
-Defined in: [types/ppt.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1358)
 
 Model for image generation
 
@@ -68,8 +56,6 @@ Model for image generation
 
 > `optional` **logo?**: `Buffer` \| `string` \| [`LogoConfig`](LogoConfig.md)
 
-Defined in: [types/ppt.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1360)
-
 Logo configuration
 
 ---
@@ -78,8 +64,6 @@ Logo configuration
 
 > `optional` **userImages?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/ppt.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1362)
-
 User-provided images for slides (takes priority over AI generation)
 
 ---
@@ -87,7 +71,5 @@ User-provided images for slides (takes priority over AI generation)
 ### neurolink?
 
 > `optional` **neurolink?**: [`NeuroLink`](../classes/NeuroLink.md)
-
-Defined in: [types/ppt.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1364)
 
 NeuroLink instance for image generation

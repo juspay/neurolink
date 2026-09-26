@@ -8,8 +8,6 @@
 
 > **scorerToSpanAttributes**(`result`): [`EvaluationSpanAttributes`](../type-aliases/EvaluationSpanAttributes.md)
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/hooks/observabilityHooks.ts#L216)
-
 Create span attributes from scorer result
 
 ## Parameters

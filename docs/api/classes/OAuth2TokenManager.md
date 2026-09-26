@@ -6,8 +6,6 @@
 
 # Class: OAuth2TokenManager
 
-Defined in: [client/auth.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L46)
-
 OAuth2 Token Manager for client credentials flow
 
 Handles token acquisition, caching, and automatic refresh for OAuth2
@@ -39,8 +37,6 @@ client.use(createDynamicAuthInterceptor(() => tokenManager.getToken()));
 
 > **new OAuth2TokenManager**(`config`, `options?`): `OAuth2TokenManager`
 
-Defined in: [client/auth.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L52)
-
 #### Parameters
 
 ##### config
@@ -63,8 +59,6 @@ Defined in: [client/auth.ts:52](https://github.com/juspay/neurolink/blob/release
 
 > **getToken**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L65)
-
 Get a valid access token
 
 Returns cached token if still valid, otherwise fetches a new one.
@@ -80,8 +74,6 @@ Handles concurrent requests by deduplicating token refresh calls.
 
 > **invalidate**(): `void`
 
-Defined in: [client/auth.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L94)
-
 Invalidate the cached token
 
 Call this when the token is rejected by the server to force a refresh.
@@ -96,8 +88,6 @@ Call this when the token is rejected by the server to force a refresh.
 
 > **isValid**(): `boolean`
 
-Defined in: [client/auth.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L102)
-
 Check if the cached token is valid
 
 #### Returns
@@ -109,8 +99,6 @@ Check if the cached token is valid
 ### getExpiryTime()
 
 > **getExpiryTime**(): `number` \| `null`
-
-Defined in: [client/auth.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L113)
 
 Get the token expiry time in milliseconds
 

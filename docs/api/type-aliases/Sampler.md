@@ -8,8 +8,6 @@
 
 > **Sampler** = `object`
 
-Defined in: [types/observability.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L220)
-
 Sampler type for controlling which spans are exported.
 
 ## Properties
@@ -18,8 +16,6 @@ Sampler type for controlling which spans are exported.
 
 > `readonly` **name**: `string`
 
-Defined in: [types/observability.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L222)
-
 Sampler name for identification
 
 ## Methods
@@ -27,8 +23,6 @@ Sampler name for identification
 ### shouldSample()
 
 > **shouldSample**(`span`): `boolean`
-
-Defined in: [types/observability.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L225)
 
 Determine if a span should be sampled
 
@@ -47,8 +41,6 @@ Determine if a span should be sampled
 ### getDescription()
 
 > **getDescription**(): `string`
-
-Defined in: [types/observability.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L228)
 
 Get sampling decision description
 

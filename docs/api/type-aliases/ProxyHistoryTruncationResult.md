@@ -8,8 +8,6 @@
 
 > **ProxyHistoryTruncationResult**\<`T`\> = `object`
 
-Defined in: [types/proxyContext.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L56)
-
 ## Type Parameters
 
 ### T
@@ -22,15 +20,11 @@ Defined in: [types/proxyContext.ts:56](https://github.com/juspay/neurolink/blob/
 
 > **body**: `T`
 
-Defined in: [types/proxyContext.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L57)
-
 ---
 
 ### historyModified
 
 > **historyModified**: `boolean`
-
-Defined in: [types/proxyContext.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L58)
 
 ---
 
@@ -38,12 +32,8 @@ Defined in: [types/proxyContext.ts:58](https://github.com/juspay/neurolink/blob/
 
 > **unitsRemoved**: `number`
 
-Defined in: [types/proxyContext.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L59)
-
 ---
 
 ### itemsRemoved
 
 > **itemsRemoved**: `number`
-
-Defined in: [types/proxyContext.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L60)

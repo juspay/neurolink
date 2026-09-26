@@ -8,8 +8,6 @@
 
 > **RouteGroup** = `object`
 
-Defined in: [types/server.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L443)
-
 Route group for organizing related routes
 
 ## Properties
@@ -17,8 +15,6 @@ Route group for organizing related routes
 ### prefix
 
 > **prefix**: `string`
-
-Defined in: [types/server.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L445)
 
 Group prefix
 
@@ -28,8 +24,6 @@ Group prefix
 
 > **routes**: [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/server.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L448)
-
 Routes in this group
 
 ---
@@ -37,8 +31,6 @@ Routes in this group
 ### middleware?
 
 > `optional` **middleware?**: [`MiddlewareDefinition`](MiddlewareDefinition.md)[]
-
-Defined in: [types/server.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L451)
 
 Middleware specific to this group
 
@@ -48,8 +40,6 @@ Middleware specific to this group
 
 > `optional` **auth?**: `boolean`
 
-Defined in: [types/server.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L454)
-
 Group-level authentication
 
 ---
@@ -57,7 +47,5 @@ Group-level authentication
 ### roles?
 
 > `optional` **roles?**: `string`[]
-
-Defined in: [types/server.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L457)
 
 Group-level roles

@@ -8,8 +8,6 @@
 
 > **AudioContent** = `object`
 
-Defined in: [types/multimodal.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L126)
-
 Audio content type for multimodal messages
 
 NOTE: This is for FILE-BASED audio input (not streaming).
@@ -36,15 +34,11 @@ const audioContent: AudioContent = {
 
 > **type**: `"audio"`
 
-Defined in: [types/multimodal.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L127)
-
 ---
 
 ### data
 
 > **data**: `Buffer` \| `string`
-
-Defined in: [types/multimodal.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L128)
 
 ---
 
@@ -52,15 +46,11 @@ Defined in: [types/multimodal.ts:128](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **mediaType?**: `"audio/mpeg"` \| `"audio/wav"` \| `"audio/ogg"` \| `"audio/webm"` \| `"audio/aac"` \| `"audio/flac"` \| `"audio/mp4"`
 
-Defined in: [types/multimodal.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L129)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/multimodal.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L137)
 
 #### filename?
 

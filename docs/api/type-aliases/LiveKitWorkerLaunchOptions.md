@@ -8,8 +8,6 @@
 
 > **LiveKitWorkerLaunchOptions** = `object`
 
-Defined in: [types/livekit.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L190)
-
 Options for `startVoiceAgentWorker` — launches the LiveKit Agents worker.
 
 ## Properties
@@ -17,8 +15,6 @@ Options for `startVoiceAgentWorker` — launches the LiveKit Agents worker.
 ### agentFile
 
 > **agentFile**: `string`
-
-Defined in: [types/livekit.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L195)
 
 Absolute path to the entry file whose default export is the result of
 `defineVoiceAgent`. LiveKit re-imports this file in each job process.
@@ -28,7 +24,5 @@ Absolute path to the entry file whose default export is the result of
 ### agentName?
 
 > `optional` **agentName?**: `string`
-
-Defined in: [types/livekit.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L197)
 
 Name the worker registers under for dispatch (default "neurolink-voice").

@@ -8,8 +8,6 @@
 
 > **createKeywordScorer**(`id`, `name`, `options`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L238)
-
 Create a keyword presence scorer
 
 ## Parameters

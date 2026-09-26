@@ -8,8 +8,6 @@
 
 > **PromptGenerator** = (`args`, `context?`) => `Promise`\<[`PromptResult`](PromptResult.md)\>
 
-Defined in: [types/mcp.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2101)
-
 Prompt generator function type
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **ContextConfig** = `object`
 
-Defined in: [types/context.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L55)
-
 Context configuration for AI generation
 
 ## Properties
@@ -18,15 +16,11 @@ Context configuration for AI generation
 
 > **mode**: `ContextIntegrationMode`
 
-Defined in: [types/context.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L56)
-
 ---
 
 ### includeInPrompt?
 
 > `optional` **includeInPrompt?**: `boolean`
-
-Defined in: [types/context.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L57)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/context.ts:57](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **includeInAnalytics?**: `boolean`
 
-Defined in: [types/context.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L58)
-
 ---
 
 ### includeInEvaluation?
 
 > `optional` **includeInEvaluation?**: `boolean`
-
-Defined in: [types/context.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L59)
 
 ---
 
@@ -50,12 +40,8 @@ Defined in: [types/context.ts:59](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **template?**: `string`
 
-Defined in: [types/context.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L60)
-
 ---
 
 ### maxLength?
 
 > `optional` **maxLength?**: `number`
-
-Defined in: [types/context.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L61)

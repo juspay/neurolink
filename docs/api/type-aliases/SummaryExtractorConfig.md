@@ -8,8 +8,6 @@
 
 > **SummaryExtractorConfig** = [`BaseExtractorConfig`](BaseExtractorConfig.md) & `object`
 
-Defined in: [types/rag.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1113)
-
 Summary extractor configuration
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **SageMakerGenerationResponse** = `object`
 
-Defined in: [types/providers.ts:1771](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1771)
-
 Generation response from SageMaker
 
 ## Properties
@@ -17,8 +15,6 @@ Generation response from SageMaker
 ### text
 
 > **text**: `string`
-
-Defined in: [types/providers.ts:1773](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1773)
 
 Generated text content
 
@@ -28,8 +24,6 @@ Generated text content
 
 > **usage**: [`SageMakerUsage`](SageMakerUsage.md)
 
-Defined in: [types/providers.ts:1775](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1775)
-
 Token usage information
 
 ---
@@ -37,8 +31,6 @@ Token usage information
 ### finishReason
 
 > **finishReason**: `"stop"` \| `"length"` \| `"tool-calls"` \| `"content-filter"` \| `"unknown"`
-
-Defined in: [types/providers.ts:1777](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1777)
 
 Finish reason for generation
 
@@ -48,8 +40,6 @@ Finish reason for generation
 
 > `optional` **toolCalls?**: [`SageMakerToolCall`](SageMakerToolCall.md)[]
 
-Defined in: [types/providers.ts:1779](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1779)
-
 Tool calls made during generation
 
 ---
@@ -57,8 +47,6 @@ Tool calls made during generation
 ### toolResults?
 
 > `optional` **toolResults?**: [`SageMakerToolResult`](SageMakerToolResult.md)[]
-
-Defined in: [types/providers.ts:1781](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1781)
 
 Tool results if tools were executed
 
@@ -68,8 +56,6 @@ Tool results if tools were executed
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1783](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1783)
-
 Additional metadata
 
 ---
@@ -77,7 +63,5 @@ Additional metadata
 ### modelVersion?
 
 > `optional` **modelVersion?**: `string`
-
-Defined in: [types/providers.ts:1785](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1785)
 
 Model version or identifier

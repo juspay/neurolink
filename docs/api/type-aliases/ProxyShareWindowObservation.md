@@ -8,8 +8,6 @@
 
 > **ProxyShareWindowObservation** = `object`
 
-Defined in: [types/proxy.ts:4721](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4721)
-
 A before/after utilization observation for one borrowed request.
 
 Recorded where the response's quota headers are parsed, because that is the
@@ -23,15 +21,11 @@ Token usage settles separately: on a stream it is not known until
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4722](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4722)
-
 ---
 
 ### accountKey
 
 > **accountKey**: `string`
-
-Defined in: [types/proxy.ts:4723](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4723)
 
 ---
 
@@ -39,15 +33,11 @@ Defined in: [types/proxy.ts:4723](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionBefore?**: `number` \| `null`
 
-Defined in: [types/proxy.ts:4724](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4724)
-
 ---
 
 ### sessionAfter?
 
 > `optional` **sessionAfter?**: `number` \| `null`
-
-Defined in: [types/proxy.ts:4725](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4725)
 
 ---
 
@@ -55,15 +45,11 @@ Defined in: [types/proxy.ts:4725](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionResetAt?**: `number` \| `null`
 
-Defined in: [types/proxy.ts:4726](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4726)
-
 ---
 
 ### weeklyBefore?
 
 > `optional` **weeklyBefore?**: `number` \| `null`
-
-Defined in: [types/proxy.ts:4727](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4727)
 
 ---
 
@@ -71,12 +57,8 @@ Defined in: [types/proxy.ts:4727](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **weeklyAfter?**: `number` \| `null`
 
-Defined in: [types/proxy.ts:4728](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4728)
-
 ---
 
 ### weeklyResetAt?
 
 > `optional` **weeklyResetAt?**: `number` \| `null`
-
-Defined in: [types/proxy.ts:4729](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4729)

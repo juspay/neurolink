@@ -8,8 +8,6 @@
 
 > **CloakingConfig** = `object`
 
-Defined in: [types/subscription.ts:1259](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1259)
-
 Cloaking plugin config
 
 ## Properties
@@ -18,15 +16,11 @@ Cloaking plugin config
 
 > **mode**: `"auto"` \| `"always"` \| `"never"`
 
-Defined in: [types/subscription.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1260)
-
 ---
 
 ### plugins
 
 > **plugins**: `object`
-
-Defined in: [types/subscription.ts:1261](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1261)
 
 #### headerScrubber?
 

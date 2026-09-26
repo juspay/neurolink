@@ -8,8 +8,6 @@
 
 > **ClientStreamResult** = `object`
 
-Defined in: [types/client.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L204)
-
 Stream result with full response data
 
 ## Properties
@@ -17,8 +15,6 @@ Stream result with full response data
 ### content
 
 > **content**: `string`
-
-Defined in: [types/client.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L206)
 
 Full accumulated text content
 
@@ -28,8 +24,6 @@ Full accumulated text content
 
 > `optional` **toolCalls?**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/client.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L208)
-
 All tool calls made
 
 ---
@@ -38,8 +32,6 @@ All tool calls made
 
 > `optional` **toolResults?**: [`StreamToolResult`](StreamToolResult.md)[]
 
-Defined in: [types/client.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L210)
-
 All tool results
 
 ---
@@ -47,8 +39,6 @@ All tool results
 ### usage?
 
 > `optional` **usage?**: `object`
-
-Defined in: [types/client.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L212)
 
 Token usage information
 
@@ -70,8 +60,6 @@ Token usage information
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/client.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L218)
-
 Finish reason
 
 ---
@@ -79,7 +67,5 @@ Finish reason
 ### metadata?
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/client.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L220)
 
 Response metadata

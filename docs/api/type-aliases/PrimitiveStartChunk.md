@@ -8,8 +8,6 @@
 
 > **PrimitiveStartChunk** = [`NetworkStreamChunkBase`](NetworkStreamChunkBase.md) & `object`
 
-Defined in: [types/agentNetwork.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L757)
-
 Primitive start event
 
 ## Type Declaration

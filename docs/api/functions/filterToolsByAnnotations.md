@@ -8,8 +8,6 @@
 
 > **filterToolsByAnnotations**(`tools`, `predicate`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/toolAnnotations.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolAnnotations.ts#L278)
-
 Filter tools by annotation predicates
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **exposeAgentsAsTools**(`agents`, `options?`): [`ExposureResult`](../type-aliases/ExposureResult.md)[]
 
-Defined in: [mcp/agentExposure.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L364)
-
 Batch expose agents as MCP tools
 
 ## Parameters

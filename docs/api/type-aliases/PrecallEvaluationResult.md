@@ -8,8 +8,6 @@
 
 > **PrecallEvaluationResult** = `object`
 
-Defined in: [types/guardrails.ts:6](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L6)
-
 Result from precall evaluation of user input
 
 ## Properties
@@ -18,15 +16,11 @@ Result from precall evaluation of user input
 
 > **overall**: `"safe"` \| `"unsafe"` \| `"suspicious"` \| `"inappropriate"`
 
-Defined in: [types/guardrails.ts:7](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L7)
-
 ---
 
 ### safetyScore
 
 > **safetyScore**: `number`
-
-Defined in: [types/guardrails.ts:8](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L8)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/guardrails.ts:8](https://github.com/juspay/neurolink/blob/rel
 
 > **appropriatenessScore**: `number`
 
-Defined in: [types/guardrails.ts:9](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L9)
-
 ---
 
 ### confidenceLevel
 
 > **confidenceLevel**: `number`
 
-Defined in: [types/guardrails.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L10)
-
 ---
 
 ### issues?
 
 > `optional` **issues?**: `object`[]
-
-Defined in: [types/guardrails.ts:11](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L11)
 
 #### category
 
@@ -70,12 +58,8 @@ Defined in: [types/guardrails.ts:11](https://github.com/juspay/neurolink/blob/re
 
 > **suggestedAction**: `"allow"` \| `"block"` \| `"sanitize"` \| `"warn"`
 
-Defined in: [types/guardrails.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L22)
-
 ---
 
 ### reasoning?
 
 > `optional` **reasoning?**: `string`
-
-Defined in: [types/guardrails.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L23)

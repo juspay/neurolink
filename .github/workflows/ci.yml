@@ -196,7 +196,10 @@ jobs:
       # package version into every page header, so every commit rewrote all
       # 3224 files and a drift check would have failed on every PR. typedoc.json
       # pins gitRevision and drops includeVersion for exactly this reason —
-      # changing either back re-breaks this gate.
+      # changing either back re-breaks this gate. It also sets disableSources:
+      # "Defined in: file.ts:LINE" put a source line number on every page, so
+      # three added lines near the top of one type file rewrote 143 pages and
+      # made unrelated PRs conflict on docs/api.
       #
       # The prettier pass is part of the pipeline, not a tidy-up: docs/api is
       # not in .prettierignore and raw typedoc output fails format:check.

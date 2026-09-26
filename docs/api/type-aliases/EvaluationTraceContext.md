@@ -8,8 +8,6 @@
 
 > **EvaluationTraceContext** = `object`
 
-Defined in: [types/scorer.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L429)
-
 Evaluation trace context for observability
 
 ## Properties
@@ -17,8 +15,6 @@ Evaluation trace context for observability
 ### traceId
 
 > **traceId**: `string`
-
-Defined in: [types/scorer.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L431)
 
 Trace ID
 
@@ -28,8 +24,6 @@ Trace ID
 
 > `optional` **spanId?**: `string`
 
-Defined in: [types/scorer.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L433)
-
 Span ID
 
 ---
@@ -37,8 +31,6 @@ Span ID
 ### parentSpanId?
 
 > `optional` **parentSpanId?**: `string`
-
-Defined in: [types/scorer.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L435)
 
 Parent span ID
 
@@ -48,8 +40,6 @@ Parent span ID
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/scorer.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L437)
-
 Session ID
 
 ---
@@ -58,8 +48,6 @@ Session ID
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/scorer.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L439)
-
 User ID
 
 ---
@@ -67,7 +55,5 @@ User ID
 ### attributes?
 
 > `optional` **attributes?**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
-
-Defined in: [types/scorer.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L441)
 
 Custom attributes

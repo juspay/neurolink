@@ -8,8 +8,6 @@
 
 > **BedrockToolResult** = `object`
 
-Defined in: [types/providers.ts:1080](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1080)
-
 Bedrock tool result structure
 
 ## Properties
@@ -18,15 +16,11 @@ Bedrock tool result structure
 
 > **toolUseId**: `string`
 
-Defined in: [types/providers.ts:1081](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1081)
-
 ---
 
 ### content
 
 > **content**: `object`[]
-
-Defined in: [types/providers.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1082)
 
 #### text
 
@@ -37,5 +31,3 @@ Defined in: [types/providers.ts:1082](https://github.com/juspay/neurolink/blob/r
 ### status
 
 > **status**: `string`
-
-Defined in: [types/providers.ts:1083](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1083)

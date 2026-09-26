@@ -8,8 +8,6 @@
 
 > **createContextPrecisionScorer**(`config?`): `Promise`\<[`ContextPrecisionScorer`](../classes/ContextPrecisionScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/contextPrecisionScorer.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/contextPrecisionScorer.ts#L115)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

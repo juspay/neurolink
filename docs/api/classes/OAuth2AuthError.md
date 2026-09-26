@@ -6,8 +6,6 @@
 
 # Class: OAuth2AuthError
 
-Defined in: [client/auth.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L444)
-
 Error thrown when authentication fails
 
 ## Extends
@@ -19,8 +17,6 @@ Error thrown when authentication fails
 ### Constructor
 
 > **new OAuth2AuthError**(`message`, `code?`, `status?`): `OAuth2AuthenticationError`
-
-Defined in: [client/auth.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L448)
 
 #### Parameters
 
@@ -50,12 +46,8 @@ Defined in: [client/auth.ts:448](https://github.com/juspay/neurolink/blob/releas
 
 > `readonly` **code**: `string`
 
-Defined in: [client/auth.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L445)
-
 ---
 
 ### status
 
 > `readonly` **status**: `number`
-
-Defined in: [client/auth.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L446)

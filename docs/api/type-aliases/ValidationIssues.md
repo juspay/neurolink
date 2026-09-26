@@ -8,8 +8,6 @@
 
 > **ValidationIssues** = `object`
 
-Defined in: [types/workflow.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L757)
-
 Validation result containing errors and warnings
 
 ## Properties
@@ -18,12 +16,8 @@ Validation result containing errors and warnings
 
 > **errors**: [`WorkflowValidationError`](WorkflowValidationError.md)[]
 
-Defined in: [types/workflow.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L758)
-
 ---
 
 ### warnings
 
 > **warnings**: [`WorkflowValidationWarning`](WorkflowValidationWarning.md)[]
-
-Defined in: [types/workflow.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L759)

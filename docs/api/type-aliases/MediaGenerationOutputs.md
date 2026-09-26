@@ -8,8 +8,6 @@
 
 > **MediaGenerationOutputs** = `object`
 
-Defined in: [types/generate.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1000)
-
 Media generation/processing outputs shared by GenerateResult and
 TextGenerationResult. Extracted so both result types intersect (&) this
 single definition instead of each declaring its own drifting copy of the
@@ -20,8 +18,6 @@ same audio/video/avatar/music/ppt/image/transcription fields.
 ### audio?
 
 > `optional` **audio?**: [`TTSResult`](TTSResult.md)
-
-Defined in: [types/generate.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1029)
 
 Text-to-Speech audio result
 
@@ -57,8 +53,6 @@ if (result.audio) {
 
 > `optional` **ttsMetadata?**: [`TTSMetadata`](TTSMetadata.md)
 
-Defined in: [types/generate.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1043)
-
 What happened during TTS synthesis, including why it failed.
 
 `generate()` degrades gracefully when synthesis fails: it returns the text
@@ -76,8 +70,6 @@ neurolink.ts describes, on a different field.
 ### video?
 
 > `optional` **video?**: [`VideoGenerationResult`](VideoGenerationResult.md)
-
-Defined in: [types/generate.ts:1067](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1067)
 
 Video generation result
 
@@ -109,8 +101,6 @@ if (result.video) {
 
 > `optional` **avatar?**: [`AvatarResult`](AvatarResult.md)
 
-Defined in: [types/generate.ts:1071](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1071)
-
 Avatar (talking-head) generation result (present when output.mode is "avatar")
 
 ---
@@ -119,8 +109,6 @@ Avatar (talking-head) generation result (present when output.mode is "avatar")
 
 > `optional` **music?**: [`MusicResult`](MusicResult.md)
 
-Defined in: [types/generate.ts:1075](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1075)
-
 Music generation result (present when output.mode is "music")
 
 ---
@@ -128,8 +116,6 @@ Music generation result (present when output.mode is "music")
 ### ppt?
 
 > `optional` **ppt?**: [`PPTGenerationResult`](PPTGenerationResult.md)
-
-Defined in: [types/generate.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1093)
 
 PowerPoint generation result (present when output.mode is "ppt")
 
@@ -154,8 +140,6 @@ if (result.ppt) {
 
 > `optional` **imageOutput?**: \{ `base64`: `string`; `mimeType?`: `string`; \} \| `null`
 
-Defined in: [types/generate.ts:1099](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1099)
-
 Standard format for image generation. `mimeType` is set when the provider
 can identify the encoded format (sniffed from the image bytes, e.g.
 Recraft returns WebP), so callers do not have to assume PNG.
@@ -165,7 +149,5 @@ Recraft returns WebP), so callers do not have to assume PNG.
 ### transcription?
 
 > `optional` **transcription?**: [`STTResult`](STTResult.md)
-
-Defined in: [types/generate.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1101)
 
 STT transcription result (present when stt.enabled is true and audio input was provided)

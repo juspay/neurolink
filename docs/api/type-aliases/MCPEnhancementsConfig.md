@@ -8,8 +8,6 @@
 
 > **MCPEnhancementsConfig** = `object`
 
-Defined in: [types/config.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L210)
-
 Configuration for MCP enhancement modules wired into generate()/stream() paths.
 
 These modules are automatically applied during tool execution when configured:
@@ -26,8 +24,6 @@ These modules are automatically applied during tool execution when configured:
 ### cache?
 
 > `optional` **cache?**: `object`
-
-Defined in: [types/config.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L212)
 
 Tool result caching. Default: enabled. Set enabled: false to opt out.
 
@@ -59,8 +55,6 @@ Eviction strategy. Default: 'lru'
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/config.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L222)
-
 Tool annotation auto-inference. Default: enabled.
 
 #### enabled?
@@ -78,8 +72,6 @@ Auto-infer annotations from tool name/description. Default: true
 ### router?
 
 > `optional` **router?**: `object`
-
-Defined in: [types/config.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L228)
 
 Tool routing for multi-server environments. Auto-activates when 2+ external servers exist.
 
@@ -105,8 +97,6 @@ Enable session affinity. Default: false
 
 > `optional` **batcher?**: `object`
 
-Defined in: [types/config.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L236)
-
 Request batching for programmatic executeTool() calls. Default: disabled.
 
 #### enabled?
@@ -131,8 +121,6 @@ Max wait before flushing batch in ms. Default: 100
 
 > `optional` **discovery?**: `object`
 
-Defined in: [types/config.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L244)
-
 Enhanced tool discovery. Default: enabled.
 
 #### enabled?
@@ -145,8 +133,6 @@ Enhanced tool discovery. Default: enabled.
 
 > `optional` **middleware?**: [`ToolMiddleware`](ToolMiddleware.md)[]
 
-Defined in: [types/config.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L248)
-
 Global tool middleware applied to every tool execution. Default: empty.
 
 ---
@@ -154,8 +140,6 @@ Global tool middleware applied to every tool execution. Default: empty.
 ### outputLimits?
 
 > `optional` **outputLimits?**: `object`
-
-Defined in: [types/config.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L274)
 
 Large MCP tool output handling.
 

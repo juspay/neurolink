@@ -8,8 +8,6 @@
 
 > **ActionGoogleCloudConfig** = `object`
 
-Defined in: [types/action.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L47)
-
 Google Cloud configuration for Vertex AI
 
 ## Properties
@@ -18,20 +16,14 @@ Google Cloud configuration for Vertex AI
 
 > `optional` **googleVertexProject?**: `string`
 
-Defined in: [types/action.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L48)
-
 ---
 
 ### googleVertexLocation
 
 > **googleVertexLocation**: `string`
 
-Defined in: [types/action.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L49)
-
 ---
 
 ### googleApplicationCredentials?
 
 > `optional` **googleApplicationCredentials?**: `string`
-
-Defined in: [types/action.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L50)

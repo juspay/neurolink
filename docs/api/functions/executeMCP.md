@@ -8,8 +8,6 @@
 
 > **executeMCP**\<`T`\>(`_name`, `_config`, `_args`, `_context?`): `Promise`\<`T`\>
 
-Defined in: [mcp/index.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/index.ts#L204)
-
 Execute an MCP operation - simplified
 
 ## Type Parameters

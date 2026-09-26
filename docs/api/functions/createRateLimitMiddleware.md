@@ -8,8 +8,6 @@
 
 > **createRateLimitMiddleware**(`config`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/rateLimit.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L103)
-
 Create rate limiting middleware
 
 Response headers set on all requests:

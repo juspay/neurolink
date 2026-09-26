@@ -8,8 +8,6 @@
 
 > **ClientLanguageModel** = `object`
 
-Defined in: [types/client.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L836)
-
 AI SDK Language Model interface (Vercel AI SDK compatible)
 
 ## Properties
@@ -17,8 +15,6 @@ AI SDK Language Model interface (Vercel AI SDK compatible)
 ### modelId
 
 > **modelId**: `string`
-
-Defined in: [types/client.ts:838](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L838)
 
 Model specification string
 
@@ -28,8 +24,6 @@ Model specification string
 
 > **provider**: `string`
 
-Defined in: [types/client.ts:840](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L840)
-
 Provider name
 
 ---
@@ -37,8 +31,6 @@ Provider name
 ### doGenerate
 
 > **doGenerate**: (`options`) => `Promise`\<[`ClientLanguageModelResponse`](ClientLanguageModelResponse.md)\>
-
-Defined in: [types/client.ts:842](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L842)
 
 Generate non-streaming response
 
@@ -57,8 +49,6 @@ Generate non-streaming response
 ### doStream
 
 > **doStream**: (`options`) => `Promise`\<[`ClientLanguageModelStreamResponse`](ClientLanguageModelStreamResponse.md)\>
-
-Defined in: [types/client.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L846)
 
 Generate streaming response
 

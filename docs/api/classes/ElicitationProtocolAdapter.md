@@ -6,8 +6,6 @@
 
 # Class: ElicitationProtocolAdapter
 
-Defined in: [mcp/elicitationProtocol.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L243)
-
 Elicitation Protocol Adapter
 
 Bridges protocol-level messages with the ElicitationManager
@@ -17,8 +15,6 @@ Bridges protocol-level messages with the ElicitationManager
 ### Constructor
 
 > **new ElicitationProtocolAdapter**(`config?`): `ElicitationProtocolAdapter`
-
-Defined in: [mcp/elicitationProtocol.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L251)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [mcp/elicitationProtocol.ts:251](https://github.com/juspay/neurolink
 ### handleMessage()
 
 > **handleMessage**(`message`): `Promise`\<`void` \| [`ElicitationProtocolPayload`](../type-aliases/ElicitationProtocolPayload.md)\>
-
-Defined in: [mcp/elicitationProtocol.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L264)
 
 Handle incoming protocol message
 
@@ -56,8 +50,6 @@ Handle incoming protocol message
 
 > **requestElicitation**(`params`): `Promise`\<[`ElicitationResponse`](../type-aliases/ElicitationResponse.md)\>
 
-Defined in: [mcp/elicitationProtocol.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L340)
-
 Send an elicitation request through the protocol
 
 #### Parameters
@@ -75,8 +67,6 @@ Send an elicitation request through the protocol
 ### cancelElicitation()
 
 > **cancelElicitation**(`requestId`, `reason?`): `void`
-
-Defined in: [mcp/elicitationProtocol.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L355)
 
 Cancel a pending elicitation
 
@@ -100,8 +90,6 @@ Cancel a pending elicitation
 
 > **getManager**(): [`ElicitationManager`](ElicitationManager.md)
 
-Defined in: [mcp/elicitationProtocol.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L362)
-
 Get the underlying manager
 
 #### Returns
@@ -113,8 +101,6 @@ Get the underlying manager
 ### setHandler()
 
 > **setHandler**(`handler`): `void`
-
-Defined in: [mcp/elicitationProtocol.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L369)
 
 Set protocol handler for the manager
 
@@ -134,8 +120,6 @@ Set protocol handler for the manager
 
 > **setEnabled**(`enabled`): `void`
 
-Defined in: [mcp/elicitationProtocol.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L376)
-
 Enable/disable the protocol
 
 #### Parameters
@@ -153,8 +137,6 @@ Enable/disable the protocol
 ### isEnabled()
 
 > **isEnabled**(): `boolean`
-
-Defined in: [mcp/elicitationProtocol.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/elicitationProtocol.ts#L383)
 
 Check if protocol is enabled
 

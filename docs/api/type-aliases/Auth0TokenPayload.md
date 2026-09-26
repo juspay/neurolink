@@ -8,8 +8,6 @@
 
 > **Auth0TokenPayload** = `object`
 
-Defined in: [types/auth.ts:1416](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1416)
-
 Auth0 JWT payload structure.
 
 ## Properties
@@ -18,15 +16,11 @@ Auth0 JWT payload structure.
 
 > **sub**: `string`
 
-Defined in: [types/auth.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1417)
-
 ---
 
 ### email?
 
 > `optional` **email?**: `string`
-
-Defined in: [types/auth.ts:1418](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1418)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/auth.ts:1418](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **name?**: `string`
 
-Defined in: [types/auth.ts:1419](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1419)
-
 ---
 
 ### picture?
 
 > `optional` **picture?**: `string`
-
-Defined in: [types/auth.ts:1420](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1420)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/auth.ts:1420](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **email_verified?**: `boolean`
 
-Defined in: [types/auth.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1421)
-
 ---
 
 ### roles?
 
 > `optional` **roles?**: `string`[]
-
-Defined in: [types/auth.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1422)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/auth.ts:1422](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/auth.ts:1423](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1423)
-
 ---
 
 ### iat
 
 > **iat**: `number`
-
-Defined in: [types/auth.ts:1424](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1424)
 
 ---
 
@@ -82,20 +64,14 @@ Defined in: [types/auth.ts:1424](https://github.com/juspay/neurolink/blob/releas
 
 > **exp**: `number`
 
-Defined in: [types/auth.ts:1425](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1425)
-
 ---
 
 ### aud
 
 > **aud**: `string` \| `string`[]
 
-Defined in: [types/auth.ts:1426](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1426)
-
 ---
 
 ### iss
 
 > **iss**: `string`
-
-Defined in: [types/auth.ts:1427](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1427)

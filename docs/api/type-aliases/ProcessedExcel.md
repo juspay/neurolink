@@ -8,8 +8,6 @@
 
 > **ProcessedExcel** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L742)
-
 Processed Excel file result.
 
 ## Type Declaration

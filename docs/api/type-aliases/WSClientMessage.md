@@ -8,8 +8,6 @@
 
 > **WSClientMessage** = `object`
 
-Defined in: [types/client.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1018)
-
 WebSocket message for the dedicated NeuroLinkWebSocket client
 
 ## Properties
@@ -18,15 +16,11 @@ WebSocket message for the dedicated NeuroLinkWebSocket client
 
 > **type**: `"subscribe"` \| `"unsubscribe"` \| `"message"` \| `"ping"` \| `"pong"`
 
-Defined in: [types/client.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1019)
-
 ---
 
 ### channel?
 
 > `optional` **channel?**: `string`
-
-Defined in: [types/client.ts:1020](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1020)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/client.ts:1020](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [types/client.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1021)
-
 ---
 
 ### id?
 
 > `optional` **id?**: `string`
-
-Defined in: [types/client.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1022)

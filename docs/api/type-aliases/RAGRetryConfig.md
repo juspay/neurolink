@@ -8,8 +8,6 @@
 
 > **RAGRetryConfig** = `object`
 
-Defined in: [types/rag.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L162)
-
 RAG-specific retry configuration
 
 ## Properties
@@ -17,8 +15,6 @@ RAG-specific retry configuration
 ### maxRetries
 
 > **maxRetries**: `number`
-
-Defined in: [types/rag.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L164)
 
 Maximum number of retry attempts (default: 3)
 
@@ -28,8 +24,6 @@ Maximum number of retry attempts (default: 3)
 
 > **initialDelay**: `number`
 
-Defined in: [types/rag.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L166)
-
 Initial delay in ms (default: 1000)
 
 ---
@@ -37,8 +31,6 @@ Initial delay in ms (default: 1000)
 ### maxDelay
 
 > **maxDelay**: `number`
-
-Defined in: [types/rag.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L168)
 
 Maximum delay in ms (default: 30000)
 
@@ -48,8 +40,6 @@ Maximum delay in ms (default: 30000)
 
 > **backoffMultiplier**: `number`
 
-Defined in: [types/rag.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L170)
-
 Backoff multiplier (default: 2)
 
 ---
@@ -58,8 +48,6 @@ Backoff multiplier (default: 2)
 
 > **jitter**: `boolean`
 
-Defined in: [types/rag.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L172)
-
 Whether to add jitter (default: true)
 
 ---
@@ -67,8 +55,6 @@ Whether to add jitter (default: true)
 ### shouldRetry?
 
 > `optional` **shouldRetry?**: (`error`) => `boolean`
-
-Defined in: [types/rag.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L182)
 
 Custom function to determine if error is retryable.
 
@@ -94,8 +80,6 @@ could be retried instead of propagating immediately.
 
 > `optional` **retryableErrorCodes?**: `string`[]
 
-Defined in: [types/rag.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L184)
-
 Retryable error codes
 
 ---
@@ -103,7 +87,5 @@ Retryable error codes
 ### retryableStatusCodes?
 
 > `optional` **retryableStatusCodes?**: `number`[]
-
-Defined in: [types/rag.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L186)
 
 Retryable HTTP status codes

@@ -8,8 +8,6 @@
 
 > **RouteDefinition** = `object`
 
-Defined in: [types/server.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L395)
-
 Route definition
 
 ## Properties
@@ -17,8 +15,6 @@ Route definition
 ### method
 
 > **method**: [`HttpMethod`](HttpMethod.md)
-
-Defined in: [types/server.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L397)
 
 HTTP method
 
@@ -28,8 +24,6 @@ HTTP method
 
 > **path**: `string`
 
-Defined in: [types/server.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L400)
-
 Route path (supports parameters like :id)
 
 ---
@@ -37,8 +31,6 @@ Route path (supports parameters like :id)
 ### handler
 
 > **handler**: [`RouteHandler`](RouteHandler.md)
-
-Defined in: [types/server.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L403)
 
 Route handler function
 
@@ -48,8 +40,6 @@ Route handler function
 
 > `optional` **description?**: `string`
 
-Defined in: [types/server.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L406)
-
 Route description (for documentation)
 
 ---
@@ -57,8 +47,6 @@ Route description (for documentation)
 ### requestSchema?
 
 > `optional` **requestSchema?**: [`JsonObject`](JsonObject.md)
-
-Defined in: [types/server.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L409)
 
 Request schema (for validation)
 
@@ -68,8 +56,6 @@ Request schema (for validation)
 
 > `optional` **responseSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/server.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L412)
-
 Response schema (for documentation)
 
 ---
@@ -77,8 +63,6 @@ Response schema (for documentation)
 ### auth?
 
 > `optional` **auth?**: `boolean`
-
-Defined in: [types/server.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L415)
 
 Authentication required
 
@@ -88,8 +72,6 @@ Authentication required
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L418)
-
 Required roles
 
 ---
@@ -97,8 +79,6 @@ Required roles
 ### rateLimit?
 
 > `optional` **rateLimit?**: [`RateLimitConfig`](RateLimitConfig.md)
-
-Defined in: [types/server.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L421)
 
 Rate limit override for this route
 
@@ -108,8 +88,6 @@ Rate limit override for this route
 
 > `optional` **streaming?**: [`StreamingConfig`](StreamingConfig.md)
 
-Defined in: [types/server.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L424)
-
 Streaming configuration
 
 ---
@@ -118,8 +96,6 @@ Streaming configuration
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/server.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L427)
-
 Route tags (for documentation)
 
 ---
@@ -127,7 +103,5 @@ Route tags (for documentation)
 ### deprecated?
 
 > `optional` **deprecated?**: [`RouteDeprecation`](RouteDeprecation.md)
-
-Defined in: [types/server.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L430)
 
 Route deprecation information

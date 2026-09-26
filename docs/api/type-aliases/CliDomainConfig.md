@@ -8,8 +8,6 @@
 
 > **CliDomainConfig**\<`TAnalytics`\> = `object`
 
-Defined in: [types/cli.ts:1911](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1911)
-
 Generic shape of a single domain entry in the CLI config.
 
 ## Type Parameters
@@ -24,12 +22,8 @@ Generic shape of a single domain entry in the CLI config.
 
 > **evaluationCriteria**: `string`[]
 
-Defined in: [types/cli.ts:1914](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1914)
-
 ---
 
 ### analyticsConfig
 
 > **analyticsConfig**: `TAnalytics`
-
-Defined in: [types/cli.ts:1915](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1915)

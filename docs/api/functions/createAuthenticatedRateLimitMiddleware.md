@@ -8,8 +8,6 @@
 
 > **createAuthenticatedRateLimitMiddleware**(`authMiddleware`, `rateLimitConfig`, `storage?`): (`context`) => `Promise`\<\{ `proceed`: `boolean`; `context?`: [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md); `rateLimitResult?`: [`RateLimitResult`](../type-aliases/RateLimitResult.md); `response?`: `Response`; \}\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L609)
-
 Create a combined auth and rate limit middleware
 
 ## Parameters

@@ -6,8 +6,6 @@
 
 # Class: CartesiaTTS
 
-Defined in: [voice/providers/CartesiaTTS.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/CartesiaTTS.ts#L40)
-
 Cartesia synchronous TTS handler.
 
 Auth: `X-API-Key: ${CARTESIA_API_KEY}` + `Cartesia-Version` header.
@@ -21,8 +19,6 @@ Auth: `X-API-Key: ${CARTESIA_API_KEY}` + `Cartesia-Version` header.
 ### Constructor
 
 > **new CartesiaTTS**(`apiKey?`): `CartesiaTTS`
-
-Defined in: [voice/providers/CartesiaTTS.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/CartesiaTTS.ts#L47)
 
 #### Parameters
 
@@ -39,8 +35,6 @@ Defined in: [voice/providers/CartesiaTTS.ts:47](https://github.com/juspay/neurol
 ### maxTextLength
 
 > `readonly` **maxTextLength**: `5000` = `5000`
-
-Defined in: [voice/providers/CartesiaTTS.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/CartesiaTTS.ts#L41)
 
 Maximum text length supported by this provider (in bytes)
 Different providers have different limits
@@ -61,8 +55,6 @@ Different providers have different limits
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/CartesiaTTS.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/CartesiaTTS.ts#L57)
-
 Validate that the provider is properly configured
 
 #### Returns
@@ -80,8 +72,6 @@ True if provider can generate TTS
 ### synthesize()
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
-
-Defined in: [voice/providers/CartesiaTTS.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/CartesiaTTS.ts#L61)
 
 Generate audio from text using provider-specific TTS API
 

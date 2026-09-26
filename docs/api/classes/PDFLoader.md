@@ -6,8 +6,6 @@
 
 # Class: PDFLoader
 
-Defined in: [rag/document/loaders.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L303)
-
 PDF file loader
 
 Note: Requires external PDF processing library for full functionality.
@@ -32,8 +30,6 @@ Falls back to placeholder implementation if pdf-parse is not available.
 ### load()
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
-
-Defined in: [rag/document/loaders.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L304)
 
 Load document from source
 
@@ -66,8 +62,6 @@ Promise resolving to MDocument
 ### canHandle()
 
 > **canHandle**(`source`): `boolean`
-
-Defined in: [rag/document/loaders.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L394)
 
 Check if loader can handle the source
 

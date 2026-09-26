@@ -8,8 +8,6 @@
 
 > **OpenRouterModelInfo** = `object`
 
-Defined in: [types/providers.ts:2072](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2072)
-
 OpenRouter model information from /api/v1/models endpoint
 
 ## Properties
@@ -17,8 +15,6 @@ OpenRouter model information from /api/v1/models endpoint
 ### id
 
 > **id**: `string`
-
-Defined in: [types/providers.ts:2074](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2074)
 
 Model ID in format 'provider/model-name'
 
@@ -28,8 +24,6 @@ Model ID in format 'provider/model-name'
 
 > `optional` **supported_parameters?**: `string`[]
 
-Defined in: [types/providers.ts:2076](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2076)
-
 Supported parameters (e.g., 'tools', 'temperature')
 
 ---
@@ -37,8 +31,6 @@ Supported parameters (e.g., 'tools', 'temperature')
 ### name?
 
 > `optional` **name?**: `string`
-
-Defined in: [types/providers.ts:2078](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2078)
 
 Model name
 
@@ -48,8 +40,6 @@ Model name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/providers.ts:2080](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2080)
-
 Model description
 
 ---
@@ -57,8 +47,6 @@ Model description
 ### pricing?
 
 > `optional` **pricing?**: `object`
-
-Defined in: [types/providers.ts:2082](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2082)
 
 Pricing information
 
@@ -75,7 +63,5 @@ Pricing information
 ### context_length?
 
 > `optional` **context_length?**: `number`
-
-Defined in: [types/providers.ts:2087](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2087)
 
 Context length

@@ -8,8 +8,6 @@
 
 > **CreateRoutesOptions** = `object`
 
-Defined in: [types/server.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1401)
-
 Options for createAllRoutes / createRoutes.
 
 ## Properties
@@ -18,15 +16,11 @@ Options for createAllRoutes / createRoutes.
 
 > `optional` **enableSwagger?**: `boolean`
 
-Defined in: [types/server.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1402)
-
 ---
 
 ### getRoutes?
 
 > `optional` **getRoutes?**: () => [`RouteDefinition`](RouteDefinition.md)[]
-
-Defined in: [types/server.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1403)
 
 #### Returns
 
@@ -38,8 +32,6 @@ Defined in: [types/server.ts:1403](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **proxy?**: `boolean`
 
-Defined in: [types/server.ts:1405](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1405)
-
 Enable every proxy door: Claude, OpenAI, Codex and Gemini.
 
 ---
@@ -48,23 +40,17 @@ Enable every proxy door: Claude, OpenAI, Codex and Gemini.
 
 > `optional` **claudeProxy?**: `boolean`
 
-Defined in: [types/server.ts:1406](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1406)
-
 ---
 
 ### openaiProxy?
 
 > `optional` **openaiProxy?**: `boolean`
 
-Defined in: [types/server.ts:1407](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1407)
-
 ---
 
 ### codexProxy?
 
 > `optional` **codexProxy?**: `boolean`
-
-Defined in: [types/server.ts:1415](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1415)
 
 Enable the Codex door on its own.
 
@@ -77,7 +63,5 @@ expose it even deliberately.
 ### geminiProxy?
 
 > `optional` **geminiProxy?**: `boolean`
-
-Defined in: [types/server.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1417)
 
 Enable the Gemini door on its own, for the same reason.

@@ -8,8 +8,6 @@
 
 > **FeatureConfig** = [`BooleanRecord`](BooleanRecord.md) & `object`
 
-Defined in: [types/aliases.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L322)
-
 Feature flag configuration
 Common structure for feature toggles
 

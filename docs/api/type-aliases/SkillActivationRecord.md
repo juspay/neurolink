@@ -8,8 +8,6 @@
 
 > **SkillActivationRecord** = `object`
 
-Defined in: [types/skills.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L371)
-
 One activated skill in a session: which skill, at which version, when.
 Sessions pin the version active at activation time — a mid-session skill
 update never mutates instructions the model has already loaded.
@@ -20,15 +18,11 @@ update never mutates instructions the model has already loaded.
 
 > **skillId**: `string`
 
-Defined in: [types/skills.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L372)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/skills.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L373)
 
 ---
 
@@ -36,14 +30,10 @@ Defined in: [types/skills.ts:373](https://github.com/juspay/neurolink/blob/relea
 
 > **version**: `number`
 
-Defined in: [types/skills.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L374)
-
 ---
 
 ### activatedAt
 
 > **activatedAt**: `string`
-
-Defined in: [types/skills.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L376)
 
 ISO timestamp of activation.

@@ -8,8 +8,6 @@
 
 > **createCacheInvalidator**(`store`): `object`
 
-Defined in: [server/middleware/cache.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/cache.ts#L204)
-
 Create a cache invalidation helper
 
 ## Parameters

@@ -6,8 +6,6 @@
 
 # Class: RetryManager
 
-Defined in: [evaluation/retryManager.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/retryManager.ts#L15)
-
 Manages the retry logic for the auto-evaluation middleware. It decides if a
 retry is warranted based on the evaluation score and prepares the options
 for the next generation attempt by incorporating feedback into the prompt.
@@ -17,8 +15,6 @@ for the next generation attempt by incorporating feedback into the prompt.
 ### Constructor
 
 > **new RetryManager**(`maxRetries?`): `RetryManager`
-
-Defined in: [evaluation/retryManager.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/retryManager.ts#L18)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [evaluation/retryManager.ts:18](https://github.com/juspay/neurolink/
 ### shouldRetry()
 
 > **shouldRetry**(`evaluation`): `boolean`
-
-Defined in: [evaluation/retryManager.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/retryManager.ts#L29)
 
 Determines if a retry should be attempted based on the evaluation result.
 
@@ -59,8 +53,6 @@ The `EvaluationResult` of the last attempt.
 ### prepareRetryOptions()
 
 > **prepareRetryOptions**(`originalOptions`, `evaluation`): [`TextGenerationOptions`](../type-aliases/TextGenerationOptions.md)
-
-Defined in: [evaluation/retryManager.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/retryManager.ts#L43)
 
 Prepares the options for the next generation attempt by creating a new,
 improved prompt that includes feedback from the failed evaluation.

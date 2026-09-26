@@ -8,8 +8,6 @@
 
 > **createRetryInterceptor**(`options`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L255)
-
 Retry interceptor with exponential backoff
 
 Automatically retries failed requests with configurable backoff.

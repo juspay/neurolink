@@ -8,8 +8,6 @@
 
 > **createHallucinationScorer**(`config?`): `Promise`\<[`HallucinationScorer`](../classes/HallucinationScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/hallucinationScorer.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/hallucinationScorer.ts#L168)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

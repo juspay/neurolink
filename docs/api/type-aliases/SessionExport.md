@@ -8,8 +8,6 @@
 
 > **SessionExport** = `object`
 
-Defined in: [types/conversation.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L597)
-
 Complete session export format for backup/analytics
 Contains full session data including all messages
 
@@ -19,8 +17,6 @@ Contains full session data including all messages
 
 > **sessionId**: `string`
 
-Defined in: [types/conversation.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L599)
-
 Session identifier
 
 ---
@@ -28,8 +24,6 @@ Session identifier
 ### title?
 
 > `optional` **title?**: `string`
-
-Defined in: [types/conversation.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L601)
 
 Session title/description
 
@@ -39,8 +33,6 @@ Session title/description
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/conversation.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L603)
-
 User identifier
 
 ---
@@ -48,8 +40,6 @@ User identifier
 ### createdAt
 
 > **createdAt**: `string`
-
-Defined in: [types/conversation.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L605)
 
 When session was created (ISO 8601)
 
@@ -59,8 +49,6 @@ When session was created (ISO 8601)
 
 > **updatedAt**: `string`
 
-Defined in: [types/conversation.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L607)
-
 When session was last updated (ISO 8601)
 
 ---
@@ -69,8 +57,6 @@ When session was last updated (ISO 8601)
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/conversation.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L609)
-
 Complete message history
 
 ---
@@ -78,8 +64,6 @@ Complete message history
 ### exportMetadata?
 
 > `optional` **exportMetadata?**: `object`
-
-Defined in: [types/conversation.ts:611](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L611)
 
 Export metadata
 

@@ -8,8 +8,6 @@
 
 > **CSVLoaderOptions** = [`LoaderOptions`](LoaderOptions.md) & `object`
 
-Defined in: [types/rag.ts:623](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L623)
-
 CSV loader options
 
 ## Type Declaration

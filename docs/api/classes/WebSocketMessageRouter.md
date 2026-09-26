@@ -6,8 +6,6 @@
 
 # Class: WebSocketMessageRouter
 
-Defined in: [server/websocket/WebSocketHandler.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L396)
-
 WebSocket message router for handling different message types
 
 ## Constructors
@@ -25,8 +23,6 @@ WebSocket message router for handling different message types
 ### route()
 
 > **route**(`type`, `handler`): `void`
-
-Defined in: [server/websocket/WebSocketHandler.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L405)
 
 Register a message route
 
@@ -50,8 +46,6 @@ Register a message route
 
 > **handle**(`connection`, `message`): `Promise`\<`unknown`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L418)
-
 Handle incoming message
 
 #### Parameters
@@ -73,8 +67,6 @@ Handle incoming message
 ### getRoutes()
 
 > **getRoutes**(): `string`[]
-
-Defined in: [server/websocket/WebSocketHandler.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L450)
 
 Get registered routes
 

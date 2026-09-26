@@ -8,8 +8,6 @@
 
 > **manifestToSources**(`manifest`): [`KnowledgeSource`](../type-aliases/KnowledgeSource.md)[]
 
-Defined in: [knowledge/resolve.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/resolve.ts#L68)
-
 Expand a build manifest into sources — one per catalog.
 
 ## Parameters

@@ -8,8 +8,6 @@
 
 > **BatchEvaluationConfig** = [`EvaluationConfig`](EvaluationConfig.md) & `object`
 
-Defined in: [types/evaluation.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L434)
-
 Superset batch evaluation config. Union of pre-consolidation types
 (BatchEvaluationConfig in BatchEvaluator, BatchConfig in batchStrategy).
 

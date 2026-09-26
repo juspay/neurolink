@@ -8,8 +8,6 @@
 
 > **SeverityColors** = `object`
 
-Defined in: [types/cli.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L538)
-
 Display severity colors (for evaluation display)
 
 ## Index Signature

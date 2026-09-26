@@ -8,8 +8,6 @@
 
 > **ErrorHandlerOptions** = `object`
 
-Defined in: [types/client.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1383)
-
 Error handling interceptor options
 
 ## Properties
@@ -17,8 +15,6 @@ Error handling interceptor options
 ### onError?
 
 > `optional` **onError?**: (`error`, `request`) => `Error` \| `void`
-
-Defined in: [types/client.ts:1385](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1385)
 
 Custom error handler
 
@@ -42,8 +38,6 @@ Custom error handler
 
 > `optional` **transformError?**: (`error`) => [`ClientApiError`](ClientApiError.md)
 
-Defined in: [types/client.ts:1387](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1387)
-
 Transform error response
 
 #### Parameters
@@ -61,8 +55,6 @@ Transform error response
 ### reportError?
 
 > `optional` **reportError?**: (`error`, `context`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/client.ts:1389](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1389)
 
 Report errors to external service
 

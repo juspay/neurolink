@@ -8,6 +8,4 @@
 
 > `const` **PROVIDER_DESCRIPTORS_BY_NAME**: `ReadonlyMap`\<[`AIProviderName`](../enumerations/AIProviderName.md), [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md)\>
 
-Defined in: [factories/providerDescriptors.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L629)
-
 O(1) canonical-name → descriptor lookup.

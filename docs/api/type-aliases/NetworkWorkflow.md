@@ -8,8 +8,6 @@
 
 > **NetworkWorkflow** = `object`
 
-Defined in: [types/agentNetwork.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L212)
-
 Workflow definition for network integration
 
 ## Methods
@@ -17,8 +15,6 @@ Workflow definition for network integration
 ### execute()
 
 > **execute**(`input`): `Promise`\<\{ `output`: `unknown`; \}\>
-
-Defined in: [types/agentNetwork.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L214)
 
 Execute the workflow with given input
 
@@ -37,8 +33,6 @@ Execute the workflow with given input
 ### stream()?
 
 > `optional` **stream**(`input`): `AsyncIterable`\<`unknown`\>
-
-Defined in: [types/agentNetwork.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L217)
 
 Optional streaming support
 

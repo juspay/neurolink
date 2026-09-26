@@ -7,5 +7,3 @@
 # Type Alias: ProxyProviderTransportProbeOutcome
 
 > **ProxyProviderTransportProbeOutcome** = `"recovered"` \| `"failed"` \| `"abandoned"`
-
-Defined in: [types/proxy.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L583)

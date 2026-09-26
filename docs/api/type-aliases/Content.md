@@ -8,7 +8,5 @@
 
 > **Content** = [`TextContent`](TextContent.md) \| [`ImageContent`](ImageContent.md) \| [`CSVContent`](CSVContent.md) \| [`PDFContent`](PDFContent.md) \| [`AudioContent`](AudioContent.md) \| [`VideoContent`](VideoContent.md)
 
-Defined in: [types/multimodal.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L398)
-
 Union type for all content types
 Covers text, images, documents, and multimedia

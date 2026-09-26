@@ -8,8 +8,6 @@
 
 > **MiddlewareHandler** = (`ctx`, `next`) => `Promise`\<`unknown`\>
 
-Defined in: [types/server.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L487)
-
 Middleware handler function
 
 ## Parameters

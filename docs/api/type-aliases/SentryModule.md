@@ -8,8 +8,6 @@
 
 > **SentryModule** = `object`
 
-Defined in: [types/observability.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L524)
-
 Minimal view of the dynamically-imported @sentry/node module.
 
 ## Properties
@@ -17,8 +15,6 @@ Minimal view of the dynamically-imported @sentry/node module.
 ### init
 
 > **init**: (`options`) => `void`
-
-Defined in: [types/observability.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L525)
 
 #### Parameters
 
@@ -50,8 +46,6 @@ Defined in: [types/observability.ts:525](https://github.com/juspay/neurolink/blo
 
 > **withScope**: (`callback`) => `void`
 
-Defined in: [types/observability.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L531)
-
 #### Parameters
 
 ##### callback
@@ -68,8 +62,6 @@ Defined in: [types/observability.ts:531](https://github.com/juspay/neurolink/blo
 
 > **captureException**: (`error`) => `void`
 
-Defined in: [types/observability.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L532)
-
 #### Parameters
 
 ##### error
@@ -85,8 +77,6 @@ Defined in: [types/observability.ts:532](https://github.com/juspay/neurolink/blo
 ### startInactiveSpan
 
 > **startInactiveSpan**: (`options`) => `object`
-
-Defined in: [types/observability.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L533)
 
 #### Parameters
 
@@ -132,8 +122,6 @@ Defined in: [types/observability.ts:533](https://github.com/juspay/neurolink/blo
 
 > **flush**: (`timeout`) => `Promise`\<`boolean`\>
 
-Defined in: [types/observability.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L539)
-
 #### Parameters
 
 ##### timeout
@@ -149,8 +137,6 @@ Defined in: [types/observability.ts:539](https://github.com/juspay/neurolink/blo
 ### close
 
 > **close**: (`timeout`) => `Promise`\<`boolean`\>
-
-Defined in: [types/observability.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L540)
 
 #### Parameters
 

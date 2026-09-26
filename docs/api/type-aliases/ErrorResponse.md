@@ -8,8 +8,6 @@
 
 > **ErrorResponse** = `object`
 
-Defined in: [types/server.ts:1182](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1182)
-
 Standardized error response format
 
 ## Properties
@@ -17,8 +15,6 @@ Standardized error response format
 ### error
 
 > **error**: `object`
-
-Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1183)
 
 #### code
 
@@ -38,8 +34,6 @@ Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1188)
-
 #### timestamp
 
 > **timestamp**: `string`
@@ -53,5 +47,3 @@ Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/rele
 ### httpStatus?
 
 > `optional` **httpStatus?**: `number`
-
-Defined in: [types/server.ts:1192](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1192)

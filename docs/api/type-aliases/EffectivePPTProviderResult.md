@@ -8,8 +8,6 @@
 
 > **EffectivePPTProviderResult** = `object`
 
-Defined in: [types/ppt.ts:1236](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1236)
-
 Result from getEffectivePPTProvider
 
 ## Properties
@@ -17,8 +15,6 @@ Result from getEffectivePPTProvider
 ### provider
 
 > **provider**: `unknown`
-
-Defined in: [types/ppt.ts:1238](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1238)
 
 The provider to use for PPT generation
 
@@ -28,8 +24,6 @@ The provider to use for PPT generation
 
 > **providerName**: `string`
 
-Defined in: [types/ppt.ts:1240](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1240)
-
 Provider name
 
 ---
@@ -38,8 +32,6 @@ Provider name
 
 > **modelName**: `string`
 
-Defined in: [types/ppt.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1242)
-
 Model name
 
 ---
@@ -47,7 +39,5 @@ Model name
 ### wasAutoSelected
 
 > **wasAutoSelected**: `boolean`
-
-Defined in: [types/ppt.ts:1244](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1244)
 
 Whether auto-selection was performed

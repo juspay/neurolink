@@ -8,15 +8,11 @@
 
 > **RetryOptions** = `object`
 
-Defined in: [types/utilities.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L203)
-
 ## Properties
 
 ### maxAttempts?
 
 > `optional` **maxAttempts?**: `number`
-
-Defined in: [types/utilities.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L204)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/utilities.ts:204](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **initialDelay?**: `number`
 
-Defined in: [types/utilities.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L205)
-
 ---
 
 ### maxDelay?
 
 > `optional` **maxDelay?**: `number`
-
-Defined in: [types/utilities.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L206)
 
 ---
 
@@ -40,15 +32,11 @@ Defined in: [types/utilities.ts:206](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **backoffMultiplier?**: `number`
 
-Defined in: [types/utilities.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L207)
-
 ---
 
 ### retryCondition?
 
 > `optional` **retryCondition?**: (`error`) => `boolean`
-
-Defined in: [types/utilities.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L208)
 
 #### Parameters
 
@@ -65,8 +53,6 @@ Defined in: [types/utilities.ts:208](https://github.com/juspay/neurolink/blob/re
 ### onRetry?
 
 > `optional` **onRetry?**: (`attempt`, `error`) => `void`
-
-Defined in: [types/utilities.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L209)
 
 #### Parameters
 

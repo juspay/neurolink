@@ -8,8 +8,6 @@
 
 > **KeywordExtractorConfig** = [`BaseExtractorConfig`](BaseExtractorConfig.md) & `object`
 
-Defined in: [types/rag.ts:1123](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1123)
-
 Keyword extractor configuration
 
 ## Type Declaration

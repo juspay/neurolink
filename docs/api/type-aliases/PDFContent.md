@@ -8,8 +8,6 @@
 
 > **PDFContent** = `object`
 
-Defined in: [types/multimodal.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L95)
-
 PDF document content type for multimodal messages
 
 ## Properties
@@ -18,23 +16,17 @@ PDF document content type for multimodal messages
 
 > **type**: `"pdf"`
 
-Defined in: [types/multimodal.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L96)
-
 ---
 
 ### data
 
 > **data**: `Buffer` \| `string`
 
-Defined in: [types/multimodal.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L97)
-
 ---
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
-
-Defined in: [types/multimodal.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L98)
 
 #### filename?
 

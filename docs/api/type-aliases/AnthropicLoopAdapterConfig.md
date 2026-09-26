@@ -8,8 +8,6 @@
 
 > **AnthropicLoopAdapterConfig**\<`TMessage`\> = `object`
 
-Defined in: [types/loopEngine.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L293)
-
 Construction input for `createAnthropicLoopAdapter`, shared by direct
 Anthropic and Claude-on-Vertex.
 
@@ -34,8 +32,6 @@ the adapter config match.
 
 > **client**: `object`
 
-Defined in: [types/loopEngine.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L305)
-
 Only `messages.create` is ever called, so only that is required.
 
 `Pick<Anthropic, "messages">` looked equivalent and is not: it demands the
@@ -54,15 +50,11 @@ can drive perfectly, rejected for members it never touches.
 
 > **maxSteps**: `number`
 
-Defined in: [types/loopEngine.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L308)
-
 ---
 
 ### buildParams
 
 > **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming`
-
-Defined in: [types/loopEngine.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L321)
 
 Returns the NON-streaming params. The adapter adds `stream: true` itself,
 so requiring the streaming variant here would force every caller to
@@ -90,8 +82,6 @@ the adapter is about to overwrite.
 
 > **toolsRecord**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
-Defined in: [types/loopEngine.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L326)
-
 The turn's live tool record, used for deferred-catalog resolution.
 
 ---
@@ -99,8 +89,6 @@ The turn's live tool record, used for deferred-catalog resolution.
 ### finalResultToolName?
 
 > `optional` **finalResultToolName?**: `string`
-
-Defined in: [types/loopEngine.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L333)
 
 Name of the terminal structured-output tool when one is in play. A call
 to it ends the turn: its arguments ARE the answer, so it is reported as
@@ -112,8 +100,6 @@ ordinary zero-tool-calls exit.
 ### onTerminalResult?
 
 > `optional` **onTerminalResult?**: (`text`) => `void`
-
-Defined in: [types/loopEngine.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L345)
 
 Called with the terminal tool's payload when one was actually detected.
 
@@ -141,8 +127,6 @@ tell them apart would be guesswork, so the adapter says which happened.
 
 > `optional` **requestTimeoutMs?**: `number`
 
-Defined in: [types/loopEngine.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L358)
-
 Hard deadline for ONE `messages.create` request (ms). Composed with the
 engine's signal for the duration of that step only, so it bounds a stalled
 upstream even when the turn itself has no lifetime ceiling — and is armed
@@ -160,8 +144,6 @@ otherwise be reported as a model turn that simply said less.
 
 > `optional` **requireTerminalEvent?**: `boolean`
 
-Defined in: [types/loopEngine.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L369)
-
 Require the upstream terminal event (`message_stop`) before a step counts
 as complete.
 
@@ -177,15 +159,11 @@ existing caller sees from a flaky connection.
 
 > `optional` **toolFailureBreaker?**: [`AgenticLoopToolFailureBreaker`](AgenticLoopToolFailureBreaker.md)
 
-Defined in: [types/loopEngine.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L370)
-
 ---
 
 ### planReclaim?
 
 > `optional` **planReclaim?**: (`conversation`, `step`) => [`AgenticLoopReclaimResult`](AgenticLoopReclaimResult.md)\<`TMessage`[]\> \| `undefined`
-
-Defined in: [types/loopEngine.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L383)
 
 In-turn context reclaim, run once per step before the request is built.
 Returns the rebuilt conversation when it reclaimed, undefined while the
@@ -218,8 +196,6 @@ drops this overflows the window mid-turn.
 
 > `optional` **noteObservedPromptTokens?**: (`promptTokens`) => `void`
 
-Defined in: [types/loopEngine.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L393)
-
 Calibration feedback for the provider's reclaim guard: the FULL prompt
 size for the step just made — uncached input plus both cache tiers.
 Passing input_tokens alone reads a cache-hit step as tiny and lets the
@@ -240,5 +216,3 @@ guard drift far under the real cost.
 ### abortSignal?
 
 > `optional` **abortSignal?**: `AbortSignal`
-
-Defined in: [types/loopEngine.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L394)

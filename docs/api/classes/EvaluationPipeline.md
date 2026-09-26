@@ -6,8 +6,6 @@
 
 # Class: EvaluationPipeline
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L22)
-
 Evaluation Pipeline for running multiple scorers
 
 ## Constructors
@@ -15,8 +13,6 @@ Evaluation Pipeline for running multiple scorers
 ### Constructor
 
 > **new EvaluationPipeline**(`config`): `EvaluationPipeline`
-
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L27)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [evaluation/pipeline/evaluationPipeline.ts:27](https://github.com/ju
 
 > **get** **config**(): [`PipelineConfig`](../type-aliases/PipelineConfig.md)
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L39)
-
 Get pipeline configuration
 
 ##### Returns
@@ -52,8 +46,6 @@ Get pipeline configuration
 
 > **get** **initialized**(): `boolean`
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L46)
-
 Check if pipeline is initialized
 
 ##### Returns
@@ -66,8 +58,6 @@ Check if pipeline is initialized
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L53)
-
 Initialize the pipeline by loading all scorers
 
 #### Returns
@@ -79,8 +69,6 @@ Initialize the pipeline by loading all scorers
 ### execute()
 
 > **execute**(`input`, `options?`): `Promise`\<[`PipelineResult`](../type-aliases/PipelineResult.md)\>
-
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L120)
 
 Execute the pipeline on input
 
@@ -104,8 +92,6 @@ Execute the pipeline on input
 
 > **addScorer**(`id`, `scorer`): `void`
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L419)
-
 Add a scorer to the pipeline
 
 #### Parameters
@@ -128,8 +114,6 @@ Add a scorer to the pipeline
 
 > **removeScorer**(`id`): `boolean`
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L431)
-
 Remove a scorer from the pipeline
 
 #### Parameters
@@ -147,8 +131,6 @@ Remove a scorer from the pipeline
 ### getScorer()
 
 > **getScorer**(`id`): [`Scorer`](../type-aliases/Scorer.md) \| `undefined`
-
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L447)
 
 Get a scorer by ID
 
@@ -168,8 +150,6 @@ Get a scorer by ID
 
 > **getScorerIds**(): `string`[]
 
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L454)
-
 Get all scorer IDs
 
 #### Returns
@@ -181,8 +161,6 @@ Get all scorer IDs
 ### configure()
 
 > **configure**(`config`): `void`
-
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L461)
 
 Update pipeline configuration
 
@@ -201,8 +179,6 @@ Update pipeline configuration
 ### clone()
 
 > **clone**(): `EvaluationPipeline`
-
-Defined in: [evaluation/pipeline/evaluationPipeline.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/evaluationPipeline.ts#L468)
 
 Create a clone of this pipeline
 

@@ -6,8 +6,6 @@
 
 # Class: OpenAITTS
 
-Defined in: [voice/providers/OpenAITTS.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L145)
-
 ## Implements
 
 - [`TTSHandler`](../type-aliases/TTSHandler.md)
@@ -17,8 +15,6 @@ Defined in: [voice/providers/OpenAITTS.ts:145](https://github.com/juspay/neuroli
 ### Constructor
 
 > **new OpenAITTS**(`apiKey?`): `OpenAITTS`
-
-Defined in: [voice/providers/OpenAITTS.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L208)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [voice/providers/OpenAITTS.ts:208](https://github.com/juspay/neuroli
 
 > `readonly` **maxTextLength**: `4096` = `4096`
 
-Defined in: [voice/providers/OpenAITTS.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L152)
-
 Maximum text length (4096 characters)
 
 #### Implementation of
@@ -49,8 +43,6 @@ Maximum text length (4096 characters)
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [voice/providers/OpenAITTS.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L213)
 
 Validate that the provider is properly configured
 
@@ -69,8 +61,6 @@ True if provider can generate TTS
 ### getVoices()
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
-
-Defined in: [voice/providers/OpenAITTS.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L217)
 
 Get available voices for the provider
 
@@ -97,8 +87,6 @@ List of available voices
 ### synthesize()
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
-
-Defined in: [voice/providers/OpenAITTS.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L356)
 
 Generate audio from text using provider-specific TTS API
 
@@ -139,8 +127,6 @@ On synthesis failure, timeout, or configuration issues
 ### synthesizeStream()
 
 > **synthesizeStream**(`text`, `options?`): `AsyncIterable`\<[`TTSChunk`](../type-aliases/TTSChunk.md), `any`, `any`\> \| `undefined`
-
-Defined in: [voice/providers/OpenAITTS.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L434)
 
 Stream one segment's audio as the response body arrives.
 

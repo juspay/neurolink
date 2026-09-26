@@ -8,8 +8,6 @@
 
 > **SkillCallToolsContext** = `object`
 
-Defined in: [types/skills.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L418)
-
 Per-call context bound into the use_skill / read_skill_resource tools at
 injection time (prepareGenerate/prepareStream). The sessionId is captured
 by closure so activation state is tracked without relying on runtime tool
@@ -21,8 +19,6 @@ context plumbing.
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/skills.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L420)
-
 Session the call belongs to; absent → activation state is per-turn only.
 
 ---
@@ -31,8 +27,6 @@ Session the call belongs to; absent → activation state is per-turn only.
 
 > `optional` **scopeId?**: `string`
 
-Defined in: [types/skills.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L422)
-
 Scope filter applied when resolving skills for this call.
 
 ---
@@ -40,8 +34,6 @@ Scope filter applied when resolving skills for this call.
 ### sessionPersistence
 
 > **sessionPersistence**: `boolean`
-
-Defined in: [types/skills.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L427)
 
 Pin activated instructions into session history after the turn.
 Mirrors SkillsConfig.sessionPersistence resolved for this call.
@@ -52,8 +44,6 @@ Mirrors SkillsConfig.sessionPersistence resolved for this call.
 
 > **discovery**: [`SkillDiscoveryMode`](SkillDiscoveryMode.md)
 
-Defined in: [types/skills.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L429)
-
 Discovery mode resolved for this call — shapes the use_skill description.
 
 ---
@@ -62,8 +52,6 @@ Discovery mode resolved for this call — shapes the use_skill description.
 
 > `optional` **listing?**: `string` \| `null`
 
-Defined in: [types/skills.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L431)
-
 Rendered `<available_skills>` block for "tool" discovery; null when empty.
 
 ---
@@ -71,8 +59,6 @@ Rendered `<available_skills>` block for "tool" discovery; null when empty.
 ### getStoredMessages?
 
 > `optional` **getStoredMessages?**: (`sessionId`) => `Promise`\<[`ChatMessage`](ChatMessage.md)[]\>
-
-Defined in: [types/skills.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L437)
 
 Stored session history loader used to hydrate activation state before
 every dedup check (restart/multi-instance/failed-persistence safety).

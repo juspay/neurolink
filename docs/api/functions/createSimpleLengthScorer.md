@@ -8,8 +8,6 @@
 
 > **createSimpleLengthScorer**(`id`, `name`, `options`): [`BaseScorer`](../classes/BaseScorer.md)
 
-Defined in: [evaluation/scorers/customScorerUtils.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/customScorerUtils.ts#L333)
-
 Create a length-based scorer
 
 ## Parameters

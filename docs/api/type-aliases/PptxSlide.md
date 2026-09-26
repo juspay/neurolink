@@ -8,8 +8,6 @@
 
 > **PptxSlide** = `object`
 
-Defined in: [types/ppt.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1155)
-
 PptxGenJS Slide interface
 Defines the methods we use from a pptxgenjs slide
 
@@ -19,8 +17,6 @@ Defines the methods we use from a pptxgenjs slide
 
 > `optional` **background?**: [`PptxBackgroundOptions`](PptxBackgroundOptions.md)
 
-Defined in: [types/ppt.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1157)
-
 Slide background
 
 ---
@@ -28,8 +24,6 @@ Slide background
 ### addText
 
 > **addText**: (`text`, `options?`) => `PptxSlide`
-
-Defined in: [types/ppt.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1159)
 
 Add text to the slide - supports plain text, text props array, or rich text props array
 
@@ -53,8 +47,6 @@ Add text to the slide - supports plain text, text props array, or rich text prop
 
 > **addImage**: (`options`) => `PptxSlide`
 
-Defined in: [types/ppt.ts:1164](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1164)
-
 Add an image to the slide
 
 #### Parameters
@@ -72,8 +64,6 @@ Add an image to the slide
 ### addShape
 
 > **addShape**: (`shapeName`, `options?`) => `PptxSlide`
-
-Defined in: [types/ppt.ts:1166](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1166)
 
 Add a shape to the slide
 
@@ -96,8 +86,6 @@ Add a shape to the slide
 ### addChart
 
 > **addChart**: (`chartType`, `data`, `options?`) => `PptxSlide`
-
-Defined in: [types/ppt.ts:1168](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1168)
 
 Add a chart to the slide
 
@@ -125,8 +113,6 @@ Add a chart to the slide
 
 > **addTable**: (`rows`, `options?`) => `PptxSlide`
 
-Defined in: [types/ppt.ts:1174](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1174)
-
 Add a table to the slide
 
 #### Parameters
@@ -148,8 +134,6 @@ Add a table to the slide
 ### addNotes
 
 > **addNotes**: (`notes`) => `PptxSlide`
-
-Defined in: [types/ppt.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1176)
 
 Add speaker notes to the slide
 

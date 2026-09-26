@@ -8,8 +8,6 @@
 
 > **ProviderFallbackCallback** = (`error`) => `Promise`\<\{ `provider?`: `string`; `model?`: `string`; \} \| `null`\>
 
-Defined in: [types/config.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L62)
-
 Curator P2-3: callback signature for centralized fallback policy. When an
 explicit callback is configured (per-call or instance), it is invoked for
 ANY error thrown by a generate/stream call except genuine caller cancels —

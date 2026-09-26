@@ -8,8 +8,6 @@
 
 > **createRetryMiddleware**(`maxRetries`, `delayMs?`): [`ToolMiddleware`](../type-aliases/ToolMiddleware.md)
 
-Defined in: [mcp/toolIntegration.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L272)
-
 Built-in middleware: Retry
 
 ## Parameters

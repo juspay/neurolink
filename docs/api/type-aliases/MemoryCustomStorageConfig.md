@@ -8,23 +8,17 @@
 
 > **MemoryCustomStorageConfig** = `object`
 
-Defined in: [types/memory.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L45)
-
 ## Properties
 
 ### type
 
 > **type**: `"custom"`
 
-Defined in: [types/memory.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L46)
-
 ---
 
 ### onGet
 
 > **onGet**: (`ownerId`) => `Promise`\<`string` \| `null`\>
-
-Defined in: [types/memory.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L47)
 
 #### Parameters
 
@@ -41,8 +35,6 @@ Defined in: [types/memory.ts:47](https://github.com/juspay/neurolink/blob/releas
 ### onSet
 
 > **onSet**: (`ownerId`, `memory`) => `Promise`\<`void`\>
-
-Defined in: [types/memory.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L48)
 
 #### Parameters
 
@@ -64,8 +56,6 @@ Defined in: [types/memory.ts:48](https://github.com/juspay/neurolink/blob/releas
 
 > **onDelete**: (`ownerId`) => `Promise`\<`void`\>
 
-Defined in: [types/memory.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L49)
-
 #### Parameters
 
 ##### ownerId
@@ -81,8 +71,6 @@ Defined in: [types/memory.ts:49](https://github.com/juspay/neurolink/blob/releas
 ### onClose?
 
 > `optional` **onClose?**: () => `Promise`\<`void`\>
-
-Defined in: [types/memory.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L50)
 
 #### Returns
 

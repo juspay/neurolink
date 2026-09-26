@@ -10,8 +10,6 @@
 
 > **tool**\<`INPUT`, `OUTPUT`\>(`definition`): [`Tool`](../type-aliases/Tool.md)\<`INPUT`, `OUTPUT`\>
 
-Defined in: [utils/tool.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tool.ts#L28)
-
 ### Type Parameters
 
 #### INPUT
@@ -35,8 +33,6 @@ Defined in: [utils/tool.ts:28](https://github.com/juspay/neurolink/blob/release/
 ## Call Signature
 
 > **tool**\<`INPUT`\>(`definition`): [`Tool`](../type-aliases/Tool.md)\<`INPUT`, `never`\>
-
-Defined in: [utils/tool.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tool.ts#L32)
 
 ### Type Parameters
 

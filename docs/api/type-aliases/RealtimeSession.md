@@ -8,8 +8,6 @@
 
 > **RealtimeSession** = `object`
 
-Defined in: [types/realtime.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L94)
-
 Realtime session information
 
 ## Properties
@@ -17,8 +15,6 @@ Realtime session information
 ### id
 
 > **id**: `string`
-
-Defined in: [types/realtime.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L96)
 
 Session ID
 
@@ -28,8 +24,6 @@ Session ID
 
 > **state**: [`RealtimeSessionState`](RealtimeSessionState.md)
 
-Defined in: [types/realtime.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L98)
-
 Current state
 
 ---
@@ -37,8 +31,6 @@ Current state
 ### provider
 
 > **provider**: [`RealtimeConfig`](RealtimeConfig.md)\[`"provider"`\]
-
-Defined in: [types/realtime.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L101)
 
 Provider name — narrowed to the validated config provider union so
 session state stays aligned with what `connect()` accepts.
@@ -49,8 +41,6 @@ session state stays aligned with what `connect()` accepts.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/realtime.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L103)
-
 Model being used
 
 ---
@@ -58,8 +48,6 @@ Model being used
 ### createdAt
 
 > **createdAt**: `Date`
-
-Defined in: [types/realtime.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L105)
 
 Session creation time
 
@@ -69,8 +57,6 @@ Session creation time
 
 > **lastActivityAt**: `Date`
 
-Defined in: [types/realtime.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L107)
-
 Last activity time
 
 ---
@@ -79,8 +65,6 @@ Last activity time
 
 > **config**: [`RealtimeConfig`](RealtimeConfig.md)
 
-Defined in: [types/realtime.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L109)
-
 Session configuration
 
 ---
@@ -88,8 +72,6 @@ Session configuration
 ### isOpen?
 
 > `optional` **isOpen?**: () => `boolean`
-
-Defined in: [types/realtime.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L111)
 
 Check if session is open
 
@@ -102,8 +84,6 @@ Check if session is open
 ### close?
 
 > `optional` **close?**: () => `Promise`\<`void`\>
-
-Defined in: [types/realtime.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L113)
 
 Close the session
 

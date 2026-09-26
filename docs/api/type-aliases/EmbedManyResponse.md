@@ -8,8 +8,6 @@
 
 > **EmbedManyResponse** = `object`
 
-Defined in: [types/server.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L676)
-
 Embed many response (batch texts)
 
 ## Properties
@@ -17,8 +15,6 @@ Embed many response (batch texts)
 ### embeddings
 
 > **embeddings**: `number`[][]
-
-Defined in: [types/server.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L678)
 
 The embedding vectors
 
@@ -28,8 +24,6 @@ The embedding vectors
 
 > **provider**: `string`
 
-Defined in: [types/server.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L681)
-
 Provider used
 
 ---
@@ -37,8 +31,6 @@ Provider used
 ### model
 
 > **model**: `string`
-
-Defined in: [types/server.ts:684](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L684)
 
 Model used
 
@@ -48,8 +40,6 @@ Model used
 
 > **count**: `number`
 
-Defined in: [types/server.ts:687](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L687)
-
 Number of embeddings
 
 ---
@@ -57,7 +47,5 @@ Number of embeddings
 ### dimension
 
 > **dimension**: `number`
-
-Defined in: [types/server.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L690)
 
 Embedding dimension

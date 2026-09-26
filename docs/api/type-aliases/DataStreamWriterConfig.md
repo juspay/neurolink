@@ -8,8 +8,6 @@
 
 > **DataStreamWriterConfig** = `object`
 
-Defined in: [types/server.ts:1438](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1438)
-
 Configuration for DataStreamWriter.
 
 ## Properties
@@ -17,8 +15,6 @@ Configuration for DataStreamWriter.
 ### write
 
 > **write**: (`chunk`) => `void` \| `Promise`\<`void`\>
-
-Defined in: [types/server.ts:1439](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1439)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [types/server.ts:1439](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **close?**: () => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1440)
-
 #### Returns
 
 `void` \| `Promise`\<`void`\>
@@ -48,12 +42,8 @@ Defined in: [types/server.ts:1440](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **format?**: `"sse"` \| `"ndjson"`
 
-Defined in: [types/server.ts:1441](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1441)
-
 ---
 
 ### includeTimestamps?
 
 > `optional` **includeTimestamps?**: `boolean`
-
-Defined in: [types/server.ts:1442](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1442)

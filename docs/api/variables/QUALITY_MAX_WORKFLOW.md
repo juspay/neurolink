@@ -8,8 +8,6 @@
 
 > `const` **QUALITY_MAX_WORKFLOW**: [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)
 
-Defined in: [workflow/workflows/adaptiveWorkflow.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/workflows/adaptiveWorkflow.ts#L44)
-
 Quality-Max Adaptive Workflow
 
 Uses 3-tier layer-based execution:

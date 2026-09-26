@@ -8,8 +8,6 @@
 
 > **AgentRunOptions** = `object`
 
-Defined in: [types/isolatedAgent.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L238)
-
 Options for one isolated agent run (`NeuroLink.runIsolatedAgent`).
 
 ## Properties
@@ -17,8 +15,6 @@ Options for one isolated agent run (`NeuroLink.runIsolatedAgent`).
 ### abortSignal?
 
 > `optional` **abortSignal?**: `AbortSignal`
-
-Defined in: [types/isolatedAgent.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L244)
 
 Parent cancellation. When provided it MUST be honored: an aborted parent
 stops research AND extraction cleanly, the outcome reports the run was
@@ -30,8 +26,6 @@ cancelled, and no ghost workers survive.
 
 > `optional` **overrides?**: [`AgentRunOverrides`](AgentRunOverrides.md)
 
-Defined in: [types/isolatedAgent.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L246)
-
 Per-run overrides (internal-caller knobs).
 
 ---
@@ -39,8 +33,6 @@ Per-run overrides (internal-caller knobs).
 ### toolContext?
 
 > `optional` **toolContext?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/isolatedAgent.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L252)
 
 Set on the worker for EVERY tool call (merged into the worker's tool
 context), including a caller-supplied `sessionId`; the run id is used
@@ -51,8 +43,6 @@ when no sessionId is supplied.
 ### onEvent?
 
 > `optional` **onEvent?**: (`event`) => `void`
-
-Defined in: [types/isolatedAgent.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L254)
 
 Lifecycle event stream. Fire-and-forget.
 
@@ -72,8 +62,6 @@ Lifecycle event stream. Fire-and-forget.
 
 > `optional` **leg?**: [`AgentLegOptions`](AgentLegOptions.md)
 
-Defined in: [types/isolatedAgent.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L256)
-
 Leg budget — enables leashed mode.
 
 ---
@@ -81,8 +69,6 @@ Leg budget — enables leashed mode.
 ### handleTtlMs?
 
 > `optional` **handleTtlMs?**: `number`
-
-Defined in: [types/isolatedAgent.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L258)
 
 TTL for a leashed handle in ms (default 600_000 = 10 min).
 
@@ -92,8 +78,6 @@ TTL for a leashed handle in ms (default 600_000 = 10 min).
 
 > `optional` **waste?**: [`AgentWasteThresholds`](AgentWasteThresholds.md)
 
-Defined in: [types/isolatedAgent.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L260)
-
 Waste-signature thresholds (defaults apply when omitted).
 
 ---
@@ -101,8 +85,6 @@ Waste-signature thresholds (defaults apply when omitted).
 ### capture?
 
 > `optional` **capture?**: `object`
-
-Defined in: [types/isolatedAgent.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L266)
 
 Bounds for the run's tool execution records. Raise `maxResultChars`
 when the CALLER verifies evidence from `toolExecutions` (raw result

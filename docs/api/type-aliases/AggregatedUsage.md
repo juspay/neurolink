@@ -8,8 +8,6 @@
 
 > **AggregatedUsage** = `object`
 
-Defined in: [types/workflow.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L398)
-
 Aggregated token usage across all models
 
 ## Properties
@@ -18,15 +16,11 @@ Aggregated token usage across all models
 
 > **totalInputTokens**: `number`
 
-Defined in: [types/workflow.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L399)
-
 ---
 
 ### totalOutputTokens
 
 > **totalOutputTokens**: `number`
-
-Defined in: [types/workflow.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L400)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/workflow.ts:400](https://github.com/juspay/neurolink/blob/rel
 
 > **totalTokens**: `number`
 
-Defined in: [types/workflow.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L401)
-
 ---
 
 ### byModel
 
 > **byModel**: `object`[]
-
-Defined in: [types/workflow.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L404)
 
 #### provider
 
@@ -73,8 +63,6 @@ Defined in: [types/workflow.ts:404](https://github.com/juspay/neurolink/blob/rel
 ### judgeUsage?
 
 > `optional` **judgeUsage?**: `object`
-
-Defined in: [types/workflow.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L414)
 
 #### inputTokens
 

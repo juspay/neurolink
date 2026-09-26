@@ -8,12 +8,8 @@
 
 > **WhisperSimpleResponse** = `object`
 
-Defined in: [types/stt.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L590)
-
 ## Properties
 
 ### text
 
 > **text**: `string`
-
-Defined in: [types/stt.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L591)

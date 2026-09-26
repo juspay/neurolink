@@ -8,8 +8,6 @@
 
 > **ProcessedJson** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L588)
-
 Processed JSON file result.
 
 ## Type Declaration

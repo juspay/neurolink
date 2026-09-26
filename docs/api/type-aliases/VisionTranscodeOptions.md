@@ -8,8 +8,6 @@
 
 > **VisionTranscodeOptions** = `object`
 
-Defined in: [types/file.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L64)
-
 Knobs for one vision-compatibility pass.
 
 `autoOrient` exists so a caller that also wants EXIF orientation applied
@@ -27,12 +25,8 @@ for the default and why it stays PNG unless a caller opts into JPEG.
 
 > `readonly` `optional` **autoOrient?**: `boolean`
 
-Defined in: [types/file.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L65)
-
 ---
 
 ### outputFormat?
 
 > `readonly` `optional` **outputFormat?**: [`VisionImageOutputFormat`](VisionImageOutputFormat.md)
-
-Defined in: [types/file.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L66)

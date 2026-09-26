@@ -8,8 +8,6 @@
 
 > **PptxImageOptions** = `object`
 
-Defined in: [types/ppt.ts:1061](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1061)
-
 Image options for addImage method
 
 ## Properties
@@ -18,15 +16,11 @@ Image options for addImage method
 
 > `optional` **data?**: `string`
 
-Defined in: [types/ppt.ts:1062](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1062)
-
 ---
 
 ### path?
 
 > `optional` **path?**: `string`
-
-Defined in: [types/ppt.ts:1063](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1063)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/ppt.ts:1063](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **x?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1064](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1064)
-
 ---
 
 ### y?
 
 > `optional` **y?**: `number` \| `string`
-
-Defined in: [types/ppt.ts:1065](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1065)
 
 ---
 
@@ -50,23 +40,17 @@ Defined in: [types/ppt.ts:1065](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **w?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1066](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1066)
-
 ---
 
 ### h?
 
 > `optional` **h?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1067](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1067)
-
 ---
 
 ### sizing?
 
 > `optional` **sizing?**: `object`
-
-Defined in: [types/ppt.ts:1068](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1068)
 
 #### type
 
@@ -94,15 +78,11 @@ Defined in: [types/ppt.ts:1068](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **altText?**: `string`
 
-Defined in: [types/ppt.ts:1075](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1075)
-
 ---
 
 ### rotate?
 
 > `optional` **rotate?**: `number`
-
-Defined in: [types/ppt.ts:1076](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1076)
 
 ---
 
@@ -110,20 +90,14 @@ Defined in: [types/ppt.ts:1076](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **transparency?**: `number`
 
-Defined in: [types/ppt.ts:1077](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1077)
-
 ---
 
 ### hyperlink?
 
 > `optional` **hyperlink?**: [`HyperlinkProps`](HyperlinkProps.md)
 
-Defined in: [types/ppt.ts:1078](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1078)
-
 ---
 
 ### shadow?
 
 > `optional` **shadow?**: [`ShadowProps`](ShadowProps.md)
-
-Defined in: [types/ppt.ts:1079](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1079)

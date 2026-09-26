@@ -6,8 +6,6 @@
 
 # Class: RedisRateLimitStorage
 
-Defined in: [auth/middleware/rateLimitByUser.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L78)
-
 Redis-backed storage for rate limiting (distributed deployments)
 
 ## Implements
@@ -19,8 +17,6 @@ Redis-backed storage for rate limiting (distributed deployments)
 ### Constructor
 
 > **new RedisRateLimitStorage**(`config`): `RedisRateLimitStorage`
-
-Defined in: [auth/middleware/rateLimitByUser.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L85)
 
 #### Parameters
 
@@ -54,8 +50,6 @@ When set, TTL will be at least ceil(windowMs/1000) so keys outlive the rate-limi
 
 > **getBucket**(`userId`): `Promise`\<[`TokenBucket`](../type-aliases/TokenBucket.md) \| `null`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L125)
-
 #### Parameters
 
 ##### userId
@@ -75,8 +69,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:125](https://github.com/juspay/n
 ### setBucket()
 
 > **setBucket**(`userId`, `bucket`): `Promise`\<`void`\>
-
-Defined in: [auth/middleware/rateLimitByUser.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L142)
 
 #### Parameters
 
@@ -102,8 +94,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:142](https://github.com/juspay/n
 
 > **deleteBucket**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L152)
-
 #### Parameters
 
 ##### userId
@@ -123,8 +113,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:152](https://github.com/juspay/n
 ### atomicConsume()
 
 > **atomicConsume**(`userId`, `limit`, `windowMs`, `nowMs`): `Promise`\<[`AtomicConsumeResult`](../type-aliases/AtomicConsumeResult.md) \| `null`\>
-
-Defined in: [auth/middleware/rateLimitByUser.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L169)
 
 Atomically refill and consume one token using a Redis Lua script.
 
@@ -164,8 +152,6 @@ never read the same token count.
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L265)
-
 #### Returns
 
 `Promise`\<`boolean`\>
@@ -179,8 +165,6 @@ Defined in: [auth/middleware/rateLimitByUser.ts:265](https://github.com/juspay/n
 ### cleanup()
 
 > **cleanup**(): `Promise`\<`void`\>
-
-Defined in: [auth/middleware/rateLimitByUser.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L275)
 
 #### Returns
 

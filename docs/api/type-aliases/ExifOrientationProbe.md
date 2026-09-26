@@ -8,8 +8,6 @@
 
 > **ExifOrientationProbe** = `"absent"` \| `"present"` \| `"inconclusive"`
 
-Defined in: [types/file.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L78)
-
 What a bounded header probe could establish about an image's EXIF
 orientation tag, without decoding the image or reading all of its bytes.
 

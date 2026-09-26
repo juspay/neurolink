@@ -8,8 +8,6 @@
 
 > **ClientMiddlewareContext** = `object`
 
-Defined in: [types/client.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L501)
-
 ClientMiddleware context for passing data between middleware
 
 ## Indexable
@@ -24,8 +22,6 @@ Additional context data
 
 > **startTime**: `number`
 
-Defined in: [types/client.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L503)
-
 Request start time
 
 ---
@@ -34,8 +30,6 @@ Request start time
 
 > **requestId**: `string`
 
-Defined in: [types/client.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L505)
-
 Request ID
 
 ---
@@ -43,7 +37,5 @@ Request ID
 ### retryCount
 
 > **retryCount**: `number`
-
-Defined in: [types/client.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L507)
 
 Retry count

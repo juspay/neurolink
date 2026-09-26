@@ -8,8 +8,6 @@
 
 > **ClientWebSocketMessage** = [`WSClientMessage`](WSClientMessage.md)
 
-Defined in: [types/client.ts:1582](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1582)
-
 ## See
 
 WSClientMessage

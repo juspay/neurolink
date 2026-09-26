@@ -8,8 +8,6 @@
 
 > **ClassifierStrategyKind** = `"heuristic"` \| `"llm"` \| `"jev"` \| `"auto"`
 
-Defined in: [types/classifierRouter.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L39)
-
 Which classification strategy to run.
 
 - `heuristic` — keyword/length scoring. Deterministic, zero latency.

@@ -8,8 +8,6 @@
 
 > **AuthProviderHealthCheck** = `object`
 
-Defined in: [types/auth.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1004)
-
 Health check result for auth providers (detailed)
 
 ## Properties
@@ -17,8 +15,6 @@ Health check result for auth providers (detailed)
 ### healthy
 
 > **healthy**: `boolean`
-
-Defined in: [types/auth.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1006)
 
 Provider is healthy
 
@@ -28,8 +24,6 @@ Provider is healthy
 
 > **provider**: [`AuthProviderType`](AuthProviderType.md)
 
-Defined in: [types/auth.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1008)
-
 Provider type
 
 ---
@@ -37,8 +31,6 @@ Provider type
 ### latency?
 
 > `optional` **latency?**: `number`
-
-Defined in: [types/auth.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1010)
 
 Response time in ms
 
@@ -48,8 +40,6 @@ Response time in ms
 
 > `optional` **lastCheck?**: `Date`
 
-Defined in: [types/auth.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1012)
-
 Last successful check
 
 ---
@@ -58,8 +48,6 @@ Last successful check
 
 > `optional` **error?**: `string`
 
-Defined in: [types/auth.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1014)
-
 Error message if unhealthy
 
 ---
@@ -67,7 +55,5 @@ Error message if unhealthy
 ### details?
 
 > `optional` **details?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/auth.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1016)
 
 Additional details

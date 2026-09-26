@@ -8,8 +8,6 @@
 
 > **FallbackInfo** = `object`
 
-Defined in: [types/cli.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1004)
-
 A fallback chain entry (serialisable subset of FallbackEntry)
 
 ## Properties
@@ -18,12 +16,8 @@ A fallback chain entry (serialisable subset of FallbackEntry)
 
 > **provider**: `string`
 
-Defined in: [types/cli.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1004)
-
 ---
 
 ### model
 
 > **model**: `string`
-
-Defined in: [types/cli.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1004)

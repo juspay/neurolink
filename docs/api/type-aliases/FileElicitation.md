@@ -8,8 +8,6 @@
 
 > **FileElicitation** = [`ElicitationRequest`](ElicitationRequest.md) & `object`
 
-Defined in: [types/elicitation.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L177)
-
 File elicitation
 
 ## Type Declaration

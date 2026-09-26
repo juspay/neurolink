@@ -8,6 +8,4 @@
 
 > **ClientWebSocketState** = `"connecting"` \| `"connected"` \| `"disconnecting"` \| `"disconnected"` \| `"reconnecting"`
 
-Defined in: [types/client.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L972)
-
 WebSocket connection state

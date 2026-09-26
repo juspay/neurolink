@@ -8,8 +8,6 @@
 
 > **CliProxyConfigDoc** = `object`
 
-Defined in: [types/proxy.ts:3643](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3643)
-
 Snapshot of a parsed proxy config file used by CLI primary-account
 read/edit/write helpers. Tracks the original format and whether comments
 were present (so the CLI can warn that comments will not round-trip).
@@ -20,20 +18,14 @@ were present (so the CLI can warn that comments will not round-trip).
 
 > **data**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:3644](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3644)
-
 ---
 
 ### format
 
 > **format**: `"yaml"` \| `"json"`
 
-Defined in: [types/proxy.ts:3645](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3645)
-
 ---
 
 ### hadComments
 
 > **hadComments**: `boolean`
-
-Defined in: [types/proxy.ts:3646](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3646)

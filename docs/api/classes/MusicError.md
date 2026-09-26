@@ -6,8 +6,6 @@
 
 # Class: MusicError
 
-Defined in: [utils/musicProcessor.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L45)
-
 Typed error class for music-generation failures.
 
 ## Extends
@@ -19,8 +17,6 @@ Typed error class for music-generation failures.
 ### Constructor
 
 > **new MusicError**(`options`): `MusicError`
-
-Defined in: [utils/musicProcessor.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L46)
 
 #### Parameters
 
@@ -68,8 +64,6 @@ Defined in: [utils/musicProcessor.ts:46](https://github.com/juspay/neurolink/blo
 
 > `readonly` **code**: `string`
 
-Defined in: [utils/errorHandling.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L105)
-
 #### Inherited from
 
 `NeuroLinkError.code`
@@ -79,8 +73,6 @@ Defined in: [utils/errorHandling.ts:105](https://github.com/juspay/neurolink/blo
 ### category
 
 > `readonly` **category**: `ErrorCategory`
-
-Defined in: [utils/errorHandling.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L106)
 
 #### Inherited from
 
@@ -92,8 +84,6 @@ Defined in: [utils/errorHandling.ts:106](https://github.com/juspay/neurolink/blo
 
 > `readonly` **severity**: `ErrorSeverity`
 
-Defined in: [utils/errorHandling.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L107)
-
 #### Inherited from
 
 `NeuroLinkError.severity`
@@ -103,8 +93,6 @@ Defined in: [utils/errorHandling.ts:107](https://github.com/juspay/neurolink/blo
 ### retriable
 
 > `readonly` **retriable**: `boolean`
-
-Defined in: [utils/errorHandling.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L108)
 
 #### Inherited from
 
@@ -116,8 +104,6 @@ Defined in: [utils/errorHandling.ts:108](https://github.com/juspay/neurolink/blo
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [utils/errorHandling.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L109)
-
 #### Inherited from
 
 `NeuroLinkError.retryAfterMs`
@@ -127,8 +113,6 @@ Defined in: [utils/errorHandling.ts:109](https://github.com/juspay/neurolink/blo
 ### context
 
 > `readonly` **context**: `Record`\<`string`, `unknown`\>
-
-Defined in: [utils/errorHandling.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L110)
 
 #### Inherited from
 
@@ -140,8 +124,6 @@ Defined in: [utils/errorHandling.ts:110](https://github.com/juspay/neurolink/blo
 
 > `readonly` **timestamp**: `Date`
 
-Defined in: [utils/errorHandling.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L111)
-
 #### Inherited from
 
 `NeuroLinkError.timestamp`
@@ -151,8 +133,6 @@ Defined in: [utils/errorHandling.ts:111](https://github.com/juspay/neurolink/blo
 ### toolName?
 
 > `readonly` `optional` **toolName?**: `string`
-
-Defined in: [utils/errorHandling.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L112)
 
 #### Inherited from
 
@@ -164,8 +144,6 @@ Defined in: [utils/errorHandling.ts:112](https://github.com/juspay/neurolink/blo
 
 > `readonly` `optional` **serverId?**: `string`
 
-Defined in: [utils/errorHandling.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L113)
-
 #### Inherited from
 
 `NeuroLinkError.serverId`
@@ -175,8 +153,6 @@ Defined in: [utils/errorHandling.ts:113](https://github.com/juspay/neurolink/blo
 ### toJSON()
 
 > **toJSON**(): [`StructuredError`](../type-aliases/StructuredError.md)
-
-Defined in: [utils/errorHandling.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L149)
 
 Convert to JSON for logging and serialization
 

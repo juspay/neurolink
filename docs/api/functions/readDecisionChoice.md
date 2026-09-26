@@ -8,8 +8,6 @@
 
 > **readDecisionChoice**(`answers`, `id`): [`DecisionChoiceReading`](../type-aliases/DecisionChoiceReading.md) \| `undefined`
 
-Defined in: [utils/decisionAnswers.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L41)
-
 Read a choice answer, including the full ranking.
 
 `ranked` is the distribution sorted highest-first. This is what makes one

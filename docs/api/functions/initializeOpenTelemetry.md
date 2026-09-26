@@ -8,8 +8,6 @@
 
 > **initializeOpenTelemetry**(`config`): `Promise`\<`void`\>
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1086)
-
 Initialize OpenTelemetry with Langfuse span processor
 
 This connects Vercel AI SDK's experimental_telemetry to Langfuse by:

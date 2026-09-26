@@ -8,8 +8,6 @@
 
 > **AgentExecuteResponse** = `object`
 
-Defined in: [types/server.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L586)
-
 Agent execution response
 
 ## Properties
@@ -17,8 +15,6 @@ Agent execution response
 ### content
 
 > **content**: `string`
-
-Defined in: [types/server.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L588)
 
 Generated content
 
@@ -28,8 +24,6 @@ Generated content
 
 > **provider**: `string`
 
-Defined in: [types/server.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L591)
-
 Provider used
 
 ---
@@ -38,8 +32,6 @@ Provider used
 
 > **model**: `string`
 
-Defined in: [types/server.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L594)
-
 Model used
 
 ---
@@ -47,8 +39,6 @@ Model used
 ### usage?
 
 > `optional` **usage?**: `object`
-
-Defined in: [types/server.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L597)
 
 Token usage
 
@@ -100,8 +90,6 @@ Cache savings percentage
 
 > `optional` **toolCalls?**: `object`[]
 
-Defined in: [types/server.ts:615](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L615)
-
 Tool calls made
 
 #### name
@@ -122,8 +110,6 @@ Tool calls made
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/server.ts:622](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L622)
-
 Finish reason
 
 ---
@@ -131,7 +117,5 @@ Finish reason
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
-
-Defined in: [types/server.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L625)
 
 Response metadata

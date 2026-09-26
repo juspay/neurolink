@@ -6,8 +6,6 @@
 
 # Abstract Class: BaseScorer
 
-Defined in: [evaluation/scorers/baseScorer.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L42)
-
 Abstract base class for all scorers
 Provides common functionality and enforces interface compliance
 
@@ -25,8 +23,6 @@ Provides common functionality and enforces interface compliance
 ### Constructor
 
 > **new BaseScorer**(`metadata`, `config?`): `BaseScorer`
-
-Defined in: [evaluation/scorers/baseScorer.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L46)
 
 #### Parameters
 
@@ -48,15 +44,11 @@ Defined in: [evaluation/scorers/baseScorer.ts:46](https://github.com/juspay/neur
 
 > `protected` **\_config**: [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L43)
-
 ---
 
 ### \_metadata
 
 > `protected` **\_metadata**: [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
-
-Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L44)
 
 ## Accessors
 
@@ -65,8 +57,6 @@ Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neur
 #### Get Signature
 
 > **get** **metadata**(): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
-
-Defined in: [evaluation/scorers/baseScorer.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L58)
 
 Get scorer metadata
 
@@ -86,8 +76,6 @@ Get scorer metadata
 
 > **get** **config**(): [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L65)
-
 Get current configuration
 
 ##### Returns
@@ -103,8 +91,6 @@ Get current configuration
 ### score()
 
 > `abstract` **score**(`input`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
-
-Defined in: [evaluation/scorers/baseScorer.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L72)
 
 Main scoring method - must be implemented by subclasses
 
@@ -127,8 +113,6 @@ Main scoring method - must be implemented by subclasses
 ### validateInput()
 
 > **validateInput**(`input`): `object`
-
-Defined in: [evaluation/scorers/baseScorer.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L77)
 
 Validate input has required fields
 
@@ -160,8 +144,6 @@ Validate input has required fields
 
 > **configure**(`config`): `void`
 
-Defined in: [evaluation/scorers/baseScorer.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L122)
-
 Update configuration
 
 #### Parameters
@@ -183,8 +165,6 @@ Update configuration
 ### normalizeScore()
 
 > `protected` **normalizeScore**(`score`, `scale?`): `number`
-
-Defined in: [evaluation/scorers/baseScorer.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L135)
 
 Normalize a score to 0-1 scale
 
@@ -208,8 +188,6 @@ Normalize a score to 0-1 scale
 
 > `protected` **denormalizeScore**(`normalizedScore`, `scale?`): `number`
 
-Defined in: [evaluation/scorers/baseScorer.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L161)
-
 Convert normalized score back to scale
 
 #### Parameters
@@ -232,8 +210,6 @@ Convert normalized score back to scale
 
 > `protected` **checkThreshold**(`normalizedScore`): `boolean`
 
-Defined in: [evaluation/scorers/baseScorer.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L172)
-
 Check if score passes threshold
 
 #### Parameters
@@ -251,8 +227,6 @@ Check if score passes threshold
 ### createScoreResult()
 
 > `protected` **createScoreResult**(`score`, `reasoning`, `options?`): [`ScoreResult`](../type-aliases/ScoreResult.md)
-
-Defined in: [evaluation/scorers/baseScorer.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L180)
 
 Create a standardized score result
 
@@ -294,8 +268,6 @@ Create a standardized score result
 
 > `protected` **createErrorResult**(`error`): [`ScoreResult`](../type-aliases/ScoreResult.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L225)
-
 Create an error score result
 
 #### Parameters
@@ -314,8 +286,6 @@ Create an error score result
 
 > `protected` **executeWithTiming**(`scoringFn`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L244)
-
 Execute scoring with timing and error handling
 
 #### Parameters
@@ -333,8 +303,6 @@ Execute scoring with timing and error handling
 ### executeWithTimeout()
 
 > `protected` **executeWithTimeout**\<`T`\>(`fn`, `timeoutMs`, `operationName`): `Promise`\<`T`\>
-
-Defined in: [evaluation/scorers/baseScorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L272)
 
 Execute scoring with timeout
 
@@ -367,8 +335,6 @@ Execute scoring with timeout
 ### executeWithRetry()
 
 > `protected` **executeWithRetry**\<`T`\>(`operation`, `retries?`): `Promise`\<`T`\>
-
-Defined in: [evaluation/scorers/baseScorer.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L287)
 
 Execute with retry logic
 

@@ -8,8 +8,6 @@
 
 > **ProviderPairResult**\<`T`\> = `object`
 
-Defined in: [types/aliases.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L378)
-
 Provider pair result for fallback configurations
 Used when creating primary/fallback provider setups
 
@@ -25,12 +23,8 @@ Used when creating primary/fallback provider setups
 
 > **primary**: `T`
 
-Defined in: [types/aliases.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L379)
-
 ---
 
 ### fallback
 
 > **fallback**: `T`
-
-Defined in: [types/aliases.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L380)

@@ -8,6 +8,4 @@
 
 > **AgentInput** = `string` \| `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L67)
-
 Agent input - can be a string or structured data

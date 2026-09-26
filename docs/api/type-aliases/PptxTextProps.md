@@ -8,8 +8,6 @@
 
 > **PptxTextProps** = `object`
 
-Defined in: [types/ppt.ts:919](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L919)
-
 Text properties for addText method
 Represents individual text items with formatting options
 
@@ -19,15 +17,11 @@ Represents individual text items with formatting options
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:920](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L920)
-
 ---
 
 ### options?
 
 > `optional` **options?**: `object`
-
-Defined in: [types/ppt.ts:921](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L921)
 
 #### bullet?
 

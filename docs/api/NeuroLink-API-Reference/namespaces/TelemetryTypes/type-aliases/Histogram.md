@@ -8,15 +8,11 @@
 
 > **Histogram** = `object`
 
-Defined in: [types/providers.ts:2054](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2054)
-
 ## Methods
 
 ### record()
 
 > **record**(`value`, `attributes?`): `void`
-
-Defined in: [types/providers.ts:2055](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2055)
 
 #### Parameters
 

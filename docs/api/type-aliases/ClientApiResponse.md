@@ -8,8 +8,6 @@
 
 > **ClientApiResponse**\<`T`\> = `object`
 
-Defined in: [types/client.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L82)
-
 Response wrapper with metadata for all API responses
 
 ## Type Parameters
@@ -24,8 +22,6 @@ Response wrapper with metadata for all API responses
 
 > **data**: `T`
 
-Defined in: [types/client.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L84)
-
 Response data
 
 ---
@@ -33,8 +29,6 @@ Response data
 ### status
 
 > **status**: `number`
-
-Defined in: [types/client.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L86)
 
 HTTP status code
 
@@ -44,8 +38,6 @@ HTTP status code
 
 > **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L88)
-
 Response headers
 
 ---
@@ -54,8 +46,6 @@ Response headers
 
 > **duration**: `number`
 
-Defined in: [types/client.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L90)
-
 Request duration in milliseconds
 
 ---
@@ -63,7 +53,5 @@ Request duration in milliseconds
 ### requestId?
 
 > `optional` **requestId?**: `string`
-
-Defined in: [types/client.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L92)
 
 Request ID for tracing

@@ -8,8 +8,6 @@
 
 > **ClaudeLimitCaptureSlot** = `object`
 
-Defined in: [types/subscription.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L211)
-
 Per-request capture slot the Anthropic fetch wrapper writes into.
 
 Held in AsyncLocalStorage for the duration of a generate/stream call, so
@@ -23,12 +21,8 @@ report real response headers.
 
 > `optional` **snapshot?**: [`ClaudeLimitSnapshot`](ClaudeLimitSnapshot.md)
 
-Defined in: [types/subscription.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L212)
-
 ---
 
 ### headers?
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
-
-Defined in: [types/subscription.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L213)

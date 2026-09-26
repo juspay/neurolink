@@ -8,8 +8,6 @@
 
 > **ProcessedWord** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L758)
-
 Processed Word document result.
 
 ## Type Declaration

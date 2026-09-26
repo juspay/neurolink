@@ -8,8 +8,6 @@
 
 > **TaskStore** = `object`
 
-Defined in: [types/task.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L226)
-
 Abstracts task persistence. Auto-selected based on backend:
 
 - BullMQ → RedisTaskStore
@@ -21,15 +19,11 @@ Abstracts task persistence. Auto-selected based on backend:
 
 > `readonly` **type**: `"redis"` \| `"file"`
 
-Defined in: [types/task.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L227)
-
 ## Methods
 
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
-
-Defined in: [types/task.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L229)
 
 #### Returns
 
@@ -41,8 +35,6 @@ Defined in: [types/task.ts:229](https://github.com/juspay/neurolink/blob/release
 
 > **shutdown**(): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L230)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -52,8 +44,6 @@ Defined in: [types/task.ts:230](https://github.com/juspay/neurolink/blob/release
 ### save()
 
 > **save**(`task`): `Promise`\<`void`\>
-
-Defined in: [types/task.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L233)
 
 #### Parameters
 
@@ -71,8 +61,6 @@ Defined in: [types/task.ts:233](https://github.com/juspay/neurolink/blob/release
 
 > **get**(`taskId`): `Promise`\<[`Task`](Task.md) \| `null`\>
 
-Defined in: [types/task.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L234)
-
 #### Parameters
 
 ##### taskId
@@ -88,8 +76,6 @@ Defined in: [types/task.ts:234](https://github.com/juspay/neurolink/blob/release
 ### list()
 
 > **list**(`filter?`): `Promise`\<[`Task`](Task.md)[]\>
-
-Defined in: [types/task.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L235)
 
 #### Parameters
 
@@ -108,8 +94,6 @@ Defined in: [types/task.ts:235](https://github.com/juspay/neurolink/blob/release
 ### update()
 
 > **update**(`taskId`, `updates`): `Promise`\<[`Task`](Task.md)\>
-
-Defined in: [types/task.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L236)
 
 #### Parameters
 
@@ -131,8 +115,6 @@ Defined in: [types/task.ts:236](https://github.com/juspay/neurolink/blob/release
 
 > **delete**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L237)
-
 #### Parameters
 
 ##### taskId
@@ -148,8 +130,6 @@ Defined in: [types/task.ts:237](https://github.com/juspay/neurolink/blob/release
 ### appendRun()
 
 > **appendRun**(`taskId`, `run`): `Promise`\<`void`\>
-
-Defined in: [types/task.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L240)
 
 #### Parameters
 
@@ -170,8 +150,6 @@ Defined in: [types/task.ts:240](https://github.com/juspay/neurolink/blob/release
 ### getRuns()
 
 > **getRuns**(`taskId`, `options?`): `Promise`\<[`TaskRunResult`](TaskRunResult.md)[]\>
-
-Defined in: [types/task.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L241)
 
 #### Parameters
 
@@ -199,8 +177,6 @@ Defined in: [types/task.ts:241](https://github.com/juspay/neurolink/blob/release
 
 > **appendHistory**(`taskId`, `messages`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L247)
-
 #### Parameters
 
 ##### taskId
@@ -221,8 +197,6 @@ Defined in: [types/task.ts:247](https://github.com/juspay/neurolink/blob/release
 
 > **getHistory**(`taskId`): `Promise`\<[`ConversationEntry`](ConversationEntry.md)[]\>
 
-Defined in: [types/task.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L248)
-
 #### Parameters
 
 ##### taskId
@@ -238,8 +212,6 @@ Defined in: [types/task.ts:248](https://github.com/juspay/neurolink/blob/release
 ### clearHistory()
 
 > **clearHistory**(`taskId`): `Promise`\<`void`\>
-
-Defined in: [types/task.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L249)
 
 #### Parameters
 

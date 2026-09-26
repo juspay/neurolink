@@ -6,8 +6,6 @@
 
 # Class: MDocument
 
-Defined in: [rag/document/MDocument.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L47)
-
 MDocument class for comprehensive document processing
 
 Provides a chainable API for:
@@ -22,8 +20,6 @@ Provides a chainable API for:
 ### Constructor
 
 > **new MDocument**(`content`, `config?`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L56)
 
 Create a new MDocument instance
 
@@ -50,8 +46,6 @@ Document configuration
 ### fromText()
 
 > `static` **fromText**(`text`, `metadata?`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L82)
 
 Create MDocument from plain text
 
@@ -81,8 +75,6 @@ MDocument instance
 
 > `static` **fromMarkdown**(`markdown`, `metadata?`): `MDocument`
 
-Defined in: [rag/document/MDocument.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L92)
-
 Create MDocument from markdown content
 
 #### Parameters
@@ -110,8 +102,6 @@ MDocument instance
 ### fromHTML()
 
 > `static` **fromHTML**(`html`, `metadata?`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L105)
 
 Create MDocument from HTML content
 
@@ -141,8 +131,6 @@ MDocument instance
 
 > `static` **fromJSONContent**(`json`, `metadata?`): `MDocument`
 
-Defined in: [rag/document/MDocument.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L115)
-
 Create MDocument from JSON content
 
 #### Parameters
@@ -170,8 +158,6 @@ MDocument instance
 ### fromLaTeX()
 
 > `static` **fromLaTeX**(`latex`, `metadata?`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L130)
 
 Create MDocument from LaTeX content
 
@@ -201,8 +187,6 @@ MDocument instance
 
 > `static` **fromCSV**(`csv`, `metadata?`): `MDocument`
 
-Defined in: [rag/document/MDocument.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L143)
-
 Create MDocument from CSV content
 
 #### Parameters
@@ -231,8 +215,6 @@ MDocument instance
 
 > **chunk**(`params?`): `Promise`\<`MDocument`\>
 
-Defined in: [rag/document/MDocument.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L156)
-
 Chunk the document using specified strategy
 
 #### Parameters
@@ -254,8 +236,6 @@ This MDocument instance (for chaining)
 ### extractMetadata()
 
 > **extractMetadata**(`params`, `options?`): `Promise`\<`MDocument`\>
-
-Defined in: [rag/document/MDocument.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L195)
 
 Extract metadata from chunks using LLM
 
@@ -290,8 +270,6 @@ This MDocument instance (for chaining)
 ### embed()
 
 > **embed**(`provider?`, `modelName?`, `imageData?`, `mimeType?`): `Promise`\<`MDocument`\>
-
-Defined in: [rag/document/MDocument.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L256)
 
 Generate embeddings for all chunks
 
@@ -336,8 +314,6 @@ This MDocument instance (for chaining)
 
 > **embedMultiModal**(`provider?`, `modelName?`, `imageData?`, `mimeType?`): `Promise`\<`MDocument`\>
 
-Defined in: [rag/document/MDocument.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L327)
-
 Generate multi-modal embeddings for all chunks using text + optional image data.
 Uses a provider that supports multi-modal embeddings (e.g. Bedrock Titan Image).
 
@@ -381,8 +357,6 @@ This MDocument instance (for chaining)
 
 > **getId**(): `string`
 
-Defined in: [rag/document/MDocument.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L343)
-
 Get document ID
 
 #### Returns
@@ -394,8 +368,6 @@ Get document ID
 ### getContent()
 
 > **getContent**(): `string`
-
-Defined in: [rag/document/MDocument.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L350)
 
 Get raw document content
 
@@ -409,8 +381,6 @@ Get raw document content
 
 > **getType**(): [`DocumentType`](../type-aliases/DocumentType.md)
 
-Defined in: [rag/document/MDocument.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L357)
-
 Get document type
 
 #### Returns
@@ -422,8 +392,6 @@ Get document type
 ### getMetadata()
 
 > **getMetadata**(): `Record`\<`string`, `unknown`\>
-
-Defined in: [rag/document/MDocument.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L364)
 
 Get document metadata
 
@@ -437,8 +405,6 @@ Get document metadata
 
 > **getChunks**(): [`Chunk`](../type-aliases/Chunk.md)[]
 
-Defined in: [rag/document/MDocument.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L371)
-
 Get processed chunks
 
 #### Returns
@@ -450,8 +416,6 @@ Get processed chunks
 ### getEmbeddings()
 
 > **getEmbeddings**(): `number`[][]
-
-Defined in: [rag/document/MDocument.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L378)
 
 Get chunk embeddings
 
@@ -465,8 +429,6 @@ Get chunk embeddings
 
 > **getHistory**(): `string`[]
 
-Defined in: [rag/document/MDocument.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L385)
-
 Get processing history
 
 #### Returns
@@ -478,8 +440,6 @@ Get processing history
 ### isChunked()
 
 > **isChunked**(): `boolean`
-
-Defined in: [rag/document/MDocument.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L392)
 
 Check if document has been chunked
 
@@ -493,8 +453,6 @@ Check if document has been chunked
 
 > **hasEmbeddings**(): `boolean`
 
-Defined in: [rag/document/MDocument.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L399)
-
 Check if document has embeddings
 
 #### Returns
@@ -507,8 +465,6 @@ Check if document has embeddings
 
 > **getChunkCount**(): `number`
 
-Defined in: [rag/document/MDocument.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L406)
-
 Get chunk count
 
 #### Returns
@@ -520,8 +476,6 @@ Get chunk count
 ### setMetadata()
 
 > **setMetadata**(`key`, `value`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L420)
 
 Set document metadata
 
@@ -551,8 +505,6 @@ This MDocument instance (for chaining)
 
 > **mergeMetadata**(`metadata`): `MDocument`
 
-Defined in: [rag/document/MDocument.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L430)
-
 Merge metadata into document
 
 #### Parameters
@@ -574,8 +526,6 @@ This MDocument instance (for chaining)
 ### filterChunks()
 
 > **filterChunks**(`predicate`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:440](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L440)
 
 Filter chunks based on predicate
 
@@ -599,8 +549,6 @@ New MDocument with filtered chunks
 
 > **mapChunks**(`transform`): `MDocument`
 
-Defined in: [rag/document/MDocument.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L458)
-
 Map transformation over chunks
 
 #### Parameters
@@ -622,8 +570,6 @@ New MDocument with transformed chunks
 ### toJSON()
 
 > **toJSON**(): `object`
-
-Defined in: [rag/document/MDocument.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L476)
 
 Convert to plain object for serialization
 
@@ -660,8 +606,6 @@ Convert to plain object for serialization
 ### fromJSON()
 
 > `static` **fromJSON**(`json`): `MDocument`
-
-Defined in: [rag/document/MDocument.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/MDocument.ts#L499)
 
 Create MDocument from serialized JSON
 

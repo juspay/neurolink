@@ -8,8 +8,6 @@
 
 > **MCPTool** = [`ToolInfo`](ToolInfo.md) & `object`
 
-Defined in: [types/mcp.ts:2574](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2574)
-
 MCP Tool type with annotations
 
 ## Type Declaration

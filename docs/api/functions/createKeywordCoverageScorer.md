@@ -8,8 +8,6 @@
 
 > **createKeywordCoverageScorer**(`config?`): `Promise`\<`KeywordCoverageScorer`\>
 
-Defined in: [evaluation/scorers/rule/keywordCoverageScorer.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/keywordCoverageScorer.ts#L439)
-
 Factory function for creating KeywordCoverageScorer instances
 
 ## Parameters

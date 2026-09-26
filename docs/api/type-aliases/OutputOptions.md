@@ -8,8 +8,6 @@
 
 > **OutputOptions** = `object`
 
-Defined in: [types/cli.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L483)
-
 CLI output formatting options
 
 ## Properties
@@ -18,15 +16,11 @@ CLI output formatting options
 
 > **format**: `"text"` \| `"json"` \| `"table"` \| `"yaml"`
 
-Defined in: [types/cli.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L484)
-
 ---
 
 ### pretty?
 
 > `optional` **pretty?**: `boolean`
-
-Defined in: [types/cli.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L485)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/cli.ts:485](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **color?**: `boolean`
 
-Defined in: [types/cli.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L486)
-
 ---
 
 ### compact?
 
 > `optional` **compact?**: `boolean`
-
-Defined in: [types/cli.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L487)

@@ -6,8 +6,6 @@
 
 # Class: ChunkerRegistry
 
-Defined in: [rag/chunking/chunkerRegistry.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L24)
-
 Registry for chunking strategies
 Follows NeuroLink's factory pattern with lazy initialization
 
@@ -27,8 +25,6 @@ Follows NeuroLink's factory pattern with lazy initialization
 
 > `static` **initialize**(): `void`
 
-Defined in: [rag/chunking/chunkerRegistry.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L31)
-
 Initialize all built-in chunkers
 
 #### Returns
@@ -40,8 +36,6 @@ Initialize all built-in chunkers
 ### register()
 
 > `static` **register**(`strategy`, `factory`): `void`
-
-Defined in: [rag/chunking/chunkerRegistry.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L58)
 
 Register a custom chunker
 
@@ -69,8 +63,6 @@ Factory function that creates chunker instance
 
 > `static` **get**(`strategy`): [`Chunker`](../type-aliases/Chunker.md)
 
-Defined in: [rag/chunking/chunkerRegistry.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L68)
-
 Get a chunker by strategy name
 
 #### Parameters
@@ -97,8 +89,6 @@ Error if strategy is not registered
 
 > `static` **getAvailableStrategies**(): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)[]
 
-Defined in: [rag/chunking/chunkerRegistry.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L85)
-
 Get all available chunking strategies
 
 #### Returns
@@ -112,8 +102,6 @@ Array of strategy names
 ### has()
 
 > `static` **has**(`strategy`): `boolean`
-
-Defined in: [rag/chunking/chunkerRegistry.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L95)
 
 Check if a strategy is registered
 
@@ -137,8 +125,6 @@ True if strategy is registered
 
 > `static` **getRecommendedStrategy**(`contentType`): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)
 
-Defined in: [rag/chunking/chunkerRegistry.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L105)
-
 Get strategy recommendation based on content type
 
 #### Parameters
@@ -161,8 +147,6 @@ Recommended chunking strategy
 
 > `static` **getDefaultConfig**(`strategy`): `Record`\<`string`, `unknown`\>
 
-Defined in: [rag/chunking/chunkerRegistry.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L141)
-
 Get default configuration for a strategy
 
 #### Parameters
@@ -184,8 +168,6 @@ Default configuration object
 ### reset()
 
 > `static` **reset**(): `void`
-
-Defined in: [rag/chunking/chunkerRegistry.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/chunkerRegistry.ts#L204)
 
 Reset the registry (useful for testing)
 

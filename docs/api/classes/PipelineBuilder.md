@@ -6,8 +6,6 @@
 
 # Class: PipelineBuilder
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L18)
-
 Fluent builder for creating evaluation pipelines
 
 ## Constructors
@@ -15,8 +13,6 @@ Fluent builder for creating evaluation pipelines
 ### Constructor
 
 > **new PipelineBuilder**(`name?`): `PipelineBuilder`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L29)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [evaluation/pipeline/pipelineBuilder.ts:29](https://github.com/juspa
 ### create()
 
 > `static` **create**(`name?`): `PipelineBuilder`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L36)
 
 Create a new pipeline builder
 
@@ -54,8 +48,6 @@ Create a new pipeline builder
 
 > **name**(`name`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L43)
-
 Set pipeline name
 
 #### Parameters
@@ -74,8 +66,6 @@ Set pipeline name
 
 > **description**(`desc`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L51)
-
 Set pipeline description
 
 #### Parameters
@@ -93,8 +83,6 @@ Set pipeline description
 ### addScorer()
 
 > **addScorer**(`id`, `config?`): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L59)
 
 Add a scorer by ID
 
@@ -118,8 +106,6 @@ Add a scorer by ID
 
 > **addScorers**(...`ids`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L67)
-
 Add multiple scorers
 
 #### Parameters
@@ -137,8 +123,6 @@ Add multiple scorers
 ### requireScorer()
 
 > **requireScorer**(`id`, `config?`): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L77)
 
 Add a scorer and mark it as required
 
@@ -162,8 +146,6 @@ Add a scorer and mark it as required
 
 > **aggregateWith**(`method`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L97)
-
 Set aggregation method
 
 #### Parameters
@@ -181,8 +163,6 @@ Set aggregation method
 ### withWeights()
 
 > **withWeights**(`weights`): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L105)
 
 Set weights for weighted aggregation
 
@@ -202,8 +182,6 @@ Set weights for weighted aggregation
 
 > **customAggregation**(`fn`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L114)
-
 Set custom aggregation function
 
 #### Parameters
@@ -221,8 +199,6 @@ Set custom aggregation function
 ### passThreshold()
 
 > **passThreshold**(`threshold`): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L123)
 
 Set pass/fail threshold
 
@@ -242,8 +218,6 @@ Set pass/fail threshold
 
 > **parallel**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L131)
-
 Run scorers in parallel (default)
 
 #### Returns
@@ -255,8 +229,6 @@ Run scorers in parallel (default)
 ### sequential()
 
 > **sequential**(): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L139)
 
 Run scorers sequentially
 
@@ -270,8 +242,6 @@ Run scorers sequentially
 
 > **stopOnFailure**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L147)
-
 Stop pipeline on first failure
 
 #### Returns
@@ -284,8 +254,6 @@ Stop pipeline on first failure
 
 > **continueOnFailure**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L155)
-
 Continue pipeline on failures (default)
 
 #### Returns
@@ -297,8 +265,6 @@ Continue pipeline on failures (default)
 ### timeout()
 
 > **timeout**(`ms`): `this`
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L163)
 
 Set pipeline timeout
 
@@ -318,8 +284,6 @@ Set pipeline timeout
 
 > **buildConfig**(): [`PipelineConfig`](../type-aliases/PipelineConfig.md)
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L171)
-
 Build the pipeline configuration
 
 #### Returns
@@ -332,8 +296,6 @@ Build the pipeline configuration
 
 > **build**(): [`EvaluationPipeline`](EvaluationPipeline.md)
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L199)
-
 Build the pipeline (not initialized)
 
 #### Returns
@@ -345,8 +307,6 @@ Build the pipeline (not initialized)
 ### buildAndInitialize()
 
 > **buildAndInitialize**(): `Promise`\<[`EvaluationPipeline`](EvaluationPipeline.md)\>
-
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/pipelineBuilder.ts#L206)
 
 Build and initialize the pipeline
 

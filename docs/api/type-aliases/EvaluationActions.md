@@ -8,15 +8,11 @@
 
 > **EvaluationActions** = `object`
 
-Defined in: [types/guardrails.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L40)
-
 ## Properties
 
 ### onUnsafe?
 
 > `optional` **onUnsafe?**: `"block"` \| `"sanitize"` \| `"warn"` \| `"log"`
-
-Defined in: [types/guardrails.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L41)
 
 ---
 
@@ -24,12 +20,8 @@ Defined in: [types/guardrails.ts:41](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **onInappropriate?**: `"block"` \| `"sanitize"` \| `"warn"` \| `"log"`
 
-Defined in: [types/guardrails.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L42)
-
 ---
 
 ### onSuspicious?
 
 > `optional` **onSuspicious?**: `"warn"` \| `"log"` \| `"allow"`
-
-Defined in: [types/guardrails.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L43)

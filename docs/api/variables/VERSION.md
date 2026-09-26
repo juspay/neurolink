@@ -7,5 +7,3 @@
 # Variable: VERSION
 
 > `const` **VERSION**: `"1.0.0"` = `"1.0.0"`
-
-Defined in: [index.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L442)

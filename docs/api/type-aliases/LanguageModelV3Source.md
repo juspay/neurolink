@@ -8,15 +8,11 @@
 
 > **LanguageModelV3Source** = `object`
 
-Defined in: [types/aiCompat.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L387)
-
 ## Properties
 
 ### type
 
 > **type**: `"source"`
-
-Defined in: [types/aiCompat.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L388)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/aiCompat.ts:388](https://github.com/juspay/neurolink/blob/rel
 
 > **sourceType**: `string`
 
-Defined in: [types/aiCompat.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L389)
-
 ---
 
 ### id
 
 > **id**: `string`
-
-Defined in: [types/aiCompat.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L390)
 
 ---
 
@@ -40,12 +32,8 @@ Defined in: [types/aiCompat.ts:390](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **url?**: `string`
 
-Defined in: [types/aiCompat.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L391)
-
 ---
 
 ### title?
 
 > `optional` **title?**: `string`
-
-Defined in: [types/aiCompat.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L392)

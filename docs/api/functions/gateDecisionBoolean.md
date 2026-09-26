@@ -8,8 +8,6 @@
 
 > **gateDecisionBoolean**(`answers`, `id`, `gate?`): `boolean` \| `undefined`
 
-Defined in: [utils/decisionAnswers.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L99)
-
 Read a yes/no answer as an actionable decision, or `undefined` when there
 is not enough signal to act.
 

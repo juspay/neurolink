@@ -8,8 +8,6 @@
 
 > **registerAllRoutes**(`adapter`, `basePath?`, `options?`): `void`
 
-Defined in: [server/routes/index.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/server/routes/index.ts#L88)
-
 Register all routes with a server adapter
 
 ## Parameters

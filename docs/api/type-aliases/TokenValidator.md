@@ -8,8 +8,6 @@
 
 > **TokenValidator** = (`token`) => `Promise`\<[`AuthenticatedUser`](AuthenticatedUser.md) \| `null`\> \| [`AuthenticatedUser`](AuthenticatedUser.md) \| `null`
 
-Defined in: [types/middleware.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L410)
-
 Token-validation function signature.
 
 ## Parameters

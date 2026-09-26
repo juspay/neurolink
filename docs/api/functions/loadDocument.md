@@ -8,8 +8,6 @@
 
 > **loadDocument**(`source`, `options?`): `Promise`\<[`MDocument`](../classes/MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L647)
-
 Load document from file path, URL, or content
 
 Automatically detects the document type and uses the appropriate loader.

@@ -8,15 +8,11 @@
 
 > **RollingProxyServer** = `object`
 
-Defined in: [types/proxy.ts:3572](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3572)
-
 ## Properties
 
 ### address
 
 > **address**: `object`
-
-Defined in: [types/proxy.ts:3573](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3573)
 
 #### host
 
@@ -31,8 +27,6 @@ Defined in: [types/proxy.ts:3573](https://github.com/juspay/neurolink/blob/relea
 ### replace
 
 > **replace**: (`expectedVersion`) => `Promise`\<[`RollingWorkerSupervisorSnapshot`](RollingWorkerSupervisorSnapshot.md)\>
-
-Defined in: [types/proxy.ts:3574](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3574)
 
 #### Parameters
 
@@ -50,8 +44,6 @@ Defined in: [types/proxy.ts:3574](https://github.com/juspay/neurolink/blob/relea
 
 > **snapshot**: () => [`RollingWorkerSupervisorSnapshot`](RollingWorkerSupervisorSnapshot.md)
 
-Defined in: [types/proxy.ts:3577](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3577)
-
 #### Returns
 
 [`RollingWorkerSupervisorSnapshot`](RollingWorkerSupervisorSnapshot.md)
@@ -61,8 +53,6 @@ Defined in: [types/proxy.ts:3577](https://github.com/juspay/neurolink/blob/relea
 ### close
 
 > **close**: () => `Promise`\<`void`\>
-
-Defined in: [types/proxy.ts:3578](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3578)
 
 #### Returns
 

@@ -8,8 +8,6 @@
 
 > **FailedFileInfo** = `object`
 
-Defined in: [types/processor.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L240)
-
 Information about a file that failed to process.
 
 ## Properties
@@ -17,8 +15,6 @@ Information about a file that failed to process.
 ### fileId
 
 > **fileId**: `string`
-
-Defined in: [types/processor.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L242)
 
 File identifier
 
@@ -28,8 +24,6 @@ File identifier
 
 > **filename**: `string`
 
-Defined in: [types/processor.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L244)
-
 Filename
 
 ---
@@ -37,8 +31,6 @@ Filename
 ### mimetype
 
 > **mimetype**: `string`
-
-Defined in: [types/processor.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L246)
 
 MIME type
 
@@ -48,8 +40,6 @@ MIME type
 
 > **size**: `number`
 
-Defined in: [types/processor.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L248)
-
 Size in bytes
 
 ---
@@ -57,7 +47,5 @@ Size in bytes
 ### error
 
 > **error**: [`FileProcessingError`](FileProcessingError.md)
-
-Defined in: [types/processor.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L250)
 
 Error that caused the failure

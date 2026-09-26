@@ -8,8 +8,6 @@
 
 > **UseStreamReturn** = `object`
 
-Defined in: [types/client.ts:786](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L786)
-
 useStream hook return type
 
 ## Properties
@@ -17,8 +15,6 @@ useStream hook return type
 ### start
 
 > **start**: (`options`) => `void`
-
-Defined in: [types/client.ts:788](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L788)
 
 Start streaming
 
@@ -38,8 +34,6 @@ Start streaming
 
 > **stop**: () => `void`
 
-Defined in: [types/client.ts:790](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L790)
-
 Stop streaming
 
 #### Returns
@@ -52,8 +46,6 @@ Stop streaming
 
 > **text**: `string`
 
-Defined in: [types/client.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L792)
-
 Current text content
 
 ---
@@ -61,8 +53,6 @@ Current text content
 ### events
 
 > **events**: [`ClientStreamEvent`](ClientStreamEvent.md)[]
-
-Defined in: [types/client.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L794)
 
 All events received
 
@@ -72,8 +62,6 @@ All events received
 
 > **isStreaming**: `boolean`
 
-Defined in: [types/client.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L796)
-
 Streaming state
 
 ---
@@ -81,7 +69,5 @@ Streaming state
 ### error
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
-
-Defined in: [types/client.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L798)
 
 Error state

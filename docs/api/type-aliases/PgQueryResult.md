@@ -8,8 +8,6 @@
 
 > **PgQueryResult**\<`T`\> = `object`
 
-Defined in: [types/rag.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L541)
-
 Minimal shape of a query result, satisfied by both `pg` and `pglite`.
 
 ## Type Parameters
@@ -23,5 +21,3 @@ Minimal shape of a query result, satisfied by both `pg` and `pglite`.
 ### rows
 
 > **rows**: `T`[]
-
-Defined in: [types/rag.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L542)

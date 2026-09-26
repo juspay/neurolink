@@ -8,8 +8,6 @@
 
 > **NetworkInfo** = `object`
 
-Defined in: [types/agentNetwork.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1486)
-
 Network info
 
 ## Properties
@@ -18,15 +16,11 @@ Network info
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:1487](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1487)
-
 ---
 
 ### name
 
 > **name**: `string`
-
-Defined in: [types/agentNetwork.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1488)
 
 ---
 
@@ -34,15 +28,11 @@ Defined in: [types/agentNetwork.ts:1488](https://github.com/juspay/neurolink/blo
 
 > **state**: [`NetworkState`](NetworkState.md)
 
-Defined in: [types/agentNetwork.ts:1489](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1489)
-
 ---
 
 ### agentCount
 
 > **agentCount**: `number`
-
-Defined in: [types/agentNetwork.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1490)
 
 ---
 
@@ -50,15 +40,11 @@ Defined in: [types/agentNetwork.ts:1490](https://github.com/juspay/neurolink/blo
 
 > **mode**: [`OrchestrationMode`](OrchestrationMode.md)
 
-Defined in: [types/agentNetwork.ts:1491](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1491)
-
 ---
 
 ### createdAt
 
 > **createdAt**: `number`
-
-Defined in: [types/agentNetwork.ts:1492](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1492)
 
 ---
 
@@ -66,15 +52,11 @@ Defined in: [types/agentNetwork.ts:1492](https://github.com/juspay/neurolink/blo
 
 > `optional` **lastExecutionAt?**: `number`
 
-Defined in: [types/agentNetwork.ts:1493](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1493)
-
 ---
 
 ### executionCount
 
 > **executionCount**: `number`
-
-Defined in: [types/agentNetwork.ts:1494](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1494)
 
 ---
 
@@ -82,12 +64,8 @@ Defined in: [types/agentNetwork.ts:1494](https://github.com/juspay/neurolink/blo
 
 > `optional` **parentNetworkId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1495](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1495)
-
 ---
 
 ### childNetworkIds
 
 > **childNetworkIds**: `string`[]
-
-Defined in: [types/agentNetwork.ts:1496](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1496)

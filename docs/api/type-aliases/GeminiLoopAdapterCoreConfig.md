@@ -8,8 +8,6 @@
 
 > **GeminiLoopAdapterCoreConfig** = `object`
 
-Defined in: [types/loopEngine.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L476)
-
 Construction input for `createGeminiLoopAdapter`, shared by Google AI Studio
 and Vertex Gemini. Both issue `models.generateContentStream` and consume the
 same response shape, so one adapter serves four hand-rolled loops.
@@ -20,8 +18,6 @@ same response shape, so one adapter serves four hand-rolled loops.
 
 > **providerLabel**: `string`
 
-Defined in: [types/loopEngine.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L478)
-
 Used in log lines and generated tool-call ids.
 
 ---
@@ -30,15 +26,11 @@ Used in log lines and generated tool-call ids.
 
 > **maxSteps**: `number`
 
-Defined in: [types/loopEngine.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L479)
-
 ---
 
 ### buildRequest
 
 > **buildRequest**: (`conversation`, `step`) => `unknown`
-
-Defined in: [types/loopEngine.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L481)
 
 Build one step's request object (model, contents, config).
 
@@ -62,8 +54,6 @@ Build one step's request object (model, contents, config).
 
 > **sendStep**: (`request`, `signal`) => `Promise`\<`AsyncIterable`\<\{\[`key`: `string`\]: `unknown`; `functionCalls?`: [`NativeFunctionCall`](NativeFunctionCall.md)[]; \}\>\>
 
-Defined in: [types/loopEngine.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L483)
-
 Issue the request. Kept injectable so each provider keeps its own client.
 
 #### Parameters
@@ -86,8 +76,6 @@ Issue the request. Kept injectable so each provider keeps its own client.
 
 > **liveTools**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
-Defined in: [types/loopEngine.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L497)
-
 The turn's live tool record. Mid-turn `search_tools` discovery hydrates
 into this, which is what both the declaration refresh and
 `resolveToolOnMiss` read.
@@ -97,8 +85,6 @@ into this, which is what both the declaration refresh and
 ### declarations?
 
 > `optional` **declarations?**: [`NativeToolDeclarationsResult`](NativeToolDeclarationsResult.md)
-
-Defined in: [types/loopEngine.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L503)
 
 Declarations built for this turn. Carries `originalNameMap`, which keeps
 Google's function-name sanitization on the adapter side of the engine
@@ -110,15 +96,11 @@ boundary.
 
 > `optional` **toolFailureBreaker?**: [`AgenticLoopToolFailureBreaker`](AgenticLoopToolFailureBreaker.md)
 
-Defined in: [types/loopEngine.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L504)
-
 ---
 
 ### planReclaim?
 
 > `optional` **planReclaim?**: (`conversation`, `step`) => [`AgenticLoopReclaimResult`](AgenticLoopReclaimResult.md)\<[`GeminiTurnContent`](GeminiTurnContent.md)[]\> \| `undefined`
-
-Defined in: [types/loopEngine.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L517)
 
 In-turn context reclaim, run once per step before the request is built.
 Returns the rebuilt conversation when it reclaimed, undefined when the
@@ -151,8 +133,6 @@ window mid-turn and loses every completed step.
 
 > `optional` **noteUsage?**: (`inputTokens`, `outputTokens`) => `void`
 
-Defined in: [types/loopEngine.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L525)
-
 Usage feedback for the provider's own context guard, called after each
 step with that step's real token counts.
 
@@ -176,8 +156,6 @@ step with that step's real token counts.
 
 > `optional` **toolGuards?**: [`ToolExecutionGuards`](ToolExecutionGuards.md)
 
-Defined in: [types/loopEngine.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L535)
-
 The same guards `buildDedupedEngineTools` wraps declared tools in, applied
 to one hydrated mid-turn.
 
@@ -192,8 +170,6 @@ the one most likely to be called repeatedly with the same arguments.
 
 > `optional` **finalResultToolName?**: `string`
 
-Defined in: [types/loopEngine.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L543)
-
 Name of the terminal structured-output tool when one is in play. A call
 to it ends the turn: its arguments ARE the answer, so it is reported as
 text and omitted from `toolCalls`, which routes it through the engine's
@@ -205,8 +181,6 @@ the breaker, never recorded as a tool execution.
 ### onTerminalResult?
 
 > `optional` **onTerminalResult?**: (`text`) => `void`
-
-Defined in: [types/loopEngine.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L553)
 
 Called with the terminal tool's payload when one was actually detected.
 
@@ -231,8 +205,6 @@ differently. Comparing strings to tell them apart would be guesswork.
 ### collectStep?
 
 > `optional` **collectStep?**: (`stream`, `channel`) => `Promise`\<[`CollectedChunkResult`](CollectedChunkResult.md)\>
-
-Defined in: [types/loopEngine.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L567)
 
 Fold one step's raw stream into the shape the adapter reports.
 

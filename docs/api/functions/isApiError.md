@@ -8,8 +8,6 @@
 
 > **isApiError**(`error`): `error is ClientApiError`
 
-Defined in: [client/errors.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/client/errors.ts#L764)
-
 Type guard for ClientApiError
 
 ## Parameters

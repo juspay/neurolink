@@ -8,8 +8,6 @@
 
 > **BatchFileProcessingResult** = `object`
 
-Defined in: [types/processor.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1100)
-
 Result of processing multiple files through the registry.
 Categorizes files into successful, failed, and skipped.
 
@@ -40,8 +38,6 @@ for (const { fileInfo, reason } of result.skipped) {
 
 > **successful**: `object`[]
 
-Defined in: [types/processor.ts:1102](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1102)
-
 Successfully processed files
 
 #### fileInfo
@@ -62,8 +58,6 @@ Successfully processed files
 
 > **failed**: `object`[]
 
-Defined in: [types/processor.ts:1108](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1108)
-
 Files that failed to process
 
 #### fileInfo
@@ -79,8 +73,6 @@ Files that failed to process
 ### skipped
 
 > **skipped**: `object`[]
-
-Defined in: [types/processor.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1113)
 
 Files that were skipped (no processor found or over limit)
 

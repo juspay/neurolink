@@ -8,8 +8,6 @@
 
 > **RequiredBodyParserConfig** = `object`
 
-Defined in: [types/server.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L171)
-
 Required body parser configuration
 
 ## Properties
@@ -18,15 +16,11 @@ Required body parser configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L172)
-
 ---
 
 ### maxSize
 
 > **maxSize**: `string`
-
-Defined in: [types/server.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L173)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/server.ts:173](https://github.com/juspay/neurolink/blob/relea
 
 > **jsonLimit**: `string`
 
-Defined in: [types/server.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L174)
-
 ---
 
 ### urlEncoded
 
 > **urlEncoded**: `boolean`
-
-Defined in: [types/server.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L175)

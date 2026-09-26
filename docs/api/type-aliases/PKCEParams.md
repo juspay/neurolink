@@ -8,8 +8,6 @@
 
 > **PKCEParams** = `object`
 
-Defined in: [types/subscription.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1030)
-
 PKCE (Proof Key for Code Exchange) parameters
 
 ## Properties
@@ -17,8 +15,6 @@ PKCE (Proof Key for Code Exchange) parameters
 ### codeVerifier
 
 > **codeVerifier**: `string`
-
-Defined in: [types/subscription.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1032)
 
 Code verifier - random string used to generate challenge
 
@@ -28,8 +24,6 @@ Code verifier - random string used to generate challenge
 
 > **codeChallenge**: `string`
 
-Defined in: [types/subscription.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1034)
-
 Code challenge - SHA-256 hash of verifier, base64url encoded
 
 ---
@@ -37,7 +31,5 @@ Code challenge - SHA-256 hash of verifier, base64url encoded
 ### codeChallengeMethod
 
 > **codeChallengeMethod**: `"S256"`
-
-Defined in: [types/subscription.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1036)
 
 Code challenge method - always "S256"

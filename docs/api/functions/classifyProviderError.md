@@ -8,8 +8,6 @@
 
 > **classifyProviderError**(`error`): [`ProviderErrorClass`](../type-aliases/ProviderErrorClass.md)
 
-Defined in: [routing/modelPool.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L65)
-
 Classify a provider error into a coarse `ProviderErrorClass`.
 
 Rules (checked in order):

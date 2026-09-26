@@ -8,8 +8,6 @@
 
 > **ToolArgs** = [`BaseToolArgs`](BaseToolArgs.md) & `object`
 
-Defined in: [types/tools.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L65)
-
 Tool execution arguments with specific common patterns
 
 ## Type Declaration

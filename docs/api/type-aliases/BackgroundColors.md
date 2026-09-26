@@ -8,8 +8,6 @@
 
 > **BackgroundColors** = `object`
 
-Defined in: [types/ppt.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1282)
-
 Theme colors extracted for background rendering
 
 ## Properties
@@ -18,15 +16,11 @@ Theme colors extracted for background rendering
 
 > **primary**: `string`
 
-Defined in: [types/ppt.ts:1283](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1283)
-
 ---
 
 ### secondary
 
 > **secondary**: `string`
-
-Defined in: [types/ppt.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1284)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/ppt.ts:1284](https://github.com/juspay/neurolink/blob/release
 
 > **accent**: `string`
 
-Defined in: [types/ppt.ts:1285](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1285)
-
 ---
 
 ### background
 
 > **background**: `string`
-
-Defined in: [types/ppt.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1286)

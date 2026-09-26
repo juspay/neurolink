@@ -8,8 +8,6 @@
 
 > **ToolUtilities** = `object`
 
-Defined in: [types/common.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L469)
-
 Utility functions for tool management.
 
 ## Properties
@@ -17,8 +15,6 @@ Utility functions for tool management.
 ### isZodSchema?
 
 > `optional` **isZodSchema?**: (`schema`) => `boolean`
-
-Defined in: [types/common.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L470)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [types/common.ts:470](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **convertToolResult?**: (`result`) => `Promise`\<`unknown`\>
 
-Defined in: [types/common.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L471)
-
 #### Parameters
 
 ##### result
@@ -54,8 +48,6 @@ Defined in: [types/common.ts:471](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **createPermissiveZodSchema?**: () => `z.ZodSchema`
 
-Defined in: [types/common.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L472)
-
 #### Returns
 
 `z.ZodSchema`
@@ -65,8 +57,6 @@ Defined in: [types/common.ts:472](https://github.com/juspay/neurolink/blob/relea
 ### fixSchemaForOpenAIStrictMode?
 
 > `optional` **fixSchemaForOpenAIStrictMode?**: (`schema`) => `Record`\<`string`, `unknown`\>
-
-Defined in: [types/common.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L473)
 
 #### Parameters
 

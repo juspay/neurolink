@@ -8,15 +8,11 @@
 
 > **AgenticLoopOptions** = `object`
 
-Defined in: [types/loopEngine.ts:611](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L611)
-
 ## Properties
 
 ### tools?
 
 > `optional` **tools?**: `Record`\<`string`, \{ `execute?`: (`args`, `opts`) => `Promise`\<`unknown`\>; \}\>
-
-Defined in: [types/loopEngine.ts:612](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L612)
 
 ---
 
@@ -24,15 +20,11 @@ Defined in: [types/loopEngine.ts:612](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/loopEngine.ts:621](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L621)
-
 ---
 
 ### span?
 
 > `optional` **span?**: `Span`
-
-Defined in: [types/loopEngine.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L634)
 
 Span the per-step provider retry annotates, via
 `withProviderRetry(..., span, ...)` — it records
@@ -50,8 +42,6 @@ because only they threaded a span before moving onto the engine.
 ### toolTimeoutMs?
 
 > `optional` **toolTimeoutMs?**: `number` \| `null`
-
-Defined in: [types/loopEngine.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L658)
 
 Upper bound on a single `tool.execute()` (ms), or `null` for no bound.
 Defaults to `DEFAULT_TOOL_EXECUTION_TIMEOUT_MS` (300_000) when omitted.
@@ -80,8 +70,6 @@ asked for.
 ### beforeStep?
 
 > `optional` **beforeStep?**: (`context`) => `Promise`\<[`ExecutionControlDecision`](ExecutionControlDecision.md) \| `undefined`\>
-
-Defined in: [types/loopEngine.ts:672](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L672)
 
 Step-boundary callback. Runs after a step's tool results have settled and
 been written into the conversation, and BEFORE the loop re-checks the step

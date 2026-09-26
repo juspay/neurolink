@@ -8,8 +8,6 @@
 
 > **streamBatchEvaluation**(`pipeline`, `inputs`, `config?`): `AsyncGenerator`\<[`BatchItemResult`](../type-aliases/BatchItemResult.md), \{ `total`: `number`; `succeeded`: `number`; `failed`: `number`; `averageScore`: `number`; `averageDuration`: `number`; `totalDuration`: `number`; `passingRate`: `number`; \}, `void`\>
 
-Defined in: [evaluation/pipeline/strategies/batchStrategy.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/batchStrategy.ts#L240)
-
 Stream batch evaluation results
 
 ## Parameters

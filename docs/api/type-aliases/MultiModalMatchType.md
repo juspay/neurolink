@@ -8,6 +8,4 @@
 
 > **MultiModalMatchType** = `"text-to-text"` \| `"text-to-image"` \| `"image-to-image"` \| `"image-to-text"`
 
-Defined in: [types/rag.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1730)
-
 Match type indicating how the result was found

@@ -8,8 +8,6 @@
 
 > **OpenAICompletionResponse** = `object`
 
-Defined in: [types/proxy.ts:4037](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4037)
-
 OpenAI non-streaming response.
 
 ## Properties
@@ -18,15 +16,11 @@ OpenAI non-streaming response.
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:4038](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4038)
-
 ---
 
 ### object
 
 > **object**: `"chat.completion"`
-
-Defined in: [types/proxy.ts:4039](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4039)
 
 ---
 
@@ -34,23 +28,17 @@ Defined in: [types/proxy.ts:4039](https://github.com/juspay/neurolink/blob/relea
 
 > **created**: `number`
 
-Defined in: [types/proxy.ts:4040](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4040)
-
 ---
 
 ### model
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:4041](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4041)
-
 ---
 
 ### choices
 
 > **choices**: `object`[]
-
-Defined in: [types/proxy.ts:4042](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4042)
 
 #### index
 
@@ -81,5 +69,3 @@ Defined in: [types/proxy.ts:4042](https://github.com/juspay/neurolink/blob/relea
 ### usage
 
 > **usage**: [`OpenAIUsage`](OpenAIUsage.md)
-
-Defined in: [types/proxy.ts:4051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4051)

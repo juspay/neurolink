@@ -8,8 +8,6 @@
 
 > **listWorkflows**(`options?`): [`WorkflowConfig`](../type-aliases/WorkflowConfig.md)[]
 
-Defined in: [workflow/core/workflowRegistry.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/workflow/core/workflowRegistry.ts#L159)
-
 List all registered workflows
 
 ## Parameters

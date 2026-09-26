@@ -8,8 +8,6 @@
 
 > **createToolCache**\<`T`\>(`config`): [`ToolCache`](../classes/ToolCache.md)\<`T`\>
 
-Defined in: [mcp/caching/toolCache.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L496)
-
 Factory function to create a ToolCache instance
 
 ## Type Parameters

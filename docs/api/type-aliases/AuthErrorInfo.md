@@ -8,8 +8,6 @@
 
 > **AuthErrorInfo** = `Error` & `object`
 
-Defined in: [types/auth.ts:906](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L906)
-
 Auth error information with additional context.
 
 Renamed from `AuthError` to `AuthErrorInfo` to avoid collision with the

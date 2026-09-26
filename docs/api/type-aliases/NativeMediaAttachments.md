@@ -8,8 +8,6 @@
 
 > **NativeMediaAttachments** = `object`
 
-Defined in: [types/file.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L194)
-
 Media collected during file detection that a provider may be able to
 consume directly, rather than as a text summary.
 
@@ -25,23 +23,17 @@ every call site.
 
 > `readonly` `optional` **audio?**: [`MultimodalAudioEntry`](MultimodalAudioEntry.md)[]
 
-Defined in: [types/file.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L195)
-
 ---
 
 ### video?
 
 > `readonly` `optional` **video?**: [`MultimodalVideoEntry`](MultimodalVideoEntry.md)[]
 
-Defined in: [types/file.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L196)
-
 ---
 
 ### outputFormat?
 
 > `readonly` `optional` **outputFormat?**: [`VisionImageOutputFormat`](VisionImageOutputFormat.md)
-
-Defined in: [types/file.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L203)
 
 Transcode target for an incompatible image (see
 `GenerateOptions.imageOptions`). Not itself a native attachment, but

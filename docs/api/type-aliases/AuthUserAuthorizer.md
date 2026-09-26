@@ -8,8 +8,6 @@
 
 > **AuthUserAuthorizer** = `object`
 
-Defined in: [types/auth.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1093)
-
 Authorization: check roles and permissions.
 
 ## Methods
@@ -17,8 +15,6 @@ Authorization: check roles and permissions.
 ### authorizeUser()
 
 > **authorizeUser**(`user`, `permission`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
-
-Defined in: [types/auth.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1095)
 
 Check if a user is authorized to perform an action
 
@@ -42,8 +38,6 @@ Check if a user is authorized to perform an action
 
 > **authorizeRoles**(`user`, `roles`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
 
-Defined in: [types/auth.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1101)
-
 Check if user has specific roles
 
 #### Parameters
@@ -65,8 +59,6 @@ Check if user has specific roles
 ### authorizePermissions()
 
 > **authorizePermissions**(`user`, `permissions`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
-
-Defined in: [types/auth.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1104)
 
 Check if user has all specified permissions
 

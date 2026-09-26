@@ -8,8 +8,6 @@
 
 > **ProcessorFileProcessingResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L148)
-
 Result of a file processing operation.
 Uses discriminated union pattern for type-safe error handling.
 
@@ -36,8 +34,6 @@ if (result.success) {
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L152)
-
 Whether the processing was successful
 
 ---
@@ -46,8 +42,6 @@ Whether the processing was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/processor.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L154)
-
 Processed file data (present when success is true)
 
 ---
@@ -55,7 +49,5 @@ Processed file data (present when success is true)
 ### error?
 
 > `optional` **error?**: [`FileProcessingError`](FileProcessingError.md)
-
-Defined in: [types/processor.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L156)
 
 Error information (present when success is false)

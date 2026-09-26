@@ -8,8 +8,6 @@
 
 > **ToneShift** = `object`
 
-Defined in: [types/scorer.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L673)
-
 Tone-shift location reported by the tone-consistency scorer.
 
 ## Properties
@@ -18,15 +16,11 @@ Tone-shift location reported by the tone-consistency scorer.
 
 > `optional` **location?**: `string`
 
-Defined in: [types/scorer.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L674)
-
 ---
 
 ### from?
 
 > `optional` **from?**: `string`
-
-Defined in: [types/scorer.ts:675](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L675)
 
 ---
 
@@ -34,12 +28,8 @@ Defined in: [types/scorer.ts:675](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **to?**: `string`
 
-Defined in: [types/scorer.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L676)
-
 ---
 
 ### severity?
 
 > `optional` **severity?**: `string`
-
-Defined in: [types/scorer.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L677)

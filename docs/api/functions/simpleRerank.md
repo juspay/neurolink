@@ -8,8 +8,6 @@
 
 > **simpleRerank**(`results`, `options?`): [`RerankResult`](../type-aliases/RerankResult.md)[]
 
-Defined in: [rag/reranker/reranker.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/rag/reranker/reranker.ts#L333)
-
 Simple position-based reranker (no LLM required)
 Uses only vector score and position
 

@@ -6,8 +6,6 @@
 
 # Class: CircuitBreakerOpenError
 
-Defined in: [types/circuitBreakerErrors.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L14)
-
 Typed error thrown when a circuit breaker is open or half-open call limit is reached.
 Contains structured metadata so callers can build actionable error messages
 for AI models and downstream consumers.
@@ -21,8 +19,6 @@ for AI models and downstream consumers.
 ### Constructor
 
 > **new CircuitBreakerOpenError**(`options`): `CircuitBreakerOpenError`
-
-Defined in: [types/circuitBreakerErrors.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L26)
 
 #### Parameters
 
@@ -62,8 +58,6 @@ Defined in: [types/circuitBreakerErrors.ts:26](https://github.com/juspay/neuroli
 
 > `readonly` **breakerName**: `string`
 
-Defined in: [types/circuitBreakerErrors.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L16)
-
 The circuit breaker name (e.g., "tool-execution-bitbucket-server-add_comment")
 
 ---
@@ -71,8 +65,6 @@ The circuit breaker name (e.g., "tool-execution-bitbucket-server-add_comment")
 ### retryAfter
 
 > `readonly` **retryAfter**: `string`
-
-Defined in: [types/circuitBreakerErrors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L18)
 
 ISO timestamp when the circuit breaker will transition to half-open and allow a retry
 
@@ -82,8 +74,6 @@ ISO timestamp when the circuit breaker will transition to half-open and allow a 
 
 > `readonly` **retryAfterMs**: `number`
 
-Defined in: [types/circuitBreakerErrors.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L20)
-
 Milliseconds until the circuit breaker will allow a retry
 
 ---
@@ -92,8 +82,6 @@ Milliseconds until the circuit breaker will allow a retry
 
 > `readonly` **breakerState**: [`CircuitBreakerState`](../type-aliases/CircuitBreakerState.md)
 
-Defined in: [types/circuitBreakerErrors.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L22)
-
 Current circuit breaker state ("open" or "half-open")
 
 ---
@@ -101,7 +89,5 @@ Current circuit breaker state ("open" or "half-open")
 ### failureCount
 
 > `readonly` **failureCount**: `number`
-
-Defined in: [types/circuitBreakerErrors.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/circuitBreakerErrors.ts#L24)
 
 Number of failures that caused the circuit to open

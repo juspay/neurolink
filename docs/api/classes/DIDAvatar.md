@@ -6,8 +6,6 @@
 
 # Class: DIDAvatar
 
-Defined in: [avatar/providers/DIDAvatar.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L47)
-
 D-ID Avatar Handler.
 
 Auth: `Authorization: Basic ${DID_API_KEY}` (the API key is
@@ -25,8 +23,6 @@ Env vars: `DID_API_KEY` (preferred) / `D_ID_API_KEY` (legacy alias).
 
 > **new DIDAvatar**(`apiKey?`): `DIDAvatar`
 
-Defined in: [avatar/providers/DIDAvatar.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L54)
-
 #### Parameters
 
 ##### apiKey?
@@ -43,8 +39,6 @@ Defined in: [avatar/providers/DIDAvatar.ts:54](https://github.com/juspay/neuroli
 
 > `readonly` **maxAudioDurationSeconds**: `60` = `60`
 
-Defined in: [avatar/providers/DIDAvatar.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L48)
-
 Maximum supported audio length in seconds (provider-specific).
 
 #### Implementation of
@@ -57,8 +51,6 @@ Maximum supported audio length in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`AvatarVideoFormat`](../type-aliases/AvatarVideoFormat.md)[]
 
-Defined in: [avatar/providers/DIDAvatar.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L49)
-
 Output formats supported by this handler.
 
 #### Implementation of
@@ -70,8 +62,6 @@ Output formats supported by this handler.
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [avatar/providers/DIDAvatar.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L69)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -88,8 +78,6 @@ Validate the provider is configured (auth, base URL, etc.).
 ### generate()
 
 > **generate**(`options`): `Promise`\<[`AvatarResult`](../type-aliases/AvatarResult.md)\>
-
-Defined in: [avatar/providers/DIDAvatar.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L73)
 
 Generate a talking-head video from an image + audio (or pre-rendered text).
 

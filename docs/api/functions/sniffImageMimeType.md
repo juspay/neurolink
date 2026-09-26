@@ -8,8 +8,6 @@
 
 > **sniffImageMimeType**(`buffer`): `string` \| `null`
 
-Defined in: [utils/imageDetection.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/utils/imageDetection.ts#L20)
-
 Detect an image's MIME type from its magic bytes, or `null` when the bytes
 match no known signature.
 

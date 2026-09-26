@@ -8,8 +8,6 @@
 
 > **CORSConfig** = `object`
 
-Defined in: [types/server.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L84)
-
 CORS configuration
 
 ## Properties
@@ -17,8 +15,6 @@ CORS configuration
 ### enabled?
 
 > `optional` **enabled?**: `boolean`
-
-Defined in: [types/server.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L86)
 
 Enable CORS (default: true)
 
@@ -28,8 +24,6 @@ Enable CORS (default: true)
 
 > `optional` **origins?**: `string`[]
 
-Defined in: [types/server.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L89)
-
 Allowed origins (default: ["*"])
 
 ---
@@ -37,8 +31,6 @@ Allowed origins (default: ["*"])
 ### methods?
 
 > `optional` **methods?**: `string`[]
-
-Defined in: [types/server.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L92)
 
 Allowed HTTP methods
 
@@ -48,8 +40,6 @@ Allowed HTTP methods
 
 > `optional` **headers?**: `string`[]
 
-Defined in: [types/server.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L95)
-
 Allowed headers
 
 ---
@@ -58,8 +48,6 @@ Allowed headers
 
 > `optional` **credentials?**: `boolean`
 
-Defined in: [types/server.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L98)
-
 Allow credentials
 
 ---
@@ -67,7 +55,5 @@ Allow credentials
 ### maxAge?
 
 > `optional` **maxAge?**: `number`
-
-Defined in: [types/server.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L101)
 
 Preflight cache max age in seconds

@@ -8,8 +8,6 @@
 
 > `const` **evaluationErrors**: `object`
 
-Defined in: [evaluation/errors/EvaluationError.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/errors/EvaluationError.ts#L51)
-
 Factory for creating typed evaluation errors.
 Uses the createErrorFactory pattern from core infrastructure.
 

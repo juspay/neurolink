@@ -8,8 +8,6 @@
 
 > **normalizeAndValidate**(`sources`, `options`): `Promise`\<[`KnowledgeNormalizeResult`](../type-aliases/KnowledgeNormalizeResult.md)\>
 
-Defined in: [knowledge/resolve.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/resolve.ts#L105)
-
 Resolve and validate every source into normalized entries. `validation.ok`
 is false when any error-level issue was found; the caller (index builder)
 must not swap in an index built from an invalid set. Async so the public

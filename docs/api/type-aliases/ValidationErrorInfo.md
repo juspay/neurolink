@@ -8,8 +8,6 @@
 
 > **ValidationErrorInfo** = `object`
 
-Defined in: [types/middleware.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L473)
-
 Minimal structural view of the server-side ValidationError class used by
 the request-validation middleware's errorFormatter callback.
 
@@ -19,12 +17,8 @@ the request-validation middleware's errorFormatter callback.
 
 > **errors**: [`ValidationErrorPayload`](ValidationErrorPayload.md)[]
 
-Defined in: [types/middleware.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L474)
-
 ---
 
 ### requestId?
 
 > `optional` **requestId?**: `string`
-
-Defined in: [types/middleware.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L475)

@@ -8,8 +8,6 @@
 
 > **getCircuitBreaker**(`name`, `config?`): [`RAGCircuitBreaker`](../classes/RAGCircuitBreaker.md)
 
-Defined in: [rag/resilience/CircuitBreaker.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/rag/resilience/CircuitBreaker.ts#L540)
-
 Convenience function to get a circuit breaker
 
 ## Parameters

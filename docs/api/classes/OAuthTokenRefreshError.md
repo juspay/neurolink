@@ -6,8 +6,6 @@
 
 # Class: OAuthTokenRefreshError
 
-Defined in: [types/errors.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L155)
-
 Thrown when token refresh fails
 
 ## Extends
@@ -19,8 +17,6 @@ Thrown when token refresh fails
 ### Constructor
 
 > **new OAuthTokenRefreshError**(`message`, `statusCode?`): `OAuthTokenRefreshError`
-
-Defined in: [types/errors.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L156)
 
 #### Parameters
 
@@ -46,8 +42,6 @@ Defined in: [types/errors.ts:156](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
-
 #### Inherited from
 
 [`OAuthError`](OAuthError.md).[`code`](OAuthError.md#code)
@@ -57,5 +51,3 @@ Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/relea
 ### statusCode?
 
 > `optional` **statusCode?**: `number`
-
-Defined in: [types/errors.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L158)

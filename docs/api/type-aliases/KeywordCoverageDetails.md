@@ -8,8 +8,6 @@
 
 > **KeywordCoverageDetails** = `object`
 
-Defined in: [types/scorer.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L577)
-
 Keyword coverage result details.
 
 ## Properties
@@ -18,15 +16,11 @@ Keyword coverage result details.
 
 > **totalKeywords**: `number`
 
-Defined in: [types/scorer.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L578)
-
 ---
 
 ### foundKeywords
 
 > **foundKeywords**: `string`[]
-
-Defined in: [types/scorer.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L579)
 
 ---
 
@@ -34,20 +28,14 @@ Defined in: [types/scorer.ts:579](https://github.com/juspay/neurolink/blob/relea
 
 > **missingKeywords**: `string`[]
 
-Defined in: [types/scorer.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L580)
-
 ---
 
 ### coverageRatio
 
 > **coverageRatio**: `number`
 
-Defined in: [types/scorer.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L581)
-
 ---
 
 ### weightedCoverage
 
 > **weightedCoverage**: `number`
-
-Defined in: [types/scorer.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L582)

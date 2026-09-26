@@ -8,8 +8,6 @@
 
 > **LifecycleMiddlewareConfig** = `object`
 
-Defined in: [types/middleware.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L358)
-
 Configuration for the lifecycle middleware.
 Pass callbacks to observe generation/streaming lifecycle events.
 
@@ -19,15 +17,11 @@ Pass callbacks to observe generation/streaming lifecycle events.
 
 > `optional` **onFinish?**: [`OnFinishCallback`](OnFinishCallback.md)
 
-Defined in: [types/middleware.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L359)
-
 ---
 
 ### onError?
 
 > `optional` **onError?**: [`OnErrorCallback`](OnErrorCallback.md)
-
-Defined in: [types/middleware.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L360)
 
 ---
 
@@ -35,15 +29,11 @@ Defined in: [types/middleware.ts:360](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **onChunk?**: [`OnChunkCallback`](OnChunkCallback.md)
 
-Defined in: [types/middleware.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L361)
-
 ---
 
 ### timeoutMs?
 
 > `optional` **timeoutMs?**: `number`
-
-Defined in: [types/middleware.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L372)
 
 Per-callback deadline in milliseconds applied to every
 `onChunk` / `onFinish` / `onError` invocation. When a callback

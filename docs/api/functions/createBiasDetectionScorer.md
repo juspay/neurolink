@@ -8,8 +8,6 @@
 
 > **createBiasDetectionScorer**(`config?`): `Promise`\<[`BiasDetectionScorer`](../classes/BiasDetectionScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/biasDetectionScorer.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/biasDetectionScorer.ts#L154)
-
 Evaluation System Exports
 
 A comprehensive evaluation framework for assessing AI response quality,

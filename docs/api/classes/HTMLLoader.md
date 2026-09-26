@@ -6,8 +6,6 @@
 
 # Class: HTMLLoader
 
-Defined in: [rag/document/loaders.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L107)
-
 HTML file loader
 
 ## Extends
@@ -34,8 +32,6 @@ HTML file loader
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L70)
-
 #### Parameters
 
 ##### source
@@ -60,8 +56,6 @@ Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blo
 
 > `protected` **getSourceName**(`source`): `string`
 
-Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L81)
-
 #### Parameters
 
 ##### source
@@ -81,8 +75,6 @@ Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blo
 ### load()
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
-
-Defined in: [rag/document/loaders.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L108)
 
 Load document from source
 
@@ -115,8 +107,6 @@ Promise resolving to MDocument
 ### canHandle()
 
 > **canHandle**(`source`): `boolean`
-
-Defined in: [rag/document/loaders.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L116)
 
 Check if loader can handle the source
 

@@ -6,8 +6,6 @@
 
 # Class: VideoProcessor
 
-Defined in: [utils/videoProcessor.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L52)
-
 Static processor managing the video handler registry.
 
 Handlers register themselves during `ProviderRegistry._doRegister()`
@@ -29,8 +27,6 @@ O(1) on a normalised lower-case provider key.
 ### registerHandler()
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
-
-Defined in: [utils/videoProcessor.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L60)
 
 Register a video handler for a specific provider.
 
@@ -54,8 +50,6 @@ Register a video handler for a specific provider.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/videoProcessor.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L69)
-
 Check if a provider has a registered video handler.
 
 #### Parameters
@@ -74,8 +68,6 @@ Check if a provider has a registered video handler.
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/videoProcessor.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L76)
-
 List the names of all registered providers.
 
 #### Returns
@@ -87,8 +79,6 @@ List the names of all registered providers.
 ### clearHandlers()
 
 > `static` **clearHandlers**(): `void`
-
-Defined in: [utils/videoProcessor.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L87)
 
 Clear all registered handlers (for testing).
 
@@ -103,8 +93,6 @@ Clear all registered handlers (for testing).
 #### Call Signature
 
 > `static` **generate**(`provider`, `options`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
-
-Defined in: [utils/videoProcessor.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L116)
 
 Generate a single video clip via the registered handler.
 
@@ -137,8 +125,6 @@ generation failure
 #### Call Signature
 
 > `static` **generate**(`provider`, `image`, `prompt`, `options`, `region?`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
-
-Defined in: [utils/videoProcessor.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L125)
 
 ##### Parameters
 
@@ -177,8 +163,6 @@ options-bag overload.
 ### generateTransition()
 
 > `static` **generateTransition**(`provider`, `firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
-
-Defined in: [utils/videoProcessor.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L243)
 
 Generate a transition clip via the registered handler (Director Mode).
 

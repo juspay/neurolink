@@ -8,8 +8,6 @@
 
 > **runWithCurrentLangfuseContext**\<`T`\>(`fn`): () => `Promise`\<`T`\>
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1521](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1521)
-
 Capture the current Langfuse AsyncLocalStorage context and return a wrapper
 that re-enters that context when executing the provided callback.
 

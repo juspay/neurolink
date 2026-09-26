@@ -6,8 +6,6 @@
 
 # Class: VertexVideoHandler
 
-Defined in: [adapters/video/vertexVideoHandler.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1085)
-
 Class wrapper around the standalone Vertex Veo functions, conforming to
 the `VideoHandler` contract so it can register with `VideoProcessor`.
 
@@ -36,8 +34,6 @@ them directly.
 
 > `readonly` **maxDurationSeconds**: `8` = `8`
 
-Defined in: [adapters/video/vertexVideoHandler.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1086)
-
 Maximum video duration in seconds supported by this provider.
 
 #### Implementation of
@@ -49,8 +45,6 @@ Maximum video duration in seconds supported by this provider.
 ### supportedAspectRatios
 
 > `readonly` **supportedAspectRatios**: readonly (`"9:16"` \| `"16:9"`)[]
-
-Defined in: [adapters/video/vertexVideoHandler.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1087)
 
 Supported aspect ratios.
 
@@ -64,8 +58,6 @@ Supported aspect ratios.
 
 > `readonly` **supportedResolutions**: readonly (`"720p"` \| `"1080p"`)[]
 
-Defined in: [adapters/video/vertexVideoHandler.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1091)
-
 Supported output resolutions.
 
 #### Implementation of
@@ -77,8 +69,6 @@ Supported output resolutions.
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
-
-Defined in: [adapters/video/vertexVideoHandler.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1096)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -95,8 +85,6 @@ Validate the provider is configured (auth, base URL, etc.).
 ### generate()
 
 > **generate**(`image`, `prompt`, `options`, `region?`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
-
-Defined in: [adapters/video/vertexVideoHandler.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1100)
 
 Generate a single video clip from an input image and prompt.
 
@@ -141,8 +129,6 @@ Buffer + metadata
 ### generateTransition()
 
 > **generateTransition**(`firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
-
-Defined in: [adapters/video/vertexVideoHandler.ts:1109](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/vertexVideoHandler.ts#L1109)
 
 Optional — generate a transition clip between two frames (Director Mode).
 

@@ -8,8 +8,6 @@
 
 > **FileProcessingError** = `object`
 
-Defined in: [types/processor.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L98)
-
 Structured file processing error with user-friendly messaging.
 This is the canonical error type used across all processor infrastructure.
 
@@ -19,8 +17,6 @@ This is the canonical error type used across all processor infrastructure.
 
 > **code**: [`FileErrorCode`](../enumerations/FileErrorCode.md) \| `string`
 
-Defined in: [types/processor.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L100)
-
 Error code from FileErrorCode enum
 
 ---
@@ -28,8 +24,6 @@ Error code from FileErrorCode enum
 ### message
 
 > **message**: `string`
-
-Defined in: [types/processor.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L102)
 
 Technical error message
 
@@ -39,8 +33,6 @@ Technical error message
 
 > **userMessage**: `string`
 
-Defined in: [types/processor.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L104)
-
 User-friendly error message
 
 ---
@@ -48,8 +40,6 @@ User-friendly error message
 ### suggestedAction?
 
 > `optional` **suggestedAction?**: `string`
-
-Defined in: [types/processor.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L106)
 
 Suggested action to resolve the error
 
@@ -59,8 +49,6 @@ Suggested action to resolve the error
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [types/processor.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L108)
-
 Whether this error is potentially retryable
 
 ---
@@ -68,8 +56,6 @@ Whether this error is potentially retryable
 ### details?
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/processor.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L110)
 
 Additional context/details about the error
 
@@ -79,8 +65,6 @@ Additional context/details about the error
 
 > `optional` **technicalDetails?**: `string`
 
-Defined in: [types/processor.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L112)
-
 Technical details (usually from original error)
 
 ---
@@ -88,7 +72,5 @@ Technical details (usually from original error)
 ### originalError?
 
 > `optional` **originalError?**: `Error`
-
-Defined in: [types/processor.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L114)
 
 Original error that caused this failure

@@ -8,8 +8,6 @@
 
 > **ImageGenToolContext** = `object`
 
-Defined in: [types/imageGen.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L285)
-
 Context for tool execution (optional)
 
 ## Properties
@@ -17,8 +15,6 @@ Context for tool execution (optional)
 ### referenceImages?
 
 > `optional` **referenceImages?**: (`Buffer` \| `string`)[]
-
-Defined in: [types/imageGen.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L289)
 
 Reference images to use for generation
 
@@ -28,8 +24,6 @@ Reference images to use for generation
 
 > `optional` **referencePdfs?**: `Buffer`[]
 
-Defined in: [types/imageGen.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L294)
-
 Reference PDFs to use for generation
 
 ---
@@ -37,8 +31,6 @@ Reference PDFs to use for generation
 ### userId?
 
 > `optional` **userId?**: `string`
-
-Defined in: [types/imageGen.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L299)
 
 User ID for tracking/logging
 
@@ -48,8 +40,6 @@ User ID for tracking/logging
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/imageGen.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L304)
-
 Session ID for tracking/logging
 
 ---
@@ -57,7 +47,5 @@ Session ID for tracking/logging
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
-
-Defined in: [types/imageGen.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L309)
 
 Additional metadata

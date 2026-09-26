@@ -8,8 +8,6 @@
 
 > **flushOpenTelemetry**(): `Promise`\<`void`\>
 
-Defined in: [services/server/ai/observability/instrumentation.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/services/server/ai/observability/instrumentation.ts#L1145)
-
 Flush all pending spans to Langfuse
 
 ## Returns

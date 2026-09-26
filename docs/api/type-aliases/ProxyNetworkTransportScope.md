@@ -7,5 +7,3 @@
 # Type Alias: ProxyNetworkTransportScope
 
 > **ProxyNetworkTransportScope** = `Exclude`\<[`ProxyTransportScope`](ProxyTransportScope.md), `"account_specific"`\>
-
-Defined in: [types/proxy.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L578)

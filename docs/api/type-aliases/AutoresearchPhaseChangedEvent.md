@@ -8,15 +8,11 @@
 
 > **AutoresearchPhaseChangedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L152)
-
 ## Properties
 
 ### from
 
 > **from**: [`ExperimentPhase`](ExperimentPhase.md)
-
-Defined in: [types/autoresearch.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L153)
 
 ---
 
@@ -24,20 +20,14 @@ Defined in: [types/autoresearch.ts:153](https://github.com/juspay/neurolink/blob
 
 > **to**: [`ExperimentPhase`](ExperimentPhase.md)
 
-Defined in: [types/autoresearch.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L154)
-
 ---
 
 ### runCount
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L155)
-
 ---
 
 ### tag
 
 > **tag**: `string`
-
-Defined in: [types/autoresearch.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L156)

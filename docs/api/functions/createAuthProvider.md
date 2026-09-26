@@ -8,8 +8,6 @@
 
 > **createAuthProvider**(`type`, `config`): `Promise`\<[`AuthProvider`](../type-aliases/AuthProvider.md)\>
 
-Defined in: [auth/AuthProviderFactory.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/auth/AuthProviderFactory.ts#L162)
-
 Create an auth provider using the factory
 
 ## Parameters

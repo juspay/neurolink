@@ -8,15 +8,11 @@
 
 > **GeminiMessage** = `object`
 
-Defined in: [types/stt.ts:724](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L724)
-
 ## Properties
 
 ### setup?
 
 > `optional` **setup?**: `object`
-
-Defined in: [types/stt.ts:725](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L725)
 
 #### model
 
@@ -64,8 +60,6 @@ Defined in: [types/stt.ts:725](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **realtimeInput?**: `object`
 
-Defined in: [types/stt.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L742)
-
 #### mediaChunks
 
 > **mediaChunks**: `object`[]
@@ -75,8 +69,6 @@ Defined in: [types/stt.ts:742](https://github.com/juspay/neurolink/blob/release/
 ### clientContent?
 
 > `optional` **clientContent?**: `object`
-
-Defined in: [types/stt.ts:748](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L748)
 
 #### turns
 

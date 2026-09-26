@@ -6,8 +6,6 @@
 
 # Class: ChromaVectorStore
 
-Defined in: [rag/stores/chroma.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L255)
-
 RAG (Retrieval-Augmented Generation) Document Processing
 
 Comprehensive RAG system with document loading, chunking, embedding,
@@ -47,8 +45,6 @@ console.log(response.answer);
 
 > **new ChromaVectorStore**(`client`, `options?`): `ChromaVectorStore`
 
-Defined in: [rag/stores/chroma.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L262)
-
 #### Parameters
 
 ##### client
@@ -68,8 +64,6 @@ Defined in: [rag/stores/chroma.ts:262](https://github.com/juspay/neurolink/blob/
 ### upsert()
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
-
-Defined in: [rag/stores/chroma.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L281)
 
 Add or update vectors in an index (Chroma collection).
 
@@ -92,8 +86,6 @@ Add or update vectors in an index (Chroma collection).
 ### query()
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
-
-Defined in: [rag/stores/chroma.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L303)
 
 Query vectors by similarity.
 
@@ -134,8 +126,6 @@ Query vectors by similarity.
 ### delete()
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
-
-Defined in: [rag/stores/chroma.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L358)
 
 Delete vectors from an index (Chroma collection) by id.
 

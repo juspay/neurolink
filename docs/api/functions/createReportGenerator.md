@@ -8,8 +8,6 @@
 
 > **createReportGenerator**(`config?`): [`ReportGenerator`](../classes/ReportGenerator.md)
 
-Defined in: [evaluation/reporting/reportGenerator.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/reportGenerator.ts#L427)
-
 Create a report generator
 
 ## Parameters

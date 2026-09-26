@@ -8,8 +8,6 @@
 
 > **MemorySqliteStorageConfig** = `object`
 
-Defined in: [types/memory.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L23)
-
 Local structural types for the optional @juspay/hippocampus integration.
 
 These mirror the public shapes that ship with @juspay/hippocampus's
@@ -37,14 +35,10 @@ Naming:
 
 > **type**: `"sqlite"`
 
-Defined in: [types/memory.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L24)
-
 ---
 
 ### path?
 
 > `optional` **path?**: `string`
-
-Defined in: [types/memory.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L26)
 
 Path to SQLite file. Default: ./data/hippocampus.sqlite

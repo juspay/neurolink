@@ -6,8 +6,6 @@
 
 # Class: ModelAccessError
 
-Defined in: [types/errors.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L227)
-
 Error thrown when model access is denied based on subscription tier
 
 ## Extends
@@ -19,8 +17,6 @@ Error thrown when model access is denied based on subscription tier
 ### Constructor
 
 > **new ModelAccessError**(`model`, `tier`, `requiredTier`): `ModelAccessError`
-
-Defined in: [types/errors.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L232)
 
 #### Parameters
 
@@ -50,20 +46,14 @@ Defined in: [types/errors.ts:232](https://github.com/juspay/neurolink/blob/relea
 
 > `readonly` **model**: `string`
 
-Defined in: [types/errors.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L228)
-
 ---
 
 ### tier
 
 > `readonly` **tier**: `string`
 
-Defined in: [types/errors.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L229)
-
 ---
 
 ### requiredTier
 
 > `readonly` **requiredTier**: `string`
-
-Defined in: [types/errors.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L230)

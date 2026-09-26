@@ -8,8 +8,6 @@
 
 > **buildIndexSnapshot**(`entries`, `weights`): [`KnowledgeIndexSnapshot`](../type-aliases/KnowledgeIndexSnapshot.md)
 
-Defined in: [knowledge/knowledgeIndex.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/knowledgeIndex.ts#L220)
-
 Build the complete immutable snapshot: entry map, exact/alias/relation
 indexes, and the field-aware lexical index.
 

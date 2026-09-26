@@ -8,8 +8,6 @@
 
 > **RetryInterceptorOptions** = [`ClientRetryConfig`](ClientRetryConfig.md) & `object`
 
-Defined in: [types/client.ts:1304](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1304)
-
 Retry interceptor options
 
 ## Type Declaration

@@ -6,8 +6,6 @@
 
 # Class: ContextBuilder
 
-Defined in: [evaluation/contextBuilder.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/contextBuilder.ts#L23)
-
 Builds the enhanced context required for a RAGAS-style evaluation.
 This class gathers data from the generation options and results to create a
 rich snapshot of the interaction, which is then used by the evaluator.
@@ -27,8 +25,6 @@ rich snapshot of the interaction, which is then used by the evaluator.
 ### buildContext()
 
 > **buildContext**(`options`, `result`): [`EnhancedEvaluationContext`](../type-aliases/EnhancedEvaluationContext.md)
-
-Defined in: [evaluation/contextBuilder.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/contextBuilder.ts#L50)
 
 Builds the full evaluation context for a single evaluation attempt.
 
@@ -58,8 +54,6 @@ An `EnhancedEvaluationContext` object ready for evaluation.
 
 > **recordEvaluation**(`evaluation`): `void`
 
-Defined in: [evaluation/contextBuilder.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/contextBuilder.ts#L108)
-
 Records the result of an evaluation and increments the internal attempt counter.
 This is used to build up the `previousEvaluations` array for subsequent retries.
 
@@ -80,8 +74,6 @@ The `EvaluationResult` from the last attempt.
 ### reset()
 
 > **reset**(): `void`
-
-Defined in: [evaluation/contextBuilder.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/contextBuilder.ts#L117)
 
 Resets the internal state of the context builder. This should be called
 before starting a new, independent evaluation sequence.

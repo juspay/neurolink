@@ -6,8 +6,6 @@
 
 # Class: PgVectorStore
 
-Defined in: [rag/stores/pgvector.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L82)
-
 RAG (Retrieval-Augmented Generation) Document Processing
 
 Comprehensive RAG system with document loading, chunking, embedding,
@@ -47,8 +45,6 @@ console.log(response.answer);
 
 > **new PgVectorStore**(`client`, `options?`): `PgVectorStore`
 
-Defined in: [rag/stores/pgvector.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L88)
-
 #### Parameters
 
 ##### client
@@ -68,8 +64,6 @@ Defined in: [rag/stores/pgvector.ts:88](https://github.com/juspay/neurolink/blob
 ### upsert()
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
-
-Defined in: [rag/stores/pgvector.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L154)
 
 Upsert vectors into an index, creating its table on first use.
 Mirrors `InMemoryVectorStore.upsert` (metadata defaults to `{}`).
@@ -93,8 +87,6 @@ Mirrors `InMemoryVectorStore.upsert` (metadata defaults to `{}`).
 ### query()
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
-
-Defined in: [rag/stores/pgvector.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L203)
 
 Query by cosine similarity. Returns `[]` if the index's table doesn't
 exist yet (mirrors `InMemoryVectorStore.query` on an unknown index)
@@ -137,8 +129,6 @@ rather than throwing.
 ### delete()
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
-
-Defined in: [rag/stores/pgvector.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L261)
 
 Delete vectors by id. No-op if the index's table doesn't exist yet
 (mirrors `InMemoryVectorStore.delete`).

@@ -8,8 +8,6 @@
 
 > **ToolRouterConfig** = `object`
 
-Defined in: [types/mcp.ts:2489](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2489)
-
 Tool Router configuration
 
 ## Properties
@@ -17,8 +15,6 @@ Tool Router configuration
 ### strategy
 
 > **strategy**: [`RoutingStrategy`](RoutingStrategy.md)
-
-Defined in: [types/mcp.ts:2493](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2493)
 
 Primary routing strategy
 
@@ -28,8 +24,6 @@ Primary routing strategy
 
 > `optional` **enableAffinity?**: `boolean`
 
-Defined in: [types/mcp.ts:2498](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2498)
-
 Enable session/user affinity for consistent routing
 
 ---
@@ -37,8 +31,6 @@ Enable session/user affinity for consistent routing
 ### categoryMapping?
 
 > `optional` **categoryMapping?**: `Record`\<`string`, `string`[]\>
-
-Defined in: [types/mcp.ts:2503](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2503)
 
 Category to server mapping for capability-based routing
 
@@ -48,8 +40,6 @@ Category to server mapping for capability-based routing
 
 > `optional` **serverWeights?**: [`McpServerWeight`](McpServerWeight.md)[]
 
-Defined in: [types/mcp.ts:2508](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2508)
-
 Server weights for priority-based routing
 
 ---
@@ -57,8 +47,6 @@ Server weights for priority-based routing
 ### fallbackStrategy?
 
 > `optional` **fallbackStrategy?**: [`RoutingStrategy`](RoutingStrategy.md)
-
-Defined in: [types/mcp.ts:2513](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2513)
 
 Fallback strategy if primary fails
 
@@ -68,8 +56,6 @@ Fallback strategy if primary fails
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/mcp.ts:2518](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2518)
-
 Maximum retries for failed routes
 
 ---
@@ -78,8 +64,6 @@ Maximum retries for failed routes
 
 > `optional` **healthCheckInterval?**: `number`
 
-Defined in: [types/mcp.ts:2523](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2523)
-
 Health check interval in milliseconds
 
 ---
@@ -87,7 +71,5 @@ Health check interval in milliseconds
 ### affinityTtl?
 
 > `optional` **affinityTtl?**: `number`
-
-Defined in: [types/mcp.ts:2528](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2528)
 
 Affinity TTL in milliseconds (default: 30 minutes)

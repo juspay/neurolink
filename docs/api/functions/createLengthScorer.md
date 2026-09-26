@@ -8,8 +8,6 @@
 
 > **createLengthScorer**(`config?`): `Promise`\<`LengthScorer`\>
 
-Defined in: [evaluation/scorers/rule/lengthScorer.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/lengthScorer.ts#L362)
-
 Factory function for creating LengthScorer instances
 
 ## Parameters

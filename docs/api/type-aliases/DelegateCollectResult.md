@@ -8,8 +8,6 @@
 
 > **DelegateCollectResult** = `object`
 
-Defined in: [types/delegation.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L110)
-
 Outcomes claimed by one collect call, in COMPLETION order — the order
 workers finished in, which has nothing to do with the order they were
 spawned in.
@@ -20,8 +18,6 @@ spawned in.
 
 > **completed**: [`DelegateOutcome`](DelegateOutcome.md)[]
 
-Defined in: [types/delegation.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L112)
-
 Claimed exactly once: these outcomes are gone from the registry.
 
 ---
@@ -29,8 +25,6 @@ Claimed exactly once: these outcomes are gone from the registry.
 ### pending
 
 > **pending**: `number`
-
-Defined in: [types/delegation.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L114)
 
 Still running or waiting for a pool slot.
 
@@ -40,8 +34,6 @@ Still running or waiting for a pool slot.
 
 > **ready**: `number`
 
-Defined in: [types/delegation.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L116)
-
 Finished but not yet claimed.
 
 ---
@@ -49,8 +41,6 @@ Finished but not yet claimed.
 ### timedOut
 
 > **timedOut**: `boolean`
-
-Defined in: [types/delegation.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/delegation.ts#L124)
 
 True when the wait expired before this call claimed what it asked for:
 for a named worker, that worker's outcome; for `any`, any outcome while

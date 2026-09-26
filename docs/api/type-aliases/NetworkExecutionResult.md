@@ -8,8 +8,6 @@
 
 > **NetworkExecutionResult** = `object`
 
-Defined in: [types/agentNetwork.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L436)
-
 Result of network execution
 
 ## Properties
@@ -17,8 +15,6 @@ Result of network execution
 ### content
 
 > **content**: `string`
-
-Defined in: [types/agentNetwork.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L438)
 
 Final output content
 
@@ -28,8 +24,6 @@ Final output content
 
 > `optional` **object?**: `unknown`
 
-Defined in: [types/agentNetwork.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L441)
-
 Structured output if schema was provided
 
 ---
@@ -37,8 +31,6 @@ Structured output if schema was provided
 ### trace
 
 > **trace**: [`NetworkExecutionTrace`](NetworkExecutionTrace.md)
-
-Defined in: [types/agentNetwork.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L444)
 
 Execution trace
 
@@ -48,8 +40,6 @@ Execution trace
 
 > **usage**: [`NetworkTokenUsage`](NetworkTokenUsage.md)
 
-Defined in: [types/agentNetwork.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L447)
-
 Token usage across all agents
 
 ---
@@ -57,8 +47,6 @@ Token usage across all agents
 ### status
 
 > **status**: [`NetworkExecutionStatus`](NetworkExecutionStatus.md)
-
-Defined in: [types/agentNetwork.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L450)
 
 Execution status
 
@@ -68,8 +56,6 @@ Execution status
 
 > **duration**: `number`
 
-Defined in: [types/agentNetwork.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L453)
-
 Time taken in milliseconds
 
 ---
@@ -77,7 +63,5 @@ Time taken in milliseconds
 ### error?
 
 > `optional` **error?**: `string`
-
-Defined in: [types/agentNetwork.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L456)
 
 Error message if status is error

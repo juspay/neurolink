@@ -8,8 +8,6 @@
 
 > **ProxyShareReceipt** = `object`
 
-Defined in: [types/proxy.ts:4450](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4450)
-
 A lender's signed statement that one borrowed request was settled, and for
 how much.
 
@@ -23,23 +21,17 @@ response it actually received, rather than taking the coin figure on faith.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4451](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4451)
-
 ---
 
 ### grantId
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4452](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4452)
-
 ---
 
 ### sequence
 
 > **sequence**: `number`
-
-Defined in: [types/proxy.ts:4454](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4454)
 
 Monotonic, contiguous, per grant.
 
@@ -49,15 +41,11 @@ Monotonic, contiguous, per grant.
 
 > **settledAt**: `number`
 
-Defined in: [types/proxy.ts:4455](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4455)
-
 ---
 
 ### model?
 
 > `optional` **model?**: `string`
-
-Defined in: [types/proxy.ts:4456](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4456)
 
 ---
 
@@ -65,23 +53,17 @@ Defined in: [types/proxy.ts:4456](https://github.com/juspay/neurolink/blob/relea
 
 > **usage**: [`ProxyShareUsage`](ProxyShareUsage.md)
 
-Defined in: [types/proxy.ts:4457](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4457)
-
 ---
 
 ### coins
 
 > **coins**: `number`
 
-Defined in: [types/proxy.ts:4458](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4458)
-
 ---
 
 ### balanceAfter
 
 > **balanceAfter**: `number` \| `null`
-
-Defined in: [types/proxy.ts:4460](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4460)
 
 Remaining balance after this charge; null on an unlimited grant.
 
@@ -90,5 +72,3 @@ Remaining balance after this charge; null on an unlimited grant.
 ### signature
 
 > **signature**: `string`
-
-Defined in: [types/proxy.ts:4461](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4461)

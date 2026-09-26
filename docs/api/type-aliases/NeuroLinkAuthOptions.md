@@ -8,8 +8,6 @@
 
 > **NeuroLinkAuthOptions** = `object`
 
-Defined in: [types/subscription.ts:1077](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1077)
-
 Unified authentication options for NeuroLink
 
 Supports both direct API key authentication and OAuth-based authentication
@@ -21,8 +19,6 @@ for Claude Pro/Max subscriptions.
 
 > **method**: `"api-key"` \| `"oauth"`
 
-Defined in: [types/subscription.ts:1083](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1083)
-
 Authentication method to use
 
 - "api-key": Use ANTHROPIC_API_KEY environment variable
@@ -33,8 +29,6 @@ Authentication method to use
 ### oauth?
 
 > `optional` **oauth?**: `object`
-
-Defined in: [types/subscription.ts:1088](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1088)
 
 OAuth configuration (required when method is "oauth")
 
@@ -61,8 +55,6 @@ Custom scopes to request
 ### tokenStorage?
 
 > `optional` **tokenStorage?**: `object`
-
-Defined in: [types/subscription.ts:1100](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1100)
 
 Token storage configuration (optional, defaults to file-based storage)
 

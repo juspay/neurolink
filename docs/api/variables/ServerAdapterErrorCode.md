@@ -8,8 +8,6 @@
 
 > `const` **ServerAdapterErrorCode**: `object`
 
-Defined in: [types/server.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1104)
-
 Server adapter error codes
 
 ## Type Declaration

@@ -8,8 +8,6 @@
 
 > **AnthropicGuardMessage** = `object`
 
-Defined in: [types/context.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L904)
-
 Structural view of one Anthropic-shaped message, as used by both the direct
 Anthropic loop and the native Vertex+Claude path. Tool calls ride as
 `tool_use` blocks on an assistant message; their answers ride as
@@ -21,8 +19,6 @@ Anthropic loop and the native Vertex+Claude path. Tool calls ride as
 
 > **role**: `"user"` \| `"assistant"` \| `"system"`
 
-Defined in: [types/context.ts:910](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L910)
-
 `system` is included because the installed `@anthropic-ai/sdk` widens
 `MessageParam["role"]` to accept it; narrowing here would make the SDK's
 own array unassignable at the call site.
@@ -32,5 +28,3 @@ own array unassignable at the call site.
 ### content
 
 > **content**: `string` \| [`AnthropicGuardBlock`](AnthropicGuardBlock.md)[]
-
-Defined in: [types/context.ts:911](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L911)

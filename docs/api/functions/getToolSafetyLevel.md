@@ -8,8 +8,6 @@
 
 > **getToolSafetyLevel**(`tool`): `"safe"` \| `"moderate"` \| `"dangerous"`
 
-Defined in: [mcp/toolAnnotations.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolAnnotations.ts#L256)
-
 Get tool safety level based on annotations
 
 ## Parameters

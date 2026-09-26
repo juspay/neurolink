@@ -8,8 +8,6 @@
 
 > **ConversationSummary** = [`ConversationBase`](ConversationBase.md) & `object`
 
-Defined in: [types/conversation.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L703)
-
 Conversation summary for listing and selection
 Contains conversation preview information without heavy message arrays
 

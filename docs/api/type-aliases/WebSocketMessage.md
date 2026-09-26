@@ -8,8 +8,6 @@
 
 > **WebSocketMessage** = `object`
 
-Defined in: [types/server.ts:915](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L915)
-
 WebSocket message
 
 ## Properties
@@ -18,20 +16,14 @@ WebSocket message
 
 > **type**: [`WebSocketMessageType`](WebSocketMessageType.md)
 
-Defined in: [types/server.ts:916](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L916)
-
 ---
 
 ### data
 
 > **data**: `string` \| `ArrayBuffer`
 
-Defined in: [types/server.ts:917](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L917)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `number`
-
-Defined in: [types/server.ts:918](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L918)

@@ -8,23 +8,17 @@
 
 > **RollingWorkerHandle** = `object`
 
-Defined in: [types/proxy.ts:3433](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3433)
-
 ## Properties
 
 ### pid
 
 > **pid**: `number`
 
-Defined in: [types/proxy.ts:3434](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3434)
-
 ---
 
 ### socketTransferTimeoutMs?
 
 > `optional` **socketTransferTimeoutMs?**: `number`
-
-Defined in: [types/proxy.ts:3436](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3436)
 
 Combined offer and commit budget, before any retry. Defaults to 60s.
 
@@ -33,8 +27,6 @@ Combined offer and commit budget, before any retry. Defaults to 60s.
 ### sendControl
 
 > **sendControl**: (`message`) => `void`
-
-Defined in: [types/proxy.ts:3437](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3437)
 
 #### Parameters
 
@@ -51,8 +43,6 @@ Defined in: [types/proxy.ts:3437](https://github.com/juspay/neurolink/blob/relea
 ### sendSocket
 
 > **sendSocket**: (`generation`, `socket`, `callback`, `deadlineAt?`) => `void`
-
-Defined in: [types/proxy.ts:3438](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3438)
 
 #### Parameters
 
@@ -82,8 +72,6 @@ Defined in: [types/proxy.ts:3438](https://github.com/juspay/neurolink/blob/relea
 
 > **terminate**: (`signal?`) => `void`
 
-Defined in: [types/proxy.ts:3445](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3445)
-
 #### Parameters
 
 ##### signal?
@@ -100,8 +88,6 @@ Defined in: [types/proxy.ts:3445](https://github.com/juspay/neurolink/blob/relea
 
 > **onMessage**: (`listener`) => () => `void`
 
-Defined in: [types/proxy.ts:3446](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3446)
-
 #### Parameters
 
 ##### listener
@@ -117,8 +103,6 @@ Defined in: [types/proxy.ts:3446](https://github.com/juspay/neurolink/blob/relea
 ### onExit
 
 > **onExit**: (`listener`) => () => `void`
-
-Defined in: [types/proxy.ts:3449](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3449)
 
 #### Parameters
 

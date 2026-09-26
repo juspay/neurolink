@@ -8,8 +8,6 @@
 
 > **readDecisionBoolean**(`answers`, `id`): `number` \| `undefined`
 
-Defined in: [utils/decisionAnswers.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/utils/decisionAnswers.ts#L26)
-
 Read a yes/no answer as a probability.
 
 Returns undefined when the id is absent or the answer was a different
