@@ -985,6 +985,100 @@ class ProxyTracer {
   }
 }
 
+/**
+ * Consecutive failures a configured fallback leg may accumulate before the
+ * proxy says so out loud.
+ *
+ * A leg that is attempted and never succeeds is invisible today: the counters
+ * record every attempt and every failure, but nothing reads them back, so the
+ * condition surfaces only if an operator happens to query telemetry. Meanwhile
+ * every request falls through to the next leg, which can bill on a different
+ * account at a different rate, so the first symptom is a cost change rather
+ * than an error. Twenty is low enough to catch a dead leg within seconds of
+ * sustained traffic and high enough that ordinary account rotation or a brief
+ * cooldown never trips it.
+ */
+const DEAD_FALLBACK_LEG_THRESHOLD = 20;
+
+/**
+ * Upper bound on tracked legs.
+ *
+ * Not every key comes from the configured chain. The auto-provider path records
+ * `auto-provider/<requested model>`, and the requested model is whatever the
+ * caller asked for, so a client that fails requests under varying model names
+ * mints a new key each time. Without a bound these collections grow for the
+ * lifetime of the process. The cap is far above any real fallback chain, so a
+ * genuine leg is never evicted in practice.
+ */
+const MAX_TRACKED_FALLBACK_LEGS = 256;
+
+/** Consecutive failures per `provider/model`, reset by any success. */
+const fallbackFailureStreaks = new Map<string, number>();
+/** Legs already reported, so a dead leg is stated once and not once per turn. */
+const reportedDeadFallbackLegs = new Set<string>();
+
+/**
+ * Record a streak, evicting the least recently touched leg past the cap.
+ *
+ * `Map` and `Set` iterate in insertion order and re-setting an existing key does
+ * not move it, so a key is deleted before being re-added. That makes recency the
+ * eviction order and keeps a leg that is actively failing from being dropped in
+ * favour of a stale one.
+ */
+function touchFallbackLegStreak(legKey: string, streak: number): void {
+  fallbackFailureStreaks.delete(legKey);
+  fallbackFailureStreaks.set(legKey, streak);
+  while (fallbackFailureStreaks.size > MAX_TRACKED_FALLBACK_LEGS) {
+    const oldest = fallbackFailureStreaks.keys().next();
+    if (oldest.done) {
+      break;
+    }
+    fallbackFailureStreaks.delete(oldest.value);
+    reportedDeadFallbackLegs.delete(oldest.value);
+  }
+}
+
+/**
+ * Report a fallback leg that has stopped serving, and its recovery.
+ *
+ * Deliberately keyed per leg rather than globally: a second leg going dark must
+ * still be reported while the first is known dead.
+ */
+function trackFallbackLegHealth(
+  legKey: string,
+  status: "success" | "failure",
+  errorMessage: string | undefined,
+): void {
+  if (status === "success") {
+    fallbackFailureStreaks.delete(legKey);
+    if (reportedDeadFallbackLegs.delete(legKey)) {
+      logger.always(
+        `[proxy] fallback ${legKey} is serving again after being reported dead`,
+      );
+    }
+    return;
+  }
+  const streak = (fallbackFailureStreaks.get(legKey) ?? 0) + 1;
+  touchFallbackLegStreak(legKey, streak);
+  if (streak < DEAD_FALLBACK_LEG_THRESHOLD) {
+    return;
+  }
+  if (reportedDeadFallbackLegs.has(legKey)) {
+    return;
+  }
+  // Marked reported only once the report is out. Marking first meant a throwing
+  // logger — swallowed by the caller's catch — silenced the leg permanently,
+  // which is the one outcome this whole mechanism exists to prevent.
+  logger.always(
+    `[proxy] fallback ${legKey} has failed ${streak} consecutive attempts with ` +
+      `no success — this leg is not serving. Traffic is falling through to the ` +
+      `next leg in the chain, which may bill differently. Check the account's ` +
+      `quota and credentials` +
+      (errorMessage ? `; last error: ${errorMessage.slice(0, 200)}` : ""),
+  );
+  reportedDeadFallbackLegs.add(legKey);
+}
+
 export function recordFallbackAttempt(attrs: {
   provider: string;
   model: string;
@@ -992,6 +1086,17 @@ export function recordFallbackAttempt(attrs: {
   errorMessage?: string;
   durationMs: number;
 }): void {
+  // Leg health is tracked outside the metrics try/catch: a telemetry failure
+  // must not be the reason an operator never hears that a leg is dead.
+  try {
+    trackFallbackLegHealth(
+      `${attrs.provider}/${attrs.model}`,
+      attrs.status,
+      attrs.errorMessage,
+    );
+  } catch {
+    // Never let health reporting break a request.
+  }
   try {
     const m = getProxyMetrics();
     const labels = { provider: attrs.provider, model: attrs.model };
@@ -1008,6 +1113,19 @@ export function recordFallbackAttempt(attrs: {
     // metrics are best-effort
   }
 }
+
+/** Reset leg-health state between tests. */
+export const __fallbackLegHealthTestHooks = {
+  threshold: DEAD_FALLBACK_LEG_THRESHOLD,
+  maxTrackedLegs: MAX_TRACKED_FALLBACK_LEGS,
+  trackedCount: (): number => fallbackFailureStreaks.size,
+  reset: (): void => {
+    fallbackFailureStreaks.clear();
+    reportedDeadFallbackLegs.clear();
+  },
+  streakOf: (legKey: string): number => fallbackFailureStreaks.get(legKey) ?? 0,
+  isReported: (legKey: string): boolean => reportedDeadFallbackLegs.has(legKey),
+};
 
 export { ProxyTracer };
 
