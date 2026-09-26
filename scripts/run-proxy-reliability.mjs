@@ -3,6 +3,10 @@ import { spawnSync } from "node:child_process";
 
 const checks = [
   ["vitest", "run", "--maxWorkers=1", "test/codex-quota-observability.test.ts"],
+  // Not name-templated below because it is not a `proxy-*` suite: it covers the
+  // Claude-on-Vertex passthrough that the Anthropic legs fall back to. It had no
+  // npm script and no workflow reference, so its 51 cases never ran anywhere.
+  ["tsx", "test/continuous-test-suite-vertex-anthropic-fallback.ts"],
   ...[
     "request-lifecycle",
     "http-disconnect",

@@ -251,6 +251,204 @@ await test("an unknown cached portion is refused a price, not charged as zero ca
   );
 });
 
+await test("a fallback leg that never succeeds is reported once, and again on recovery", async () => {
+  // The counters already recorded every attempt and every failure; nothing read
+  // them back, so a leg that stopped serving surfaced only when someone queried
+  // telemetry by hand while traffic fell through to a leg that bills elsewhere.
+  const { recordFallbackAttempt, __fallbackLegHealthTestHooks: hooks } =
+    await import("../src/lib/proxy/proxyTracer.js");
+  hooks.reset();
+  try {
+    const fail = (provider: string, model: string) =>
+      recordFallbackAttempt({
+        provider,
+        model,
+        status: "failure",
+        errorMessage: "quota rejected",
+        durationMs: 1,
+      });
+    const succeed = (provider: string, model: string) =>
+      recordFallbackAttempt({
+        provider,
+        model,
+        status: "success",
+        durationMs: 1,
+      });
+
+    // One short of the threshold stays quiet: ordinary rotation and brief
+    // cooldowns must not trip it.
+    for (let i = 0; i < hooks.threshold - 1; i++) {
+      fail("codex", "gpt-5.6-sol");
+    }
+    assertEqual(
+      hooks.streakOf("codex/gpt-5.6-sol"),
+      hooks.threshold - 1,
+      "every consecutive failure must count",
+    );
+    assert(
+      !hooks.isReported("codex/gpt-5.6-sol"),
+      "a leg below the threshold must not be reported",
+    );
+
+    // Crossing it reports, and staying dead does not report again.
+    fail("codex", "gpt-5.6-sol");
+    assert(
+      hooks.isReported("codex/gpt-5.6-sol"),
+      "crossing the threshold must report the leg",
+    );
+    for (let i = 0; i < 50; i++) {
+      fail("codex", "gpt-5.6-sol");
+    }
+    assert(
+      hooks.isReported("codex/gpt-5.6-sol"),
+      "a leg stays reported while it stays dead, without repeating the alert",
+    );
+
+    // A second leg is tracked independently: one dead leg must not mask another.
+    for (let i = 0; i < hooks.threshold; i++) {
+      fail("vertex", "claude-opus-5-5");
+    }
+    assert(
+      hooks.isReported("vertex/claude-opus-5-5"),
+      "a second leg going dark must still be reported",
+    );
+
+    // Any success clears the streak and re-arms the alert.
+    succeed("codex", "gpt-5.6-sol");
+    assertEqual(
+      hooks.streakOf("codex/gpt-5.6-sol"),
+      0,
+      "a success must clear the failure streak",
+    );
+    assert(
+      !hooks.isReported("codex/gpt-5.6-sol"),
+      "a recovered leg must be re-armed so a later outage reports again",
+    );
+    assert(
+      hooks.isReported("vertex/claude-opus-5-5"),
+      "one leg recovering must not clear another leg's state",
+    );
+  } finally {
+    hooks.reset();
+  }
+});
+
+await test("caller-supplied fallback models cannot grow leg-health state without bound", async () => {
+  // Four call sites key on the configured chain, but the auto-provider path
+  // records `auto-provider/<requested model>`, and the requested model is
+  // whatever the client asked for. A client failing requests under varying
+  // model names would otherwise mint a map entry per name for the lifetime of
+  // the process.
+  const { recordFallbackAttempt, __fallbackLegHealthTestHooks: hooks } =
+    await import("../src/lib/proxy/proxyTracer.js");
+  hooks.reset();
+  try {
+    for (let i = 0; i < hooks.maxTrackedLegs * 3; i++) {
+      recordFallbackAttempt({
+        provider: "auto-provider",
+        model: `attacker-chosen-model-${i}`,
+        status: "failure",
+        errorMessage: "upstream refused",
+        durationMs: 1,
+      });
+    }
+    assert(
+      hooks.trackedCount() <= hooks.maxTrackedLegs,
+      `leg-health state must stay bounded, saw ${hooks.trackedCount()}`,
+    );
+
+    // Eviction is by recency, not insertion, so a leg that keeps failing is
+    // never dropped in favour of a stale one.
+    for (let i = 0; i < hooks.threshold; i++) {
+      recordFallbackAttempt({
+        provider: "codex",
+        model: "gpt-5.6-sol",
+        status: "failure",
+        errorMessage: "quota rejected",
+        durationMs: 1,
+      });
+      for (let j = 0; j < 4; j++) {
+        recordFallbackAttempt({
+          provider: "auto-provider",
+          model: `churn-${i}-${j}`,
+          status: "failure",
+          durationMs: 1,
+        });
+      }
+    }
+    assertEqual(
+      hooks.streakOf("codex/gpt-5.6-sol"),
+      hooks.threshold,
+      "an actively failing leg must survive eviction pressure",
+    );
+    assert(
+      hooks.isReported("codex/gpt-5.6-sol"),
+      "an actively failing leg must still be reported under churn",
+    );
+  } finally {
+    hooks.reset();
+  }
+});
+
+await test("a fallback leg is only marked reported once the report is out", async () => {
+  // The alert is marked-then-logged nowhere: a throwing logger is swallowed by
+  // recordFallbackAttempt's catch, so marking first would silence the leg for
+  // the lifetime of the process — the exact outcome this mechanism prevents.
+  const { recordFallbackAttempt, __fallbackLegHealthTestHooks: hooks } =
+    await import("../src/lib/proxy/proxyTracer.js");
+  const { logger } = await import("../src/lib/utils/logger.js");
+  hooks.reset();
+  const originalAlways = logger.always;
+  let throwNext = true;
+  let reports = 0;
+  try {
+    logger.always = ((message: string): void => {
+      if (typeof message === "string" && message.includes("is not serving")) {
+        reports += 1;
+        if (throwNext) {
+          throwNext = false;
+          throw new Error("log sink unavailable");
+        }
+      }
+    }) as typeof logger.always;
+
+    for (let i = 0; i < hooks.threshold; i++) {
+      recordFallbackAttempt({
+        provider: "vertex",
+        model: "claude-opus-5-5",
+        status: "failure",
+        errorMessage: "credentials rejected",
+        durationMs: 1,
+      });
+    }
+    assertEqual(reports, 1, "the threshold crossing must attempt a report");
+    assert(
+      !hooks.isReported("vertex/claude-opus-5-5"),
+      "a report that threw must not leave the leg marked as reported",
+    );
+
+    recordFallbackAttempt({
+      provider: "vertex",
+      model: "claude-opus-5-5",
+      status: "failure",
+      errorMessage: "credentials rejected",
+      durationMs: 1,
+    });
+    assertEqual(
+      reports,
+      2,
+      "a failed report must be retried on the next failure",
+    );
+    assert(
+      hooks.isReported("vertex/claude-opus-5-5"),
+      "a report that succeeded must mark the leg so it is not repeated",
+    );
+  } finally {
+    logger.always = originalAlways;
+    hooks.reset();
+  }
+});
+
 await test("a late successful append is never retried while its original write is pending", async () => {
   await withWriter(async (dir) => {
     let release = () => {};
