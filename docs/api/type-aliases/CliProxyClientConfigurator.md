@@ -51,8 +51,10 @@ config files for a CLI the user never installed.
 
 Point the CLI at the proxy. `proxyBaseUrl` is the bare proxy origin
 (e.g. "http://127.0.0.1:55669"); the configurator appends whatever path
-suffix its CLI needs. Returns false when nothing was written, so callers
-never print a success message for work that did not happen.
+suffix its CLI needs. Returns false when the CLI is not left pointing at
+the proxy, so callers never print a success message for work that did
+not happen. A configurator whose file already matches may return true
+without rewriting it.
 
 #### Parameters
 

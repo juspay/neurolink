@@ -31,8 +31,10 @@ export type CliProxyClientConfigurator = {
   /**
    * Point the CLI at the proxy. `proxyBaseUrl` is the bare proxy origin
    * (e.g. "http://127.0.0.1:55669"); the configurator appends whatever path
-   * suffix its CLI needs. Returns false when nothing was written, so callers
-   * never print a success message for work that did not happen.
+   * suffix its CLI needs. Returns false when the CLI is not left pointing at
+   * the proxy, so callers never print a success message for work that did
+   * not happen. A configurator whose file already matches may return true
+   * without rewriting it.
    */
   apply: (
     proxyBaseUrl: string,
@@ -61,7 +63,10 @@ export type CliProxyClientConfigurator = {
 export type CliProxyClientApplyResult = {
   id: string;
   displayName: string;
-  /** True only when the configurator actually wrote configuration. */
+  /**
+   * True only when the CLI's configuration points at the proxy: written now,
+   * or already written and left as it was.
+   */
   applied: boolean;
   /**
    * Set when the write landed but is not yet in effect — see
@@ -119,6 +124,28 @@ export type CliGrokProxyModelSpec = {
 export type CliGrokSnapshot = {
   originalExisted: boolean;
   writtenBaseUrl: string;
+};
+
+/**
+ * One header-delimited run of a client's TOML config. `path` is the parsed
+ * header key (`["model", "gemini-2.5-pro"]` for `[model."gemini-2.5-pro"]`),
+ * or null for the keys before the first header. `lines` keep their own
+ * terminators, so text the writer does not own round-trips byte for byte.
+ */
+export type CliTomlSection = {
+  path: readonly string[] | null;
+  arrayTable: boolean;
+  lines: readonly string[];
+};
+
+/**
+ * What a line of TOML leaves open for the next one: a multi-line string, or
+ * brackets of an array or inline table. A `[` that starts a line is a table
+ * header only when neither is open.
+ */
+export type CliTomlScanState = {
+  multiline: '"""' | "'''" | null;
+  depth: number;
 };
 
 /**

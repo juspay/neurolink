@@ -28,7 +28,8 @@ Outcome of applying one configurator, for per-client CLI reporting.
 
 > **applied**: `boolean`
 
-True only when the configurator actually wrote configuration.
+True only when the CLI's configuration points at the proxy: written now,
+or already written and left as it was.
 
 ---
 
