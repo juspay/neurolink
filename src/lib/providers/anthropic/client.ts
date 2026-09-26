@@ -75,7 +75,10 @@ import {
   previewAnthropicToolResultText,
 } from "../../context/anthropicLoopGuard.js";
 import { getAvailableInputTokens } from "../../constants/contextWindows.js";
-import { estimateTokens } from "../../utils/tokenEstimation.js";
+import {
+  estimateTokens,
+  serializeForEstimate,
+} from "../../utils/tokenEstimation.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
   ANTHROPIC_MAX_CACHE_BREAKPOINTS,
@@ -143,6 +146,7 @@ import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 
 import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
 import { cacheControlOf, withLastToolCacheBreakpoint } from "./cacheControl.js";
+import { createNativeGenerateGuard } from "../../context/nativeGenerateGuard.js";
 import {
   appendFinalResultInstruction,
   appendFinalResultTool,
@@ -1947,6 +1951,29 @@ export class AnthropicProvider extends BaseProvider {
     const loop = await runNativeGenerateLoop(
       {
         doGenerate,
+        ...createNativeGenerateGuard({
+          provider: "anthropic",
+          availableInputTokens: getAvailableInputTokens(
+            "anthropic",
+            modelId,
+            options.maxTokens ?? undefined,
+          ),
+          // Runs on every step of the generate loop, so a cyclic or
+          // oversized tool schema must not throw the turn away. Shares the
+          // estimator's own serializer, matching the OpenAI-compatible
+          // native guard's wiring: its fallback over-reports, which makes
+          // the guard fire rather than silently size the overhead at
+          // nothing.
+          getFixedOverheadTokens: () =>
+            estimateTokens(
+              serializeForEstimate({
+                tools: v3Tools,
+                responseFormat,
+                providerOptions,
+              }),
+              "anthropic",
+            ),
+        }),
         conversation,
         ...(hasTools ? { tools: v3Tools } : {}),
         toolsRecord,
