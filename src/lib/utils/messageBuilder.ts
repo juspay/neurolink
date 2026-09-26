@@ -18,7 +18,11 @@ import {
   FILE_READ_BUDGET_PERCENT,
 } from "../context/fileTokenBudget.js";
 import type { FileReferenceRegistry } from "../files/fileReferenceRegistry.js";
-import { isCSVContent, SIZE_TIER_THRESHOLDS } from "../types/index.js";
+import {
+  isCSVContent,
+  isTextContent,
+  SIZE_TIER_THRESHOLDS,
+} from "../types/index.js";
 import type {
   ChatMessage,
   Content,
@@ -30,6 +34,7 @@ import type {
   MessageContent,
   MultimodalChatMessage,
   StreamOptions,
+  TextContent,
   TextGenerationOptions,
   VisionImageOutputFormat,
 } from "../types/index.js";
@@ -1832,6 +1837,21 @@ export async function buildMultimodalMessagesArray(
 
   // If no images, PDFs, audio or video, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs && !hasNativeAudio && !hasNativeVideo) {
+    // A `content: [{type: "text", ...}]` item never reaches
+    // convertContentToProviderFormat on this branch (that only runs for the
+    // multimodal path below), and buildMessagesArray only ever reads
+    // inp.text/options.prompt — so without this fold, every TextContent item
+    // in `content[]` was silently dropped whenever the request carried no
+    // image, PDF, native audio or native video. Fold them into inp.text first
+    // (same append-and-preserve-order shape as the CSV fold immediately
+    // below), so ordinary text-only requests behave the same as the
+    // multimodal path, which already reads its (first) text item out of
+    // `content[]`.
+    const textContentItems = inp.content?.filter(isTextContent) ?? [];
+    if (textContentItems.length > 0) {
+      inp.text = appendTextContentToText(textContentItems, inp.text ?? "");
+    }
+
     // #289: CSV content[] items don't need vision, so they never reach the
     // multimodal converter below — process them into the prompt text here
     // (otherwise a `content: [{type:"csv"}]`-only request silently drops it).
@@ -2027,6 +2047,27 @@ export async function buildMultimodalMessagesArray(
     });
     throw error;
   }
+}
+
+/**
+ * Fold TextContent `content[]` items into the prompt text, in the order they
+ * appear, on the text-only path (no image/PDF/native-audio, so
+ * convertContentToProviderFormat's own text handling never runs). Mirrors
+ * appendCsvContentToText's append-after-base-text shape; unlike CSV this
+ * needs no async decoding, just string concatenation.
+ */
+function appendTextContentToText(
+  textItems: TextContent[],
+  baseText: string,
+): string {
+  let text = baseText;
+  for (const item of textItems) {
+    if (!item.text) {
+      continue;
+    }
+    text += `${text ? "\n\n" : ""}${item.text}`;
+  }
+  return text;
 }
 
 /**
