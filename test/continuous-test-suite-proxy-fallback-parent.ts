@@ -163,6 +163,8 @@ const AFFINITY_ACCOUNT_A = "anthropic:affinity-a@example.test";
 const AFFINITY_ACCOUNT_B = "anthropic:affinity-b@example.test";
 const AFFINITY_TOKEN_A = "affinity-fixture-token-a";
 const AFFINITY_TOKEN_B = "affinity-fixture-token-b";
+const AFFINITY_REFRESH_TOKEN_A = "affinity-fixture-refresh-a";
+const refreshTokensSent: string[] = [];
 type AffinityFixtureAccount = "a" | "b";
 let anthropicUpstream: (
   account: AffinityFixtureAccount,
@@ -190,6 +192,19 @@ globalThis.fetch = async (input, init) => {
     upstreamCalls++;
     return new Response(wire, {
       headers: { "content-type": "text/event-stream" },
+    });
+  }
+  if (
+    (url.hostname === "api.anthropic.com" ||
+      url.hostname === "console.anthropic.com") &&
+    url.pathname === "/v1/oauth/token"
+  ) {
+    refreshTokensSent.push(
+      new URLSearchParams(String(init?.body)).get("refresh_token") ?? "",
+    );
+    return new Response(JSON.stringify({ error: "invalid_grant" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
     });
   }
   if (
@@ -785,6 +800,49 @@ async function runSessionAffinityRouteCases(
   );
   console.log(
     "PASS affinity bind-time routing throw keeps the served response",
+  );
+
+  // Runs last: the permanent refresh failure disables a until re-auth. a's
+  // token is inside the refresh buffer but not yet expired, so the account
+  // loader keeps a and the refresh runs in a's own attempt preparation, which
+  // fails before any upstream call. a failed this request, so the binding
+  // must follow b, which served it.
+  const refreshSession = randomUUID();
+  anthropicAttempts.length = 0;
+  response = await sendAffinityRequest(app, refreshSession, false);
+  await response.text();
+  assert.equal(
+    boundAccountOf(refreshSession),
+    AFFINITY_ACCOUNT_A,
+    "refresh failure: precondition, the session should be bound to a",
+  );
+  await tokenStore.saveTokens(AFFINITY_ACCOUNT_A, {
+    accessToken: AFFINITY_TOKEN_A,
+    refreshToken: AFFINITY_REFRESH_TOKEN_A,
+    tokenType: "Bearer",
+    expiresAt: Date.now() + 60_000,
+  });
+  refreshTokensSent.length = 0;
+  anthropicAttempts.length = 0;
+  response = await sendAffinityRequest(app, refreshSession, false);
+  await response.text();
+  assert.ok(
+    refreshTokensSent.includes(AFFINITY_REFRESH_TOKEN_A),
+    "refresh failure: precondition, a's token refresh was never attempted",
+  );
+  assert.equal(response.status, 200, "refresh failure: b did not serve");
+  assert.deepEqual(
+    anthropicAttempts,
+    ["b"],
+    "refresh failure: a should fail before its upstream call and b should serve",
+  );
+  assert.equal(
+    boundAccountOf(refreshSession),
+    AFFINITY_ACCOUNT_B,
+    "refresh failure: the binding stayed on a although its refresh failed and b served",
+  );
+  console.log(
+    "PASS affinity moves the binding off a bound account whose token refresh fails",
   );
 }
 try {

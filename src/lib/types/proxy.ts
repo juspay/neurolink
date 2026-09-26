@@ -1382,8 +1382,10 @@ export type QueuedAccountAdmission = {
 /** One queued request waiting for per-account admission capacity. */
 export type AccountAdmissionWaiter = {
   capacity: number;
-  /** Runtime-config generation of the snapshot the request queued under;
-   *  absent when no runtime config store publishes one. */
+  /** Runtime-config generation of the snapshot the request queued under.
+   *  The route always passes one (0 from its fallback snapshot when no
+   *  runtime config store is attached); only direct callers such as test
+   *  hooks leave it absent. */
   generation?: number;
   resolve: (lease: AccountAdmissionLease) => void;
 };

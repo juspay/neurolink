@@ -564,8 +564,10 @@ function drainAccountAdmissionWaiters(
  * removed the waiter's cap — and uncapped arrivals count toward `active`, so
  * that waiter would otherwise never drain. An uncapped request from an older
  * snapshot (one that predates a reload adding the cap) or from the same one
- * leaves waiters queued: their cap is still current. With no generation there
- * is no runtime config store, the cap cannot change, and nothing is admitted.
+ * leaves waiters queued: their cap is still current. With no generation,
+ * which only direct callers such as test hooks pass (the route passes 0 from
+ * its fallback snapshot when no runtime config store is attached), there is
+ * nothing to compare against and nothing is admitted.
  */
 function admitWaitersOfRemovedCap(
   accountKey: string,
@@ -10227,8 +10229,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     isClaudeClientRequest,
     sessionId,
   } = loadedAccounts;
-  // Accounts this request sent an upstream attempt to; one skipped only for
-  // its admission cap is not among them.
+  // Accounts this request sent an upstream attempt to or whose token refresh
+  // failed; one skipped only for its admission cap is not among them.
   const attemptedAccountKeys = new Set<string>();
   // Only fill-first over more than one account reads a binding (see
   // selectClaudeProxyAccountOrder), so nothing else records one.
@@ -10440,6 +10442,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           !preparedAttempt.preparedContext ||
           preparedAttempt.fetchStartMs === undefined
         ) {
+          // A failed token refresh is this account failing the request, so a
+          // session bound to it must not stay there when another one serves.
+          attemptedAccountKeys.add(account.key);
           if (transportPermit.probe) {
             providerTransportCoordinator.reportProbeAbandoned(transportPermit);
           }

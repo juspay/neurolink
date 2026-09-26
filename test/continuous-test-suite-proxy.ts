@@ -8730,8 +8730,9 @@ async function testUncappedAcquireAdmitsWaitersOfRemovedCap(): Promise<boolean> 
 // cap reaches admission late (a long queue wait, retries or failover) still
 // reading "uncapped". The waiters' cap is then the current one, so the stale
 // request may admit itself but must not release them. A request from their own
-// generation, or one with no generation at all (no runtime config store, so the
-// cap cannot change), must not release them either.
+// generation must not release them either, nor may one with no generation at
+// all, which only direct callers such as these hooks make: the route passes 0
+// from its fallback snapshot when no runtime config store is attached.
 async function testStaleUncappedAcquireKeepsWaitersOfAddedCap(): Promise<boolean> {
   const { __testHooks } =
     await import("../src/lib/server/routes/claudeProxyRoutes.js");
@@ -8800,6 +8801,72 @@ async function testStaleUncappedAcquireKeepsWaitersOfAddedCap(): Promise<boolean
   if (after.active !== 5 || after.waiting !== 10 || admittedCount !== 0) {
     log(
       `same- and no-generation acquires: expected active=5 waiting=10 admitted=0, got active=${after.active} waiting=${after.waiting} admitted=${admittedCount}`,
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// Queued requests from different snapshots interleave, so an older-generation
+// waiter can sit behind a newer one. The uncapped acquire must reach past the
+// newer waiter rather than stop at it, or the older one never drains.
+async function testUncappedAcquireAdmitsOlderWaitersBehindNewerOnes(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const accountKey = "anthropic:cap-mixed@example.test";
+  const held = [
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, 1),
+    __testHooks.tryAcquireAccountAdmission(accountKey, 2, 1),
+  ];
+  const waiterGenerations = [1, 2, 1];
+  const waiters = waiterGenerations.map((generation) =>
+    __testHooks.enqueueAccountAdmission(accountKey, 2, generation),
+  );
+  const admissionOrder: number[] = [];
+  waiters.forEach((waiter, index) => {
+    void waiter.promise.then(() => {
+      admissionOrder.push(index);
+    });
+  });
+  const queued = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  const uncapped = __testHooks.tryAcquireAccountAdmission(
+    accountKey,
+    undefined,
+    2,
+  );
+  // Admission resolves synchronously; the wait only lets any resolution that
+  // did happen reach the `then` recorders above.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const after = __testHooks.getAccountAdmissionSnapshot(accountKey);
+  waiters.forEach((waiter) => waiter.cancel());
+  uncapped?.release();
+  held.forEach((lease) => lease?.release());
+  __testHooks.resetAllRuntimeState();
+
+  if (held.some((lease) => !lease) || queued.active !== 2) {
+    log("setup: expected both capped leases to be granted", "red");
+    return false;
+  }
+  if (queued.waiting !== 3) {
+    log(`setup: expected 3 queued waiters, got ${queued.waiting}`, "red");
+    return false;
+  }
+  if (!uncapped) {
+    log("expected the uncapped acquire to be granted", "red");
+    return false;
+  }
+  if (admissionOrder.join(",") !== "0,2") {
+    log(
+      `expected only the generation-1 waiters #0 then #2 to be admitted, got [${admissionOrder.join(",")}]`,
+      "red",
+    );
+    return false;
+  }
+  if (after.active !== 5 || after.waiting !== 1) {
+    log(
+      `expected active=5 waiting=1 (2 held + 2 older waiters + 1 uncapped; the generation-2 waiter stays queued), got active=${after.active} waiting=${after.waiting}`,
       "red",
     );
     return false;
@@ -13719,6 +13786,11 @@ const tests: TestFunction[] = [
   {
     name: "admission: stale uncapped acquire keeps waiters of a newly added cap queued",
     fn: testStaleUncappedAcquireKeepsWaitersOfAddedCap,
+    category: "proxy-primary",
+  },
+  {
+    name: "admission: uncapped acquire admits older waiters queued behind newer ones",
+    fn: testUncappedAcquireAdmitsOlderWaitersBehindNewerOnes,
     category: "proxy-primary",
   },
   {
