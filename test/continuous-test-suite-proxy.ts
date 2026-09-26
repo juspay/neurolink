@@ -3329,6 +3329,62 @@ async function testCodexApplyRefusesForeignProvider(): Promise<boolean> {
 }
 
 /**
+ * An unclean exit skips restore and leaves the selector snapshot behind. A
+ * provider the user then picks by hand is newer than that snapshot, yet the
+ * next apply kept the snapshot anyway: it overwrote the hand-picked provider,
+ * and restore brought back the one from before the edit.
+ */
+async function testCodexRestoreKeepsSelectorSetAfterUncleanExit(): Promise<boolean> {
+  const { __codexClientTestHooks: hooks } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const url = "http://127.0.0.1:55669";
+  const edits = [
+    { name: "provider picked by hand", line: 'model_provider = "my-gateway"' },
+    { name: "selector removed by hand", line: null },
+  ];
+  const results = [];
+  for (const edit of edits) {
+    results.push(
+      await withCodexHome(edit.name, async (configPath) => {
+        fs.writeFileSync(configPath, CODEX_USER_PREAMBLE.join("\n"));
+        await hooks.setCodexProxySettings(url);
+        // No restore ran. The first match is the top-level selector; the
+        // profile's own comes after the first header.
+        fs.writeFileSync(
+          configPath,
+          fs
+            .readFileSync(configPath, "utf8")
+            .replace(
+              /^model_provider = "neurolink"\n/m,
+              edit.line === null ? "" : `${edit.line}\n`,
+            ),
+        );
+        if (!(await hooks.setCodexProxySettings(url))) {
+          return "apply reported no write";
+        }
+        await hooks.clearCodexProxySettings(url);
+        const restored = fs.readFileSync(configPath, "utf8");
+        const preamble = restored.slice(0, restored.search(/^\[/m));
+        if (/^model_provider = "openai"$/m.test(preamble)) {
+          return "restore brought back the selector from before the hand edit";
+        }
+        if (edit.line !== null && !preamble.includes(edit.line)) {
+          return "restore lost the provider picked by hand";
+        }
+        if (edit.line === null && /^model_provider/m.test(preamble)) {
+          return "restore added a selector the user had removed";
+        }
+        if (countGrokLines(restored, 'model_provider = "neurolink"') !== 1) {
+          return "restore changed the profile's own selector";
+        }
+        return null;
+      }),
+    );
+  }
+  return results.every(Boolean);
+}
+
+/**
  * Configs kept in a dotfiles repository are symlinks into it, a setup Grok
  * documents and its own writer honours. The atomic write renamed over the
  * link, turning it into a regular file and leaving the repository's copy
@@ -15071,6 +15127,11 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Codex apply refuses a provider it did not write",
     fn: testCodexApplyRefusesForeignProvider,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Codex restore keeps a selector set after an unclean exit",
+    fn: testCodexRestoreKeepsSelectorSetAfterUncleanExit,
     category: "proxy-config",
   },
   {

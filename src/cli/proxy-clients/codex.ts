@@ -215,26 +215,32 @@ export async function setCodexProxySettings(baseUrl: string): Promise<boolean> {
       return false;
     }
 
-    // Snapshot the user's original selector once (survives crashes/restarts).
-    if (!fs.existsSync(getCodexSnapshotPath())) {
-      // Same preamble boundary the edit paths use. Matching document-wide would
-      // capture a `model_provider` belonging to a table — a legacy
-      // `[profiles.<name>]` block, say — and the restore would then write that
-      // profile's provider back as the top-level selector.
-      let providerMatch: RegExpMatchArray | null = null;
-      editTomlPreamble(original, (preamble) => {
-        providerMatch = preamble.match(CODEX_PROVIDER_LINE_RE);
-        return null;
-      });
-      // Ignore a stale managed selector line if present in the original.
-      const originalProviderLine =
-        providerMatch && !/"neurolink"/.test(providerMatch[0])
-          ? providerMatch[0]
-          : null;
+    // Same preamble boundary the edit paths use. Matching document-wide would
+    // capture a `model_provider` belonging to a table — a legacy
+    // `[profiles.<name>]` block, say — and the restore would then write that
+    // profile's provider back as the top-level selector.
+    let providerMatch: RegExpMatchArray | null = null;
+    editTomlPreamble(original, (preamble) => {
+      providerMatch = preamble.match(CODEX_PROVIDER_LINE_RE);
+      return null;
+    });
+    // A selector naming "neurolink" is the one the proxy writes, possibly left
+    // by an earlier run, and never the user's choice.
+    const userProviderLine =
+      providerMatch && !/"neurolink"/.test(providerMatch[0])
+        ? providerMatch[0]
+        : null;
+    const selectorIsOurs = providerMatch !== null && userProviderLine === null;
+
+    // Snapshot on first touch, and again whenever the top-level selector is
+    // not the proxy's. An unclean exit skips restore and leaves the snapshot
+    // behind; a provider the user then picks by hand, or a selector they
+    // remove, is newer than that snapshot and is what restore must bring back.
+    if (!fs.existsSync(getCodexSnapshotPath()) || !selectorIsOurs) {
       fs.mkdirSync(join(homedir(), ".neurolink"), { recursive: true });
       await writeFileAtomic(
         getCodexSnapshotPath(),
-        JSON.stringify({ originalProviderLine }, null, 2),
+        JSON.stringify({ originalProviderLine: userProviderLine }, null, 2),
         0o600,
       );
     }
