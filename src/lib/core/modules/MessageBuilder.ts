@@ -135,6 +135,11 @@ export class MessageBuilder {
             // transcription flag are read downstream by the detector, and
             // a reconstruction that omits them silently restores defaults.
             videoOptions: options.videoOptions,
+            // This object is rebuilt field by field, so anything not named
+            // here never reaches the multimodal builder — the same way
+            // audioFiles/videoFiles went missing in #284. Office options
+            // steer XLSX sheet selection and rendering.
+            officeOptions: options.officeOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,
@@ -299,6 +304,11 @@ export class MessageBuilder {
             // transcription flag are read downstream by the detector, and
             // a reconstruction that omits them silently restores defaults.
             videoOptions: options.videoOptions,
+            // This object is rebuilt field by field, so anything not named
+            // here never reaches the multimodal builder — the same way
+            // audioFiles/videoFiles went missing in #284. Office options
+            // steer XLSX sheet selection and rendering.
+            officeOptions: options.officeOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,

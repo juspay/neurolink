@@ -195,6 +195,15 @@ output: {
 
 ---
 
+### officeOptions?
+
+> `optional` **officeOptions?**: [`OfficeProcessorOptions`](OfficeProcessorOptions.md)
+
+Office document processing options. Currently consumed by the XLSX path
+(`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+
+---
+
 ### pdfOptions?
 
 > `optional` **pdfOptions?**: `object`

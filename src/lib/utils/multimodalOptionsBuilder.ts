@@ -17,6 +17,7 @@ import type { StreamOptions } from "../types/index.js";
  *   - input.videoFiles: Video files (Buffer | string paths)
  *   - csvOptions: CSV parsing options
  *   - videoOptions: Video frame/quality/format/transcription options
+ *   - officeOptions: DOCX/XLSX sheet selection and output-format options
  *   - systemPrompt: System-level instructions
  *   - conversationMessages: Chat history
  *   - temperature: Model temperature (0-1)
@@ -29,6 +30,7 @@ import type { StreamOptions } from "../types/index.js";
  * @returns {object} Normalized options object with:
  *   - input: { text, images, content, files, csvFiles, pdfFiles, audioFiles, videoFiles }
  *   - csvOptions: CSV processing options
+ *   - officeOptions: Office (DOCX/XLSX) processing options
  *   - systemPrompt: System prompt string
  *   - conversationHistory: Message history array
  *   - provider: Provider name
@@ -73,6 +75,10 @@ export function buildMultimodalOptions(
     // `StreamOptions` never reach VideoProcessor on the Bedrock branch, and
     // it silently falls back to the duration-tier default.
     videoOptions: options.videoOptions,
+    // Same #1259 whitelist-drop bug class as audioFiles/videoFiles above:
+    // omitted here, Bedrock's multimodal generate()/stream() path always got
+    // sheetName/formatStyle undefined regardless of what the caller passed.
+    officeOptions: options.officeOptions,
     systemPrompt: options.systemPrompt,
     conversationHistory: options.conversationMessages,
     provider: providerName,

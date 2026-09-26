@@ -40,6 +40,7 @@ import type { NeurolinkCredentials } from "./providers.js";
 import type {
   CSVProcessorOptions,
   VideoProcessorOptions,
+  OfficeProcessorOptions,
   FileWithMetadata,
   MultimodalAudioEntry,
   MultimodalVideoEntry,
@@ -181,6 +182,12 @@ export type GenerateOptions = {
   // CSV processing options (#379: reference the canonical shape so new fields
   // like parseTimeoutMs/encoding/sanitizeColumnNames reach the public API).
   csvOptions?: CSVProcessorOptions;
+
+  /**
+   * Office document processing options. Currently consumed by the XLSX path
+   * (`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+   */
+  officeOptions?: OfficeProcessorOptions;
 
   /** PDF processing options (#258). */
   pdfOptions?: {
@@ -1606,6 +1613,12 @@ export type TextGenerationOptions = {
    * saying so.
    */
   videoOptions?: VideoProcessorOptions;
+
+  /**
+   * Office document processing options. Currently consumed by the XLSX path
+   * (`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+   */
+  officeOptions?: OfficeProcessorOptions;
 
   /** PDF processing options (#258). */
   pdfOptions?: {

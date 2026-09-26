@@ -1249,6 +1249,7 @@ export abstract class BaseProvider implements AIProvider {
         csvOptions: options.csvOptions,
         pdfOptions: options.pdfOptions,
         videoOptions: options.videoOptions,
+        officeOptions: options.officeOptions,
         // Forward abort, tool filtering, and timeout options to prevent
         // silent bypass when falling back from real streaming to fake streaming
         abortSignal: options.abortSignal,

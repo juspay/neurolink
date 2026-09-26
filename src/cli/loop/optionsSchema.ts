@@ -29,6 +29,7 @@ export const textGenerationOptionsSchema: Record<
     | "pdfOptions"
     | "imageOptions"
     | "videoOptions" // Complex object, not set via simple CLI commands
+    | "officeOptions"
     | "tts"
     | "stt" // Complex object, set via --stt* flags
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead

@@ -16,7 +16,12 @@
  *   - Parser and formatter edge cases — CRLF vs a bare CR inside a quoted
  *     field, a `sep=` metadata line, encoding detection. `generate()` only
  *     ever shows what the model made of the text, never where the parser put
- *     a row boundary.
+ *     a row boundary. Same reasoning for `htmlToMarkdown`'s own tag-stack
+ *     unwinding and preformatted-text handling: `WordProcessor` calls
+ *     `mammoth.convertToHtml()` with no style map, and mammoth's default
+ *     style map never emits `<pre>` or nested same-tag `<div>`s from any
+ *     DOCX content, so a live `generate()` over a real `.docx` file cannot
+ *     reach either code path — only a direct, controlled HTML string can.
  *   - Outgoing wire format — that `seed`, `stopSequences` and `toolChoice` are
  *     forwarded, that `requestBody` is redacted on a thrown error, that a
  *     consumer breaking early aborts the upstream fetch. None of this is
@@ -61,6 +66,7 @@ import {
   sanitizeColumnName,
   dedupeColumnNames,
 } from "../src/lib/utils/csvProcessor.js";
+import { htmlToMarkdown } from "../src/lib/utils/htmlToMarkdown.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
@@ -8358,6 +8364,30 @@ exit 127
     },
   },
   {
+    name: "buildMultimodalOptions: forwards officeOptions (sheetName/formatStyle)",
+    category: "message-builder",
+    fn: async () => {
+      // Same whitelist-drop bug class as #1259 above: officeOptions was
+      // missing from this rebuilder, so a Bedrock generate()/stream() call
+      // always saw sheetName/formatStyle as undefined regardless of what the
+      // caller passed — an XLSX attachment silently lost its sheet selection
+      // and output-format choice on that provider path.
+      const built = buildMultimodalOptions(
+        {
+          input: { text: "summarize the sheet" },
+          officeOptions: { sheetName: "Q3", formatStyle: "json" },
+        } as Parameters<typeof buildMultimodalOptions>[0],
+        "bedrock",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      );
+      const forwarded = built as { officeOptions?: Record<string, unknown> };
+      return (
+        forwarded.officeOptions?.sheetName === "Q3" &&
+        forwarded.officeOptions?.formatStyle === "json"
+      );
+    },
+  },
+  {
     name: "formatMediaDuration: audio and video render the same duration identically",
     category: "message-builder",
     fn: async () => {
@@ -8830,6 +8860,69 @@ exit 127
         return rejected && getCount === 1 && headCount === 0 && !bodyWritten;
       } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    },
+  },
+  {
+    name: "FileDetector: processDocxFile bounds a hung WordProcessor call instead of hanging",
+    category: "file-detector",
+    fn: async () => {
+      // processDocxFile's docx branch (and its odt/rtf siblings) previously
+      // awaited the underlying processor with no ceiling, unlike the ODP
+      // branch of processPptxFile right below it. A stalled mammoth/htmlToMarkdown
+      // pass — or an attacker-supplied file crafted to stall one — held the
+      // request open indefinitely. Reflection reaches the private static
+      // method directly (established pattern above), and both the singleton
+      // processor and the timeout constant are monkey-patched for the
+      // duration of this one call and restored in `finally` no matter the
+      // outcome, so no other test observes the shortened timeout.
+      const { wordProcessor } =
+        await import("../src/lib/processors/document/WordProcessor.js");
+      const patchable = wordProcessor as unknown as {
+        processFile: (...args: unknown[]) => Promise<unknown>;
+      };
+      const originalProcessFile = patchable.processFile;
+      const timeoutHolder = FileDetector as unknown as {
+        DEFAULT_DOCUMENT_TIMEOUT: number;
+      };
+      const originalTimeout = timeoutHolder.DEFAULT_DOCUMENT_TIMEOUT;
+      const boundedTimeoutMs = 60;
+      patchable.processFile = () => new Promise(() => {}); // never resolves
+      timeoutHolder.DEFAULT_DOCUMENT_TIMEOUT = boundedTimeoutMs;
+      try {
+        const processDocxFile = (
+          FileDetector as unknown as {
+            processDocxFile: (
+              content: Buffer,
+              detection: {
+                extension?: string;
+                mimeType?: string;
+                metadata: { filename?: string };
+              },
+            ) => Promise<{ type: string; content: string }>;
+          }
+        ).processDocxFile.bind(FileDetector);
+        const start = Date.now();
+        const result = await processDocxFile(Buffer.from("fake docx bytes"), {
+          extension: "docx",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          metadata: { filename: "hung.docx" },
+        });
+        const elapsed = Date.now() - start;
+        // Bounded well under the real 30s default: proves the wrap actually
+        // fired rather than the call happening to finish fast on its own.
+        return (
+          elapsed >= boundedTimeoutMs &&
+          elapsed < 5000 &&
+          result.type === "docx" &&
+          result.content.includes(
+            `Operation timed out after ${boundedTimeoutMs}ms`,
+          )
+        );
+      } finally {
+        patchable.processFile = originalProcessFile;
+        timeoutHolder.DEFAULT_DOCUMENT_TIMEOUT = originalTimeout;
       }
     },
   },
@@ -11050,6 +11143,128 @@ exit 127
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
+    },
+  },
+  {
+    name: "htmlToMarkdown: a closing tag unwinds to the innermost matching element, not the outermost",
+    category: "html-to-markdown",
+    fn: async () => {
+      // The outer <div> and the inner <div> share a tag name. The first
+      // </div> must close the INNER one, so "B" belongs to the outer div —
+      // not to whatever is above it. A stack search that finds the FIRST
+      // (outermost) match instead of the LAST (innermost) pops both levels
+      // at once on that first </div>, so "B" and the trailing "C" (outside
+      // both divs) end up as two consecutive text nodes on the same parent
+      // with no element boundary between them, and collapseWhitespace()
+      // glues them into one word with no separator: "BC" instead of "B",
+      // "C". (A bare `<div><div>A</div>B</div>` doesn't expose this: with
+      // this bug "B" still lands one level too high, but that level happens
+      // to render identically either way — the trailing "C" is what makes
+      // the wrong attachment visible.)
+      const md = htmlToMarkdown("<div><div>A</div>B</div>C");
+      return !md.includes("BC") && md.includes("B") && md.includes("C");
+    },
+  },
+  {
+    name: "htmlToMarkdown: a nested closing tag does not also close an outer same-name ancestor three deep",
+    category: "html-to-markdown",
+    fn: async () => {
+      // A second, independent shape of the same bug: three levels of the
+      // same tag name, where each level contributes text found nowhere else.
+      // Closing tags must unwind exactly one level at a time. With the bug,
+      // the first </div> (after "inner") matches the OUTERMOST div instead
+      // of the middle one, collapsing all three levels at once — "after-
+      // inner" and "after-middle" then land as adjacent text nodes on the
+      // same (wrong) parent and get glued into one word with no separator:
+      // "after-innerafter-middle". A substring check for "after-inner"
+      // alone would still pass on that glued string, so this asserts the
+      // two stay apart instead.
+      const md = htmlToMarkdown(
+        "<div>outer<div>middle<div>inner</div>after-inner</div>after-middle</div>",
+      );
+      return (
+        md.includes("outer") &&
+        md.includes("middle") &&
+        md.includes("inner") &&
+        !md.includes("after-innerafter-middle") &&
+        md.includes("after-inner") &&
+        md.includes("after-middle")
+      );
+    },
+  },
+  {
+    name: "htmlToMarkdown: a <pre> block preserves newlines and indentation instead of collapsing to one line",
+    category: "html-to-markdown",
+    fn: async () => {
+      // renderInline() funnels every text node through collapseWhitespace(),
+      // which does `.replace(/\s+/g, " ")` — fine for prose, destructive for
+      // code. The 'pre' case must NOT go through that collapse.
+      const code = "function add(a, b) {\n  return a + b;\n}";
+      const md = htmlToMarkdown(`<pre>${code}</pre>`);
+      const fenced = /```\n([\s\S]*?)\n```/.exec(md);
+      if (!fenced) {
+        return false;
+      }
+      const body = fenced[1];
+      return (
+        body === code &&
+        body.split("\n").length === 3 &&
+        body.includes("\n  return") // the two-space indent must survive
+      );
+    },
+  },
+  {
+    name: "htmlToMarkdown: a link/image destination containing a space is wrapped in angle brackets",
+    category: "html-to-markdown",
+    fn: async () => {
+      // A bare `[text](dest)` / `![alt](dest)` destination ends at the first
+      // whitespace, so an href/src with an embedded space (e.g. a DOCX
+      // author's "my file.png") would truncate the destination and dump the
+      // remainder as literal trailing text. CommonMark's angle-bracket form
+      // `<dest>` is the unambiguous escape for this.
+      const md = htmlToMarkdown(
+        '<a href="my file.png">click</a><img src="my pic.png" alt="Alt">',
+      );
+      return md === "[click](<my file.png>)![Alt](<my pic.png>)";
+    },
+  },
+  {
+    name: "htmlToMarkdown: a link/image destination containing unbalanced parentheses is wrapped in angle brackets",
+    category: "html-to-markdown",
+    fn: async () => {
+      // A bare `(dest)` destination closes at the first `)`, so a
+      // destination carrying its own unmatched paren closes the markdown
+      // link/image early and spills the remainder as literal text.
+      const md = htmlToMarkdown(
+        '<a href="foo(bar.png">click</a><img src="baz)qux.png" alt="Alt">',
+      );
+      return md === "[click](<foo(bar.png>)![Alt](<baz)qux.png>)";
+    },
+  },
+  {
+    name: "htmlToMarkdown: a backslash before < or > inside an angle-bracket destination is escaped too",
+    category: "html-to-markdown",
+    fn: async () => {
+      // Escaping only `<`/`>` turns `\>` into `\\>`: CommonMark reads `\\`
+      // as a literal backslash, leaving the `>` bare, so it closes the
+      // destination early (and a bare `<` makes it invalid). The backslash
+      // has to be escaped first. Expected text: `a b\\\>c` / `a b\\\<c`.
+      const gt = htmlToMarkdown('<a href="a b\\>c">x</a>');
+      const lt = htmlToMarkdown('<a href="a b\\<c">x</a>');
+      return gt === "[x](<a b\\\\\\>c>)" && lt === "[x](<a b\\\\\\<c>)";
+    },
+  },
+  {
+    name: "htmlToMarkdown: an ordinary link/image destination is unchanged",
+    category: "html-to-markdown",
+    fn: async () => {
+      const md = htmlToMarkdown(
+        '<a href="https://example.com/path">text</a><img src="https://example.com/pic.png" alt="Alt">',
+      );
+      return (
+        md ===
+        "[text](https://example.com/path)![Alt](https://example.com/pic.png)"
+      );
     },
   },
 ];

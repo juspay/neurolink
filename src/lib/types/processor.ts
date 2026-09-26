@@ -760,8 +760,19 @@ export type ProcessedWord = ProcessedFileBase & {
   textContent: string;
   /** HTML representation of the Word document */
   htmlContent: string;
+  /**
+   * Markdown rendering of `htmlContent`, preserving the structure that plain
+   * text loses: headings, ordered/unordered lists and tables.
+   */
+  markdownContent: string;
   /** Warnings from mammoth extraction (e.g., unsupported elements) */
   warnings: string[];
+  /** Whitespace-delimited word count of `textContent`. */
+  wordCount: number;
+  /** Count of non-empty text blocks in `textContent`. */
+  paragraphCount: number;
+  /** Character count of `textContent`, including whitespace. */
+  characterCount: number;
 };
 
 /**

@@ -44,6 +44,7 @@ import type {
   FileWithMetadata,
   VideoProcessorOptions,
   VisionImageOutputFormat,
+  OfficeProcessorOptions,
 } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
@@ -431,6 +432,12 @@ export type StreamOptions = {
    * saying so.
    */
   videoOptions?: VideoProcessorOptions;
+
+  /**
+   * Office document processing options. Currently consumed by the XLSX path
+   * (`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+   */
+  officeOptions?: OfficeProcessorOptions;
 
   /** PDF processing options (#258). */
   pdfOptions?: {

@@ -83,3 +83,27 @@ For spreadsheets (xlsx only): whether to process all sheets or just the first
 > `optional` **includeSlideNotes?**: `boolean`
 
 For presentations (pptx only): whether to include slide notes
+
+---
+
+### sheetName?
+
+> `optional` **sheetName?**: `string`
+
+For spreadsheets (xlsx only): restrict processing to the named sheet.
+When the workbook has no sheet by that name the result says so and lists
+the names it does have, rather than silently falling back to every sheet.
+Omit to process every sheet (the default).
+
+---
+
+### formatStyle?
+
+> `optional` **formatStyle?**: `"raw"` \| `"markdown"` \| `"json"` \| `"csv"`
+
+For spreadsheets (xlsx only): how sheet data is rendered into the prompt.
+
+- `raw` (default): tab-separated preview — the long-standing behaviour
+- `csv`: comma-separated values with RFC 4180 quoting
+- `markdown`: a markdown table per sheet
+- `json`: an array of row objects keyed by the header row

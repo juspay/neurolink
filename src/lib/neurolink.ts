@@ -5805,6 +5805,7 @@ Current user's request: ${currentInput}`;
       // caller's video settings have ever reached a provider -- frames and
       // quality included, not just the native-video flags added alongside.
       videoOptions: options.videoOptions,
+      officeOptions: options.officeOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

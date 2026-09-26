@@ -142,6 +142,125 @@ export async function makeXlsxRaw(sheetXml: string): Promise<Buffer> {
   return zip.toBuffer();
 }
 
+// ---------------------------------------------------------------------------
+// Structured DOCX
+// ---------------------------------------------------------------------------
+
+/**
+ * `makeDocx()` builds a document of bare paragraphs, which is all the security
+ * suite needs. Structure — headings, lists, tables — needs three more parts:
+ * a style map so `Heading1` resolves to a name, numbering definitions so
+ * mammoth can tell an ordered list from a bullet list, and the relationships
+ * that bind them to the main part. They live here rather than in `makeDocx()`
+ * so that suite's fixtures stay minimal.
+ */
+const STRUCTURED_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+</Types>`;
+
+const STRUCTURED_DOC_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+const STRUCTURED_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="Heading 1"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="Heading 2"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="Heading 3"/></w:style>
+  <w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/></w:style>
+</w:styles>`;
+
+// numId 1 is the bullet list, numId 2 the decimal list; mammoth reads
+// `w:numFmt` to decide which, so "bullet" vs anything else is the whole
+// distinction between a `<ul>` and an `<ol>` downstream.
+const STRUCTURED_NUMBERING = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/><w:lvlText w:val="-"/></w:lvl></w:abstractNum>
+  <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum>
+  <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+  <w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
+</w:numbering>`;
+
+/** The content the structured fixture carries, so tests assert on named values. */
+export const STRUCTURED_DOCX = {
+  h1: "Quarterly Platform Report",
+  h2: "Adoption",
+  h3: "Regional Detail",
+  bullets: ["Merchant onboarding automated", "Settlement latency reduced"],
+  steps: ["Collect regional volume", "Reconcile against ledger"],
+  tableHeader: ["Region", "Merchants", "Volume"],
+  tableRows: [
+    ["APAC", "128", "44200"],
+    ["EMEA", "96", "31800"],
+  ],
+  closing: "Closing remarks for the quarter.",
+} as const;
+
+/**
+ * Build a .docx exercising every structure the DOCX markdown conversion
+ * claims to support: H1/H2/H3, a bullet list, a numbered list and a table
+ * with a real header row.
+ *
+ * The content is fixed ({@link STRUCTURED_DOCX}) so a test can assert on the
+ * exact markdown it should produce.
+ */
+export function makeStructuredDocx(
+  tableRows: readonly (readonly string[])[] = STRUCTURED_DOCX.tableRows,
+): Buffer {
+  const runXml = (text: string) =>
+    `<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
+  const paraXml = (text: string, style: string) =>
+    `<w:p><w:pPr><w:pStyle w:val="${style}"/></w:pPr>${runXml(text)}</w:p>`;
+  const itemXml = (text: string, numId: number) =>
+    `<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>${runXml(text)}</w:p>`;
+  const cellXml = (text: string) =>
+    `<w:tc><w:tcPr/><w:p>${runXml(text)}</w:p></w:tc>`;
+  const rowXml = (cells: readonly string[], isHeader: boolean) =>
+    `<w:tr>${isHeader ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${cells.map(cellXml).join("")}</w:tr>`;
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+${paraXml(STRUCTURED_DOCX.h1, "Heading1")}
+${paraXml(STRUCTURED_DOCX.h2, "Heading2")}
+${paraXml(STRUCTURED_DOCX.h3, "Heading3")}
+${STRUCTURED_DOCX.bullets.map((b) => itemXml(b, 1)).join("\n")}
+${STRUCTURED_DOCX.steps.map((s) => itemXml(s, 2)).join("\n")}
+<w:tbl><w:tblPr/>
+${rowXml(STRUCTURED_DOCX.tableHeader, true)}
+${tableRows.map((r) => rowXml(r, false)).join("\n")}
+</w:tbl>
+${paraXml(STRUCTURED_DOCX.closing, "Normal")}
+</w:body></w:document>`;
+
+  const zip = new AdmZip();
+  zip.addFile(
+    "[Content_Types].xml",
+    Buffer.from(STRUCTURED_CONTENT_TYPES, "utf8"),
+  );
+  zip.addFile("_rels/.rels", Buffer.from(ROOT_RELS, "utf8"));
+  zip.addFile("word/document.xml", Buffer.from(documentXml, "utf8"));
+  zip.addFile(
+    "word/_rels/document.xml.rels",
+    Buffer.from(STRUCTURED_DOC_RELS, "utf8"),
+  );
+  zip.addFile("word/styles.xml", Buffer.from(STRUCTURED_STYLES, "utf8"));
+  zip.addFile("word/numbering.xml", Buffer.from(STRUCTURED_NUMBERING, "utf8"));
+  return zip.toBuffer();
+}
+
+/** A structurally valid .docx with an empty body. */
+export function makeEmptyDocx(): Buffer {
+  return makeDocx([]);
+}
+
 function escapeXml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
