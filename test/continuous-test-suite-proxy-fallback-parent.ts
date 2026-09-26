@@ -973,6 +973,58 @@ async function runInStreamRateLimitRouteCases(
     await loadAffinityConfig();
   }
 }
+/** An account disabled outside this worker — the CLI's `auth disable`, another
+ * worker, an older build — leaves the pool. The default log must say so once
+ * per disable, not on every request, and not only at debug level. */
+async function runDisabledAccountLogCases(app: FixtureProxyApp): Promise<void> {
+  const disabledLine =
+    "[proxy] account=affinity-b@example.test is disabled in the token store";
+  const disabledLogs: string[] = [];
+  const originalConsoleLog = console.log;
+  console.log = (...args: unknown[]): void => {
+    if (String(args[0]).startsWith(disabledLine)) {
+      disabledLogs.push(String(args[0]));
+    }
+    originalConsoleLog(...args);
+  };
+  const serve = async (label: string): Promise<void> => {
+    anthropicAttempts.length = 0;
+    const response = await sendAffinityRequest(app, randomUUID(), true);
+    await response.text();
+    await waitForProxyIdle();
+    assert.equal(response.status, 200, `${label}: the request was not served`);
+    assert.deepEqual(anthropicAttempts, ["a"], `${label}: a should serve`);
+  };
+  anthropicUpstream = (_account, stream) => anthropicServes(stream);
+  try {
+    await tokenStore.markDisabled(AFFINITY_ACCOUNT_B, "manual");
+    await serve("first disable");
+    await serve("first disable, second request");
+    assert.equal(
+      disabledLogs.length,
+      1,
+      "first disable: one visible line across two requests",
+    );
+    assert.ok(
+      disabledLogs[0]?.includes("reason=manual"),
+      "first disable: the line must name why the account is disabled",
+    );
+
+    await tokenStore.markEnabled(AFFINITY_ACCOUNT_B);
+    await serve("re-enabled");
+    await tokenStore.markDisabled(AFFINITY_ACCOUNT_B, "manual");
+    await serve("second disable");
+    assert.equal(
+      disabledLogs.length,
+      2,
+      "second disable: a new disable after re-enabling must log again",
+    );
+    console.log("PASS a disabled account is logged once per disable");
+  } finally {
+    console.log = originalConsoleLog;
+    await tokenStore.markEnabled(AFFINITY_ACCOUNT_B);
+  }
+}
 try {
   const { app } = await createProxyStartApp({
     runtimeConfigStore,
@@ -1255,6 +1307,7 @@ try {
   }
   await runSessionAffinityRouteCases(app);
   await runInStreamRateLimitRouteCases(app);
+  await runDisabledAccountLogCases(app);
 } finally {
   sessionAffinity.clear();
   logs.initRequestLogger(false);

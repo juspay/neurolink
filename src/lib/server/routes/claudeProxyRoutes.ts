@@ -5059,9 +5059,19 @@ async function loadClaudeProxyAccounts(args: {
         existingState.permanentlyDisabled = false;
         existingState.consecutiveRefreshFailures = 0;
       } else {
-        logger.debug(
-          `[proxy] skipping disabled account=${key.split(":")[1] ?? key}`,
-        );
+        const label = key.split(":")[1] ?? key;
+        if (existingState.permanentlyDisabled) {
+          logger.debug(`[proxy] skipping disabled account=${label}`);
+        } else {
+          // A flag set outside this worker (the CLI, another worker, an older
+          // build) is otherwise invisible at the default level. Say once that
+          // the account left the pool; re-enabling clears the marker, so the
+          // next disable is announced again.
+          const disabledAt = inventory[key].disabledAt;
+          logger.always(
+            `[proxy] account=${label} is disabled in the token store (reason=${disabledReason ?? "unknown"}${disabledAt ? `, since ${new Date(disabledAt).toISOString()}` : ""}); left out of the pool. Re-enable with: neurolink auth enable ${key}`,
+          );
+        }
         existingState.permanentlyDisabled = true;
         if (disabledReason === "entitlement_blocked") {
           entitlementBlockedLabels.push(key.split(":")[1] ?? key);
