@@ -2058,6 +2058,7 @@ console.log(result.content);
 - [ProviderHealthStatusOptions](type-aliases/ProviderHealthStatusOptions.md)
 - [SageMakerAsLanguageModel](type-aliases/SageMakerAsLanguageModel.md)
 - [ProviderHealthCheckOptions](type-aliases/ProviderHealthCheckOptions.md)
+- [ProviderRuntimeProbeOutcome](type-aliases/ProviderRuntimeProbeOutcome.md)
 - [OpenRouterModelInfo](type-aliases/OpenRouterModelInfo.md)
 - [OpenRouterModelsResponse](type-aliases/OpenRouterModelsResponse.md)
 - [OpenRouterProviderCache](type-aliases/OpenRouterProviderCache.md)
