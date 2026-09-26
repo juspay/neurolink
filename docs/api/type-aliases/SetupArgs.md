@@ -8,7 +8,7 @@
 
 > **SetupArgs** = `object`
 
-Defined in: [types/cli.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L674)
+Defined in: [types/cli.ts:680](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L680)
 
 Main setup command arguments
 
@@ -18,7 +18,7 @@ Main setup command arguments
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/cli.ts:675](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L675)
+Defined in: [types/cli.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L681)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:675](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **list?**: `boolean`
 
-Defined in: [types/cli.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L676)
+Defined in: [types/cli.ts:682](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L682)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:676](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **status?**: `boolean`
 
-Defined in: [types/cli.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L677)
+Defined in: [types/cli.ts:683](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L683)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:677](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **interactive?**: `boolean`
 
-Defined in: [types/cli.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L678)
+Defined in: [types/cli.ts:684](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L684)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:678](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **help?**: `boolean`
 
-Defined in: [types/cli.ts:679](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L679)
+Defined in: [types/cli.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L685)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:679](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:680](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L680)
+Defined in: [types/cli.ts:686](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L686)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/cli.ts:680](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:681](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L681)
+Defined in: [types/cli.ts:687](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L687)

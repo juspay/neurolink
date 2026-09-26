@@ -124,11 +124,26 @@ Whether the bash command execution tool should be enabled (opt-in, defaults to f
 
 ---
 
+### fileRoots?
+
+> `optional` **fileRoots?**: `string`[]
+
+Defined in: [types/config.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L451)
+
+Directories the built-in file tools (readFile, listDirectory, writeFile,
+analyzeCSV) and bash's `cwd` argument may touch. Resolved through
+symlinks; each must be an existing directory. Default: the process
+working directory. An empty array denies all file access. Per-call
+`toolRoots` can only narrow this list. Roots do not sandbox the shell
+commands themselves — a command can still `cd` anywhere.
+
+---
+
 ### outputTruncationMaxBytes?
 
 > `optional` **outputTruncationMaxBytes?**: `number`
 
-Defined in: [types/config.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L452)
+Defined in: [types/config.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L461)
 
 Byte ceiling for the safety-net truncation `ToolsManager` applies to
 every direct/custom/external-MCP tool result before it reaches the AI

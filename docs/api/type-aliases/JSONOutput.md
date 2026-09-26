@@ -8,7 +8,7 @@
 
 > **JSONOutput** = `object`
 
-Defined in: [types/cli.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L542)
+Defined in: [types/cli.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L548)
 
 JSON output structure
 
@@ -18,7 +18,7 @@ JSON output structure
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L543)
+Defined in: [types/cli.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L549)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:543](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **data?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/cli.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L544)
+Defined in: [types/cli.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L550)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:544](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L545)
+Defined in: [types/cli.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L551)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:545](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L546)
+Defined in: [types/cli.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L552)
 
 #### timestamp
 

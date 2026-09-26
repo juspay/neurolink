@@ -3,6 +3,7 @@ import path from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import type { Argv, CommandModule } from "yargs";
+import { STEP_LIMITS } from "../../lib/core/constants.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
 import { providerChoicesFor } from "../../lib/factories/mediaHandlerCatalog.js";
 import type {
@@ -80,6 +81,25 @@ const DERIVED_PROVIDER_CHOICES: string[] = [
 
 /** Space-separated form for the bash-completion script, kept in sync with DERIVED_PROVIDER_CHOICES by construction. */
 export const BASH_COMPLETION_PROVIDERS = DERIVED_PROVIDER_CHOICES.join(" ");
+
+/** EX_IOERR (sysexits.h): the result could not be fully written to stdout. */
+const STDOUT_DRAIN_FAILED_EXIT_CODE = 74;
+const DEFAULT_STDOUT_DRAIN_TIMEOUT_MS = 30_000;
+const STDOUT_DRAIN_WARNING =
+  "neurolink: stdout drain timed out; output may be incomplete\n";
+
+let stdoutDrainTimeoutMs: number | undefined;
+
+const resolveStdoutDrainTimeoutMs = (): number => {
+  if (stdoutDrainTimeoutMs === undefined) {
+    const override = Number(process.env.NEUROLINK_STDOUT_DRAIN_TIMEOUT_MS);
+    stdoutDrainTimeoutMs =
+      Number.isFinite(override) && override > 0
+        ? override
+        : DEFAULT_STDOUT_DRAIN_TIMEOUT_MS;
+  }
+  return stdoutDrainTimeoutMs;
+};
 
 /**
  * CLI Command Factory for generate commands
@@ -274,6 +294,12 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "System prompt to guide AI behavior",
       alias: "s",
+    },
+    toolRoot: {
+      type: "string" as const,
+      array: true,
+      description:
+        "Directory the built-in file tools may read and write (repeatable). Defaults to the working directory. Constrains bash's working directory, not its commands.",
     },
 
     // Output control options
@@ -846,6 +872,32 @@ export class CLICommandFactory {
     },
   };
 
+  // Registered on generate and stream only; the flags mean nothing elsewhere.
+  static readonly agentOptions = {
+    agentMode: {
+      type: "boolean" as const,
+      description:
+        "Run as an autonomous terminal agent: prepend Neurolink's versioned agent instructions to the system prompt",
+    },
+    maxSteps: {
+      type: "number" as const,
+      description: `Maximum tool-calling steps before the turn stops (integer ${STEP_LIMITS.min}-${STEP_LIMITS.max}, default ${STEP_LIMITS.default}; some providers cap lower)`,
+      coerce: (value: unknown) => {
+        if (
+          typeof value !== "number" ||
+          !Number.isInteger(value) ||
+          value < STEP_LIMITS.min ||
+          value > STEP_LIMITS.max
+        ) {
+          throw new Error(
+            `--max-steps must be an integer between ${STEP_LIMITS.min} and ${STEP_LIMITS.max}`,
+          );
+        }
+        return value;
+      },
+    },
+  };
+
   // Helper method to build options for commands. `excludeOptions` drops
   // common flags from registration entirely (not just from validation) —
   // #1191 round-5: batch uses this to omit `commonOptions.file` so `--file`
@@ -1042,6 +1094,8 @@ export class CLICommandFactory {
       stopSequences: argv.stopSequences as string[] | undefined,
       enabledToolNames: argv.enabledToolNames as string[] | undefined,
       systemPrompt: argv.system as string | undefined,
+      agentMode: argv.agentMode as boolean | undefined,
+      maxSteps: argv.maxSteps as number | undefined,
       timeout: argv.timeout as number | undefined,
       disableTools: argv.disableTools as boolean | undefined,
       enableAnalytics: argv.enableAnalytics as boolean | undefined,
@@ -1995,7 +2049,12 @@ export class CLICommandFactory {
             .example(
               '$0 generate "What is in this file?" --file ./data.json',
               "Auto-detect a file type with --file",
+            )
+            .example(
+              '$0 generate "Fix the failing config" --agent-mode --max-steps 60',
+              "Run as an autonomous terminal agent with a step budget",
             ),
+          CLICommandFactory.agentOptions,
         );
       },
       handler: async (argv) =>
@@ -2046,6 +2105,7 @@ export class CLICommandFactory {
               '$0 stream "Explain this dataset" --csv ./data.csv --csv-format markdown',
               "Stream CSV analysis",
             ),
+          CLICommandFactory.agentOptions,
         );
       },
       handler: async (argv) =>
@@ -3128,7 +3188,7 @@ export class CLICommandFactory {
         logger.error("Error during SDK shutdown:", shutdownError);
       }
       if (!globalSession.getCurrentSessionId()) {
-        process.exit();
+        await CLICommandFactory.exitAfterStdoutDrain();
       }
     }
   }
@@ -3571,7 +3631,7 @@ export class CLICommandFactory {
 
     if (!globalSession.getCurrentSessionId()) {
       await CLICommandFactory.flushLangfuseTraces();
-      process.exit(0);
+      await CLICommandFactory.exitAfterStdoutDrain(0);
     }
   }
 
@@ -3652,7 +3712,7 @@ export class CLICommandFactory {
         }
         if (!globalSession.getCurrentSessionId()) {
           await CLICommandFactory.flushLangfuseTraces();
-          process.exit(0);
+          await CLICommandFactory.exitAfterStdoutDrain(0);
         }
         return;
       }
@@ -3680,6 +3740,7 @@ export class CLICommandFactory {
       if (skillsConfig) {
         globalSession.setSkillsConfig(skillsConfig);
       }
+      globalSession.setFileToolRoots(argv.toolRoot as string[] | undefined);
 
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
@@ -3753,6 +3814,8 @@ export class CLICommandFactory {
           topK: enhancedOptions.topK as number | undefined,
           stopSequences: enhancedOptions.stopSequences as string[] | undefined,
           systemPrompt: enhancedOptions.systemPrompt,
+          agentMode: enhancedOptions.agentMode,
+          maxSteps: enhancedOptions.maxSteps,
           timeout: enhancedOptions.timeout
             ? enhancedOptions.timeout * 1000
             : undefined,
@@ -4014,7 +4077,7 @@ export class CLICommandFactory {
 
     if (!globalSession.getCurrentSessionId()) {
       await CLICommandFactory.flushLangfuseTraces();
-      process.exit(0);
+      await CLICommandFactory.exitAfterStdoutDrain(0);
     }
   }
 
@@ -4050,6 +4113,7 @@ export class CLICommandFactory {
     if (skillsConfig) {
       globalSession.setSkillsConfig(skillsConfig);
     }
+    globalSession.setFileToolRoots(argv.toolRoot as string[] | undefined);
 
     const sdk = globalSession.getOrCreateNeuroLink();
     const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
@@ -4101,6 +4165,8 @@ export class CLICommandFactory {
         topK: enhancedOptions.topK as number | undefined,
         stopSequences: enhancedOptions.stopSequences as string[] | undefined,
         systemPrompt: enhancedOptions.systemPrompt as string | undefined,
+        agentMode: enhancedOptions.agentMode as boolean | undefined,
+        maxSteps: enhancedOptions.maxSteps as number | undefined,
         timeout: enhancedOptions.timeout
           ? (enhancedOptions.timeout as number) * 1000
           : undefined,
@@ -4683,7 +4749,7 @@ export class CLICommandFactory {
 
       if (!globalSession.getCurrentSessionId()) {
         await CLICommandFactory.flushLangfuseTraces();
-        process.exit(0);
+        await CLICommandFactory.exitAfterStdoutDrain(0);
       }
     } catch (error) {
       handleError(error as Error, "Streaming");
@@ -4787,6 +4853,7 @@ export class CLICommandFactory {
       if (skillsConfig) {
         globalSession.setSkillsConfig(skillsConfig);
       }
+      globalSession.setFileToolRoots(argv.toolRoot as string[] | undefined);
 
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
@@ -4962,7 +5029,7 @@ export class CLICommandFactory {
 
       if (!globalSession.getCurrentSessionId()) {
         await CLICommandFactory.flushLangfuseTraces();
-        process.exit(0);
+        await CLICommandFactory.exitAfterStdoutDrain(0);
       }
     } catch (error) {
       if (spinner) {
@@ -6165,6 +6232,30 @@ export class CLICommandFactory {
     } catch (error) {
       logger.error("[CLI] Error flushing Langfuse traces", { error });
     }
+  }
+
+  /** process.exit discards piped stdout queued past the 64 KiB buffer; resolves false if the reader stalls past the bound. */
+  private static flushStdout(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(
+        () => resolve(false),
+        resolveStdoutDrainTimeoutMs(),
+      );
+      timer.unref();
+      process.stdout.write("", () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+  }
+
+  /** Forced exit that fails loudly when queued output could not be delivered. */
+  private static async exitAfterStdoutDrain(exitCode?: number): Promise<never> {
+    if (await CLICommandFactory.flushStdout()) {
+      process.exit(exitCode);
+    }
+    process.stderr.write(STDOUT_DRAIN_WARNING);
+    process.exit(STDOUT_DRAIN_FAILED_EXIT_CODE);
   }
 }
 

@@ -8,6 +8,6 @@
 
 > `const` **DEFAULT_CONFIG**: [`NeuroLinkConfig`](../type-aliases/NeuroLinkConfig.md)
 
-Defined in: [types/config.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L502)
+Defined in: [types/config.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L511)
 
 Default configuration values

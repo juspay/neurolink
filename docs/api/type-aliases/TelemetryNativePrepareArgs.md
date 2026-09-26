@@ -8,7 +8,7 @@
 
 > **TelemetryNativePrepareArgs** = `object`
 
-Defined in: [types/cli.ts:1225](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1225)
+Defined in: [types/cli.ts:1231](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1231)
 
 Staging-only native collector migration; never activates a service.
 
@@ -18,7 +18,7 @@ Staging-only native collector migration; never activates a service.
 
 > **collectorConfig**: `string`
 
-Defined in: [types/cli.ts:1226](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1226)
+Defined in: [types/cli.ts:1232](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1232)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1226](https://github.com/juspay/neurolink/blob/release
 
 > **output**: `string`
 
-Defined in: [types/cli.ts:1227](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1227)
+Defined in: [types/cli.ts:1233](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1233)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1227](https://github.com/juspay/neurolink/blob/release
 
 > **queueDirectory**: `string`
 
-Defined in: [types/cli.ts:1228](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1228)
+Defined in: [types/cli.ts:1234](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1234)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1228](https://github.com/juspay/neurolink/blob/release
 
 > **compactionDirectory**: `string`
 
-Defined in: [types/cli.ts:1229](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1229)
+Defined in: [types/cli.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1235)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1229](https://github.com/juspay/neurolink/blob/release
 
 > **bodyPort**: `number`
 
-Defined in: [types/cli.ts:1230](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1230)
+Defined in: [types/cli.ts:1236](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1236)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1230](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **bodyStream?**: `string`
 
-Defined in: [types/cli.ts:1231](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1231)
+Defined in: [types/cli.ts:1237](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1237)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1231](https://github.com/juspay/neurolink/blob/release
 
 > **metadataQueueMib**: `number`
 
-Defined in: [types/cli.ts:1232](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1232)
+Defined in: [types/cli.ts:1238](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1238)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/cli.ts:1232](https://github.com/juspay/neurolink/blob/release
 
 > **bodyQueueMib**: `number`
 
-Defined in: [types/cli.ts:1233](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1233)
+Defined in: [types/cli.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1239)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:1233](https://github.com/juspay/neurolink/blob/release
 
 > **diskQuotaMib**: `number`
 
-Defined in: [types/cli.ts:1234](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1234)
+Defined in: [types/cli.ts:1240](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1240)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/cli.ts:1234](https://github.com/juspay/neurolink/blob/release
 
 > **metadataRetentionDays**: `number`
 
-Defined in: [types/cli.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1235)
+Defined in: [types/cli.ts:1241](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1241)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/cli.ts:1235](https://github.com/juspay/neurolink/blob/release
 
 > **bodyRetentionDays**: `number`
 
-Defined in: [types/cli.ts:1236](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1236)
+Defined in: [types/cli.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1242)

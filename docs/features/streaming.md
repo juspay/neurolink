@@ -59,21 +59,22 @@ The `stream()` method accepts a `StreamOptions` object and returns a `StreamResu
 
 ### StreamOptions (Key Parameters)
 
-| Parameter      | Type                    | Required | Description                                                                   |
-| -------------- | ----------------------- | -------- | ----------------------------------------------------------------------------- |
-| `input`        | `{ text: string, ... }` | Yes      | The prompt and optional multimodal inputs (images, PDFs, files, audio)        |
-| `provider`     | `string`                | No       | AI provider name (`"openai"`, `"anthropic"`, `"google-ai"`, `"vertex"`, etc.) |
-| `model`        | `string`                | No       | Specific model (`"gpt-4o"`, `"claude-3-5-sonnet"`, `"gemini-2.5-flash"`)      |
-| `temperature`  | `number`                | No       | Randomness (0.0 = deterministic, 2.0 = creative). Default varies by provider  |
-| `maxTokens`    | `number`                | No       | Maximum tokens in the response                                                |
-| `systemPrompt` | `string`                | No       | System message to control AI behavior                                         |
-| `tools`        | `Record<string, Tool>`  | No       | Custom tools the model can invoke during generation                           |
-| `rag`          | `RAGConfig`             | No       | RAG configuration -- pass `{ files: [...] }` for automatic retrieval          |
-| `timeout`      | `number \| string`      | No       | Request timeout in milliseconds                                               |
-| `abortSignal`  | `AbortSignal`           | No       | External cancellation signal                                                  |
-| `maxSteps`     | `number`                | No       | Maximum tool execution steps (default: 5)                                     |
-| `disableTools` | `boolean`               | No       | Set `true` to disable all tool usage                                          |
-| `tts`          | `TTSOptions`            | No       | Enable text-to-speech audio alongside text                                    |
+| Parameter      | Type                                 | Required | Description                                                                                                                                                                                     |
+| -------------- | ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input`        | `{ text: string, ... }`              | Yes      | The prompt and optional multimodal inputs (images, PDFs, files, audio)                                                                                                                          |
+| `provider`     | `string`                             | No       | AI provider name (`"openai"`, `"anthropic"`, `"google-ai"`, `"vertex"`, etc.)                                                                                                                   |
+| `model`        | `string`                             | No       | Specific model (`"gpt-4o"`, `"claude-3-5-sonnet"`, `"gemini-2.5-flash"`)                                                                                                                        |
+| `temperature`  | `number`                             | No       | Randomness (0.0 = deterministic, 2.0 = creative). Default varies by provider                                                                                                                    |
+| `maxTokens`    | `number`                             | No       | Maximum tokens in the response                                                                                                                                                                  |
+| `systemPrompt` | `string`                             | No       | System message to control AI behavior                                                                                                                                                           |
+| `agentMode`    | `boolean \| { version: "1" \| "2" }` | No       | Prepend Neurolink's versioned terminal agent instructions to `systemPrompt`; `true` applies the current version (`"2"`), and the result reports `agentModeVersion`. Same option on `generate()` |
+| `tools`        | `Record<string, Tool>`               | No       | Custom tools the model can invoke during generation                                                                                                                                             |
+| `rag`          | `RAGConfig`                          | No       | RAG configuration -- pass `{ files: [...] }` for automatic retrieval                                                                                                                            |
+| `timeout`      | `number \| string`                   | No       | Request timeout in milliseconds                                                                                                                                                                 |
+| `abortSignal`  | `AbortSignal`                        | No       | External cancellation signal                                                                                                                                                                    |
+| `maxSteps`     | `number`                             | No       | Maximum tool execution steps (default: 5)                                                                                                                                                       |
+| `disableTools` | `boolean`                            | No       | Set `true` to disable all tool usage                                                                                                                                                            |
+| `tts`          | `TTSOptions`                         | No       | Enable text-to-speech audio alongside text                                                                                                                                                      |
 
 ### `input` Object
 

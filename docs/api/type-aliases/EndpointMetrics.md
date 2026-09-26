@@ -8,7 +8,7 @@
 
 > **EndpointMetrics** = `object`
 
-Defined in: [types/providers.ts:1868](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1868)
+Defined in: [types/providers.ts:1875](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1875)
 
 Endpoint metrics and monitoring data
 
@@ -18,7 +18,7 @@ Endpoint metrics and monitoring data
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1870](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1870)
+Defined in: [types/providers.ts:1877](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1877)
 
 Endpoint name
 
@@ -28,7 +28,7 @@ Endpoint name
 
 > **invocations**: `number`
 
-Defined in: [types/providers.ts:1872](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1872)
+Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1879)
 
 Total invocations
 
@@ -38,7 +38,7 @@ Total invocations
 
 > **averageLatency**: `number`
 
-Defined in: [types/providers.ts:1874](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1874)
+Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1881)
 
 Average latency in milliseconds
 
@@ -48,7 +48,7 @@ Average latency in milliseconds
 
 > **errorRate**: `number`
 
-Defined in: [types/providers.ts:1876](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1876)
+Defined in: [types/providers.ts:1883](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1883)
 
 Error rate percentage
 
@@ -58,7 +58,7 @@ Error rate percentage
 
 > `optional` **cpuUtilization?**: `number`
 
-Defined in: [types/providers.ts:1878](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1878)
+Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1885)
 
 CPU utilization percentage
 
@@ -68,7 +68,7 @@ CPU utilization percentage
 
 > `optional` **memoryUtilization?**: `number`
 
-Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1880)
+Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1887)
 
 Memory utilization percentage
 
@@ -78,7 +78,7 @@ Memory utilization percentage
 
 > **instanceCount**: `number`
 
-Defined in: [types/providers.ts:1882](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1882)
+Defined in: [types/providers.ts:1889](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1889)
 
 Instance count
 
@@ -88,6 +88,6 @@ Instance count
 
 > **timestamp**: `string`
 
-Defined in: [types/providers.ts:1884](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1884)
+Defined in: [types/providers.ts:1891](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1891)
 
 Timestamp of metrics as ISO 8601 date string

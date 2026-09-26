@@ -8,7 +8,7 @@
 
 > **GenerateResult** = `object` & [`MediaGenerationOutputs`](MediaGenerationOutputs.md)
 
-Defined in: [types/generate.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1091)
+Defined in: [types/generate.ts:1108](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1108)
 
 Generate function result type - Primary output format
 Future-ready for multi-modal outputs while maintaining text focus
@@ -24,6 +24,12 @@ Future-ready for multi-modal outputs while maintaining text focus
 > `optional` **knowledge?**: [`KnowledgeGroundingMetadata`](KnowledgeGroundingMetadata.md)
 
 Knowledge-grounding diagnostics for this turn (present only when grounding ran).
+
+### agentModeVersion?
+
+> `optional` **agentModeVersion?**: [`TerminalAgentModeVersion`](TerminalAgentModeVersion.md)
+
+Terminal agent instructions version applied (present only with `agentMode`).
 
 ### structuredData?
 

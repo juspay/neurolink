@@ -8,7 +8,7 @@
 
 > **OutputOptions** = `object`
 
-Defined in: [types/cli.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L477)
+Defined in: [types/cli.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L483)
 
 CLI output formatting options
 
@@ -18,7 +18,7 @@ CLI output formatting options
 
 > **format**: `"text"` \| `"json"` \| `"table"` \| `"yaml"`
 
-Defined in: [types/cli.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L478)
+Defined in: [types/cli.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L484)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:478](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **pretty?**: `boolean`
 
-Defined in: [types/cli.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L479)
+Defined in: [types/cli.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L485)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:479](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **color?**: `boolean`
 
-Defined in: [types/cli.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L480)
+Defined in: [types/cli.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L486)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:480](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **compact?**: `boolean`
 
-Defined in: [types/cli.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L481)
+Defined in: [types/cli.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L487)

@@ -8,7 +8,7 @@
 
 > **GCPSetupOptions** = `object`
 
-Defined in: [types/cli.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L869)
+Defined in: [types/cli.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L875)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:869](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **checkOnly?**: `boolean`
 
-Defined in: [types/cli.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L870)
+Defined in: [types/cli.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L876)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:870](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **interactive?**: `boolean`
 
-Defined in: [types/cli.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L871)
+Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L877)

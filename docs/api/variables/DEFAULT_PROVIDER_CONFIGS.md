@@ -8,6 +8,6 @@
 
 > `const` **DEFAULT_PROVIDER_CONFIGS**: [`AIModelProviderConfig`](../type-aliases/AIModelProviderConfig.md)[]
 
-Defined in: [types/providers.ts:1415](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1415)
+Defined in: [types/providers.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1422)
 
 Default provider configurations

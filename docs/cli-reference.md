@@ -21,16 +21,18 @@ npx @juspay/neurolink gen "Write code" --provider openai
 
 ### Core Options
 
-| Flag            | Type    | Default          | Description                                                                                                                |
-| --------------- | ------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `--provider`    | string  | `auto`           | AI provider (`auto`, `openai`, `bedrock`, `vertex`, `anthropic`, `azure`, `google-ai`, `huggingface`, `ollama`, `mistral`) |
-| `--model`       | string  | provider default | Specific model (e.g., `gemini-2.5-pro`, `gpt-4o`, `claude-3-sonnet`)                                                       |
-| `--temperature` | number  | `0.7`            | Creativity level (0.0 = focused, 1.0 = creative)                                                                           |
-| `--max-tokens`  | number  | `1000`           | Maximum tokens to generate                                                                                                 |
-| `--system`      | string  | none             | System prompt to guide AI behavior                                                                                         |
-| `--format`      | string  | `text`           | Output format (`text`, `json`)                                                                                             |
-| `--timeout`     | number  | `120`            | Maximum execution time in seconds                                                                                          |
-| `--debug`       | boolean | `false`          | Enable debug mode with verbose output                                                                                      |
+| Flag            | Type    | Default          | Description                                                                                                                               |
+| --------------- | ------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `--provider`    | string  | `auto`           | AI provider (`auto`, `openai`, `bedrock`, `vertex`, `anthropic`, `azure`, `google-ai`, `huggingface`, `ollama`, `mistral`)                |
+| `--model`       | string  | provider default | Specific model (e.g., `gemini-2.5-pro`, `gpt-4o`, `claude-3-sonnet`)                                                                      |
+| `--temperature` | number  | `0.7`            | Creativity level (0.0 = focused, 1.0 = creative)                                                                                          |
+| `--max-tokens`  | number  | `1000`           | Maximum tokens to generate                                                                                                                |
+| `--system`      | string  | none             | System prompt to guide AI behavior                                                                                                        |
+| `--agent-mode`  | boolean | `false`          | Run as an autonomous terminal agent: prepend Neurolink's versioned agent instructions to the system prompt. `generate` and `stream` only. |
+| `--max-steps`   | number  | `200`            | Maximum tool-calling steps before the turn stops (integer 1–500). Some providers cap lower. `generate` and `stream` only.                 |
+| `--format`      | string  | `text`           | Output format (`text`, `json`)                                                                                                            |
+| `--timeout`     | number  | `120`            | Maximum execution time in seconds                                                                                                         |
+| `--debug`       | boolean | `false`          | Enable debug mode with verbose output                                                                                                     |
 
 ### Enhancement Features
 

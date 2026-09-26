@@ -70,6 +70,8 @@ export type GenerateCommandArgs = BaseCommandArgs &
     model?: string;
     /** System prompt */
     system?: string;
+    /** Prepend Neurolink's versioned terminal agent instructions */
+    agentMode?: boolean;
     /** Temperature setting */
     temperature?: number;
     /** Maximum tokens */
@@ -140,6 +142,10 @@ export type StreamCommandArgs = BaseCommandArgs &
     model?: string;
     /** System prompt */
     system?: string;
+    /** Prepend Neurolink's versioned terminal agent instructions */
+    agentMode?: boolean;
+    /** Maximum tool-calling steps */
+    maxSteps?: number;
     /** Temperature setting */
     temperature?: number;
     /** Maximum tokens */

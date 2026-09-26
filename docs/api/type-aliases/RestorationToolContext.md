@@ -8,7 +8,7 @@
 
 > **RestorationToolContext** = `Record`\<`string`, `unknown`\> & `object`
 
-Defined in: [types/cli.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L583)
+Defined in: [types/cli.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L589)
 
 Tool context for restored sessions
 

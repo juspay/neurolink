@@ -8,7 +8,7 @@
 
 > **MCPCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L193)
+Defined in: [types/cli.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L199)
 
 MCP command arguments - Enhanced with transport and server management
 

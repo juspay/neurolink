@@ -129,6 +129,7 @@ export const closeSync = noop;
 export const fstatSync = () => ({});
 export const mkdirSync = noop;
 export const statSync = () => ({});
+export const lstatSync = () => ({ isSymbolicLink: () => false });
 export const readdirSync = () => [];
 export const unlinkSync = noop;
 export const renameSync = noop;

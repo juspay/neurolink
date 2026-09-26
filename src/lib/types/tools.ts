@@ -495,6 +495,19 @@ export type SdkSimpleTool<TArgs = ToolArgs, TResult = JsonValue> = Omit<
 // DIRECT TOOLS CATEGORIES (from agent/directTools.ts)
 // =============================================================================
 
+/** Arguments of the built-in analyzeCSV tool, after schema defaults. */
+export type AnalyzeCsvToolArgs = {
+  filePath: string;
+  operation:
+    | "count_by_column"
+    | "sum_by_column"
+    | "average_by_column"
+    | "min_max_by_column"
+    | "describe";
+  column: string;
+  maxRows?: number;
+};
+
 /** Subset of directAgentTools exposing only the "basic" category. */
 export type BasicToolsMap = {
   getCurrentTime: Tool;

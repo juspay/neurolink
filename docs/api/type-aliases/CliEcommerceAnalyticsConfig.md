@@ -8,7 +8,7 @@
 
 > **CliEcommerceAnalyticsConfig** = `object`
 
-Defined in: [types/cli.ts:1898](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1898)
+Defined in: [types/cli.ts:1904](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1904)
 
 Analytics config for the ecommerce evaluation domain.
 
@@ -18,7 +18,7 @@ Analytics config for the ecommerce evaluation domain.
 
 > **trackConversions**: `boolean`
 
-Defined in: [types/cli.ts:1899](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1899)
+Defined in: [types/cli.ts:1905](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1905)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1899](https://github.com/juspay/neurolink/blob/release
 
 > **trackUserBehavior**: `boolean`
 
-Defined in: [types/cli.ts:1900](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1900)
+Defined in: [types/cli.ts:1906](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1906)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1900](https://github.com/juspay/neurolink/blob/release
 
 > **trackRevenueImpact**: `boolean`
 
-Defined in: [types/cli.ts:1901](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1901)
+Defined in: [types/cli.ts:1907](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1907)

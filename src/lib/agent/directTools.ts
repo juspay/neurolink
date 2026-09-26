@@ -7,6 +7,9 @@ import { CSVProcessor } from "../utils/csvProcessor.js";
 import { shouldEnableBashTool } from "../utils/toolUtils.js";
 import type {
   AllToolsMap,
+  AnalyzeCsvToolArgs,
+  FileToolRootPolicy,
+  PathSandboxResult,
   BasicToolsMap,
   FilesystemToolsMap,
   Tool,
@@ -14,6 +17,10 @@ import type {
 } from "../types/index.js";
 import { tool } from "../utils/tool.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
+import {
+  resolvePathWithinRoot,
+  resolveWithinRoot,
+} from "../utils/pathSandbox.js";
 import { TIMEOUTS } from "../constants/timeouts.js";
 
 const MAX_OUTPUT_BYTES = 102400; // 100KB
@@ -27,29 +34,121 @@ function truncateOutput(output: string): string {
   return output;
 }
 
+/** The historical default: the process working directory, read at call time. */
+const WORKING_DIRECTORY_POLICY: FileToolRootPolicy = Object.freeze({
+  roots: null,
+});
+
+function rootsOf(policy: FileToolRootPolicy): readonly string[] {
+  return policy.roots ?? [process.cwd()];
+}
+
+function withRoots(description: string, policy: FileToolRootPolicy): string {
+  if (policy.roots === null) {
+    return description;
+  }
+  const allowed = policy.roots.length
+    ? policy.roots.join(", ")
+    : "none (file access is disabled for this request)";
+  return `${description}. Allowed roots: ${allowed}`;
+}
+
 /**
- * Contain a built-in file tool to the process working directory.
+ * Contain a built-in file tool to its roots.
  *
- * Returns the resolved absolute path when it lies inside `process.cwd()`, or an
- * `error` string otherwise. This is the sandbox for the default-enabled
- * `readFile` / `writeFile` / `listDirectory` / `analyzeCSV` tools: without it an
- * agent can pass an absolute path (`/etc/passwd`) or `../` traversal and reach
- * arbitrary files. The previous guard (`!resolvedPath.startsWith(cwd) &&
- * !path.isAbsolute(filePath)`) was always false for absolute paths, so it never
- * fired. The `cwd + path.sep` suffix prevents a sibling-prefix bypass
- * (`/home/app` vs `/home/app-evil`).
+ * Symlinks are resolved on both sides and the prefix test is separator-bounded
+ * (`resolvePathWithinRoot`), so neither `<root>/link → /etc` nor
+ * `/home/app-evil` against `/home/app` gets through. A path that does not
+ * exist yet is checked on its nearest existing ancestor, which is what a
+ * write needs. Relative paths resolve against the first root.
  */
-function resolveWithinCwd(
-  filePath: string,
-): { path: string } | { error: string } {
-  const resolvedPath = path.resolve(filePath);
-  const cwd = path.resolve(process.cwd());
-  if (resolvedPath !== cwd && !resolvedPath.startsWith(cwd + path.sep)) {
+function resolveWithinFileToolRoots(
+  target: string,
+  policy: FileToolRootPolicy,
+): PathSandboxResult {
+  const roots = rootsOf(policy);
+  if (roots.length === 0) {
     return {
-      error: `Access denied: "${filePath}" resolves outside the working directory`,
+      error:
+        "Access denied: file tools are disabled for this request (no tool roots are configured)",
     };
   }
-  return { path: resolvedPath };
+  const requested = path.isAbsolute(target)
+    ? target
+    : path.resolve(roots[0], target);
+  for (const root of roots) {
+    const contained = resolvePathWithinRoot(requested, root);
+    if (contained.path !== undefined) {
+      return contained;
+    }
+  }
+  return {
+    error:
+      policy.roots === null
+        ? `Access denied: "${target}" resolves outside the working directory`
+        : `Access denied: "${target}" resolves outside the permitted roots (${roots.join(", ")})`,
+  };
+}
+
+/** Unavailable on Windows, where it is 0 and has no effect. */
+const O_NOFOLLOW = fs.constants.O_NOFOLLOW ?? 0;
+
+/**
+ * Write without following a symlink at the final path component. The root
+ * check ran on the resolved path, so a link that appears there afterwards, or
+ * a dangling one, is refused by the kernel instead of redirecting the write:
+ * `create` uses O_EXCL (which also fails on an existing link), the other
+ * modes O_NOFOLLOW.
+ */
+function writeWithoutFollowingLinks(
+  resolvedPath: string,
+  content: string,
+  mode: "create" | "overwrite" | "append",
+): void {
+  const { O_WRONLY, O_CREAT, O_EXCL, O_TRUNC, O_APPEND } = fs.constants;
+  const flags =
+    mode === "create"
+      ? O_WRONLY | O_CREAT | O_EXCL
+      : O_WRONLY |
+        O_CREAT |
+        O_NOFOLLOW |
+        (mode === "append" ? O_APPEND : O_TRUNC);
+  const fd = fs.openSync(resolvedPath, flags, 0o666);
+  try {
+    fs.writeFileSync(fd, content, "utf-8");
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** Read without following a symlink at the final path component. */
+function readWithoutFollowingLinks(resolvedPath: string): Buffer {
+  const fd = fs.openSync(resolvedPath, fs.constants.O_RDONLY | O_NOFOLLOW);
+  try {
+    return fs.readFileSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+const ZIP_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const OLE2_SIGNATURE = Buffer.from([
+  0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
+]);
+
+/**
+ * Office documents are archives or compound files, so decoding them as UTF-8
+ * hands the model mojibake it then tries to reason about. Detected by content
+ * because extensions are often missing or wrong.
+ */
+function detectBinaryDocumentFormat(bytes: Buffer): string | undefined {
+  if (bytes.subarray(0, ZIP_SIGNATURE.length).equals(ZIP_SIGNATURE)) {
+    return "ZIP-packaged (such as .docx, .xlsx, .pptx, .odt)";
+  }
+  if (bytes.subarray(0, OLE2_SIGNATURE.length).equals(OLE2_SIGNATURE)) {
+    return "OLE2 compound (such as legacy .doc, .xls, .ppt)";
+  }
+  return undefined;
 }
 
 /**
@@ -154,62 +253,40 @@ export function buildWebsearchResults(
 }
 
 /**
- * Direct tool definitions that work immediately with Gemini/AI SDK
- * These bypass MCP complexity and provide reliable agent functionality
+ * The file tools, bound to one root policy. Built per request when roots are
+ * configured, so concurrent requests never share a boundary.
  */
-export const directAgentTools = {
-  getCurrentTime: tool({
-    description: "Get the current date and time",
-    inputSchema: z.object({
-      timezone: z
-        .string()
-        .optional()
-        .describe(
-          'Timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to system local time.',
-        ),
-    }),
-    execute: async ({ timezone }) => {
-      try {
-        const now = new Date();
-        if (timezone) {
-          return {
-            success: true,
-            time: now.toLocaleString("en-US", { timeZone: timezone }),
-            timezone: timezone,
-            iso: now.toISOString(),
-          };
-        }
-        return {
-          success: true,
-          time: now.toLocaleString(),
-          iso: now.toISOString(),
-          timestamp: now.getTime(),
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    },
-  }),
-
-  readFile: tool({
-    description: "Read the contents of a file from the filesystem",
+function createReadFileTool(policy: FileToolRootPolicy): Tool {
+  return tool({
+    description: withRoots(
+      "Read the contents of a file from the filesystem",
+      policy,
+    ),
     inputSchema: z.object({
       path: z.string().describe("File path to read (relative or absolute)"),
     }),
     execute: async ({ path: filePath }) => {
       try {
-        // Sandbox: contain reads to the working directory (blocks absolute-path
-        // escape and ../ traversal).
-        const guard = resolveWithinCwd(filePath);
-        if ("error" in guard) {
+        // Sandbox: contain reads to the tool roots (symlink-aware).
+        const guard = resolveWithinFileToolRoots(filePath, policy);
+        if (guard.error !== undefined) {
           return { success: false, error: guard.error };
         }
         const resolvedPath = guard.path;
 
-        const content = fs.readFileSync(resolvedPath, "utf-8");
+        const bytes = readWithoutFollowingLinks(resolvedPath);
+        const binaryFormat = detectBinaryDocumentFormat(bytes);
+        if (binaryFormat) {
+          return {
+            success: false,
+            error: `${filePath} is a binary ${binaryFormat} document, so its bytes are not readable as text. Read it with a parser or converter for that format (for example from a shell command) instead of readFile.`,
+            binaryDocument: true,
+            format: binaryFormat,
+            size: bytes.length,
+            path: resolvedPath,
+          };
+        }
+        const content = bytes.toString("utf-8");
         const stats = fs.statSync(resolvedPath);
 
         return {
@@ -227,10 +304,15 @@ export const directAgentTools = {
         };
       }
     },
-  }),
+  });
+}
 
-  listDirectory: tool({
-    description: "List files and directories in a specified directory",
+function createListDirectoryTool(policy: FileToolRootPolicy): Tool {
+  return tool({
+    description: withRoots(
+      "List files and directories in a specified directory",
+      policy,
+    ),
     inputSchema: z.object({
       path: z
         .string()
@@ -243,9 +325,9 @@ export const directAgentTools = {
     }),
     execute: async ({ path: dirPath, includeHidden }) => {
       try {
-        // Sandbox: contain directory listing to the working directory.
-        const guard = resolveWithinCwd(dirPath);
-        if ("error" in guard) {
+        // Sandbox: contain directory listing to the tool roots.
+        const guard = resolveWithinFileToolRoots(dirPath, policy);
+        if (guard.error !== undefined) {
           return { success: false, error: guard.error };
         }
         const resolvedPath = guard.path;
@@ -278,6 +360,469 @@ export const directAgentTools = {
           success: false,
           error: error instanceof Error ? error.message : String(error),
           path: dirPath,
+        };
+      }
+    },
+  });
+}
+
+function createWriteFileTool(policy: FileToolRootPolicy): Tool {
+  return tool({
+    description: withRoots(
+      "Write content to a file (use with caution)",
+      policy,
+    ),
+    inputSchema: z.object({
+      path: z.string().describe("File path to write to"),
+      content: z.string().describe("Content to write to the file"),
+      mode: z
+        .enum(["create", "overwrite", "append"])
+        .default("create")
+        .describe("Write mode"),
+    }),
+    execute: async ({ path: filePath, content, mode }) => {
+      try {
+        // Sandbox: contain writes to the tool roots (symlink-aware).
+        const guard = resolveWithinFileToolRoots(filePath, policy);
+        if (guard.error !== undefined) {
+          return { success: false, error: guard.error };
+        }
+        const resolvedPath = guard.path;
+
+        // Check if file exists for create mode
+        if (mode === "create" && fs.existsSync(resolvedPath)) {
+          return {
+            success: false,
+            error: `File already exists. Use 'overwrite' or 'append' mode to modify existing files.`,
+          };
+        }
+
+        writeWithoutFollowingLinks(resolvedPath, content, mode);
+        const stats = fs.statSync(resolvedPath);
+
+        return {
+          success: true,
+          path: resolvedPath,
+          mode,
+          size: stats.size,
+          written: content.length,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          path: filePath,
+        };
+      }
+    },
+  });
+}
+
+async function runAnalyzeCSV(
+  { filePath, operation, column, maxRows = 1000 }: AnalyzeCsvToolArgs,
+  policy: FileToolRootPolicy,
+) {
+  const startTime = Date.now();
+  logger.info(
+    `[analyzeCSV] 🚀 START: file=${filePath}, operation=${operation}, column=${column}, maxRows=${maxRows}`,
+  );
+
+  try {
+    // Resolve file path
+    logger.debug(`[analyzeCSV] Resolving file: ${filePath}`);
+
+    // Sandbox: contain CSV reads to the tool roots.
+    const guard = resolveWithinFileToolRoots(filePath, policy);
+    if (guard.error !== undefined) {
+      return { success: false, error: guard.error };
+    }
+    const resolvedPath = guard.path;
+
+    logger.debug(`[analyzeCSV] Resolved path: ${resolvedPath}`);
+
+    // Parse CSV using streaming from disk (memory efficient)
+    logger.info(`[analyzeCSV] Starting CSV parsing (max ${maxRows} rows)...`);
+    // #384: parseCSVFile now returns validated Record<string, string |
+    // undefined>[] rows, so the previous unchecked cast is unnecessary.
+    const rows = await CSVProcessor.parseCSVFile(resolvedPath, maxRows);
+    logger.info(`[analyzeCSV] ✅ CSV parsing complete: ${rows.length} rows`);
+
+    if (rows.length === 0) {
+      logger.warn(`[analyzeCSV] No data rows found`);
+      return {
+        success: false,
+        error: "No data rows found in CSV",
+      };
+    }
+
+    // Log column names
+    const columnNames = rows.length > 0 ? Object.keys(rows[0]) : [];
+    logger.info(
+      `[analyzeCSV] Found ${rows.length} rows with columns:`,
+      columnNames,
+    );
+    logger.info(`[analyzeCSV] Executing operation: ${operation}`);
+    let result: unknown;
+
+    switch (operation) {
+      case "count_by_column": {
+        logger.info(`[analyzeCSV] count_by_column: column=${column}`);
+        if (!column) {
+          return {
+            success: false,
+            error: "Column name required for count_by_column operation",
+          };
+        }
+
+        // Count occurrences of each value in the column
+        const counts: Record<string, number> = {};
+        logger.debug(`[analyzeCSV] Counting rows...`);
+        for (const row of rows) {
+          const value = row[column];
+          if (value !== undefined) {
+            counts[value] = (counts[value] || 0) + 1;
+          }
+        }
+        logger.debug(
+          `[analyzeCSV] Found ${Object.keys(counts).length} unique values`,
+        );
+
+        // Sort by count descending
+        logger.debug(`[analyzeCSV] Sorting results...`);
+        result = Object.fromEntries(
+          Object.entries(counts).sort(([, a], [, b]) => b - a),
+        );
+        logger.info(
+          `[analyzeCSV] ✅ count_by_column complete. Result:`,
+          result,
+        );
+        break;
+      }
+
+      case "sum_by_column": {
+        logger.info(`[analyzeCSV] sum_by_column: column=${column}`);
+        if (!column) {
+          return {
+            success: false,
+            error: "Column name required for sum_by_column operation",
+          };
+        }
+
+        // Sum numeric values from the target column itself for each group
+        const groups: Record<string, number> = {};
+        logger.debug(
+          `[analyzeCSV] Grouping and summing ${rows.length} rows...`,
+        );
+        let processedRows = 0;
+        let totalNumericValuesFound = 0;
+
+        for (const row of rows) {
+          const key = row[column];
+          if (!key) {
+            continue;
+          }
+
+          // Parse numeric value from the target column
+          const value = row[column];
+          if (value === undefined || value === null || value === "") {
+            continue;
+          }
+
+          const num = parseFloat(value);
+          if (isNaN(num)) {
+            continue;
+          }
+
+          if (!groups[key]) {
+            groups[key] = 0;
+          }
+          groups[key] += num;
+          totalNumericValuesFound++;
+
+          processedRows++;
+          if (processedRows % 10 === 0) {
+            logger.debug(
+              `[analyzeCSV] Processed ${processedRows}/${rows.length} rows`,
+            );
+          }
+        }
+
+        // Fail fast if no numeric data found in the requested column
+        if (totalNumericValuesFound === 0) {
+          return {
+            success: false,
+            error: `No numeric data found in column "${column}" for sum_by_column operation`,
+          };
+        }
+
+        logger.debug(
+          `[analyzeCSV] Calculated sums for ${Object.keys(groups).length} groups (${totalNumericValuesFound} numeric values)`,
+        );
+
+        result = groups;
+        logger.info(`[analyzeCSV] ✅ sum_by_column complete`);
+        break;
+      }
+
+      case "average_by_column": {
+        logger.info(`[analyzeCSV] average_by_column: column=${column}`);
+        if (!column) {
+          return {
+            success: false,
+            error: "Column name required for average_by_column operation",
+          };
+        }
+
+        // Average numeric values from the target column itself for each group
+        const groups: Record<string, { sum: number; count: number }> = {};
+        logger.debug(
+          `[analyzeCSV] Grouping and averaging ${rows.length} rows...`,
+        );
+        let processedRows = 0;
+        let totalNumericValuesFound = 0;
+
+        for (const row of rows) {
+          const key = row[column];
+          if (!key) {
+            continue;
+          }
+
+          // Parse numeric value from the target column
+          const value = row[column];
+          if (value === undefined || value === null || value === "") {
+            continue;
+          }
+
+          const num = parseFloat(value);
+          if (isNaN(num)) {
+            continue;
+          }
+
+          if (!groups[key]) {
+            groups[key] = { sum: 0, count: 0 };
+          }
+          groups[key].sum += num;
+          groups[key].count++;
+          totalNumericValuesFound++;
+
+          processedRows++;
+          if (processedRows % 10 === 0) {
+            logger.debug(
+              `[analyzeCSV] Processed ${processedRows}/${rows.length} rows`,
+            );
+          }
+        }
+
+        // Fail fast if no numeric data found in the requested column
+        if (totalNumericValuesFound === 0) {
+          return {
+            success: false,
+            error: `No numeric data found in column "${column}" for average_by_column operation`,
+          };
+        }
+
+        logger.debug(
+          `[analyzeCSV] Calculated averages for ${Object.keys(groups).length} groups (${totalNumericValuesFound} numeric values)`,
+        );
+
+        result = Object.fromEntries(
+          Object.entries(groups).map(([k, v]) => [
+            k,
+            v.count > 0 ? v.sum / v.count : 0,
+          ]),
+        );
+        logger.info(`[analyzeCSV] ✅ average_by_column complete`);
+        break;
+      }
+
+      case "min_max_by_column": {
+        if (!column) {
+          return {
+            success: false,
+            error: "Column name required for min_max_by_column operation",
+          };
+        }
+
+        const values = rows
+          .map((row) => row[column])
+          .filter((v): v is string => v !== undefined && v !== "");
+
+        const numericValues = values
+          .map((v) => parseFloat(v))
+          .filter((n) => !isNaN(n));
+
+        if (numericValues.length === 0) {
+          return {
+            success: false,
+            error: `No numeric data found in column "${column}" for min_max_by_column operation`,
+          };
+        }
+
+        result = {
+          min: Math.min(...numericValues),
+          max: Math.max(...numericValues),
+          numericCount: numericValues.length,
+          totalCount: values.length,
+        };
+        break;
+      }
+
+      case "describe": {
+        const columnNames = rows.length > 0 ? Object.keys(rows[0]) : [];
+        result = {
+          total_rows: rows.length,
+          columns: columnNames,
+          column_count: columnNames.length,
+        };
+        break;
+      }
+
+      default:
+        return {
+          success: false,
+          error: `Unknown operation: ${operation}`,
+        };
+    }
+
+    const duration = Date.now() - startTime;
+    logger.info(`[analyzeCSV] 🏁 COMPLETE: ${operation} took ${duration}ms`);
+
+    const response = {
+      success: true,
+      operation,
+      column,
+      result: JSON.stringify(result, null, 2),
+      rowCount: rows.length,
+    };
+
+    logger.debug(
+      `[analyzeCSV] 📤 RETURNING TO LLM:`,
+      JSON.stringify(response, null, 2),
+    );
+    return response;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      operation,
+      column,
+    };
+  }
+}
+
+function createAnalyzeCsvTool(policy: FileToolRootPolicy): Tool {
+  return tool({
+    description: withRoots(
+      "Analyze CSV file for accurate counting, aggregation, and statistical analysis. Use this for precise data operations like counting rows by column, calculating sums/averages, finding min/max values, etc. The tool reads the file directly - do NOT pass CSV content.",
+      policy,
+    ),
+    inputSchema: z.object({
+      filePath: z
+        .string()
+        .refine(
+          (inputPath) => {
+            const resolvedPath = path.resolve(inputPath);
+            const normalizedPath = resolvedPath
+              .toLowerCase()
+              .replace(/\\/g, "/");
+
+            const sensitivePatterns = [
+              "/etc/",
+              "/sys/",
+              "/proc/",
+              "/dev/",
+              "/root/",
+              "/.ssh/",
+              "/private/etc/",
+              "/private/var/",
+              "c:/windows/",
+              "c:/program files/",
+              "c:/programdata/",
+            ];
+
+            return (
+              !sensitivePatterns.some((pattern) =>
+                normalizedPath.startsWith(pattern),
+              ) &&
+              resolveWithinFileToolRoots(inputPath, policy).path !== undefined
+            );
+          },
+          {
+            message:
+              "Invalid file path: access to system directories or paths outside the tool roots is not allowed",
+          },
+        )
+        .describe(
+          "Path to the CSV file to analyze (e.g., 'test/data.csv' or '/absolute/path/file.csv')",
+        ),
+      operation: z
+        .enum([
+          "count_by_column",
+          "sum_by_column",
+          "average_by_column",
+          "min_max_by_column",
+          "describe",
+        ])
+        .describe("Type of analysis to perform"),
+      column: z
+        .string()
+        .optional()
+        .default("")
+        .describe(
+          "Column name for the operation (required for most operations)",
+        ),
+      maxRows: z
+        .number()
+        .optional()
+        .default(1000)
+        .describe("Maximum rows to process (default: 1000)"),
+    }),
+    execute: async (args) => runAnalyzeCSV(args, policy),
+  });
+}
+
+function createFileTools(policy: FileToolRootPolicy) {
+  return {
+    readFile: createReadFileTool(policy),
+    listDirectory: createListDirectoryTool(policy),
+    writeFile: createWriteFileTool(policy),
+    analyzeCSV: createAnalyzeCsvTool(policy),
+  };
+}
+
+/** Tools that never touch the filesystem, shared by every root policy. */
+const policyFreeTools = {
+  getCurrentTime: tool({
+    description: "Get the current date and time",
+    inputSchema: z.object({
+      timezone: z
+        .string()
+        .optional()
+        .describe(
+          'Timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to system local time.',
+        ),
+    }),
+    execute: async ({ timezone }) => {
+      try {
+        const now = new Date();
+        if (timezone) {
+          return {
+            success: true,
+            time: now.toLocaleString("en-US", { timeZone: timezone }),
+            timezone: timezone,
+            iso: now.toISOString(),
+          };
+        }
+        return {
+          success: true,
+          time: now.toLocaleString(),
+          iso: now.toISOString(),
+          timestamp: now.getTime(),
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
         };
       }
     },
@@ -372,425 +917,6 @@ export const directAgentTools = {
       }
     },
   }),
-
-  writeFile: tool({
-    description: "Write content to a file (use with caution)",
-    inputSchema: z.object({
-      path: z.string().describe("File path to write to"),
-      content: z.string().describe("Content to write to the file"),
-      mode: z
-        .enum(["create", "overwrite", "append"])
-        .default("create")
-        .describe("Write mode"),
-    }),
-    execute: async ({ path: filePath, content, mode }) => {
-      try {
-        // Sandbox: contain writes to the working directory (blocks absolute-path
-        // escape and ../ traversal).
-        const guard = resolveWithinCwd(filePath);
-        if ("error" in guard) {
-          return { success: false, error: guard.error };
-        }
-        const resolvedPath = guard.path;
-
-        // Check if file exists for create mode
-        if (mode === "create" && fs.existsSync(resolvedPath)) {
-          return {
-            success: false,
-            error: `File already exists. Use 'overwrite' or 'append' mode to modify existing files.`,
-          };
-        }
-
-        let finalContent = content;
-        if (mode === "append" && fs.existsSync(resolvedPath)) {
-          const existingContent = fs.readFileSync(resolvedPath, "utf-8");
-          finalContent = existingContent + content;
-        }
-
-        fs.writeFileSync(resolvedPath, finalContent, "utf-8");
-        const stats = fs.statSync(resolvedPath);
-
-        return {
-          success: true,
-          path: resolvedPath,
-          mode,
-          size: stats.size,
-          written: content.length,
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          path: filePath,
-        };
-      }
-    },
-  }),
-
-  // NOTE: searchFiles was removed to avoid naming conflict with external MCP 'search_files' tool
-  // from @modelcontextprotocol/server-filesystem which provides the same functionality
-  // with parameters {path, pattern, excludePatterns}
-
-  analyzeCSV: tool({
-    description:
-      "Analyze CSV file for accurate counting, aggregation, and statistical analysis. Use this for precise data operations like counting rows by column, calculating sums/averages, finding min/max values, etc. The tool reads the file directly - do NOT pass CSV content.",
-    inputSchema: z.object({
-      filePath: z
-        .string()
-        .refine(
-          (inputPath) => {
-            const resolvedPath = path.resolve(inputPath);
-            const normalizedPath = resolvedPath
-              .toLowerCase()
-              .replace(/\\/g, "/");
-
-            const sensitivePatterns = [
-              "/etc/",
-              "/sys/",
-              "/proc/",
-              "/dev/",
-              "/root/",
-              "/.ssh/",
-              "/private/etc/",
-              "/private/var/",
-              "c:/windows/",
-              "c:/program files/",
-              "c:/programdata/",
-            ];
-
-            return !sensitivePatterns.some((pattern) =>
-              normalizedPath.startsWith(pattern),
-            );
-          },
-          {
-            message:
-              "Invalid file path: access to system directories is not allowed",
-          },
-        )
-        .describe(
-          "Path to the CSV file to analyze (e.g., 'test/data.csv' or '/absolute/path/file.csv')",
-        ),
-      operation: z
-        .enum([
-          "count_by_column",
-          "sum_by_column",
-          "average_by_column",
-          "min_max_by_column",
-          "describe",
-        ])
-        .describe("Type of analysis to perform"),
-      column: z
-        .string()
-        .optional()
-        .default("")
-        .describe(
-          "Column name for the operation (required for most operations)",
-        ),
-      maxRows: z
-        .number()
-        .optional()
-        .default(1000)
-        .describe("Maximum rows to process (default: 1000)"),
-    }),
-    execute: async ({ filePath, operation, column, maxRows = 1000 }) => {
-      const startTime = Date.now();
-      logger.info(
-        `[analyzeCSV] 🚀 START: file=${filePath}, operation=${operation}, column=${column}, maxRows=${maxRows}`,
-      );
-
-      try {
-        // Resolve file path
-        logger.debug(`[analyzeCSV] Resolving file: ${filePath}`);
-
-        // Sandbox: contain CSV reads to the working directory.
-        const guard = resolveWithinCwd(filePath);
-        if ("error" in guard) {
-          return { success: false, error: guard.error };
-        }
-        const resolvedPath = guard.path;
-
-        logger.debug(`[analyzeCSV] Resolved path: ${resolvedPath}`);
-
-        // Parse CSV using streaming from disk (memory efficient)
-        logger.info(
-          `[analyzeCSV] Starting CSV parsing (max ${maxRows} rows)...`,
-        );
-        // #384: parseCSVFile now returns validated Record<string, string |
-        // undefined>[] rows, so the previous unchecked cast is unnecessary.
-        const rows = await CSVProcessor.parseCSVFile(resolvedPath, maxRows);
-        logger.info(
-          `[analyzeCSV] ✅ CSV parsing complete: ${rows.length} rows`,
-        );
-
-        if (rows.length === 0) {
-          logger.warn(`[analyzeCSV] No data rows found`);
-          return {
-            success: false,
-            error: "No data rows found in CSV",
-          };
-        }
-
-        // Log column names
-        const columnNames = rows.length > 0 ? Object.keys(rows[0]) : [];
-        logger.info(
-          `[analyzeCSV] Found ${rows.length} rows with columns:`,
-          columnNames,
-        );
-        logger.info(`[analyzeCSV] Executing operation: ${operation}`);
-        let result: unknown;
-
-        switch (operation) {
-          case "count_by_column": {
-            logger.info(`[analyzeCSV] count_by_column: column=${column}`);
-            if (!column) {
-              return {
-                success: false,
-                error: "Column name required for count_by_column operation",
-              };
-            }
-
-            // Count occurrences of each value in the column
-            const counts: Record<string, number> = {};
-            logger.debug(`[analyzeCSV] Counting rows...`);
-            for (const row of rows) {
-              const value = row[column];
-              if (value !== undefined) {
-                counts[value] = (counts[value] || 0) + 1;
-              }
-            }
-            logger.debug(
-              `[analyzeCSV] Found ${Object.keys(counts).length} unique values`,
-            );
-
-            // Sort by count descending
-            logger.debug(`[analyzeCSV] Sorting results...`);
-            result = Object.fromEntries(
-              Object.entries(counts).sort(([, a], [, b]) => b - a),
-            );
-            logger.info(
-              `[analyzeCSV] ✅ count_by_column complete. Result:`,
-              result,
-            );
-            break;
-          }
-
-          case "sum_by_column": {
-            logger.info(`[analyzeCSV] sum_by_column: column=${column}`);
-            if (!column) {
-              return {
-                success: false,
-                error: "Column name required for sum_by_column operation",
-              };
-            }
-
-            // Sum numeric values from the target column itself for each group
-            const groups: Record<string, number> = {};
-            logger.debug(
-              `[analyzeCSV] Grouping and summing ${rows.length} rows...`,
-            );
-            let processedRows = 0;
-            let totalNumericValuesFound = 0;
-
-            for (const row of rows) {
-              const key = row[column];
-              if (!key) {
-                continue;
-              }
-
-              // Parse numeric value from the target column
-              const value = row[column];
-              if (value === undefined || value === null || value === "") {
-                continue;
-              }
-
-              const num = parseFloat(value);
-              if (isNaN(num)) {
-                continue;
-              }
-
-              if (!groups[key]) {
-                groups[key] = 0;
-              }
-              groups[key] += num;
-              totalNumericValuesFound++;
-
-              processedRows++;
-              if (processedRows % 10 === 0) {
-                logger.debug(
-                  `[analyzeCSV] Processed ${processedRows}/${rows.length} rows`,
-                );
-              }
-            }
-
-            // Fail fast if no numeric data found in the requested column
-            if (totalNumericValuesFound === 0) {
-              return {
-                success: false,
-                error: `No numeric data found in column "${column}" for sum_by_column operation`,
-              };
-            }
-
-            logger.debug(
-              `[analyzeCSV] Calculated sums for ${Object.keys(groups).length} groups (${totalNumericValuesFound} numeric values)`,
-            );
-
-            result = groups;
-            logger.info(`[analyzeCSV] ✅ sum_by_column complete`);
-            break;
-          }
-
-          case "average_by_column": {
-            logger.info(`[analyzeCSV] average_by_column: column=${column}`);
-            if (!column) {
-              return {
-                success: false,
-                error: "Column name required for average_by_column operation",
-              };
-            }
-
-            // Average numeric values from the target column itself for each group
-            const groups: Record<string, { sum: number; count: number }> = {};
-            logger.debug(
-              `[analyzeCSV] Grouping and averaging ${rows.length} rows...`,
-            );
-            let processedRows = 0;
-            let totalNumericValuesFound = 0;
-
-            for (const row of rows) {
-              const key = row[column];
-              if (!key) {
-                continue;
-              }
-
-              // Parse numeric value from the target column
-              const value = row[column];
-              if (value === undefined || value === null || value === "") {
-                continue;
-              }
-
-              const num = parseFloat(value);
-              if (isNaN(num)) {
-                continue;
-              }
-
-              if (!groups[key]) {
-                groups[key] = { sum: 0, count: 0 };
-              }
-              groups[key].sum += num;
-              groups[key].count++;
-              totalNumericValuesFound++;
-
-              processedRows++;
-              if (processedRows % 10 === 0) {
-                logger.debug(
-                  `[analyzeCSV] Processed ${processedRows}/${rows.length} rows`,
-                );
-              }
-            }
-
-            // Fail fast if no numeric data found in the requested column
-            if (totalNumericValuesFound === 0) {
-              return {
-                success: false,
-                error: `No numeric data found in column "${column}" for average_by_column operation`,
-              };
-            }
-
-            logger.debug(
-              `[analyzeCSV] Calculated averages for ${Object.keys(groups).length} groups (${totalNumericValuesFound} numeric values)`,
-            );
-
-            result = Object.fromEntries(
-              Object.entries(groups).map(([k, v]) => [
-                k,
-                v.count > 0 ? v.sum / v.count : 0,
-              ]),
-            );
-            logger.info(`[analyzeCSV] ✅ average_by_column complete`);
-            break;
-          }
-
-          case "min_max_by_column": {
-            if (!column) {
-              return {
-                success: false,
-                error: "Column name required for min_max_by_column operation",
-              };
-            }
-
-            const values = rows
-              .map((row) => row[column])
-              .filter((v): v is string => v !== undefined && v !== "");
-
-            const numericValues = values
-              .map((v) => parseFloat(v))
-              .filter((n) => !isNaN(n));
-
-            if (numericValues.length === 0) {
-              return {
-                success: false,
-                error: `No numeric data found in column "${column}" for min_max_by_column operation`,
-              };
-            }
-
-            result = {
-              min: Math.min(...numericValues),
-              max: Math.max(...numericValues),
-              numericCount: numericValues.length,
-              totalCount: values.length,
-            };
-            break;
-          }
-
-          case "describe": {
-            const columnNames = rows.length > 0 ? Object.keys(rows[0]) : [];
-            result = {
-              total_rows: rows.length,
-              columns: columnNames,
-              column_count: columnNames.length,
-            };
-            break;
-          }
-
-          default:
-            return {
-              success: false,
-              error: `Unknown operation: ${operation}`,
-            };
-        }
-
-        const duration = Date.now() - startTime;
-        logger.info(
-          `[analyzeCSV] 🏁 COMPLETE: ${operation} took ${duration}ms`,
-        );
-
-        const response = {
-          success: true,
-          operation,
-          column,
-          result: JSON.stringify(result, null, 2),
-          rowCount: rows.length,
-        };
-
-        logger.debug(
-          `[analyzeCSV] 📤 RETURNING TO LLM:`,
-          JSON.stringify(response, null, 2),
-        );
-        return response;
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          operation,
-          column,
-        };
-      }
-    },
-  }),
-
-  // NOTE: executeBashCommand was moved to a separate opt-in export (bashTool) for security.
-  // It is only included in directAgentTools when NEUROLINK_ENABLE_BASH_TOOL=true or
-  // toolConfig.enableBashTool is explicitly set to true. See shouldEnableBashTool() in toolUtils.ts.
 
   websearchGrounding: tool({
     description:
@@ -922,6 +1048,33 @@ export const directAgentTools = {
 };
 
 /**
+ * Direct tool definitions that work immediately with Gemini/AI SDK.
+ * These bypass MCP complexity and provide reliable agent functionality.
+ *
+ * `createDirectAgentTools` builds a fresh set bound to `policy`; the shared
+ * `directAgentTools` below keeps the working-directory default.
+ */
+export function createDirectAgentTools(policy: FileToolRootPolicy) {
+  const fileTools = createFileTools(policy);
+  const tools = {
+    getCurrentTime: policyFreeTools.getCurrentTime,
+    readFile: fileTools.readFile,
+    listDirectory: fileTools.listDirectory,
+    calculateMath: policyFreeTools.calculateMath,
+    writeFile: fileTools.writeFile,
+    analyzeCSV: fileTools.analyzeCSV,
+    websearchGrounding: policyFreeTools.websearchGrounding,
+  };
+  // executeBashCommand is opt-in: only included when NEUROLINK_ENABLE_BASH_TOOL=true
+  // or toolConfig.enableBashTool is set. See shouldEnableBashTool() in toolUtils.ts.
+  if (shouldEnableBashTool()) {
+    (tools as Record<string, unknown>).executeBashCommand =
+      createBashTool(policy);
+  }
+  return tools;
+}
+
+/**
  * Bash command execution tool - exported separately for opt-in use.
  *
  * SECURITY: This tool is NOT included in directAgentTools by default.
@@ -932,117 +1085,134 @@ export const directAgentTools = {
  * Import this directly when you need bash execution capabilities:
  *   import { bashTool } from '../agent/directTools.js';
  */
-export const bashTool: Tool = tool({
-  description:
-    "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. Requires HITL confirmation when enabled.",
-  inputSchema: z.object({
-    command: z
-      .string()
-      .describe(
-        "The shell command to execute (supports pipes, redirects, etc.)",
-      ),
-    timeout: z
-      .number()
-      .optional()
-      .default(30000)
-      .describe("Timeout in milliseconds (default: 30000, max: 120000)"),
-    cwd: z
-      .string()
-      .optional()
-      .describe("Working directory (defaults to process.cwd())"),
-  }),
-  execute: async ({ command, timeout = 30000, cwd }) => {
-    try {
-      const effectiveTimeout = Math.min(Math.max(timeout, 100), 120000);
-      const resolvedCwd = cwd ? path.resolve(cwd) : process.cwd();
-      const currentCwd = process.cwd();
-
-      // Verify cwd exists before resolving symlinks
-      if (
-        !fs.existsSync(resolvedCwd) ||
-        !fs.statSync(resolvedCwd).isDirectory()
-      ) {
-        return {
-          success: false,
-          code: -1,
-          stdout: "",
-          stderr: "",
-          error: `Directory does not exist: ${resolvedCwd}`,
-        };
-      }
-
-      // Security: resolve symlinks and prevent execution outside current directory
+export function createBashTool(policy: FileToolRootPolicy): Tool {
+  return tool({
+    description:
+      "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. Requires HITL confirmation when enabled. The command runs with the full privileges of the process: tool roots constrain only its starting directory (cwd), not where the command itself can reach.",
+    inputSchema: z.object({
+      command: z
+        .string()
+        .describe(
+          "The shell command to execute (supports pipes, redirects, etc.)",
+        ),
+      timeout: z
+        .number()
+        .optional()
+        .default(30000)
+        .describe("Timeout in milliseconds (default: 30000, max: 120000)"),
+      cwd: z
+        .string()
+        .optional()
+        .describe(
+          policy.roots === null
+            ? "Working directory (defaults to process.cwd())"
+            : `Working directory; must be inside one of: ${policy.roots.join(", ")}`,
+        ),
+    }),
+    execute: async ({ command, timeout = 30000, cwd }) => {
       try {
-        const realCwd = fs.realpathSync(currentCwd);
-        const realResolvedCwd = fs.realpathSync(resolvedCwd);
-        if (!realResolvedCwd.startsWith(realCwd)) {
+        const effectiveTimeout = Math.min(Math.max(timeout, 100), 120000);
+        const roots = rootsOf(policy);
+        if (roots.length === 0) {
           return {
             success: false,
             code: -1,
             stdout: "",
             stderr: "",
             error:
-              "Access denied: Cannot execute commands outside current directory",
+              "Access denied: no tool roots are configured, so there is no permitted working directory",
           };
         }
-      } catch {
+        const requestedCwd = cwd ? path.resolve(roots[0], cwd) : roots[0];
+
+        // Verify cwd exists before resolving symlinks
+        if (
+          !fs.existsSync(requestedCwd) ||
+          !fs.statSync(requestedCwd).isDirectory()
+        ) {
+          return {
+            success: false,
+            code: -1,
+            stdout: "",
+            stderr: "",
+            error: `Directory does not exist: ${requestedCwd}`,
+          };
+        }
+
+        // Security: resolve symlinks on both sides and require a separator-bounded
+        // prefix, so neither a symlink nor a sibling like <root>-evil escapes.
+        let resolvedCwd: string | undefined;
+        for (const root of roots) {
+          const contained = resolveWithinRoot(requestedCwd, root);
+          if (contained.path !== undefined) {
+            resolvedCwd = contained.path;
+            break;
+          }
+        }
+        if (resolvedCwd === undefined) {
+          return {
+            success: false,
+            code: -1,
+            stdout: "",
+            stderr: "",
+            error:
+              policy.roots === null
+                ? "Access denied: Cannot execute commands outside current directory"
+                : `Access denied: Cannot execute commands outside the permitted roots (${roots.join(", ")})`,
+          };
+        }
+
+        // Use /bin/bash -c to support full shell syntax (pipes, redirects, etc.)
+        return await new Promise((resolve) => {
+          execFile(
+            "/bin/bash",
+            ["-c", command],
+            {
+              timeout: effectiveTimeout,
+              cwd: resolvedCwd,
+              maxBuffer: MAX_OUTPUT_BYTES,
+            },
+            (error, stdout, stderr) => {
+              if (error) {
+                const exitCode =
+                  typeof error.code === "number" ? error.code : 1;
+                resolve({
+                  success: false,
+                  code: exitCode,
+                  stdout: truncateOutput(stdout || ""),
+                  stderr: truncateOutput(stderr || error.message),
+                  error: error.killed ? "Command timed out" : error.message,
+                });
+              } else {
+                resolve({
+                  success: true,
+                  code: 0,
+                  stdout: truncateOutput(stdout),
+                  stderr: truncateOutput(stderr),
+                });
+              }
+            },
+          );
+        });
+      } catch (error) {
         return {
           success: false,
           code: -1,
           stdout: "",
           stderr: "",
-          error: "Access denied: Cannot resolve directory path",
+          error: error instanceof Error ? error.message : String(error),
         };
       }
-
-      // Use /bin/bash -c to support full shell syntax (pipes, redirects, etc.)
-      return await new Promise((resolve) => {
-        execFile(
-          "/bin/bash",
-          ["-c", command],
-          {
-            timeout: effectiveTimeout,
-            cwd: resolvedCwd,
-            maxBuffer: MAX_OUTPUT_BYTES,
-          },
-          (error, stdout, stderr) => {
-            if (error) {
-              const exitCode = typeof error.code === "number" ? error.code : 1;
-              resolve({
-                success: false,
-                code: exitCode,
-                stdout: truncateOutput(stdout || ""),
-                stderr: truncateOutput(stderr || error.message),
-                error: error.killed ? "Command timed out" : error.message,
-              });
-            } else {
-              resolve({
-                success: true,
-                code: 0,
-                stdout: truncateOutput(stdout),
-                stderr: truncateOutput(stderr),
-              });
-            }
-          },
-        );
-      });
-    } catch (error) {
-      return {
-        success: false,
-        code: -1,
-        stdout: "",
-        stderr: "",
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  },
-});
-
-// Conditionally inject executeBashCommand into directAgentTools when opted in.
-// This ensures the tool is only available to SDK consumers who explicitly enable it.
-if (shouldEnableBashTool()) {
-  (directAgentTools as Record<string, unknown>).executeBashCommand = bashTool;
+    },
+  });
 }
+
+/** The opt-in bash tool with the working-directory default. */
+export const bashTool: Tool = createBashTool(WORKING_DIRECTORY_POLICY);
+
+export const directAgentTools = createDirectAgentTools(
+  WORKING_DIRECTORY_POLICY,
+);
 
 /**
  * Get a subset of tools for specific use cases with improved type safety

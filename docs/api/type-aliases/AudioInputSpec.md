@@ -8,7 +8,7 @@
 
 > **AudioInputSpec** = `object`
 
-Defined in: [types/stream.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L155)
+Defined in: [types/stream.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L159)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stream.ts:155](https://github.com/juspay/neurolink/blob/relea
 
 > **frames**: `AsyncIterable`\<`Buffer`\>
 
-Defined in: [types/stream.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L156)
+Defined in: [types/stream.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L160)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stream.ts:156](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sampleRateHz?**: `number`
 
-Defined in: [types/stream.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L157)
+Defined in: [types/stream.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L161)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stream.ts:157](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **encoding?**: [`PCMEncoding`](PCMEncoding.md)
 
-Defined in: [types/stream.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L158)
+Defined in: [types/stream.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L162)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/stream.ts:158](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **channels?**: `1`
 
-Defined in: [types/stream.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L159)
+Defined in: [types/stream.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L163)

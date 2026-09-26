@@ -8,7 +8,7 @@
 
 > **ConversationChoice** = `object`
 
-Defined in: [types/cli.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L563)
+Defined in: [types/cli.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L569)
 
 Conversation choice for inquirer prompt
 
@@ -18,7 +18,7 @@ Conversation choice for inquirer prompt
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L564)
+Defined in: [types/cli.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L570)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:564](https://github.com/juspay/neurolink/blob/release/
 
 > **value**: `string` \| `"NEW_CONVERSATION"`
 
-Defined in: [types/cli.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L565)
+Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L571)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:565](https://github.com/juspay/neurolink/blob/release/
 
 > **short**: `string`
 
-Defined in: [types/cli.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L566)
+Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L572)

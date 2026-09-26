@@ -8,7 +8,7 @@
 
 > **FilesystemToolsMap** = `object`
 
-Defined in: [types/tools.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L505)
+Defined in: [types/tools.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L518)
 
 Subset of directAgentTools exposing only the "filesystem" category.
 
@@ -18,7 +18,7 @@ Subset of directAgentTools exposing only the "filesystem" category.
 
 > **readFile**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L506)
+Defined in: [types/tools.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L519)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:506](https://github.com/juspay/neurolink/blob/releas
 
 > **listDirectory**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L507)
+Defined in: [types/tools.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L520)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tools.ts:507](https://github.com/juspay/neurolink/blob/releas
 
 > **writeFile**: [`Tool`](Tool.md)
 
-Defined in: [types/tools.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L508)
+Defined in: [types/tools.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L521)

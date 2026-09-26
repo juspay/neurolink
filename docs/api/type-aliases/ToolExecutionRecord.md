@@ -8,7 +8,7 @@
 
 > **ToolExecutionRecord** = `object`
 
-Defined in: [types/generate.ts:911](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L911)
+Defined in: [types/generate.ts:928](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L928)
 
 One real tool invocation captured during an agentic turn.
 
@@ -24,7 +24,7 @@ to observe their own tool traffic.
 
 > **toolName**: `string`
 
-Defined in: [types/generate.ts:913](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L913)
+Defined in: [types/generate.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L930)
 
 Tool name as the model called it.
 
@@ -34,7 +34,7 @@ Tool name as the model called it.
 
 > **params**: `unknown`
 
-Defined in: [types/generate.ts:915](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L915)
+Defined in: [types/generate.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L932)
 
 Parameters the tool was invoked with, as parsed by the loop.
 
@@ -44,7 +44,7 @@ Parameters the tool was invoked with, as parsed by the loop.
 
 > **resultText**: `string`
 
-Defined in: [types/generate.ts:921](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L921)
+Defined in: [types/generate.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L938)
 
 Serialized tool result (JSON when serializable, else String()), bounded
 by `toolExecutionCapture.maxResultChars` (default ~8KB). Truncated text
@@ -56,7 +56,7 @@ ends with a `…[truncated N chars]` marker.
 
 > **isError**: `boolean`
 
-Defined in: [types/generate.ts:923](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L923)
+Defined in: [types/generate.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L940)
 
 True when the execution threw or returned an error-shaped result.
 
@@ -66,7 +66,7 @@ True when the execution threw or returned an error-shaped result.
 
 > **startedAt**: `number`
 
-Defined in: [types/generate.ts:925](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L925)
+Defined in: [types/generate.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L942)
 
 Epoch milliseconds when the execution started.
 
@@ -76,6 +76,6 @@ Epoch milliseconds when the execution started.
 
 > **durationMs**: `number`
 
-Defined in: [types/generate.ts:927](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L927)
+Defined in: [types/generate.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L944)
 
 Wall-clock duration of the execution in milliseconds.

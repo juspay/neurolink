@@ -8,7 +8,7 @@
 
 > **ProxyStatusArgs** = `object`
 
-Defined in: [types/cli.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L930)
+Defined in: [types/cli.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L936)
 
 Arguments accepted by `neurolink proxy status`
 
@@ -18,7 +18,7 @@ Arguments accepted by `neurolink proxy status`
 
 > `optional` **format?**: `"text"` \| `"json"`
 
-Defined in: [types/cli.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L931)
+Defined in: [types/cli.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L937)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:931](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L932)
+Defined in: [types/cli.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L938)

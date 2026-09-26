@@ -128,6 +128,7 @@ import type {
   ToolRoutingServerDescriptor,
   ToolDedupConfig,
   ToolConfig,
+  FileToolRootPolicy,
   RequestRouter,
   RouterInputContext,
   KnowledgeEngineStatus,
@@ -251,7 +252,9 @@ import type {
   ProviderMetricsResult,
   TeamAnalyticsOptions,
   TeamAnalyticsResult,
+  TerminalAgentModeVersion,
 } from "./types/index.js";
+import { resolveTerminalAgentMode } from "./agent/prompts/terminalAgentPrompt.js";
 import { SpanSerializer } from "./observability/utils/spanSerializer.js";
 import { withSpan } from "./telemetry/withSpan.js";
 import { getActiveTraceContext } from "./telemetry/traceContext.js";
@@ -376,6 +379,11 @@ import {
 import { resolveToolPolicy } from "./tools/toolPolicy.js";
 import { applyToolGate } from "./tools/toolGate.js";
 import { directAgentTools } from "./agent/directTools.js";
+import {
+  bindFileToolRoots,
+  boundFileToolRoots,
+  resolveFileToolRootPolicy,
+} from "./utils/fileToolRoots.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
 // Tool detection and execution imports
 // Transformation utilities
@@ -1386,7 +1394,16 @@ export class NeuroLink {
   }
 
   constructor(config?: NeurolinkConstructorConfig) {
-    this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
+    if (config?.toolRegistry) {
+      // A supplied registry (a host's, shared with a worker) keeps its owner's
+      // roots; per-call executeTool() binds this instance's policy anyway.
+      this.toolRegistry = config.toolRegistry;
+    } else {
+      this.toolRegistry = new MCPToolRegistry();
+      this.toolRegistry.setFileToolRootResolver(() =>
+        this.resolveFileToolRoots(undefined),
+      );
+    }
     this.fileRegistry = new FileReferenceRegistry();
     this.observabilityConfig = config?.observability;
     this.analyticsService = new AnalyticsService();
@@ -4472,6 +4489,14 @@ Current user's request: ${currentInput}`;
     // String prompts are immutable, so they pass through.
     if (typeof optionsOrPrompt !== "string") {
       optionsOrPrompt = cloneOptionsForCallIsolation(optionsOrPrompt);
+      // Resolved once per call and always overwrites a caller-supplied
+      // policy; an invalid root fails here, before any model call.
+      bindFileToolRoots(
+        optionsOrPrompt,
+        this.resolveFileToolRoots(
+          (optionsOrPrompt as GenerateOptions).toolRoots,
+        ),
+      );
       // The deprecated `conversationHistory` field is not wired into message
       // building — messages passed there never reach the model, which reads
       // as "the SDK forgot my context" rather than a caller bug. Warn loudly
@@ -4488,6 +4513,20 @@ Current user's request: ${currentInput}`;
         logger.warn(
           "[NeuroLink.generate] `conversationHistory` is deprecated and NOT passed to the model — use `conversationMessages` (ChatMessage[]) instead.",
         );
+      }
+    }
+    // Resolved once here and removed from the options, so no internal
+    // re-entrant generate() can prepend the agent instructions twice.
+    let agentModeVersion: TerminalAgentModeVersion | undefined;
+    if (typeof optionsOrPrompt !== "string") {
+      const { agentMode, ...rest } = optionsOrPrompt as GenerateOptions;
+      if (agentMode !== undefined) {
+        const resolved = resolveTerminalAgentMode(agentMode, rest.systemPrompt);
+        agentModeVersion = resolved.version;
+        optionsOrPrompt = {
+          ...rest,
+          systemPrompt: resolved.systemPrompt,
+        } as GenerateOptions;
       }
     }
     // Retrieve once at the public call boundary so fallback attempts reuse the
@@ -4534,6 +4573,9 @@ Current user's request: ${currentInput}`;
       );
       if (knowledgeOutcome) {
         result.knowledge = knowledgeOutcome.metadata;
+      }
+      if (agentModeVersion) {
+        result.agentModeVersion = agentModeVersion;
       }
       return result;
     } catch (error) {
@@ -5698,6 +5740,7 @@ Current user's request: ${currentInput}`;
       // (which spreads its options) honoured it.
       disableInternalFallback: options.disableInternalFallback,
       maxSteps: options.maxSteps,
+      toolRoots: options.toolRoots,
       toolChoice: options.toolChoice,
       prepareStep: options.prepareStep,
       enabledToolNames: options.enabledToolNames,
@@ -5768,9 +5811,9 @@ Current user's request: ${currentInput}`;
       };
     }
 
-    const textOptions = enhanceTextGenerationOptions(
-      baseOptions,
-      factoryResult,
+    const textOptions = bindFileToolRoots(
+      enhanceTextGenerationOptions(baseOptions, factoryResult),
+      this.fileToolRootsFor(options),
     );
     if (this.conversationMemory) {
       textOptions.conversationMemoryConfig = this.conversationMemory.config;
@@ -6662,11 +6705,16 @@ Current user's request: ${currentInput}`;
       );
     }
 
+    // Isolate from the caller's object, then resolve file-tool roots exactly
+    // as generate() does: a widening or missing root rejects here, before any
+    // model call, and the resolved policy travels on the private channel.
+    const isolated = cloneOptionsForCallIsolation(options);
     // NL-004: Resolve model aliases/deprecations before processing
-    options.model = resolveModel(options.model, this.modelAliasConfig);
+    isolated.model = resolveModel(isolated.model, this.modelAliasConfig);
+    bindFileToolRoots(isolated, this.resolveFileToolRoots(isolated.toolRoots));
 
     // Use internal generation method directly
-    return await this.generateTextInternal(options);
+    return await this.generateTextInternal(isolated);
   }
 
   /**
@@ -8194,6 +8242,7 @@ Current user's request: ${currentInput}`;
       skipToolPromptInjection: options.skipToolPromptInjection,
     });
 
+    provider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
     const result = await provider.generate({
       ...options,
       systemPrompt: enhancedSystemPrompt,
@@ -8407,6 +8456,7 @@ Current user's request: ${currentInput}`;
             functionTag,
           );
 
+          poolProvider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
           const poolResult = await poolProvider.generate({
             ...options,
             conversationMessages: poolConversationMessages,
@@ -8890,6 +8940,7 @@ Current user's request: ${currentInput}`;
           functionTag,
         );
 
+        provider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
         const result = await provider.generate({
           ...options,
           conversationMessages, // Inject conversation history
@@ -9318,6 +9369,19 @@ Current user's request: ${currentInput}`;
     // shallow rebind at the orchestration site only covered the
     // top-level keys and left `options.input` shared with the caller.
     options = cloneOptionsForCallIsolation(options);
+    let agentModeVersion: TerminalAgentModeVersion | undefined;
+    {
+      const { agentMode, ...rest } = options as StreamOptions;
+      if (agentMode !== undefined) {
+        const resolved = resolveTerminalAgentMode(agentMode, rest.systemPrompt);
+        agentModeVersion = resolved.version;
+        options = { ...rest, systemPrompt: resolved.systemPrompt };
+      }
+    }
+    bindFileToolRoots(
+      options,
+      this.resolveFileToolRoots((options as StreamOptions).toolRoots),
+    );
     const startedAt = Date.now();
     // Retrieve once before provider/model fallback orchestration. Every fallback
     // receives the same explicitly enriched options, without the retrieval helper
@@ -9339,6 +9403,9 @@ Current user's request: ${currentInput}`;
       );
       if (knowledgeOutcome) {
         result.knowledge = knowledgeOutcome.metadata;
+      }
+      if (agentModeVersion) {
+        result.agentModeVersion = agentModeVersion;
       }
       return result;
     } catch (error) {
@@ -11406,6 +11473,9 @@ Current user's request: ${currentInput}`;
               context: enhancedOptions.context as Record<string, unknown>,
             } as TextGenerationOptions);
 
+      fallbackProvider.setFileToolRootPolicy?.(
+        this.fileToolRootsFor(enhancedOptions),
+      );
       const fallbackResult = await fallbackProvider.stream({
         ...this.deferProviderStreamTTS(enhancedOptions),
         model: fallbackRoute.model,
@@ -12043,6 +12113,9 @@ Current user's request: ${currentInput}`;
             "NeuroLink.createMCPStream",
           );
 
+          poolStreamProvider.setFileToolRootPolicy?.(
+            this.fileToolRootsFor(options),
+          );
           const poolStreamResult = await poolStreamProvider.stream({
             ...this.deferProviderStreamTTS(options),
             provider: poolStreamProviderName as AIProviderName,
@@ -12143,6 +12216,7 @@ Current user's request: ${currentInput}`;
 
     // 🔧 FIX: Pass enhanced system prompt to real streaming
     // Tools will be accessed through the streamText call in executeStream
+    provider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
     const streamResult = await provider.stream({
       ...this.deferProviderStreamTTS(options),
       systemPrompt: enhancedSystemPrompt, // Use enhanced prompt with tool descriptions
@@ -12353,6 +12427,7 @@ Current user's request: ${currentInput}`;
       undefined,
       this.resolveCredentials(options.credentials),
     );
+    provider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
     const fallbackStreamResult = await provider.stream({
       input: { text: options.input.text },
       model: options.model,
@@ -12761,6 +12836,48 @@ Current user's request: ${currentInput}`;
    * Called by `BaseProvider.applyToolFiltering` so the tool gate composes the
    * instance policy with per-call options on every generate/stream call.
    */
+  /**
+   * The policy an entry point bound to `options`, or — for an internal path
+   * that built its own options — the instance policy narrowed by any
+   * per-call `toolRoots`. Never trusts a public field.
+   */
+  private fileToolRootsFor(options: object): FileToolRootPolicy {
+    return (
+      boundFileToolRoots(options) ??
+      this.resolveFileToolRoots((options as { toolRoots?: string[] }).toolRoots)
+    );
+  }
+
+  /**
+   * A worker's tool config: it inherits this instance's file-tool roots, and a
+   * worker-level `fileRoots` may only narrow them (throws otherwise).
+   */
+  private workerToolsConfig(
+    override: ToolConfig | undefined,
+  ): ToolConfig | undefined {
+    const hostRoots = this.toolsConfig?.fileRoots;
+    if (override?.fileRoots === undefined) {
+      return hostRoots === undefined
+        ? override
+        : { ...override, fileRoots: hostRoots };
+    }
+    const narrowed = resolveFileToolRootPolicy({
+      perCall: override.fileRoots,
+      instance: hostRoots,
+    }).roots;
+    return { ...override, fileRoots: narrowed ? [...narrowed] : [] };
+  }
+
+  /** File-tool roots for one call: per-call roots narrow the instance's `tools.fileRoots`. */
+  private resolveFileToolRoots(
+    perCall: readonly string[] | undefined,
+  ): FileToolRootPolicy {
+    return resolveFileToolRootPolicy({
+      perCall,
+      instance: this.toolsConfig?.fileRoots,
+    });
+  }
+
   getToolsConfig(): ToolConfig | undefined {
     return this.toolsConfig;
   }
@@ -14592,11 +14709,11 @@ Current user's request: ${currentInput}`;
         const storedContext = this.toolExecutionContext || {};
         const passedAuthContext = options.authContext || {};
 
-        const context = {
-          ...storedContext,
-          ...passedAuthContext,
-          hitlState: HITLState,
-        };
+        // This instance's roots, on the private channel (overwrites the caller's).
+        const context = bindFileToolRoots(
+          { ...storedContext, ...passedAuthContext, hitlState: HITLState },
+          this.resolveFileToolRoots(undefined),
+        );
 
         logger.debug(`[Using merged context for unified registry tool:`, {
           toolName,
@@ -18089,7 +18206,12 @@ Current user's request: ${currentInput}`;
       }),
     } as NeurolinkConstructorConfig;
 
-    const worker = new NeuroLink(workerConfig);
+    const workerTools = this.workerToolsConfig(
+      configOverrides.tools as ToolConfig | undefined,
+    );
+    const worker = new NeuroLink(
+      workerTools ? { ...workerConfig, tools: workerTools } : workerConfig,
+    );
 
     // The cacheable:false flag lives BESIDE the registry, not in it, so a
     // shared registry alone would re-enable caching on the worker for exactly

@@ -8,7 +8,7 @@
 
 > **ConfigValidationResult** = `object`
 
-Defined in: [types/config.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L481)
+Defined in: [types/config.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L490)
 
 Configuration validation result
 
@@ -18,7 +18,7 @@ Configuration validation result
 
 > **valid**: `boolean`
 
-Defined in: [types/config.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L482)
+Defined in: [types/config.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L491)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:482](https://github.com/juspay/neurolink/blob/relea
 
 > **errors**: `string`[]
 
-Defined in: [types/config.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L483)
+Defined in: [types/config.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L492)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:483](https://github.com/juspay/neurolink/blob/relea
 
 > **warnings**: `string`[]
 
-Defined in: [types/config.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L484)
+Defined in: [types/config.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L493)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/config.ts:484](https://github.com/juspay/neurolink/blob/relea
 
 > **suggestions**: `string`[]
 
-Defined in: [types/config.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L485)
+Defined in: [types/config.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L494)

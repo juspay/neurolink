@@ -8,7 +8,7 @@
 
 > **OllamaCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L328)
+Defined in: [types/cli.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L334)
 
 Ollama command arguments
 

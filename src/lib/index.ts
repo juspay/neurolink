@@ -1563,6 +1563,11 @@ export {
 // ============================================================================
 export { Agent } from "./agent/agent.js";
 export { AgentNetwork } from "./agent/agentNetwork.js";
+export {
+  TERMINAL_AGENT_PROMPT_V1,
+  TERMINAL_AGENT_PROMPT_V2,
+  TERMINAL_AGENT_PROMPT_VERSION,
+} from "./agent/prompts/terminalAgentPrompt.js";
 
 // Advanced agent orchestration exports
 export {

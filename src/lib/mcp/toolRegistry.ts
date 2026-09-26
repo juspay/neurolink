@@ -11,6 +11,7 @@ import type {
   ToolImplementation,
   ToolInfo,
   ExecutionContext,
+  FileToolRootPolicy,
   UnknownRecord,
   HITLManager,
 } from "../types/index.js";
@@ -18,7 +19,14 @@ import { MCPRegistry } from "./registry.js";
 import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
-import { directAgentTools } from "../agent/directTools.js";
+import {
+  createDirectAgentTools,
+  directAgentTools,
+} from "../agent/directTools.js";
+import {
+  boundFileToolRoots,
+  resolveFileToolRootPolicy,
+} from "../utils/fileToolRoots.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
@@ -38,6 +46,10 @@ export class MCPToolRegistry extends MCPRegistry {
   > = new Map();
   private builtInServerInfos: MCPServerInfo[] = []; // DIRECT storage for MCPServerInfo
   private hitlManager?: HITLManager; // Optional HITL manager for safety mechanisms
+  // The owning NeuroLink's file-tool roots, for callers (HTTP tool routes, CLI)
+  // that execute built-in tools on this registry without a bound policy.
+  private fileToolRootResolver: () => FileToolRootPolicy = () =>
+    resolveFileToolRootPolicy({});
 
   constructor() {
     super();
@@ -64,6 +76,31 @@ export class MCPToolRegistry extends MCPRegistry {
    */
   getHITLManager(): HITLManager | undefined {
     return this.hitlManager;
+  }
+
+  /**
+   * Resolve file-tool roots for built-in tools executed on this registry
+   * without a per-call policy. Set by the NeuroLink instance that created it.
+   */
+  setFileToolRootResolver(resolver: () => FileToolRootPolicy): void {
+    this.fileToolRootResolver = resolver;
+  }
+
+  /**
+   * The built-in tool bound to the policy that applies to this execution: one
+   * NeuroLink bound on the context, else this registry's owner's roots.
+   */
+  private directToolFor(
+    toolName: string,
+    fallback: unknown,
+    context?: ExecutionContext,
+  ): unknown {
+    const policy = boundFileToolRoots(context) ?? this.fileToolRootResolver();
+    if (policy.roots === null) {
+      return fallback;
+    }
+    const bound: Record<string, unknown> = createDirectAgentTools(policy);
+    return bound[toolName] ?? fallback;
   }
 
   /**
@@ -104,12 +141,14 @@ export class MCPToolRegistry extends MCPRegistry {
           try {
             // Direct tools from AI SDK expect their specific parameter structure
             // Each tool validates its own parameters, so we safely pass them through
-            const result = await (
-              toolDef.execute as (
-                params: unknown,
-                ctx: unknown,
-              ) => Promise<unknown>
-            )(params, {
+            const boundTool = this.directToolFor(
+              toolName,
+              toolDef,
+              context,
+            ) as {
+              execute: (params: unknown, ctx: unknown) => Promise<unknown>;
+            };
+            const result = await boundTool.execute(params, {
               toolCallId: context?.sessionId || "unknown",
               messages: [],
             });

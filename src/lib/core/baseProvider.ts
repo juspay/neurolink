@@ -1,5 +1,12 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { directAgentTools } from "../agent/directTools.js";
+import {
+  createDirectAgentTools,
+  directAgentTools,
+} from "../agent/directTools.js";
+import {
+  boundFileToolRoots,
+  resolveFileToolRootPolicy,
+} from "../utils/fileToolRoots.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { defaultProviderFor } from "../factories/mediaHandlerCatalog.js";
 import {
@@ -13,6 +20,7 @@ import type { NeuroLink } from "../neurolink.js";
 import { resolveRequestKind } from "./resolveRequestKind.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
+  FileToolRootPolicy,
   JsonValue,
   UnknownRecord,
   LifecycleMiddlewareConfig,
@@ -204,6 +212,7 @@ export abstract class BaseProvider implements AIProvider {
     ? {}
     : directAgentTools;
   protected mcpTools?: Record<string, Tool>; // MCP tools loaded dynamically when available
+  private fileToolRootsBound = false;
   protected customTools?: Map<string, unknown>; // Custom tools from registerTool()
   protected toolExecutor?: (
     toolName: string,
@@ -364,6 +373,7 @@ export abstract class BaseProvider implements AIProvider {
     // maxTokens (getSafeMaxTokens consults the discovered output ceiling).
     await this.ensureModelLimits();
     let options = this.normalizeStreamOptions(optionsOrPrompt);
+    this.applyFileToolRoots(options);
 
     // Before anything else, and before a single byte leaves the process: an
     // execution policy this provider cannot honour is an error, and a policy
@@ -1686,6 +1696,7 @@ export abstract class BaseProvider implements AIProvider {
     await this.ensureModelLimits();
     const options = this.normalizeTextOptions(optionsOrPrompt);
     this.validateOptions(options);
+    this.applyFileToolRoots(options);
     const startTime = Date.now();
 
     // One span per attempt. runGenerateInActiveContext ends the span on the
@@ -2833,7 +2844,56 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Get all available tools - delegated to ToolsManager
    */
+  /**
+   * Bind the built-in file tools to one request's root policy. NeuroLink
+   * calls this before every provider call that carries the caller's options,
+   * because several providers override generate()/stream() and assemble
+   * their tools without passing through BaseProvider's entry points.
+   * Providers are created per request, so a bound policy never reaches
+   * another request.
+   */
+  setFileToolRootPolicy(policy: FileToolRootPolicy | undefined): void {
+    if (policy === undefined || Object.keys(this.directTools).length === 0) {
+      return;
+    }
+    this.fileToolRootsBound = true;
+    this.toolsManager.setDirectTools(
+      policy.roots === null ? this.directTools : createDirectAgentTools(policy),
+    );
+  }
+
+  /**
+   * Resolve roots for a provider called directly, without NeuroLink. A
+   * policy NeuroLink already bound is left alone unless these options carry
+   * their own. An invalid root throws, before any model request.
+   */
+  private applyFileToolRoots(options: { toolRoots?: string[] }): void {
+    if (Object.keys(this.directTools).length === 0) {
+      return;
+    }
+    const bound = boundFileToolRoots(options);
+    if (bound !== undefined) {
+      this.setFileToolRootPolicy(bound);
+      return;
+    }
+    if (this.fileToolRootsBound && options.toolRoots === undefined) {
+      return;
+    }
+    this.setFileToolRootPolicy(
+      resolveFileToolRootPolicy({
+        perCall: options.toolRoots,
+        instance: this.neurolink?.getToolsConfig()?.fileRoots,
+      }),
+    );
+  }
+
   protected async getAllTools(): Promise<Record<string, Tool>> {
+    // Any path that reaches tool assembly without a bound policy — an internal
+    // caller, or a provider whose generate()/stream() skips the base entry
+    // points — gets the instance's roots rather than the working directory.
+    if (!this.fileToolRootsBound) {
+      this.applyFileToolRoots({});
+    }
     return this.toolsManager.getAllTools();
   }
 

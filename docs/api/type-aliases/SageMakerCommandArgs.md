@@ -8,7 +8,7 @@
 
 > **SageMakerCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L344)
+Defined in: [types/cli.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L350)
 
 SageMaker command arguments
 

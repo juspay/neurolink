@@ -19,6 +19,10 @@ import type {
 } from "../types/middleware.js";
 import type { TokenUsage } from "./analytics.js";
 import type { JsonValue, UnknownRecord } from "./common.js";
+import type {
+  TerminalAgentModeOption,
+  TerminalAgentModeVersion,
+} from "./agentMode.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage } from "./conversation.js";
 import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
@@ -570,6 +574,8 @@ export type StreamOptions = {
   /** Stop sequences that will halt generation when encountered. */
   stopSequences?: string[];
   systemPrompt?: string;
+  /** Opt-in terminal agent mode. See GenerateOptions.agentMode. */
+  agentMode?: TerminalAgentModeOption;
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
@@ -616,6 +622,8 @@ export type StreamOptions = {
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;
   maxSteps?: number; // Maximum tool execution steps. Defaults to 5 in the implementation if not specified.
+  /** Directories the built-in file tools may touch for this call; see GenerateOptions.toolRoots; can only narrow tools.fileRoots. */
+  toolRoots?: string[];
 
   /**
    * Tool choice configuration for streaming generation.
@@ -908,6 +916,8 @@ export type StreamOptions = {
 export type StreamResult = {
   /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
   knowledge?: KnowledgeGroundingMetadata;
+  /** Terminal agent instructions version applied (present only with `agentMode`). */
+  agentModeVersion?: TerminalAgentModeVersion;
   stream: AsyncIterable<
     | { content: string; reasoning?: string }
     | StreamNoOutputSentinel

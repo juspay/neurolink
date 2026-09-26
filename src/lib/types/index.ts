@@ -6,6 +6,7 @@
 // All type files (alphabetical)
 export * from "./enums.js";
 export * from "./action.js";
+export * from "./agentMode.js";
 export * from "./aliases.js";
 export * from "./analytics.js";
 export * from "./artifact.js";
@@ -31,6 +32,7 @@ export * from "./gitTools.js";
 
 // Path containment guard shared by the sandboxed execution paths
 export * from "./pathSandbox.js";
+export * from "./fileToolRoots.js";
 export * from "./domain.js";
 export * from "./errors.js";
 export * from "./evaluation.js";

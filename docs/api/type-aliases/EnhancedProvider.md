@@ -8,7 +8,7 @@
 
 > **EnhancedProvider** = `object`
 
-Defined in: [types/generate.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1254)
+Defined in: [types/generate.ts:1273](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1273)
 
 Enhanced provider type with generate method
 
@@ -18,7 +18,7 @@ Enhanced provider type with generate method
 
 > **generate**(`options`): `Promise`\<[`GenerateResult`](GenerateResult.md)\>
 
-Defined in: [types/generate.ts:1255](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1255)
+Defined in: [types/generate.ts:1274](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1274)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/generate.ts:1255](https://github.com/juspay/neurolink/blob/re
 
 > **getName**(): `string`
 
-Defined in: [types/generate.ts:1256](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1256)
+Defined in: [types/generate.ts:1275](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1275)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [types/generate.ts:1256](https://github.com/juspay/neurolink/blob/re
 
 > **isAvailable**(): `Promise`\<`boolean`\>
 
-Defined in: [types/generate.ts:1257](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1257)
+Defined in: [types/generate.ts:1276](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1276)
 
 #### Returns
 
