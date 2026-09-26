@@ -8,7 +8,7 @@
 
 > **EnvVarValidationResult** = `object`
 
-Defined in: [types/utilities.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L224)
+Defined in: [types/utilities.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L238)
 
 Validation results for environment variables
 
@@ -18,7 +18,7 @@ Validation results for environment variables
 
 > **isValid**: `boolean`
 
-Defined in: [types/utilities.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L225)
+Defined in: [types/utilities.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L239)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/utilities.ts:225](https://github.com/juspay/neurolink/blob/re
 
 > **missingVars**: `string`[]
 
-Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L226)
+Defined in: [types/utilities.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L240)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/re
 
 > **invalidVars**: `string`[]
 
-Defined in: [types/utilities.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L227)
+Defined in: [types/utilities.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L241)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/utilities.ts:227](https://github.com/juspay/neurolink/blob/re
 
 > **warnings**: `string`[]
 
-Defined in: [types/utilities.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L228)
+Defined in: [types/utilities.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L242)

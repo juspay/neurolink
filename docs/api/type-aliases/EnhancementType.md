@@ -8,6 +8,6 @@
 
 > **EnhancementType** = `"streaming-optimization"` \| `"mcp-integration"` \| `"legacy-migration"` \| `"context-conversion"` \| `"domain-configuration"` \| `"batch-parallel-enhancement"` \| `"batch-hybrid-enhancement"` \| `"batch-dependency-enhancement"`
 
-Defined in: [types/utilities.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L114)
+Defined in: [types/utilities.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L128)
 
 Enhancement types for different optimization strategies
