@@ -6,15 +6,13 @@
  * Uses real MCP infrastructure for tool discovery and execution.
  */
 
-// Load environment variables from .env file (critical for SDK usage)
-// Suppress dotenv v17 stdout banner — it pollutes CLI JSON output
-try {
-  process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? "true";
-  const { config: dotenvConfig } = await import("dotenv");
-  dotenvConfig({ quiet: true });
-} catch {
-  // Environment variables should be set externally in production
-}
+// Load environment variables from .env file (critical for SDK usage).
+// Shared with the CLI so the two implicit loads cannot drift apart again.
+// Neither honoured DOTENV_CONFIG_PATH, and they had already drifted in how
+// each suppressed dotenv's banner — one conditional, one unconditional.
+import { loadProcessDotenv } from "./utils/dotenvBootstrap.js";
+
+await loadProcessDotenv();
 
 import { SpanKind, SpanStatusCode, context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "async_hooks";

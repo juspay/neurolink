@@ -13,6 +13,7 @@ process.env.DOTENV_CONFIG_QUIET = "true";
 import { initializeCliParser } from "./parser.js";
 import chalk from "chalk";
 import { initializeCliLifecycle, cleanupCliLifecycle } from "./lifecycle.js";
+import { loadProcessDotenv } from "../lib/utils/dotenvBootstrap.js";
 
 // Clean up pnpm-specific environment variables that cause npm warnings
 // These variables are set by pnpm but cause "Unknown env config" warnings in npm
@@ -23,16 +24,11 @@ if (process.env.npm_config__jsr_registry) {
   delete process.env.npm_config__jsr_registry;
 }
 
-// Load environment variables from .env file
-// Suppress dotenv v17's stdout banner before importing — it pollutes CLI JSON output
-process.env.DOTENV_CONFIG_QUIET = "true";
-try {
-  const { config } = await import("dotenv");
-  config({ quiet: true });
-} catch {
-  // dotenv is not available (dev dependency only) - this is fine for production
-  // Environment variables should be set externally in production
-}
+// Load environment variables from .env file. Shared with the SDK entry
+// point; see dotenvBootstrap for why DOTENV_CONFIG_PATH has to be honoured
+// here too — a suite that drives the built CLI inherits the stripped
+// environment, and this is the process that would otherwise undo it.
+await loadProcessDotenv();
 
 // Enhanced CLI with Professional UX
 const cli = initializeCliParser();

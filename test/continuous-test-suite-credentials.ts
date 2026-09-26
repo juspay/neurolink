@@ -38,6 +38,12 @@ import type {
 import { ProviderFactory } from "../dist/factories/providerFactory.js";
 import { ProviderRegistry } from "../dist/factories/providerRegistry.js";
 
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { execFileSync } from "child_process";
+import { fileURLToPath } from "url";
+
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
@@ -847,10 +853,132 @@ if (HAS_OPENAI_KEY) {
   );
 }
 
+// =============================================================================
+// SECTION 6: Regression — the implicit .env load is suppressible (issue #1744)
+// =============================================================================
+
+async function testDotenvStripIsHonoured(): Promise<void> {
+  logSection("SECTION 6: Implicit .env load honours DOTENV_CONFIG_PATH");
+
+  // Both cases run the SHIPPED entry point in a child process, because the
+  // thing under test happens once per process at module load and cannot be
+  // re-observed in a process that has already imported it. The child is given
+  // its own working directory containing its own .env, so neither case can be
+  // influenced by the repository's real .env or by the parent's environment.
+  const distEntry = fileURLToPath(new URL("../dist/index.js", import.meta.url));
+  const SENTINEL = "NEUROLINK_DOTENV_PROBE_1744";
+
+  const probeInChildWith = (
+    extraEnv: Record<string, string>,
+  ): string | undefined => {
+    const dir = mkdtempSync(join(tmpdir(), "neurolink-dotenv-"));
+    try {
+      writeFileSync(join(dir, ".env"), `${SENTINEL}=loaded-from-dotenv\n`);
+      const out = execFileSync(
+        process.execPath,
+        [
+          "-e",
+          `import(${JSON.stringify(distEntry)}).then(() => {` +
+            `process.stdout.write(String(process.env.${SENTINEL} ?? ""));` +
+            `});`,
+        ],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          timeout: 120_000,
+          env: {
+            HOME: process.env.HOME ?? "",
+            PATH: process.env.PATH ?? "",
+            ...extraEnv,
+          },
+        },
+      );
+      return out.length > 0 ? out : undefined;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  await test("6.1 DOTENV_CONFIG_PATH=/dev/null suppresses the implicit .env load", async () => {
+    // A direct dotenv config() call ignores DOTENV_CONFIG_PATH — only the
+    // dotenv/config preload entry reads it. Because the SDK entry point used
+    // a direct call, the strip this repo documents for vetting suites
+    // (env -i ... DOTENV_CONFIG_PATH=/dev/null) silently stripped nothing as
+    // soon as anything imported dist, and a suite passing only because a real
+    // credential leaked in looked identical to one that needed none.
+    const value = probeInChildWith({ DOTENV_CONFIG_PATH: "/dev/null" });
+    assert(
+      value === undefined,
+      "the working directory's .env still reached the environment under a strip",
+    );
+  });
+
+  await test("6.2 with no DOTENV_CONFIG_PATH the implicit .env load is unchanged", async () => {
+    // The other half of the contract, and the reason the fix is additive:
+    // SDK consumers who rely on NeuroLink picking up a .env must see exactly
+    // what they saw before. Without this case, 6.1 would also pass if the
+    // load were simply deleted.
+    const value = probeInChildWith({});
+    assertEqual(
+      value,
+      "loaded-from-dotenv",
+      "the working directory's .env no longer reaches the environment by default",
+    );
+  });
+
+  await test("6.3 the implicit-load catch's rationale matches the actual dependency contract", async () => {
+    // dotenvBootstrap.ts's catch branch once justified its silence with
+    // "dotenv is a dev dependency" — false against package.json, which lists
+    // dotenv under "dependencies", not "devDependencies". A prior review pass
+    // endorsed that false rationale without checking it. It matters because a
+    // future contributor trusting the comment could reclassify dotenv into
+    // devDependencies, believing it "isn't needed in prod" — which would
+    // silently break the implicit .env load for every SDK/CLI consumer,
+    // swallowed by this same catch. This pins both halves of the contract
+    // (the manifest and the comment describing it) as an external,
+    // observable fact about the shipped package — not an internal shape — so
+    // a re-introduced drift is caught here instead of in the next review.
+    const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+    const packageJson = readFileSync(join(repoRoot, "package.json"), "utf8");
+    const dependenciesStart = packageJson.indexOf('"dependencies"');
+    const peerDependenciesStart = packageJson.indexOf('"peerDependencies"');
+    const devDependenciesStart = packageJson.indexOf('"devDependencies"');
+    assert(
+      dependenciesStart !== -1 &&
+        peerDependenciesStart > dependenciesStart &&
+        devDependenciesStart > peerDependenciesStart,
+      "package.json's dependency section boundaries could not be located",
+    );
+    const dependenciesBlock = packageJson.slice(
+      dependenciesStart,
+      peerDependenciesStart,
+    );
+    const devDependenciesBlock = packageJson.slice(devDependenciesStart);
+    assert(
+      /"dotenv"\s*:/.test(dependenciesBlock),
+      'dotenv is no longer declared under package.json\'s "dependencies"',
+    );
+    assert(
+      !/"dotenv"\s*:/.test(devDependenciesBlock),
+      'dotenv now also appears under package.json\'s "devDependencies"',
+    );
+
+    const bootstrapSource = readFileSync(
+      join(repoRoot, "src/lib/utils/dotenvBootstrap.ts"),
+      "utf8",
+    );
+    assert(
+      !/dotenv is a dev dependency/i.test(bootstrapSource),
+      "dotenvBootstrap.ts's catch comment again claims dotenv is a dev dependency, contradicting package.json",
+    );
+  });
+}
+
 await runSuite(async () => {
   await testTypeContracts();
   await testInstanceAndCallBehavior();
   await testProviderScopedCredentials();
   await testConcurrentCallsWithDifferentCredentials();
   await testIssue01ModelAccess();
+  await testDotenvStripIsHonoured();
 });
