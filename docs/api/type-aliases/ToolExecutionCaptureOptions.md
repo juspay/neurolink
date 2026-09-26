@@ -8,7 +8,7 @@
 
 > **ToolExecutionCaptureOptions** = `object`
 
-Defined in: [types/generate.ts:952](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L952)
+Defined in: [types/generate.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L987)
 
 Bounds for per-call tool execution capture (see `ToolExecutionRecord`).
 Capture is ON by default with these caps; raise them when a caller needs
@@ -20,7 +20,7 @@ full result texts (e.g. caller-side evidence verification).
 
 > `optional` **maxResultChars?**: `number`
 
-Defined in: [types/generate.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L954)
+Defined in: [types/generate.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L989)
 
 Max serialized result characters kept per record (default 8192).
 
@@ -30,7 +30,7 @@ Max serialized result characters kept per record (default 8192).
 
 > `optional` **maxRecords?**: `number`
 
-Defined in: [types/generate.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L956)
+Defined in: [types/generate.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L991)
 
 Max records kept per turn; oldest are dropped first (default 500).
 
@@ -40,7 +40,7 @@ Max records kept per turn; oldest are dropped first (default 500).
 
 > `optional` **onRecord?**: (`record`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/generate.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L964)
+Defined in: [types/generate.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L999)
 
 Fire-and-forget per-record callback, invoked as each tool execution
 completes. Listener errors — synchronous throws AND async rejections —

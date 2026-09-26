@@ -226,6 +226,41 @@ export type GenerateOptions = {
   };
 
   /**
+   * Audio transcription options for attached audio files (#413/#440).
+   *
+   * An attached audio file is transcribed automatically when a backend is
+   * configured; this is only needed to override which one, or to help it.
+   * Without it the first configured backend wins, in the order OpenAI
+   * (Whisper), Google, Azure.
+   *
+   * @example Pin a backend and a language
+   * ```typescript
+   * await neurolink.generate({
+   *   input: { text: "Summarise this call", files: ["./call.mp3"] },
+   *   audioOptions: { provider: "openai", language: "en" },
+   * });
+   * ```
+   */
+  audioOptions?: {
+    /**
+     * Transcription backend: "openai" (aliases "whisper", "openai-whisper"),
+     * "google" or "azure". An unavailable or unrecognised choice is never
+     * swapped for another backend: no transcript is produced, and the
+     * selection reason is logged as a warning.
+     */
+    provider?: string;
+    /** Transcription model, e.g. "whisper-1". Backend-specific. */
+    transcriptionModel?: string;
+    /** Language hint, e.g. "en". Improves accuracy on non-English speech. */
+    language?: string;
+    /**
+     * OpenAI/Whisper-only context prompt to bias transcription (proper nouns,
+     * jargon). Ignored by Google and Azure.
+     */
+    prompt?: string;
+  };
+
+  /**
    * Text-to-Speech (TTS) configuration
    *
    * Enable audio generation from the text response. The generated audio will be
@@ -1622,6 +1657,43 @@ export type TextGenerationOptions = {
      * module's own default, unchanged unless a caller opts in here.
      */
     outputFormat?: VisionImageOutputFormat;
+  };
+
+  /**
+   * Keyframe-extraction options for attached video files (#1748).
+   *
+   * Mirrors `GenerateOptions.videoOptions`. This type never declared it, so
+   * `buildGenerateTextOptions` could not have forwarded it even if it tried:
+   * the CLI's `--video-frames`/`--video-quality`/`--video-format` were parsed,
+   * accepted by the public type, and then dropped before the message builder.
+   */
+  videoOptions?: {
+    /** Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100. */
+    frames?: number;
+    /** Frame encoder quality, clamped to 1-100. Default 80. */
+    quality?: number;
+    /** Frame encoding. Default jpeg. */
+    format?: "jpeg" | "png";
+    /** Not implemented yet (#433) — warns rather than silently doing nothing. */
+    transcribeAudio?: boolean;
+  };
+
+  /**
+   * Audio transcription options for attached audio files (#413/#440).
+   *
+   * Mirrors `GenerateOptions.audioOptions`; declared here because
+   * `buildGenerateTextOptions` rebuilds options field by field, so anything
+   * missing from this type cannot reach the message builder at all.
+   */
+  audioOptions?: {
+    /** Backend: "openai" (aliases "whisper"), "google" or "azure". */
+    provider?: string;
+    /** Transcription model, e.g. "whisper-1". Backend-specific. */
+    transcriptionModel?: string;
+    /** Language hint, e.g. "en". */
+    language?: string;
+    /** OpenAI/Whisper-only context prompt to bias transcription; ignored by Google and Azure. */
+    prompt?: string;
   };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request

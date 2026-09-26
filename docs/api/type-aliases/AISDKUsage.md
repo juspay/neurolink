@@ -8,7 +8,7 @@
 
 > **AISDKUsage** = `object`
 
-Defined in: [types/stream.ts:1128](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1128)
+Defined in: [types/stream.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1146)
 
 Raw usage data from Vercel AI SDK.
 
@@ -26,7 +26,7 @@ extractTokenUsage() in tokenUtils.ts already handles both shapes.
 
 > `optional` **promptTokens?**: `number`
 
-Defined in: [types/stream.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1130)
+Defined in: [types/stream.ts:1148](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1148)
 
 #### Deprecated
 
@@ -38,7 +38,7 @@ AI SDK v4 name — use inputTokens
 
 > `optional` **completionTokens?**: `number`
 
-Defined in: [types/stream.ts:1132](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1132)
+Defined in: [types/stream.ts:1150](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1150)
 
 #### Deprecated
 
@@ -50,7 +50,7 @@ AI SDK v4 name — use outputTokens
 
 > `optional` **totalTokens?**: `number`
 
-Defined in: [types/stream.ts:1134](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1134)
+Defined in: [types/stream.ts:1152](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1152)
 
 #### Deprecated
 
@@ -62,7 +62,7 @@ AI SDK v4 name — use totalTokens
 
 > `optional` **inputTokens?**: `number`
 
-Defined in: [types/stream.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1136)
+Defined in: [types/stream.ts:1154](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1154)
 
 AI SDK v6 name for prompt / input tokens
 
@@ -72,6 +72,6 @@ AI SDK v6 name for prompt / input tokens
 
 > `optional` **outputTokens?**: `number`
 
-Defined in: [types/stream.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1138)
+Defined in: [types/stream.ts:1156](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1156)
 
 AI SDK v6 name for completion / output tokens

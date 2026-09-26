@@ -8,7 +8,7 @@
 
 > **BoundedZipEntry** = `object`
 
-Defined in: [types/processor.ts:928](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L928)
+Defined in: [types/processor.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L947)
 
 The slice of an adm-zip entry the bounded reader depends on.
 
@@ -23,7 +23,7 @@ full when building a test double.
 
 > **getCompressedData**: () => `Buffer`
 
-Defined in: [types/processor.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L929)
+Defined in: [types/processor.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L948)
 
 #### Returns
 
@@ -35,7 +35,7 @@ Defined in: [types/processor.ts:929](https://github.com/juspay/neurolink/blob/re
 
 > **header**: `object`
 
-Defined in: [types/processor.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L930)
+Defined in: [types/processor.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L949)
 
 #### method
 

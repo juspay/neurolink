@@ -39,10 +39,17 @@
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
+  AudioProcessorOptions,
+  AudioTranscriptionOutcome,
+  AudioTranscriptionProvider,
+  AudioTranscriptionSelection,
   FileInfo,
   ProcessedAudio,
   ProcessorFileProcessingResult,
   ProcessOptions,
+  STTOptions,
+  STTResult,
+  TTSAudioFormat,
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import {
@@ -128,6 +135,109 @@ const SUPPORTED_AUDIO_MIME_TYPES: readonly string[] = [
 const SUPPORTED_AUDIO_EXTENSIONS: readonly string[] =
   extensionsForModality("audio");
 
+/**
+ * Transcription backends this processor can drive, in auto-selection order
+ * (#413). OpenAI first because Whisper is the only one with a native path
+ * here; Google and Azure are delegated to the STT handlers under
+ * `src/lib/voice/providers/`, which already speak those wire formats.
+ *
+ * The order is the preference order and nothing else — a backend is only
+ * chosen if `isProviderAvailable` says its credentials are present.
+ */
+const TRANSCRIPTION_PROVIDER_ORDER: readonly AudioTranscriptionProvider[] = [
+  "openai",
+  "google",
+  "azure",
+];
+
+/**
+ * Environment variables that make each backend usable, and the label used in
+ * log lines and in `ProcessedAudio.transcriptionProvider`.
+ *
+ * Google accepts four credential vars: `.env.example` documents
+ * `GOOGLE_AI_API_KEY`/`GEMINI_API_KEY` as aliases of `GOOGLE_API_KEY`, and
+ * `GOOGLE_APPLICATION_CREDENTIALS` (a service-account key file) is a fourth,
+ * independent credential `GoogleSTT` accepts on its own. All four are kept in
+ * sync here so availability cannot disagree with what the handler will accept.
+ */
+const TRANSCRIPTION_PROVIDER_CREDENTIALS: Record<
+  AudioTranscriptionProvider,
+  { label: string; envVars: readonly string[] }
+> = {
+  openai: { label: "openai-whisper", envVars: ["OPENAI_API_KEY"] },
+  google: {
+    label: "google-stt",
+    // GoogleSTT.isConfigured() also accepts a service-account file via
+    // GOOGLE_APPLICATION_CREDENTIALS (constructor in voice/providers/GoogleSTT.ts)
+    // — listed here too so availability cannot disagree with what the handler
+    // will actually accept.
+    envVars: [
+      "GOOGLE_API_KEY",
+      "GOOGLE_AI_API_KEY",
+      "GEMINI_API_KEY",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+    ],
+  },
+  azure: { label: "azure-stt", envVars: ["AZURE_SPEECH_KEY"] },
+};
+
+/**
+ * Caller-facing aliases for a backend name. `AudioProcessorOptions.provider`
+ * is a free-form `string` on the public surface, so "whisper" and
+ * "openai-whisper" have to land on the same backend as "openai" rather than
+ * being rejected as unknown.
+ */
+const TRANSCRIPTION_PROVIDER_ALIASES: Record<
+  string,
+  AudioTranscriptionProvider
+> = {
+  openai: "openai",
+  whisper: "openai",
+  "openai-whisper": "openai",
+  google: "google",
+  "google-stt": "google",
+  "google-speech": "google",
+  azure: "azure",
+  "azure-stt": "azure",
+  "azure-speech": "azure",
+};
+
+/**
+ * Map an audio mimetype/extension onto the format vocabulary the STT handlers
+ * expect. Returns undefined when nothing matches, which leaves the handler on
+ * its own "wav" default rather than asserting a format that is wrong.
+ */
+function toSTTAudioFormat(
+  extension: string | undefined,
+  mimetype: string | undefined,
+): TTSAudioFormat | undefined {
+  const candidates: readonly TTSAudioFormat[] = [
+    "mp3",
+    "wav",
+    "ogg",
+    "opus",
+    "m4a",
+    "flac",
+    "webm",
+    "mp4",
+    "mpeg",
+    "mpga",
+  ];
+  if (extension) {
+    const match = candidates.find((format) => format === extension);
+    if (match) {
+      return match;
+    }
+  }
+  const subtype = mimetype?.split(";")[0].trim().toLowerCase().split("/")[1];
+  if (!subtype) {
+    return undefined;
+  }
+  // "audio/x-m4a" and "audio/x-wav" are both in the wild.
+  const normalized = subtype.startsWith("x-") ? subtype.slice(2) : subtype;
+  return candidates.find((format) => format === normalized);
+}
+
 // =============================================================================
 // AUDIO PROCESSOR CLASS
 // =============================================================================
@@ -191,11 +301,14 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
    *
    * @param fileInfo - File information (can include URL or buffer)
    * @param options - Optional processing options (auth headers, timeout, etc.)
+   *   widened with the transcription knobs (#413/#440) so a caller-chosen
+   *   backend, language or prompt reaches the transcriber instead of being
+   *   discarded at the detector boundary.
    * @returns Processing result with audio metadata or error
    */
   override async processFile(
     fileInfo: FileInfo,
-    options?: ProcessOptions,
+    options?: ProcessOptions & AudioProcessorOptions,
   ): Promise<ProcessorFileProcessingResult<ProcessedAudio>> {
     try {
       // Step 1: Validate file type and size
@@ -265,20 +378,23 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       // Step 6: Extract embedded cover art if present
       const coverArt = await this.extractCoverArt(audioMetadata);
 
-      // Step 7: Attempt transcription if API key is available
+      // Step 7: Attempt transcription if a backend is configured
       const filename = this.getFilename(fileInfo);
       const transcriptionResult = await this.attemptTranscription(
         buffer,
         filename,
         fileInfo.mimetype,
+        options,
       );
 
-      // Step 8: Build LLM-friendly text content (includes transcript if available)
+      // Step 8: Build LLM-friendly text content (includes transcript if
+      // available, or the skip reason when it is not — #471)
       const textContent = this.buildTextContent(
         filename,
         metadata,
         tags,
         transcriptionResult.transcript,
+        transcriptionResult.transcriptionSkippedReason,
       );
 
       return {
@@ -290,6 +406,8 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
           transcript: transcriptionResult.transcript,
           hasTranscript: transcriptionResult.hasTranscript,
           transcriptionProvider: transcriptionResult.transcriptionProvider,
+          transcriptionLanguage: transcriptionResult.transcriptionLanguage,
+          transcriptionDuration: transcriptionResult.transcriptionDuration,
           ...(transcriptionResult.transcriptionSkippedReason
             ? {
                 transcriptionSkippedReason:
@@ -339,13 +457,87 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
   // ===========================================================================
 
   /**
-   * Attempt to transcribe audio using the Vercel AI SDK's `transcribe()` function
-   * with the OpenAI Whisper model.
+   * Whether a transcription backend has the credentials it needs (#413).
+   *
+   * Availability is decided from the environment only — no network call — so
+   * selection stays cheap and cannot itself fail. A key that is present but
+   * rejected upstream surfaces later, as a transcription failure with the
+   * provider's own message, not as "unavailable".
+   *
+   * @param provider - Backend to check
+   * @returns True when at least one of the backend's credential vars is set
+   */
+  private isProviderAvailable(provider: AudioTranscriptionProvider): boolean {
+    const { envVars } = TRANSCRIPTION_PROVIDER_CREDENTIALS[provider];
+    return envVars.some((name) => (process.env[name] ?? "").trim().length > 0);
+  }
+
+  /**
+   * Choose the transcription backend for this file (#413).
+   *
+   * With no `requested` backend, the first configured entry of
+   * {@link TRANSCRIPTION_PROVIDER_ORDER} wins (OpenAI, then Google, then
+   * Azure). With one, it is normalised through the alias table and validated
+   * for availability — a backend the caller explicitly asked for is never
+   * silently swapped for a different one, because a caller who pinned Azure
+   * for a data-residency reason would not want OpenAI chosen behind their
+   * back. The mismatch is reported instead.
+   *
+   * @param requested - Caller's `AudioProcessorOptions.provider`, if any
+   * @returns The chosen backend, or the reason no backend could be chosen
+   */
+  private selectProvider(requested?: string): AudioTranscriptionSelection {
+    const normalized = requested?.trim().toLowerCase();
+
+    if (normalized) {
+      const resolved = TRANSCRIPTION_PROVIDER_ALIASES[normalized];
+      if (!resolved) {
+        return {
+          reason:
+            `transcription provider "${requested}" is not one this processor can drive — ` +
+            `supported: ${TRANSCRIPTION_PROVIDER_ORDER.join(", ")}`,
+        };
+      }
+      if (!this.isProviderAvailable(resolved)) {
+        const { envVars } = TRANSCRIPTION_PROVIDER_CREDENTIALS[resolved];
+        return {
+          reason:
+            `transcription provider "${resolved}" was requested but is not configured — ` +
+            `set one of: ${envVars.join(", ")}`,
+        };
+      }
+      const { label } = TRANSCRIPTION_PROVIDER_CREDENTIALS[resolved];
+      logger.debug(
+        `[AudioProcessor] Using caller-selected transcription provider: ${label}`,
+      );
+      return { provider: resolved, label };
+    }
+
+    for (const candidate of TRANSCRIPTION_PROVIDER_ORDER) {
+      if (this.isProviderAvailable(candidate)) {
+        const { label } = TRANSCRIPTION_PROVIDER_CREDENTIALS[candidate];
+        logger.debug(
+          `[AudioProcessor] Auto-selected transcription provider: ${label}`,
+        );
+        return { provider: candidate, label };
+      }
+    }
+
+    const allVars = TRANSCRIPTION_PROVIDER_ORDER.flatMap(
+      (candidate) => TRANSCRIPTION_PROVIDER_CREDENTIALS[candidate].envVars,
+    );
+    return {
+      reason: `no transcription backend is configured — set one of: ${allVars.join(", ")}`,
+    };
+  }
+
+  /**
+   * Attempt to transcribe audio with whichever backend is configured (#413).
    *
    * Transcription is attempted when:
-   * 1. `OPENAI_API_KEY` environment variable is set
-   * 2. File size is within Whisper's 25MB limit
-   * 3. File format is supported by Whisper
+   * 1. A backend's credentials are present (see {@link selectProvider})
+   * 2. File size is within the 25MB ceiling
+   * 3. The file format is one the backend accepts
    *
    * Gracefully degrades: if transcription fails for any reason, metadata-only
    * output is returned (transcription is additive, never blocks processing).
@@ -353,25 +545,35 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
    * @param buffer - Audio file content
    * @param filename - Original filename (used for format detection)
    * @param mimetype - MIME type of the audio file
-   * @returns Transcription result with transcript text, or empty result
+   * @param options - Caller's transcription knobs (provider, language, prompt)
+   * @returns Transcription result with transcript text, or the reason there is none
    */
   private async attemptTranscription(
     buffer: Buffer,
     filename: string,
     mimetype: string | undefined,
-  ): Promise<{
-    transcript: string | undefined;
-    hasTranscript: boolean;
-    transcriptionProvider: string | undefined;
+    options?: AudioProcessorOptions,
+  ): Promise<AudioTranscriptionOutcome> {
     /**
-     * Why no transcript was produced (#416). Every exit below used to return an
-     * indistinguishable empty result, so "no OPENAI_API_KEY", "file too large",
-     * "format Whisper can't read" and "the API call failed" were impossible to
-     * tell apart — from the outside it just looked like the audio had no speech.
+     * Every exit below used to return an indistinguishable empty result, so
+     * "no API key", "file too large", "format the backend can't read" and "the
+     * call failed" were impossible to tell apart — from the outside it just
+     * looked like the audio had no speech (#416).
+     *
+     * `transcriptionProvider` is left undefined by default (no backend ran),
+     * but a caller that reached a backend and got a genuine empty transcript
+     * back passes its label through. `FileDetector` only writes
+     * `transcriptionLength` when `transcriptionProvider` is set, precisely so
+     * "a provider ran and reported no speech" (`transcriptionLength: 0`)
+     * stays distinguishable from "no provider ever ran" (field omitted) —
+     * clearing the label here for an empty-but-successful call collapsed that
+     * distinction back into the same "never attempted" shape it exists to
+     * avoid.
      */
-    transcriptionSkippedReason: string | undefined;
-  }> {
-    const skipped = (reason: string) => {
+    const skipped = (
+      reason: string,
+      transcriptionProvider?: string,
+    ): AudioTranscriptionOutcome => {
       logger.warn(
         `[AudioProcessor] No transcript for ${filename}: ${reason}. ` +
           `The model will receive metadata only.`,
@@ -379,54 +581,110 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       return {
         transcript: undefined,
         hasTranscript: false,
-        transcriptionProvider: undefined,
+        transcriptionProvider,
+        transcriptionLanguage: undefined,
+        transcriptionDuration: undefined,
         transcriptionSkippedReason: reason,
       };
     };
 
-    // Check if OPENAI_API_KEY is available
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return skipped(
-        "OPENAI_API_KEY is not set, and Whisper is the only transcription backend wired up",
-      );
+    const selection = this.selectProvider(options?.provider);
+    if (selection.provider === undefined) {
+      return skipped(selection.reason);
     }
 
-    // Check file size (Whisper limit is 25MB)
+    // Size ceiling. Whisper documents 25MB; the other backends' synchronous
+    // endpoints are lower still, so this is a floor on what is worth sending
+    // rather than a per-backend limit.
     const fileSizeMB = buffer.length / (1024 * 1024);
     if (fileSizeMB > AUDIO_CONFIG.WHISPER_MAX_SIZE_MB) {
       return skipped(
-        `file is ${fileSizeMB.toFixed(1)}MB, over Whisper's ${AUDIO_CONFIG.WHISPER_MAX_SIZE_MB}MB limit — split or compress it`,
+        `file is ${fileSizeMB.toFixed(1)}MB, over the ${AUDIO_CONFIG.WHISPER_MAX_SIZE_MB}MB transcription limit — split or compress it`,
       );
     }
 
-    // Check if file format is supported by Whisper
     const ext = filename.split(".").pop()?.toLowerCase();
-    const isFormatSupported =
-      ext && AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.includes(ext);
-    const isMimeSupported =
-      mimetype &&
-      (mimetype.startsWith("audio/mpeg") ||
-        mimetype.startsWith("audio/mp4") ||
-        mimetype.startsWith("audio/wav") ||
-        mimetype.startsWith("audio/webm") ||
-        mimetype.startsWith("audio/flac") ||
-        mimetype.startsWith("audio/ogg") ||
-        mimetype.startsWith("audio/x-m4a"));
 
-    if (!isFormatSupported && !isMimeSupported) {
-      return skipped(
-        `format is not one Whisper accepts (extension "${ext ?? "none"}", mimetype "${mimetype ?? "none"}"); supported: ${AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.join(", ")}`,
+    if (selection.provider === "openai") {
+      // Format gate is Whisper's own accepted-extension list. The other
+      // backends have their own, enforced by their handlers.
+      const isFormatSupported =
+        ext && AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.includes(ext);
+      const isMimeSupported =
+        mimetype &&
+        (mimetype.startsWith("audio/mpeg") ||
+          mimetype.startsWith("audio/mp4") ||
+          mimetype.startsWith("audio/wav") ||
+          mimetype.startsWith("audio/x-wav") ||
+          mimetype.startsWith("audio/webm") ||
+          mimetype.startsWith("audio/flac") ||
+          mimetype.startsWith("audio/ogg") ||
+          mimetype.startsWith("audio/x-m4a"));
+
+      if (!isFormatSupported && !isMimeSupported) {
+        return skipped(
+          `format is not one Whisper accepts (extension "${ext ?? "none"}", mimetype "${mimetype ?? "none"}"); supported: ${AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.join(", ")}`,
+        );
+      }
+
+      return await this.transcribeWithOpenAI(
+        buffer,
+        filename,
+        mimetype,
+        options,
+        skipped,
       );
+    }
+
+    return await this.transcribeWithHandler(
+      { provider: selection.provider, label: selection.label },
+      buffer,
+      filename,
+      mimetype,
+      options,
+      skipped,
+    );
+  }
+
+  /**
+   * Transcribe via OpenAI Whisper (#416).
+   *
+   * A native multipart POST to OpenAI's transcription endpoint. This used to
+   * go through @ai-sdk/openai's createOpenAI().transcription() plus the ai
+   * package's experimental_transcribe; both were dropped, and this is the
+   * only wire behaviour of theirs the processor ever depended on. The same
+   * request is already made natively by voice/providers/OpenAISTT.ts.
+   *
+   * `verbose_json` is requested for `language` and `duration` alongside the
+   * text — the response was previously parsed for `text` alone, so both were
+   * received and discarded, and `FileProcessingResult.metadata.language` had
+   * nothing to report (#409).
+   *
+   * @param buffer - Audio file content
+   * @param filename - Original filename, sent as the multipart part name
+   * @param mimetype - MIME type used for the upload blob
+   * @param options - Caller's language / model / prompt overrides
+   * @param skipped - Builds the "no transcript, and here is why" outcome
+   * @returns Transcription result, or the reason there is none
+   */
+  private async transcribeWithOpenAI(
+    buffer: Buffer,
+    filename: string,
+    mimetype: string | undefined,
+    options: AudioProcessorOptions | undefined,
+    skipped: (
+      reason: string,
+      transcriptionProvider?: string,
+    ) => AudioTranscriptionOutcome,
+  ): Promise<AudioTranscriptionOutcome> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      // Unreachable via selectProvider, which already proved the key is set.
+      // Kept so this method is safe to call directly.
+      return skipped("OPENAI_API_KEY is not set");
     }
 
     try {
-      // Native multipart POST to OpenAI's transcription endpoint. This used to
-      // go through @ai-sdk/openai's createOpenAI().transcription() plus the ai
-      // package's experimental_transcribe; both were dropped, and this is the
-      // only wire behaviour of theirs the processor ever depended on. The same
-      // request is already made natively by voice/providers/OpenAISTT.ts.
-      // Only `text` is read off the response, as before.
       const baseUrl = (
         process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
       ).replace(/\/+$/, "");
@@ -439,8 +697,14 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
         }),
         filename,
       );
-      form.append("model", "whisper-1");
+      form.append("model", options?.transcriptionModel ?? "whisper-1");
       form.append("response_format", "verbose_json");
+      if (options?.language) {
+        form.append("language", options.language);
+      }
+      if (options?.prompt) {
+        form.append("prompt", options.prompt);
+      }
 
       // Wrap in withTimeout — large audio files can take a while, but a
       // stalled request shouldn't block the processor forever. A TimeoutError
@@ -484,12 +748,24 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       }
 
       const payload: unknown = await response.json();
-      const rawText =
-        typeof payload === "object" &&
-        payload !== null &&
-        typeof (payload as { text?: unknown }).text === "string"
-          ? (payload as { text: string }).text
-          : "";
+      const record =
+        typeof payload === "object" && payload !== null
+          ? (payload as {
+              text?: unknown;
+              language?: unknown;
+              duration?: unknown;
+            })
+          : {};
+      const rawText = typeof record.text === "string" ? record.text : "";
+      // `duration` comes back as a number, but some gateways stringify it.
+      const durationValue =
+        typeof record.duration === "number"
+          ? record.duration
+          : typeof record.duration === "string" &&
+              record.duration.trim().length > 0 &&
+              Number.isFinite(Number(record.duration))
+            ? Number(record.duration)
+            : undefined;
 
       if (rawText.trim().length > 0) {
         logger.debug(
@@ -499,13 +775,21 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
           transcript: rawText.trim(),
           hasTranscript: true,
           transcriptionProvider: "openai-whisper",
+          transcriptionLanguage:
+            typeof record.language === "string" && record.language.length > 0
+              ? record.language
+              : options?.language,
+          transcriptionDuration: durationValue,
           transcriptionSkippedReason: undefined,
         };
       }
 
       // A successful call that returned nothing is a legitimate outcome
       // (silence, music, no speech) — distinct from a failure.
-      return skipped("Whisper returned an empty transcript for this audio");
+      return skipped(
+        "Whisper returned an empty transcript for this audio",
+        "openai-whisper",
+      );
     } catch (error) {
       // Transcription stays best-effort — a failure must never kill the whole
       // processing pipeline. But discarding the error outright, as this block
@@ -516,6 +800,82 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     }
   }
 
+  /**
+   * Transcribe via one of the non-OpenAI STT handlers (#413).
+   *
+   * Google and Azure already have working, tested implementations under
+   * `src/lib/voice/providers/`, reached here through a dynamic import so a
+   * file-processing run that never transcribes does not pay to load them —
+   * the same reason `music-metadata` is loaded lazily above.
+   *
+   * @param chosen - Backend and display label from {@link selectProvider}
+   * @param buffer - Audio file content
+   * @param filename - Original filename; its extension picks the wire format
+   * @param mimetype - MIME type, used as the fallback format signal
+   * @param options - Caller's language / model overrides
+   * @param skipped - Builds the "no transcript, and here is why" outcome
+   * @returns Transcription result, or the reason there is none
+   */
+  private async transcribeWithHandler(
+    chosen: {
+      provider: Exclude<AudioTranscriptionProvider, "openai">;
+      label: string;
+    },
+    buffer: Buffer,
+    filename: string,
+    mimetype: string | undefined,
+    options: AudioProcessorOptions | undefined,
+    skipped: (
+      reason: string,
+      transcriptionProvider?: string,
+    ) => AudioTranscriptionOutcome,
+  ): Promise<AudioTranscriptionOutcome> {
+    const { provider, label } = chosen;
+    try {
+      const extension = filename.split(".").pop()?.toLowerCase();
+      const format = toSTTAudioFormat(extension, mimetype);
+      const sttOptions: STTOptions = {
+        ...(options?.language ? { language: options.language } : {}),
+        ...(options?.transcriptionModel
+          ? { model: options.transcriptionModel }
+          : {}),
+        ...(format ? { format } : {}),
+      };
+
+      let result: STTResult;
+      if (provider === "google") {
+        const { GoogleSTT } =
+          await import("../../voice/providers/GoogleSTT.js");
+        result = await new GoogleSTT().transcribe(buffer, sttOptions);
+      } else {
+        const { AzureSTT } = await import("../../voice/providers/AzureSTT.js");
+        result = await new AzureSTT().transcribe(buffer, sttOptions);
+      }
+
+      const text = result.text.trim();
+      if (text.length === 0) {
+        return skipped(
+          `${label} returned an empty transcript for this audio`,
+          label,
+        );
+      }
+
+      logger.debug(
+        `[AudioProcessor] Transcribed ${filename} via ${label} (${text.length} chars)`,
+      );
+      return {
+        transcript: text,
+        hasTranscript: true,
+        transcriptionProvider: label,
+        transcriptionLanguage: result.language ?? options?.language,
+        transcriptionDuration: result.duration,
+        transcriptionSkippedReason: undefined,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return skipped(`transcription request failed — ${message}`);
+    }
+  }
   // ===========================================================================
   // STUB: buildProcessedResult (required by base class, unused due to override)
   // ===========================================================================
@@ -681,6 +1041,11 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
    * @param metadata - Extracted audio metadata
    * @param tags - Extracted audio tags
    * @param transcript - Optional transcribed text from Whisper
+   * @param skippedReason - When `transcript` is absent, why transcription was
+   *   skipped (no backend configured, unavailable pinned backend, format/size
+   *   limit, or a backend call that failed) — inlined so the model is told the
+   *   reason instead of silently receiving metadata with no transcript, which
+   *   `AUDIO_TRANSCRIPTION_INSTRUCTIONS` (messageBuilder.ts) tells it to expect.
    * @returns Formatted text content string
    *
    * @example Output:
@@ -700,6 +1065,7 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     metadata: ProcessedAudio["metadata"],
     tags: ProcessedAudio["tags"],
     transcript?: string,
+    skippedReason?: string,
   ): string {
     const lines: string[] = [];
 
@@ -777,11 +1143,17 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       lines.push(secondaryParts.join(" | "));
     }
 
-    // Transcript section (if transcription was performed)
+    // Transcript section (if transcription was performed), or — when it was
+    // not — the reason, so the model is told rather than left to guess or
+    // invent content for a recording it was never given a transcript of.
     if (transcript) {
       lines.push("");
       lines.push("--- Transcript ---");
       lines.push(transcript);
+    } else if (skippedReason) {
+      lines.push("");
+      lines.push("--- Transcription Skipped ---");
+      lines.push(skippedReason);
     }
 
     return lines.join("\n");
@@ -887,7 +1259,10 @@ export function isAudioFile(mimetype: string, filename: string): boolean {
  * Convenience function that uses the singleton processor.
  *
  * @param fileInfo - File information (can include URL or buffer)
- * @param options - Optional processing options (auth headers, timeout, etc.)
+ * @param options - Optional processing options (auth headers, timeout, etc.),
+ *   widened with the transcription knobs (#413/#440, matching
+ *   {@link AudioProcessor.processFile}) so a caller can pin a provider,
+ *   language, model or prompt through this convenience export too.
  * @returns Processing result with audio metadata or error
  *
  * @example
@@ -913,7 +1288,7 @@ export function isAudioFile(mimetype: string, filename: string): boolean {
  */
 export async function processAudio(
   fileInfo: FileInfo,
-  options?: ProcessOptions,
+  options?: ProcessOptions & AudioProcessorOptions,
 ): Promise<ProcessorFileProcessingResult<ProcessedAudio>> {
   return audioProcessor.processFile(fileInfo, options);
 }

@@ -8,7 +8,7 @@
 
 > **MultimodalPdfEntry** = `object`
 
-Defined in: [types/file.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L796)
+Defined in: [types/file.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L862)
 
 A single PDF queued for multimodal message building, normalised from either
 submission surface — `input.pdfFiles` or `input.content` with `type: "pdf"`
@@ -20,7 +20,7 @@ submission surface — `input.pdfFiles` or `input.content` with `type: "pdf"`
 
 > **buffer**: `Buffer`
 
-Defined in: [types/file.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L798)
+Defined in: [types/file.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L864)
 
 Raw PDF bytes.
 
@@ -30,7 +30,7 @@ Raw PDF bytes.
 
 > **filename**: `string`
 
-Defined in: [types/file.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L800)
+Defined in: [types/file.ts:866](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L866)
 
 Display name; may be a full path, so log only its basename.
 
@@ -40,7 +40,7 @@ Display name; may be a full path, so log only its basename.
 
 > `optional` **pageCount?**: `number` \| `null`
 
-Defined in: [types/file.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L806)
+Defined in: [types/file.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L872)
 
 Page count when known. Null/undefined on the `input.content` path whenever
 the caller omitted `metadata.pages`; the aggregate guard resolves those
@@ -52,7 +52,7 @@ from `buffer` rather than treating them as zero.
 
 > `optional` **password?**: `string`
 
-Defined in: [types/file.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L808)
+Defined in: [types/file.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L874)
 
 Password for an encrypted PDF (#258).
 
@@ -62,7 +62,7 @@ Password for an encrypted PDF (#258).
 
 > `optional` **maxCanvasPixels?**: `number`
 
-Defined in: [types/file.ts:810](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L810)
+Defined in: [types/file.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L876)
 
 Per-page pixel ceiling for the image fallback (#260).
 
@@ -72,7 +72,7 @@ Per-page pixel ceiling for the image fallback (#260).
 
 > `optional` **scale?**: `number`
 
-Defined in: [types/file.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L812)
+Defined in: [types/file.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L878)
 
 Render scale for the image fallback (#297).
 
@@ -82,6 +82,6 @@ Render scale for the image fallback (#297).
 
 > `optional` **maxPages?**: `number`
 
-Defined in: [types/file.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L814)
+Defined in: [types/file.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L880)
 
 Max pages converted by the image fallback (#297).

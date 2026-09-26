@@ -8,7 +8,7 @@
 
 > **ProcessedArchive** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L954)
+Defined in: [types/processor.ts:973](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L973)
 
 Processed archive result.
 Extends ProcessedFileBase with archive-specific metadata, entry listing,

@@ -8,7 +8,7 @@
 
 > **PDFImageConversionResult** = `object`
 
-Defined in: [types/file.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L818)
+Defined in: [types/file.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L884)
 
 Result of PDF to image conversion.
 
@@ -18,7 +18,7 @@ Result of PDF to image conversion.
 
 > **images**: `string`[]
 
-Defined in: [types/file.ts:820](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L820)
+Defined in: [types/file.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L886)
 
 Array of base64-encoded PNG images (one per successfully converted page)
 
@@ -28,7 +28,7 @@ Array of base64-encoded PNG images (one per successfully converted page)
 
 > **pageCount**: `number`
 
-Defined in: [types/file.ts:822](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L822)
+Defined in: [types/file.ts:888](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L888)
 
 Number of pages converted
 
@@ -38,7 +38,7 @@ Number of pages converted
 
 > **conversionTimeMs**: `number`
 
-Defined in: [types/file.ts:824](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L824)
+Defined in: [types/file.ts:890](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L890)
 
 Total conversion time in milliseconds
 
@@ -48,7 +48,7 @@ Total conversion time in milliseconds
 
 > `optional` **warnings?**: `string`[]
 
-Defined in: [types/file.ts:826](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L826)
+Defined in: [types/file.ts:892](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L892)
 
 Any warnings during conversion
 
@@ -58,7 +58,7 @@ Any warnings during conversion
 
 > `optional` **errors?**: `object`[]
 
-Defined in: [types/file.ts:828](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L828)
+Defined in: [types/file.ts:894](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L894)
 
 Per-page failures — present only when some pages failed to render (#294).
 
