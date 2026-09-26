@@ -8,7 +8,7 @@
 
 > **SvgSanitizationResult** = `object`
 
-Defined in: [types/file.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L818)
+Defined in: [types/file.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L860)
 
 Result of SVG sanitization.
 
@@ -18,7 +18,7 @@ Result of SVG sanitization.
 
 > **content**: `string`
 
-Defined in: [types/file.ts:820](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L820)
+Defined in: [types/file.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L862)
 
 Sanitized SVG content
 
@@ -28,7 +28,7 @@ Sanitized SVG content
 
 > **removedItems**: `string`[]
 
-Defined in: [types/file.ts:822](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L822)
+Defined in: [types/file.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L864)
 
 Items that were removed during sanitization
 
@@ -38,6 +38,6 @@ Items that were removed during sanitization
 
 > **wasModified**: `boolean`
 
-Defined in: [types/file.ts:824](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L824)
+Defined in: [types/file.ts:866](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L866)
 
 Whether any content was modified

@@ -8,7 +8,7 @@
 
 > **FileProcessingResult** = `object`
 
-Defined in: [types/file.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L267)
+Defined in: [types/file.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L309)
 
 File processing result after detection and conversion
 
@@ -18,7 +18,7 @@ File processing result after detection and conversion
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L268)
+Defined in: [types/file.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L310)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:268](https://github.com/juspay/neurolink/blob/release
 
 > **content**: `string` \| `Buffer`
 
-Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L269)
+Defined in: [types/file.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L311)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:269](https://github.com/juspay/neurolink/blob/release
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L270)
+Defined in: [types/file.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L312)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:270](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/file.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L272)
+Defined in: [types/file.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L314)
 
 Additional images extracted from the file (e.g., video keyframes, audio cover art)
 
@@ -52,7 +52,7 @@ Additional images extracted from the file (e.g., video keyframes, audio cover ar
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L273)
+Defined in: [types/file.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L315)
 
 #### confidence
 

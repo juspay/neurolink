@@ -8,6 +8,6 @@
 
 > **CSVRow** = `Record`\<`string`, `string` \| `undefined`\>
 
-Defined in: [types/file.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L407)
+Defined in: [types/file.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L449)
 
 A parsed CSV row: string-keyed with string (or missing) cell values (#384).

@@ -8,6 +8,6 @@
 
 > **FileSource** = `"url"` \| `"path"` \| `"buffer"` \| `"datauri"`
 
-Defined in: [types/file.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L247)
+Defined in: [types/file.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L289)
 
 File source type for tracking input origin
