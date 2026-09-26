@@ -8,7 +8,7 @@
 
 > **CliProxyClientApplyResult** = `object`
 
-Defined in: [types/proxyClient.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L61)
+Defined in: [types/proxyClient.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L63)
 
 Outcome of applying one configurator, for per-client CLI reporting.
 
@@ -18,7 +18,7 @@ Outcome of applying one configurator, for per-client CLI reporting.
 
 > **id**: `string`
 
-Defined in: [types/proxyClient.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L62)
+Defined in: [types/proxyClient.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L64)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxyClient.ts:62](https://github.com/juspay/neurolink/blob/r
 
 > **displayName**: `string`
 
-Defined in: [types/proxyClient.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L63)
+Defined in: [types/proxyClient.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L65)
 
 ---
 
@@ -34,9 +34,10 @@ Defined in: [types/proxyClient.ts:63](https://github.com/juspay/neurolink/blob/r
 
 > **applied**: `boolean`
 
-Defined in: [types/proxyClient.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L65)
+Defined in: [types/proxyClient.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L70)
 
-True only when the configurator actually wrote configuration.
+True only when the CLI's configuration points at the proxy: written now,
+or already written and left as it was.
 
 ---
 
@@ -44,7 +45,7 @@ True only when the configurator actually wrote configuration.
 
 > `optional` **note?**: `string`
 
-Defined in: [types/proxyClient.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L71)
+Defined in: [types/proxyClient.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L76)
 
 Set when the write landed but is not yet in effect — see
 CliProxyClientConfigurator.postApplyNote. Callers must render this; a
@@ -56,6 +57,6 @@ silent note is the failure it exists to prevent.
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/proxyClient.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L73)
+Defined in: [types/proxyClient.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L78)
 
 Present when the configurator threw; the caller decides how loud to be.

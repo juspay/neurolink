@@ -8,7 +8,7 @@
 
 > **CliAccountsRow** = `object`
 
-Defined in: [types/proxyClient.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L188)
+Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L215)
 
 One row of GET /accounts.
 
@@ -18,7 +18,7 @@ One row of GET /accounts.
 
 > **label**: `string`
 
-Defined in: [types/proxyClient.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L193)
+Defined in: [types/proxyClient.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L220)
 
 Bare label, e.g. "someone@example.com". Display only: two rows can share
 it when one email is logged in to both engines. `key` is the identity.
@@ -29,7 +29,7 @@ it when one email is logged in to both engines. `key` is the identity.
 
 > **key**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L198)
+Defined in: [types/proxyClient.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L225)
 
 Full pool key, e.g. "anthropic:someone@example.com" or
 "codex:someone@example.com". Null only for plumbing rows.
@@ -40,7 +40,7 @@ Full pool key, e.g. "anthropic:someone@example.com" or
 
 > `optional` **provider?**: `"anthropic"` \| `"codex"` \| `"vertex"`
 
-Defined in: [types/proxyClient.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L206)
+Defined in: [types/proxyClient.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L233)
 
 Which pool engine owns this login. Absent on plumbing rows. Consumers
 that key a list by row must key by `key`, not `label` — see above.
@@ -54,7 +54,7 @@ model, with no OAuth account behind them, so they carry no token state.
 
 > **kind**: `"account"` \| `"internal"` \| `"translation"`
 
-Defined in: [types/proxyClient.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L212)
+Defined in: [types/proxyClient.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L239)
 
 What this row actually is. Only "account" rows are real logins; the proxy
 also tracks internal and translation pseudo-accounts, which have no quota
@@ -66,7 +66,7 @@ and should not be rendered as credentials.
 
 > **type**: `string`
 
-Defined in: [types/proxyClient.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L213)
+Defined in: [types/proxyClient.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L240)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxyClient.ts:213](https://github.com/juspay/neurolink/blob/
 
 > **status**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L214)
+Defined in: [types/proxyClient.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L241)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxyClient.ts:214](https://github.com/juspay/neurolink/blob/
 
 > **cooling**: `boolean`
 
-Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L215)
+Defined in: [types/proxyClient.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L242)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/
 
 > **allowed**: `boolean` \| `null`
 
-Defined in: [types/proxyClient.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L216)
+Defined in: [types/proxyClient.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L243)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/proxyClient.ts:216](https://github.com/juspay/neurolink/blob/
 
 > **expired**: `boolean` \| `null`
 
-Defined in: [types/proxyClient.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L217)
+Defined in: [types/proxyClient.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L244)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/proxyClient.ts:217](https://github.com/juspay/neurolink/blob/
 
 > **isPrimary**: `boolean`
 
-Defined in: [types/proxyClient.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L218)
+Defined in: [types/proxyClient.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L245)
 
 ---
 
@@ -114,7 +114,7 @@ Defined in: [types/proxyClient.ts:218](https://github.com/juspay/neurolink/blob/
 
 > **requests**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L219)
+Defined in: [types/proxyClient.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L246)
 
 ---
 
@@ -122,7 +122,7 @@ Defined in: [types/proxyClient.ts:219](https://github.com/juspay/neurolink/blob/
 
 > **errors**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L220)
+Defined in: [types/proxyClient.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L247)
 
 ---
 
@@ -130,7 +130,7 @@ Defined in: [types/proxyClient.ts:220](https://github.com/juspay/neurolink/blob/
 
 > **rateLimits**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L221)
+Defined in: [types/proxyClient.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L248)
 
 ---
 
@@ -138,7 +138,7 @@ Defined in: [types/proxyClient.ts:221](https://github.com/juspay/neurolink/blob/
 
 > **quotaRateLimits**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L222)
+Defined in: [types/proxyClient.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L249)
 
 ---
 
@@ -146,7 +146,7 @@ Defined in: [types/proxyClient.ts:222](https://github.com/juspay/neurolink/blob/
 
 > **quota**: [`JsonObject`](JsonObject.md) \| `null`
 
-Defined in: [types/proxyClient.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L224)
+Defined in: [types/proxyClient.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L251)
 
 Quota block from the limits snapshot, timestamps normalised to ms.
 
@@ -156,6 +156,6 @@ Quota block from the limits snapshot, timestamps normalised to ms.
 
 > **usage**: [`CliAccountUsageTotals`](CliAccountUsageTotals.md) \| `null`
 
-Defined in: [types/proxyClient.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L226)
+Defined in: [types/proxyClient.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L253)
 
 Today's usage from the request log, or null when the log is unreadable.

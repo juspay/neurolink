@@ -8,7 +8,7 @@
 
 > **CliGeminiSnapshot** = `object`
 
-Defined in: [types/proxyClient.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L130)
+Defined in: [types/proxyClient.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L157)
 
 Snapshot of the user's pre-existing Gemini CLI `~/.gemini/.env`.
 
@@ -21,7 +21,7 @@ reproduce the user's comments, ordering and unrelated variables exactly.
 
 > **originalEnv**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L132)
+Defined in: [types/proxyClient.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L159)
 
 The whole prior `.env`, or null when the user had no such file.
 
@@ -31,7 +31,7 @@ The whole prior `.env`, or null when the user had no such file.
 
 > `optional` **written?**: `object`
 
-Defined in: [types/proxyClient.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L139)
+Defined in: [types/proxyClient.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L166)
 
 What the writer last wrote for each managed variable. Compared against the
 file on disk to detect a snapshot that has gone stale — one left behind by

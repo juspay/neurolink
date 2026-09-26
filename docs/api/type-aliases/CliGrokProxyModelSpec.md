@@ -8,7 +8,7 @@
 
 > **CliGrokProxyModelSpec** = `object`
 
-Defined in: [types/proxyClient.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L106)
+Defined in: [types/proxyClient.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L111)
 
 One Grok Build picker entry the proxy writer emits under `[model.<id>]`.
 
@@ -22,7 +22,7 @@ would become Anthropic adaptive thinking that the model rejects.
 
 > **id**: `string`
 
-Defined in: [types/proxyClient.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L107)
+Defined in: [types/proxyClient.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L112)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxyClient.ts:107](https://github.com/juspay/neurolink/blob/
 
 > **name**: `string`
 
-Defined in: [types/proxyClient.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L108)
+Defined in: [types/proxyClient.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L113)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/proxyClient.ts:108](https://github.com/juspay/neurolink/blob/
 
 > **apiBackend**: `"messages"` \| `"chat_completions"`
 
-Defined in: [types/proxyClient.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L109)
+Defined in: [types/proxyClient.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L114)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/proxyClient.ts:109](https://github.com/juspay/neurolink/blob/
 
 > **contextWindow**: `number`
 
-Defined in: [types/proxyClient.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L110)
+Defined in: [types/proxyClient.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L115)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/proxyClient.ts:110](https://github.com/juspay/neurolink/blob/
 
 > **maxCompletionTokens**: `number`
 
-Defined in: [types/proxyClient.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L111)
+Defined in: [types/proxyClient.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L116)
 
 ---
 
@@ -62,4 +62,4 @@ Defined in: [types/proxyClient.ts:111](https://github.com/juspay/neurolink/blob/
 
 > **supportsReasoningEffort**: `boolean`
 
-Defined in: [types/proxyClient.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L112)
+Defined in: [types/proxyClient.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L117)

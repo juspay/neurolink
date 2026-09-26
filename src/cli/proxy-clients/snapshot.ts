@@ -188,6 +188,13 @@ let atomicWriteCounter = 0;
  * is NOT atomic. Moving the temp file to `os.tmpdir()` would look like a
  * tidy-up and would quietly restore the exact window this function exists to
  * close, on Windows only, where nobody here would see it.
+ *
+ * A config kept in a dotfiles repository is often a symlink into it, a setup
+ * Grok documents and its own writer honours. A rename over the link would
+ * replace the link with a regular file and leave the repository's copy stale,
+ * so the write lands on the end of the link chain instead, which need not
+ * exist yet. The temp file is that target's sibling, so the rename stays
+ * atomic.
  */
 export async function writeFileAtomic(
   filePath: string,
@@ -195,11 +202,29 @@ export async function writeFileAtomic(
   mode?: number,
 ): Promise<void> {
   const fs = await import("fs");
-  const { dirname, join, basename } = await import("path");
+  const { dirname, join, basename, resolve } = await import("path");
+  let target = filePath;
+  for (let hops = 0; ; hops += 1) {
+    let isLink: boolean;
+    try {
+      isLink = fs.lstatSync(target).isSymbolicLink();
+    } catch {
+      isLink = false;
+    }
+    if (!isLink) {
+      break;
+    }
+    if (hops === 40) {
+      throw new Error(
+        `atomic write to ${filePath} failed: too many levels of symbolic links`,
+      );
+    }
+    target = resolve(dirname(target), fs.readlinkSync(target));
+  }
   atomicWriteCounter += 1;
   const tempPath = join(
-    dirname(filePath),
-    `.${basename(filePath)}.neurolink-${process.pid}-${atomicWriteCounter}.tmp`,
+    dirname(target),
+    `.${basename(target)}.neurolink-${process.pid}-${atomicWriteCounter}.tmp`,
   );
   // Which step failed changes what the user should do about it: a failed write
   // is usually a missing directory or a full disk and the config is untouched,
@@ -211,7 +236,7 @@ export async function writeFileAtomic(
   let effectiveMode = mode;
   if (effectiveMode === undefined) {
     try {
-      effectiveMode = fs.statSync(filePath).mode & 0o777;
+      effectiveMode = fs.statSync(target).mode & 0o777;
     } catch {
       effectiveMode = 0o600;
     }
@@ -222,12 +247,12 @@ export async function writeFileAtomic(
     // caller sees an ENOENT naming a path it never asked to write. Creating
     // the directory first makes a first-run write behave like the plain
     // writeFileSync it replaced.
-    fs.mkdirSync(dirname(filePath), { recursive: true });
+    fs.mkdirSync(dirname(target), { recursive: true });
     fs.writeFileSync(tempPath, contents, { mode: effectiveMode });
     stage = "chmod";
     fs.chmodSync(tempPath, effectiveMode);
     stage = "rename";
-    fs.renameSync(tempPath, filePath);
+    fs.renameSync(tempPath, target);
   } catch (error) {
     // Never leave scratch in the user's config directory.
     try {

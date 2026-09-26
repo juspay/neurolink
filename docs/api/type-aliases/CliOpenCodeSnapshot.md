@@ -8,7 +8,7 @@
 
 > **CliOpenCodeSnapshot** = `object`
 
-Defined in: [types/proxyClient.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L92)
+Defined in: [types/proxyClient.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L97)
 
 Snapshot of the user's pre-existing OpenCode `provider.neurolink`.
 
@@ -22,7 +22,7 @@ unknown top-level keys, so an in-file snapshot made the CLI unstartable.
 
 > **original**: `unknown`
 
-Defined in: [types/proxyClient.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L94)
+Defined in: [types/proxyClient.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L99)
 
 The user's provider.neurolink before the proxy first touched it.
 
@@ -32,6 +32,6 @@ The user's provider.neurolink before the proxy first touched it.
 
 > `optional` **written?**: `unknown`
 
-Defined in: [types/proxyClient.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L96)
+Defined in: [types/proxyClient.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L101)
 
 What the writer last wrote, so apply() can recognise its own block.

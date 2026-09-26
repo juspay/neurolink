@@ -2512,6 +2512,8 @@ console.log(result.content);
 - [CliOpenCodeSnapshot](type-aliases/CliOpenCodeSnapshot.md)
 - [CliGrokProxyModelSpec](type-aliases/CliGrokProxyModelSpec.md)
 - [CliGrokSnapshot](type-aliases/CliGrokSnapshot.md)
+- [CliTomlSection](type-aliases/CliTomlSection.md)
+- [CliTomlScanState](type-aliases/CliTomlScanState.md)
 - [CliGeminiSnapshot](type-aliases/CliGeminiSnapshot.md)
 - [CliQwenSettings](type-aliases/CliQwenSettings.md)
 - [CliAccountUsageTotals](type-aliases/CliAccountUsageTotals.md)

@@ -57,12 +57,14 @@ config files for a CLI the user never installed.
 
 > **apply**: (`proxyBaseUrl`, `options?`) => `Promise`\<`boolean`\>
 
-Defined in: [types/proxyClient.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L37)
+Defined in: [types/proxyClient.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L39)
 
 Point the CLI at the proxy. `proxyBaseUrl` is the bare proxy origin
 (e.g. "http://127.0.0.1:55669"); the configurator appends whatever path
-suffix its CLI needs. Returns false when nothing was written, so callers
-never print a success message for work that did not happen.
+suffix its CLI needs. Returns false when the CLI is not left pointing at
+the proxy, so callers never print a success message for work that did
+not happen. A configurator whose file already matches may return true
+without rewriting it.
 
 #### Parameters
 
@@ -84,7 +86,7 @@ never print a success message for work that did not happen.
 
 > **restore**: (`proxyBaseUrl`) => `Promise`\<`boolean`\>
 
-Defined in: [types/proxyClient.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L46)
+Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L48)
 
 Restore the user's previous configuration. `proxyBaseUrl` is the same bare
 origin; a configurator that finds a different URL configured must leave it
@@ -106,7 +108,7 @@ alone and return false.
 
 > `optional` **postApplyNote?**: (`proxyBaseUrl`) => `Promise`\<`string` \| `null`\>
 
-Defined in: [types/proxyClient.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L57)
+Defined in: [types/proxyClient.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L59)
 
 Something the user must still do for apply() to take effect.
 
