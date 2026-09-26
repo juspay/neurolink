@@ -8,7 +8,7 @@
 
 > **OpenAICompatStreamDelta** = `object`
 
-Defined in: [types/openaiCompatible.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L149)
+Defined in: [types/openaiCompatible.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L152)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:149](https://github.com/juspay/neurolink/
 
 > `optional` **role?**: [`OpenAICompatChatRole`](OpenAICompatChatRole.md)
 
-Defined in: [types/openaiCompatible.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L150)
+Defined in: [types/openaiCompatible.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L153)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:150](https://github.com/juspay/neurolink/
 
 > `optional` **content?**: `string` \| `null`
 
-Defined in: [types/openaiCompatible.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L151)
+Defined in: [types/openaiCompatible.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L154)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/openaiCompatible.ts:151](https://github.com/juspay/neurolink/
 
 > `optional` **tool_calls?**: `object`[]
 
-Defined in: [types/openaiCompatible.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L152)
+Defined in: [types/openaiCompatible.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L155)
 
 #### index
 
@@ -64,7 +64,7 @@ Defined in: [types/openaiCompatible.ts:152](https://github.com/juspay/neurolink/
 
 > `optional` **refusal?**: `string` \| `null`
 
-Defined in: [types/openaiCompatible.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L161)
+Defined in: [types/openaiCompatible.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L164)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/openaiCompatible.ts:161](https://github.com/juspay/neurolink/
 
 > `optional` **reasoning_content?**: `string` \| `null`
 
-Defined in: [types/openaiCompatible.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L163)
+Defined in: [types/openaiCompatible.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L166)
 
 ---
 
@@ -80,4 +80,4 @@ Defined in: [types/openaiCompatible.ts:163](https://github.com/juspay/neurolink/
 
 > `optional` **reasoning?**: `string` \| `null`
 
-Defined in: [types/openaiCompatible.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L164)
+Defined in: [types/openaiCompatible.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L167)

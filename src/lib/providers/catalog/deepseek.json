@@ -74,7 +74,8 @@
     }
   ],
   "quirks": {
-    "responseFormatDowngrade": "json-schema-to-json-object"
+    "responseFormatDowngrade": "json-schema-to-json-object",
+    "replayReasoningContent": true
   },
   "setup": {
     "url": "https://platform.deepseek.com/api_keys",

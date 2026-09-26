@@ -8,7 +8,7 @@
 
 > **ModelDetectionResult** = `object`
 
-Defined in: [types/providers.ts:2350](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2350)
+Defined in: [types/providers.ts:2353](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2353)
 
 Model type detection result.
 
@@ -18,7 +18,7 @@ Model type detection result.
 
 > **type**: [`StreamingCapability`](StreamingCapability.md)\[`"modelType"`\]
 
-Defined in: [types/providers.ts:2351](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2351)
+Defined in: [types/providers.ts:2354](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2354)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2351](https://github.com/juspay/neurolink/blob/r
 
 > **confidence**: `number`
 
-Defined in: [types/providers.ts:2352](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2352)
+Defined in: [types/providers.ts:2355](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2355)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2352](https://github.com/juspay/neurolink/blob/r
 
 > **evidence**: `string`[]
 
-Defined in: [types/providers.ts:2353](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2353)
+Defined in: [types/providers.ts:2356](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2356)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:2353](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **suggestedConfig?**: `Partial`\<[`SageMakerModelConfig`](SageMakerModelConfig.md)\>
 
-Defined in: [types/providers.ts:2354](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2354)
+Defined in: [types/providers.ts:2357](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2357)

@@ -8,4 +8,4 @@
 
 > **OpenAICompatV3FinishReason** = `Awaited`\<`ReturnType`\<[`LanguageModelV3`](LanguageModelV3.md)\[`"doGenerate"`\]\>\>\[`"finishReason"`\]
 
-Defined in: [types/openaiCompatible.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L217)
+Defined in: [types/openaiCompatible.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L220)

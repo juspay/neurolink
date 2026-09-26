@@ -479,6 +479,242 @@ function sseBody(chunks: unknown[]): string {
   );
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: reasoning replay on tool turns.
+// DeepSeek documents that once tools are in play, each assistant turn's
+// reasoning_content must go back on every later request, and answers 400
+// without it. The catalog quirk replayReasoningContent turns that on for
+// DeepSeek only; a provider without it must never send the field, because
+// strict OpenAI-compatible backends reject unknown message keys.
+// ───────────────────────────────────────────────────────────────────────
+
+const REPLAY_REASONING = "Need the population tool first.";
+
+type ReplayWireMessage = {
+  role?: string;
+  tool_calls?: unknown[];
+  reasoning_content?: string;
+};
+
+function replayToolCallStep(stream: boolean): {
+  json?: unknown;
+  text?: string;
+  contentType?: string;
+} {
+  const toolCall = {
+    id: "call_replay_1",
+    type: "function",
+    function: { name: "get_population", arguments: '{"city":"Tokyo"}' },
+  };
+  if (!stream) {
+    return {
+      json: {
+        id: "chatcmpl-replay-1",
+        object: "chat.completion",
+        created: 0,
+        model: "mock",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: null,
+              reasoning_content: REPLAY_REASONING,
+              tool_calls: [toolCall],
+            },
+            finish_reason: "tool_calls",
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      },
+    };
+  }
+  return {
+    contentType: "text/event-stream",
+    text: sseBody([
+      {
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", reasoning_content: REPLAY_REASONING },
+            finish_reason: null,
+          },
+        ],
+      },
+      {
+        choices: [
+          {
+            index: 0,
+            delta: { tool_calls: [{ index: 0, ...toolCall }] },
+            finish_reason: null,
+          },
+        ],
+      },
+      { choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] },
+    ]),
+  };
+}
+
+function replayAnswerStep(stream: boolean): {
+  json?: unknown;
+  text?: string;
+  contentType?: string;
+} {
+  const answer = "Tokyo has about 14 million people.";
+  if (!stream) {
+    return {
+      json: {
+        id: "chatcmpl-replay-2",
+        object: "chat.completion",
+        created: 0,
+        model: "mock",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: answer },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 20, completion_tokens: 8, total_tokens: 28 },
+      },
+    };
+  }
+  return {
+    contentType: "text/event-stream",
+    text: sseBody([
+      {
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", content: answer },
+            finish_reason: null,
+          },
+        ],
+      },
+      { choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
+    ]),
+  };
+}
+
+async function runReasoningReplaySection(): Promise<void> {
+  const section = "LLM reasoning replay on tool turns";
+  console.log(`\n=== ${section} ===`);
+  setEnv("DEEPSEEK_API_KEY", "test-fake-deepseek-credential");
+  setEnv("DEEPSEEK_BASE_URL", undefined);
+  setEnv("GROQ_API_KEY", "test-fake-groq-credential");
+  setEnv("GROQ_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const tools = {
+    get_population: {
+      description: "Population of a city",
+      inputSchema: jsonSchema<{ city: string }>({
+        type: "object",
+        properties: { city: { type: "string" } },
+        required: ["city"],
+      }),
+      execute: async () => ({ population: 14000000 }),
+    },
+  };
+  const cases = [
+    { provider: "deepseek", host: "api.deepseek.com", expectReplay: true },
+    { provider: "groq", host: "api.groq.com", expectReplay: false },
+  ];
+
+  for (const c of cases) {
+    for (const mode of ["generate", "stream"] as const) {
+      const name = `${section}: ${c.provider} ${mode} ${
+        c.expectReplay ? "sends the reasoning back" : "never sends reasoning"
+      }`;
+      try {
+        let step = 0;
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: `${c.host}`,
+              respond: (call) => {
+                step += 1;
+                const stream =
+                  (call.bodyJson as { stream?: boolean } | undefined)
+                    ?.stream === true;
+                return {
+                  status: 200,
+                  ...(step === 1
+                    ? replayToolCallStep(stream)
+                    : replayAnswerStep(stream)),
+                };
+              },
+            },
+          ],
+          async ({ calls }) => {
+            const nl = new NeuroLink({
+              conversationMemory: { enabled: false },
+            });
+            const request = {
+              provider: c.provider,
+              input: { text: "How many people live in Tokyo?" },
+              tools,
+              maxSteps: 3,
+            };
+            if (mode === "generate") {
+              await nl.generate(request);
+            } else {
+              const result = await nl.stream(request);
+              for await (const _chunk of result.stream) {
+                // drain
+              }
+            }
+            // The first request in a process also loads the dynamic model
+            // registry, so pick the chat calls out by their body.
+            const chatCalls = calls.filter((call) =>
+              Array.isArray(
+                (call.bodyJson as { messages?: unknown } | undefined)?.messages,
+              ),
+            );
+            expect(
+              chatCalls.length >= 2,
+              `${c.provider} ${mode} made ${chatCalls.length} chat request(s), expected the tool step and the answer`,
+            );
+            const replayed = (
+              (chatCalls[1].bodyJson as { messages?: ReplayWireMessage[] })
+                ?.messages ?? []
+            ).find(
+              (message) =>
+                message.role === "assistant" &&
+                Array.isArray(message.tool_calls),
+            );
+            expect(
+              replayed !== undefined,
+              `${c.provider} ${mode} second request carried no assistant tool-call turn`,
+            );
+            if (c.expectReplay) {
+              expectEq(
+                replayed?.reasoning_content,
+                REPLAY_REASONING,
+                `${c.provider} ${mode} replayed reasoning_content`,
+              );
+            } else {
+              expect(
+                replayed !== undefined && !("reasoning_content" in replayed),
+                `${c.provider} ${mode} put reasoning_content on the wire`,
+              );
+            }
+          },
+        );
+        record(results, name, true);
+      } catch (err) {
+        record(
+          results,
+          name,
+          false,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+  }
+}
+
 async function runLiteLLMSSESection(): Promise<void> {
   console.log("\n=== LLM litellm (generate over SSE wire) ===");
   const section = "LLM litellm";
@@ -4916,6 +5152,7 @@ async function main(): Promise<void> {
     await runAnthropicSection();
     await runCloudflareContentFormatSection();
     await runStructuredReaskBillingSection();
+    await runReasoningReplaySection();
     await runDeepSeekImageInputSection();
     await runSchemaRetryBillingSection();
     await runInvalidModelFallbackSection();

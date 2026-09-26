@@ -8,7 +8,7 @@
 
 > **OpenAICompatSSEResult** = `object`
 
-Defined in: [types/openaiCompatible.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L258)
+Defined in: [types/openaiCompatible.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L261)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:258](https://github.com/juspay/neurolink/
 
 > **text**: `string`
 
-Defined in: [types/openaiCompatible.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L259)
+Defined in: [types/openaiCompatible.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L262)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:259](https://github.com/juspay/neurolink/
 
 > **reasoning**: `string`
 
-Defined in: [types/openaiCompatible.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L261)
+Defined in: [types/openaiCompatible.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L264)
 
 Accumulated reasoner-model output (`reasoning_content` / `reasoning` deltas).
 
@@ -34,7 +34,7 @@ Accumulated reasoner-model output (`reasoning_content` / `reasoning` deltas).
 
 > **toolCalls**: `Map`\<`number`, \{ `id`: `string`; `name`: `string`; `argsBuffered`: `string`; \}\>
 
-Defined in: [types/openaiCompatible.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L262)
+Defined in: [types/openaiCompatible.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L265)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/openaiCompatible.ts:262](https://github.com/juspay/neurolink/
 
 > **finishReason**: `"stop"` \| `"length"` \| `"tool_calls"` \| `"function_call"` \| `"content_filter"` \| `null`
 
-Defined in: [types/openaiCompatible.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L263)
+Defined in: [types/openaiCompatible.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L266)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/openaiCompatible.ts:263](https://github.com/juspay/neurolink/
 
 > `optional` **usage?**: [`OpenAICompatUsage`](OpenAICompatUsage.md)
 
-Defined in: [types/openaiCompatible.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L270)
+Defined in: [types/openaiCompatible.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L273)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/openaiCompatible.ts:270](https://github.com/juspay/neurolink/
 
 > `optional` **id?**: `string`
 
-Defined in: [types/openaiCompatible.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L272)
+Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L275)
 
 Response id from the first stream chunk that carried one.
 
@@ -68,6 +68,6 @@ Response id from the first stream chunk that carried one.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/openaiCompatible.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L274)
+Defined in: [types/openaiCompatible.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L277)
 
 Served model from the first stream chunk that carried one.

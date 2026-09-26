@@ -8,7 +8,7 @@
 
 > **OpenAICompatUsage** = `object`
 
-Defined in: [types/openaiCompatible.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L102)
+Defined in: [types/openaiCompatible.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L105)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:102](https://github.com/juspay/neurolink/
 
 > `optional` **prompt_tokens?**: `number`
 
-Defined in: [types/openaiCompatible.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L103)
+Defined in: [types/openaiCompatible.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L106)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:103](https://github.com/juspay/neurolink/
 
 > `optional` **completion_tokens?**: `number`
 
-Defined in: [types/openaiCompatible.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L104)
+Defined in: [types/openaiCompatible.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L107)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/openaiCompatible.ts:104](https://github.com/juspay/neurolink/
 
 > `optional` **total_tokens?**: `number`
 
-Defined in: [types/openaiCompatible.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L105)
+Defined in: [types/openaiCompatible.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L108)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/openaiCompatible.ts:105](https://github.com/juspay/neurolink/
 
 > `optional` **prompt_tokens_details?**: `object`
 
-Defined in: [types/openaiCompatible.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L106)
+Defined in: [types/openaiCompatible.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L109)
 
 #### cached_tokens?
 
@@ -52,7 +52,7 @@ Defined in: [types/openaiCompatible.ts:106](https://github.com/juspay/neurolink/
 
 > `optional` **completion_tokens_details?**: `object`
 
-Defined in: [types/openaiCompatible.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L109)
+Defined in: [types/openaiCompatible.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L112)
 
 #### reasoning_tokens?
 
