@@ -48,4 +48,10 @@ Defined in: [types/providers.ts:1993](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **maxCacheAge?**: `number`
 
-Defined in: [types/providers.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1994)
+Defined in: [types/providers.ts:2001](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2001)
+
+Max age (ms) of a cached health-check result before it is treated as
+stale. Only consulted when `cacheResults` is true — with
+`cacheResults: false` this option has no effect. It does not affect the
+circuit breaker's blacklist expiry, which uses its own fixed window
+independent of any caller's `maxCacheAge`.

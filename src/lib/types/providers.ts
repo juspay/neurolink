@@ -1991,7 +1991,31 @@ export type ProviderHealthCheckOptions = {
   includeConnectivityTest?: boolean;
   includeModelValidation?: boolean;
   cacheResults?: boolean;
+  /**
+   * Max age (ms) of a cached health-check result before it is treated as
+   * stale. Only consulted when `cacheResults` is true — with
+   * `cacheResults: false` this option has no effect. It does not affect the
+   * circuit breaker's blacklist expiry, which uses its own fixed window
+   * independent of any caller's `maxCacheAge`.
+   */
   maxCacheAge?: number;
+};
+
+/**
+ * Outcome of a provider-specific config check's own outbound runtime probe
+ * (LiteLLM's `/v1/models`, Ollama's `/api/tags` availability check) — the
+ * request `checkLiteLLMConfig`/`checkOllamaConfig` make from inside step 1
+ * (`checkEnvironmentConfiguration`), independent of the step-3 connectivity
+ * test. `checkProviderHealth`'s circuit breaker needs to know whether this
+ * probe ran at all (a blacklisted provider skips it — `ran: false`) and,
+ * if it ran, whether it failed, so a dead local proxy counts toward the
+ * breaker the same way a failing step-3 probe does. `ran: false` must never
+ * move the breaker either way — it is not evidence the provider is up OR
+ * down.
+ */
+export type ProviderRuntimeProbeOutcome = {
+  ran: boolean;
+  failed: boolean;
 };
 
 // ============================================================================
@@ -2315,14 +2339,30 @@ export type ProviderDescriptor = {
   /** How ProviderHealthChecker should verify this provider is reachable. */
   healthCheck: "env-only" | "models-probe" | "live-generate";
   /**
-   * Membership + order in the default health sweep
+   * ORDER (not membership) in the default health sweep
    * (`ProviderHealthChecker.checkAllProvidersHealth` with no explicit
    * list). Lower number = checked and reported first; the sweep's array
    * order is behaviour for its first-healthy fallback consumers. Absent =
-   * not part of the default sweep. Replaces the hand-maintained 8-provider
-   * array that lived in providerHealth.ts.
+   * sorted after every explicitly-prioritized descriptor, in this file's
+   * declaration order (a stable sort, so ties never reorder). Originally
+   * this field ALSO controlled membership (absent = excluded), which
+   * silently dropped every provider added without it from the sweep —
+   * issue #1305, ~30 of ~38 registered providers, undocumented. Membership
+   * is now `excludeFromHealthSweep` below, which every new descriptor
+   * satisfies by default without needing this field at all.
    */
   defaultHealthSweepPriority?: number;
+  /**
+   * Opt a provider OUT of `checkAllProvidersHealth`'s default sweep. Every
+   * registered descriptor participates by default — a newly added provider
+   * needs no action to be included, which is the fix for issue #1305
+   * (silent, undocumented exclusion of most providers). Set this only for a
+   * descriptor that genuinely should never appear in a health rollup; no
+   * current descriptor sets it. `checkProviderHealth()` for a single named
+   * provider is unaffected either way — this only gates the "all
+   * providers" sweep.
+   */
+  excludeFromHealthSweep?: true;
   /**
    * Preference rank for `getBestHealthyProvider`'s default auto-selection
    * (lower = tried first). Deliberately a SEPARATE ordering from the sweep:
