@@ -135,8 +135,12 @@ export abstract class BaseServerAdapter extends EventEmitter {
 
   /**
    * Initialize the underlying server framework
+   * May be async: adapters that dynamically import their framework package
+   * (e.g. Hono) return a Promise; adapters with a synchronous no-op stub that
+   * defer real setup to their own overridden `initialize()` (Express/Fastify/
+   * Koa) still return void.
    */
-  protected abstract initializeFramework(): void;
+  protected abstract initializeFramework(): void | Promise<void>;
 
   /**
    * Register a route with the framework
@@ -254,7 +258,7 @@ export abstract class BaseServerAdapter extends EventEmitter {
 
     try {
       // Initialize framework-specific setup
-      this.initializeFramework();
+      await this.initializeFramework();
 
       // Register built-in middleware
       this.registerBuiltInMiddleware();

@@ -4,14 +4,7 @@
  * Hono is chosen for its performance, TypeScript-first design, and edge compatibility
  */
 
-import type { Context as HonoContext, Next } from "hono";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { HTTPException } from "hono/http-exception";
-import { logger as honoLogger } from "hono/logger";
-import { secureHeaders } from "hono/secure-headers";
-import { streamSSE } from "hono/streaming";
-import { timeout } from "hono/timeout";
+import type { Context as HonoContext, Hono, Next } from "hono";
 import type { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
 import { AlreadyRunningError, ServerStopError, wrapError } from "../errors.js";
@@ -43,6 +36,11 @@ export class HonoServerAdapter extends BaseServerAdapter {
   private rateLimitCleanupInterval?: ReturnType<typeof setInterval>;
   // Store context by request ID for sharing between middleware and route handlers
   private requestContextStore = new Map<string, ServerContext>();
+  // Populated by initializeFramework's dynamic imports; used by methods that
+  // run after initialization (route registration, streaming) and so cannot
+  // rely on initializeFramework's own local closure variables.
+  private HTTPExceptionCtor!: typeof import("hono/http-exception").HTTPException;
+  private streamSSEFn!: typeof import("hono/streaming").streamSSE;
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super(neurolink, config);
@@ -149,8 +147,49 @@ export class HonoServerAdapter extends BaseServerAdapter {
 
   /**
    * Initialize Hono framework
+   * Dynamically imports Hono and its middleware so requiring only another
+   * adapter (Express/Fastify/Koa) never pulls Hono's import graph in.
    */
-  protected initializeFramework(): void {
+  protected async initializeFramework(): Promise<void> {
+    const [
+      { Hono },
+      { cors },
+      { HTTPException },
+      { logger: honoLogger },
+      { secureHeaders },
+      { streamSSE },
+      { timeout },
+    ] = await Promise.all([
+      this.importFrameworkDependency<typeof import("hono")>("hono", "hono"),
+      this.importFrameworkDependency<typeof import("hono/cors")>(
+        "hono/cors",
+        "hono",
+      ),
+      this.importFrameworkDependency<typeof import("hono/http-exception")>(
+        "hono/http-exception",
+        "hono",
+      ),
+      this.importFrameworkDependency<typeof import("hono/logger")>(
+        "hono/logger",
+        "hono",
+      ),
+      this.importFrameworkDependency<typeof import("hono/secure-headers")>(
+        "hono/secure-headers",
+        "hono",
+      ),
+      this.importFrameworkDependency<typeof import("hono/streaming")>(
+        "hono/streaming",
+        "hono",
+      ),
+      this.importFrameworkDependency<typeof import("hono/timeout")>(
+        "hono/timeout",
+        "hono",
+      ),
+    ]);
+
+    this.HTTPExceptionCtor = HTTPException;
+    this.streamSSEFn = streamSSE;
+
     this.app = new Hono();
 
     // Add secure headers
@@ -376,7 +415,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
           error: errorMessage,
         });
 
-        throw new HTTPException(500, { message: errorMessage });
+        throw new this.HTTPExceptionCtor(500, { message: errorMessage });
       } finally {
         // Untrack connection when request completes
         this.untrackConnection(connectionId);
@@ -401,7 +440,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
       }
     }
 
-    return streamSSE(c, async (stream) => {
+    return this.streamSSEFn(c, async (stream) => {
       try {
         // Get streaming result from handler
         const result = await route.handler(ctx);

@@ -613,13 +613,15 @@ Get configuration
 
 ### initializeFramework()
 
-> `protected` **initializeFramework**(): `void`
+> `protected` **initializeFramework**(): `Promise`\<`void`\>
 
 Initialize Hono framework
+Dynamically imports Hono and its middleware so requiring only another
+adapter (Express/Fastify/Koa) never pulls Hono's import graph in.
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
 #### Overrides
 

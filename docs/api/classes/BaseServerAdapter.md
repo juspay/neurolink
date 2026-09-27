@@ -120,13 +120,17 @@ Provides common functionality and defines the interface for framework-specific i
 
 ### initializeFramework()
 
-> `abstract` `protected` **initializeFramework**(): `void`
+> `abstract` `protected` **initializeFramework**(): `void` \| `Promise`\<`void`\>
 
 Initialize the underlying server framework
+May be async: adapters that dynamically import their framework package
+(e.g. Hono) return a Promise; adapters with a synchronous no-op stub that
+defer real setup to their own overridden `initialize()` (Express/Fastify/
+Koa) still return void.
 
 #### Returns
 
-`void`
+`void` \| `Promise`\<`void`\>
 
 ---
 
