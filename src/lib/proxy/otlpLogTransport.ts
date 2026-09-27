@@ -15,10 +15,39 @@ import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
-import { ExportResultCode, parseKeyPairsIntoRecord } from "@opentelemetry/core";
-import { JsonLogsSerializer } from "@opentelemetry/otlp-transformer";
+import { createRequire } from "node:module";
+import type {
+  ExportResultCode as ExportResultCodeType,
+  parseKeyPairsIntoRecord as parseKeyPairsIntoRecordType,
+} from "@opentelemetry/core";
+import type { JsonLogsSerializer as JsonLogsSerializerType } from "@opentelemetry/otlp-transformer";
 import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import type { ProxyOtlpLogTransport } from "../types/index.js";
+
+/**
+ * @opentelemetry/core and @opentelemetry/otlp-transformer are loaded via
+ * require() on first actual use (this file itself stays a normal static
+ * import, since it is genuinely CommonJS-safe to require() these two —
+ * unlike a local ESM file, which would need Node's newer require(esm)
+ * support and break on Node <22.12). Both packages ship plain CJS builds.
+ */
+const require = createRequire(import.meta.url);
+let ExportResultCode!: typeof ExportResultCodeType;
+let parseKeyPairsIntoRecord!: typeof parseKeyPairsIntoRecordType;
+let JsonLogsSerializer!: typeof JsonLogsSerializerType;
+let transportDepsLoaded = false;
+
+function loadTransportDeps(): void {
+  if (transportDepsLoaded) {
+    return;
+  }
+  ({
+    ExportResultCode,
+    parseKeyPairsIntoRecord,
+  } = require("@opentelemetry/core"));
+  ({ JsonLogsSerializer } = require("@opentelemetry/otlp-transformer"));
+  transportDepsLoaded = true;
+}
 
 const gzipAsync = promisify(gzip);
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -197,6 +226,7 @@ export function createProxyOtlpLogTransport(
   endpoint: string,
   timeoutMillis: number,
 ): ProxyOtlpLogTransport {
+  loadTransportDeps();
   let url: URL;
   try {
     url = new URL(endpoint);

@@ -22,6 +22,13 @@ import "dotenv/config";
  * needed — nothing here registers a global MeterProvider, so `.createCounter()`
  * returns the shared no-op counter) to count `Counter.add()` invocations
  * instead of standing up a real exporter.
+ * The proxy OTel-logs-bridge case further below uses the same exception
+ * again: it imports `dist/proxy/otelLogSink.js` directly and, through a
+ * load hook, proves endpoint validation throws synchronously before the
+ * heavy OTel SDK packages (loaded via `require()` on first actual use, not
+ * a top-level import) ever load. Construction itself stays fully
+ * synchronous — there is no async gap to race, so no buffering or
+ * shutdown-ordering case is needed here.
  *
  * Run: npx tsx test/continuous-test-suite-observability.ts --provider=vertex
  */
@@ -3774,6 +3781,78 @@ async function testTelemetryBufferedDuringAsyncInit(): Promise<boolean | null> {
 }
 
 // ============================================================
+// PROXY OTEL LOGS: LAZY SDK IMPORT
+// ============================================================
+
+/**
+ * `otelLogSink.ts`'s `initializeProxyOtelLogs()` validates the configured
+ * OTLP endpoint (HTTPS required for a non-loopback collector) with zero
+ * heavy imports, then requires `@opentelemetry/sdk-logs` / `resources` /
+ * `core` (via `require()`, not a top-level import) only once validation
+ * passes. The security property this must preserve: a misconfigured
+ * endpoint fails *before* the SDK is ever required, so a caller can't
+ * silently proceed with a cleartext collector just because it constructed
+ * the endpoint from untrusted config.
+ */
+async function testProxyOtelLogsValidateBeforeImport(): Promise<
+  boolean | null
+> {
+  logSection("Proxy OTel logs validate before importing the SDK");
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 15)) {
+    logTest(
+      "Proxy OTel logs validate before importing the SDK",
+      "SKIP",
+      `registerHooks needs Node >=22.15.0, running ${process.version}`,
+    );
+    return null;
+  }
+  const script = `
+    import { registerHooks } from "node:module";
+    let sdkLogsTouched = false;
+    registerHooks({
+      load(url, context, next) {
+        if (url.includes("/@opentelemetry/sdk-logs/")) {
+          sdkLogsTouched = true;
+        }
+        return next(url, context);
+      },
+    });
+    process.env.NEUROLINK_PROXY_LOG_SINK = "otel";
+    process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT = "http://example.com/v1/logs";
+    const { initializeProxyOtelLogs } = await import("./dist/proxy/otelLogSink.js");
+    let message = "";
+    try {
+      initializeProxyOtelLogs();
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    if (!message.includes("HTTPS")) {
+      throw new Error("precondition: expected a synchronous HTTPS-required throw, got: " + message);
+    }
+    if (sdkLogsTouched) {
+      throw new Error("validation ran after the heavy SDK import started, not before it");
+    }
+    console.log("VALIDATE_BEFORE_IMPORT_OK");
+  `;
+  const result = await runCommand(process.execPath, [
+    "--input-type=module",
+    "-e",
+    script,
+  ]);
+  if (!result.success || !result.stdout.includes("VALIDATE_BEFORE_IMPORT_OK")) {
+    logTest(
+      "Proxy OTel logs validate before importing the SDK",
+      "FAIL",
+      `endpoint validation did not fail synchronously before the SDK import — exit=${result.code}; stderr=${result.stderr.slice(-1000)}`,
+    );
+    return false;
+  }
+  logTest("Proxy OTel logs validate before importing the SDK", "PASS");
+  return true;
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3804,6 +3883,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "Telemetry Buffered Metric During Async Init",
       fn: testTelemetryBufferedDuringAsyncInit,
+    },
+    {
+      name: "Proxy OTel Logs Validate Before Import",
+      fn: testProxyOtelLogsValidateBeforeImport,
     },
     { name: "Telemetry Service Init", fn: testTelemetryServiceInit },
     {

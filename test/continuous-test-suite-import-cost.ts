@@ -55,6 +55,16 @@ const LAZY_PACKAGES = [
   // dependency of this package, so their absence from the trace proves
   // nothing either way.
   "hono",
+  // The proxy's OTel-logs bridge (src/lib/proxy/otelLogSink.ts): reachable
+  // eagerly from dist/server/index.js via codexProxyRoutes.ts/
+  // claudeProxyRoutes.ts, but only ever used when NEUROLINK_PROXY_LOG_SINK
+  // is set to "otel" (opt-in, proxy-only). Construction is now deferred
+  // behind a dynamic import fired from initializeProxyOtelLogs().
+  "@opentelemetry/sdk-logs",
+  "@opentelemetry/resources",
+  "@opentelemetry/api-logs",
+  "@opentelemetry/core",
+  "@opentelemetry/otlp-transformer",
 ];
 
 /** Builds the child-process probe script for one entry file. */

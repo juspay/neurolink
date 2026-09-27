@@ -58,8 +58,27 @@ import type {
 } from "../types/index.js";
 import { isBorrowedRequest } from "./shareContext.js";
 import { OtelBridge } from "../observability/otelBridge.js";
-import { SeverityNumber } from "@opentelemetry/api-logs";
+import { createRequire } from "node:module";
+import type { SeverityNumber as SeverityNumberType } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
+
+/**
+ * Loaded via require() on first actual use rather than a top-level import,
+ * so requiring this module (reachable eagerly from dist/server/index.js)
+ * doesn't pull in @opentelemetry/api-logs for callers who never emit an
+ * OTLP log record. Both use sites below only run once resolveLoggerProvider()
+ * has already resolved a real provider, so OTel logging is already active.
+ */
+const otelRequire = createRequire(import.meta.url);
+let SeverityNumber!: typeof SeverityNumberType;
+let severityNumberLoaded = false;
+function loadSeverityNumber(): void {
+  if (severityNumberLoaded) {
+    return;
+  }
+  ({ SeverityNumber } = otelRequire("@opentelemetry/api-logs"));
+  severityNumberLoaded = true;
+}
 import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
 import {
   notifyProxyFinalLog,
@@ -498,6 +517,7 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
       if (!provider) {
         return;
       }
+      loadSeverityNumber();
 
       const otelLogger = provider.getLogger("neurolink-proxy", "1.0.0");
 
@@ -714,6 +734,7 @@ function emitOtlpBodyLogRecord(
       if (!provider || stored.redactedBody === undefined) {
         return undefined;
       }
+      loadSeverityNumber();
 
       const otelLogger = provider.getLogger("neurolink-proxy-bodies", "1.0.0");
       const captureId = entry.captureId ?? randomUUID();
