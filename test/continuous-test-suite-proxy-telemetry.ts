@@ -748,6 +748,14 @@ async function withHttpFixture(
         configPath,
         JSON.stringify({
           routing: {
+            // Denies every stored/env Anthropic account so the primary leg has
+            // none to pick, forcing the fallbackChain below. Without this, a
+            // real ANTHROPIC_API_KEY in the runner's environment is picked up
+            // as account "env" (accountAllowlist below this point in the file
+            // is a *separate* param the route handler ignores whenever a
+            // runtimeConfigStore is present — see claudeProxyRoutes.ts) and
+            // the isolated fixture below never gets exercised.
+            accountAllowlist: [],
             fallbackChain: [
               {
                 provider: "codex",
