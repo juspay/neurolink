@@ -3544,6 +3544,94 @@ async function testOtlpInitializationReadiness(): Promise<boolean | null> {
 }
 
 // ============================================================
+// SHUTDOWN-DURING-INIT
+// ============================================================
+
+/**
+ * An initializeOpenTelemetry() call that starts while shutdownOpenTelemetry()
+ * is mid-teardown must not be orphaned: isInitialized reads stale (still
+ * true) until teardown actually finishes, so a naive check lets the caller
+ * believe it succeeded moments before teardown nulls out every provider it
+ * was relying on.
+ *
+ * A controllable gate is spliced into the teardown's try block via a load
+ * hook, exactly where the OTLP readiness case above splices its own hooks.
+ * This makes the race deterministic — no timing, no retries — by pausing
+ * teardown at a known point and controlling exactly when it resumes.
+ */
+async function testShutdownDuringInit(): Promise<boolean | null> {
+  logSection("Shutdown during init");
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 15)) {
+    logTest(
+      "Shutdown during init",
+      "SKIP",
+      `registerHooks needs Node >=22.15.0, running ${process.version}`,
+    );
+    return null;
+  }
+  const script = `
+    import { registerHooks } from "node:module";
+    registerHooks({
+      load(url, context, next) {
+        const loaded = next(url, context);
+        if (!url.endsWith("/services/server/ai/observability/instrumentation.js")) {
+          return loaded;
+        }
+        return {
+          ...loaded,
+          source: String(loaded.source).replace(
+            "async function shutdownOpenTelemetryOnce() {",
+            "async function shutdownOpenTelemetryOnce() { await globalThis.__shutdownGate;",
+          ),
+        };
+      },
+    });
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:1";
+    const otel = await import("./dist/services/server/ai/observability/instrumentation.js");
+    const config = { enabled: false, useExternalTracerProvider: true };
+
+    await otel.initializeOpenTelemetry(config);
+    if (otel.getLoggerProvider() === null) {
+      throw new Error("precondition: expected a provider after the initial init");
+    }
+
+    let release;
+    globalThis.__shutdownGate = new Promise((r) => { release = r; });
+    const pendingShutdown = otel.shutdownOpenTelemetry();
+
+    // Started while shutdown is paused mid-teardown, with isInitialized
+    // still (stale-)true.
+    const pendingReinit = otel.initializeOpenTelemetry(config);
+
+    release();
+    await pendingShutdown;
+    await pendingReinit;
+
+    if (otel.getLoggerProvider() === null) {
+      throw new Error("an init that started during shutdown teardown left no provider behind");
+    }
+    console.log("SHUTDOWN_DURING_INIT_OK");
+  `;
+
+  const result = await runCommand(process.execPath, [
+    "--input-type=module",
+    "-e",
+    script,
+  ]);
+  if (!result.success || !result.stdout.includes("SHUTDOWN_DURING_INIT_OK")) {
+    logTest(
+      "Shutdown during init",
+      "FAIL",
+      `an init started during teardown was orphaned — exit=${result.code}; stderr=${result.stderr.slice(-1000)}`,
+    );
+    return false;
+  }
+  logTest("Shutdown during init", "PASS");
+  return true;
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3570,6 +3658,7 @@ async function runAllTests(): Promise<void> {
       name: "OTLP Initialization Readiness",
       fn: testOtlpInitializationReadiness,
     },
+    { name: "Shutdown During Init", fn: testShutdownDuringInit },
     { name: "Telemetry Service Init", fn: testTelemetryServiceInit },
     {
       name: "External TracerProvider Mode",

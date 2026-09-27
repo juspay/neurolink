@@ -159,6 +159,7 @@ let loggerProvider: LoggerProvider | null = null;
 let langfuseProcessor: LangfuseSpanProcessorType | null = null;
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+let shutdownPromise: Promise<void> | null = null;
 let isCredentialsValid = false;
 let currentConfig: LangfuseConfig | null = null;
 let usingExternalProvider = false;
@@ -1099,6 +1100,16 @@ async function initializeStandaloneOpenTelemetryMode(
 export async function initializeOpenTelemetry(
   config: LangfuseConfig,
 ): Promise<void> {
+  if (shutdownPromise) {
+    // A shutdown already in flight is what made isInitialized/
+    // initializationPromise true or null in the first place; either reading
+    // is stale until it actually finishes. Waiting here means this call sees
+    // the settled post-teardown state — nothing initialized, nothing
+    // pending — and falls through to build fresh providers, rather than
+    // returning early on a flag that is about to flip out from under it.
+    await shutdownPromise;
+  }
+
   if (isInitialized) {
     currentConfig = config;
     logger.debug(`${LOG_PREFIX} Already initialized, config updated`, {
@@ -1272,8 +1283,30 @@ export async function flushOpenTelemetry(): Promise<void> {
 
 /**
  * Shutdown OpenTelemetry and Langfuse span processor
+ *
+ * Concurrent callers share one in-flight teardown, the same way concurrent
+ * initializers share one in-flight `initializeOpenTelemetry`: a second
+ * shutdown call joins the first instead of tearing down the same provider
+ * instances a second time.
  */
 export async function shutdownOpenTelemetry(): Promise<void> {
+  if (shutdownPromise) {
+    await shutdownPromise;
+    return;
+  }
+
+  const pending = shutdownOpenTelemetryOnce();
+  shutdownPromise = pending;
+  try {
+    await pending;
+  } finally {
+    if (shutdownPromise === pending) {
+      shutdownPromise = null;
+    }
+  }
+}
+
+async function shutdownOpenTelemetryOnce(): Promise<void> {
   if (initializationPromise) {
     try {
       await initializationPromise;
