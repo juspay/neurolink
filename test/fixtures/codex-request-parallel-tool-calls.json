@@ -1,6 +1,6 @@
 {
   "_fixtureMeta": {
-    "variation": "codex exec (non-interactive) mode, both beta headers present, fresh session (no session/thread id)",
+    "variation": "2 consecutive function_call items (one JSON args, one non-JSON args) then 2 consecutive function_call_output items, exec mode, both beta headers present",
     "generatedBy": "scripts/generate-codex-fixtures.mjs",
     "basedOn": "~/.neurolink/reference/codex-cli-wire-sample.json (redacted codex_exec/0.155.1 capture; shape only, not copied verbatim)",
     "mode": "exec"
@@ -150,7 +150,7 @@
         "content": [
           {
             "type": "input_text",
-            "text": "Run the test suite and fix any failing tests in src/utils."
+            "text": "Read src/index.ts after listing the directory."
           }
         ]
       },
@@ -163,6 +163,28 @@
             "text": "<environment_context>cwd=/workspace/repo approval_policy=never sandbox=workspace-write</environment_context>"
           }
         ]
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_synthetic_0001",
+        "name": "exec",
+        "arguments": "ls -la"
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_synthetic_0002",
+        "name": "read_file",
+        "arguments": "{\"path\":\"src/index.ts\"}"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_synthetic_0001",
+        "output": "{\"stdout\":\"total 0\\ndrwxr-xr-x  2 codex  staff  64 Jan  1 00:00 .\\n\",\"stderr\":\"\",\"exit_code\":0}"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_synthetic_0002",
+        "output": "{\"content\":\"export {};\\n\"}"
       }
     ]
   }

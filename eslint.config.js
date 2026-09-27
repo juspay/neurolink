@@ -417,6 +417,13 @@ export default [
             // is a property of the type declarations and their shipped consumers,
             // not of any dispatched request: a live call cannot observe it at all.
             "test/continuous-test-suite-proxy-ir-codec.ts",
+            // Pure request-shape translation (Codex Responses -> ClaudeRequest)
+            // proven against fixed fixture bodies and constructed edge cases —
+            // malformed/duck-typed inputs, cache-breakpoint placement and
+            // tool-array ordering all need byte-identical repeated runs over
+            // the same input, which a live model cannot be made to reproduce
+            // turn-for-turn.
+            "test/continuous-test-suite-codex-outbound-translation.ts",
 
             // Isolated rolling workers inject startup stalls and crashes while
             // the built restart CLI and real streaming sockets are exercised.

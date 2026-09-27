@@ -8,6 +8,10 @@ const checks = [
   // npm script and no workflow reference, so its 51 cases never ran anywhere.
   ["tsx", "test/continuous-test-suite-vertex-anthropic-fallback.ts"],
   ["tsx", "test/continuous-test-suite-proxy-ir-codec.ts"],
+  // Not name-templated below because it is not a `proxy-*` suite: it covers
+  // the Codex-outbound request translation direction (native Codex ->
+  // ClaudeRequest), not proxy request/accounting.
+  ["tsx", "test/continuous-test-suite-codex-outbound-translation.ts"],
   ...[
     "request-lifecycle",
     "http-disconnect",

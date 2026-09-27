@@ -15,6 +15,7 @@
 import type {
   AccountCoolingReason,
   AccountQuota,
+  ClaudeContentBlock,
   InternalResult,
 } from "./proxy.js";
 
@@ -215,4 +216,167 @@ export type CodexFallbackResult = {
 export type CodexFallbackStream = {
   frames: AsyncGenerator<string, CodexFallbackResult>;
   cancel: (reason?: unknown) => Promise<void>;
+};
+
+// =============================================================================
+// NATIVE CODEX REQUEST TYPES (Codex-outbound fallback: native Codex client ->
+// Anthropic/Vertex). Reused verbatim from the merged design doc's tool-fidelity
+// section, which read the real captured wire sample
+// (~/.neurolink/reference/codex-cli-wire-sample.json) and found the flat
+// `{functions, collaboration}` shape the first design pass assumed to be wrong:
+// `additional_tools.tools` is an array of namespace objects, each declaration
+// discriminated by its own `type` field, never by which namespace it sits in.
+// =============================================================================
+
+/** Role a native Codex `input` message item can carry. */
+export type CodexNativeRole = "developer" | "user" | "assistant";
+
+/** A plain message item in a native Codex request's `input` array. */
+export type CodexNativeMessageInputItem = {
+  type: "message";
+  id?: string;
+  role: CodexNativeRole;
+  content: CodexContentPart[];
+};
+
+/** A tool declaration backed by a JSON Schema, dispatched as a function call. */
+export type CodexNativeFunctionToolDeclaration = {
+  type: "function";
+  name: string;
+  description?: string;
+  strict: boolean;
+  parameters: Record<string, unknown>;
+};
+
+/** Grammar constraining a custom tool's argument text. */
+export type CodexNativeCustomToolFormat = {
+  type: "grammar";
+  syntax: "lark" | "regex";
+  definition: string;
+};
+
+/** A tool declaration whose arguments are grammar-constrained free text. */
+export type CodexNativeCustomToolDeclaration = {
+  type: "custom";
+  name: string;
+  description?: string;
+  format: CodexNativeCustomToolFormat;
+};
+
+/** A single tool declaration, discriminated by its own `type` field. */
+export type CodexNativeToolDeclaration =
+  | CodexNativeFunctionToolDeclaration
+  | CodexNativeCustomToolDeclaration;
+
+/** A named group of tool declarations inside one `additional_tools` item. */
+export type CodexNativeToolNamespace = {
+  type: "namespace";
+  name: string;
+  description: string;
+  tools: CodexNativeToolDeclaration[];
+};
+
+/** The `input` item carrying every tool declaration for a native Codex request. */
+export type CodexNativeAdditionalToolsInputItem = {
+  type: "additional_tools";
+  id?: string;
+  role: "developer";
+  tools: CodexNativeToolNamespace[];
+};
+
+/** A model-emitted tool call replayed in a native Codex request's history. */
+export type CodexNativeFunctionCallInputItem = {
+  type: "function_call";
+  call_id: string;
+  name: string;
+  arguments: string;
+};
+
+/** A client-supplied tool result replayed in a native Codex request's history. */
+export type CodexNativeFunctionCallOutputInputItem = {
+  type: "function_call_output";
+  call_id: string;
+  output: string;
+};
+
+/** A call to a grammar-constrained (`type:"custom"`) tool, replayed in history. */
+export type CodexNativeCustomToolCallInputItem = {
+  type: "custom_tool_call";
+  id?: string;
+  call_id: string;
+  name: string;
+  input: string;
+};
+
+/** A client-supplied result for a `custom_tool_call`, replayed in history. */
+export type CodexNativeCustomToolCallOutputInputItem = {
+  type: "custom_tool_call_output";
+  call_id: string;
+  output: string;
+};
+
+/**
+ * A reasoning item the client echoes back with `store:false`. Its content is
+ * opaque (`encrypted_content` is readable only by the OpenAI backend), so its
+ * shape is deliberately loose beyond the discriminator.
+ */
+export type CodexNativeReasoningInputItem = {
+  type: "reasoning";
+  id?: string;
+  encrypted_content?: string | null;
+  summary?: unknown[];
+};
+
+/** A single item in a native Codex request's `input` array. */
+export type CodexNativeInputItem =
+  | CodexNativeMessageInputItem
+  | CodexNativeAdditionalToolsInputItem
+  | CodexNativeFunctionCallInputItem
+  | CodexNativeFunctionCallOutputInputItem
+  | CodexNativeCustomToolCallInputItem
+  | CodexNativeCustomToolCallOutputInputItem
+  | CodexNativeReasoningInputItem;
+
+/** How a native Codex request constrains which tool the model may call. */
+export type CodexNativeToolChoice =
+  | "auto"
+  | "required"
+  | "none"
+  | { type: "function"; name: string };
+
+/**
+ * A native Codex Responses request, as sent by the real Codex CLI.
+ *
+ * No top-level `session_id`/`thread_id` — real traffic carries neither at
+ * top level, only inside `client_metadata`, which the existing
+ * `Record<string, unknown>` field already covers.
+ */
+export type CodexNativeRequest = {
+  model: string;
+  input: CodexNativeInputItem[];
+  stream: boolean;
+  store: boolean;
+  tool_choice?: CodexNativeToolChoice;
+  parallel_tool_calls?: boolean;
+  reasoning?: { effort: CodexReasoningEffort; context?: string };
+  include?: string[];
+  text?: { verbosity?: string };
+  prompt_cache_key?: string;
+  client_metadata?: Record<string, unknown>;
+};
+
+/**
+ * A `parseCodexNativeRequest`/`translateCodexRequestToClaude` failure. Never thrown.
+ * `UNTRANSLATABLE_REQUEST` is a request Codex itself accepts but Anthropic would
+ * reject, as opposed to one that is invalid on the Codex wire.
+ */
+export type CodexTranslationError =
+  | { code: "MALFORMED_REQUEST"; message: string }
+  | { code: "SUSPECTED_PARTIAL_HISTORY"; message: string }
+  | { code: "UNTRANSLATABLE_REQUEST"; message: string };
+
+/** One coalesced run of same-role content while flattening a native Codex `input` array. */
+export type CodexOutboundMessageGroup = {
+  role: "user" | "assistant";
+  blocks: ClaudeContentBlock[];
 };

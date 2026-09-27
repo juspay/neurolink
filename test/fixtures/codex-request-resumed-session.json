@@ -19,62 +19,90 @@
     "model": "gpt-5-codex",
     "stream": true,
     "store": false,
-    "session_id": "sess_synthetic_00000000000000000000",
-    "thread_id": "thread_synthetic_00000000000000000000",
     "input": [
       {
         "type": "additional_tools",
         "role": "developer",
-        "tools": {
-          "functions": [
-            {
-              "name": "read_file",
-              "description": "Read a UTF-8 text file from the workspace.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "path": { "type": "string" },
-                  "offset": { "type": "integer" },
-                  "limit": { "type": "integer" }
-                },
-                "required": ["path"],
-                "additionalProperties": false
+        "tools": [
+          {
+            "type": "namespace",
+            "name": "functions",
+            "description": "General-purpose workspace tools.",
+            "tools": [
+              {
+                "type": "function",
+                "name": "read_file",
+                "description": "Read a UTF-8 text file from the workspace.",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["path"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "apply_patch",
+                "description": "Apply a unified-diff style patch to one or more files.",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "patch": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["patch"],
+                  "additionalProperties": false
+                }
               }
-            },
-            {
-              "name": "apply_patch",
-              "description": "Apply a unified-diff style patch to one or more files.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "patch": { "type": "string" }
-                },
-                "required": ["patch"],
-                "additionalProperties": false
+            ]
+          },
+          {
+            "type": "namespace",
+            "name": "collaboration",
+            "description": "Tools for executing commands and coordinating with the operator.",
+            "tools": [
+              {
+                "type": "custom",
+                "name": "exec",
+                "description": "Execute a shell command in the sandboxed workspace and return stdout/stderr.",
+                "format": {
+                  "type": "grammar",
+                  "syntax": "lark",
+                  "definition": "start: command\ncommand: WORD (\" \" ARG)*\nWORD: /[a-zA-Z0-9_\\-\\.\\/]+/\nARG: /[^\\n]+/"
+                }
+              },
+              {
+                "type": "function",
+                "name": "request_review",
+                "description": "Ask the operator to review a proposed change before applying it.",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["summary"],
+                  "additionalProperties": false
+                }
               }
-            }
-          ],
-          "collaboration": [
-            {
-              "name": "exec",
-              "type": "custom",
-              "description": "Execute a shell command in the sandboxed workspace and return stdout/stderr.",
-              "grammar": "start: command\ncommand: WORD (\" \" ARG)*\nWORD: /[a-zA-Z0-9_\\-\\.\\/]+/\nARG: /[^\\n]+/"
-            },
-            {
-              "name": "request_review",
-              "description": "Ask the operator to review a proposed change before applying it.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "summary": { "type": "string" }
-                },
-                "required": ["summary"],
-                "additionalProperties": false
-              }
-            }
-          ]
-        }
+            ]
+          }
+        ]
       },
       {
         "type": "message",
@@ -136,6 +164,10 @@
           }
         ]
       }
-    ]
+    ],
+    "client_metadata": {
+      "session_id": "sess_synthetic_00000000000000000000",
+      "thread_id": "thread_synthetic_00000000000000000000"
+    }
   }
 }

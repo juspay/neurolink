@@ -126,6 +126,9 @@ test-batch-*.json
 health-reports/
 *-verification-*.json
 *-parallel-*.json
+# The pattern above is for scratch parallel-execution-run output, not this
+# committed fixture, which is a legitimate test/fixtures/ input file.
+!test/fixtures/codex-request-parallel-tool-calls.json
 
 # Temporary test files (generated during testing)
 all-tests-output.txt

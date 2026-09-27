@@ -34,8 +34,10 @@ ARG: /[^\n]+/
 
 const FUNCTION_TOOLS = [
   {
+    type: "function",
     name: "read_file",
     description: "Read a UTF-8 text file from the workspace.",
+    strict: false,
     parameters: {
       type: "object",
       properties: {
@@ -48,8 +50,10 @@ const FUNCTION_TOOLS = [
     },
   },
   {
+    type: "function",
     name: "apply_patch",
     description: "Apply a unified-diff style patch to one or more files.",
+    strict: false,
     parameters: {
       type: "object",
       properties: {
@@ -63,15 +67,17 @@ const FUNCTION_TOOLS = [
 
 const COLLABORATION_TOOLS = [
   {
-    name: "exec",
     type: "custom",
+    name: "exec",
     description:
       "Execute a shell command in the sandboxed workspace and return stdout/stderr.",
-    grammar: EXEC_GRAMMAR,
+    format: { type: "grammar", syntax: "lark", definition: EXEC_GRAMMAR },
   },
   {
+    type: "function",
     name: "request_review",
     description: "Ask the operator to review a proposed change before applying it.",
+    strict: false,
     parameters: {
       type: "object",
       properties: {
@@ -90,14 +96,29 @@ const DEVELOPER_MESSAGES = [
   "Output formatting: keep responses concise; summarize diffs instead of pasting full file contents when the file is large.",
 ];
 
+// Namespace-array shape (corrected: matches the real captured wire sample,
+// ~/.neurolink/reference/codex-cli-wire-sample.json — additional_tools.tools
+// is an array of namespace objects, each declaration discriminated by its own
+// `type` field, never by which namespace it sits in — not the flat
+// `{functions, collaboration}` object this generator emitted before).
 function additionalToolsItem() {
   return {
     type: "additional_tools",
     role: "developer",
-    tools: {
-      functions: FUNCTION_TOOLS,
-      collaboration: COLLABORATION_TOOLS,
-    },
+    tools: [
+      {
+        type: "namespace",
+        name: "functions",
+        description: "General-purpose workspace tools.",
+        tools: FUNCTION_TOOLS,
+      },
+      {
+        type: "namespace",
+        name: "collaboration",
+        description: "Tools for executing commands and coordinating with the operator.",
+        tools: COLLABORATION_TOOLS,
+      },
+    ],
   };
 }
 
@@ -117,24 +138,31 @@ function userMessageItem(text) {
   };
 }
 
-function functionCallOutputItem() {
+function functionCallOutputItem(
+  callId = "call_synthetic_0001",
+  output = JSON.stringify({
+    stdout: "total 0\ndrwxr-xr-x  2 codex  staff  64 Jan  1 00:00 .\n",
+    stderr: "",
+    exit_code: 0,
+  }),
+) {
   return {
     type: "function_call_output",
-    call_id: "call_synthetic_0001",
-    output: JSON.stringify({
-      stdout: "total 0\ndrwxr-xr-x  2 codex  staff  64 Jan  1 00:00 .\n",
-      stderr: "",
-      exit_code: 0,
-    }),
+    call_id: callId,
+    output,
   };
 }
 
-function functionCallItem() {
+function functionCallItem(
+  callId = "call_synthetic_0001",
+  name = "exec",
+  args = "ls -la",
+) {
   return {
     type: "function_call",
-    call_id: "call_synthetic_0001",
-    name: "exec",
-    arguments: "ls -la",
+    call_id: callId,
+    name,
+    arguments: args,
   };
 }
 
@@ -161,11 +189,15 @@ function baseBody({ input, sessionId, threadId }) {
     store: false,
     input,
   };
-  if (sessionId) {
-    body.session_id = sessionId;
-  }
-  if (threadId) {
-    body.thread_id = threadId;
+  // Corrected placement (matches the real captured wire sample): session_id/
+  // thread_id live nested inside client_metadata, never at the top level —
+  // this fixture previously put them at the top level, which is exactly the
+  // shape the design wrongly attributed to real traffic.
+  if (sessionId || threadId) {
+    body.client_metadata = {
+      ...(sessionId ? { session_id: sessionId } : {}),
+      ...(threadId ? { thread_id: threadId } : {}),
+    };
   }
   return body;
 }
@@ -258,6 +290,35 @@ const fixtures = [
       extraInputItems: [functionCallItem(), functionCallOutputItem()],
       userTexts: [
         "List the files in the current directory and summarize the layout.",
+        "<environment_context>cwd=/workspace/repo approval_policy=never sandbox=workspace-write</environment_context>",
+      ],
+    }),
+  },
+  {
+    file: "codex-request-parallel-tool-calls.json",
+    data: buildFixture({
+      fixtureMeta: {
+        variation:
+          "2 consecutive function_call items (one JSON args, one non-JSON args) then 2 consecutive function_call_output items, exec mode, both beta headers present",
+      },
+      mode: "exec",
+      betaCompaction: true,
+      betaResponsesLite: true,
+      extraInputItems: [
+        functionCallItem("call_synthetic_0001", "exec", "ls -la"),
+        functionCallItem(
+          "call_synthetic_0002",
+          "read_file",
+          JSON.stringify({ path: "src/index.ts" }),
+        ),
+        functionCallOutputItem("call_synthetic_0001"),
+        functionCallOutputItem(
+          "call_synthetic_0002",
+          JSON.stringify({ content: "export {};\n" }),
+        ),
+      ],
+      userTexts: [
+        "Read src/index.ts after listing the directory.",
         "<environment_context>cwd=/workspace/repo approval_policy=never sandbox=workspace-write</environment_context>",
       ],
     }),
