@@ -160,7 +160,7 @@ export async function performPrecallEvaluation(
   try {
     const provider = await AIProviderFactory.createProvider(
       config.provider || "google-ai",
-      config.evaluationModel || "gemini-1.5-flash",
+      config.evaluationModel || "gemini-2.5-flash",
     );
 
     const evaluationPrompt =

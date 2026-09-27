@@ -35,7 +35,7 @@ export class RAGASEvaluator {
     this.evaluationModel =
       evaluationModel ||
       process.env.NEUROLINK_RAGAS_EVALUATION_MODEL ||
-      "gemini-1.5-flash";
+      "gemini-2.5-flash";
     this.providerName =
       providerName ||
       process.env.NEUROLINK_RAGAS_EVALUATION_PROVIDER ||

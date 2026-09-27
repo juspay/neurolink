@@ -294,8 +294,8 @@ export function createMultiJudgeWorkflow(
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-1.5-flash",
-      label: "Gemini 1.5 Flash",
+      model: "gemini-2.5-flash",
+      label: "Gemini 2.5 Flash",
       weight: 0.8,
       temperature: 0.7,
     },

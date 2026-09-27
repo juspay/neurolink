@@ -358,7 +358,7 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
       "openai/gpt-4-turbo",
       // Google models
       "google/gemini-2.0-flash",
-      "google/gemini-1.5-pro",
+      "google/gemini-2.5-pro",
       // Meta Llama models
       "meta-llama/llama-3.1-70b-instruct",
       "meta-llama/llama-3.1-8b-instruct",

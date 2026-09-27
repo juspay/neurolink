@@ -38,7 +38,7 @@ import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.litellm");
 
-const FALLBACK_LITELLM_MODEL = "openai/gpt-4o-mini";
+const FALLBACK_LITELLM_MODEL = "openai/gpt-5.4-mini";
 
 const getLiteLLMConfig = () => ({
   baseURL: process.env.LITELLM_BASE_URL || "http://localhost:4000",
@@ -333,7 +333,7 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
         .map((m) => m.trim())
         .filter((m) => m.length > 0) || [
         "openai/gpt-4o",
-        "anthropic/claude-3-haiku",
+        "anthropic/claude-haiku-4-5-20251001",
         "meta-llama/llama-3.1-8b-instruct",
         "google/gemini-2.5-flash",
       ]

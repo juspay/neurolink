@@ -141,14 +141,6 @@ const TOP_MODELS_CONFIG: Record<
       model: GoogleAIModels.GEMINI_3_PRO_PREVIEW,
       description: "Latest preview",
     },
-    {
-      model: GoogleAIModels.GEMINI_1_5_PRO,
-      description: "Previous generation",
-    },
-    {
-      model: GoogleAIModels.GEMINI_1_5_FLASH,
-      description: "Legacy fast model",
-    },
   ],
   [AIProviderName.VERTEX]: [
     {
@@ -164,7 +156,6 @@ const TOP_MODELS_CONFIG: Record<
       model: VertexModels.GEMINI_2_0_FLASH,
       description: "Stable production model",
     },
-    { model: VertexModels.GEMINI_1_5_PRO, description: "Previous generation" },
     {
       model: VertexModels.CLAUDE_3_5_SONNET,
       description: "Claude 3.5 on Vertex",

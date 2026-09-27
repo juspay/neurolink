@@ -74,7 +74,8 @@ const resolveOpenAIBaseURL = (
 
 const getOpenAIApiKey = (): string => validateApiKey(createOpenAIConfig());
 
-const getOpenAIModel = (): string => getProviderModel("OPENAI_MODEL", "gpt-4o");
+const getOpenAIModel = (): string =>
+  getProviderModel("OPENAI_MODEL", "gpt-5.4");
 
 const streamTracer = trace.getTracer("neurolink.provider.openai");
 

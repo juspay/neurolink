@@ -113,7 +113,7 @@ export class EvaluatorRegistry extends BaseRegistry<
         description:
           "RAGAS-style LLM-as-judge evaluation with relevance, accuracy, and completeness metrics",
         requiresLLM: true,
-        defaultModel: "gemini-1.5-flash",
+        defaultModel: "gemini-2.5-flash",
         defaultProvider: "vertex",
         version: "1.0.0",
         features: [

@@ -586,7 +586,7 @@ export class ProviderHealthChecker {
           `Available models for ${providerName} (using dual provider architecture):\n` +
             `  Google Models (via vertex provider):\n` +
             `    • gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite\n` +
-            `    • gemini-2.0-flash-001, gemini-1.5-pro, gemini-1.5-flash\n` +
+            `    • gemini-2.0-flash-001, gemini-2.0-flash-lite\n` +
             `  Anthropic Models (via vertexAnthropic provider):\n` +
             `    • claude-sonnet-4@20250514, claude-opus-4@20250514\n` +
             `    • claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022\n` +
@@ -1037,7 +1037,7 @@ export class ProviderHealthChecker {
   }
 
   private static getConfiguredLiteLLMModel(): string {
-    return process.env.LITELLM_MODEL || "openai/gpt-4o-mini";
+    return process.env.LITELLM_MODEL || "openai/gpt-5.4-mini";
   }
 
   private static getOllamaBaseUrl(): string {
@@ -1237,7 +1237,7 @@ export class ProviderHealthChecker {
     }
 
     // Only pin the availability check to a specific model when the user
-    // explicitly configured one. The fallback default ("openai/gpt-4o-mini")
+    // explicitly configured one. The fallback default ("openai/gpt-5.4-mini")
     // is a guess, not configuration — proxies that serve a different model
     // set (every self-hosted gateway) were reported "Not configured" here
     // while generate/stream against them worked fine with explicit models.
@@ -1349,9 +1349,9 @@ export class ProviderHealthChecker {
         ];
       case AIProviderName.GOOGLE_AI:
         return [
-          GoogleAIModels.GEMINI_1_5_PRO,
-          GoogleAIModels.GEMINI_1_5_FLASH,
           GoogleAIModels.GEMINI_2_5_PRO,
+          GoogleAIModels.GEMINI_2_5_FLASH,
+          GoogleAIModels.GEMINI_2_0_FLASH_001,
         ];
       case AIProviderName.VERTEX:
         return [
@@ -1360,8 +1360,6 @@ export class ProviderHealthChecker {
           GoogleAIModels.GEMINI_2_5_FLASH,
           GoogleAIModels.GEMINI_2_5_FLASH_LITE,
           GoogleAIModels.GEMINI_2_0_FLASH_001,
-          GoogleAIModels.GEMINI_1_5_PRO,
-          GoogleAIModels.GEMINI_1_5_FLASH,
           // Anthropic models (via vertexAnthropic provider)
           "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
@@ -1377,8 +1375,8 @@ export class ProviderHealthChecker {
         return [OpenAIModels.GPT_4O, OpenAIModels.GPT_4O_MINI, "gpt-35-turbo"];
       case AIProviderName.LITELLM:
         return [
-          "openai/gpt-4o-mini",
-          "anthropic/claude-3-haiku",
+          "openai/gpt-5.4-mini",
+          "anthropic/claude-haiku-4-5-20251001",
           "google/gemini-2.5-flash",
         ];
       case AIProviderName.OLLAMA: {

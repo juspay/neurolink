@@ -67,7 +67,7 @@ export class EvaluatorFactory extends BaseFactory<Evaluator, EvaluationConfig> {
           threshold: 7,
           evaluationStrategy: "ragas",
           evaluationModel:
-            process.env.NEUROLINK_RAGAS_EVALUATION_MODEL || "gemini-1.5-flash",
+            process.env.NEUROLINK_RAGAS_EVALUATION_MODEL || "gemini-2.5-flash",
           provider: process.env.NEUROLINK_RAGAS_EVALUATION_PROVIDER || "vertex",
           ...config,
         };
@@ -118,7 +118,7 @@ export class EvaluatorFactory extends BaseFactory<Evaluator, EvaluationConfig> {
           threshold: 5,
           evaluationStrategy: "ragas",
           evaluationModel:
-            process.env.NEUROLINK_RAGAS_EVALUATION_MODEL || "gemini-1.5-flash",
+            process.env.NEUROLINK_RAGAS_EVALUATION_MODEL || "gemini-2.5-flash",
           provider: process.env.NEUROLINK_RAGAS_EVALUATION_PROVIDER || "vertex",
           ...config,
         };
@@ -144,7 +144,7 @@ export class EvaluatorFactory extends BaseFactory<Evaluator, EvaluationConfig> {
         const mergedConfig: EvaluationConfig = {
           threshold: 6,
           evaluationStrategy: "ragas",
-          evaluationModel: "gemini-1.5-flash",
+          evaluationModel: "gemini-2.5-flash",
           provider: "vertex",
           ...config,
         };

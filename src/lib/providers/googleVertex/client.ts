@@ -8413,8 +8413,6 @@ export class GoogleVertexProvider extends BaseProvider {
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash-001",
         "gemini-2.0-flash-lite",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash",
       ],
       claude: [
         "claude-sonnet-4-5@20250929",
