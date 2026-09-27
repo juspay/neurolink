@@ -48,7 +48,7 @@ The interactive web demo showcases all features with live AI generation across m
 
     ![MCP Tools](../assets/images/mcp-tools.png)
 
-    Built-in tools working seamlessly across all providers.
+    Built-in tools working seamlessly across providers you've configured.
 
 ### Web Applications
 

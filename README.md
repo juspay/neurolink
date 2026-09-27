@@ -210,7 +210,7 @@ const neurolink = new NeuroLink({
 - **Video Generation with Veo** (v8.32.0) – Video generation via Google Veo 3.1 on Vertex AI. 720p/1080p, portrait/landscape. → [Guide](docs/features/video-generation.md)
 - **Image Generation** (v8.31.0) – Native image generation with Gemini and Imagen models. → [Guide](docs/image-generation-streaming.md)
 - **HTTP/Streamable HTTP Transport** (v8.29.0) – Remote MCP servers via HTTP with auth headers, retry, rate limiting. → [Guide](docs/mcp-http-transport.md)
-- **PPT Generation** – 35 slide types, 5 themes, optional AI-generated images. Works across all major providers. → [Guide](docs/features/ppt-generation.md)
+- **PPT Generation** – 35 slide types, 5 themes, optional AI-generated images. Works across supported AI providers. → [Guide](docs/features/ppt-generation.md)
 - **Structured Output with Zod** – Type-safe JSON via `schema` + `output.format: "json"`. → [Guide](docs/features/structured-output.md)
 - **CSV & PDF File Support** – Attach CSV/PDF with auto-detection. PDF: native visual analysis on Vertex, Anthropic, Bedrock, AI Studio. → [CSV](docs/features/multimodal-chat.md#csv-file-support) | [PDF](docs/features/pdf-support.md)
 - **LiteLLM, SageMaker & OpenRouter** – 100+ models via LiteLLM, custom endpoints on SageMaker, 300+ via OpenRouter. → [LiteLLM](docs/litellm-integration.md) | [SageMaker](docs/sagemaker-integration.md)
@@ -424,7 +424,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with every major AI provider — and local runtimes that need no API key at all. You'll need at least one to get started:
+NeuroLink works with a broad set of AI providers — and local runtimes that need no API key at all. You'll need at least one to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -611,7 +611,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure any provider
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure a provider
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -643,7 +643,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is shi
 
 ### 🤖 AI Provider Integration
 
-**Every provider neuron behind one API** - Switch providers with a single parameter change. Nearly all serve `generate`/`stream`; TypeSafe Jev and Laya serve `decide` instead. Tool support: 31 native tool-calling, 3 model-dependent, 10 that serve no tools at all (embedding-, media- and decision-only). 3 are fully local runtimes (Ollama, LM Studio, llama.cpp) and 4 need zero configuration to start (those three plus LiteLLM) — no cloud account, no API key. 9 providers (OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Ollama, LiteLLM, Voyage, Jina) expose `embed()`/`embedMany()` natively for RAG and custom vector search.
+**Provider neurons behind one API** - Switch providers with a single parameter change. Nearly all serve `generate`/`stream`; TypeSafe Jev and Laya serve `decide` instead. Tool support: 31 native tool-calling, 3 model-dependent, 10 that serve no tools at all (embedding-, media- and decision-only). 3 are fully local runtimes (Ollama, LM Studio, llama.cpp) and 4 need zero configuration to start (those three plus LiteLLM) — no cloud account, no API key. 9 providers (OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Ollama, LiteLLM, Voyage, Jina) expose `embed()`/`embedMany()` natively for RAG and custom vector search.
 
 | Provider              | Models                                                                     | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -682,13 +682,13 @@ NeuroLink is a comprehensive AI development platform. Every feature below is shi
 **Decision-only providers:** **TypeSafe Jev** (`TYPESAFE_API_KEY`) and **Laya** (`LAYA_API_KEY` + `LAYA_BASE_URL`) do not appear in the table above because neither serves `generate`/`stream` — they are the two providers for the `decide` inference type, TypeSafe first when both are configured. See [Decide: Calibrated Judgments, Not Text](#decide-calibrated-judgments-not-text).
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across every provider
+**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for 19 features (dated snapshot covering a subset of the full provider list)
 
 ---
 
 ### 🔧 Built-in Tools & MCP Integration
 
-**6 Core Tools** (work across all providers, zero configuration):
+**6 Core Tools** (work across supported providers, zero configuration):
 
 | Tool                 | Purpose                  | Auto-Available          | Documentation                              |
 | -------------------- | ------------------------ | ----------------------- | ------------------------------------------ |
@@ -868,7 +868,7 @@ neurolink generate "Describe what happens" --file ./demo.mp4
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across every AI provider
+- **Provider-agnostic** - Processors work across supported AI providers
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -998,7 +998,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with support for every provider and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with broad provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -1010,7 +1010,7 @@ Run AI-powered workflows directly in GitHub Actions with support for every provi
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | Every provider behind one unified interface                                               |
+| **Multi-Provider**     | Broad provider support behind one unified interface                                       |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -1203,7 +1203,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | Every provider neuron behind one API, with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                                                                                                                                                                                                              |
+| **Provider unification** | Provider neurons behind one API, with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                                                                                                                                                                                                                   |
 | **Decision inference**   | Third inference type (`decide`) alongside generate/stream: calibrated `boolean`/`choice`/`score` judgments via TypeSafe Jev (~400ms flat, ~$0.00002/decision) or Laya, a self-hosted open-weights alternative. Used internally for model routing, context budgeting, relevance compaction and tool routing; per-query RAG planning is opt-in via `RAGPipeline`. |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.                                                                                                                                                                                                                                        |
 | **Voice pipeline**       | TTS (6 providers: Google, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live).                                                                                                                                                                                                            |

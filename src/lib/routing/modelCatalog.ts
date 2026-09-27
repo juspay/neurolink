@@ -9,7 +9,7 @@
  * routing read none of it beyond cost and quality. `maxContextTokens` in
  * particular was never read anywhere.
  *
- * The registry covers 7 of the 40 registered providers, so the catalogue is
+ * The registry covers 7 of the registered providers, so the catalogue is
  * an addition to a declared pool, never a replacement: a host routing over
  * LiteLLM, OpenRouter or a self-hosted model still declares those by hand,
  * and `enrichCandidate` ranks declared and catalogue members on one scale.

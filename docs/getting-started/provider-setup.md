@@ -15,7 +15,7 @@ This guide walks through full environment-variable setup for the providers below
 - **Google AI Studio** - Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
 - **Anthropic** - Claude 4.5 Opus/Sonnet/Haiku, Claude 4.0 Opus/Sonnet, Claude 3.7 Sonnet
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
-- **LiteLLM** - 100+ models from all providers via proxy server
+- **LiteLLM** - 100+ models across a broad range of providers via proxy server
 - **Hugging Face** - open models served by the unified router (Llama 3.x, Qwen 2.5, DeepSeek, Mistral)
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **OpenRouter** - 300+ models from every major lab via one aggregator endpoint
@@ -75,7 +75,7 @@ Voice providers (TTS/STT/Realtime) are configured further down in this guide —
 
 ## 🏢 Enterprise Proxy Support
 
-**All providers support corporate proxy environments automatically.** Simply set environment variables:
+**Providers support corporate proxy environments automatically.** Simply set environment variables:
 
 ```bash
 export HTTPS_PROXY=http://your-corporate-proxy:port
@@ -775,7 +775,7 @@ try {
 
 ## LiteLLM Configuration
 
-LiteLLM provides access to 100+ models through a unified proxy server, allowing you to use any AI provider through a single interface.
+LiteLLM provides access to 100+ models through a unified proxy server, allowing you to use supported AI providers through a single interface.
 
 ### Prerequisites
 

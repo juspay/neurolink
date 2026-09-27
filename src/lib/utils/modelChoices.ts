@@ -71,9 +71,8 @@ function catalogTopModels(
  * Top models per provider with descriptions for CLI prompts
  * These are curated lists of the most commonly used/recommended models
  *
- * Covers every provider EXCEPT the 11 JSON-catalog providers (cerebras,
- * cloudflare, deepseek, fireworks, groq, huggingface, mistral, perplexity,
- * sambanova, together-ai, xai) — their entries are derived from
+ * Covers every provider EXCEPT the JSON-catalog providers (see
+ * `CatalogProviderName`) — their entries are derived from
  * `models.catalog[*].description` by `catalogTopModels()` and merged in at
  * the accessor-function level below, never hand-duplicated here.
  */
@@ -432,10 +431,11 @@ const TOP_MODELS_CONFIG: Record<
 /**
  * Default models per provider (first choice/recommended).
  *
- * Covers every provider EXCEPT the 11 JSON-catalog providers — those default
- * models come from `models.default` in the catalog JSON, read directly by
- * `getDefaultModel()` below. (Two of the 11 — cerebras, sambanova — never had
- * a hand entry here at all; `getDefaultModel()` now resolves them too.)
+ * Covers every provider EXCEPT the JSON-catalog providers (see
+ * `CatalogProviderName`) — those default models come from `models.default`
+ * in the catalog JSON, read directly by `getDefaultModel()` below. (cerebras,
+ * sambanova — never had a hand entry here at all; `getDefaultModel()` now
+ * resolves them too.)
  *
  * AUTO is also excluded — it never had an entry here either (matches
  * pre-existing behavior: `getDefaultModel(AUTO)` returns `undefined`).
@@ -474,9 +474,10 @@ export const DEFAULT_MODELS: Record<
 /**
  * Model enum mappings for getAllModels.
  *
- * Covers every provider EXCEPT the 11 JSON-catalog providers — those model
- * lists come from `Object.keys(models.catalog)` in the catalog JSON, read
- * directly by `getAllModels()` below.
+ * Covers every provider EXCEPT the JSON-catalog providers (see
+ * `CatalogProviderName`) — those model lists come from
+ * `Object.keys(models.catalog)` in the catalog JSON, read directly by
+ * `getAllModels()` below.
  */
 const MODEL_ENUMS: Record<
   Exclude<AIProviderName, CatalogProviderName>,

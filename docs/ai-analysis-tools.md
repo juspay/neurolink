@@ -15,7 +15,7 @@
 
 ### 1. AI Usage Analysis - `analyzeAIUsage()`
 
-Analyze AI usage patterns, token consumption, and cost optimization across all providers.
+Analyze AI usage patterns, token consumption, and cost optimization across your configured providers.
 
 ```typescript
 const analysis = await provider.analyzeAIUsage({
@@ -38,7 +38,7 @@ console.log(analysis.recommendations); // Optimization suggestions
 
 ### 2. Provider Performance Benchmarking - `benchmarkProviders()`
 
-Advanced benchmarking with latency, quality, and cost metrics across all AI providers.
+Advanced benchmarking with latency, quality, and cost metrics across configured AI providers.
 
 ```typescript
 const benchmark = await provider.benchmarkProviders({

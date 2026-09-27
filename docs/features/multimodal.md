@@ -75,11 +75,11 @@ Not all providers support all multimodal capabilities. Use this matrix to select
 
 ### CSV/Spreadsheet Data
 
-| Provider          | Supported | Max Rows | Format Options      | Notes                                 |
-| ----------------- | --------- | -------- | ------------------- | ------------------------------------- |
-| **All Providers** | ✅        | 10,000   | raw, json, markdown | Universal support - processed as text |
+| Provider                | Supported | Max Rows | Format Options      | Notes                             |
+| ----------------------- | --------- | -------- | ------------------- | --------------------------------- |
+| **Supported Providers** | ✅        | 10,000   | raw, json, markdown | Broad support - processed as text |
 
-CSV support works with **all providers** because files are converted to text before sending to the AI model. The file is parsed and formatted (raw CSV, JSON, or Markdown table) before inclusion in the prompt.
+CSV support works across **supported providers** because files are converted to text before sending to the AI model. The file is parsed and formatted (raw CSV, JSON, or Markdown table) before inclusion in the prompt.
 
 **Format Recommendations:**
 
@@ -438,7 +438,7 @@ const result = await neurolink.generate({
 - **Use JSON format for structured processing** when AI needs to manipulate data
 - **Limit to 1000 rows by default** (configurable up to 10,000)
 - **Combine CSV with visualization images** for comprehensive analysis
-- **Works with ALL providers** (not just vision-capable models)
+- **Works across supported providers** (not just vision-capable models)
 
 ---
 

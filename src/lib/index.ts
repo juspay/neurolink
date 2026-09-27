@@ -1,7 +1,7 @@
 /**
  * NeuroLink AI Toolkit
  *
- * A unified AI provider interface with support for 14+ providers,
+ * A unified AI provider interface with support for many AI providers,
  * automatic fallback, streaming, MCP tool integration, HITL security,
  * Redis persistence, and enterprise-grade middleware.
  *
@@ -463,7 +463,7 @@ export const VERSION = "1.0.0";
  * Quick start factory function for creating AI provider instances.
  *
  * Creates a configured AI provider instance ready for immediate use.
- * Supports 14+ providers: OpenAI, Anthropic, Google AI Studio,
+ * Supports providers including OpenAI, Anthropic, Google AI Studio,
  * Google Vertex, AWS Bedrock, AWS SageMaker, Azure OpenAI, Hugging Face,
  * LiteLLM, Mistral, Ollama, OpenAI Compatible, OpenRouter, and more.
  *

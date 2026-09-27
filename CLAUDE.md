@@ -16,7 +16,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps a wide range of AI and voice providers across three inference types (`generate`, `stream`, `decide`) (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
+NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps AI providers across three inference types (`generate`, `stream`, `decide`) (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
 
 ---
 
@@ -181,7 +181,7 @@ Registry →  holds factory functions (via dynamic import)
 src/
 ├── lib/
 │   ├── neurolink.ts          # Main SDK entry point
-│   ├── providers/            # AI provider implementations (40 registered)
+│   ├── providers/            # AI provider implementations
 │   ├── factories/            # ProviderFactory + ProviderRegistry
 │   ├── core/                 # BaseProvider, constants, infrastructure
 │   ├── adapters/             # Provider-specific content adapters (image, TTS, video)

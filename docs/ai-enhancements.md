@@ -223,7 +223,7 @@ Enterprise-grade multi-provider evaluation with intelligent fallback, cost optim
 
 **Key Features:**
 
-- **9 Provider Support**: Google AI, OpenAI, Anthropic, Vertex, Bedrock, Azure, Ollama, Hugging Face, Mistral
+- **Multi-Provider Support**: Google AI, OpenAI, Anthropic, Vertex, Bedrock, Azure, Ollama, Hugging Face, Mistral
 - **Intelligent Fallback**: Automatic provider selection when primary fails
 - **Cost Optimization**: Provider-specific cost calculations and budget awareness
 - **Performance Modes**: Fast, balanced, and quality evaluation options

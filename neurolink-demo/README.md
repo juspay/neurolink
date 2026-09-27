@@ -6,7 +6,7 @@
 - [📞 Support](#-support)
 <!-- /TOC -->
 
-🧠 **Complete working demo showcasing the NeuroLink SDK with 21+ AI providers**
+🧠 **Complete working demo showcasing the NeuroLink SDK with many AI providers**
 
 ## 🚀 Quick Start
 
@@ -721,7 +721,7 @@ This demo showcases production-ready patterns:
 
 ## 🌟 Key Features Demonstrated
 
-### 1. **Multi-Provider Support (9 Providers)**
+### 1. **Multi-Provider Support**
 
 - **OpenAI** - GPT-4o and GPT-4-turbo models
 - **Amazon Bedrock** - Claude 3 models via AWS
@@ -732,7 +732,7 @@ This demo showcases production-ready patterns:
 - **Hugging Face** - 100,000+ open source models
 - **Ollama** - Local AI with complete privacy
 - **Mistral AI** - European GDPR-compliant AI
-- Intelligent auto-selection across all providers
+- Intelligent auto-selection across supported providers
 
 ### 2. **Comprehensive Use Cases**
 

@@ -3,17 +3,17 @@
 **Last Updated:** January 10, 2026
 **NeuroLink Version:** 8.32.0
 
-Run AI-powered workflows with 44 providers directly in GitHub Actions. The NeuroLink GitHub Action enables automated code review, issue triage, content generation, and more.
+Run AI-powered workflows with supported providers directly in GitHub Actions. The NeuroLink GitHub Action enables automated code review, issue triage, content generation, and more.
 
 ---
 
 ## Overview
 
-The NeuroLink GitHub Action provides a unified interface to integrate AI capabilities into your CI/CD workflows. It supports all 44 NeuroLink providers through a single, consistent configuration.
+The NeuroLink GitHub Action provides a unified interface to integrate AI capabilities into your CI/CD workflows. It supports NeuroLink provider integrations through a single, consistent configuration.
 
 **Key Features:**
 
-- **Multi-provider support** - 44 AI providers with unified interface
+- **Multi-provider support** - supported AI providers with a unified interface
 - **PR/Issue comments** - Auto-post AI responses with intelligent comment updates
 - **Cost tracking** - Built-in analytics with usage metrics
 - **Quality evaluation** - Response scoring and validation
@@ -66,7 +66,7 @@ When you set `provider: auto` (the default), NeuroLink automatically selects the
 
 ## Provider Configuration
 
-NeuroLink supports 44 AI providers. Configure each by providing the required credentials as secrets.
+NeuroLink supports many AI providers. Configure each by providing the required credentials as secrets.
 
 ### Provider Quick Reference
 

@@ -668,7 +668,7 @@ function processFrontmatter(
     }
     if (!processed.description) {
       processed.description =
-        "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI";
+        "Enterprise AI Development Platform - unified provider support, MCP integration, and professional CLI";
     }
     processed.slug = "/";
   }

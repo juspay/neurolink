@@ -62,33 +62,33 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## Core Features (shipped 2025)
 
-| Feature                                                  | Description                                                                                        |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **[Image Generation](../image-generation-streaming.md)** | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.           |
-| **[Enterprise HITL](enterprise-hitl.md)**                | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.     |
-| **[Interactive CLI](interactive-cli.md)**                | AI development environment with loop mode, session variables, and conversation memory.             |
-| **[MCP Tools Showcase](mcp-tools-showcase.md)**          | Complete guide to 6 built-in tools and connecting external MCP servers across 6 categories.        |
-| **[Human-in-the-Loop (HITL)](hitl.md)**                  | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
-| **[Guardrails Middleware](guardrails.md)**               | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
-| **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |
-| **[Context Compaction](context-compaction.md)**          | Automatic conversation compression for long-running sessions to stay within token limits.          |
-| **[LiteLLM Integration](../litellm-integration.md)**     | Access 100+ AI models from all major providers through unified LiteLLM routing interface.          |
-| **[SageMaker Integration](../sagemaker-integration.md)** | Deploy and use custom-trained models on AWS SageMaker infrastructure with full control.            |
+| Feature                                                  | Description                                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **[Image Generation](../image-generation-streaming.md)** | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.              |
+| **[Enterprise HITL](enterprise-hitl.md)**                | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.        |
+| **[Interactive CLI](interactive-cli.md)**                | AI development environment with loop mode, session variables, and conversation memory.                |
+| **[MCP Tools Showcase](mcp-tools-showcase.md)**          | Complete guide to 6 built-in tools and connecting external MCP servers across 6 categories.           |
+| **[Human-in-the-Loop (HITL)](hitl.md)**                  | Pause AI tool execution for user approval before risky operations like file deletion or API calls.    |
+| **[Guardrails Middleware](guardrails.md)**               | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.           |
+| **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.            |
+| **[Context Compaction](context-compaction.md)**          | Automatic conversation compression for long-running sessions to stay within token limits.             |
+| **[LiteLLM Integration](../litellm-integration.md)**     | Access 100+ AI models across a broad range of AI providers through unified LiteLLM routing interface. |
+| **[SageMaker Integration](../sagemaker-integration.md)** | Deploy and use custom-trained models on AWS SageMaker infrastructure with full control.               |
 
 ---
 
 ## Earlier Core Features (shipped Q3 2025)
 
-| Feature                                                       | Description                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **[Multimodal Chat Experiences](multimodal-chat.md)**         | Stream text and images together with automatic provider fallbacks and format conversion.         |
-| **[CSV File Support](csv-support.md)**                        | Process CSV files for data analysis with automatic format conversion. Works with all providers.  |
-| **[PDF File Support](pdf-support.md)**                        | Process PDF documents for visual analysis and content extraction. Native provider support.       |
-| **[Office Documents](office-documents.md)**                   | Process DOCX, PPTX, XLSX files for document analysis. Native Bedrock, Vertex, Anthropic support. |
-| **[Auto Evaluation Engine](auto-evaluation.md)**              | Automated quality scoring and metrics export for AI response validation using LLM-as-judge.      |
-| **[CLI Loop Sessions](cli-loop-sessions.md)**                 | Persistent interactive mode with conversation memory and session state for prompt engineering.   |
-| **[Regional Streaming Controls](regional-streaming.md)**      | Region-specific model deployment and routing for compliance and latency optimization.            |
-| **[Provider Orchestration Brain](provider-orchestration.md)** | Adaptive provider and model selection with intelligent fallbacks based on task classification.   |
+| Feature                                                       | Description                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **[Multimodal Chat Experiences](multimodal-chat.md)**         | Stream text and images together with automatic provider fallbacks and format conversion.                |
+| **[CSV File Support](csv-support.md)**                        | Process CSV files for data analysis with automatic format conversion. Works across supported providers. |
+| **[PDF File Support](pdf-support.md)**                        | Process PDF documents for visual analysis and content extraction. Native provider support.              |
+| **[Office Documents](office-documents.md)**                   | Process DOCX, PPTX, XLSX files for document analysis. Native Bedrock, Vertex, Anthropic support.        |
+| **[Auto Evaluation Engine](auto-evaluation.md)**              | Automated quality scoring and metrics export for AI response validation using LLM-as-judge.             |
+| **[CLI Loop Sessions](cli-loop-sessions.md)**                 | Persistent interactive mode with conversation memory and session state for prompt engineering.          |
+| **[Regional Streaming Controls](regional-streaming.md)**      | Region-specific model deployment and routing for compliance and latency optimization.                   |
+| **[Provider Orchestration Brain](provider-orchestration.md)** | Adaptive provider and model selection with intelligent fallbacks based on task classification.          |
 
 ---
 
@@ -96,7 +96,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Category                 | Features                                                                                                           | Documentation                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 44 providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config           | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
+| **Provider unification** | Provider integrations with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config  | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
 | **Voice pipeline**       | TTS (6 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live)                               | [TTS Guide](tts.md), [STT Guide](audio-input.md), [Realtime Services](/docs/features/real-time-services)                                 |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging                          | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
@@ -109,7 +109,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## AI Provider Integration
 
-NeuroLink supports **44 AI providers** with unified API access:
+NeuroLink supports **many AI providers** with unified API access:
 
 | Provider              | Key Features                             | Free Tier    | Tool Support | Status     | Documentation                                                                                               |
 | --------------------- | ---------------------------------------- | ------------ | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------- |
@@ -445,11 +445,11 @@ type HITLPolicy = {
 
 Corporate network compatibility:
 
-| Proxy Type           | Support | Features                             |
-| -------------------- | ------- | ------------------------------------ |
-| **AWS Proxy**        | Full    | AWS-specific proxy configuration     |
-| **HTTP/HTTPS Proxy** | Full    | Universal proxy across all providers |
-| **No-Proxy Bypass**  | Full    | Bypass configuration and utilities   |
+| Proxy Type           | Support | Features                                 |
+| -------------------- | ------- | ---------------------------------------- |
+| **AWS Proxy**        | Full    | AWS-specific proxy configuration         |
+| **HTTP/HTTPS Proxy** | Full    | Proxy support across supported providers |
+| **No-Proxy Bypass**  | Full    | Bypass configuration and utilities       |
 
 #### Enhanced Guardrails
 
@@ -556,13 +556,13 @@ Production-grade fault tolerance:
 
 ## Advanced Integrations
 
-| Integration                                                    | Description                                                                             |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **[LiteLLM Integration](../litellm-integration.md)**           | Access 100+ models from all major providers via LiteLLM routing with unified interface. |
-| **[SageMaker Integration](../sagemaker-integration.md)**       | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.     |
-| **[Memory](memory.md)**                                        | Per-user condensed memory with S3/Redis/SQLite storage and LLM-powered condensation.    |
-| **[Enterprise Proxy](../enterprise-proxy-setup.md)**           | Configure outbound policies and compliance posture for corporate environments.          |
-| **[Configuration Management](../configuration-management.md)** | Manage environments, regions, and credentials safely across deployments.                |
+| Integration                                                    | Description                                                                                         |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **[LiteLLM Integration](../litellm-integration.md)**           | Access 100+ models across a broad range of AI providers via LiteLLM routing with unified interface. |
+| **[SageMaker Integration](../sagemaker-integration.md)**       | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.                 |
+| **[Memory](memory.md)**                                        | Per-user condensed memory with S3/Redis/SQLite storage and LLM-powered condensation.                |
+| **[Enterprise Proxy](../enterprise-proxy-setup.md)**           | Configure outbound policies and compliance posture for corporate environments.                      |
+| **[Configuration Management](../configuration-management.md)** | Manage environments, regions, and credentials safely across deployments.                            |
 
 ---
 

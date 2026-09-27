@@ -80,10 +80,10 @@ for await (const chunk of stream.stream) {
 
 The SDK uses a **Factory Pattern** architecture that provides:
 
-- **Unified Interface**: All providers implement the same `AIProvider` interface
+- **Unified Interface**: Providers implement the same `AIProvider` interface
 - **Type Safety**: Full TypeScript support with IntelliSense
 - **Automatic Fallback**: Seamless provider switching on failures
-- **Built-in Tools**: 6 core tools available across all providers
+- **Built-in Tools**: 6 core tools available across supported providers
 
 ```typescript
 type AIProvider = {

@@ -1,6 +1,6 @@
 # Provider Capabilities Audit
 
-Capability audit for the **13 text/multimodal AI providers** historically tracked in this matrix. NeuroLink ships **44 providers** in total — the additional providers added since this audit was first written (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, xAI, Groq, Cerebras, SambaNova, Together AI, Fireworks, Perplexity, Cloudflare, Cohere, TypeSafe Jev, and more), the voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live), and the embedding/media-only providers are documented in the per-provider docs under [/docs/getting-started/providers/](https://github.com/juspay/neurolink/tree/main/docs/getting-started/providers) and the [Voice Features](https://github.com/juspay/neurolink/blob/main/docs/features/index.md#voice) index, not in this capability matrix.
+Capability audit for the **13 text/multimodal AI providers** historically tracked in this matrix. NeuroLink ships many provider integrations — the additional providers added since this audit was first written (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, xAI, Groq, Cerebras, SambaNova, Together AI, Fireworks, Perplexity, Cloudflare, Cohere, TypeSafe Jev, and more), the voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live), and the embedding/media-only providers are documented in the per-provider docs under [/docs/getting-started/providers/](https://github.com/juspay/neurolink/tree/main/docs/getting-started/providers) and the [Voice Features](https://github.com/juspay/neurolink/blob/main/docs/features/index.md#voice) index, not in this capability matrix.
 
 For the canonical product surface, see the [README](https://github.com/juspay/neurolink/blob/main/README.md).
 
@@ -744,7 +744,7 @@ HUGGINGFACE_MODEL=meta-llama/Llama-3.1-8B-Instruct
 #### Text Generation ✓
 
 - Access to 100+ models via proxy
-- Unified interface for all providers
+- Unified interface across supported providers
 - Cost tracking and analytics
 
 #### Streaming ✓
@@ -1072,7 +1072,7 @@ OPENROUTER_APP_NAME=YourApp
 
 ### BaseProvider Architecture
 
-All providers extend `BaseProvider` class which provides:
+Providers extend the `BaseProvider` class, which provides:
 
 - Unified interface for text generation and streaming
 - Tool registration and execution

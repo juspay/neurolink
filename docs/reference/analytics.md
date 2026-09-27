@@ -5,7 +5,7 @@ description: Comprehensive guide to NeuroLink analytics, metrics, and usage trac
 
 # Analytics Reference
 
-NeuroLink provides comprehensive analytics capabilities for tracking token usage, costs, performance metrics, and quality evaluation across all AI provider interactions.
+NeuroLink provides comprehensive analytics capabilities for tracking token usage, costs, performance metrics, and quality evaluation across your configured AI provider interactions.
 
 ## Overview
 

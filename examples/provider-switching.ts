@@ -9,7 +9,7 @@
  * - Comparing responses, usage, and latency across providers
  * - How NeuroLink's unified interface makes provider switching trivial
  *
- * NeuroLink supports 12+ providers through a single `generate()` call.
+ * NeuroLink supports many AI providers through a single `generate()` call.
  * Switching providers is a one-line change: just update the `provider` field.
  *
  * Usage:

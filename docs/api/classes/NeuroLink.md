@@ -57,7 +57,7 @@ Generate AI response with comprehensive feature support.
 
 Primary method for AI generation with support for all NeuroLink features:
 
-- Multi-provider support (14+ providers)
+- Multi-provider support
 - MCP tool integration
 - Structured JSON output with Zod schemas
 - Conversation memory (Redis or in-memory)

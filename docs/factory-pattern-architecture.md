@@ -4,13 +4,13 @@ Understanding NeuroLink's unified architecture with BaseProvider inheritance and
 
 ## 📋 Overview
 
-NeuroLink uses a **Factory Pattern** architecture with **BaseProvider inheritance** to provide consistent functionality across all AI providers. This design eliminates code duplication and ensures every provider has the same core capabilities, including built-in tool support.
+NeuroLink uses a **Factory Pattern** architecture with **BaseProvider inheritance** to provide consistent functionality across supported AI providers. This design eliminates code duplication and ensures each provider has the same core capabilities, including built-in tool support.
 
 ### Key Benefits
 
 - ✅ **Zero Code Duplication**: Shared logic in BaseProvider
-- ✅ **Automatic Tool Support**: All providers inherit 6 built-in tools
-- ✅ **Consistent Interface**: Same methods across all providers
+- ✅ **Automatic Tool Support**: Providers inherit 6 built-in tools
+- ✅ **Consistent Interface**: Same methods across supported providers
 - ✅ **Easy Provider Addition**: Minimal code for new providers
 - ✅ **Centralized Updates**: Fix once, apply everywhere
 
@@ -115,7 +115,7 @@ registry.register("google-ai", new GoogleAIProviderFactory());
 
 ### Tool Registration in BaseProvider
 
-All providers automatically get these tools:
+Providers automatically get these tools:
 
 ```typescript
 private registerBuiltInTools() {
@@ -236,7 +236,7 @@ registry.register("newai", new NewAIProviderFactory());
 
 ### 3. Centralized Feature Addition
 
-Add features once in BaseProvider, all providers get them:
+Add features once in BaseProvider, and providers get them:
 
 ```typescript
 // Add new feature to BaseProvider
@@ -482,7 +482,7 @@ const result2 = await googleAI.generate({ input: { text: "Hello" } });
 ### Using Built-in Tools
 
 ```typescript
-// All providers can use tools
+// Providers that support tools can use them
 const timeResult = await provider.generate({
   input: { text: "What time is it in Paris?" },
 });
@@ -502,7 +502,7 @@ const fileResult = await provider.generate({
 ### Extending with Custom Tools
 
 ```typescript
-// Custom tools work with all providers
+// Custom tools work with providers that support tools
 const provider = createBestAIProvider();
 
 // Register custom tool
@@ -525,8 +525,8 @@ const result = await provider.generate({
 
 The Factory Pattern architecture provides:
 
-1. **Unified Experience**: All providers work the same way
-2. **Automatic Tools**: 6 built-in tools for every provider
+1. **Unified Experience**: Providers work the same way
+2. **Automatic Tools**: 6 built-in tools for supported providers
 3. **Easy Extension**: Add providers with minimal code
 4. **Clean Code**: No duplication, clear separation
 5. **Future-Proof**: Easy to add new features

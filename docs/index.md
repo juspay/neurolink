@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Pipe Layer of an AI Nervous System</strong></p>
-  <p>Provider Neurons for Every Major AI Vendor | 3 Inference Types (generate · stream · decide) | Voice (TTS/STT/Realtime) | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>Provider Neurons Across Major AI Vendors | 3 Inference Types (generate · stream · decide) | Voice (TTS/STT/Realtime) | 58+ MCP Tools | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -19,7 +19,7 @@
 
 </div>
 
-NeuroLink is the pipe layer of an AI nervous system: one interface connecting provider neurons — every major AI vendor and local runtime — to the applications that consume them. Built-in tooling and an opinionated factory architecture mean adding a new provider, or a new capability, never touches application code. NeuroLink ships as both a TypeScript SDK and a professional CLI so teams can build, operate, and iterate on AI features quickly.
+NeuroLink is the pipe layer of an AI nervous system: one interface connecting provider neurons — major AI vendors and local runtimes — to the applications that consume them. Built-in tooling and an opinionated factory architecture mean adding a new provider, or a new capability, never touches application code. NeuroLink ships as both a TypeScript SDK and a professional CLI so teams can build, operate, and iterate on AI features quickly.
 
 ## 🧠 What is NeuroLink?
 
@@ -61,7 +61,7 @@ Extracted from production systems at Juspay, NeuroLink provides a practical, Typ
 - **CSV File Support** -- Attach CSV files to prompts for AI-powered data analysis with auto-detection. -> [CSV Guide](features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** -- Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. -> [PDF Guide](features/pdf-support.md)
 - **50+ File Types** -- Process Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, and 50+ code languages with intelligent content extraction. -> [File Processors Guide](features/file-processors.md)
-- **LiteLLM Integration** -- Access 100+ AI models from all major providers through unified interface. -> [Setup Guide](litellm-integration.md)
+- **LiteLLM Integration** -- Access 100+ AI models across a broad range of AI providers through unified interface. -> [Setup Guide](litellm-integration.md)
 - **SageMaker Integration** -- Deploy and use custom trained models on AWS infrastructure. -> [Setup Guide](sagemaker-integration.md)
 - **OpenRouter Integration** -- Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. -> [Setup Guide](getting-started/providers/openrouter.md)
 - **Human-in-the-loop workflows** -- Pause generation for user approval/input before tool execution. -> [HITL Guide](features/hitl.md)
@@ -176,7 +176,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is ava
 
 ### 🤖 AI Provider Integration
 
-**Every provider neuron behind one API** - Switch providers with a single parameter change.
+**Provider neurons behind one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                                                                       |
 | --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -203,7 +203,7 @@ This table highlights the most commonly used providers. NeuroLink also ships Dee
 
 ### 🔧 Built-in Tools & MCP Integration
 
-**6 Core Tools** (work across all providers, zero configuration):
+**6 Core Tools** (work across supported providers, zero configuration):
 
 | Tool                 | Purpose                  | Auto-Available          | Documentation                         |
 | -------------------- | ------------------------ | ----------------------- | ------------------------------------- |
@@ -308,7 +308,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across every AI provider
+- **Provider-agnostic** - Processors work across supported AI providers
 
 **[📖 File Processors Guide](features/file-processors.md)** - Complete reference for all file types
 
@@ -436,7 +436,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 40-provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with broad provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -448,7 +448,7 @@ Run AI-powered workflows directly in GitHub Actions with 40-provider support and
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | Every provider behind one unified interface                                               |
+| **Multi-Provider**     | Broad provider support behind one unified interface                                       |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -618,16 +618,16 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                                                         |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | Every provider neuron behind one API, with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config. |
-| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.           |
-| **Voice pipeline**       | TTS (6 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live).                                              |
-| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                                         |
-| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 5-stage context compaction.                                     |
-| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                                     |
-| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                                  |
-| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.              |
+| Capability               | Highlights                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Provider unification** | Provider neurons behind one API, with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config. |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.      |
+| **Voice pipeline**       | TTS (6 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live).                                         |
+| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                                    |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 5-stage context compaction.                                |
+| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                                |
+| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                             |
+| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.         |
 
 ## Documentation Map
 

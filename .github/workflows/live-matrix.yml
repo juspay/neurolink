@@ -18,7 +18,7 @@ jobs:
   # the suite reads.
   #
   # A separate job rather than a step on the sweep below. The sweep's steps
-  # carry forty provider secrets and this suite needs exactly one, and the
+  # carry many provider credentials and this suite needs exactly one, and the
   # sweep is long enough that appending to it would queue the parity run
   # behind every other provider. The cost is a second build per nightly run.
   reasoning-parity:
@@ -250,7 +250,7 @@ jobs:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
   # Two more single-credential live suites, grouped the way reasoning-parity
-  # above is: the sweep's steps carry forty provider secrets and each of
+  # above is: the sweep's steps carry many provider credentials and each of
   # these needs exactly one (ANTHROPIC_API_KEY), so appending either to the
   # sweep would queue it behind every other provider for no reason. Unlike
   # reasoning-parity, the two are combined into one job rather than split

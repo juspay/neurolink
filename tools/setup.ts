@@ -93,7 +93,7 @@ class NeuroLinkSetup {
     this.results.environment = await envManager.setupEnvironment();
 
     console.log(
-      `📊 Environment configured with ${this.results.environment.configured.length}/21+ providers`,
+      `📊 Environment configured with ${this.results.environment.configured.length} providers`,
     );
   }
 
@@ -283,7 +283,7 @@ class NeuroLinkSetup {
 
     // Environment
     console.log(
-      `🔧 Environment: ${validation.environment.configured.length}/21+ providers configured`,
+      `🔧 Environment: ${validation.environment.configured.length} providers configured`,
     );
 
     // Package.json
@@ -321,7 +321,7 @@ class NeuroLinkSetup {
     console.log("=".repeat(60));
     console.log(`⏱️  Total setup time: ${Math.round(duration / 1000)}s`);
     console.log(
-      `🔧 Environment: ${this.results.environment.configured.length}/21+ providers`,
+      `🔧 Environment: ${this.results.environment.configured.length} providers configured`,
     );
     console.log(
       `🧹 Scripts: ${this.results.scripts.duplicates.length} duplicates found`,

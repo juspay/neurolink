@@ -419,7 +419,7 @@ Access multiple providers through unified interfaces:
 
 **300+ models from 60+ providers**
 
-- 🌐 Single API for all major providers (Anthropic, OpenAI, Google, Meta, etc.)
+- 🌐 Single API across many AI providers (Anthropic, OpenAI, Google, Meta, etc.)
 - ⚡ Automatic failover and routing
 - 💰 Competitive pricing with cost optimization
 - 🎯 Zero lock-in - switch models instantly

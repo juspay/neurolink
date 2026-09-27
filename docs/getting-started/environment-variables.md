@@ -709,7 +709,7 @@ LiteLLM provides access to 100+ AI models through a unified proxy interface:
 
 #### Benefits
 
-- **100+ Models**: Access to all major AI providers through one interface
+- **100+ Models**: Access to a broad range of AI providers through one interface
 - **Cost Optimization**: Automatic routing to cost-effective models
 - **Unified API**: OpenAI-compatible API for all models
 - **Load Balancing**: Automatic failover and load distribution

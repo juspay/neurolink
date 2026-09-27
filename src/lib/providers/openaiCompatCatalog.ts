@@ -2,7 +2,7 @@ import { buildCatalogEntries } from "./catalog/loader.js";
 import type { OpenAICompatCatalogEntry } from "../types/index.js";
 
 /**
- * Config-driven catalog of the 10 OpenAI-compatible providers whose only
+ * Config-driven catalog of the OpenAI-compatible providers whose only
  * differences from each other are expressible as named, closed catalog
  * quirks (messageContentFormat, timeoutErrorClass, responseFormatDowngrade)
  * rather than real code. Each entry fully replaces what used to be a
@@ -13,7 +13,7 @@ import type { OpenAICompatCatalogEntry } from "../types/index.js";
  *
  * The entries themselves are derived from the JSON catalog
  * (src/lib/providers/catalog/<id>.json) via buildCatalogEntries() — that
- * JSON is now the single source of truth for these 10 providers' identity,
+ * JSON is now the single source of truth for these providers' identity,
  * models, error rules and wire config. See
  * src/lib/providers/catalog/loader.ts for the derivation logic and
  * docs/superpowers/plans/2026-08-28-provider-json-catalog-spec.md for the

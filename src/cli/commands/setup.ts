@@ -390,7 +390,7 @@ async function showWelcomeScreen(): Promise<void> {
   );
   logger.always(
     chalk.blue("│  ") +
-      chalk.gray("Universal interface for 8+ AI providers") +
+      chalk.gray("Unified interface for many AI providers") +
       chalk.blue("                   │"),
   );
   logger.always(

@@ -9,7 +9,7 @@ import { redirectsPluginConfig } from "./config/redirects";
 const config: Config = {
   title: "NeuroLink",
   tagline:
-    "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
+    "Enterprise AI Development Platform - broad provider support, MCP integration, and professional CLI",
   favicon: "img/favicon.svg",
 
   // Production URL - custom domain

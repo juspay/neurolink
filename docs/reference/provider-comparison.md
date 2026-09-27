@@ -132,7 +132,7 @@ Comparison of NeuroLink's text and multimodal AI providers, including capabiliti
 
 ### Text Generation
 
-**All providers support text generation**, but quality varies:
+**Providers support text generation**, but quality varies:
 
 **Tier 1 (Highest Quality):**
 
@@ -703,7 +703,7 @@ _Subscription Pricing (via OAuth):_
 **Strengths:**
 
 - Access to 100+ models via proxy
-- Unified interface for all providers
+- Unified interface across supported providers
 - Cost tracking and analytics
 - Load balancing and failover
 

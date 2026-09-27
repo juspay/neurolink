@@ -312,7 +312,7 @@ await neurolink.generate({
 - Use JSON format for structured data processing
 - Limit to 1000 rows by default (configurable up to 10K)
 - Combine CSV with visualization images for comprehensive analysis
-- Works with ALL providers (not just vision-capable models)
+- Works across supported providers (not just vision-capable models)
 
 ## PDF File Support
 

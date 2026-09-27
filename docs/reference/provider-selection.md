@@ -158,7 +158,7 @@ Match provider capabilities to your feature needs:
 
 | Feature               | Full Support                                                 | Partial Support                                        | No Support                                                  |
 | --------------------- | ------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- |
-| **Streaming**         | All providers                                                | SageMaker                                              | -                                                           |
+| **Streaming**         | All except SageMaker                                         | SageMaker                                              | -                                                           |
 | **Tool Calling**      | OpenAI, Anthropic, Google, Azure, Bedrock, Mistral, DeepSeek | HuggingFace, Ollama, NIM†, LM Studio†, llama.cpp†      | SageMaker                                                   |
 | **Vision**            | OpenAI, Anthropic, Google, Azure                             | Mistral, Ollama, LiteLLM, NIM†, LM Studio†, llama.cpp† | HuggingFace, SageMaker, DeepSeek                            |
 | **PDF Native**        | Anthropic, Google AI Studio, Vertex                          | Bedrock (Claude)                                       | OpenAI, Azure, Mistral, DeepSeek, NIM, LM Studio, llama.cpp |

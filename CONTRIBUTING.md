@@ -282,7 +282,7 @@ For logger levels, structured fields, redaction, and performance guidance, see
 
 ## Testing
 
-NeuroLink has a comprehensive testing suite to ensure reliability across all AI providers and features. Please add tests for any new features or bug fixes.
+NeuroLink has a comprehensive testing suite to ensure reliability across supported AI providers and features. Please add tests for any new features or bug fixes.
 
 ### 🚀 Quick Start Testing
 
@@ -390,7 +390,7 @@ pnpm exec tsx test/continuous-test-suite-issue-01-model-access.ts
 pnpm test:ci
 
 # Individual domain validations
-pnpm test:providers       # 21+ provider validation
+pnpm test:providers       # AI provider validation
 pnpm test:performance     # Performance benchmarks (tools/testing/performanceMonitor.ts)
 pnpm test:voice           # Voice (TTS/STT) validation
 pnpm test:rag             # RAG pipeline validation
@@ -444,7 +444,7 @@ pnpm test
 We maintain integration coverage across:
 
 - ✅ **Core functionality** — All primary features tested
-- ✅ **Provider integration** — All 21+ AI providers validated
+- ✅ **Provider integration** — Supported AI providers validated
 - ✅ **Voice pipeline** — TTS, STT, and realtime voice servers
 - ✅ **Error handling** — Graceful failure scenarios
 - ✅ **MCP integration** — Tool orchestration and configuration

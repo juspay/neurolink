@@ -12,7 +12,7 @@ keywords: litellm, proxy, multi-provider, load balancing, cost tracking
 
 ## Overview
 
-NeuroLink's `litellm` provider connects to a [LiteLLM proxy server](https://docs.litellm.ai/) to access hundreds of models across 100+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Cohere, Groq, Together AI, and more) through a single OpenAI-compatible API. The proxy adds enterprise features like load balancing, fallbacks, budgets, and rate limiting on top of any AI provider.
+NeuroLink's `litellm` provider connects to a [LiteLLM proxy server](https://docs.litellm.ai/) to access hundreds of models across 100+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Cohere, Groq, Together AI, and more) through a single OpenAI-compatible API. The proxy adds enterprise features like load balancing, fallbacks, budgets, and rate limiting on top of the connected AI providers.
 
 ### How It Works
 
@@ -22,7 +22,7 @@ NeuroLink's `litellm` provider connects to a [LiteLLM proxy server](https://docs
 
 ### Key Benefits
 
-- **100+ Providers**: Access hundreds of models across every major AI provider through one interface
+- **100+ Providers**: Access hundreds of models across a broad range of AI providers through one interface
 - **Unified Model Format**: Use `provider/model` naming across all backends
 - **Load Balancing**: Distribute requests across multiple providers/models
 - **Cost Tracking**: Built-in budget management and spend tracking

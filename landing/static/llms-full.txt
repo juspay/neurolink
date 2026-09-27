@@ -1,6 +1,6 @@
 # NeuroLink SDK — Complete Reference
 
-> NeuroLink is an open-source TypeScript AI SDK providing unified access to 13+ AI providers through a single consistent API.
+> NeuroLink is an open-source TypeScript AI SDK providing unified access to AI providers through a single consistent API.
 
 Generated: 2026-02-24
 Summary version: https://neurolink.ink/llms.txt
@@ -44,7 +44,7 @@ neurolink stream "Write a poem about TypeScript"
 # Interactive session
 neurolink loop
 
-## Supported Providers (13+)
+## Supported Providers
 
 | Provider | Slug | Default Model | Auth |
 |----------|------|---------------|------|
@@ -65,7 +65,7 @@ neurolink loop
 ## Core SDK Methods
 
 ### neurolink.generate(options)
-Generate a text response from any provider.
+Generate a text response using any of the supported providers.
 
 Parameters:
 - prompt: string — The input prompt

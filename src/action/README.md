@@ -1,6 +1,6 @@
 # NeuroLink GitHub Action
 
-Run AI-powered workflows with 13 providers directly in GitHub Actions.
+Run AI-powered workflows across supported AI providers directly in GitHub Actions.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ Run AI-powered workflows with 13 providers directly in GitHub Actions.
 
 ## Features
 
-- **Multi-provider support** - 13 AI providers with unified interface
+- **Multi-provider support** - a unified interface across supported AI providers
 - **PR/Issue comments** - Auto-post AI responses with comment updates
 - **Cost tracking** - Built-in analytics with `enable_analytics: true`
 - **Quality evaluation** - Response scoring with `enable_evaluation: true`

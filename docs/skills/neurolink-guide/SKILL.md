@@ -7,7 +7,7 @@ allowed-tools: Read, Grep, Glob
 
 # NeuroLink Usage Guide
 
-NeuroLink is an enterprise AI development platform providing unified access to 44 AI providers (text, decision-making, voice, multimodal) through a single API. It ships as both a TypeScript SDK (`@juspay/neurolink`) and a professional CLI.
+NeuroLink is an enterprise AI development platform providing unified access to supported AI providers (text, decision-making, voice, multimodal) through a single API. It ships as both a TypeScript SDK (`@juspay/neurolink`) and a professional CLI.
 
 ## Quick Navigation
 
@@ -71,16 +71,16 @@ for await (const chunk of stream.stream) {
 
 ## Key Capabilities
 
-| Feature           | Description                                                      |
-| ----------------- | ---------------------------------------------------------------- |
-| **44 Providers**  | OpenAI, Anthropic, Vertex, Bedrock, Azure, Mistral, Ollama, etc. |
-| **Multimodal**    | Images, PDFs, CSV, Excel, Word, 50+ file types                   |
-| **MCP Tools**     | 58+ tools via Model Context Protocol                             |
-| **RAG**           | Built-in chunking, embedding, vector search                      |
-| **Memory**        | Conversation history with Redis support                          |
-| **Streaming**     | Real-time token streaming                                        |
-| **HITL**          | Human-in-the-loop approval workflows                             |
-| **Observability** | Langfuse, OpenTelemetry integration                              |
+| Feature              | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| **Provider Support** | OpenAI, Anthropic, Vertex, Bedrock, Azure, Mistral, Ollama, etc. |
+| **Multimodal**       | Images, PDFs, CSV, Excel, Word, 50+ file types                   |
+| **MCP Tools**        | 58+ tools via Model Context Protocol                             |
+| **RAG**              | Built-in chunking, embedding, vector search                      |
+| **Memory**           | Conversation history with Redis support                          |
+| **Streaming**        | Real-time token streaming                                        |
+| **HITL**             | Human-in-the-loop approval workflows                             |
+| **Observability**    | Langfuse, OpenTelemetry integration                              |
 
 ## Code Templates
 

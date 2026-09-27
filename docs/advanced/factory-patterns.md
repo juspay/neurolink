@@ -2,13 +2,13 @@
 
 ## Overview
 
-NeuroLink has been refactored to use a unified factory pattern architecture where all providers inherit from a common `BaseProvider` class. This provides consistent tool support and behavior across all AI providers.
+NeuroLink has been refactored to use a unified factory pattern architecture where providers inherit from a common `BaseProvider` class. This provides consistent tool support and behavior across supported AI providers.
 
 ## What Changed
 
 ### 1. Unified BaseProvider Architecture
 
-All providers now inherit from `BaseProvider`, which provides:
+Providers now inherit from `BaseProvider`, which provides:
 
 - Built-in tool support (6 core tools)
 - Consistent `generate()` and `stream()` methods
@@ -17,7 +17,7 @@ All providers now inherit from `BaseProvider`, which provides:
 
 ### 2. Automatic Tool Support
 
-Every provider automatically includes these tools:
+Providers automatically include these tools:
 
 - `getCurrentTime` - Get current date and time
 - `readFile` - Read file contents
@@ -31,7 +31,7 @@ Every provider automatically includes these tools:
 Providers no longer need to implement their own tool handling - they inherit it from BaseProvider. This means:
 
 - No more `executeGenerate` methods in individual providers
-- Consistent tool behavior across all providers
+- Consistent tool behavior across supported providers
 - Less code duplication
 
 ## Migration Steps
@@ -119,10 +119,10 @@ After the refactoring, here's the current status of tool support:
 
 ## Benefits of the New Architecture
 
-1. **Consistency**: All providers behave the same way with tools
+1. **Consistency**: Providers behave the same way with tools
 2. **Maintainability**: Less code duplication, easier to update
 3. **Reliability**: Centralized tool handling reduces bugs
-4. **Extensibility**: Easy to add new tools for all providers at once
+4. **Extensibility**: Easy to add new tools for providers at once
 5. **Testing**: Simplified testing with consistent behavior
 
 ## Common Issues and Solutions

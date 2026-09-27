@@ -231,8 +231,8 @@ await runSuite(async () => {
     // key assignment) — e.g. providerRegistry.ts registers ANTHROPIC with
     // aliases ["claude", "anthropic"]. ProviderDescriptor.aliases
     // intentionally excludes the name per its documented contract ("Does
-    // not include `name` itself"). Comparing raw arrays would fail ~24 of
-    // 30 providers on this harmless convention alone. Instead compare the
+    // not include `name` itself"). Comparing raw arrays would fail most
+    // providers on this harmless convention alone. Instead compare the
     // EFFECTIVE set of names that resolve to each provider — name plus
     // aliases, lowercased, from both sides — which targets genuine future
     // drift (an alias added to one side and not the other) without
@@ -525,7 +525,7 @@ await runSuite(async () => {
     }
   });
 
-  logSection("providerUtils env-var checks cover all 30 providers");
+  logSection("providerUtils env-var checks cover every registered provider");
 
   await test("hasProviderEnvVars recognizes a provider outside the old 10-case switch (regression)", async () => {
     const saved = process.env.GROQ_API_KEY;
@@ -702,8 +702,8 @@ await runSuite(async () => {
   await test("getRequiredEnvironmentVariables still delegates vertex/bedrock/litellm to their specific-config checks via credentialsResolvedExternally (regression)", async () => {
     // Was backed by a hand-maintained ENV_CHECK_DELEGATED_TO_SPECIFIC_CONFIG
     // Set; now derived from descriptor.credentialsResolvedExternally. Same
-    // observable behavior — proven identical for all 30 providers + all
-    // aliases by a before/after capture across the refactor.
+    // observable behavior — proven identical for every registered provider +
+    // all aliases by a before/after capture across the refactor.
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
     for (const providerName of ["vertex", "bedrock", "litellm"] as const) {

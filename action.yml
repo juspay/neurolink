@@ -1,5 +1,5 @@
 name: "NeuroLink AI"
-description: "Run AI-powered workflows with 13 providers (OpenAI, Anthropic, Google, AWS, Azure, and more)"
+description: "Run AI-powered workflows across AI providers (OpenAI, Anthropic, Google, AWS, Azure, and more)"
 author: "Juspay Technologies"
 
 branding:

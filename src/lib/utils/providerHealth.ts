@@ -615,7 +615,7 @@ export class ProviderHealthChecker {
    * zero-config local proxy. Their real requirement is validated by
    * checkProviderSpecificConfig()'s dedicated per-provider checks instead.
    * Naively deriving [apiKey, ...extraRequired] from the descriptor for
-   * these three (as for the other 27 providers) would make
+   * these three (as for the other providers) would make
    * checkEnvironmentConfiguration() push a false "missing environment
    * variables" issue — and therefore isHealthy=false — for legitimate
    * fallback-based Vertex auth, AWS_PROFILE/IAM-role Bedrock auth, and

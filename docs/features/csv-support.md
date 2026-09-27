@@ -17,7 +17,7 @@ CSV support in NeuroLink works just like image support - it's a multimodal input
 2. **Parses** CSV data using a streaming parser for memory efficiency
 3. **Formats** CSV content into LLM-optimized text (markdown/json)
 4. **Injects** formatted CSV data into your prompt text
-5. **Works** with ALL AI providers (not limited to vision models)
+5. **Works** across supported AI providers (not limited to vision models)
 
 **Delimiter auto-detection:** the delimiter is detected from the content (comma, **tab / `.tsv`**, semicolon, or pipe) — so tab- and semicolon-separated files parse into the correct columns instead of collapsing into one. Comma remains the default on ambiguity, and parsing is **RFC-4180 quote-aware** (a delimiter inside a `"…"` quoted field, e.g. `"Smith, John"`, does not split the field). The detected delimiter is reported in `metadata.detectedDelimiter`.
 
@@ -601,7 +601,7 @@ try {
 - **Image Support**: Similar multimodal input for images
 - **File Detection**: Auto-detect file types with confidence scores
 - **Memory Efficient**: Streaming parser for large files
-- **Provider Agnostic**: Works with all AI providers
+- **Provider Agnostic**: Works across supported providers
 - **CLI Integration**: Full CLI support with options
 
 ## Summary
@@ -609,7 +609,7 @@ try {
 - CSV support is **multimodal input** (like images)
 - Use `csvFiles` array or `files` array (auto-detect)
 - Customize with `csvOptions` (maxRows, formatStyle, includeHeaders)
-- Works with **ALL providers** (not just vision models)
+- Works across **supported providers** (not just vision models)
 - **Memory efficient** streaming parser
 - CLI support with `--csv`, `--file`, `--csv-max-rows`, `--csv-format`
 - Only **types** exposed from package (not classes)
