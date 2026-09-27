@@ -919,6 +919,16 @@ void runSuite(async () => {
         "stop",
         "result.finishReason does not describe the retry",
       );
+      // The OpenAI-compatible provider writes `metadata.finishReason` by
+      // reference onto its own StreamResult when the stream ends; the
+      // fallback wrapper's live getters must still surface the retry's
+      // value here, not the rejected first attempt's (which never streamed
+      // far enough to resolve a finish reason at all).
+      assert.equal(
+        result.metadata?.finishReason,
+        "stop",
+        "result.metadata.finishReason does not describe the retry",
+      );
       assert.deepEqual(
         result.usage,
         { input: 11, output: 22, total: 33 },

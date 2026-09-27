@@ -2340,6 +2340,20 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // `loopPromise` is undefined when a middleware blocked the request
         // before `doStream` ran, in which case there is no loop to surface.
         await loopPromise;
+        // Record the terminal finish reason on the metadata object this
+        // provider returns by reference (`result.metadata`). A rejected
+        // `loopPromise` throws out of this `await` straight into the `catch`
+        // below, so reaching this line means `runStreamLoop` returned
+        // normally and already called `resolveFinish` with the wire value —
+        // `finishPromise` is settled, not pending.
+        //
+        // `rawFinishReason` is the verbatim vendor value (e.g. "stop",
+        // "length", "tool_calls", "content_filter") and is accurate the
+        // moment the wire stream itself finished, independent of whatever
+        // post-stream work follows. The graded `finishReason` is set later,
+        // once that post-stream work (the structured-output re-ask below)
+        // has actually succeeded — see the assignment after that block.
+        streamMetadata.rawFinishReason = await finishPromise;
         // Structured output for a `stream({ schema })` turn. Runs HERE —
         // after the stream is fully drained — so a tool-free re-ask (when the
         // streamed answer isn't already schema-valid) never reaches
@@ -2386,6 +2400,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             );
           }
         }
+        // Only reached once the structured-output re-ask above (when there
+        // was one) has resolved without throwing. A caller abort during that
+        // re-ask rejects `resolveStreamStructuredData` and skips this line
+        // entirely, so `metadata.finishReason` never claims "stop" for a
+        // turn that actually failed after the wire stream itself finished.
+        streamMetadata.finishReason = "stop";
         // No-output path: stream completed normally but yielded zero text.
         // Build an enriched sentinel + stamp the active OTel span so
         // Pipeline B (ContextEnricher) surfaces a WARNING-level Langfuse

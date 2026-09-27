@@ -66,6 +66,15 @@ function sseChunk(text: string): string {
   })}\n\n`;
 }
 
+/** A terminal SSE chunk carrying the vendor's own `finish_reason` — used by
+ * the metadata coverage below to drive a specific wire value through the
+ * stream loop. */
+function sseFinalChunk(finishReason: string): string {
+  return `data: ${JSON.stringify({
+    choices: [{ delta: {}, finish_reason: finishReason }],
+  })}\n\n`;
+}
+
 /** Env vars this suite mutates — saved/restored around every test so ambient
  * dev-machine values (or a prior test in the same process) can't leak in or
  * out. */
@@ -221,6 +230,110 @@ void runSuite(async () => {
       assert(
         text.includes("ok"),
         "post-400-correction success was not surfaced",
+      );
+    } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  section("stream metadata records the terminal finish reason");
+
+  await test("metadata.finishReason mirrors result.finishReason and metadata.rawFinishReason carries the vendor value for a normal stop", async () => {
+    const envSnapshot = snapshotEnv();
+    const server = createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(sseChunk("hello"));
+      res.write(sseFinalChunk("stop"));
+      res.end("data: [DONE]\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      const result = await nl().stream({
+        provider: "openai-compatible",
+        // A model id not reused by any other test in this file. Context
+        // windows discovered from a 400 overflow correction are cached
+        // module-globally by `${provider}:${model}` (see
+        // `registerRuntimeContextWindow` in
+        // `src/lib/constants/contextWindows.ts`) and outlive the test that
+        // triggered them — the "400 context-overflow fallback" test above
+        // shares this file's process and would otherwise poison "gpt-4o-mini"
+        // with an artificially small budget for every test after it.
+        model: "gpt-4o-mini-metadata-normal-stop",
+        input: { text: "hi" },
+        maxSteps: 1,
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // draining is all this test needs from the stream itself
+      }
+
+      assert(
+        result.metadata?.finishReason !== undefined,
+        "metadata.finishReason was not recorded",
+      );
+      assert(
+        result.metadata?.finishReason === result.finishReason,
+        "metadata.finishReason does not mirror the top-level finishReason",
+      );
+      assert(
+        result.metadata?.rawFinishReason === "stop",
+        "metadata.rawFinishReason did not carry the vendor's raw finish_reason",
+      );
+    } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("metadata.finishReason still mirrors result.finishReason on a max-tokens stop, while metadata.rawFinishReason keeps the vendor's own value", async () => {
+    const envSnapshot = snapshotEnv();
+    const server = createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(sseChunk("hello"));
+      res.write(sseFinalChunk("length"));
+      res.end("data: [DONE]\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      const result = await nl().stream({
+        provider: "openai-compatible",
+        // See the sibling "normal stop" test above for why this needs its
+        // own model id distinct from "gpt-4o-mini" and from that test's id.
+        model: "gpt-4o-mini-metadata-max-tokens",
+        input: { text: "hi" },
+        maxSteps: 1,
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // draining is all this test needs from the stream itself
+      }
+
+      assert(
+        result.metadata?.finishReason !== undefined,
+        "metadata.finishReason was not recorded",
+      );
+      assert(
+        result.metadata?.finishReason === result.finishReason,
+        "metadata.finishReason does not mirror the top-level finishReason",
+      );
+      assert(
+        result.metadata?.rawFinishReason === "length",
+        "metadata.rawFinishReason did not carry the vendor's raw finish_reason",
+      );
+      assert(
+        result.metadata?.rawFinishReason !== result.metadata?.finishReason,
+        "rawFinishReason should preserve the vendor's own value even when it differs from the graded finishReason",
       );
     } finally {
       server.close();
