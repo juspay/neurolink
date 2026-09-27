@@ -25,11 +25,43 @@ export const anthropicManifest: ProviderModelManifest = {
     },
   ],
   models: {
+    "claude-opus-5-5": {
+      aliases: ["opus-5.5"],
+      displayName: "Claude Opus 5.5",
+      contextWindow: 1_000_000,
+      maxOutputTokens: 128_000,
+      // No pricingPerMTok DELIBERATELY: PRICING.anthropic already carries
+      // real rates for this id (input 4.0/output 20.0 per MTok) — see the
+      // claude-sonnet-5 comment below for why this defers to that table.
+      vision: true,
+      functionCalling: true,
+      reasoning: true,
+      jsonMode: true,
+      samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /opus[-_.]?5(?![0-9])/i
+    },
+    "claude-fable-5-1": {
+      aliases: ["fable-5.1"],
+      displayName: "Claude Fable 5.1",
+      contextWindow: 1_000_000,
+      maxOutputTokens: 128_000,
+      // No pricingPerMTok DELIBERATELY: PRICING.anthropic already carries
+      // real rates for this id (input 10.0/output 50.0 per MTok) — see the
+      // claude-sonnet-5 comment below for why this defers to that table.
+      vision: true,
+      functionCalling: true,
+      reasoning: true,
+      jsonMode: true,
+      samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /fable/i
+    },
     "claude-sonnet-5": {
       aliases: ["sonnet-5", "claude-sonnet"],
       displayName: "Claude Sonnet 5",
       contextWindow: 1_000_000,
-      maxOutputTokens: 64_000,
+      // Was 64_000; corrected to 128_000 to match the official spec
+      // (platform.claude.com/docs/en/about-claude/models/overview) and the
+      // matching fix in getClaudeMaxOutputTokens (tokenLimits.ts), which this
+      // manifest's own header comment names as the authoritative source.
+      maxOutputTokens: 128_000,
       // No pricingPerMTok DELIBERATELY: PRICING.anthropic carries real
       // rates for this id, and findRates() is manifest-first with a legacy
       // fallback — omitting the rate here defers to that table instead of

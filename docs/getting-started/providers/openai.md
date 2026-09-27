@@ -103,44 +103,47 @@ OPENAI_MODEL=gpt-4o
 
 ### Available Models (from `OpenAIModels` enum)
 
-| Enum Key              | Model ID              | Series       | Context Window | Notes                |
-| --------------------- | --------------------- | ------------ | -------------- | -------------------- |
-| `GPT_5_4`             | `gpt-5.4`             | GPT-5.4      | 400K           | **New** (March 2026) |
-| `GPT_5_4_MINI`        | `gpt-5.4-mini`        | GPT-5.4      | 400K           | **New** (March 2026) |
-| `GPT_5_4_NANO`        | `gpt-5.4-nano`        | GPT-5.4      | 400K           | **New** (March 2026) |
-| `GPT_5_3_CODEX`       | `gpt-5.3-codex`       | GPT-5.3      | 400K           |                      |
-| `GPT_5_2`             | `gpt-5.2`             | GPT-5.2      | 400K           |                      |
-| `GPT_5_2_CHAT_LATEST` | `gpt-5.2-chat-latest` | GPT-5.2      | 128K           |                      |
-| `GPT_5_2_PRO`         | `gpt-5.2-pro`         | GPT-5.2      | 400K           |                      |
-| `GPT_5_2_CODEX`       | `gpt-5.2-codex`       | GPT-5.2      | 400K           |                      |
-| `GPT_5_1`             | `gpt-5.1`             | GPT-5.1      | 400K           |                      |
-| `GPT_5_1_CHAT_LATEST` | `gpt-5.1-chat-latest` | GPT-5.1      | 128K           |                      |
-| `GPT_5_1_CODEX`       | `gpt-5.1-codex`       | GPT-5.1      | 400K           |                      |
-| `GPT_5_1_CODEX_MAX`   | `gpt-5.1-codex-max`   | GPT-5.1      | 400K           |                      |
-| `GPT_5_1_CODEX_MINI`  | `gpt-5.1-codex-mini`  | GPT-5.1      | 400K           |                      |
-| `GPT_5`               | `gpt-5`               | GPT-5        | 400K           |                      |
-| `GPT_5_MINI`          | `gpt-5-mini`          | GPT-5        | 400K           |                      |
-| `GPT_5_NANO`          | `gpt-5-nano`          | GPT-5        | 400K           |                      |
-| `GPT_5_PRO`           | `gpt-5-pro`           | GPT-5        | 400K           |                      |
-| `GPT_5_CHAT_LATEST`   | `gpt-5-chat-latest`   | GPT-5        | 128K           |                      |
-| `GPT_5_CODEX`         | `gpt-5-codex`         | GPT-5        | 400K           |                      |
-| `GPT_OSS_120B`        | `gpt-oss-120b`        | GPT OSS      | 128K           |                      |
-| `GPT_OSS_20B`         | `gpt-oss-20b`         | GPT OSS      | 128K           |                      |
-| `GPT_4_1`             | `gpt-4.1`             | GPT-4.1      | 1M             |                      |
-| `GPT_4_1_MINI`        | `gpt-4.1-mini`        | GPT-4.1      | 1M             |                      |
-| `GPT_4_1_NANO`        | `gpt-4.1-nano`        | GPT-4.1      | 1M             |                      |
-| `GPT_4O`              | `gpt-4o`              | GPT-4o       | 128K           |                      |
-| `GPT_4O_MINI`         | `gpt-4o-mini`         | GPT-4o       | 128K           | **Default model**    |
-| `O3`                  | `o3`                  | O-Series     | 200K           |                      |
-| `O3_MINI`             | `o3-mini`             | O-Series     | 200K           |                      |
-| `O3_PRO`              | `o3-pro`              | O-Series     | 200K           |                      |
-| `O4_MINI`             | `o4-mini`             | O-Series     | 200K           |                      |
-| `O1`                  | `o1`                  | O-Series     | 200K           |                      |
-| `O1_PREVIEW`          | `o1-preview`          | O-Series     | 128K           | Deprecated           |
-| `O1_MINI`             | `o1-mini`             | O-Series     | 128K           | **Deprecated**       |
-| `GPT_4`               | `gpt-4`               | GPT-4 Legacy | 8K             |                      |
-| `GPT_4_TURBO`         | `gpt-4-turbo`         | GPT-4 Legacy | 128K           |                      |
-| `GPT_3_5_TURBO`       | `gpt-3.5-turbo`       | Legacy       | 16K            |                      |
+| Enum Key              | Model ID              | Series       | Context Window | Notes                    |
+| --------------------- | --------------------- | ------------ | -------------- | ------------------------ |
+| `GPT_6_ASTRA`         | `gpt-6-astra`         | GPT-6        | 1.05M          | **New** (September 2026) |
+| `GPT_6_SOL`           | `gpt-6-sol`           | GPT-6        | 1.05M          | **New** (September 2026) |
+| `GPT_6_LUNA`          | `gpt-6-luna`          | GPT-6        | 1.05M          | **New** (September 2026) |
+| `GPT_5_4`             | `gpt-5.4`             | GPT-5.4      | 400K           | **New** (March 2026)     |
+| `GPT_5_4_MINI`        | `gpt-5.4-mini`        | GPT-5.4      | 400K           | **New** (March 2026)     |
+| `GPT_5_4_NANO`        | `gpt-5.4-nano`        | GPT-5.4      | 400K           | **New** (March 2026)     |
+| `GPT_5_3_CODEX`       | `gpt-5.3-codex`       | GPT-5.3      | 400K           |                          |
+| `GPT_5_2`             | `gpt-5.2`             | GPT-5.2      | 400K           |                          |
+| `GPT_5_2_CHAT_LATEST` | `gpt-5.2-chat-latest` | GPT-5.2      | 128K           |                          |
+| `GPT_5_2_PRO`         | `gpt-5.2-pro`         | GPT-5.2      | 400K           |                          |
+| `GPT_5_2_CODEX`       | `gpt-5.2-codex`       | GPT-5.2      | 400K           |                          |
+| `GPT_5_1`             | `gpt-5.1`             | GPT-5.1      | 400K           |                          |
+| `GPT_5_1_CHAT_LATEST` | `gpt-5.1-chat-latest` | GPT-5.1      | 128K           |                          |
+| `GPT_5_1_CODEX`       | `gpt-5.1-codex`       | GPT-5.1      | 400K           |                          |
+| `GPT_5_1_CODEX_MAX`   | `gpt-5.1-codex-max`   | GPT-5.1      | 400K           |                          |
+| `GPT_5_1_CODEX_MINI`  | `gpt-5.1-codex-mini`  | GPT-5.1      | 400K           |                          |
+| `GPT_5`               | `gpt-5`               | GPT-5        | 400K           |                          |
+| `GPT_5_MINI`          | `gpt-5-mini`          | GPT-5        | 400K           |                          |
+| `GPT_5_NANO`          | `gpt-5-nano`          | GPT-5        | 400K           |                          |
+| `GPT_5_PRO`           | `gpt-5-pro`           | GPT-5        | 400K           |                          |
+| `GPT_5_CHAT_LATEST`   | `gpt-5-chat-latest`   | GPT-5        | 128K           |                          |
+| `GPT_5_CODEX`         | `gpt-5-codex`         | GPT-5        | 400K           |                          |
+| `GPT_OSS_120B`        | `gpt-oss-120b`        | GPT OSS      | 128K           |                          |
+| `GPT_OSS_20B`         | `gpt-oss-20b`         | GPT OSS      | 128K           |                          |
+| `GPT_4_1`             | `gpt-4.1`             | GPT-4.1      | 1M             |                          |
+| `GPT_4_1_MINI`        | `gpt-4.1-mini`        | GPT-4.1      | 1M             |                          |
+| `GPT_4_1_NANO`        | `gpt-4.1-nano`        | GPT-4.1      | 1M             |                          |
+| `GPT_4O`              | `gpt-4o`              | GPT-4o       | 128K           |                          |
+| `GPT_4O_MINI`         | `gpt-4o-mini`         | GPT-4o       | 128K           | **Default model**        |
+| `O3`                  | `o3`                  | O-Series     | 200K           |                          |
+| `O3_MINI`             | `o3-mini`             | O-Series     | 200K           |                          |
+| `O3_PRO`              | `o3-pro`              | O-Series     | 200K           |                          |
+| `O4_MINI`             | `o4-mini`             | O-Series     | 200K           |                          |
+| `O1`                  | `o1`                  | O-Series     | 200K           |                          |
+| `O1_PREVIEW`          | `o1-preview`          | O-Series     | 128K           | Deprecated               |
+| `O1_MINI`             | `o1-mini`             | O-Series     | 128K           | **Deprecated**           |
+| `GPT_4`               | `gpt-4`               | GPT-4 Legacy | 8K             |                          |
+| `GPT_4_TURBO`         | `gpt-4-turbo`         | GPT-4 Legacy | 128K           |                          |
+| `GPT_3_5_TURBO`       | `gpt-3.5-turbo`       | Legacy       | 16K            |                          |
 
 Context window sizes are sourced from `src/lib/constants/contextWindows.ts`. Models without explicit entries use the provider default of 128K.
 

@@ -102,6 +102,8 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 
 | Enum Key            | Model ID                     | Family | Context | Max Output | Vision | Extended Thinking | Deprecated |
 | ------------------- | ---------------------------- | ------ | ------- | ---------- | ------ | ----------------- | ---------- |
+| `CLAUDE_OPUS_5_5`   | `claude-opus-5-5`            | Opus   | 1M      | 128,000    | Yes    | Yes               | No         |
+| `CLAUDE_FABLE_5_1`  | `claude-fable-5-1`           | Fable  | 1M      | 128,000    | Yes    | Yes               | No         |
 | `CLAUDE_OPUS_4_6`   | `claude-opus-4-6`            | Opus   | 1M      | 128,000    | Yes    | Yes               | No         |
 | `CLAUDE_SONNET_4_6` | `claude-sonnet-4-6`          | Sonnet | 1M      | 64,000     | Yes    | Yes               | No         |
 | `CLAUDE_OPUS_4_5`   | `claude-opus-4-5-20251101`   | Opus   | 200K    | 64,000     | Yes    | Yes               | No         |

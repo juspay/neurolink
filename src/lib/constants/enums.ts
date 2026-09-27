@@ -299,6 +299,12 @@ export enum BedrockModels {
  * Supported Models for OpenAI
  */
 export enum OpenAIModels {
+  // GPT-6 Series (Released September 2026) - current flagship family, per
+  // developers.openai.com/api/docs/models
+  GPT_6_ASTRA = "gpt-6-astra",
+  GPT_6_SOL = "gpt-6-sol",
+  GPT_6_LUNA = "gpt-6-luna",
+
   // GPT-5.3 Series (Released February 2026) - Latest coding models
   GPT_5_3_CODEX = "gpt-5.3-codex",
 
@@ -371,6 +377,21 @@ export enum OpenAIModels {
  * Note: Azure uses deployment names, these are model identifiers
  */
 export enum AzureOpenAIModels {
+  // GPT-6 Series (September 2026) - current flagship family, confirmed on
+  // Azure OpenAI (learn.microsoft.com/azure/ai-foundry/openai/concepts/models)
+  GPT_6_ASTRA = "gpt-6-astra",
+  GPT_6_SOL = "gpt-6-sol",
+  GPT_6_LUNA = "gpt-6-luna",
+
+  // GPT-5.6 Series (Azure-only as of Sep 2026 — retired from the OpenAI-direct
+  // catalog, still documented on Azure OpenAI)
+  GPT_5_6_SOL = "gpt-5.6-sol",
+  GPT_5_6_TERRA = "gpt-5.6-terra",
+  GPT_5_6_LUNA = "gpt-5.6-luna",
+
+  // GPT-5.5 (Azure-only as of Sep 2026 — same situation as GPT-5.6 above)
+  GPT_5_5 = "gpt-5.5",
+
   // GPT-5.2 Series (Latest - December 2025)
   GPT_5_2 = "gpt-5.2",
   GPT_5_2_CHAT = "gpt-5.2-chat",
@@ -558,6 +579,11 @@ export enum AnthropicModels {
   CLAUDE_OPUS_5 = "claude-opus-5",
   CLAUDE_SONNET_5 = "claude-sonnet-5",
   CLAUDE_FABLE_5 = "claude-fable-5",
+
+  // Claude 5.5 / 5.1 Series (September 2026) — confirmed on
+  // platform.claude.com/docs/en/about-claude/models/overview
+  CLAUDE_OPUS_5_5 = "claude-opus-5-5",
+  CLAUDE_FABLE_5_1 = "claude-fable-5-1",
 
   // Claude 4.7 / 4.8 Series
   CLAUDE_OPUS_4_8 = "claude-opus-4-8",
@@ -1000,6 +1026,14 @@ export enum CohereModels {
  * @see https://docs.voyageai.com/docs/embeddings
  */
 export enum VoyageModels {
+  /** Voyage 4 — latest general-purpose flagship */
+  VOYAGE_4 = "voyage-4",
+  /** Voyage 4 Large — largest / highest quality */
+  VOYAGE_4_LARGE = "voyage-4-large",
+  /** Voyage 4 Lite — smaller / cheaper */
+  VOYAGE_4_LITE = "voyage-4-lite",
+  /** Voyage Code 4 — code-tuned */
+  VOYAGE_CODE_4 = "voyage-code-4",
   /** Voyage 3.5 — latest general-purpose (default) */
   VOYAGE_3_5 = "voyage-3.5",
   /** Voyage 3.5 Lite — smaller / cheaper */
@@ -1424,6 +1458,7 @@ export enum UpstageModels {
 }
 
 export enum XaiModels {
+  GROK_4_7 = "grok-4.7",
   GROK_4_6 = "grok-4.6",
   GROK_4_5 = "grok-4.5",
   GROK_4_3 = "grok-4.3",

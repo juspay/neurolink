@@ -10,6 +10,24 @@ Supported Models for OpenAI
 
 ## Enumeration Members
 
+### GPT_6_ASTRA
+
+> **GPT_6_ASTRA**: `"gpt-6-astra"`
+
+---
+
+### GPT_6_SOL
+
+> **GPT_6_SOL**: `"gpt-6-sol"`
+
+---
+
+### GPT_6_LUNA
+
+> **GPT_6_LUNA**: `"gpt-6-luna"`
+
+---
+
 ### GPT_5_3_CODEX
 
 > **GPT_5_3_CODEX**: `"gpt-5.3-codex"`

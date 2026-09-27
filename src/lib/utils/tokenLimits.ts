@@ -147,6 +147,15 @@ export function getClaudeMaxOutputTokens(model: string | undefined): number {
   if (/sonnet[-_.]?4/.test(m) || /haiku[-_.]?4/.test(m)) {
     return 64000;
   }
+  // Claude 5.x family (Opus 5 / Opus 5.5 / Sonnet 5 / Fable 5.1 / Mythos):
+  // all confirmed at 128K standard max output on
+  // platform.claude.com/docs/en/about-claude/models/overview. The
+  // (?![0-9]) guard keeps this off dated 4.x ids like "opus-4-5-20251101"
+  // (Opus 4.5, not Opus 5), where the family word sits before the "4", not
+  // directly before this "5".
+  if (/(?:opus|sonnet|fable|mythos)[-_.]?5(?![0-9])/.test(m)) {
+    return 128000;
+  }
   // Claude 3.7 Sonnet supports 64K output.
   if (/3[-_.]?7[-_.]?sonnet/.test(m)) {
     return 64000;

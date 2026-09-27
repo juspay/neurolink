@@ -98,6 +98,10 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   voyage: {
     // Voyage embeddings: max input tokens vary 16K-32K per model
     _default: 32_000,
+    "voyage-4": 32_000,
+    "voyage-4-large": 32_000,
+    "voyage-4-lite": 32_000,
+    "voyage-code-4": 32_000,
     "voyage-3.5": 32_000,
     "voyage-3.5-lite": 32_000,
     "voyage-3-large": 32_000,
@@ -126,6 +130,10 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   anthropic: {
     _default: 200_000,
+    // Claude 5.5 / 5.1 (Sep 2026) — 1M context window, confirmed on
+    // platform.claude.com/docs/en/about-claude/models/overview
+    "claude-opus-5-5": 1_000_000,
+    "claude-fable-5-1": 1_000_000,
     // Claude 5 (mid 2026) — 1M context window
     "claude-sonnet-5": 1_000_000,
     // Claude 4.6 (Feb 2026) — 1M context window
@@ -149,6 +157,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   openai: {
     _default: 128_000,
+    // GPT-6 family (Sep 2026) — 1.05M context, per
+    // developers.openai.com/api/docs/models
+    "gpt-6-astra": 1_050_000,
+    "gpt-6-sol": 1_050_000,
+    "gpt-6-luna": 1_050_000,
     // GPT-5.4 family — 1.05M context
     "gpt-5.4": 1_050_000,
     "gpt-5.4-mini": 400_000,
@@ -217,6 +230,8 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   vertex: {
     _default: 1_048_576,
     // Claude on Vertex
+    "claude-opus-5-5": 1_000_000,
+    "claude-fable-5-1": 1_000_000,
     "claude-sonnet-5": 1_000_000,
     "claude-opus-4-6": 1_000_000,
     "claude-sonnet-4-6": 1_000_000,
@@ -253,6 +268,9 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   bedrock: {
     _default: 200_000,
+    // Claude 5.5 / 5.1 (Sep 2026)
+    "anthropic.claude-opus-5-5": 1_000_000,
+    "anthropic.claude-fable-5-1": 1_000_000,
     // Claude 4.6
     "anthropic.claude-opus-4-6-v1": 1_000_000,
     "anthropic.claude-sonnet-4-6": 1_000_000,
@@ -278,6 +296,16 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   azure: {
     _default: 128_000,
+    // GPT-6 family (Sep 2026) — 1.05M context, per
+    // learn.microsoft.com/azure/ai-foundry/openai/concepts/models
+    "gpt-6-astra": 1_050_000,
+    "gpt-6-sol": 1_050_000,
+    "gpt-6-luna": 1_050_000,
+    // GPT-5.6 / GPT-5.5 — Azure-only as of Sep 2026, same 1.05M context
+    "gpt-5.6-sol": 1_050_000,
+    "gpt-5.6-terra": 1_050_000,
+    "gpt-5.6-luna": 1_050_000,
+    "gpt-5.5": 1_050_000,
     // GPT-5.4
     "gpt-5.4": 1_050_000,
     "gpt-5.4-mini": 400_000,

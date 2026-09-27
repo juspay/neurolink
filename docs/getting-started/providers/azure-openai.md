@@ -210,7 +210,14 @@ const ai = new NeuroLink({
 
 | Model                      | Deployment Name        | Context | Vision | Best For                    | TPM Quota |
 | -------------------------- | ---------------------- | ------- | ------ | --------------------------- | --------- |
-| **GPT-5.4**                | gpt-5.4                | 1,050K  | Yes    | Latest flagship             | 10K - 1M  |
+| **GPT-6 Astra** _(new)_    | gpt-6-astra            | 1,050K  | Yes    | Current flagship            | 10K - 1M  |
+| **GPT-6 Sol** _(new)_      | gpt-6-sol              | 1,050K  | Yes    | Current flagship            | 10K - 1M  |
+| **GPT-6 Luna** _(new)_     | gpt-6-luna             | 1,050K  | Yes    | Current flagship            | 10K - 1M  |
+| **GPT-5.6 Sol** _(new)_    | gpt-5.6-sol            | 1,050K  | Yes    | Azure-only (retired direct) | 10K - 1M  |
+| **GPT-5.6 Terra** _(new)_  | gpt-5.6-terra          | 1,050K  | Yes    | Azure-only (retired direct) | 10K - 1M  |
+| **GPT-5.6 Luna** _(new)_   | gpt-5.6-luna           | 1,050K  | Yes    | Azure-only (retired direct) | 10K - 1M  |
+| **GPT-5.5** _(new)_        | gpt-5.5                | 1,050K  | Yes    | Azure-only (retired direct) | 10K - 1M  |
+| **GPT-5.4**                | gpt-5.4                | 1,050K  | Yes    | Flagship (March 2026)       | 10K - 1M  |
 | **GPT-5.4 Mini**           | gpt-5.4-mini           | 400K    | Yes    | Fast, cost-effective        | 10K - 10M |
 | **GPT-5.4 Nano**           | gpt-5.4-nano           | 400K    | Yes    | Ultra-lightweight           | 10K - 10M |
 | **GPT-5**                  | gpt-5                  | 400K    | Yes    | Advanced reasoning          | 10K - 1M  |

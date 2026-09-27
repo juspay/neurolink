@@ -320,7 +320,7 @@ Specialised embedding providers for RAG / retrieval pipelines (no chat):
 
 **Top-tier RAG embeddings**
 
-- 📊 voyage-3-large flagship; voyage-3.5 default; voyage-code-3 for code
+- 📊 voyage-4-large newest flagship; voyage-3.5 default; voyage-code-3 / voyage-code-4 for code
 - 🌍 voyage-multilingual-2 + domain-tuned (finance, law)
 - 🔑 API key from [dash.voyageai.com/api-keys](https://dash.voyageai.com/api-keys)
 

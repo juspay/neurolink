@@ -18,7 +18,11 @@ today, particularly strong on retrieval and reranking benchmarks. NeuroLink
 wraps `api.voyageai.com/v1/embeddings` so the same `embed()` / `embedMany()`
 contract used by every other embedding-capable provider works for Voyage.
 
-- **`voyage-3.5`** — latest general-purpose (default)
+- **`voyage-4`** — newest general-purpose flagship (not yet the default)
+- **`voyage-4-large`** — largest / highest accuracy in the 4.x line
+- **`voyage-4-lite`** — smaller / cheaper 4.x variant
+- **`voyage-code-4`** — code-tuned (best for code retrieval), 4.x line
+- **`voyage-3.5`** — general-purpose (default)
 - **`voyage-3-large`** — flagship; highest accuracy
 - **`voyage-3.5-lite`** — smaller / cheaper
 - **`voyage-code-3`** — code-tuned (best for code retrieval)
@@ -175,17 +179,22 @@ chat use is not supported.)
 
 Per the [Voyage embeddings docs](https://docs.voyageai.com/docs/embeddings):
 
-| Model                   | Default dim | Tokens | Best For                   |
-| ----------------------- | ----------- | ------ | -------------------------- |
-| `voyage-3.5`            | 1024        | 32K    | General-purpose (default)  |
-| `voyage-3.5-lite`       | 1024        | 32K    | Smaller / cheaper          |
-| `voyage-3-large`        | 1024        | 32K    | Flagship; highest accuracy |
-| `voyage-code-3`         | 1024        | 32K    | Code retrieval             |
-| `voyage-finance-2`      | 1024        | 32K    | Finance domain             |
-| `voyage-law-2`          | 1024        | 16K    | Legal domain               |
-| `voyage-multilingual-2` | unspecified | 32K    | Cross-lingual              |
+| Model                   | Default dim | Tokens | Best For                        |
+| ----------------------- | ----------- | ------ | ------------------------------- |
+| `voyage-4`              | 1024        | 32K    | General-purpose, 4.x line       |
+| `voyage-4-large`        | 1024        | 32K    | Flagship, highest quality (4.x) |
+| `voyage-4-lite`         | 1024        | 32K    | Smaller / cheaper (4.x)         |
+| `voyage-code-4`         | 1024        | 32K    | Code retrieval (4.x)            |
+| `voyage-3.5`            | 1024        | 32K    | General-purpose (default)       |
+| `voyage-3.5-lite`       | 1024        | 32K    | Smaller / cheaper               |
+| `voyage-3-large`        | 1024        | 32K    | Flagship; highest accuracy      |
+| `voyage-code-3`         | 1024        | 32K    | Code retrieval                  |
+| `voyage-finance-2`      | 1024        | 32K    | Finance domain                  |
+| `voyage-law-2`          | 1024        | 16K    | Legal domain                    |
+| `voyage-multilingual-2` | unspecified | 32K    | Cross-lingual                   |
 
-**Matryoshka flexible dimensions:** `voyage-3.5`, `voyage-3.5-lite`,
+**Matryoshka flexible dimensions:** `voyage-4`, `voyage-4-large`,
+`voyage-4-lite`, `voyage-code-4`, `voyage-3.5`, `voyage-3.5-lite`,
 `voyage-3-large`, and `voyage-code-3` all support flexible output dimensions
 of **256 / 512 / 1024 / 2048** via the `output_dimension` parameter on the
 Voyage API. The default (and what NeuroLink currently returns) is 1024.

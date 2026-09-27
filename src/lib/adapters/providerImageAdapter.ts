@@ -155,6 +155,10 @@ const CATALOG_VISION_MODELS: Record<string, readonly string[]> =
 const VISION_CAPABILITIES: Record<string, readonly string[]> = {
   ...CATALOG_VISION_MODELS,
   openai: [
+    // GPT-6 family (released Sep 2026) - current flagship, text + image input
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
     // GPT-5.4 family (released Mar 2026) - Latest flagship models
     "gpt-5.4",
     "gpt-5.4-mini",
@@ -243,6 +247,15 @@ const VISION_CAPABILITIES: Record<string, readonly string[]> = {
     "claude-3-haiku",
   ],
   azure: [
+    // GPT-6 family (Sep 2026) - current flagship, text + image input
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    // GPT-5.6 / GPT-5.5 (Azure-only as of Sep 2026), text + image input
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
     // GPT-5.1 family (December 2025)
     "gpt-5.1",
     "gpt-5.1-chat",

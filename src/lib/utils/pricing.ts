@@ -720,6 +720,11 @@ const PRICING: Record<
     // Voyage bills per million input tokens — output dimension is the
     // embedding vector, not generated tokens. We charge to input only.
     _default: { input: 0.18 / 1_000_000, output: 0 },
+    // Voyage 4 family — docs.voyageai.com/docs/embeddings pricing table
+    "voyage-4": { input: 0.06 / 1_000_000, output: 0 },
+    "voyage-4-large": { input: 0.12 / 1_000_000, output: 0 },
+    "voyage-4-lite": { input: 0.02 / 1_000_000, output: 0 },
+    "voyage-code-4": { input: 0.12 / 1_000_000, output: 0 },
     "voyage-3.5": { input: 0.06 / 1_000_000, output: 0 },
     "voyage-3.5-lite": { input: 0.02 / 1_000_000, output: 0 },
     "voyage-3-large": { input: 0.18 / 1_000_000, output: 0 },
