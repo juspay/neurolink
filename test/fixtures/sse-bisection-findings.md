@@ -97,14 +97,69 @@ per the header comment — never touched a real account). Three rounds:
 CLI's own internal error, not inferred. `response.completed` alone is
 necessary but not sufficient: it terminates the turn cleanly but does not by
 itself cause the CLI to render output, so a serializer cannot skip straight
-to it as an optimization. `no-created` / `no-in-progress` / `tool-call`
-(id round-trip) were not run in this pass — the two results above already
-answer the highest-value question in the table (the serializer's minimum
-required event set includes at least `created` → `in_progress` →
-`output_item.added` → deltas → `output_item.done` → `completed`; it cannot
-compress further at the `output_item.added` boundary). Re-run the remaining
-scripts before finalizing task 8's serializer if the `created`/`in_progress`
-question or the tool-call id round-trip becomes load-bearing for that task.
+to it as an optimization. `no-created` / `no-in-progress` were not run in
+this pass — the two results above already answer the highest-value question
+in the table (the serializer's minimum required event set includes at least
+`created` → `in_progress` → `output_item.added` → deltas →
+`output_item.done` → `completed`; it cannot compress further at the
+`output_item.added` boundary). Re-run those two remaining scripts before
+finalizing task 8's serializer if the `created`/`in_progress` question
+becomes load-bearing for that task.
+
+## `tool-call` script — real result (2026-09-27, settles the outbound-fallback design's Q1)
+
+Run against the same real `codex-cli 0.155.1` binary (fresh throwaway
+`CODEX_HOME`, dummy `replay` provider, `--script tool-call`). This is the one
+open question the "Open questions gating the build" table in
+`docs/superpowers/specs/2026-09-27-codex-outbound-fallback-design.md`
+(merged, PR #1825) flagged as answerable without a live account: _"Does the
+real Codex CLI accept a `call_id` it did not mint (a `toolu_`-shaped id)?"\_
+
+The listener sent a `function_call` turn with `id`/`call_id` both set to
+`toolu_replay0000000000000000` (an Anthropic-shaped id, never minted by
+Codex). `codex exec "say hello"` was run against it, piping a small
+diagnostic wrapper (reusing the real listener's exported `buildScript`/
+`classifyRequestBody` unmodified, scratch-only, not committed) that logs the
+`function_call`/`function_call_output` items' `id`/`call_id` fields from the
+CLI's follow-up request:
+
+```
+=== request 1 === (turn-issuing request)
+classification: {"hasFunctionCallOutput":false,"inputItemCount":7}
+
+=== request 2 === (the CLI's follow-up, after attempting the tool call)
+classification: {"hasFunctionCallOutput":true,"inputItemCount":9}
+call_id-bearing items:
+  { "type": "function_call",        "id": "toolu_replay0000000000000000", "call_id": "toolu_replay0000000000000000" }
+  { "type": "function_call_output", "id": "fco_ffa9771b-fa89-54b0-9c04-cd583a622320", "call_id": "toolu_replay0000000000000000" }
+```
+
+**Settled: yes, verbatim.** The CLI echoes an externally-minted `toolu_`-
+prefixed `call_id` back unmodified in the next turn's `function_call_output`
+— it mints its own internal `id` for the output item (`fco_`-prefixed) but
+never touches the `call_id` correlation field. This directly confirms the
+design's stated assumption (tool-call-fidelity §6, test #20
+`tool_use_response_maps_call_id_verbatim`, called "the single most important
+test in this matrix") and the request-translation section's id-mapping
+design: passing Anthropic's `tool_use.id` through as Codex's `call_id`
+verbatim is safe for the real CLI, not just plausible from public API docs.
+
+One side effect, unrelated to the id question: the CLI's own local tool
+router logged `ERROR codex_core::tools::router: error=Fatal error: tool exec
+invoked with incompatible payload` and recovered by itself. The listener's
+`tool-call` script names the synthetic tool `"exec"`, which collides with
+Codex CLI's real built-in shell-exec tool, and passes it a bare string
+argument (`"ls -la"`) rather than that tool's actual expected JSON args
+shape — the CLI's real "exec" tool tried to run it for real (sandboxed
+read-only, so harmless) and failed on the payload shape, not on the id. The
+CLI recovered gracefully (non-fatal, turn continued, exit 0) and still
+produced the `function_call_output`/`call_id` round-trip captured above.
+Worth renaming the script's synthetic tool away from `"exec"` (e.g.
+`"replay_tool"`) in a future run to avoid this collision entirely and get a
+cleaner log, but it did not prevent this question from being settled.
+
+`no-created` / `no-in-progress` remain the only two bisection scripts not
+yet run against the real CLI.
 
 ## What was actually run in the sandboxed dispatch that wrote this file
 

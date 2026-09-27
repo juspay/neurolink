@@ -58,18 +58,22 @@ off at every step, so behaviour is byte-for-byte unchanged until the final enabl
 ## Open questions gating the build
 
 Every one needs the same thing: **real captured native Codex traffic**. The repo has 4 synthetic
-fixtures and one real single-turn capture (`test/fixtures/codex-response-usage.sse`, captured
-2026-08-21). These are listed here because two of them can invalidate a whole section, so they
-should be settled by capture before the PRs that depend on them are written.
+fixtures, one real single-turn capture (`~/.neurolink/reference/codex-cli-wire-sample.json`,
+captured 2026-09-21), a real usage-frame capture (`test/fixtures/codex-response-usage.sse`,
+captured 2026-08-21), and one real controlled bisection experiment against the actual
+`codex_exec/0.155.1` binary (`scripts/codex-replay-listener.ts`, `test/fixtures/sse-bisection-findings.md`,
+run 2026-09-27). Two questions are now settled; the rest are listed here because they can still
+invalidate a whole section, so they should be settled before the PRs that depend on them are
+written.
 
-| Question                                                                                       | Blocks  | Settled by                                                    |
-| ---------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------- |
-| Does the real Codex CLI accept a `call_id` it did not mint (a `toolu_`-shaped id)?             | PR 4    | serve one turn through the fallback and observe the next turn |
-| Does Anthropic/Vertex accept a non-`toolu_`-shaped `tool_use.id` in history?                   | PR 4    | one live call with such an id in history                      |
-| Are the developer-role prefix blocks byte-identical turn to turn?                              | PR 5    | capture 2 turns of one session, diff `input[0..4]`            |
-| Does a genuine first-turn request omit all of `prompt_cache_key` / `thread_id` / `session_id`? | PR 5    | capture one true first-turn request                           |
-| Does native Codex ever send top-level `tools` / `reasoning` / `stream:false`?                  | PR 2    | one live capture with non-default reasoning                   |
-| Is a resumed session's `input` full-history or incremental?                                    | PR 2, 5 | capture two turns of a resumed session                        |
+| Question                                                                                       | Blocks  | Settled by                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Does the real Codex CLI accept a `call_id` it did not mint (a `toolu_`-shaped id)?             | PR 4    | **SETTLED (2026-09-27) — yes, verbatim.** `codex-replay-listener.ts --script tool-call` against real `codex_exec/0.155.1`: the CLI's follow-up `function_call_output` carried `call_id: "toolu_replay0000000000000000"` unmodified (own `id` field is CLI-minted `fco_`-prefixed; `call_id` is untouched). See `test/fixtures/sse-bisection-findings.md`, "`tool-call` script — real result". |
+| Does Anthropic/Vertex accept a non-`toolu_`-shaped `tool_use.id` in history?                   | PR 4    | one live call with such an id in history — still open; the bisection listener above can't test this direction (it stands in for the Codex backend, not Anthropic's)                                                                                                                                                                                                                           |
+| Are the developer-role prefix blocks byte-identical turn to turn?                              | PR 5    | capture 2 turns of one session, diff `input[0..4]` — still open; the 2026-09-21 capture is single-turn                                                                                                                                                                                                                                                                                        |
+| Does a genuine first-turn request omit all of `prompt_cache_key` / `thread_id` / `session_id`? | PR 5    | **SETTLED — no, it does not omit them.** The 2026-09-21 capture is a confirmed first turn (zero `function_call`/`function_call_output` items, tool-fidelity §6) and carries `prompt_cache_key`, and `client_metadata.thread_id`/`session_id`, all present.                                                                                                                                    |
+| Does native Codex ever send top-level `tools` / `reasoning` / `stream:false`?                  | PR 2    | **Partially settled.** The 2026-09-21 capture confirms `reasoning` is sent with a non-default effort (`{"effort":"xhigh","context":"all_turns"}`) and confirms no top-level `tools` field exists (only nested `additional_tools`, consistent with the corrected shape). `stream:false` is still unconfirmed — that capture has `stream:true`.                                                 |
+| Is a resumed session's `input` full-history or incremental?                                    | PR 2, 5 | capture two turns of a resumed session — still open; the 2026-09-21 capture is first-turn, not resumed                                                                                                                                                                                                                                                                                        |
 
 ## Contents
 
