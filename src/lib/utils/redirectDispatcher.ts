@@ -1,4 +1,3 @@
-import { Agent, getGlobalDispatcher, interceptors } from "undici";
 import type { Dispatcher } from "undici";
 
 /**
@@ -45,11 +44,17 @@ const NPM_UNDICI_MAJOR = 7;
  * requests. Losing a proxy on one Node version is recoverable; silently failing
  * every redirecting download is not.
  *
+ * `undici` itself is imported dynamically here (rather than at module scope)
+ * so that requiring this module — and transitively, messageBuilder.ts /
+ * fileDetector.ts — does not force-load undici until a URL attachment is
+ * actually fetched. See test/continuous-test-suite-import-cost.ts.
+ *
  * @param maxRedirections How many redirects to follow before giving up.
  */
-export function redirectFollowingDispatcher(
+export async function redirectFollowingDispatcher(
   maxRedirections: number,
-): Dispatcher {
+): Promise<Dispatcher> {
+  const { Agent, getGlobalDispatcher, interceptors } = await import("undici");
   const builtinMajor = Number.parseInt(
     process.versions.undici?.split(".")[0] ?? "",
     10,

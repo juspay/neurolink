@@ -3,9 +3,10 @@
  *
  * Exports the full multi-provider authentication system including:
  * - Anthropic OAuth 2.0 flow (PKCE, token storage, callback server)
- * - Multi-provider auth (Auth0, Clerk, Firebase, Supabase, Cognito,
- *   Keycloak, Better Auth, WorkOS, JWT, OAuth2, Custom)
- * - AuthProviderFactory / AuthProviderRegistry for lazy-loaded provider creation
+ * - AuthProviderFactory / AuthProviderRegistry for lazy-loaded provider
+ *   creation (Auth0, Clerk, Firebase, Supabase, Cognito, Keycloak, Better
+ *   Auth, WorkOS, JWT, OAuth2, Custom) — obtain instances through the
+ *   factory, not a direct class import; see the NOTE below
  * - Auth middleware (token extraction, RBAC, rate limiting)
  * - Session management (memory, Redis)
  * - Auth context (AsyncLocalStorage-based request scoping)
@@ -120,7 +121,7 @@ export {
 // NOTE: Concrete provider classes are NOT re-exported here to preserve lazy
 // loading via dynamic imports in AuthProviderFactory.  Obtain provider
 // instances through the factory instead:
-//   const provider = await AuthProviderFactory.create("auth0", config);
+//   const provider = await AuthProviderFactory.createProvider("auth0", config);
 
 // Auth Middleware
 export {
@@ -183,19 +184,3 @@ export {
 
 // Server Bridge
 export { createAuthValidatorFromProvider } from "./serverBridge.js";
-
-// =============================================================================
-// AUTH PROVIDER CLASSES — public re-exports (match the module docstring above)
-// =============================================================================
-
-export { Auth0Provider } from "./providers/auth0.js";
-export { BetterAuthProvider } from "./providers/betterAuth.js";
-export { ClerkProvider } from "./providers/clerk.js";
-export { CognitoProvider } from "./providers/CognitoProvider.js";
-export { CustomAuthProvider } from "./providers/custom.js";
-export { FirebaseAuthProvider } from "./providers/firebase.js";
-export { JWTProvider } from "./providers/jwt.js";
-export { KeycloakProvider } from "./providers/KeycloakProvider.js";
-export { OAuth2Provider } from "./providers/oauth2.js";
-export { SupabaseAuthProvider } from "./providers/supabase.js";
-export { WorkOSProvider } from "./providers/workos.js";

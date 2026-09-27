@@ -13,7 +13,6 @@ import {
   resolve as resolvePath,
   sep,
 } from "path";
-import { request } from "undici";
 import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
 // Lazy-loaded processor singletons — avoids loading heavy media deps
 // (mediabunny, fluent-ffmpeg, music-metadata, adm-zip) on every generate() call.
@@ -2168,8 +2167,13 @@ export class FileDetector {
     return withRetry(
       async () => {
         try {
+          // Dynamic import keeps undici off the package's static import
+          // graph — it is only needed once a URL-referenced attachment
+          // actually has to be fetched. See
+          // test/continuous-test-suite-import-cost.ts.
+          const { request } = await import("undici");
           const response = await request(url, {
-            dispatcher: redirectFollowingDispatcher(5),
+            dispatcher: await redirectFollowingDispatcher(5),
             method: "GET",
             headersTimeout: timeout,
             bodyTimeout: timeout,
@@ -3054,8 +3058,13 @@ class MimeTypeStrategy implements DetectionStrategy {
         // dump() can't hang detection, per the project's async-timeout guideline.
         contentType = await withTimeout(
           (async () => {
+            // Dynamic import keeps undici off the package's static import
+            // graph — it is only needed once a URL-referenced attachment
+            // actually has to be fetched. See
+            // test/continuous-test-suite-import-cost.ts.
+            const { request } = await import("undici");
             const response = await request(input, {
-              dispatcher: redirectFollowingDispatcher(5),
+              dispatcher: await redirectFollowingDispatcher(5),
               method: "HEAD",
               headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
               bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,

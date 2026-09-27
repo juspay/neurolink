@@ -17,7 +17,6 @@
  * @module utils/safeFetch
  */
 
-import { Agent, fetch as undiciFetch } from "undici";
 import type { PinnedAddress, SafeDownloadOptions } from "../types/index.js";
 import { readBoundedBuffer } from "./sizeGuard.js";
 import { validateAndResolveUrl } from "./ssrfGuard.js";
@@ -34,11 +33,17 @@ const DEFAULT_TIMEOUT_MS = 60_000;
  * the OS resolver prefers AAAA, that broke every safeDownload (Replicate /
  * Runway / Kling asset fetches) while plain curl of the same URL succeeded —
  * curl races both families (Happy Eyeballs); a one-address pin cannot.
+ *
+ * `undici` is imported dynamically (this function is only ever called from
+ * the already-async `safeDownload`) so that requiring this module does not
+ * force-load undici until a download actually happens. See
+ * test/continuous-test-suite-import-cost.ts.
  */
-function buildPinnedAgent(
+async function buildPinnedAgent(
   hostname: string,
   addresses: readonly PinnedAddress[],
-): Agent {
+) {
+  const { Agent } = await import("undici");
   const primary = addresses[0];
   if (!primary) {
     throw new Error(
@@ -114,7 +119,11 @@ export async function safeDownload(
   const parsed = new URL(validatedUrl);
   const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
 
-  const agent = buildPinnedAgent(hostname, addresses);
+  // Dynamic import keeps undici off the package's static import graph — it
+  // is only needed once a download actually happens. See
+  // test/continuous-test-suite-import-cost.ts.
+  const { fetch: undiciFetch } = await import("undici");
+  const agent = await buildPinnedAgent(hostname, addresses);
 
   const timeoutCtrl = new AbortController();
   const timeoutId = setTimeout(

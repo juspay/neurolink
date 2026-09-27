@@ -82,7 +82,7 @@ import { NeuroLink } from "../dist/index.js";
 
 import { Hono } from "hono";
 
-import { CustomAuthProvider } from "../dist/auth/index.js";
+import { CustomAuthProvider } from "../dist/auth/providers/custom.js";
 
 import { ServerAuthorizationError } from "../dist/server/index.js";
 

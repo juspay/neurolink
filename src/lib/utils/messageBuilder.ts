@@ -6,7 +6,6 @@ import {
 } from "fs/promises";
 import type { FileHandle } from "fs/promises";
 import pLimit from "p-limit";
-import { request } from "undici";
 import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
 import {
   MultimodalLogger,
@@ -2316,8 +2315,12 @@ async function downloadImageFromUrl(url: string): Promise<string> {
   await urlDownloadRateLimiter.acquire();
 
   try {
+    // Dynamic import keeps undici off the package's static import graph —
+    // it is only needed once a URL-referenced image actually has to be
+    // fetched. See test/continuous-test-suite-import-cost.ts.
+    const { request } = await import("undici");
     const response = await request(url, {
-      dispatcher: redirectFollowingDispatcher(5),
+      dispatcher: await redirectFollowingDispatcher(5),
       method: "GET",
       headersTimeout: 10000, // 10 second timeout for headers
       bodyTimeout: 30000, // 30 second timeout for body,

@@ -18,7 +18,10 @@ import {
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { Agent } from "undici";
+// Type-only: erased at compile time, so this does not force-load undici.
+// The value is imported dynamically at the single construction site below.
+// See test/continuous-test-suite-import-cost.ts.
+import type { Agent } from "undici";
 import {
   buildStableClaudeCodeBillingHeader,
   CLAUDE_CLI_USER_AGENT,
@@ -422,6 +425,50 @@ function prepareAnthropicWire(
 }
 
 let anthropicUpstreamDispatcher: Agent | undefined;
+let anthropicUpstreamDispatcherPromise: Promise<Agent> | undefined;
+
+/**
+ * Lazily construct (once) and cache the upstream Agent, reused across every
+ * request rather than rebuilt per call.
+ *
+ * `undici` is imported dynamically here — rather than as a static top-level
+ * import — so that requiring this module (and transitively, the package
+ * entry that re-exports `createClaudeProxyRoutes`) does not force-load undici
+ * until an upstream Anthropic request actually dispatches. The construction
+ * itself is guarded by a cached promise, not a bare `??=` on the Agent, so
+ * concurrent first callers await the same in-flight construction instead of
+ * each racing past the `undefined` check and building a duplicate Agent. A
+ * rejected construction (a bad undici install, an Agent constructor throwing)
+ * clears the cached promise rather than leaving it permanently rejected, so
+ * the next request gets a fresh attempt instead of every later request
+ * failing forever on a cached failure. See
+ * test/continuous-test-suite-import-cost.ts.
+ */
+async function getAnthropicUpstreamDispatcher(): Promise<Agent> {
+  if (anthropicUpstreamDispatcher) {
+    return anthropicUpstreamDispatcher;
+  }
+  anthropicUpstreamDispatcherPromise ??= (async () => {
+    try {
+      const { Agent: UndiciAgent } = await import("undici");
+      // Node's global fetch applies Undici's 300s default headers timeout
+      // before the route's 15-minute abort signal. Keep both transport
+      // deadlines aligned with the proxy contract.
+      const agent = new UndiciAgent({
+        headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+        bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+      });
+      anthropicUpstreamDispatcher = agent;
+      return agent;
+    } catch (error) {
+      // Let a later request try again instead of every subsequent request
+      // failing forever against a cached rejection.
+      anthropicUpstreamDispatcherPromise = undefined;
+      throw error;
+    }
+  })();
+  return anthropicUpstreamDispatcherPromise;
+}
 
 async function fetchAnthropicUpstream(
   url: string,
@@ -455,15 +502,8 @@ async function fetchAnthropicUpstream(
     ctx.metadata.tokenBudget = lease.snapshot;
     throw init.signal?.reason ?? ctx.abortSignal?.reason;
   }
-  // Node's global fetch applies Undici's 300s default headers timeout before
-  // the route's 15-minute abort signal. Keep both transport deadlines aligned
-  // with the proxy contract and instantiate lazily so importing routes has no
-  // open transport handles.
-  anthropicUpstreamDispatcher ??= new Agent({
-    headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
-    bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
-  });
   try {
+    const upstreamDispatcher = await getAnthropicUpstreamDispatcher();
     const dispatchedBody = String(init.body);
     recordAttempt(dispatch.accountLabel, dispatch.accountType);
     dispatch.tracer?.logUpstreamRequestHeaders(
@@ -484,7 +524,7 @@ async function fetchAnthropicUpstream(
     const response = await fetch(url, {
       ...init,
       body: dispatchedBody,
-      dispatcher: anthropicUpstreamDispatcher,
+      dispatcher: upstreamDispatcher,
     } as RequestInit);
     return observeAnthropicBudgetResponse(
       response,
