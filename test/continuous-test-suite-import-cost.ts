@@ -38,6 +38,8 @@ const LAZY_PACKAGES = [
   "redis",
   "@redis/client",
   "@opentelemetry/sdk-trace-node",
+  "@opentelemetry/sdk-trace-base",
+  "@opentelemetry/exporter-trace-otlp-http",
   "@opentelemetry/exporter-logs-otlp-http",
   "@opentelemetry/exporter-metrics-otlp-http",
   "@modelcontextprotocol/sdk",

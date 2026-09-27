@@ -7,16 +7,14 @@ import {
   type Counter,
   type Histogram,
 } from "@opentelemetry/api";
-import {
-  BasicTracerProvider,
-  BatchSpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { resourceFromAttributes } from "@opentelemetry/resources";
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from "@opentelemetry/semantic-conventions";
+// The heavy OTel SDK packages below (sdk-trace-base, the OTLP trace
+// exporter, resources, semantic-conventions) are loaded with `await
+// import(...)` inside initializeTelemetry(), so requiring this module
+// doesn't pull them in for processes that never enable telemetry. Only the
+// type used in a field annotation is imported here, statically — it is
+// erased at build time and never triggers the runtime import; the actual
+// class comes from the dynamic import's own namespace.
+import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { logger } from "../utils/logger.js";
 import type { HealthMetrics } from "../types/index.js";
 
@@ -46,12 +44,46 @@ export class TelemetryService {
   private totalResponseTime: number = 0;
   private responseTimeCount: number = 0;
 
+  // Async-init readiness + buffering. Instruments above are constructed by
+  // an async initializeTelemetry() that the constructor fires but does not
+  // await (see getInstance()'s comment). A recording call can therefore
+  // legitimately arrive while telemetry is enabled but the instruments
+  // don't exist yet — that is NOT the same as telemetry being disabled, so
+  // it must not be dropped silently. `pendingCalls` buffers the OTEL side
+  // effect of such a call (never the whole method — see each recordX
+  // method's emitX split) until `markReady()` drains it. The cap and
+  // rate-limited warning below exist only for a pathological case (init
+  // that never resolves); the common case drains within milliseconds.
+  private static readonly MAX_PENDING_CALLS = 200;
+  private pendingCalls: Array<() => void> = [];
+  private isReady = false;
+  private droppedPendingCallWarned = false;
+  /** The in-flight (or already-settled) async init. Never rejects — see
+   * initializeTelemetry()'s catch block, which always resolves normally.
+   * `initialize()`/`shutdown()` await it so they don't race construction. */
+  private readyPromise?: Promise<void>;
+
   private constructor() {
     // Check if telemetry is enabled
     this.enabled = this.isTelemetryEnabled();
 
     if (this.enabled) {
-      this.initializeTelemetry();
+      // initializeTelemetry() is async — it dynamically imports the OTel
+      // SDK packages and constructs the tracer/meter/instruments — but it
+      // is fired here WITHOUT an await. The constructor itself must stay
+      // fully synchronous and non-yielding, because getInstance() below is
+      // a plain, synchronous check-then-assign with no await in between.
+      // That is only race-free as long as nothing here yields control back
+      // to the event loop before `TelemetryService.instance` is assigned.
+      // Awaiting anything in the constructor (or making getInstance()
+      // async) would let two concurrent getInstance() callers both observe
+      // "not yet assigned" and each construct their own instance — the
+      // exact double-construction race that
+      // observability/instrumentation.ts's initializeOpenTelemetry() already
+      // hit and had to fix with a shared in-flight promise (see the
+      // "Initialize OpenTelemetry once and let concurrent callers share the
+      // work" comment there). Do not reintroduce it here.
+      this.readyPromise = this.initializeTelemetry();
     } else {
       logger.debug(
         "[Telemetry] Disabled - set NEUROLINK_TELEMETRY_ENABLED=true or configure OTEL_EXPORTER_OTLP_ENDPOINT to enable",
@@ -60,6 +92,8 @@ export class TelemetryService {
   }
 
   static getInstance(): TelemetryService {
+    // Synchronous check-then-assign — see the constructor's comment above
+    // for why this must never gain an await before the assignment.
     if (!TelemetryService.instance) {
       TelemetryService.instance = new TelemetryService();
     }
@@ -122,14 +156,27 @@ export class TelemetryService {
     });
   }
 
-  private initializeTelemetry(): void {
+  private async initializeTelemetry(): Promise<void> {
     try {
       if (this.hasExternalTracerProvider()) {
         this.adoptExternalTracerProvider(
           "global tracer provider already registered",
         );
+        this.markReady();
         return;
       }
+
+      const [
+        { BasicTracerProvider, BatchSpanProcessor },
+        { OTLPTraceExporter },
+        { resourceFromAttributes },
+        { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION },
+      ] = await Promise.all([
+        import("@opentelemetry/sdk-trace-base"),
+        import("@opentelemetry/exporter-trace-otlp-http"),
+        import("@opentelemetry/resources"),
+        import("@opentelemetry/semantic-conventions"),
+      ]);
 
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "neurolink-ai",
@@ -150,6 +197,7 @@ export class TelemetryService {
       this.tracer = this.tracerProvider.getTracer("neurolink-ai");
 
       this.initializeMetrics();
+      this.markReady();
 
       logger.debug("[Telemetry] Initialized local telemetry exporter", {
         endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -167,11 +215,17 @@ export class TelemetryService {
         this.adoptExternalTracerProvider(
           "duplicate global tracer registration detected",
         );
+        this.markReady();
         return;
       }
 
       logger.error("[Telemetry] Failed to initialize:", error);
       this.enabled = false;
+      // No instruments exist and none ever will for this instance — there
+      // is nothing left to drain a buffered call against, so the buffer is
+      // cleared rather than drained. Every recording method's `!this.enabled`
+      // guard now makes it a no-op anyway.
+      this.discardPendingCalls();
     }
   }
 
@@ -222,9 +276,65 @@ export class TelemetryService {
     );
   }
 
+  // ============================================================
+  // Pending-call buffer (see the field comment above pendingCalls)
+  // ============================================================
+
+  private bufferPendingCall(call: () => void): void {
+    if (this.pendingCalls.length >= TelemetryService.MAX_PENDING_CALLS) {
+      // Drop the oldest, not the newest — recent calls are more likely to
+      // still matter to whoever is about to read a dashboard.
+      this.pendingCalls.shift();
+      if (!this.droppedPendingCallWarned) {
+        this.droppedPendingCallWarned = true;
+        logger.warn(
+          `[Telemetry] Pending metric buffer exceeded ${TelemetryService.MAX_PENDING_CALLS} entries — dropping the oldest buffered call(s). Logged once, not per drop: telemetry initialization may be unusually slow or stalled.`,
+        );
+      }
+    }
+    this.pendingCalls.push(call);
+  }
+
+  /** Instruments now exist — drain anything buffered while we waited, in
+   * order, then flip fully sync for every call after this one. */
+  private markReady(): void {
+    this.isReady = true;
+    if (this.pendingCalls.length === 0) {
+      return;
+    }
+    const buffered = this.pendingCalls;
+    this.pendingCalls = [];
+    for (const call of buffered) {
+      try {
+        call();
+      } catch (error) {
+        logger.warn(
+          "[Telemetry] A buffered metric call failed during drain:",
+          error,
+        );
+      }
+    }
+  }
+
+  private discardPendingCalls(): void {
+    this.pendingCalls = [];
+  }
+
   async initialize(): Promise<void> {
     if (!this.enabled) {
       return;
+    }
+
+    // The tracer/meter/instruments are constructed asynchronously (see the
+    // constructor's comment). Wait for that to settle before inspecting
+    // usingExternalTracerProvider/tracerProvider below, so this method's
+    // behavior doesn't depend on how many event-loop ticks have passed
+    // since getInstance() was called — without this, a caller invoking
+    // initialize() right after getInstance() would almost always observe
+    // `!this.tracerProvider` and return early, silently skipping the
+    // AsyncLocalStorageContextManager registration below.
+    if (this.readyPromise) {
+      await this.readyPromise;
     }
 
     if (this.usingExternalTracerProvider) {
@@ -318,7 +428,32 @@ export class TelemetryService {
     this.totalResponseTime += duration;
     this.responseTimeCount++;
 
-    if (!this.enabled || !this.aiRequestCounter) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      // Instruments aren't constructed yet — buffer the OTEL side effect
+      // only (emitAIRequest), never this whole method: the runtime
+      // counters above must fire exactly once per call, not again when the
+      // buffer drains.
+      this.bufferPendingCall(() =>
+        this.emitAIRequest(provider, model, tokens, duration, cost),
+      );
+      return;
+    }
+
+    this.emitAIRequest(provider, model, tokens, duration, cost);
+  }
+
+  private emitAIRequest(
+    provider: string,
+    model: string,
+    tokens: number,
+    duration: number,
+    cost?: number,
+  ): void {
+    if (!this.aiRequestCounter) {
       return;
     }
 
@@ -337,7 +472,20 @@ export class TelemetryService {
     // Track runtime metrics
     this.errorCount++;
 
-    if (!this.enabled || !this.aiProviderErrors) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() => this.emitAIError(provider, error));
+      return;
+    }
+
+    this.emitAIError(provider, error);
+  }
+
+  private emitAIError(provider: string, error: Error): void {
+    if (!this.aiProviderErrors) {
       return;
     }
 
@@ -353,7 +501,26 @@ export class TelemetryService {
     duration: number,
     success: boolean,
   ): void {
-    if (!this.enabled || !this.mcpToolCalls) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() =>
+        this.emitMCPToolCall(toolName, duration, success),
+      );
+      return;
+    }
+
+    this.emitMCPToolCall(toolName, duration, success);
+  }
+
+  private emitMCPToolCall(
+    toolName: string,
+    duration: number,
+    success: boolean,
+  ): void {
+    if (!this.mcpToolCalls) {
       return;
     }
 
@@ -368,7 +535,20 @@ export class TelemetryService {
     // Track runtime metrics
     this.activeConnectionCount++;
 
-    if (!this.enabled || !this.connectionCounter) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() => this.emitConnection(type));
+      return;
+    }
+
+    this.emitConnection(type);
+  }
+
+  private emitConnection(type: "websocket" | "sse" | "http"): void {
+    if (!this.connectionCounter) {
       return;
     }
 
@@ -379,7 +559,20 @@ export class TelemetryService {
     // Track runtime metrics
     this.activeConnectionCount = Math.max(0, this.activeConnectionCount - 1);
 
-    if (!this.enabled || !this.connectionCounter) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() => this.emitConnectionClosed(type));
+      return;
+    }
+
+    this.emitConnectionClosed(type);
+  }
+
+  private emitConnectionClosed(type: "websocket" | "sse" | "http"): void {
+    if (!this.connectionCounter) {
       return;
     }
 
@@ -395,7 +588,26 @@ export class TelemetryService {
     this.totalResponseTime += duration;
     this.responseTimeCount++;
 
-    if (!this.enabled || !this.responseTimeHistogram) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() =>
+        this.emitResponseTime(endpoint, method, duration),
+      );
+      return;
+    }
+
+    this.emitResponseTime(endpoint, method, duration);
+  }
+
+  private emitResponseTime(
+    endpoint: string,
+    method: string,
+    duration: number,
+  ): void {
+    if (!this.responseTimeHistogram) {
       return;
     }
 
@@ -412,7 +624,24 @@ export class TelemetryService {
     value: number,
     labels?: Record<string, string>,
   ): void {
-    if (!this.enabled || !this.meter) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() => this.emitCustomMetric(name, value, labels));
+      return;
+    }
+
+    this.emitCustomMetric(name, value, labels);
+  }
+
+  private emitCustomMetric(
+    name: string,
+    value: number,
+    labels?: Record<string, string>,
+  ): void {
+    if (!this.meter) {
       return;
     }
 
@@ -428,7 +657,26 @@ export class TelemetryService {
     value: number,
     labels?: Record<string, string>,
   ): void {
-    if (!this.enabled || !this.meter) {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (!this.isReady) {
+      this.bufferPendingCall(() =>
+        this.emitCustomHistogram(name, value, labels),
+      );
+      return;
+    }
+
+    this.emitCustomHistogram(name, value, labels);
+  }
+
+  private emitCustomHistogram(
+    name: string,
+    value: number,
+    labels?: Record<string, string>,
+  ): void {
+    if (!this.meter) {
       return;
     }
 
@@ -513,6 +761,17 @@ export class TelemetryService {
 
   // Cleanup
   async shutdown(): Promise<void> {
+    // See initialize()'s comment: wait for the async instrument
+    // construction to settle before deciding whether there is a
+    // tracerProvider to shut down. Without this, a shutdown() called
+    // immediately after getInstance() would see no tracerProvider yet and
+    // no-op, while construction — which is already in flight — finishes
+    // moments later and leaves a live exporter (with its background flush
+    // timers) behind with nothing left to ever shut it down.
+    if (this.readyPromise) {
+      await this.readyPromise;
+    }
+
     if (
       this.enabled &&
       this.tracerProvider &&

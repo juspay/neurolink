@@ -14,6 +14,14 @@ import "dotenv/config";
  * rather than relying on exporter timers. That proves concurrent initializers
  * share one construction, that NeuroLink shutdown cannot race a still-running
  * initialization, and that a flush racing a failed initialization skips.
+ * The buffered-metric case below uses the same exception for the same
+ * reason: it imports `dist/telemetry/telemetryService.js` directly (not the
+ * `dist/index.js` barrel) to reach `TelemetryService.getInstance()` and its
+ * runtime-accessible `pendingCalls`/`isReady`/`readyPromise` fields, and it
+ * patches `@opentelemetry/api`'s NoopMeter source (no live OTLP collector is
+ * needed — nothing here registers a global MeterProvider, so `.createCounter()`
+ * returns the shared no-op counter) to count `Counter.add()` invocations
+ * instead of standing up a real exporter.
  *
  * Run: npx tsx test/continuous-test-suite-observability.ts --provider=vertex
  */
@@ -3632,6 +3640,140 @@ async function testShutdownDuringInit(): Promise<boolean | null> {
 }
 
 // ============================================================
+// BUFFERED METRIC DURING ASYNC INIT
+// ============================================================
+
+/**
+ * `TelemetryService`'s constructor fires its async `initializeTelemetry()`
+ * without awaiting it (must stay synchronous — see that constructor's own
+ * comment on why, and `getInstance()`'s). That leaves a real window, between
+ * `getInstance()` returning and the dynamic OTel imports resolving, where
+ * `enabled` is already true but no counter/histogram exists yet. A recording
+ * call landing in that window must be buffered and replayed once ready, not
+ * dropped — losing it would silently blackhole the exact cold-start metrics
+ * `TelemetryHandler.recordPerformanceMetrics`/`recordTTSFailure`,
+ * `proxyTracer.recordMetrics()`, and `externalServerManager`'s
+ * `recordMCPToolCall()` sites emit with no `await` between `getInstance()`
+ * and the record call.
+ *
+ * A controllable gate is spliced into `initializeTelemetry()` via a load
+ * hook, exactly where `testShutdownDuringInit` above splices its own gate
+ * into `shutdownOpenTelemetryOnce()`. This makes the race deterministic — no
+ * timing, no retries: the recording call is made while the gate provably
+ * has not resolved, and "was it recorded" is answered by counting
+ * invocations of the underlying OTel `Counter.add()` (via a second load hook
+ * over `@opentelemetry/api`'s NoopMeter — no live collector needed, since
+ * nothing in this bare subprocess registers a global MeterProvider) rather
+ * than by polling or sleeping.
+ */
+async function testTelemetryBufferedDuringAsyncInit(): Promise<boolean | null> {
+  logSection("Telemetry buffered metric during async init");
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 15)) {
+    logTest(
+      "Telemetry buffered metric during async init",
+      "SKIP",
+      `registerHooks needs Node >=22.15.0, running ${process.version}`,
+    );
+    return null;
+  }
+  const script = `
+    import { registerHooks } from "node:module";
+    let releaseGate;
+    globalThis.__telemetryInitGate = new Promise((r) => { releaseGate = r; });
+    globalThis.__noopCounterAdds = 0;
+    registerHooks({
+      load(url, context, next) {
+        const loaded = next(url, context);
+        if (url.endsWith("/dist/telemetry/telemetryService.js")) {
+          const patched = String(loaded.source).replace(
+            "async initializeTelemetry() {\\n        try {",
+            "async initializeTelemetry() {\\n        await globalThis.__telemetryInitGate;\\n        try {",
+          );
+          if (patched === String(loaded.source)) {
+            throw new Error("precondition: initializeTelemetry() anchor not found — dist may be stale or the method was reshaped");
+          }
+          return { ...loaded, source: patched };
+        }
+        if (
+          url.includes("/@opentelemetry/api/") &&
+          url.endsWith("/build/src/metrics/NoopMeter.js")
+        ) {
+          const patched = String(loaded.source).replace(
+            "add(_value, _attributes) { }",
+            "add(_value, _attributes) { globalThis.__noopCounterAdds++; }",
+          );
+          if (patched === String(loaded.source)) {
+            throw new Error("precondition: NoopCounterMetric.add anchor not found");
+          }
+          return { ...loaded, source: patched };
+        }
+        return loaded;
+      },
+    });
+
+    process.env.NEUROLINK_TELEMETRY_ENABLED = "true";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:1";
+
+    const { TelemetryService } = await import("./dist/telemetry/telemetryService.js");
+    const telemetry = TelemetryService.getInstance();
+
+    // Precondition: the gate is genuinely blocking construction right now —
+    // otherwise the rest of this script would prove nothing about buffering.
+    if (telemetry.isReady) {
+      throw new Error("precondition: instruments were already ready before the gate was released");
+    }
+
+    // A recording call made in the enabled-but-not-ready window.
+    telemetry.recordCustomMetric("buffer_probe", 1, { probe: "telemetry-buffering" });
+
+    // It must not have reached OTel yet (buffered, not emitted early).
+    if (globalThis.__noopCounterAdds !== 0) {
+      throw new Error("precondition: counter.add() fired before init resolved — nothing left to prove about buffering");
+    }
+    // And it must not have been silently dropped either: this is the same
+    // failure the break-on-purpose revert (a bare no-op-if-not-ready) produces,
+    // just caught one step earlier than the final add()-count assertion below.
+    if (telemetry.pendingCalls.length !== 1) {
+      throw new Error("BUFFERED_METRIC_DROPPED: the 'buffer_probe' custom metric recorded before async init resolved was not buffered (expected 1 pending call, got " + telemetry.pendingCalls.length + ") — it was silently dropped instead");
+    }
+
+    releaseGate();
+    await telemetry.readyPromise;
+
+    if (!telemetry.isReady) {
+      throw new Error("readyPromise resolved but isReady is still false");
+    }
+    if (telemetry.pendingCalls.length !== 0) {
+      throw new Error("buffer was not drained after init became ready");
+    }
+    if (globalThis.__noopCounterAdds !== 1) {
+      throw new Error("BUFFERED_METRIC_DROPPED: expected the counter's add() to fire exactly once after drain, got " + globalThis.__noopCounterAdds);
+    }
+    console.log("TELEMETRY_BUFFER_DRAINED_OK");
+  `;
+
+  const result = await runCommand(process.execPath, [
+    "--input-type=module",
+    "-e",
+    script,
+  ]);
+  if (
+    !result.success ||
+    !result.stdout.includes("TELEMETRY_BUFFER_DRAINED_OK")
+  ) {
+    logTest(
+      "Telemetry buffered metric during async init",
+      "FAIL",
+      `a metric recorded before async init resolved was not replayed — exit=${result.code}; stderr=${result.stderr.slice(-1000)}`,
+    );
+    return false;
+  }
+  logTest("Telemetry buffered metric during async init", "PASS");
+  return true;
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3659,6 +3801,10 @@ async function runAllTests(): Promise<void> {
       fn: testOtlpInitializationReadiness,
     },
     { name: "Shutdown During Init", fn: testShutdownDuringInit },
+    {
+      name: "Telemetry Buffered Metric During Async Init",
+      fn: testTelemetryBufferedDuringAsyncInit,
+    },
     { name: "Telemetry Service Init", fn: testTelemetryServiceInit },
     {
       name: "External TracerProvider Mode",
