@@ -677,6 +677,21 @@ export abstract class BaseProvider implements AIProvider {
     let activeStream: unknown = source;
     let activeIterator: { return?: (value?: unknown) => unknown } =
       sourceIterator;
+    // The StreamResult whose non-stream fields (model, provider, metadata,
+    // analytics, tool*) the caller should see. Starts as the first attempt
+    // and is reassigned to a fallback candidate's own result the moment that
+    // candidate actually commits real output (see the retry loop below) —
+    // never to a candidate that failed before producing anything. Read by
+    // the live getters built at the bottom of this function, so a caller
+    // that reads a field AFTER a fallback takes over sees the attempt that
+    // actually served the stream, not the abandoned one.
+    let activeResult: StreamResult = result;
+    // Some provider results expose getter-only properties. The forwarding
+    // result below must still be writable because NeuroLink's stream pipeline
+    // assigns final fields after constructing it. Keep assignment overrides
+    // scoped to the result that was active when the assignment happened, so a
+    // value written to a rejected attempt cannot shadow a later retry.
+    const assignedValues = new WeakMap<object, Map<PropertyKey, unknown>>();
     const iterableOf = <T>(iterator: AsyncIterator<T>): AsyncIterable<T> => ({
       [Symbol.asyncIterator]: () => iterator,
     });
@@ -761,7 +776,13 @@ export abstract class BaseProvider implements AIProvider {
                 retryHeld.push(chunk);
                 continue;
               }
-              retryCommitted = true;
+              if (!retryCommitted) {
+                retryCommitted = true;
+                // This candidate is now the attempt serving the stream:
+                // every metadata/analytics/tool field the caller reads must
+                // resolve from here, never from the abandoned first attempt.
+                activeResult = retry;
+              }
               while (retryHeld.length > 0) {
                 yield retryHeld.shift();
               }
@@ -802,14 +823,65 @@ export abstract class BaseProvider implements AIProvider {
       cancelStream(activeStream);
       releaseIterator(activeIterator);
     });
-    // A naked spread reads (and thereby snapshots) every enumerable getter
-    // on `result` — including a provider's lazily-populated `toolsUsed` /
-    // `toolExecutions` — before the consumer has pulled a single chunk.
-    // Re-applying the original accessor descriptors keeps those fields live.
-    return preserveLiveStreamAccessors(result, {
-      ...result,
+    // A naked spread would read (and thereby snapshot) every field on
+    // `result` immediately — before the generator above has even started —
+    // permanently freezing the first attempt's values. Define every declared
+    // StreamResult field instead of only the keys present on `result`: retry
+    // providers may expose optional fields the rejected attempt omitted.
+    const target = {
       stream: wrapped as StreamResult["stream"],
-    });
+    } as StreamResult;
+    const resultKeys = [
+      "knowledge",
+      "agentModeVersion",
+      "provider",
+      "model",
+      "usage",
+      "finishReason",
+      "stopReason",
+      "rawFinishReason",
+      "toolCalls",
+      "toolResults",
+      "toolEvents",
+      "toolExecutions",
+      "toolsUsed",
+      "metadata",
+      "analytics",
+      "evaluation",
+      "events",
+      "workflow",
+      "transcription",
+      "audio",
+      "ttsMetadata",
+    ] as const satisfies ReadonlyArray<Exclude<keyof StreamResult, "stream">>;
+    for (const key of resultKeys) {
+      Object.defineProperty(target, key, {
+        enumerable: true,
+        configurable: true,
+        get: () => {
+          const assigned = assignedValues.get(activeResult);
+          return assigned?.has(key) ? assigned.get(key) : activeResult[key];
+        },
+        set: (value: StreamResult[typeof key]) => {
+          const descriptor = Object.getOwnPropertyDescriptor(activeResult, key);
+          if (descriptor?.set) {
+            descriptor.set.call(activeResult, value);
+            return;
+          }
+          if (!descriptor || "value" in descriptor) {
+            Reflect.set(activeResult, key, value);
+            return;
+          }
+          let assigned = assignedValues.get(activeResult);
+          if (!assigned) {
+            assigned = new Map<PropertyKey, unknown>();
+            assignedValues.set(activeResult, assigned);
+          }
+          assigned.set(key, value);
+        },
+      });
+    }
+    return target;
   }
 
   /**

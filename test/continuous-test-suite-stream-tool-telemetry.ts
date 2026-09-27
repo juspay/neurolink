@@ -392,6 +392,110 @@ function startMidStreamFailoverServer(toolName: string) {
   });
 }
 
+/**
+ * Rejects the FIRST request outright with an HTTP 404 (a real
+ * `model_not_found` vendor shape), then serves a normal streamed completion
+ * to every request after — naming whatever model was actually requested in
+ * its own response, so a caller can tell which attempt produced the
+ * StreamResult it received.
+ *
+ * This is the OTHER lazy-failure shape `withStreamModelFallback`
+ * (src/lib/core/baseProvider.ts) handles, distinct from
+ * `startMidStreamFailoverServer` above: that one fails a well-formed stream
+ * PARTWAY THROUGH (drives the same-model `streamWithIterationFallback`
+ * reconnect in neurolink.ts), while this one fails the request before any
+ * content streams at all (drives the CROSS-MODEL invalid-model retry this
+ * suite targets). `DEFAULT_ERROR_RULES` (src/lib/utils/errorClassifier.ts)
+ * classifies any bare `statusCode === 404` as `InvalidModelError` — the
+ * message text doesn't matter, only the status.
+ */
+function startInvalidModelFallbackServer() {
+  let requestCount = 0;
+  const requestedModels: string[] = [];
+
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    requestCount++;
+    const body: Record<string, unknown> = JSON.parse(
+      Buffer.concat(chunks).toString("utf8") || "{}",
+    );
+    const model = String(body.model ?? "");
+    requestedModels.push(model);
+
+    if (requestCount === 1) {
+      res.writeHead(404, {
+        "content-type": "application/json",
+        "x-neurolink-attempt": "rejected-first-attempt",
+      });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `The model \`${model}\` does not exist or you do not have access to it.`,
+            type: "invalid_request_error",
+            code: "model_not_found",
+          },
+        }),
+      );
+      return;
+    }
+
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    res.write(
+      `data: ${JSON.stringify({
+        id: "chatcmpl-fallback",
+        object: "chat.completion.chunk",
+        created: 0,
+        model,
+        choices: [
+          {
+            index: 0,
+            delta: { content: '{"attempt":"retry"}' },
+            finish_reason: null,
+          },
+        ],
+      })}\n\n`,
+    );
+    res.write(
+      `data: ${JSON.stringify({
+        id: "chatcmpl-fallback",
+        object: "chat.completion.chunk",
+        created: 0,
+        model,
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: 11,
+          completion_tokens: 22,
+          total_tokens: 33,
+        },
+      })}\n\n`,
+    );
+    res.end("data: [DONE]\n\n");
+  });
+
+  return new Promise<{
+    port: number;
+    requestedModelsNow(): string[];
+    close(): Promise<void>;
+  }>((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        port,
+        requestedModelsNow: () => requestedModels.slice(),
+        close: () =>
+          new Promise<void>((r) => {
+            server.closeAllConnections?.();
+            server.close(() => r());
+          }),
+      });
+    });
+  });
+}
+
 function assertToolTelemetryPresent(
   result: { toolsUsed?: unknown; toolExecutions?: unknown },
   toolName: string,
@@ -729,6 +833,104 @@ void runSuite(async () => {
       // the abandoned one. Before the fix they were captured from the first
       // attempt at build time, which ran no tool at all.
       assertToolTelemetryPresent(result, toolName);
+    } finally {
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("after a cross-model invalid-model fallback, model/metadata/usage describe the retry, not the rejected attempt", async () => {
+    // `openai-compatible` is used (rather than `openai`) because
+    // `OpenAIProvider` inherits an empty `getModelFallbacks()` — it has no
+    // candidate to retry with. `OpenAICompatibleProvider.getFallbackModels()`
+    // returns a fixed list (gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-3.5-turbo,
+    // claude-3-5-sonnet, claude-3-haiku, gemini-pro), so requesting a model
+    // outside that list guarantees the first candidate tried is "gpt-4o".
+    const requestedModel = "definitely-not-a-real-model";
+    const fixture = await startInvalidModelFallbackServer();
+    const sdk = new NeuroLink();
+    try {
+      const result = await sdk.stream({
+        input: { text: "ping" },
+        provider: "openai-compatible",
+        model: requestedModel,
+        disableTools: true,
+        schema: z.object({ attempt: z.literal("retry") }),
+        credentials: {
+          openaiCompatible: {
+            apiKey: "test-key",
+            baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+          },
+        },
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+
+      let text = "";
+      for await (const chunk of result.stream) {
+        if (
+          chunk &&
+          typeof chunk === "object" &&
+          "content" in chunk &&
+          typeof (chunk as { content: unknown }).content === "string"
+        ) {
+          text += (chunk as { content: string }).content;
+        }
+      }
+
+      const requested = fixture.requestedModelsNow();
+      assert.ok(
+        requested.length >= 2,
+        "expected a retry after the invalid-model rejection",
+      );
+      assert.equal(
+        requested[0],
+        requestedModel,
+        "first attempt did not use the originally requested model",
+      );
+      assert.notEqual(
+        requested[1],
+        requestedModel,
+        "retry did not switch to a fallback model",
+      );
+      assert.ok(
+        text.includes('"retry"'),
+        "the fallback attempt's content did not reach the drained stream",
+      );
+
+      // The actual regression: `.model` must describe the attempt that
+      // produced the stream. Before the fix, `withStreamModelFallback`
+      // returned `{...originalResult, stream: wrapped}` — a naked spread of
+      // the REJECTED first attempt's StreamResult with only `.stream`
+      // swapped — so `.model` stayed pinned to the invalid model forever,
+      // even though the consumer above just drained a complete answer from
+      // a different model entirely.
+      assert.equal(
+        result.model,
+        requested[1],
+        "result.model does not name the retry's own model",
+      );
+      assert.notEqual(
+        result.model,
+        requestedModel,
+        "result.model leaked the rejected first attempt's model",
+      );
+
+      assert.equal(
+        result.finishReason,
+        "stop",
+        "result.finishReason does not describe the retry",
+      );
+      assert.deepEqual(
+        result.usage,
+        { input: 11, output: 22, total: 33 },
+        "result.usage does not describe the retry",
+      );
+      // structuredData only exists on the retry's metadata, so this proves the
+      // public metadata object is the retry's, not the rejected attempt's.
+      assert.deepEqual(
+        result.metadata?.structuredData,
+        { attempt: "retry" },
+        "retry-only structured metadata is missing from the public result",
+      );
     } finally {
       await sdk.shutdown();
       await fixture.close();
