@@ -24,13 +24,26 @@ function matchGlob(glob, filePath) {
   return new RegExp("^" + regexStr + "$").test(filePath);
 }
 
+const CODE_MARK = String.fromCharCode(0);
+const CODE_PLACEHOLDER = new RegExp(`${CODE_MARK}(\\d+)${CODE_MARK}`, "g");
+
 /** Strip markdown syntax to get plain text */
 function stripMarkdown(content) {
+  // Inline code holds exactly what people search for — commands, env vars, API
+  // names — so its text is kept. It is parked behind a placeholder until the
+  // end because the passes below would damage it: the tag pass drops `<file>`
+  // and the emphasis pass collapses `OPENAI_API_KEY` to "OPENAIAPIKEY". The
+  // placeholder is an index between NUL characters: none of those passes
+  // matches NUL, and Markdown source never contains it, so document text
+  // cannot be mistaken for a placeholder on restore.
+  const codeSpans = [];
   let result = content
     // Remove code blocks
     .replace(/```[\s\S]*?```/g, "")
-    // Remove inline code
-    .replace(/`[^`]*`/g, "")
+    .replace(
+      /`([^`]*)`/g,
+      (_, code) => `${CODE_MARK}${codeSpans.push(code) - 1}${CODE_MARK}`,
+    )
     // Remove images
     .replace(/!\[.*?\]\(.*?\)/g, "")
     // Remove links but keep text
@@ -62,6 +75,7 @@ function stripMarkdown(content) {
       .replace(/^:::.*$/gm, "")
       // Collapse whitespace
       .replace(/\n{3,}/g, "\n\n")
+      .replace(CODE_PLACEHOLDER, (_, i) => codeSpans[Number(i)])
       .trim()
   );
 }
