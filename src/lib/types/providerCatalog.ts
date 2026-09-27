@@ -136,6 +136,16 @@ export type CatalogCapabilities = {
   tools: boolean | "model-dependent";
   toolsWithStreaming: boolean;
   structuredOutput: boolean;
+  /**
+   * Whether a live wire probe proved the vendor accepts native tool
+   * definitions and `response_format` in the SAME request (a 200, not a
+   * schema/tools conflict error). Maps to
+   * OpenAICompatCatalogEntry.supportsStructuredOutputWithTools; `true` lets
+   * ConfiguredOpenAICompatProvider send both instead of suppressing
+   * `response_format` on any request carrying tools (the conservative
+   * default for an unknown endpoint). Only an explicit `true` opts in —
+   * `false` is the same conservative behavior as leaving it unset.
+   */
   structuredOutputWithTools: boolean;
   embeddings: boolean;
   thinking: boolean;

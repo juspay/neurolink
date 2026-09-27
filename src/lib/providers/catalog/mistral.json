@@ -208,7 +208,7 @@
     "tools": true,
     "toolsWithStreaming": true,
     "structuredOutput": true,
-    "structuredOutputWithTools": true,
+    "structuredOutputWithTools": false,
     "embeddings": false,
     "thinking": false
   },
@@ -245,7 +245,7 @@
     },
     "liveMatrix": {
       "date": "2026-08-30",
-      "result": "17 ids answer normally. A chat probe alone was not enough to judge the rest, because Mistral rejects every non-chat model with the same generic 'Invalid model' text: cross-referencing the roster shows mistral-embed, codestral-embed, mistral-ocr-latest, mistral-ocr-2512, voxtral-mini-latest and voxtral-mini-2602 are all still listed and alive — they are embedding, OCR and audio models that a chat endpoint is right to refuse — so they keep production status. An id is marked retired only when BOTH signals agree: absent from the roster AND rejected by a live chat call. pixtral-12b is the one id where they disagree — the roster omits it but a real call returns 200, so it was moved back to production, on the rule that a live 200 outranks a roster omission. mistral-large-latest and mistral-large-2512 answer 403 'not available in your subscription tier': a plan limit on this account, not a retirement, so they stay production. visionModel is pinned to mistral-medium-latest because the otherwise-first vision id, mistral-large-latest, is behind that plan gate."
+      "result": "17 ids answer normally. A chat probe alone was not enough to judge the rest, because Mistral rejects every non-chat model with the same generic 'Invalid model' text: cross-referencing the roster shows mistral-embed, codestral-embed, mistral-ocr-latest, mistral-ocr-2512, voxtral-mini-latest and voxtral-mini-2602 are all still listed and alive — they are embedding, OCR and audio models that a chat endpoint is right to refuse — so they keep production status. An id is marked retired only when BOTH signals agree: absent from the roster AND rejected by a live chat call. pixtral-12b is the one id where they disagree — the roster omits it but a real call returns 200, so it was moved back to production, on the rule that a live 200 outranks a roster omission. mistral-large-latest and mistral-large-2512 answer 403 'not available in your subscription tier': a plan limit on this account, not a retirement, so they stay production. visionModel is pinned to mistral-medium-latest because the otherwise-first vision id, mistral-large-latest, is behind that plan gate. Combined tools plus response_format probes returned 429 twice, which is not successful capability evidence, so structuredOutputWithTools remains false pending a successful combined-request probe."
     },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }

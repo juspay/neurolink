@@ -46,8 +46,10 @@ const flattenMessageContent = (
  * OPENAI_COMPAT_CATALOG in openaiCompatCatalog.ts for the entries.
  *
  * If a provider needs a real hook override (adjustRequestBody,
- * adjustBodyAfter400, getChatCompletionsURL, getAuthHeaders,
- * suppressResponseFormatWithTools, ...) it does NOT belong in the catalog —
+ * adjustBodyAfter400, getChatCompletionsURL, getAuthHeaders, ...) that isn't
+ * expressible as one of the catalog's data-driven quirks (messageContentFormat,
+ * responseFormatDowngrade, replayReasoningContent,
+ * supportsStructuredOutputWithTools, ...) it does NOT belong in the catalog —
  * write a dedicated subclass instead (see azureOpenai.ts).
  *
  * The exception is a WIRE DIALECT: a vendor that speaks OpenAI for ordinary
@@ -136,6 +138,25 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
       return false;
     }
     return super.supportsTools();
+  }
+
+  /**
+   * The base class drops `response_format` from any request carrying tools,
+   * because a generic OpenAI-compatible backend may honour it over tool
+   * calling and answer with final-shape JSON on step one instead of running
+   * the agentic loop. For a catalog entry that is not a guess — the flag
+   * comes from a live wire probe (`capabilities.structuredOutputWithTools`)
+   * — so an entry that declares the combination supported sends both and
+   * gets the object from the vendor's own constrained decoding in ONE
+   * request, instead of falling back to a tool-free re-ask.
+   *
+   * Conservative by default: only an explicit `true` opts in. A vendor that
+   * declares support but rejects the combination at runtime is still caught
+   * by `isToolsSchemaConflictError` and retried without structured output,
+   * so a stale flag costs one request rather than the turn.
+   */
+  protected override suppressResponseFormatWithTools(): boolean {
+    return this.entry.supportsStructuredOutputWithTools !== true;
   }
 
   protected adjustRequestBody(

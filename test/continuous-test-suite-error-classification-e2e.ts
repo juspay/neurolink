@@ -2541,6 +2541,179 @@ async function main(): Promise<void> {
         }
       }
 
+      // --- 4c. catalog structuredOutputWithTools drives the wire shape -----
+      // The generic OpenAI-compatible path conservatively drops
+      // response_format whenever a request carries tools. A catalog entry may
+      // opt out only when a combined wire probe proved the vendor accepts both.
+      // Assert on the real outbound request for generate() and stream(): the
+      // answer alone cannot distinguish native constrained decoding from the
+      // tool-free recovery path.
+      {
+        const skySchema = z.object({
+          colour: z.string(),
+          reason: z.string(),
+        });
+        const pingTool = {
+          ping: tool({
+            description: "Health check. Returns pong.",
+            inputSchema: z.object({}),
+            execute: async () => "pong",
+          }),
+        };
+        const responseContent =
+          '{"colour":"blue","reason":"atmospheric scattering"}';
+        const streamedCompletion = (): MockResponseSpec => {
+          const base = {
+            id: "chatcmpl-catalog-capability",
+            object: "chat.completion.chunk",
+            created: 0,
+            model: "catalog-test-model",
+          };
+          return {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+            body: [
+              `data: ${JSON.stringify({
+                ...base,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: responseContent },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                ...base,
+                choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                usage: {
+                  prompt_tokens: 5,
+                  completion_tokens: 5,
+                  total_tokens: 10,
+                },
+              })}\n\n`,
+              "data: [DONE]\n\n",
+            ].join(""),
+          };
+        };
+        type CatalogWireMode = "generate" | "stream";
+        const firstBodyFor = async (
+          provider: string,
+          baseUrlEnv: string,
+          apiKeyEnv: string,
+          model: string,
+          mode: CatalogWireMode,
+        ): Promise<ChatRequestBody | undefined> => {
+          setEnv(apiKeyEnv, "sk-testfakecredential000000");
+          setEnv(baseUrlEnv, mockOrigin);
+          const seen: ChatRequestBody[] = [];
+          setHandler(() => {
+            seen.push(parseBody(lastRequestBody));
+            return mode === "stream"
+              ? streamedCompletion()
+              : completion(
+                  { role: "assistant", content: responseContent },
+                  "stop",
+                );
+          });
+          const request = {
+            provider,
+            model,
+            input: {
+              text: "What colour is a clear daytime sky, and why?",
+            },
+            schema: skySchema,
+            tools: pingTool,
+            disableTools: false,
+          };
+          if (mode === "generate") {
+            await nl().generate(
+              request as Parameters<
+                InstanceType<typeof NeuroLink>["generate"]
+              >[0],
+            );
+          } else {
+            const result = await nl().stream(
+              request as Parameters<
+                InstanceType<typeof NeuroLink>["stream"]
+              >[0],
+            );
+            for await (const _chunk of result.stream) {
+              // Drain the real SSE response before examining the captured body.
+            }
+          }
+          return seen[0];
+        };
+        const assertWireShape = async (opts: {
+          provider: string;
+          baseUrlEnv: string;
+          apiKeyEnv: string;
+          model: string;
+          mode: CatalogWireMode;
+          expectResponseFormat: boolean;
+        }): Promise<void> => {
+          const capability = opts.expectResponseFormat ? "true" : "false";
+          const name = `${opts.provider} (catalog structuredOutputWithTools:${capability}, ${opts.mode}): tools and response_format follow the catalog capability`;
+          try {
+            const body = await firstBodyFor(
+              opts.provider,
+              opts.baseUrlEnv,
+              opts.apiKeyEnv,
+              opts.model,
+              opts.mode,
+            );
+            const problems: string[] = [];
+            if (!body) {
+              problems.push("no request reached the mock");
+            } else {
+              if (!Array.isArray(body.tools) || body.tools.length === 0) {
+                problems.push("the request carried no tools");
+              }
+              const responseFormatPresent = body.response_format !== undefined;
+              if (responseFormatPresent !== opts.expectResponseFormat) {
+                problems.push(
+                  opts.expectResponseFormat
+                    ? "response_format was suppressed despite the proven opt-in"
+                    : "response_format was sent without a proven opt-in",
+                );
+              }
+            }
+            record(
+              name,
+              problems.length === 0,
+              problems.join("; ") || undefined,
+            );
+          } catch (err) {
+            record(
+              name,
+              false,
+              `${opts.mode}() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+            );
+          }
+        };
+
+        for (const mode of ["generate", "stream"] as const) {
+          // xAI returned HTTP 200 when tools and json_schema were sent together.
+          await assertWireShape({
+            provider: "xai",
+            baseUrlEnv: "XAI_BASE_URL",
+            apiKeyEnv: "XAI_API_KEY",
+            model: "grok-4.6",
+            mode,
+            expectResponseFormat: true,
+          });
+          // Groq rejects the combination, so conservative suppression remains.
+          await assertWireShape({
+            provider: "groq",
+            baseUrlEnv: "GROQ_BASE_URL",
+            apiKeyEnv: "GROQ_API_KEY",
+            model: "openai/gpt-oss-120b",
+            mode,
+            expectResponseFormat: false,
+          });
+        }
+      }
+
       // --- 5. catalog tools:false keeps native tools off the wire ----------
       // Mancer declares capabilities.tools: false (its free model answers 400
       // BAD_PARAMETERS to any tool list). buildCatalogEntries() surfaces that

@@ -7,7 +7,7 @@ keywords:
 
 # Structured Output with Zod Schemas
 
-Generate type-safe, validated JSON responses using Zod schemas. Available in `generate()` function only (not `stream()`).
+Generate type-safe, validated JSON responses using Zod schemas. Both `generate()` and `stream()` accept `schema`; `generate()` returns `structuredData` directly, while a fully drained stream exposes it as `result.metadata.structuredData`.
 
 ## Quick Start
 
@@ -87,17 +87,22 @@ const result = await neurolink.generate({
 
 ### How this works on OpenAI-compatible providers
 
-Most OpenAI-compatible vendors reject `response_format` and `tools` in the same
-request, so NeuroLink does not send them together. That leaves a turn with tools
-attached — which is most turns, since built-in and MCP tools ride along by
-default — with nothing telling the model to answer in JSON.
+OpenAI-compatible vendors vary in whether they accept `response_format` and
+`tools` in the same request. NeuroLink is conservative by default and does not
+send them together. For catalog providers whose combined request has been
+verified live, `capabilities.structuredOutputWithTools: true` opts both
+`generate()` and `stream()` into sending them together, so the vendor can use
+native constrained decoding without an extra formatting request. Separate
+successful tool and structured-output probes are not enough to enable the flag.
 
-NeuroLink closes that gap itself. The tool turn runs untouched, and if its
-answer does not satisfy your schema, the SDK re-asks **once** with the tools
-removed, which is what makes native `response_format` legal again. That second
-pass only reformats an answer the model has already produced, so tool results
-still drive the content; `toolsUsed`, `toolExecutions` and `usage` cover the
-whole turn, not just the reformat.
+When a provider is not opted in, the tool turn runs untouched. If its answer
+does not satisfy your schema, the SDK re-asks **once** with the tools removed,
+which is what makes native `response_format` legal again. That second pass only
+reformats an answer the model has already produced, so tool results still drive
+the content; `toolsUsed`, `toolExecutions` and `usage` cover the whole turn, not
+just the reformat. If an opted-in provider later rejects the combined request,
+the same conflict recovery retries without structured output, so a stale
+capability flag costs one request rather than the turn.
 
 Two consequences worth knowing:
 
@@ -198,7 +203,7 @@ If you need both tool execution and structured output with Gemini, consider thes
 
 ## Important Notes
 
-- **Only available in `generate()`** - Not supported in `stream()` function
+- **Available in `generate()` and `stream()`** - `generate()` exposes `result.structuredData`; after the stream is fully drained, `stream()` exposes `result.metadata.structuredData`
 - **`output.format` controls `result.content`** - If it is not "json" or "structured", `result.content` is plain text even with a schema; `result.structuredData` can still be populated from `schema` alone (see [Requirements](#requirements))
 - **Auto-validated, with a no-throw fallback when tools are involved** - Without tools, an invalid response throws `NoObjectGeneratedError` with validation details. With tools attached, a failed schema match triggers the tool-free re-ask described in [Works with Tools](#works-with-tools); if that also fails, the original answer is returned rather than an error, and `structuredData` is left unset
 - **Provider support** - Works with OpenAI, Anthropic, Google AI Studio, Vertex AI

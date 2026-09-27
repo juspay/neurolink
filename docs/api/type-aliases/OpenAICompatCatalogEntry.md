@@ -142,6 +142,30 @@ same default every hand-written provider uses.
 
 ---
 
+### supportsStructuredOutputWithTools?
+
+> `optional` **supportsStructuredOutputWithTools?**: `boolean`
+
+Whether the vendor accepts native tool definitions and `response_format`
+in the SAME request, from the catalog's
+`capabilities.structuredOutputWithTools`.
+
+The base class (`suppressResponseFormatWithTools`) suppresses
+`response_format` whenever tools are attached, because a generic
+OpenAI-compatible backend may honour it over tool calling and answer
+with final-shape JSON on step 1 instead of running the agentic loop.
+That is the right default for an unknown endpoint, but for a catalog
+entry it is not a guess: the flag is set from a live wire probe. `true`
+lets the request carry both, so the object comes back from the vendor's
+own constrained decoding in ONE request instead of a tool-free re-ask.
+
+Omitted or false keeps the conservative default. A vendor that turns
+out to reject the combination anyway is still caught by
+`isToolsSchemaConflictError` and retried without structured output, so
+a stale `true` costs one request, not the turn.
+
+---
+
 ### registryDefaultModel
 
 > **registryDefaultModel**: `string`

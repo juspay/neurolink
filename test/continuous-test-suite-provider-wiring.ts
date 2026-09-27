@@ -559,9 +559,10 @@ await test("a schema reaches the wire as response_format only when no tools are 
   // What this pins, and why it needed pinning:
   //
   // `suppressResponseFormatWithTools()` defaults to true, so for every
-  // OpenAI-compatible provider except OpenAI and Azure a request that carries
-  // tools drops `response_format`. The schema is then honoured by a fallback
-  // re-ask rather than by the provider.
+  // OpenAI-compatible provider except OpenAI, Azure and catalog entries that
+  // declare `structuredOutputWithTools: true` a request that carries tools
+  // drops `response_format`. The schema is then honoured by a fallback re-ask
+  // rather than by the provider. Groq declares false, so it pins that default.
   //
   // That is invisible from a response: a model asked for JSON usually returns
   // JSON whether or not the schema was enforced, so a suite that inspects only
@@ -584,13 +585,13 @@ await test("a schema reaches the wire as response_format only when no tools are 
 
   const local = await startLocalOpenAICompatible();
   const savedEnv = { ...process.env };
-  process.env.DEEPSEEK_BASE_URL = local.baseURL;
-  process.env.DEEPSEEK_API_KEY = "sk-local-endpoint-not-real";
+  process.env.GROQ_BASE_URL = local.baseURL;
+  process.env.GROQ_API_KEY = "sk-local-endpoint-not-real";
 
   const schema = z.object({ capital: z.string(), population: z.number() });
   const ask = (extra: Record<string, unknown>) => ({
     input: { text: "Give the capital of France and its population." },
-    provider: "deepseek" as const,
+    provider: "groq" as const,
     schema,
     maxTokens: 200,
     ...extra,

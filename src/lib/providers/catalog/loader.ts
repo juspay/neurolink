@@ -175,6 +175,12 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
       ...(typeof entry.capabilities.tools === "boolean"
         ? { supportsTools: entry.capabilities.tools }
         : {}),
+      // Unlike `tools`, `capabilities.structuredOutputWithTools` is a plain
+      // required boolean in the schema (no "model-dependent" member), so this
+      // is a direct passthrough — `false` and `true` both carry meaning to
+      // ConfiguredOpenAICompatProvider.suppressResponseFormatWithTools().
+      supportsStructuredOutputWithTools:
+        entry.capabilities.structuredOutputWithTools,
     };
     const { baseURLTemplate } = entry.wire;
     if (baseURLTemplate) {

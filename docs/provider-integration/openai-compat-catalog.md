@@ -52,6 +52,20 @@ A provider belongs in the JSON catalog if it needs **only**:
   back on later requests once tools are in play, so the shared message
   converter and the streaming tool loop send it — for this quirk only, since
   strict OpenAI-compatible backends reject the unknown field.
+- a wire-proven capability such as
+  `capabilities.structuredOutputWithTools`. The generic provider suppresses
+  `response_format` when tools are attached by default; an explicit `true`
+  keeps it on the same `generate()` or `stream()` request. Set this only after
+  a combined tools-plus-schema request returned successfully. Separate tool
+  and structured-output probes are not evidence for the combined capability.
+  A stale opt-in is still protected by the runtime conflict retry, which drops
+  structured output and retries rather than losing the turn.
+
+The currently opted-in providers are Baseten, DeepSeek, Fireworks AI, GMI
+Cloud, Inception Labs, io.net Intelligence, Novita AI, Together AI, Upstage and
+xAI. API Route remains opted out because its evidence verifies the features
+separately, not together in one request. Mistral remains opted out because its
+combined probes returned 429 twice, not a successful capability response.
 
 ## When a provider needs a dedicated subclass instead
 
