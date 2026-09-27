@@ -5,11 +5,10 @@
  * Enhanced with retry, rate limiting, and OAuth 2.1 support
  */
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { WebSocketClientTransport } from "@modelcontextprotocol/sdk/client/websocket.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+// The SDK client and transport classes are loaded with `await import(...)`
+// at their construction sites below, so requiring this module doesn't pull
+// in every transport implementation for callers who only use one.
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type {
   ClientCapabilities,
@@ -302,6 +301,8 @@ export class MCPClientFactory {
 
     try {
       // Create client
+      const { Client } =
+        await import("@modelcontextprotocol/sdk/client/index.js");
       const client = new Client(this.NEUROLINK_IMPLEMENTATION, {
         capabilities: this.DEFAULT_CAPABILITIES,
       });
@@ -422,6 +423,8 @@ export class MCPClientFactory {
       throw new Error(`Command is required for stdio transport`);
     }
 
+    const { StdioClientTransport } =
+      await import("@modelcontextprotocol/sdk/client/stdio.js");
     const transport = new StdioClientTransport({
       command: config.command,
       args: config.args || [],
@@ -471,6 +474,8 @@ export class MCPClientFactory {
 
     try {
       const url = new URL(config.url);
+      const { SSEClientTransport } =
+        await import("@modelcontextprotocol/sdk/client/sse.js");
       const transport = new SSEClientTransport(url);
 
       return { transport };
@@ -501,6 +506,8 @@ export class MCPClientFactory {
 
     try {
       const url = new URL(config.url);
+      const { WebSocketClientTransport } =
+        await import("@modelcontextprotocol/sdk/client/websocket.js");
       const transport = new WebSocketClientTransport(url);
 
       return { transport };
@@ -576,6 +583,8 @@ export class MCPClientFactory {
         headers: Object.keys(headers).length > 0 ? headers : undefined,
       };
 
+      const { StreamableHTTPClientTransport } =
+        await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
       const transport = new StreamableHTTPClientTransport(url, {
         requestInit,
         fetch: fetchWithEnhancements,

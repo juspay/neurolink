@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { createClient, type RedisClientOptions } from "redis";
+import type { RedisClientOptions } from "redis";
 import type {
   ChatMessage,
   RedisClient,
@@ -234,6 +234,9 @@ export async function createRedisClient(
     clientOptions.password = config.password;
   }
 
+  // Imported here, not at the top: the redis client is ~590 modules, a quarter
+  // of everything importing the SDK loaded, and most callers never connect.
+  const { createClient } = await import("redis");
   // Create client with secured options
   const client = createClient(clientOptions);
 

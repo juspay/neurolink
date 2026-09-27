@@ -15,29 +15,17 @@ import {
   trace,
   type Span as ApiSpan,
 } from "@opentelemetry/api";
-import { W3CTraceContextPropagator } from "@opentelemetry/core";
-import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { resourceFromAttributes } from "@opentelemetry/resources";
-import {
-  MeterProvider,
-  PeriodicExportingMetricReader,
-} from "@opentelemetry/sdk-metrics";
-import {
-  BatchLogRecordProcessor,
-  LoggerProvider,
-} from "@opentelemetry/sdk-logs";
-import {
-  BatchSpanProcessor,
-  type Span,
-  type SpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from "@opentelemetry/semantic-conventions";
+// The OpenTelemetry SDK packages below (sdk-trace/-metrics/-logs, the OTLP
+// exporters, resources, semantic-conventions) are loaded with `await
+// import(...)` at their point of use, so requiring this module doesn't pull
+// them in for callers who never enable observability. Only the types that
+// appear in signatures or the module-level provider handles are imported
+// here, statically — the rest come from the dynamic import's own namespace.
+import type { resourceFromAttributes } from "@opentelemetry/resources";
+import type { MeterProvider } from "@opentelemetry/sdk-metrics";
+import type { LoggerProvider } from "@opentelemetry/sdk-logs";
+import type { Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import type { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { AsyncLocalStorage } from "async_hooks";
 import type {
   LangfuseConfig,
@@ -50,7 +38,14 @@ import { LANGFUSE_ATTR } from "../../../../telemetry/attributes.js";
 
 const LOG_PREFIX = "[OpenTelemetry]";
 
-function createOtelResource(config: LangfuseConfig, serviceName: string) {
+async function createOtelResource(config: LangfuseConfig, serviceName: string) {
+  const [
+    { resourceFromAttributes },
+    { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION },
+  ] = await Promise.all([
+    import("@opentelemetry/resources"),
+    import("@opentelemetry/semantic-conventions"),
+  ]);
   return resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: config.release || "v1.0.0",
@@ -60,18 +55,27 @@ function createOtelResource(config: LangfuseConfig, serviceName: string) {
 
 /**
  * Configure OTLP metrics and logs with bounded serialization batches for
- * request-serving processes.
+ * request-serving processes. Initialization awaits this so a caller may flush
+ * or shut down immediately after it returns without racing providers that have
+ * not been constructed yet. Signal-specific failures stay non-fatal here.
  */
-function initializeOtlpMetricsAndLogs(
+async function initializeOtlpMetricsAndLogs(
   resource: ReturnType<typeof resourceFromAttributes>,
   otlpEndpoint: string | undefined,
   serviceName: string,
-): void {
+): Promise<void> {
   if (!otlpEndpoint) {
     return;
   }
 
   try {
+    const [
+      { OTLPMetricExporter },
+      { MeterProvider, PeriodicExportingMetricReader },
+    ] = await Promise.all([
+      import("@opentelemetry/exporter-metrics-otlp-http"),
+      import("@opentelemetry/sdk-metrics"),
+    ]);
     const metricExporter = new OTLPMetricExporter({
       url: `${otlpEndpoint}/v1/metrics`,
     });
@@ -108,6 +112,11 @@ function initializeOtlpMetricsAndLogs(
   }
 
   try {
+    const [{ OTLPLogExporter }, { BatchLogRecordProcessor, LoggerProvider }] =
+      await Promise.all([
+        import("@opentelemetry/exporter-logs-otlp-http"),
+        import("@opentelemetry/sdk-logs"),
+      ]);
     const logExporter = new OTLPLogExporter({
       url: `${otlpEndpoint}/v1/logs`,
     });
@@ -149,6 +158,7 @@ let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let langfuseProcessor: LangfuseSpanProcessorType | null = null;
 let isInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 let isCredentialsValid = false;
 let currentConfig: LangfuseConfig | null = null;
 let usingExternalProvider = false;
@@ -825,8 +835,8 @@ async function initializeExternalOpenTelemetryMode(
         : null;
 
     usingExternalProvider = true;
+    await initializeOtlpMetricsAndLogs(resource, otlpEndpoint, serviceName);
     isInitialized = true;
-    initializeOtlpMetricsAndLogs(resource, otlpEndpoint, serviceName);
 
     try {
       const globalProvider = trace.getTracerProvider();
@@ -993,6 +1003,11 @@ async function initializeStandaloneOpenTelemetryMode(
 
     if (otlpEndpoint) {
       try {
+        const [{ OTLPTraceExporter }, { BatchSpanProcessor }] =
+          await Promise.all([
+            import("@opentelemetry/exporter-trace-otlp-http"),
+            import("@opentelemetry/sdk-trace-base"),
+          ]);
         const otlpExporter = new OTLPTraceExporter({
           url: `${otlpEndpoint}/v1/traces`,
         });
@@ -1022,13 +1037,18 @@ async function initializeStandaloneOpenTelemetryMode(
       }
     }
 
+    const [{ NodeTracerProvider }, { W3CTraceContextPropagator }] =
+      await Promise.all([
+        import("@opentelemetry/sdk-trace-node"),
+        import("@opentelemetry/core"),
+      ]);
     tracerProvider = new NodeTracerProvider({ resource, spanProcessors });
     tracerProvider.register({
       propagator: new W3CTraceContextPropagator(),
     });
     usingExternalProvider = false;
+    await initializeOtlpMetricsAndLogs(resource, otlpEndpoint, serviceName);
     isInitialized = true;
-    initializeOtlpMetricsAndLogs(resource, otlpEndpoint, serviceName);
 
     logger.info(`${LOG_PREFIX} Observability initialized`, {
       baseUrl: config.baseUrl || "https://cloud.langfuse.com",
@@ -1070,6 +1090,43 @@ async function initializeStandaloneOpenTelemetryMode(
 }
 
 /**
+ * Initialize OpenTelemetry once and let concurrent callers share the work.
+ *
+ * NeuroLink constructors intentionally start this asynchronously. Keeping the
+ * in-flight promise here lets another constructor join it and lets an immediate
+ * flush or shutdown wait for the same initialization before touching providers.
+ */
+export async function initializeOpenTelemetry(
+  config: LangfuseConfig,
+): Promise<void> {
+  if (isInitialized) {
+    currentConfig = config;
+    logger.debug(`${LOG_PREFIX} Already initialized, config updated`, {
+      usingExternalProvider,
+      hasLangfuseProcessor: !!langfuseProcessor,
+      hasTraceNameFormat: typeof config.traceNameFormat === "function",
+    });
+    return;
+  }
+
+  if (initializationPromise) {
+    await initializationPromise;
+    currentConfig = config;
+    return;
+  }
+
+  const pending = initializeOpenTelemetryOnce(config);
+  initializationPromise = pending;
+  try {
+    await pending;
+  } finally {
+    if (initializationPromise === pending) {
+      initializationPromise = null;
+    }
+  }
+}
+
+/**
  * Initialize OpenTelemetry with Langfuse span processor
  *
  * This connects Vercel AI SDK's experimental_telemetry to Langfuse by:
@@ -1083,23 +1140,9 @@ async function initializeStandaloneOpenTelemetryMode(
  *
  * @param config - Langfuse configuration passed from parent application
  */
-export async function initializeOpenTelemetry(
+async function initializeOpenTelemetryOnce(
   config: LangfuseConfig,
 ): Promise<void> {
-  // Guard against multiple initializations — but always update config
-  // so that later NeuroLink instances can change traceNameFormat,
-  // autoDetectOperationName, and other configuration preferences
-  // without re-initializing the OTEL infrastructure.
-  if (isInitialized) {
-    currentConfig = config;
-    logger.debug(`${LOG_PREFIX} Already initialized, config updated`, {
-      usingExternalProvider,
-      hasLangfuseProcessor: !!langfuseProcessor,
-      hasTraceNameFormat: typeof config.traceNameFormat === "function",
-    });
-    return;
-  }
-
   // FIRST: Check for external provider mode - bypasses enabled check
   // NOTE: When autoDetectExternalProvider is true, we trust the flag directly rather than
   // calling hasExternalTracerProvider(). This is because Neurolink may bundle its own copy
@@ -1115,7 +1158,7 @@ export async function initializeOpenTelemetry(
   const langfuseRequested = config?.enabled === true;
   const hasLangfuseCreds = !!config.publicKey && !!config.secretKey;
   const serviceName = process.env.OTEL_SERVICE_NAME || "neurolink";
-  const resource = createOtelResource(config, serviceName);
+  const resource = await createOtelResource(config, serviceName);
 
   if (shouldUseExternal) {
     await initializeExternalOpenTelemetryMode(
@@ -1143,6 +1186,14 @@ export async function initializeOpenTelemetry(
  * Flush all pending spans to Langfuse
  */
 export async function flushOpenTelemetry(): Promise<void> {
+  if (initializationPromise) {
+    try {
+      await initializationPromise;
+    } catch {
+      // Initialization owns its error logging; a failed init leaves nothing
+      // initialized, so the check below skips the flush as it always has.
+    }
+  }
   if (!isInitialized) {
     logger.debug(`${LOG_PREFIX} Not initialized, skipping flush`);
     return;
@@ -1223,10 +1274,14 @@ export async function flushOpenTelemetry(): Promise<void> {
  * Shutdown OpenTelemetry and Langfuse span processor
  */
 export async function shutdownOpenTelemetry(): Promise<void> {
-  if (!isInitialized) {
-    return;
+  if (initializationPromise) {
+    try {
+      await initializationPromise;
+    } catch {
+      // Initialization owns its error logging. Continue so any provider it
+      // created before failing is still shut down below.
+    }
   }
-
   try {
     // Only shutdown tracerProvider if we created it
     if (tracerProvider && !usingExternalProvider) {

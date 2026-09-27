@@ -13,7 +13,7 @@
  * here because nothing reshapes them.
  */
 
-import { GoogleAuth } from "google-auth-library";
+import type { GoogleAuth } from "google-auth-library";
 import { logger } from "../utils/logger.js";
 import { isTransientNetworkError } from "./proxyFetch.js";
 import type {
@@ -452,11 +452,43 @@ export function buildVertexAnthropicUrl(
   );
 }
 
-let cachedAuth: GoogleAuth | undefined;
+// google-auth-library is only needed once a Vertex fallback request actually
+// needs a Google access token, so it's loaded with `await import(...)` instead
+// of a static import. The module promise is cached at module scope, and the
+// resulting client instance is cached separately, exactly as before.
+let googleAuthModulePromise:
+  | Promise<typeof import("google-auth-library")>
+  | undefined;
 
-function auth(): GoogleAuth {
-  cachedAuth ??= new GoogleAuth({ scopes: [CLOUD_PLATFORM_SCOPE] });
-  return cachedAuth;
+function loadGoogleAuth(): Promise<typeof import("google-auth-library")> {
+  if (!googleAuthModulePromise) {
+    googleAuthModulePromise = import("google-auth-library");
+  }
+  return googleAuthModulePromise;
+}
+
+// Cache the PROMISE, not the resolved client: the guard below runs to
+// completion before any await, so two calls entering before the first
+// resolves both see the same in-flight promise instead of each racing to
+// construct — and return — its own GoogleAuth instance.
+let cachedAuthPromise: Promise<GoogleAuth> | undefined;
+
+/** Exported only for continuous-test-suite-vertex-anthropic-fallback.ts,
+ * which proves concurrent callers share one instance. Not part of the
+ * package's public surface — this module isn't re-exported from index.ts. */
+export function auth(): Promise<GoogleAuth> {
+  if (!cachedAuthPromise) {
+    cachedAuthPromise = loadGoogleAuth().then(
+      ({ GoogleAuth }) => new GoogleAuth({ scopes: [CLOUD_PLATFORM_SCOPE] }),
+    );
+  }
+  return cachedAuthPromise;
+}
+
+/** Test-only: isolates the concurrency proof from cache state any earlier
+ * test in the same process may have left behind. */
+export function resetAuthCacheForTests(): void {
+  cachedAuthPromise = undefined;
 }
 
 let accessTokenProviderForTests: VertexAccessTokenProvider | undefined;
@@ -464,7 +496,7 @@ let accessTokenProviderForTests: VertexAccessTokenProvider | undefined;
 async function vertexAccessToken(): Promise<string | null | undefined> {
   return accessTokenProviderForTests
     ? accessTokenProviderForTests()
-    : auth().getAccessToken();
+    : (await auth()).getAccessToken();
 }
 
 /**

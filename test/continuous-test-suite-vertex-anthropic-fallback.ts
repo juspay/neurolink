@@ -5,11 +5,13 @@ import assert from "node:assert/strict";
 import type { VertexPassthroughTerminal } from "../src/lib/types/index.js";
 import { logger } from "../src/lib/utils/logger.js";
 import {
+  auth,
   buildVertexAnthropicPayload,
   buildVertexAnthropicUrl,
   mapVertexOutputConfig,
   observeVertexUsage,
   readJsonUsage,
+  resetAuthCacheForTests,
   withTransientNetworkRetry,
 } from "../src/lib/proxy/vertexAnthropicFallback.js";
 
@@ -1150,6 +1152,19 @@ await asyncTest(
     }, 0);
     assert.equal(token, "token");
     assert.equal(calls, 2);
+  },
+);
+
+await asyncTest(
+  "concurrent first calls to auth() share one GoogleAuth instance",
+  async () => {
+    resetAuthCacheForTests();
+    const [a, b, c] = await Promise.all([auth(), auth(), auth()]);
+    assert.equal(a, b, "second concurrent call built its own instance");
+    assert.equal(a, c, "third concurrent call built its own instance");
+    // A call made after the first has already resolved must reuse it too.
+    const later = await auth();
+    assert.equal(a, later, "a later call did not reuse the cached instance");
   },
 );
 

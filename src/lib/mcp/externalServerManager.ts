@@ -9,7 +9,6 @@
 
 import { EventEmitter } from "events";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { mcpLogger } from "../utils/logger.js";
 import { MCPClientFactory } from "./mcpClientFactory.js";
@@ -1347,6 +1346,8 @@ export class ExternalServerManager extends EventEmitter {
       instance.client = clientResult.client;
       instance.transportInstance = clientResult.transport;
       instance.process = clientResult.process || null;
+      const { StdioClientTransport } =
+        await import("@modelcontextprotocol/sdk/client/stdio.js");
       instance.pid =
         clientResult.transport instanceof StdioClientTransport
           ? (clientResult.transport.pid ?? undefined)

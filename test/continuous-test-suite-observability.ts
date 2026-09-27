@@ -8,6 +8,13 @@ import "dotenv/config";
  *
  * ALL tests run locally using InMemorySpanExporter — no Langfuse credentials needed.
  *
+ * Determinism exception: the OTLP readiness case imports the built
+ * instrumentation module and, through a Node loader hook, counts
+ * LoggerProvider construction and can force tracer registration to fail,
+ * rather than relying on exporter timers. That proves concurrent initializers
+ * share one construction, that NeuroLink shutdown cannot race a still-running
+ * initialization, and that a flush racing a failed initialization skips.
+ *
  * Run: npx tsx test/continuous-test-suite-observability.ts --provider=vertex
  */
 
@@ -3414,6 +3421,129 @@ async function runTelemetryGapsTests(): Promise<void> {
   await reproduceIssue_6();
 }
 // ============================================================
+// OTLP INITIALIZATION READINESS
+// ============================================================
+
+async function testOtlpInitializationReadiness(): Promise<boolean | null> {
+  logSection("OTLP initialization readiness");
+  // registerHooks() is available from Node 22.15.0; the package's own engine
+  // floor (>=22.0.0) is older, so a contributor on an in-between minor can't
+  // run this probe. Skip rather than fail — CI's Node is well past 22.15.
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 15)) {
+    logTest(
+      "OTLP initialization readiness",
+      "SKIP",
+      `registerHooks needs Node >=22.15.0, running ${process.version}`,
+    );
+    return null;
+  }
+  const script = `
+    import { registerHooks } from "node:module";
+    globalThis.__loggerProviders = 0;
+    globalThis.__failRegister = false;
+    registerHooks({
+      load(url, context, next) {
+        const loaded = next(url, context);
+        if (
+          url.includes("/@opentelemetry/sdk-trace-node/") &&
+          url.endsWith("/build/src/NodeTracerProvider.js")
+        ) {
+          return {
+            ...loaded,
+            source: String(loaded.source).replace(
+              "register(config = {}) {",
+              "register(config = {}) { if (globalThis.__failRegister) throw new Error('forced registration failure');",
+            ),
+          };
+        }
+        if (
+          !url.includes("/@opentelemetry/sdk-logs/") ||
+          !url.endsWith("/build/src/LoggerProvider.js")
+        ) {
+          return loaded;
+        }
+        return {
+          ...loaded,
+          source: String(loaded.source).replace(
+            "constructor(config = {}) {",
+            "constructor(config = {}) { globalThis.__loggerProviders++;",
+          ),
+        };
+      },
+    });
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:1";
+    const [{ NeuroLink }, otel] = await Promise.all([
+      import("./dist/index.js"),
+      import("./dist/services/server/ai/observability/instrumentation.js"),
+    ]);
+    const config = { enabled: false, useExternalTracerProvider: true };
+
+    await Promise.all(
+      Array.from({ length: 20 }, () => otel.initializeOpenTelemetry(config)),
+    );
+    if (globalThis.__loggerProviders !== 1) {
+      throw new Error("expected 1 LoggerProvider construction, got " + globalThis.__loggerProviders);
+    }
+    await otel.shutdownOpenTelemetry();
+
+    // A direct shutdown, with no flush in front of it, must still wait for an
+    // initialization that is already running.
+    const pending = otel.initializeOpenTelemetry(config);
+    await otel.shutdownOpenTelemetry();
+    await pending;
+    if (otel.getLoggerProvider() !== null) {
+      throw new Error("a direct shutdown returned before in-flight initialization finished");
+    }
+
+    const sdk = new NeuroLink({ observability: { langfuse: config } });
+    await sdk.shutdown();
+    if (otel.getLoggerProvider() !== null) {
+      throw new Error("NeuroLink shutdown returned while the log provider was still live");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (otel.getLoggerProvider() !== null) {
+      throw new Error("a provider appeared after NeuroLink shutdown completed");
+    }
+
+    // A flush that races an initialization which then fails must skip, as it
+    // did before initialization was shared, rather than reject.
+    globalThis.__failRegister = true;
+    const failing = otel
+      .initializeOpenTelemetry({ enabled: false })
+      .then(() => "resolved", () => "rejected");
+    const flushed = otel
+      .flushOpenTelemetry()
+      .then(() => "resolved", () => "rejected");
+    if ((await failing) !== "rejected") {
+      throw new Error("precondition: the forced initialization failure did not happen");
+    }
+    if ((await flushed) !== "resolved") {
+      throw new Error("flush rejected because a concurrent initialization failed");
+    }
+    globalThis.__failRegister = false;
+    await otel.shutdownOpenTelemetry();
+    console.log("OTLP_READY_AND_SHUT_DOWN");
+  `;
+
+  const result = await runCommand(process.execPath, [
+    "--input-type=module",
+    "-e",
+    script,
+  ]);
+  if (!result.success || !result.stdout.includes("OTLP_READY_AND_SHUT_DOWN")) {
+    logTest(
+      "OTLP initialization readiness",
+      "FAIL",
+      `initialization and immediate shutdown did not complete in order — exit=${result.code}; stderr=${result.stderr.slice(-1000)}`,
+    );
+    return false;
+  }
+  logTest("OTLP initialization readiness", "PASS");
+  return true;
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3436,6 +3566,10 @@ async function runAllTests(): Promise<void> {
   }
 
   const tests: Array<{ name: string; fn: () => Promise<boolean | null> }> = [
+    {
+      name: "OTLP Initialization Readiness",
+      fn: testOtlpInitializationReadiness,
+    },
     { name: "Telemetry Service Init", fn: testTelemetryServiceInit },
     {
       name: "External TracerProvider Mode",

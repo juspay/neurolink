@@ -3866,11 +3866,14 @@ Current user's request: ${currentInput}`;
       const langfuseConfig = this.observabilityConfig?.langfuse;
 
       if (langfuseConfig?.enabled) {
-        void initializeOpenTelemetry(langfuseConfig).catch((err) => {
+        try {
+          await initializeOpenTelemetry(langfuseConfig);
+        } catch (err) {
           logger.error("[NeuroLink] OpenTelemetry initialization failed", {
             error: err instanceof Error ? err.message : String(err),
           });
-        });
+          return;
+        }
 
         logger.debug(
           "[NeuroLink] Langfuse observability initialized via public method",
