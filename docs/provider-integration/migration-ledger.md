@@ -54,7 +54,7 @@ Three adapter families, not nine one-off migrations:
 
 ## Suggested execution order
 
-Steps 1–2 below (`mistral`; `huggingface`, `deepseek`) are complete — see [Migrated](#migrated-3) above. What remains:
+The former steps 1–2 below (`mistral`; `huggingface`, `deepseek`) are complete — see [Migrated](#migrated-3) above. What remains:
 
 1. **Three shared adapters** (local-runtime, embedding-only, image-generation) — each unlocks 3 providers at once; build once, migrate three.
 2. **`google-ai`** descriptor-only JSON metadata — proof of concept for moving static descriptor data out of a "must remain class" provider without touching its execution.

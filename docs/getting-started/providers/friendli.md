@@ -22,11 +22,11 @@ file is the source of truth for everything on this page.
 - **Models in catalog**: 7
 - **Streaming**: supported
 - **Tool calling**: supported (native)
-- **Structured output**: supported — but **not combined with tools in one
-  request**: Friendli rejects `tools` + `response_format` together with HTTP
-  422 (`"response_format" field cannot be set when tools are specified`).
-  NeuroLink handles this the same way as Groq (`isToolsSchemaConflictError`):
-  it retries the call without `response_format`.
+- **Structured output**: supported. Friendli rejects `tools` + `response_format`
+  together with HTTP 422 (`"response_format" field cannot be set when tools
+are specified`), so NeuroLink proactively omits `response_format` whenever
+  tools are present, before the request is sent — it does not wait for the
+  422 and retry.
 - **Embeddings**: not supported
 - **Billing**: free-tier
 - **Key format**: none declared
@@ -122,13 +122,13 @@ catalog records for FriendliAI:
 
 ## Troubleshooting
 
-| Symptom                                   | Cause                                                            | Fix                                                                               |
-| ----------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `Invalid Friendli API key`                | `FRIENDLI_API_KEY` unset or wrong                                | Check the key at https://suite.friendli.ai/                                       |
-| Model not found                           | The roster changed since 2026-09-06                              | Pick a current id from the authenticated `/serverless/v1/models` roster           |
-| Frequent 429s                             | Friendli's rate limits are tight                                 | Pace requests at least 20 seconds apart and retry                                 |
-| HTTP 422 when tools + schema are both set | Friendli rejects `response_format` when `tools` is present       | NeuroLink retries automatically without `response_format` (same handling as Groq) |
-| Empty content at a small `maxTokens`      | `zai-org/GLM-5.3` spends its budget on `reasoning_content` first | Give reasoning prompts a generous `maxTokens` budget                              |
+| Symptom                                                | Cause                                                                 | Fix                                                                                                                      |
+| ------------------------------------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Invalid Friendli API key`                             | `FRIENDLI_API_KEY` unset or wrong                                     | Check the key at https://suite.friendli.ai/                                                                              |
+| Model not found                                        | The roster changed since 2026-09-06                                   | Pick a current id from the authenticated `/serverless/v1/models` roster                                                  |
+| Frequent 429s                                          | Friendli's rate limits are tight                                      | Pace requests at least 20 seconds apart and retry                                                                        |
+| Structured output silently dropped when tools are used | Friendli rejects `response_format` when `tools` is present (HTTP 422) | NeuroLink omits `response_format` automatically whenever tools are present, before sending — this is expected, not a bug |
+| Empty content at a small `maxTokens`                   | `zai-org/GLM-5.3` spends its budget on `reasoning_content` first      | Give reasoning prompts a generous `maxTokens` budget                                                                     |
 
 ---
 

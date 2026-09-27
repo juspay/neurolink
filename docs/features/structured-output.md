@@ -106,8 +106,12 @@ capability flag costs one request rather than the turn.
 
 Two consequences worth knowing:
 
-- A `generate({ schema })` call that needed the reformat costs **two** requests.
-  Calls whose first answer already satisfies the schema cost one, as before.
+- A `generate({ schema })` call that needed the reformat costs **up to three**
+  requests: the original tool turn, the `response_format` re-ask, and — only
+  if the vendor rejects the schema itself (a non-object root) rather than the
+  request — a third tools-free pass with the schema spelled into the prompt
+  instead, described below. Calls whose first answer already satisfies the
+  schema cost one, as before.
 - The reformat is accepted only if it actually produced a schema-valid value.
   If it fails, if the SDK's own turn deadline is reached, or if it comes back as
   prose anyway, the original answer is returned rather than an error — so this

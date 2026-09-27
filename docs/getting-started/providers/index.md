@@ -485,10 +485,10 @@ generation fallback chains or the health sweep.
 
 ## 🧩 Additional Catalog Providers
 
-Every provider below is a **Tier-2 catalog entry** — OpenAI-wire-compatible
-with no behavioural quirks, so the whole integration is one JSON file under
-`src/lib/providers/catalog/`. Each page is generated from that file, which is
-also what the CI onboarding gate reads.
+Every provider below is a **Tier-2 catalog entry**. Provider-specific
+behavioural quirks may apply, so check the provider's catalog file. The whole
+integration is one JSON file under `src/lib/providers/catalog/`. Each page is
+generated from that file, which is also what the CI onboarding gate reads.
 
 ### [API Route](api-route.md)
 

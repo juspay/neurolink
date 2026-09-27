@@ -73,7 +73,7 @@ for await (const chunk of stream.stream) {
 
 | Feature           | Description                                                      |
 | ----------------- | ---------------------------------------------------------------- |
-| **40 Providers**  | OpenAI, Anthropic, Vertex, Bedrock, Azure, Mistral, Ollama, etc. |
+| **44 Providers**  | OpenAI, Anthropic, Vertex, Bedrock, Azure, Mistral, Ollama, etc. |
 | **Multimodal**    | Images, PDFs, CSV, Excel, Word, 50+ file types                   |
 | **MCP Tools**     | 58+ tools via Model Context Protocol                             |
 | **RAG**           | Built-in chunking, embedding, vector search                      |

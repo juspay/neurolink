@@ -9,7 +9,7 @@ Run AI-powered workflows with 44 providers directly in GitHub Actions. The Neuro
 
 ## Overview
 
-The NeuroLink GitHub Action provides a unified interface to integrate AI capabilities into your CI/CD workflows. It supports all 40 NeuroLink providers through a single, consistent configuration.
+The NeuroLink GitHub Action provides a unified interface to integrate AI capabilities into your CI/CD workflows. It supports all 44 NeuroLink providers through a single, consistent configuration.
 
 **Key Features:**
 

@@ -119,8 +119,8 @@ becomes a Tier 3 subclass instead of a sixth quirk.
   fails with a content-shape error and no other explanation.
 - `registryDefaultIgnoresModelEnvVar: true` — What it does: stops the
   provider registry's default-model resolution from honoring the model named
-  in the provider's `*_MODEL` env var, so the catalog's own `models.default`
-  always wins instead. When to use it: Mistral is the only current user —
+  in the provider's `*_MODEL` env var, so the catalog registry default
+  (`models.registryDefaultModel ?? models.default`) wins instead. When to use it: Mistral is the only current user —
   leave it unset for every other provider, since the default behavior (the
   env var wins) is what operators expect.
 - `responseFormatDowngrade: "json-schema-to-json-object"` — What it does:

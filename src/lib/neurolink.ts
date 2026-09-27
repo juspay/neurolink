@@ -10988,8 +10988,30 @@ Current user's request: ${currentInput}`;
       );
       streamResult.finishReason =
         streamState.finishReason || streamResult.finishReason;
-      streamResult.toolCalls = streamState.toolCalls;
-      streamResult.toolResults = streamState.toolResults;
+      // Unresolved #1819 review comment: a top-level cross-provider fallback
+      // (handleStreamFallback, inside `processedStream` above) only
+      // reassigns `streamState.toolCalls`/`toolResults` once the caller
+      // starts draining the stream — strictly AFTER this point, since
+      // `processedStream` is a lazy async generator and the
+      // `processStreamResult` call above resolves without pulling a single
+      // chunk. A plain value copy here (`streamResult.toolCalls =
+      // streamState.toolCalls`) would freeze whatever streamState held at
+      // THIS instant — the primary attempt's (usually empty) arrays —
+      // because a property assignment is not a live binding. Define live
+      // getters instead so every later read reflects streamState's current
+      // value, mirroring the pattern #1819 already used to keep
+      // finishReason/usage/model live via getters over streamState/
+      // mcpStreamOutcome.
+      Object.defineProperty(streamResult, "toolCalls", {
+        enumerable: true,
+        configurable: true,
+        get: () => streamState.toolCalls,
+      });
+      Object.defineProperty(streamResult, "toolResults", {
+        enumerable: true,
+        configurable: true,
+        get: () => streamState.toolResults,
+      });
       if (!streamResult.usage) {
         streamResult.usage = mcpStreamOutcome.usage;
       }
@@ -12374,14 +12396,34 @@ Current user's request: ${currentInput}`;
       model: source?.model ?? config.options.model,
       usage: streamResult.usage,
       finishReason: streamResult.finishReason,
-      toolCalls: streamResult.toolCalls,
-      toolResults: streamResult.toolResults,
       analytics: streamResult.analytics,
       evaluation: streamResult.evaluation,
       events:
         config.events && config.events.length > 0 ? config.events : undefined,
       metadata: source ? undefined : Object.assign({}, responseMetadata),
     };
+    // Unresolved #1819 review comment: toolCalls/toolResults must stay bound
+    // to `streamResult`'s own live getters (defined in stream(), right after
+    // processStreamResult) rather than the plain values a
+    // `toolCalls: streamResult.toolCalls` literal above would have captured
+    // — that reads the getter once and freezes whatever streamState held
+    // before a top-level cross-provider fallback (handleStreamFallback) had
+    // a chance to reassign it. Copying the property DESCRIPTOR, not its
+    // current value, keeps every later read on `response` live too.
+    const toolCallsDescriptor = Object.getOwnPropertyDescriptor(
+      streamResult,
+      "toolCalls",
+    );
+    if (toolCallsDescriptor) {
+      Object.defineProperty(response, "toolCalls", toolCallsDescriptor);
+    }
+    const toolResultsDescriptor = Object.getOwnPropertyDescriptor(
+      streamResult,
+      "toolResults",
+    );
+    if (toolResultsDescriptor) {
+      Object.defineProperty(response, "toolResults", toolResultsDescriptor);
+    }
     if (!source) {
       return response;
     }
@@ -12389,15 +12431,27 @@ Current user's request: ${currentInput}`;
     // finishReason, stopReason for aborts and time limits), so those fields
     // stay plain values here. Copying the provider's getter for them would
     // report the raw vendor reason, e.g. Anthropic's end_turn, instead.
-    const gradedTerminalFields = new Set([
+    //
+    // toolCalls/toolResults are excluded for a different reason: `source`
+    // (the PRIMARY provider's own result) may itself define them as live
+    // getters over BaseProvider.withStreamModelFallback's `activeResult`
+    // (#1819) — which only ever tracks a SAME-PROVIDER model retry. Copying
+    // that descriptor here would silently re-point `response.toolCalls`/
+    // `toolResults` back at the primary attempt, undoing the descriptor
+    // copy above that binds them to `streamResult`'s `streamState`-backed
+    // getters — the ones that actually track a top-level cross-provider
+    // fallback.
+    const liveAccessorExclusions = new Set([
       "finishReason",
       "stopReason",
       "rawFinishReason",
+      "toolCalls",
+      "toolResults",
     ]);
     for (const key of Object.getOwnPropertyNames(source)) {
       const descriptor = Object.getOwnPropertyDescriptor(source, key);
       if (
-        !gradedTerminalFields.has(key) &&
+        !liveAccessorExclusions.has(key) &&
         descriptor &&
         typeof descriptor.get === "function"
       ) {
@@ -12407,7 +12461,19 @@ Current user's request: ${currentInput}`;
     Object.defineProperty(response, "metadata", {
       enumerable: true,
       configurable: true,
-      get: () => Object.assign(source.metadata ?? {}, responseMetadata),
+      get: () => {
+        // A caller mutation (`result.metadata.x = 1`) must persist across
+        // reads. The previous `Object.assign(source.metadata ?? {},
+        // responseMetadata)` allocated a brand-new object every time
+        // `source.metadata` was undefined, so the mutation landed on a
+        // value discarded immediately after. Installing a persistent object
+        // into `source.metadata` the first time makes every later read
+        // return the SAME object, so mutations on it stick.
+        if (source.metadata === undefined) {
+          source.metadata = {};
+        }
+        return Object.assign(source.metadata, responseMetadata);
+      },
       set: (value: StreamResult["metadata"]) => {
         source.metadata = value;
       },

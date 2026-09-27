@@ -496,6 +496,134 @@ function startInvalidModelFallbackServer() {
   });
 }
 
+/**
+ * A local, loopback-only, NON-streaming OpenAI-chat-completions-shaped
+ * fixture (the same plain-JSON wire shape `startNonStreamingToolCallServer`
+ * above uses) that answers the FIRST request with a well-formed but EMPTY
+ * completion (a real 200, `finish_reason: "stop"`, empty content, no tool
+ * calls) — the "guardrails blocked" shape `NeuroLink.stream()`'s TOP-LEVEL
+ * `handleStreamFallback` targets (gated on `realOutputChunks === 0` with no
+ * tool calls/results either). This is distinct from
+ * `startInvalidModelFallbackServer` above (a request-level 404, which drives
+ * BaseProvider's SAME-provider `retryStreamWithFallbackModel`) and
+ * `startMidStreamFailoverServer` (a mid-stream disconnect, which drives
+ * `withStreamModelFallback`) — neither exercises the cross-provider
+ * `handleStreamFallback` path this fixture is built for.
+ *
+ * Non-streaming, not SSE, and paired with the 3-image `PNG_1X1` trick
+ * (`hasVideoFrames()`) at the call site: `executeFakeStreaming()` is the
+ * ONLY path where the openai-compatible provider's `toolCalls`/`toolResults`
+ * are populated on the returned StreamResult at all — eagerly, copied from
+ * the already-awaited `generate()` call. The real-streaming SSE path this
+ * provider otherwise speaks never sets those two fields (only `toolsUsed`/
+ * `toolExecutions`, see `startToolCallServer` above), so it cannot exercise
+ * this regression. Both the primary attempt and the fallback
+ * `handleStreamFallback` creates carry the same `input.files`, so both hit
+ * this same fake-streaming path against this fixture.
+ *
+ * Every request after the first belongs to the FALLBACK provider — a fresh
+ * instance `handleStreamFallback` creates and points at this same fixture
+ * (same credentials/baseURL) — and drives a normal two-turn tool round trip,
+ * so requests 2 and 3 are the fallback's own tool-call turn and answer turn.
+ */
+function startEmptyThenToolCallFallbackServer(toolName: string) {
+  let requestCount = 0;
+
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    requestCount++;
+    // Body is read fully so the connection completes cleanly; the fixture
+    // doesn't need to inspect it beyond turn number.
+    Buffer.concat(chunks).toString("utf8");
+
+    res.writeHead(200, { "content-type": "application/json" });
+
+    if (requestCount === 1) {
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 4, completion_tokens: 0, total_tokens: 4 },
+        }),
+      );
+      return;
+    }
+
+    if (requestCount === 2) {
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "call_fallback_1",
+                    type: "function",
+                    function: {
+                      name: toolName,
+                      arguments: '{"city":"lisbon"}',
+                    },
+                  },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+          usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+        }),
+      );
+      return;
+    }
+
+    res.end(
+      JSON.stringify({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: "It is sunny (fallback).",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 6, completion_tokens: 4, total_tokens: 10 },
+      }),
+    );
+  });
+
+  return new Promise<{
+    port: number;
+    requestCountNow(): number;
+    close(): Promise<void>;
+  }>((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        port,
+        requestCountNow: () => requestCount,
+        close: () =>
+          new Promise<void>((r) => {
+            server.closeAllConnections?.();
+            server.close(() => r());
+          }),
+      });
+    });
+  });
+}
+
 function assertToolTelemetryPresent(
   result: { toolsUsed?: unknown; toolExecutions?: unknown },
   toolName: string,
@@ -930,6 +1058,144 @@ void runSuite(async () => {
         result.metadata?.structuredData,
         { attempt: "retry" },
         "retry-only structured metadata is missing from the public result",
+      );
+    } finally {
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("after a top-level cross-provider fallback with its own tool call, toolCalls/toolResults describe the fallback (not the empty primary), and metadata mutations persist across reads", async () => {
+    const toolName = "get_weather";
+    let toolCalls = 0;
+    const fixture = await startEmptyThenToolCallFallbackServer(toolName);
+    const sdk = new NeuroLink();
+    try {
+      const result = await sdk.stream({
+        input: {
+          text: "what is the weather in lisbon",
+          // Routes both the primary attempt AND the fallback through
+          // executeFakeStreaming() (see startEmptyThenToolCallFallbackServer's
+          // docstring) — the only path where this provider's
+          // toolCalls/toolResults are populated on the StreamResult at all.
+          files: [
+            { buffer: PNG_1X1, filename: "frame1.png", mimetype: "image/png" },
+            { buffer: PNG_1X1, filename: "frame2.png", mimetype: "image/png" },
+            { buffer: PNG_1X1, filename: "frame3.png", mimetype: "image/png" },
+          ],
+        },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        maxSteps: 3,
+        // Leave the top-level fallback ENABLED — unlike every other case in
+        // this suite (which disables it to isolate a different code path),
+        // it's the exact mechanism under test here. Pinning both provider
+        // and model keeps the fallback pointed at this same fixture via the
+        // same `credentials`, instead of depending on ModelRouter's default
+        // routing decision.
+        fallbackProvider: "openai",
+        fallbackModel: "gpt-4o-mini",
+        enabledToolNames: [toolName],
+        credentials: {
+          openai: {
+            apiKey: "test-key",
+            baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+          },
+        },
+        tools: {
+          [toolName]: tool({
+            inputSchema: z.object({ city: z.string() }),
+            execute: async ({ city }: { city: string }) => {
+              toolCalls++;
+              return { city, forecast: "sunny" };
+            },
+          }),
+        },
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+
+      let text = "";
+      for await (const chunk of result.stream) {
+        if (
+          chunk &&
+          typeof chunk === "object" &&
+          "content" in chunk &&
+          typeof (chunk as { content: unknown }).content === "string"
+        ) {
+          text += (chunk as { content: string }).content;
+        }
+      }
+
+      assert.equal(
+        toolCalls,
+        1,
+        "the fallback attempt's tool was not invoked exactly once",
+      );
+      assert.equal(
+        fixture.requestCountNow(),
+        3,
+        "expected 1 empty primary request plus the fallback's 2-request tool round trip",
+      );
+      assert.ok(
+        text.includes("sunny"),
+        "the fallback's post-tool-call answer did not reach the drained stream",
+      );
+
+      // Bugs 1a+1b (unresolved #1819 review comment): the PRIMARY attempt
+      // made zero tool calls. Before the fix, `result.toolCalls`/
+      // `toolResults` reported that empty primary snapshot no matter what
+      // the fallback did:
+      //   (1a) `streamResult.toolCalls = streamState.toolCalls` (a plain
+      //        value copy in stream()) ran before `handleStreamFallback`
+      //        (inside the lazily-executed stream generator) had a chance
+      //        to reassign `streamState.toolCalls` to the fallback's own —
+      //        JS property assignment isn't a live binding.
+      //   (1b) even with (1a) fixed via live getters, `createStreamResponse`
+      //        re-copied any of `source`'s (the PRIMARY's) own getters back
+      //        over `response`, which would silently re-point
+      //        `toolCalls`/`toolResults` at the primary again.
+      // Both must be fixed together for this assertion to hold.
+      assert.equal(
+        result.toolCalls?.length,
+        1,
+        "result.toolCalls did not reflect the fallback attempt's tool call",
+      );
+      assert.equal(
+        result.toolCalls?.[0]?.toolName,
+        toolName,
+        "result.toolCalls named the wrong tool",
+      );
+      // toolResults is exercised for liveness (same getter, same
+      // Object.defineProperty pattern as toolCalls above) but not for
+      // non-empty content: no current provider's generate() populates the
+      // legacy `GenerateResult.toolResults` field (only toolCalls/
+      // toolExecutions/toolsUsed are set — see openaiChatCompletionsBase.ts
+      // and anthropic/client.ts's native loops), so
+      // BaseProvider.executeFakeStreaming()'s `toolResults` mapping is
+      // always fed `undefined` and resolves to `[]` on every attempt,
+      // primary or fallback. That is a separate, pre-existing gap outside
+      // Fix 1's scope (which is the getter/live-binding plumbing, not
+      // populating this field). What IS observable here: `streamState.
+      // toolResults` is reassigned to the fallback's own (fresh empty) array
+      // by `handleStreamFallback`, so a defined array — not `undefined` —
+      // must come back through the live getter.
+      assert.ok(
+        Array.isArray(result.toolResults),
+        "result.toolResults must be a live (possibly empty) array, not undefined",
+      );
+
+      // Bug 1c: result.metadata must be a stable, mutable reference — a
+      // caller mutation must be visible on a LATER read, not silently
+      // dropped. `structuredData` is never touched by the internal
+      // `responseMetadata` merge, so it isolates the reference-identity bug
+      // from unrelated re-merged fields (streamId/startTime/error/etc).
+      assert.ok(result.metadata, "result.metadata is missing");
+      if (result.metadata) {
+        result.metadata.structuredData = { probe: "sentinel" };
+      }
+      assert.deepEqual(
+        result.metadata?.structuredData,
+        { probe: "sentinel" },
+        "a mutation on result.metadata did not persist across a later read",
       );
     } finally {
       await sdk.shutdown();

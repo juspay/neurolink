@@ -1,4 +1,4 @@
-# 🧪 NeuroLink Testing Guide — 40 Providers, Validated in CI
+# 🧪 NeuroLink Testing Guide — 44 Providers, Validated in CI
 
 ## 🎉 Provider Testing Status
 
