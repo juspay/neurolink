@@ -28,6 +28,7 @@ export const textGenerationOptionsSchema: Record<
     | "csvOptions"
     | "pdfOptions"
     | "imageOptions"
+    | "audioOptions" // Complex object (#413); SDK-only via GenerateOptions.audioOptions — no --audio-* flags exist yet, not `/set`
     | "videoOptions" // Complex object, not set via simple CLI commands
     | "officeOptions"
     | "tts"

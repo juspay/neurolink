@@ -131,6 +131,10 @@ export class MessageBuilder {
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
             imageOptions: options.imageOptions,
+            // The audio option bag is carried the same way: omitted here, a
+            // caller's transcription backend, model and language never reach
+            // AudioProcessor and it silently falls back to auto-selection.
+            audioOptions: options.audioOptions,
             // Same reason as csvOptions: the keyframe budget and the
             // transcription flag are read downstream by the detector, and
             // a reconstruction that omits them silently restores defaults.
@@ -300,6 +304,10 @@ export class MessageBuilder {
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
             imageOptions: options.imageOptions,
+            // The audio option bag is carried the same way: omitted here, a
+            // caller's transcription backend, model and language never reach
+            // AudioProcessor and it silently falls back to auto-selection.
+            audioOptions: options.audioOptions,
             // Same reason as csvOptions: the keyframe budget and the
             // transcription flag are read downstream by the detector, and
             // a reconstruction that omits them silently restores defaults.

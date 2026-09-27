@@ -269,6 +269,56 @@ and the inline copies had already drifted apart in what they documented.
 
 ---
 
+### audioOptions?
+
+> `optional` **audioOptions?**: `object`
+
+Audio transcription options for attached audio files (#413/#440).
+
+An attached audio file is transcribed automatically when a backend is
+configured; this is only needed to override which one, or to help it.
+Without it the first configured backend wins, in the order OpenAI
+(Whisper), Google, Azure.
+
+#### provider?
+
+> `optional` **provider?**: `string`
+
+Transcription backend: "openai" (aliases "whisper", "openai-whisper"),
+"google" or "azure". An unavailable or unrecognised choice is never
+swapped for another backend: no transcript is produced, and the
+selection reason is logged as a warning.
+
+#### transcriptionModel?
+
+> `optional` **transcriptionModel?**: `string`
+
+Transcription model, e.g. "whisper-1". Backend-specific.
+
+#### language?
+
+> `optional` **language?**: `string`
+
+Language hint, e.g. "en". Improves accuracy on non-English speech.
+
+#### prompt?
+
+> `optional` **prompt?**: `string`
+
+OpenAI/Whisper-only context prompt to bias transcription (proper nouns,
+jargon). Ignored by Google and Azure.
+
+#### Example
+
+```typescript
+await neurolink.generate({
+  input: { text: "Summarise this call", files: ["./call.mp3"] },
+  audioOptions: { provider: "openai", language: "en" },
+});
+```
+
+---
+
 ### tts?
 
 > `optional` **tts?**: [`TTSOptions`](TTSOptions.md)

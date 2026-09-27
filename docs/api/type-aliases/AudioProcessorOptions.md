@@ -40,7 +40,7 @@ Language code for transcription (e.g., 'en', 'es', 'fr')
 
 > `optional` **prompt?**: `string`
 
-Context or prompt to guide transcription accuracy
+OpenAI/Whisper-only context prompt to guide transcription accuracy; ignored by Google and Azure
 
 ---
 

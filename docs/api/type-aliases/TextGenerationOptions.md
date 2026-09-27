@@ -679,6 +679,42 @@ module's own default, unchanged unless a caller opts in here.
 
 ---
 
+### audioOptions?
+
+> `optional` **audioOptions?**: `object`
+
+Audio transcription options for attached audio files (#413/#440).
+
+Mirrors `GenerateOptions.audioOptions`; declared here because
+`buildGenerateTextOptions` rebuilds options field by field, so anything
+missing from this type cannot reach the message builder at all.
+
+#### provider?
+
+> `optional` **provider?**: `string`
+
+Backend: "openai" (aliases "whisper"), "google" or "azure".
+
+#### transcriptionModel?
+
+> `optional` **transcriptionModel?**: `string`
+
+Transcription model, e.g. "whisper-1". Backend-specific.
+
+#### language?
+
+> `optional` **language?**: `string`
+
+Language hint, e.g. "en".
+
+#### prompt?
+
+> `optional` **prompt?**: `string`
+
+OpenAI/Whisper-only context prompt to bias transcription; ignored by Google and Azure.
+
+---
+
 ### enableSummarization?
 
 > `optional` **enableSummarization?**: `boolean`

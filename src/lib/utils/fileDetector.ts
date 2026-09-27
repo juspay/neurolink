@@ -30,6 +30,7 @@ async function getArchiveProcessor() {
   return mod.archiveProcessor;
 }
 import type {
+  AudioProcessorOptions,
   CSVProcessorOptions,
   DetectionStrategy,
   FileDetectionResult,
@@ -442,15 +443,10 @@ export class FileDetector {
             `[FileDetector] All fallback parsing failed for type "${detection.type}". ` +
               `Attempted: ${options.allowedTypes.join(", ")}. Falling through to universal handler.`,
           );
-          const csvOptions: CSVProcessorOptions | undefined =
-            options?.csvOptions;
           const result = await FileDetector.processFile(
             content,
             detection,
-            csvOptions,
-            options?.provider,
-            options?.videoOptions,
-            options?.officeOptions,
+            options,
           );
           FileDetector.setFileResultSpanAttributes(
             span,
@@ -464,14 +460,10 @@ export class FileDetector {
         const content =
           loadedUrl?.content ??
           (await FileDetector.loadContent(input, detection, options));
-        const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
         const result = await FileDetector.processFile(
           content,
           detection,
-          csvOptions,
-          options?.provider,
-          options?.videoOptions,
-          options?.officeOptions,
+          options,
         );
         FileDetector.setFileResultSpanAttributes(
           span,
@@ -1389,23 +1381,22 @@ export class FileDetector {
   private static async processFile(
     content: Buffer,
     detection: FileDetectionResult,
-    options?: CSVProcessorOptions,
-    provider?: string,
-    videoOptions?: VideoProcessorOptions,
-    officeOptions?: OfficeProcessorOptions,
+    options?: FileDetectorOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
         // Pass original extension through to CSV processor; if detection has none,
         // fall back to any extension provided in csvOptions.
         return await CSVProcessor.process(content, {
-          ...options,
-          extension: detection.extension ?? options?.extension,
+          ...options?.csvOptions,
+          extension: detection.extension ?? options?.csvOptions?.extension,
         });
       case "image":
         return await ImageProcessor.process(content);
       case "pdf":
-        return await PDFProcessor.process(content, { provider });
+        return await PDFProcessor.process(content, {
+          provider: options?.provider,
+        });
       case "svg":
         // SVG is processed as text content (sanitized XML markup)
         // AI providers don't support SVG as image format, so we extract text content
@@ -1414,17 +1405,21 @@ export class FileDetector {
         return await FileDetector.processVideoFile(
           content,
           detection,
-          videoOptions,
+          options?.videoOptions,
         );
       case "audio":
-        return await FileDetector.processAudioFile(content, detection);
+        return await FileDetector.processAudioFile(
+          content,
+          detection,
+          options?.audioOptions,
+        );
       case "archive":
         return await FileDetector.processArchiveFile(content, detection);
       case "xlsx":
         return await FileDetector.processXlsxFile(
           content,
           detection,
-          officeOptions,
+          options?.officeOptions,
         );
       case "docx":
         return await FileDetector.processDocxFile(content, detection);
@@ -1579,23 +1574,30 @@ export class FileDetector {
   private static async processAudioFile(
     content: Buffer,
     detection: FileDetectionResult,
+    audioOptions?: AudioProcessorOptions,
   ): Promise<FileProcessingResult> {
     const audioFilename = detection.metadata.filename || "audio";
     try {
       const audioResult = await (
         await getAudioProcessor()
-      ).processFile({
-        id: audioFilename,
-        name: audioFilename,
-        mimetype: detection.mimeType || "audio/mpeg",
-        size: content.length,
-        buffer: content,
-      });
+      ).processFile(
+        {
+          id: audioFilename,
+          name: audioFilename,
+          mimetype: detection.mimeType || "audio/mpeg",
+          size: content.length,
+          buffer: content,
+        },
+        // #440: carry the caller's transcription provider/language/prompt
+        // through to the processor; previously these stopped here.
+        audioOptions,
+      );
       if (audioResult.success && audioResult.data) {
+        const audio = audioResult.data;
         return {
           type: "audio",
           content:
-            audioResult.data.textContent ||
+            audio.textContent ||
             FileDetector.formatInformativePlaceholder(
               "Audio",
               audioFilename,
@@ -1604,10 +1606,28 @@ export class FileDetector {
             ),
           mimeType: detection.mimeType,
           // Surface embedded cover art as an image content block
-          images: audioResult.data.coverArt
-            ? [audioResult.data.coverArt]
-            : undefined,
-          metadata: detection.metadata,
+          images: audio.coverArt ? [audio.coverArt] : undefined,
+          metadata: {
+            ...detection.metadata,
+            // #409: the processor's audio metadata used to stop here —
+            // `detection.metadata` alone carries only size/filename/confidence,
+            // so duration and everything about the transcript were dropped by
+            // the very call that produced them.
+            ...(audio.metadata.duration > 0
+              ? { duration: audio.metadata.duration }
+              : {}),
+            ...(audio.transcriptionLanguage
+              ? { language: audio.transcriptionLanguage }
+              : {}),
+            // Written whenever a backend actually ran, so 0 (a real empty
+            // transcript) stays distinguishable from "never attempted".
+            ...(audio.transcriptionProvider
+              ? {
+                  transcriptionLength: audio.transcript?.length ?? 0,
+                  transcriptionProvider: audio.transcriptionProvider,
+                }
+              : {}),
+          },
         };
       }
     } catch (audioError) {

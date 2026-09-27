@@ -5801,6 +5801,10 @@ Current user's request: ${currentInput}`;
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
       imageOptions: options.imageOptions,
+      // #413/#440: the audio option bag belongs in the same list. Left out
+      // here it was accepted by the public type and then silently discarded
+      // before the message builder, like every field above.
+      audioOptions: options.audioOptions,
       // videoOptions belongs in that same list and was never in it, so no SDK
       // caller's video settings have ever reached a provider -- frames and
       // quality included, not just the native-video flags added alongside.
