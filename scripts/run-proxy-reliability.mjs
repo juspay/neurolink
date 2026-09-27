@@ -7,6 +7,7 @@ const checks = [
   // Claude-on-Vertex passthrough that the Anthropic legs fall back to. It had no
   // npm script and no workflow reference, so its 51 cases never ran anywhere.
   ["tsx", "test/continuous-test-suite-vertex-anthropic-fallback.ts"],
+  ["tsx", "test/continuous-test-suite-proxy-ir-codec.ts"],
   ...[
     "request-lifecycle",
     "http-disconnect",

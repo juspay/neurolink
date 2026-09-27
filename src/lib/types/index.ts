@@ -63,6 +63,7 @@ export * from "./providerCatalog.js";
 export * from "./providerCatalog.generated.js";
 export * from "./providers.js";
 export * from "./proxy.js";
+export * from "./proxyIR.js";
 export * from "./proxyClient.js";
 export * from "./proxyContext.js";
 export * from "./rag.js";

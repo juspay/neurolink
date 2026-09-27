@@ -412,6 +412,11 @@ export default [
             "test/continuous-test-suite-proxy-telemetry-reconciliation.ts",
             "test/continuous-test-suite-proxy-fallback-errors.ts",
             "test/continuous-test-suite-proxy-fallback-parent.ts",
+            // Pure IR shape and exhaustiveness invariants. The guarantee under
+            // test is that an unhandled union variant fails `tsc --noEmit`, which
+            // is a property of the type declarations and their shipped consumers,
+            // not of any dispatched request: a live call cannot observe it at all.
+            "test/continuous-test-suite-proxy-ir-codec.ts",
 
             // Isolated rolling workers inject startup stalls and crashes while
             // the built restart CLI and real streaming sockets are exercised.
