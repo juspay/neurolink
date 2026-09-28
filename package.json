@@ -140,6 +140,7 @@
     "test:provider-descriptors": "pnpm exec tsx test/continuous-test-suite-provider-descriptors.ts",
     "test:provider-structure": "pnpm exec tsx test/continuous-test-suite-provider-structure.ts",
     "test:model-manifests": "pnpm exec tsx test/continuous-test-suite-model-manifests.ts",
+    "test:cli-models-list": "pnpm exec tsx test/continuous-test-suite-cli-models-list.ts",
     "test:provider-fallback": "pnpm exec tsx test/continuous-test-suite-provider-fallback.ts",
     "test:provider-fallback-latency": "pnpm exec tsx test/continuous-test-suite-provider-fallback-latency.ts",
     "test:provider-wiring": "pnpm exec tsx test/continuous-test-suite-provider-wiring.ts",

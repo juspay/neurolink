@@ -23,7 +23,7 @@
         "enumMember": "KIMI_K2P6",
         "vision": false,
         "status": "retired",
-        "description": "Retired 2026-09 — still on the Fireworks roster, but a real chat call returns 404 'not deployed' (since the 2026-09-26 nightly)"
+        "description": "Retired 2026-09 — still listed on the Fireworks /models roster, but the chat endpoint 404s 'Model not found, inaccessible, and/or not deployed' (since the 2026-09-26 nightly); superseded by kimi-k3, same Moonshot family"
       },
       "accounts/fireworks/models/gpt-oss-120b": {
         "enumMember": "GPT_OSS_120B",
@@ -107,7 +107,8 @@
     "topModels": [
       "accounts/fireworks/models/kimi-k3",
       "accounts/fireworks/models/gpt-oss-120b",
-      "accounts/fireworks/models/qwen3p8-max"
+      "accounts/fireworks/models/qwen3p8-max",
+      "accounts/fireworks/models/glm-5p3"
     ]
   },
   "capabilities": {
@@ -146,7 +147,7 @@
     },
     "liveMatrix": {
       "date": "2026-09-28",
-      "result": "kimi-k2p6 is still listed on /models but a real chat call now returns 404 'not deployed', which failed the nightly model-liveness gate from 2026-09-26 and sent the matrix vision test down the text-only fallback. kimi-k3 answers a text call and a call carrying a PNG with 200, so it becomes the default; gpt-oss-120b, qwen3p8-max and glm-5p3 also answer text calls. Earlier (2026-08-30): deepseek-v4-pro was listed but hung past 120s, six ids returned 404 'not deployed', and glm-5p3 answers 'does not support image inputs'."
+      "result": "Issue #1796: the 2026-09-26 nightly model-liveness gate reported the default, kimi-k2p6, as dead, sending the matrix vision test down the text-only fallback. Confirmed live — GET /models still lists kimi-k2p6, but POST /chat/completions 404s 'Model not found, inaccessible, and/or not deployed', the same still-listed-but-unservable pattern deepseek-v4-pro hit in 2026-08 (hung past 120s rather than 404ing). Moved the default to kimi-k3, the same Moonshot family's newest generation: 200 OK on both a text-only call and a call carrying a PNG, and a full-length call returns a proper OpenAI-shaped tool_calls entry with finish_reason=tool_calls, confirming vision and tool support both survive the swap. kimi-k2p6 marked retired rather than deleted, per the frozen-enum rule. gpt-oss-120b, qwen3p8-max and glm-5p3 (the rest of fallbacks/topModels) were re-probed alive at the same time; glm-5p3 still only answers text calls, not image ones, as found 2026-08-30."
     },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }

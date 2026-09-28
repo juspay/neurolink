@@ -26,6 +26,7 @@ import {
   getAvailableProviders,
   formatModelForDisplay,
 } from "../../lib/models/modelRegistry.js";
+import { getCatalogJsonEntries } from "../../lib/providers/catalog/loader.js";
 import chalk from "chalk";
 import ora from "ora";
 
@@ -466,10 +467,28 @@ export class ModelsCommandFactory {
           const provider = (await AIProviderFactory.createProvider(
             providerName,
           )) as { getAvailableModels?: () => Promise<string[]> };
-          const liveIds =
+          const rawLiveIds =
             typeof provider.getAvailableModels === "function"
               ? await provider.getAvailableModels()
               : [];
+          // Project against the JSON catalog's non-retired ids, mirroring
+          // getAllModels()'s listing filter: a catalog-backed provider's
+          // vendor `/models` endpoint often keeps listing an id long after
+          // it 404s on chat completions (see e.g. fireworks.json's
+          // `evidence.liveMatrix`), so an unfiltered live listing would
+          // print a retired id as a usable "live" result. Providers with no
+          // catalog entry (litellm, ollama, openai-compatible gateways,
+          // lm-studio, llamacpp) have nothing to project against, so their
+          // live discovery stays unrestricted — that is the whole point of
+          // this fallback for them.
+          const catalogEntry = getCatalogJsonEntries().find(
+            (entry) => entry.id === providerName,
+          );
+          const liveIds = catalogEntry
+            ? rawLiveIds.filter(
+                (id) => catalogEntry.models.catalog[id]?.status !== "retired",
+              )
+            : rawLiveIds;
           if (liveIds.length > 0) {
             if (spinner) {
               spinner.succeed(

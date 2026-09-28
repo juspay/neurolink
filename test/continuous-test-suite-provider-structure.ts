@@ -24,12 +24,18 @@ import "dotenv/config";
 
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "node:os";
+import { pathToFileURL } from "node:url";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 // Type-only: erased at compile time, so this does not pull the runtime
 // suite off the all-dist module graph (rule 15) — the enum's runtime
 // binding below still comes from ../dist/constants/enums.js.
 import type { AIProviderName as AIProviderNameType } from "../src/lib/constants/enums.js";
+// Type-only, same reasoning — used only to type the dynamic import of an
+// isolated dist COPY below (not ../dist itself, so no literal specifier is
+// possible); the runtime binding still comes from that copy.
+import type * as ModelChoicesModuleType from "../src/lib/utils/modelChoices.js";
 
 // Fail loudly rather than silently testing a stale build.
 assertDistFresh();
@@ -375,6 +381,227 @@ await test("Model id tables agree with the model enums", async () => {
     orphans.length === 0,
     `${orphans.length} token-limit key(s) unreachable from any model enum (listed above)`,
   );
+});
+
+/**
+ * `getAllModels(provider)`/`isValidModel(provider, model)`
+ * (src/lib/utils/modelChoices.ts) have no consumer that reaches them
+ * through NeuroLink's shipped surface today (neither function is exported
+ * from dist/index.js, and every real internal caller uses
+ * getTopModelChoices instead) — same "no public surface at all" reasoning
+ * as the other deep-dist-import cases in this file's grandfathered
+ * exception. Reads the fireworks.json catalog fixture directly, exactly
+ * like Provider Registration Completeness above reads providerRegistry.ts,
+ * to prove the ids this test pins actually match the source of truth
+ * before trusting the functions under test to filter them correctly.
+ */
+await test("getAllModels/isValidModel exclude retired catalog ids from the listing", async () => {
+  const RETIRED_MODEL = "accounts/fireworks/models/kimi-k2p6";
+  const LIVE_MODEL = "accounts/fireworks/models/kimi-k3";
+
+  const catalogPath = path.join(
+    process.cwd(),
+    "src",
+    "lib",
+    "providers",
+    "catalog",
+    "fireworks.json",
+  );
+  assert(
+    fs.existsSync(catalogPath),
+    "src/lib/providers/catalog/fireworks.json not found (run from repo root)",
+  );
+  const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8")) as {
+    models: { catalog: Record<string, { status?: string }> };
+  };
+
+  // Precondition: the fixture ids this test pins still match what the
+  // catalog source of truth actually says, so the assertions below test
+  // the filter, not a stale literal that no longer describes the data.
+  assert(
+    catalog.models.catalog[RETIRED_MODEL]?.status === "retired",
+    "fixture drift: fireworks.json catalog no longer marks kimi-k2p6 as retired",
+  );
+  assert(
+    catalog.models.catalog[LIVE_MODEL]?.status === "production",
+    "fixture drift: fireworks.json catalog no longer marks kimi-k3 as production",
+  );
+
+  const { getAllModels, isValidModel } =
+    await import("../dist/utils/modelChoices.js");
+  const { AIProviderName } = await import("../dist/constants/enums.js");
+
+  const models = getAllModels(AIProviderName.FIREWORKS);
+  assert(
+    models.length > 0,
+    "getAllModels(FIREWORKS) returned an empty listing — catalog wiring broken, cannot test the filter",
+  );
+  assert(
+    !models.includes(RETIRED_MODEL),
+    "getAllModels(FIREWORKS) must exclude the retired kimi-k2p6 id from its listing",
+  );
+  assert(
+    models.includes(LIVE_MODEL),
+    "getAllModels(FIREWORKS) must still include the live kimi-k3 model",
+  );
+
+  // isValidModel must still accept a caller who pins the retired id
+  // explicitly — only the listing surface drops it; a pin must not start
+  // failing validation just because its id left the selectable listing.
+  assert(
+    isValidModel(AIProviderName.FIREWORKS, RETIRED_MODEL),
+    "isValidModel(FIREWORKS, kimi-k2p6) must still accept an explicitly pinned retired id",
+  );
+  assert(
+    isValidModel(AIProviderName.FIREWORKS, LIVE_MODEL),
+    "isValidModel(FIREWORKS, kimi-k3) must accept the live default id",
+  );
+
+  // The catalog-membership fallback is `model in catalogEntry.models.catalog`,
+  // and `in` walks the prototype chain — the catalog object is a plain
+  // object (structuredClone of parsed JSON), so it inherits Object.prototype
+  // members. A fabricated "model id" that happens to name one of those
+  // inherited members must still be rejected.
+  assert(
+    !isValidModel(AIProviderName.FIREWORKS, "toString"),
+    "isValidModel(FIREWORKS, 'toString') must reject an inherited Object.prototype member name, not just absent catalog keys",
+  );
+});
+
+/**
+ * isValidModel's empty-listing branch, isolated from the real catalog.
+ *
+ * No shipped catalog is all-retired today (the precondition below proves
+ * fireworks.json specifically is not), so `getAllModels(provider) === []`
+ * for a catalog provider never happens against real data, and the branch
+ * that decides what an empty listing means cannot be exercised by calling
+ * the shipped functions against the shipped fixture — the assertion above
+ * always takes the `models.includes(model)` path, never the empty-array
+ * path this test targets.
+ *
+ * To reach it without editing the real fireworks.json (which the rest of
+ * this suite, and test:openai-compat-catalog, depend on staying real),
+ * this test copies the BUILT dist/ output — the exact compiled code under
+ * test, not a reimplementation — into an isolated scratch directory, edits
+ * only the COPY's fireworks.json to mark every catalog entry "retired",
+ * and dynamically imports modelChoices.js/enums.js from that copy by file
+ * URL. The project's dist/ and the src/ fixture are never written to; the
+ * scratch directory is removed in a `finally`. Same technique CodeRabbit's
+ * own reproduction used to establish the finding in the first place.
+ */
+await test("isValidModel rejects a fabricated id when a catalog provider's every entry is retired (isolated dist copy)", async () => {
+  const catalogPath = path.join(
+    process.cwd(),
+    "src",
+    "lib",
+    "providers",
+    "catalog",
+    "fireworks.json",
+  );
+  const realCatalog = JSON.parse(fs.readFileSync(catalogPath, "utf8")) as {
+    models: { catalog: Record<string, { status?: string }> };
+  };
+
+  // Precondition: the real catalog is not already all-retired. If it
+  // were, the isolated copy below would not be adding anything the real
+  // fixture doesn't already cover, and this test would not be proving
+  // what its name says.
+  const hasNonRetiredEntry = Object.values(realCatalog.models.catalog).some(
+    (spec) => spec.status !== "retired",
+  );
+  assert(
+    hasNonRetiredEntry,
+    "precondition: src/lib/providers/catalog/fireworks.json is already all-retired — this test's isolated-copy scenario no longer differs from the real fixture",
+  );
+
+  const scratchRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "neurolink-catalog-rot-fixture-"),
+  );
+  try {
+    const distSrc = path.join(process.cwd(), "dist");
+    const distCopy = path.join(scratchRoot, "dist");
+
+    // Precondition: there is a real dist/ to copy. assertDistFresh() at
+    // module load already proved it exists and is current with src/; this
+    // re-check is just for the copy step immediately below.
+    assert(
+      fs.existsSync(distSrc),
+      "dist/ not found — run `pnpm run build` before this suite",
+    );
+
+    fs.cpSync(distSrc, distCopy, { recursive: true });
+    // dist/ has no package.json of its own (the repo root's "type":
+    // "module" covers it via directory walk-up); the copy needs its own
+    // marker so Node parses the copied .js files as ESM rather than
+    // falling back to CJS once it can no longer see the real root.
+    fs.writeFileSync(
+      path.join(scratchRoot, "package.json"),
+      JSON.stringify({ type: "module" }),
+    );
+    // The copied files still import real npm packages (e.g. zod); this
+    // makes bare-specifier resolution find them without duplicating
+    // node_modules.
+    fs.symlinkSync(
+      path.join(process.cwd(), "node_modules"),
+      path.join(scratchRoot, "node_modules"),
+      "dir",
+    );
+
+    const copiedCatalogPath = path.join(
+      distCopy,
+      "providers",
+      "catalog",
+      "fireworks.json",
+    );
+    const copiedCatalog = JSON.parse(
+      fs.readFileSync(copiedCatalogPath, "utf8"),
+    ) as { models: { catalog: Record<string, { status: string }> } };
+    const catalogKeys = Object.keys(copiedCatalog.models.catalog);
+    assert(
+      catalogKeys.length > 0,
+      "copied fireworks.json has an empty catalog — cannot force an all-retired fixture from nothing",
+    );
+    for (const key of catalogKeys) {
+      copiedCatalog.models.catalog[key].status = "retired";
+    }
+    fs.writeFileSync(copiedCatalogPath, JSON.stringify(copiedCatalog, null, 2));
+
+    const modelChoices = (await import(
+      pathToFileURL(path.join(distCopy, "utils", "modelChoices.js")).href
+    )) as typeof ModelChoicesModuleType;
+    const enumsModule = (await import(
+      pathToFileURL(path.join(distCopy, "constants", "enums.js")).href
+    )) as { AIProviderName: Record<string, AIProviderNameType> };
+    const { getAllModels, isValidModel } = modelChoices;
+    const { AIProviderName: CopyAIProviderName } = enumsModule;
+
+    // Precondition: the copy's listing is really empty now — otherwise
+    // the assertions below would pass by accident (the ordinary
+    // `models.includes(model)` path), not because the empty-listing
+    // branch under test actually ran.
+    const modelsInCopy = getAllModels(CopyAIProviderName.FIREWORKS);
+    assert(
+      modelsInCopy.length === 0,
+      "isolated copy: getAllModels(FIREWORKS) is not empty after forcing every catalog entry to retired — the fixture edit did not take, so this does not test the empty-listing branch",
+    );
+
+    const FABRICATED_ID = "totally-made-up-model-id-does-not-exist-xyz";
+    assert(
+      !isValidModel(CopyAIProviderName.FIREWORKS, FABRICATED_ID),
+      "isValidModel(FIREWORKS, <fabricated id>) must reject an id that is not in the catalog, even when every catalog entry is retired",
+    );
+
+    // A real (now all-retired) catalog id must still validate — the
+    // empty-listing branch is a catalog-membership check, not a blanket
+    // rejection, so an explicitly pinned retired id keeps working.
+    const REAL_ID_IN_CATALOG = catalogKeys[0];
+    assert(
+      isValidModel(CopyAIProviderName.FIREWORKS, REAL_ID_IN_CATALOG),
+      "isValidModel(FIREWORKS, <real catalog id>) must still accept a real catalog id even when every entry (including this one) is retired",
+    );
+  } finally {
+    fs.rmSync(scratchRoot, { recursive: true, force: true });
+  }
 });
 
 await runSuite();

@@ -569,13 +569,21 @@ export function getTopModelChoices(
  * Get all available models for a provider
  * Returns all values from the provider's model enum
  *
+ * For a JSON-catalog provider, excludes retired ids. The `catalog` map keeps
+ * retired entries as raw table keys (they still resolve for a caller who
+ * pins that id explicitly — see `isValidModel`'s dedicated retired-id
+ * allowance below), but a listing/selection surface should not offer them.
+ * Mirrors the `selectableModels` filter in catalog/schema.ts.
+ *
  * @param provider - The AI provider to get models for
  * @returns Array of model identifier strings
  */
 export function getAllModels(provider: AIProviderName): string[] {
   const catalogEntry = catalogEntryFor(provider);
   if (catalogEntry) {
-    return Object.keys(catalogEntry.models.catalog);
+    return Object.entries(catalogEntry.models.catalog)
+      .filter(([, spec]) => spec.status !== "retired")
+      .map(([model]) => model);
   }
   const modelEnum =
     MODEL_ENUMS[provider as Exclude<AIProviderName, CatalogProviderName>];
@@ -626,17 +634,42 @@ export function getDefaultModel(provider: AIProviderName): string | undefined {
 /**
  * Check if a model is valid for a given provider
  *
+ * `getAllModels` excludes retired catalog ids (it is a listing/selection
+ * surface), but a caller who pins a retired id explicitly must not have
+ * that pin start failing validation just because it dropped out of the
+ * listing — so this falls back to the full catalog (all statuses) before
+ * rejecting a JSON-catalog provider's model.
+ *
+ * The empty-listing case is checked against catalog membership, not
+ * accepted outright: a catalog provider whose every entry happens to be
+ * retired still has a real catalog to validate against, and a fabricated
+ * id must not slip through just because the *selectable* listing is empty.
+ * Only a provider with no catalog entry at all (openai-compatible,
+ * lm-studio, llamacpp — providers without a strict model list) keeps the
+ * permissive "allow any model" behavior.
+ *
  * @param provider - The AI provider
  * @param model - The model identifier to check
  * @returns true if the model exists in the provider's model enum
  */
 export function isValidModel(provider: AIProviderName, model: string): boolean {
   const models = getAllModels(provider);
-  if (models.length === 0) {
-    // For providers without strict model lists (like openai-compatible), allow any model
+  if (models.includes(model)) {
     return true;
   }
-  return models.includes(model);
+  const catalogEntry = catalogEntryFor(provider);
+  if (catalogEntry) {
+    // Falls back to the FULL catalog (all statuses) so an explicitly pinned
+    // retired id still validates, and — critically — so an all-retired
+    // catalog (getAllModels() === []) is checked against real membership
+    // instead of accepting any string. Object.hasOwn (not `in`) so an
+    // inherited Object.prototype member name (e.g. "toString") is never
+    // mistaken for a real catalog key.
+    return Object.hasOwn(catalogEntry.models.catalog, model);
+  }
+  // No JSON catalog and no strict MODEL_ENUMS entry (openai-compatible,
+  // lm-studio, llamacpp): keep the permissive "allow any model" behavior.
+  return models.length === 0;
 }
 
 /**
