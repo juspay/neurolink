@@ -9,7 +9,7 @@
   },
   "models": {
     "default": "gpt-oss-120b",
-    "fallbacks": ["gpt-oss-120b", "gemma-4-31b"],
+    "fallbacks": ["gpt-oss-120b"],
     "defaultContextWindow": 65536,
     "defaultMaxOutputTokens": 8192,
     "catalog": {
@@ -29,13 +29,12 @@
           "input": 0.99,
           "output": 1.49
         },
-        "vision": true,
-        "status": "production",
-        "description": "Google Gemma 4 31B — vision-capable"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-09 — gone from the authenticated /v1/models roster; the nightly vision test has failed on it since 2026-09-10"
       }
     },
-    "visionModel": "gemma-4-31b",
-    "topModels": ["gpt-oss-120b", "gemma-4-31b"]
+    "topModels": ["gpt-oss-120b"]
   },
   "capabilities": {
     "text": true,
@@ -68,8 +67,8 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-27",
-      "method": "authenticated GET /v1/models"
+      "date": "2026-09-28",
+      "method": "authenticated GET /v1/models — roster is now gpt-oss-120b and qwen-3.8-27b; gemma-4-31b is gone, so it is retired and Cerebras has no verified vision model. qwen-3.8-27b is not added: the account answers 402 payment_required, so no chat call could verify it"
     },
     "authProbe": {
       "date": "2026-08-26",

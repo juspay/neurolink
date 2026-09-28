@@ -1178,6 +1178,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           (timedOptions) => this.executeNativeGenerate(timedOptions),
         ),
       callerOwnsFallback,
+      options,
     );
   }
 

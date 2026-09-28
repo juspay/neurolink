@@ -191,6 +191,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
           (timedOptions) => this.executeNativeGenerate(timedOptions),
         ),
       callerOwnsFallback,
+      options,
     );
   }
 

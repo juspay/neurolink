@@ -33,7 +33,7 @@ Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each ha
 - **[Cerebras](providers/cerebras.md)** - Wafer-scale inference; default `gpt-oss-120b`
 - **[SambaNova](providers/sambanova.md)** - default `Meta-Llama-3.3-70B-Instruct`
 - **[Together AI](providers/together-ai.md)** - default `meta-llama/Llama-3.3-70B-Instruct-Turbo`
-- **[Fireworks AI](providers/fireworks.md)** - default `accounts/fireworks/models/kimi-k2p6`
+- **[Fireworks AI](providers/fireworks.md)** - default `accounts/fireworks/models/kimi-k3`
 - **[Perplexity](providers/perplexity.md)** - search-augmented models; default `sonar`
 - **[Cloudflare Workers AI](providers/cloudflare.md)** - edge inference
 - **[xAI](providers/xai.md)** - Grok models; default `grok-4.6`

@@ -88,6 +88,10 @@ const AUTH_FRAMINGS: RegExp[] = [
   /\baccount\s+balance\s+(?:is\s+)?(?:too\s+low|insufficient)\b/,
   /\b(?:request\s+)?requires?\s+more\s+credits?\b/, // OpenRouter
   /\bcan\s+only\s+afford\s+\d+\b/, // OpenRouter pre-bill check
+  /\baccount\s+has\s+no\s+credits?\b/, // SambaNova
+  // io.net Intelligence gates some models behind a paid tier ("Model '...'
+  // requires a higher IO Intelligence tier") — an account upgrade, not a bug.
+  /\brequires?\s+a\s+higher\s+[\w .-]{0,40}?\btier\b/,
 ];
 
 const NETWORK_FRAMINGS: RegExp[] = [

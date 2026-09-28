@@ -1861,6 +1861,7 @@ export class AnthropicProvider extends BaseProvider {
           (timedOptions) => this.executeNativeGenerate(timedOptions),
         ),
       callerOwnsFallback,
+      options,
     );
   }
 

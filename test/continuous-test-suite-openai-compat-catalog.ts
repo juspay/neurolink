@@ -1815,8 +1815,8 @@ async function testCatalogFallbackRule(): Promise<void> {
     async () => {
       const root = makeCatalogTree();
       try {
-        // cerebras ships two selectable models, so it is subject to the rule.
-        const target = join(root, CATALOG_SRC, "cerebras.json");
+        // sambanova ships seven selectable models, so it is subject to the rule.
+        const target = join(root, CATALOG_SRC, "sambanova.json");
         const entry = JSON.parse(readFileSync(target, "utf8")) as {
           models: { default: string; fallbackModelName?: string };
         };
@@ -1838,7 +1838,7 @@ async function testCatalogFallbackRule(): Promise<void> {
         if (!/cannot fall back/.test(res.output)) {
           throw new Error("rejected, but not by the fallback rule");
         }
-        if (!/cerebras\.json/.test(res.output)) {
+        if (!/sambanova\.json/.test(res.output)) {
           throw new Error("the rejection did not name the offending catalog");
         }
       } finally {

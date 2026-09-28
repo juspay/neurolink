@@ -1,7 +1,7 @@
 ---
 title: Cerebras Provider Guide
-description: Wafer-scale inference at ~3000 tokens/s — GPT-OSS 120B and Gemma 4 31B via the Cerebras Inference API
-keywords: cerebras, wafer-scale, wse, gpt-oss-120b, gemma-4-31b, fast inference, low-latency
+description: Wafer-scale inference at ~3000 tokens/s — GPT-OSS 120B via the Cerebras Inference API
+keywords: cerebras, wafer-scale, wse, gpt-oss-120b, fast inference, low-latency
 ---
 
 # Cerebras Provider Guide
@@ -21,23 +21,24 @@ speeds an order of magnitude above GPU clouds. NeuroLink wraps
 entry) so the standard generate / stream contract applies.
 
 The roster below was verified against a live authenticated `/v1/models`
-on 2026-08-27 — Cerebras retires models aggressively, and previously
-documented llama/qwen ids now return 404:
+on 2026-09-28 — Cerebras retires models aggressively: `gemma-4-31b` left
+the roster in September 2026, and earlier llama/qwen ids return 404:
 
 - **`gpt-oss-120b`** (default) — OpenAI's open-weight 120B reasoning model, ~3000 tok/s
-- **`gemma-4-31b`** — Google Gemma 4 31B, ~1850 tok/s
+
+The roster also lists `qwen-3.8-27b`, which the catalog does not carry yet:
+no chat call has verified it.
 
 ### Key Facts
 
 - **Protocol**: OpenAI-compatible (`/v1/chat/completions`)
 - **Default base URL**: `https://api.cerebras.ai/v1`
 - **Default model**: `gpt-oss-120b`
-- **Context window**: 65K tokens on the free tier, 131K on paid tiers (both
-  models). NeuroLink budgets context against the 65K free-tier floor — the
+- **Context window**: 65K tokens on the free tier, 131K on paid tiers. NeuroLink budgets context against the 65K free-tier floor — the
   account tier isn't knowable from the key, and compacting early on a paid
   tier is safe while overrunning a 65K window is not.
 - **Max output**: 32K free / 40K paid
-- **Vision**: No (text-only roster)
+- **Vision**: No — `gemma-4-31b`, the only vision-capable model, is retired
 - **Streaming**: Supported
 - **Tool calling**: Supported (native)
 - **Structured output**: Supported — but **not combined with tools in one
@@ -51,7 +52,7 @@ documented llama/qwen ids now return 404:
   credit requires saving a payment method ("you won't be charged now").
   Pay-as-you-go starts at $10.
 - **Pricing** (per million tokens, checked 2026-08-27): `gpt-oss-120b`
-  $0.35 in / $0.75 out; `gemma-4-31b` $0.99 in / $1.49 out.
+  $0.35 in / $0.75 out.
 
 ---
 
@@ -71,7 +72,7 @@ payment card must be saved — no charge is made), and create an API key
 CEREBRAS_API_KEY=csk-...
 
 # Optional: override the default model (default: gpt-oss-120b)
-CEREBRAS_MODEL=gemma-4-31b
+CEREBRAS_MODEL=gpt-oss-120b
 
 # Optional: override the base URL
 # CEREBRAS_BASE_URL=https://api.cerebras.ai/v1
@@ -175,7 +176,7 @@ const result = await ai.generate({
 pnpm run cli generate "Quick question" --provider cerebras
 
 # Explicit model
-pnpm run cli generate "Hi" --provider cerebras --model gemma-4-31b
+pnpm run cli generate "Hi" --provider cerebras --model gpt-oss-120b
 
 # Streaming
 pnpm run cli stream "Count to ten" --provider cerebras
@@ -206,16 +207,16 @@ pnpm run cli loop --provider cerebras
 
 ## Feature Support Matrix
 
-| Feature                   | gpt-oss-120b | gemma-4-31b |
-| ------------------------- | ------------ | ----------- |
-| Text generation           | Yes          | Yes         |
-| Streaming                 | Yes          | Yes         |
-| Tool calling              | Yes          | Yes         |
-| Structured output         | Yes          | Yes         |
-| Structured output + tools | Post-hoc     | Post-hoc    |
-| Vision                    | No           | No          |
-| Embeddings                | No           | No          |
-| Context window            | 65K/131K     | 65K/131K    |
+| Feature                   | gpt-oss-120b |
+| ------------------------- | ------------ |
+| Text generation           | Yes          |
+| Streaming                 | Yes          |
+| Tool calling              | Yes          |
+| Structured output         | Yes          |
+| Structured output + tools | Post-hoc     |
+| Vision                    | No           |
+| Embeddings                | No           |
+| Context window            | 65K/131K     |
 
 ---
 
@@ -252,8 +253,8 @@ prompts a few hundred tokens of headroom.
 
 ### 404 "model not found" for llama/qwen models
 
-Those models are retired. The live roster is `gpt-oss-120b` and
-`gemma-4-31b` only — verify with an authenticated
+Those models are retired, and so is `gemma-4-31b`. The catalog carries
+`gpt-oss-120b` only — verify the live roster with an authenticated
 `GET https://api.cerebras.ai/v1/models`.
 
 ---

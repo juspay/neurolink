@@ -118,6 +118,7 @@ import { StreamHandler } from "./modules/StreamHandler.js";
 import { TelemetryHandler } from "./modules/TelemetryHandler.js";
 import { ToolsManager } from "./modules/ToolsManager.js";
 import { Utilities } from "./modules/Utilities.js";
+import { ProviderImageAdapter } from "../adapters/providerImageAdapter.js";
 import type {
   LanguageModel,
   ModelMessage,
@@ -196,6 +197,23 @@ function isProviderErrorClassified(error: unknown): boolean {
     return false;
   }
   return (error as Record<symbol, unknown>)[PROVIDER_ERROR_CLASSIFIED] === true;
+}
+
+function requestCarriesImages(
+  options: TextGenerationOptions | StreamOptions,
+): boolean {
+  const input = options.input;
+  if (!input) {
+    return false;
+  }
+  if ((input.images?.length ?? 0) > 0) {
+    return true;
+  }
+  return (
+    "content" in input &&
+    Array.isArray(input.content) &&
+    input.content.some((part) => part.type === "image")
+  );
 }
 
 export abstract class BaseProvider implements AIProvider {
@@ -756,9 +774,7 @@ export abstract class BaseProvider implements AIProvider {
           throw error;
         }
         const requestedModel = provider.modelName;
-        const candidates = provider
-          .getModelFallbacks()
-          .filter((model) => model !== requestedModel);
+        const candidates = provider.modelFallbacksFor(options, requestedModel);
         for (const candidate of candidates) {
           logger.warn(
             `[${provider.providerName}] model "${requestedModel}" was rejected as invalid — retrying stream with fallback "${candidate}". This provider's catalog entry is stale; run "pnpm run check:models".`,
@@ -913,9 +929,7 @@ export abstract class BaseProvider implements AIProvider {
       return undefined;
     }
     const requestedModel = this.modelName;
-    const candidates = this.getModelFallbacks().filter(
-      (model) => model !== requestedModel,
-    );
+    const candidates = this.modelFallbacksFor(options, requestedModel);
     for (const candidate of candidates) {
       logger.warn(
         `[${this.providerName}] model "${requestedModel}" was rejected as invalid — retrying stream with fallback "${candidate}". This provider's catalog entry is stale; run "pnpm run check:models".`,
@@ -1941,7 +1955,11 @@ export abstract class BaseProvider implements AIProvider {
     // or a router that retries on its own) pass the flag on both paths;
     // TextGenerationOptions declares it, so a plain read is enough here.
     const callerOwnsFallback = options.disableInternalFallback === true;
-    return await this.runGenerateWithModelFallback(attempt, callerOwnsFallback);
+    return await this.runGenerateWithModelFallback(
+      attempt,
+      callerOwnsFallback,
+      options,
+    );
   }
 
   /**
@@ -1972,6 +1990,7 @@ export abstract class BaseProvider implements AIProvider {
   protected async runGenerateWithModelFallback(
     attempt: () => Promise<EnhancedGenerateResult | null>,
     callerOwnsFallback: boolean,
+    options?: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult | null> {
     const requestedModel = this.modelName;
     try {
@@ -1980,9 +1999,9 @@ export abstract class BaseProvider implements AIProvider {
       if (callerOwnsFallback || !isInvalidModelError(error)) {
         throw error;
       }
-      const candidates = this.getModelFallbacks().filter(
-        (model) => model !== requestedModel,
-      );
+      const candidates = options
+        ? this.modelFallbacksFor(options, requestedModel)
+        : this.getModelFallbacks().filter((model) => model !== requestedModel);
       if (candidates.length === 0) {
         throw error;
       }
@@ -2017,6 +2036,29 @@ export abstract class BaseProvider implements AIProvider {
    */
   protected getModelFallbacks(): string[] {
     return [];
+  }
+
+  /**
+   * The fallbacks an invalid-model retry may try for this request. A catalog
+   * orders `fallbacks` for text, so a request carrying an image keeps only the
+   * vision-capable ones: a text-only candidate fails the vision guard, and
+   * that error names the fallback instead of the retired model the caller
+   * asked for. With no vision-capable candidate left, the caller gets the
+   * original invalid-model error.
+   */
+  protected modelFallbacksFor(
+    options: TextGenerationOptions | StreamOptions,
+    requestedModel: string,
+  ): string[] {
+    const candidates = this.getModelFallbacks().filter(
+      (model) => model !== requestedModel,
+    );
+    if (!requestCarriesImages(options)) {
+      return candidates;
+    }
+    return candidates.filter((model) =>
+      ProviderImageAdapter.supportsVision(this.providerName, model),
+    );
   }
   /**
    * Alias for generate method - implements AIProvider interface

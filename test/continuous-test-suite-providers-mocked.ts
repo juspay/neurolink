@@ -5691,6 +5691,216 @@ async function runInvalidModelFallbackSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: invalid-model fallback for a request that carries an image.
+//
+// A catalog orders `fallbacks` for text. When Fireworks stopped serving its
+// vision default, the nightly matrix's image request fell back to the
+// text-only gpt-oss-120b, the vision guard rejected it, and the caller got
+// that guard error — naming the fallback, not the retired model. An image
+// request must only move to a vision-capable fallback, and with none left
+// must surface the original invalid-model error.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runVisionModelFallbackSection(): Promise<void> {
+  const section = "LLM fireworks (vision invalid-model fallback)";
+  console.log(`\n=== ${section} ===`);
+
+  setEnv("FIREWORKS_API_KEY", "test-fake-fireworks-credential");
+  setEnv("FIREWORKS_BASE_URL", undefined);
+  const { NeuroLink } = await import("../dist/index.js");
+  const png = readFileSync(
+    join(import.meta.dirname, "fixtures", "sample-screenshot.png"),
+  );
+  const fw = (id: string) => `accounts/fireworks/models/${id}`;
+  const textOnly = [fw("gpt-oss-120b"), fw("glm-5p3")];
+  const notDeployed = {
+    status: 404,
+    json: {
+      error: {
+        object: "error",
+        type: "invalid_request_error",
+        code: "NOT_FOUND",
+        message: "Model not found, inaccessible, and/or not deployed",
+      },
+    },
+  };
+  const fireworksRoute = (dead: string[], requested: string[]) => ({
+    method: "POST",
+    url: "api.fireworks.ai",
+    respond: (req: { bodyJson?: unknown }) => {
+      const model = String((req.bodyJson as { model?: string })?.model ?? "");
+      requested.push(model);
+      return dead.includes(model)
+        ? notDeployed
+        : { status: 200, json: openAIChatResponse("blue", model) };
+    },
+  });
+
+  try {
+    const requested: string[] = [];
+    await withMocks([fireworksRoute([fw("kimi-k3")], requested)], async () => {
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      const result = await nl.generate({
+        provider: "fireworks",
+        model: fw("kimi-k3"),
+        input: { text: "What colour is this?", images: [png] },
+        disableTools: true,
+      });
+      expectEq(requested[0], fw("kimi-k3"), "first attempt uses kimi-k3");
+      expect(
+        requested.includes(fw("qwen3p8-max")),
+        "the retry moved to the vision-capable qwen3p8-max",
+      );
+      expect(
+        requested.every((model) => !textOnly.includes(model)),
+        "no request went to a text-only fallback",
+      );
+      expect(
+        (result.content ?? "").toLowerCase().includes("blue"),
+        "caller receives the vision fallback's answer",
+      );
+    });
+    record(
+      results,
+      `${section}: image request skips text-only fallbacks`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: image request skips text-only fallbacks`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  try {
+    const requested: string[] = [];
+    await withMocks(
+      [fireworksRoute([fw("kimi-k3"), fw("qwen3p8-max")], requested)],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        let message = "";
+        try {
+          await nl.generate({
+            provider: "fireworks",
+            model: fw("kimi-k3"),
+            input: { text: "What colour is this?", images: [png] },
+            disableTools: true,
+          });
+        } catch (error) {
+          message = error instanceof Error ? error.message : String(error);
+        }
+        expect(
+          message !== "",
+          "generate() rejects when no vision model is left",
+        );
+        expect(
+          !/does not support vision/i.test(message),
+          "the error is the invalid-model error, not the vision guard",
+        );
+        expect(
+          requested.every((model) => !textOnly.includes(model)),
+          "no request went to a text-only fallback",
+        );
+      },
+    );
+    record(
+      results,
+      `${section}: no vision fallback left surfaces the invalid-model error`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: no vision fallback left surfaces the invalid-model error`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  try {
+    const requested: string[] = [];
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.fireworks.ai",
+          respond: (req: { bodyJson?: unknown }) => {
+            const model = String(
+              (req.bodyJson as { model?: string })?.model ?? "",
+            );
+            requested.push(model);
+            if (model === fw("kimi-k3")) {
+              return notDeployed;
+            }
+            return {
+              status: 200,
+              contentType: "text/event-stream",
+              text: sseBody([
+                {
+                  id: "chatcmpl-mock",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model,
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { content: "blue" },
+                      finish_reason: null,
+                    },
+                  ],
+                },
+                {
+                  id: "chatcmpl-mock",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model,
+                  choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                },
+              ]),
+            };
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const res = await nl.stream({
+          provider: "fireworks",
+          model: fw("kimi-k3"),
+          input: { text: "What colour is this?", images: [png] },
+          disableTools: true,
+        });
+        let text = "";
+        for await (const chunk of res.stream) {
+          text +=
+            typeof chunk === "string"
+              ? chunk
+              : ((chunk as { content?: string })?.content ?? "");
+        }
+        expect(
+          requested.includes(fw("qwen3p8-max")),
+          "the stream retry moved to the vision-capable qwen3p8-max",
+        );
+        expect(
+          requested.every((model) => !textOnly.includes(model)),
+          "no stream request went to a text-only fallback",
+        );
+        expect(text.includes("blue"), "consumer receives the streamed answer");
+      },
+    );
+    record(results, `${section}: image stream skips text-only fallbacks`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: image stream skips text-only fallbacks`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: Vertex (construction + formatProviderError contract only —
 // gaxios routes ADC token exchange through node-fetch, not globalThis.fetch,
 // so installMockFetch() cannot intercept it. This section verifies
@@ -6446,6 +6656,7 @@ async function main(): Promise<void> {
     await runDeepSeekImageInputSection();
     await runSchemaRetryBillingSection();
     await runInvalidModelFallbackSection();
+    await runVisionModelFallbackSection();
     await runVertexSection();
     await runBedrockSection();
     await runProviderErrorFieldSection();
