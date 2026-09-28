@@ -122,6 +122,7 @@ export async function selectServersByDecision(
   });
 
   const result = await decide({
+    site: "toolRouting",
     // Structured state rather than a prompt string: the vendor accepts JSON,
     // and naming the fields is what stops the model reading the catalogue as
     // part of the user's request.

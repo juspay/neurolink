@@ -36,6 +36,7 @@ import {
 } from "../utils/conversationMemory.js";
 import { runWithCurrentLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
 import { logger } from "../utils/logger.js";
+import { extractIsErrorText } from "../utils/toolResultStatus.js";
 import {
   createRedisClient,
   deserializeConversation,
@@ -2255,11 +2256,18 @@ User message: "${userMessage}"`;
             : {}),
         };
 
-        // Build result — success/error metadata only, NOT the output data
+        // Build result — success/error metadata only, NOT the output data.
+        // An `isError: true` payload the tool RETURNED (converted throw,
+        // breaker refusal, MCP failure) is a failure as much as a thrown one,
+        // and is flagged here so replay never reports it as "→ ok".
+        const resultError =
+          toolResult.error !== undefined && toolResult.error !== null
+            ? String(toolResult.error)
+            : extractIsErrorText(toolResultValue);
         const result: ToolResultData = {
-          success: !toolResult.error,
+          success: resultError === undefined,
           // result.result intentionally NOT stored — inferred from content at read time
-          error: toolResult.error ? String(toolResult.error) : undefined,
+          error: resultError,
         };
 
         const toolResultMessage: ChatMessage = {

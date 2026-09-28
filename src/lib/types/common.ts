@@ -185,6 +185,11 @@ export type NeuroLinkEvents = {
   "generation:start": unknown;
   "generation:end": unknown;
 
+  // Decision events — one pair per built-in decide site call, observe-only.
+  // Payloads are DecisionBeforeEvent / DecisionAfterEvent.
+  "decision:before": unknown;
+  "decision:after": unknown;
+
   // Response events
   "response:start": unknown;
   "response:end": unknown;

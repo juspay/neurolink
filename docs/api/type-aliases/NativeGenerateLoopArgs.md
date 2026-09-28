@@ -97,6 +97,32 @@ Registered tools, used to execute a call the model asks for.
 
 > `optional` **toolChoice?**: `unknown`
 
+The turn's resolved tool choice, applied per step via `resolveStepToolChoice`.
+
+---
+
+### toolChoiceSteps?
+
+> `optional` **toolChoiceSteps?**: `number`
+
+Leading steps a forced `toolChoice` stays in force (default 1).
+
+---
+
+### prepareStep?
+
+> `optional` **prepareStep?**: [`NativeLoopPrepareStep`](NativeLoopPrepareStep.md)
+
+Caller's per-step hook; only its `toolChoice` is honoured.
+
+---
+
+### modelId
+
+> **modelId**: `string`
+
+Resolved model id, handed to `prepareStep` as its `model` argument.
+
 ---
 
 ### responseFormat?
@@ -158,3 +184,31 @@ Wraps one step: retry ladder plus provider error classification.
 #### Returns
 
 `Promise`\<`Record`\<`string`, `unknown`\>\>
+
+---
+
+### onRejectedToolCall?
+
+> `optional` **onRejectedToolCall?**: (`toolName`, `error`, `toolCallId`) => `void`
+
+Called for a tool call the loop rejects before any execute runs (unknown
+tool, arguments the schema rejected), so the provider can emit the
+`tool:start` / `tool:end` pair no executor will.
+
+#### Parameters
+
+##### toolName
+
+`string`
+
+##### error
+
+`string`
+
+##### toolCallId
+
+`string`
+
+#### Returns
+
+`void`

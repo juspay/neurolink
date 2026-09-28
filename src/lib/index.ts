@@ -205,6 +205,8 @@ export {
 export { S3SkillStore } from "./skills/skillStoreS3.js";
 export { RedisSkillStore } from "./skills/skillStoreRedis.js";
 export { createSkillTools } from "./skills/skillTools.js";
+// Memory (Hippocampus) — condensation prompt template validation
+export { validateCondensationPrompt } from "./memory/condensationPrompt.js";
 // Export ALL types from the centralized type barrel
 export * from "./types/index.js";
 // Error utilities
@@ -220,6 +222,10 @@ export {
 // TTS utilities
 export { TTSProcessor } from "./utils/ttsProcessor.js";
 export { TTS_ERROR_CODES, TTSError } from "./utils/ttsProcessor.js";
+export {
+  prepareTextForSpeech,
+  resolveSpeechSanitizeOptions,
+} from "./utils/speechText.js";
 
 // Video utilities
 export { VideoProcessor } from "./utils/videoProcessor.js";
@@ -265,6 +271,8 @@ export {
   AzureSTTHandler,
   DeepgramSTT,
   DeepgramSTTHandler,
+  ElevenLabsSTT,
+  ElevenLabsSTTHandler,
   GoogleSTT,
   GoogleSTTHandler,
   OpenAISTT,
@@ -1173,11 +1181,20 @@ export {
   decisionBooleanConfidence,
   decisionKey,
   gateDecisionBoolean,
+  HOST_DECISION_NAMESPACE,
+  isDecisionQuestion,
   readDecisionBoolean,
   readDecisionChoice,
   readDecisionScore,
   servesInferenceKind,
 } from "./utils/decisionAnswers.js";
+// The estimator the pre-flight refusal uses, and the flattening behind
+// `neurolink.decisionLimits()` — exported so a host measures a state with the
+// very function that will judge it.
+export {
+  estimateDecisionStateTokens,
+  resolveDecisionLimitsReading,
+} from "./utils/decisionLimits.js";
 export {
   DECISION_PROVIDERS,
   resolveDefaultDecisionProvider,

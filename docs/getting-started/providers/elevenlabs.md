@@ -18,16 +18,17 @@ The default model, `eleven_multilingual_v2`, produces high-fidelity audio across
 
 ### Key Facts
 
-| Property          | Value                                               |
-| ----------------- | --------------------------------------------------- |
-| **Provider ID**   | `elevenlabs`                                        |
-| **API endpoint**  | `https://api.elevenlabs.io/v1`                      |
-| **Default model** | `eleven_multilingual_v2`                            |
-| **Default voice** | Rachel (`21m00Tcm4TlvDq8ikWAM`)                     |
-| **Formats**       | mp3 (44.1 kHz), wav (PCM 44.1 kHz), ogg (22 kHz)    |
-| **Max input**     | 5,000 characters per request                        |
-| **Languages**     | 29+ languages per voice (auto-detected from input)  |
-| **Streaming**     | Not supported in NeuroLink integration (batch only) |
+| Property          | Value                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| **Provider ID**   | `elevenlabs`                                                             |
+| **API endpoint**  | `https://api.elevenlabs.io/v1`                                           |
+| **Default model** | `eleven_multilingual_v2`                                                 |
+| **Default voice** | Rachel (`21m00Tcm4TlvDq8ikWAM`)                                          |
+| **Formats**       | mp3 (44.1 kHz), wav (raw PCM 44.1 kHz), ogg/opus (Opus 48 kHz)           |
+| **Max input**     | 5,000 characters per request                                             |
+| **Languages**     | 29+ languages per voice (auto-detected from input)                       |
+| **Streaming**     | Not supported in NeuroLink integration (batch only)                      |
+| **STT**           | `elevenlabs-stt` (Scribe) — see [Speech-to-Text](#speech-to-text-scribe) |
 
 ---
 
@@ -87,14 +88,25 @@ if (result.audio) {
 
 ## Supported Models
 
-| Model ID                 | Description                                      | Use Case                          |
-| ------------------------ | ------------------------------------------------ | --------------------------------- |
-| `eleven_multilingual_v2` | Default; 29 languages, highest quality           | General use, multilingual content |
-| `eleven_monolingual_v1`  | English-only, optimised for English naturalness  | English-only apps                 |
-| `eleven_multilingual_v1` | First-generation multilingual (superseded by v2) | Legacy compatibility              |
-| `eleven_turbo_v2`        | Fast, lower latency variant                      | Real-time applications            |
+| Model ID                 | Description                                               | Use Case                          |
+| ------------------------ | --------------------------------------------------------- | --------------------------------- |
+| `eleven_multilingual_v2` | Default; 29 languages, highest quality                    | General use, multilingual content |
+| `eleven_v3`              | Most expressive; 70+ languages, accepts `language`        | Narration, dialogue               |
+| `eleven_flash_v2_5`      | Lowest latency (~75 ms), 32 languages, accepts `language` | Real-time, conversational agents  |
+| `eleven_flash_v2`        | Lowest latency, English only                              | Real-time English                 |
+| `eleven_turbo_v2_5`      | Fast, 32 languages, accepts `language`                    | Low-latency multilingual          |
+| `eleven_turbo_v2`        | Fast, lower latency variant, English                      | Real-time applications            |
+| `eleven_monolingual_v1`  | English-only, optimised for English naturalness           | English-only apps                 |
 
 Pass the model ID explicitly via the `ElevenLabsTTSOptions.model` field or let the integration default to `eleven_multilingual_v2`.
+
+**Language pinning.** Set `tts.language` (generic) or `tts.languageCode`
+(ElevenLabs-specific) to pin the language; a BCP-47 tag such as `en-US` is
+reduced to `en`. The code is sent on every model except
+`eleven_multilingual_v2`, the one model the API rejects it on — there it is
+logged and dropped, and the model auto-detects the language from the text.
+Models that do not use the field (`eleven_flash_v2`, `eleven_turbo_v2`,
+`eleven_monolingual_v1`) ignore it server-side rather than failing.
 
 ---
 
@@ -154,7 +166,7 @@ const result = await ai.generate({
   tts: {
     enabled: true,
     provider: "elevenlabs",
-    useAiResponse: true, // Synthesise the AI-generated text, not the prompt
+    mode: "response", // Synthesise the AI-generated text, not the prompt
     voice: "21m00Tcm4TlvDq8ikWAM",
     format: "mp3",
   },
@@ -204,9 +216,46 @@ const result = await ai.generate({
     similarityBoost: 0.8, // 0–1: how closely to match the original voice
     style: 0.2, // 0–1: style exaggeration (v2 models only)
     useSpeakerBoost: true, // Boost speaker clarity
+    speed: 1.1, // 0.7–1.2 on ElevenLabs; values outside are clamped with a warning
+    voiceSettings: { stability: 0.7 }, // raw voice_settings passthrough; wins on conflict
   } as ElevenLabsTTSOptions,
 });
 ```
+
+`speed` is the generic `TTSOptions.speed` (0.25–4.0). ElevenLabs accepts only
+0.7–1.2, so out-of-range values are clamped into that band — with a
+`logger.warn` — rather than rejected.
+
+### Bitrates, timeouts and retries
+
+```typescript
+tts: {
+  enabled: true,
+  provider: "elevenlabs",
+  format: "ogg",       // → opus_48000_<kbps>
+  opusBitrate: 96,     // 32 | 64 | 96 | 128 | 192 (default 64)
+  mp3Bitrate: 192,     // 32 | 64 | 96 | 128 | 192 (default 128), used when format is mp3
+  timeoutMs: 20_000,   // per attempt (default 30 000)
+  retries: 2,          // after the first attempt (default 1)
+  baseUrl: "https://api.elevenlabs.io/v1", // override, e.g. a proxy
+} as ElevenLabsTTSOptions
+```
+
+A request is retried on `429`, any `5xx`, a per-attempt timeout or a
+transport error (a refused or reset connection, a DNS failure), honouring
+`Retry-After` when the response carries one (capped at 10 s) and backing off
+exponentially from 500 ms otherwise. A `4xx` other than `429` fails
+immediately and is marked non-retriable, as does anything thrown before a
+request exists (a malformed `baseUrl`). `generate()`'s own synthesis timeout
+is raised to at least `timeoutMs × (1 + retries)` plus pause slack — using
+the defaults above (30 s, one retry) for any knob you leave unset — so the
+handler's retry loop is never cut short from outside, including on a default
+call. To stop early, pass an `abortSignal` to `generate()` (or `signal` on the
+TTS options when calling the handler directly): the attempt in flight is
+aborted and no further attempt is made. `timeoutMs` is capped at 2³¹−1 ms,
+the largest delay a timer honours. An `mp3Bitrate` / `opusBitrate` outside
+the listed values falls back to the default with a warning rather than being
+sent.
 
 ### Save to File
 
@@ -335,38 +384,127 @@ For the full language list, refer to the [ElevenLabs documentation](https://elev
 
 ## Audio Formats
 
-| Format | Extension | ElevenLabs internal format | Sample Rate |
-| ------ | --------- | -------------------------- | ----------- |
-| `mp3`  | `.mp3`    | `mp3_44100_128`            | 44,100 Hz   |
-| `wav`  | `.wav`    | `pcm_44100`                | 44,100 Hz   |
-| `ogg`  | `.ogg`    | `ogg_22050`                | 22,050 Hz   |
-| `opus` | `.opus`   | `ogg_22050`                | 22,050 Hz   |
+| Format | Extension | ElevenLabs `output_format`       | Sample Rate | `audio.format` |
+| ------ | --------- | -------------------------------- | ----------- | -------------- |
+| `mp3`  | `.mp3`    | `mp3_44100_<mp3Bitrate>` (128)   | 44,100 Hz   | `mp3`          |
+| `wav`  | `.wav`    | `pcm_44100` — raw PCM, no header | 44,100 Hz   | `pcm16`        |
+| `ogg`  | `.ogg`    | `opus_48000_<opusBitrate>` (64)  | 48,000 Hz   | `opus`         |
+| `opus` | `.opus`   | `opus_48000_<opusBitrate>` (64)  | 48,000 Hz   | `opus`         |
+
+ElevenLabs has no `ogg_*` output family — Ogg/Opus is `opus_48000_<kbps>`.
+Earlier NeuroLink releases sent `ogg_22050` for `ogg`/`opus`, which the API
+rejects with a 422; that is fixed. The returned Ogg container starts with the
+`OggS` page marker and an `OpusHead` packet. `wav` output is **headerless**
+PCM (reported as `pcm16`): wrap it with `createWavFile()` from
+`@juspay/neurolink/voice` before writing a `.wav` file, and pass the sample
+rate — `createWavFile` defaults to 16 kHz, while ElevenLabs PCM is 44.1 kHz,
+so a header written with the default plays 2.76× slow and low:
+
+```typescript
+import { writeFileSync } from "node:fs";
+import { createWavFile } from "@juspay/neurolink/voice";
+
+const result = await ai.generate({
+  input: { text: "Raw PCM, wrapped as WAV." },
+  tts: { enabled: true, provider: "elevenlabs", format: "wav" },
+});
+if (result.audio) {
+  writeFileSync(
+    "out.wav",
+    createWavFile(result.audio.buffer, result.audio.sampleRate), // 44100
+  );
+}
+```
 
 ---
 
 ## Configuration Reference
 
-| Environment Variable  | Required | Default                  | Description            |
-| --------------------- | -------- | ------------------------ | ---------------------- |
-| `ELEVENLABS_API_KEY`  | Yes      | —                        | ElevenLabs API key     |
-| `ELEVENLABS_VOICE_ID` | No       | `21m00Tcm4TlvDq8ikWAM`   | Default voice (Rachel) |
-| `ELEVENLABS_MODEL`    | No       | `eleven_multilingual_v2` | Default TTS model      |
+| Environment Variable  | Required | Default                        | Description                                     |
+| --------------------- | -------- | ------------------------------ | ----------------------------------------------- |
+| `ELEVENLABS_API_KEY`  | Yes      | —                              | ElevenLabs API key (shared by TTS, STT, music)  |
+| `ELEVENLABS_BASE_URL` | No       | `https://api.elevenlabs.io/v1` | API base URL including `/v1` (proxies, tests)   |
+| `ELEVENLABS_VOICE_ID` | No       | `21m00Tcm4TlvDq8ikWAM`         | Default voice (Rachel); a per-call `voice` wins |
+| `ELEVENLABS_MODEL`    | No       | `eleven_multilingual_v2`       | Default TTS model; a per-call `model` wins      |
 
 ---
 
 ## Feature Support Matrix
 
-| Feature                | Supported | Notes                                      |
-| ---------------------- | --------- | ------------------------------------------ |
-| Text synthesis         | Yes       |                                            |
-| AI response synthesis  | Yes       | Set `useAiResponse: true`                  |
-| Multilingual support   | Yes       | 29 languages, auto-detected                |
-| Voice discovery        | Yes       | Dynamic API fetch, 5-minute cache          |
-| Custom / cloned voices | Yes       | Pass voice ID from your ElevenLabs account |
-| Voice stability tuning | Yes       | `stability`, `similarityBoost`, `style`    |
-| Multiple formats       | Yes       | mp3, wav, ogg, opus                        |
-| Streaming TTS          | No        | Batch synthesis only in NeuroLink          |
-| Speed control          | No        | Not supported by this integration          |
+| Feature                | Supported | Notes                                                               |
+| ---------------------- | --------- | ------------------------------------------------------------------- |
+| Text synthesis         | Yes       |                                                                     |
+| AI response synthesis  | Yes       | Set `mode: "response"`                                              |
+| Multilingual support   | Yes       | 29 languages, auto-detected                                         |
+| Language pinning       | Yes       | `language` (ISO 639-1; `en-US` → `en`) on all but `multilingual_v2` |
+| Voice discovery        | Yes       | Dynamic API fetch, 5-minute cache                                   |
+| Custom / cloned voices | Yes       | Pass voice ID from your ElevenLabs account                          |
+| Voice stability tuning | Yes       | `stability`, `similarityBoost`, `style`, `voiceSettings`            |
+| Multiple formats       | Yes       | mp3 (bitrate), raw pcm, opus 48 kHz (bitrate)                       |
+| Streaming TTS          | No        | Batch synthesis only in NeuroLink                                   |
+| Speed control          | Yes       | `speed`, clamped to 0.7–1.2                                         |
+| Retries                | Yes       | `retries` (default 1) on 429/5xx/timeout, honours `Retry-After`     |
+| Speech-to-text         | Yes       | `elevenlabs-stt` (Scribe), aliases `scribe`, `elevenlabs`           |
+
+---
+
+## Speech-to-Text (Scribe)
+
+The same key also unlocks ElevenLabs Scribe for batch transcription. The STT
+handler is registered as `elevenlabs-stt`, with `scribe` and `elevenlabs` as
+aliases — the STT and TTS registries are separate, so
+`stt: { provider: "elevenlabs" }` and `tts: { provider: "elevenlabs" }`
+resolve to different handlers.
+
+```typescript
+import { readFileSync } from "node:fs";
+import type { ElevenLabsSTTOptions } from "@juspay/neurolink";
+
+const result = await ai.generate({
+  input: { text: "Summarise what was said." },
+  stt: {
+    enabled: true,
+    audio: readFileSync("./meeting.mp3"),
+    provider: "elevenlabs", // or "elevenlabs-stt" / "scribe"
+    format: "mp3",
+    speakerDiarization: true, // → diarize=true
+    speakerCount: 2, // → num_speakers=2
+    // language: "en",        // → language_code; omit to auto-detect
+    // model: "scribe_v2_medical", // default scribe_v2
+    // tagAudioEvents: true,  // "(laughter)" etc. — NeuroLink sends false by default
+  } as ElevenLabsSTTOptions & { audio: Buffer },
+});
+
+result.transcription?.text; // full transcript
+result.transcription?.words; // [{ word, startTime, endTime, speaker }]
+result.transcription?.speakers; // ["speaker_0", "speaker_1"]
+result.transcription?.language; // "eng"
+```
+
+Request shape: `POST {baseUrl}/speech-to-text`, header `xi-api-key`,
+multipart fields `file`, `model_id` (default `scribe_v2`; `scribe_v1` is
+deprecated by ElevenLabs and any newer id can be passed as a string),
+`language_code` (only when you set `language`; a BCP-47 tag like `en-US` is
+reduced to `en`), `tag_audio_events` (`false` unless `tagAudioEvents: true`),
+`diarize`, `num_speakers`. Spacing and audio-event entries in Scribe's
+`words[]` are dropped from `transcription.words`; `speaker_id` becomes
+`speaker`. `transcription.confidence` is the mean per-word `exp(logprob)`
+over the spoken words when Scribe reports one; when no word carries a
+`logprob` it falls back to `language_probability`, and to `0` when that is
+missing too. `transcription.metadata.confidenceSource` says which it was —
+`"word_logprobs"`, `"language_probability"` or `"none"` — because Scribe's
+`language_probability` measures how sure it is of the _language_, not the
+words (garbled and clean audio both score ~0.99), and it is always exposed
+under its own name as `transcription.metadata.languageProbability`. `timeoutMs` (default 60 000, covering the response body as
+well as the headers) and `baseUrl` are accepted on the same options. Scribe
+is batch-only: `supportsStreaming` is `false` and there is no
+`transcribeStream`.
+
+CLI (`--stt` is a flag; the file goes in `--input-audio`):
+
+```bash
+neurolink generate "Summarise" --stt --stt-provider elevenlabs-stt --input-audio ./meeting.mp3
+```
 
 ---
 
@@ -406,9 +544,16 @@ function chunkText(text: string, maxLen = 4500): string[] {
 }
 ```
 
-### "ElevenLabs TTS request timed out after 30 seconds"
+### "ElevenLabs TTS request timed out after 30000ms"
 
-A slow network or high server load caused the request to time out. This error is marked retriable — retry with backoff.
+A slow network or high server load caused one attempt to time out. The
+handler already retries once by default (`retries`); raise `timeoutMs` for
+very long inputs, or `retries` for a flaky network.
+
+### "HTTP 422" on `format: "ogg"` / `"opus"`
+
+Fixed: earlier releases asked ElevenLabs for `ogg_22050`, which is not one of
+its output formats. `ogg`/`opus` now request `opus_48000_<opusBitrate>`.
 
 ### Voice not found
 

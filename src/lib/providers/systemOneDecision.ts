@@ -24,9 +24,9 @@ import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlsInText } from "../utils/logSanitize.js";
 import {
-  estimateTokens,
-  serializeForEstimate,
-} from "../utils/tokenEstimation.js";
+  estimateDecisionStateTokens,
+  resolveDecisionLimitsReading,
+} from "../utils/decisionLimits.js";
 
 /**
  * Generous enough for a cold start (measured at 2.0–2.7s after idle on Jev)
@@ -187,28 +187,6 @@ export function redactCredentials(message: string, apiKey: string): string {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/**
- * `estimateTokens` assumes ~4 characters per token. That holds for English
- * and is several times too generous for other scripts on an English
- * tokenizer, so when a provider declares a rate, non-ASCII characters are
- * counted at it instead. ASCII text is estimated exactly as before.
- */
-function estimateDecisionStateTokens(
-  text: string,
-  nonAsciiTokensPerChar: number | undefined,
-): number {
-  if (nonAsciiTokensPerChar === undefined) {
-    return estimateTokens(text);
-  }
-  const chars = [...text];
-  const isAscii = (c: string) => (c.codePointAt(0) ?? 0) <= 0x7f;
-  const ascii = chars.filter(isAscii).join("");
-  const nonAsciiCount = chars.length - ascii.length;
-  return (
-    estimateTokens(ascii) + Math.ceil(nonAsciiCount * nonAsciiTokensPerChar)
-  );
-}
 
 /**
  * The shared half of every "System One" decision provider — a model that takes
@@ -617,16 +595,23 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
    * Refuse a request the model cannot read in full. An encoder cuts the state
    * off past its window without saying so, so without this a decision would
    * be made on input the model never saw — and reported as if it had.
+   *
+   * Advisory limits (`decisionLimits.advisory`) are skipped: they publish a
+   * server's own ceiling for `NeuroLink.decisionLimits()` to report, and the
+   * server enforces them itself. The estimator and the flattening are the
+   * same functions that method uses, so a host that sizes a state against the
+   * reading measures exactly what is checked here.
    */
   private assertWithinDecisionLimits(
     request: DecisionRequest,
     model: string,
     questionCount: number,
   ): void {
-    const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
-      this.providerName,
-    )?.decisionLimits;
-    if (!limits) {
+    const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName);
+    const limits = descriptor
+      ? resolveDecisionLimitsReading(descriptor, model)
+      : null;
+    if (!limits || !limits.enforcedLocally) {
       return;
     }
     const label = this.vendorLabel();
@@ -640,12 +625,8 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         retryable: false,
       });
     }
-    const modelLimits = limits.models?.[model];
-    const maxStateTokens = modelLimits?.maxStateTokens ?? limits.maxStateTokens;
-    const stateTokens = estimateDecisionStateTokens(
-      serializeForEstimate(request.state),
-      modelLimits?.nonAsciiTokensPerChar ?? limits.nonAsciiTokensPerChar,
-    );
+    const { maxStateTokens } = limits;
+    const stateTokens = estimateDecisionStateTokens(request.state, limits);
     if (stateTokens > maxStateTokens) {
       throw this.decisionError({
         kind: "max_tokens_exceeded",

@@ -5641,7 +5641,7 @@ exit 127
     },
   },
   {
-    name: "openai-compatible.executeStream emits tool:start and tool:end events on NeuroLink event bus",
+    name: "openai-compatible stream() emits exactly one tool:start and tool:end pair per per-call tool execution on NeuroLink event bus",
     category: "openai-compatible",
     fn: async () => {
       const originalFetch = globalThis.fetch;
@@ -5712,39 +5712,54 @@ exit 127
             headers: { "content-type": "text/event-stream" },
           });
         }) as typeof fetch;
-        const { NeuroLink } = await import("../dist/index.js");
+        // The PUBLIC path, not a direct executeStream() call: per-call tools
+        // are event-wrapped once, at BaseProvider's merge point, and the
+        // provider loop must use that merged record as is. A direct
+        // executeStream() with a raw tool bypasses the merge and proves
+        // nothing about the shipped surface.
+        const { NeuroLink, jsonSchema } = await import("../dist/index.js");
         const nl = new NeuroLink();
         const events: string[] = [];
         const emitter = nl.getEventEmitter();
         emitter.on("tool:start", () => events.push("start"));
         emitter.on("tool:end", () => events.push("end"));
-        const provider = new OpenAICompatibleProvider(
-          "test-model",
-          nl as unknown,
-          undefined,
-          { apiKey: "k", baseURL: "http://fake.local/v1" },
-        );
-        const result = await (
-          provider as unknown as {
-            executeStream: (opts: Record<string, unknown>) => Promise<{
-              stream: AsyncIterable<unknown>;
-            }>;
-          }
-        ).executeStream({
-          input: { text: "ping" },
-          disableTools: false,
-          tools: {
-            ping: {
-              description: "p",
-              inputSchema: { type: "object", properties: {}, required: [] },
-              execute: async () => "pong",
+        try {
+          const result = await nl.stream({
+            input: { text: "ping" },
+            provider: "openai-compatible",
+            model: "test-model",
+            maxSteps: 3,
+            disableInternalFallback: true,
+            credentials: {
+              openaiCompatible: {
+                apiKey: "k",
+                baseURL: "http://fake.local/v1",
+              },
             },
-          },
-        });
-        for await (const _ of result.stream) {
-          void _;
+            tools: {
+              ping: {
+                description: "p",
+                inputSchema: jsonSchema({
+                  type: "object",
+                  properties: {},
+                  required: [],
+                }),
+                execute: async () => "pong",
+              },
+            },
+          });
+          for await (const _ of result.stream) {
+            void _;
+          }
+        } finally {
+          await nl.shutdown();
         }
-        return events.includes("start") && events.includes("end");
+        // Exactly one pair per execution: a second wrapper layer (the loop's
+        // own emit, or re-instrumenting a recorder-wrapped tool) would double
+        // both counts while still looking "paired".
+        const starts = events.filter((e) => e === "start").length;
+        const ends = events.filter((e) => e === "end").length;
+        return starts === 1 && ends === 1;
       } finally {
         globalThis.fetch = originalFetch;
       }

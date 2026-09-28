@@ -1,8 +1,4 @@
-import type {
-  DeferredUsage,
-  NeuroLinkEvents,
-  TypedEventEmitter,
-} from "./common.js";
+import type { DeferredUsage } from "./common.js";
 import type { JSONSchema7 } from "./middleware.js";
 import type {
   LanguageModelV3,
@@ -10,6 +6,7 @@ import type {
 } from "./middleware.js";
 import type { StreamOptions } from "./stream.js";
 import type { Tool } from "./tools.js";
+import type { StepResult } from "./providers.js";
 
 export type OpenAICompatChatRole = "system" | "user" | "assistant" | "tool";
 
@@ -294,6 +291,8 @@ export type ToolExecutionSummaryInternal = {
   error?: string;
   startTime: Date;
   endTime: Date;
+  /** Zero-based loop step that ran this tool, when the loop tracks one. */
+  stepIndex?: number;
 };
 
 // Arguments bundle for OpenAICompatibleProvider.runStreamLoop. Kept here per
@@ -307,11 +306,19 @@ export type StreamLoopArgs = {
   options: StreamOptions;
   conversation: OpenAICompatChatMessage[];
   openAITools: OpenAICompatChatTool[] | undefined;
-  openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
+  /**
+   * The wire `tool_choice` for one step. A function rather than a value
+   * because a forced choice applies only to the first `toolChoiceSteps`
+   * steps, and a caller's `prepareStep` hook may override it per step;
+   * `steps` is the record of the steps completed so far, handed to that hook.
+   */
+  stepToolChoice: (
+    step: number,
+    steps: StepResult<Record<string, Tool>>[],
+  ) => Promise<OpenAICompatToolChoiceWire | undefined>;
   toolsRecord: Record<string, Tool>;
   /** Wire → registered tool-name map when sanitization was needed (see buildWireToolNameMaps). */
   toolNameFromWire?: Map<string, string>;
-  emitter: TypedEventEmitter<NeuroLinkEvents> | undefined;
   toolsUsed: string[];
   toolExecutionSummaries: ToolExecutionSummaryInternal[];
   pushChunk: (chunk: OpenAICompatStreamChunk) => void;

@@ -315,6 +315,10 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       // Cast options to StreamOptions for multimodal processing
       const streamOptions = options as StreamOptions;
+      // This provider bypasses BaseProvider's message builders, so the
+      // instance-level `conversationMemory.replayToolSteps` has to be folded
+      // in here or only the per-request value would ever apply.
+      this.applyToolReplayDefault(streamOptions);
       const multimodalOptions = buildMultimodalOptions(
         streamOptions,
         this.providerName,
@@ -1061,6 +1065,8 @@ export class AmazonBedrockProvider extends BaseProvider {
               },
             );
 
+            // Same instance-default fold as the generate() path above.
+            this.applyToolReplayDefault(options);
             const multimodalOptions = buildMultimodalOptions(
               options,
               this.providerName,

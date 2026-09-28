@@ -49,3 +49,11 @@
 ### endTime
 
 > **endTime**: `Date`
+
+---
+
+### stepIndex?
+
+> `optional` **stepIndex?**: `number`
+
+Zero-based loop step that ran this tool, when the loop tracks one.

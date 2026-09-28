@@ -74,14 +74,23 @@ import { redactUrlForError } from "./logSanitize.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { estimateTokens } from "./tokenEstimation.js";
+import { extractIsErrorTextFromContent } from "./toolResultStatus.js";
+import { isRepairPlaceholder } from "../context/toolPairRepair.js";
 import type {
   AssistantModelMessage,
   ModelMessage,
   SystemModelMessage,
+  ToolModelMessage,
   UserModelMessage,
   FilePart,
   ImagePart,
   TextPart,
+  ToolCallPart,
+  ToolHistoryRow,
+  ToolReplayMode,
+  ToolReplayOutcome,
+  ToolReplayStep,
+  ToolResultPart,
   MultimodalAudioEntry,
   MultimodalPdfEntry,
 } from "../types/index.js";
@@ -543,8 +552,389 @@ function toModelMessage(message: ChatMessage): ModelMessage | null {
       content: message.content,
     };
   }
-  return null; // Filter out tool_call and tool_result messages
+  return null; // tool_call / tool_result rows are replayed by createToolStepReplay
 }
+
+const isToolRow = (row: ToolHistoryRow): boolean =>
+  row.role === "tool_call" || row.role === "tool_result";
+
+const DEFAULT_TOOL_REPLAY_MODE: ToolReplayMode = "marker";
+
+/**
+ * Resolve the replay mode for a request: the per-request option, else the
+ * default. The instance-level `conversationMemory.replayToolSteps` is folded
+ * into the option by BaseProvider before the builder runs.
+ */
+export const resolveToolReplayMode = (
+  options: { replayToolSteps?: ToolReplayMode } | undefined,
+): ToolReplayMode => options?.replayToolSteps ?? DEFAULT_TOOL_REPLAY_MODE;
+
+/**
+ * Put a tool batch after the user turn it belongs to.
+ *
+ * The in-memory memory backend appends `tool_call` / `tool_result` rows the
+ * moment a step finishes, but the turn's own user and assistant rows only
+ * when the turn ends — so a streamed or generated tool turn is stored as
+ * `tool_call, tool_result, user, assistant`. The Redis backend buffers the
+ * rows and writes `user, tool_call, tool_result, assistant`. Replayed as
+ * stored, the in-memory order would put the assistant's tool call BEFORE
+ * the question that prompted it (and, at the start of a session, before any
+ * user turn at all — which Anthropic rejects).
+ *
+ * The tell is unambiguous: a batch that was written before its user row is
+ * immediately followed by a `user` row and is NOT immediately preceded by
+ * one. A batch in the Redis order always follows its user row (or the
+ * previous step of the same turn). An interrupted Redis turn —
+ * `user, tool_call, tool_result, user` — is preceded by a user row and is
+ * left where it is.
+ */
+/**
+ * A row that is the user's own turn — not a summary the memory layer emits
+ * under the user role, nor a pinned skill activation. Only a genuine user turn
+ * can be the question a tool batch answered.
+ */
+const isGenuineUserTurn = (row: ToolHistoryRow | undefined): boolean =>
+  row?.role === "user" &&
+  row.metadata?.isSummary !== true &&
+  row.metadata?.isSkill !== true;
+
+const normalizeToolRowOrder = <TRow extends ToolHistoryRow>(
+  rows: ReadonlyArray<TRow>,
+): TRow[] => {
+  const out: TRow[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    if (!isToolRow(rows[i])) {
+      out.push(rows[i]);
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < rows.length && isToolRow(rows[j])) {
+      j++;
+    }
+    const batch = rows.slice(i, j);
+    const previous = out[out.length - 1];
+    const next = rows[j];
+    if (isGenuineUserTurn(next) && !isGenuineUserTurn(previous)) {
+      out.push(next, ...batch);
+      i = j + 1;
+      continue;
+    }
+    out.push(...batch);
+    i = j;
+  }
+  return out;
+};
+
+/**
+ * The id alphabet every provider accepts for a replayed tool-call id.
+ * Anthropic enforces `^[a-zA-Z0-9_-]+$`; an OpenAI-compatible backend may
+ * emit ids like `functions.x:0` that a later provider in the same session
+ * would reject, so those are re-keyed to synthetic ids.
+ */
+const REPLAY_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Hands out tool-call ids for one replay of one history. Synthetic ids are
+ * unique across the WHOLE history (a per-turn counter restarted at `hist_0_0`
+ * on every turn, so two id-less turns replayed the same id twice and
+ * Anthropic rejected the request), a recorded id is kept the first time it
+ * is seen and re-keyed after that, and an id outside the accepted alphabet is
+ * re-keyed too. Call and result always share the id they are given.
+ */
+const createReplayIdAllocator = (): ((
+  recorded: string | undefined,
+) => string) => {
+  const seen = new Set<string>();
+  let counter = 0;
+  const fresh = (): string => {
+    let id = `hist_${counter++}`;
+    while (seen.has(id)) {
+      id = `hist_${counter++}`;
+    }
+    seen.add(id);
+    return id;
+  };
+  return (recorded) => {
+    if (recorded && REPLAY_ID_PATTERN.test(recorded) && !seen.has(recorded)) {
+      seen.add(recorded);
+      return recorded;
+    }
+    return fresh();
+  };
+};
+
+/**
+ * Classify a stored result. `result.success === false` / `result.error` is
+ * what the stores write for a thrown or rejected call; an `isError: true`
+ * payload in the content covers rows written before the stores learned to
+ * flag those, and MCP failures a tool returned rather than threw.
+ */
+const resolveReplayOutcome = (
+  result: ToolHistoryRow,
+): { outcome: ToolReplayOutcome; error?: string } => {
+  if (isRepairPlaceholder(result)) {
+    return { outcome: "unknown" };
+  }
+  if (result.result?.success === false || result.result?.error) {
+    return { outcome: "error", error: result.result?.error };
+  }
+  const isErrorText = extractIsErrorTextFromContent(result.content);
+  if (isErrorText !== undefined) {
+    return { outcome: "error", error: isErrorText };
+  }
+  return { outcome: "ok" };
+};
+
+/**
+ * Group a run of tool rows into steps and pair every call with its result.
+ *
+ * A batch is a maximal run of `tool_call` rows followed by the `tool_result`
+ * rows that answer them — a step with parallel calls is persisted as every
+ * call, then every result, so adjacency is not pairing. Pairing is by
+ * `toolCallId`; rows written before that field existed pair by position
+ * within the batch. A batch whose rows carry `metadata.stepIndex` (the loops
+ * record it; generate() persisted a whole turn as one batch) is then split
+ * into one step per index, so sequential calls are not replayed as a
+ * parallel one. Whatever is left unpaired — a call whose result never
+ * arrived, or the reverse — is dropped: both Anthropic and OpenAI reject an
+ * orphaned tool_use / tool_result with a 400. A call `repairToolPairs`
+ * invented for an orphaned result is dropped too: the model never made it.
+ */
+const pairToolSteps = (
+  rows: ReadonlyArray<ToolHistoryRow>,
+  allocateId: (recorded: string | undefined) => string,
+): ToolReplayStep[][] => {
+  const steps: ToolReplayStep[][] = [];
+  let calls: ToolHistoryRow[] = [];
+  let results: ToolHistoryRow[] = [];
+  const flush = (): void => {
+    if (calls.length === 0 && results.length === 0) {
+      return;
+    }
+    const paired: Array<{ step: ToolReplayStep; stepIndex?: number }> = [];
+    // Each result pairs at most once: a duplicated toolCallId, or a batch
+    // that mixes rows with and without ids, must never replay the same
+    // result twice — Anthropic rejects duplicate tool_result blocks.
+    const used = new Set<ToolHistoryRow>();
+    const unmatchedResults = results.filter((r) => !r.toolCallId);
+    for (const call of calls) {
+      const result = call.toolCallId
+        ? results.find((r) => !used.has(r) && r.toolCallId === call.toolCallId)
+        : unmatchedResults.shift();
+      if (!result) {
+        continue;
+      }
+      used.add(result);
+      if (isRepairPlaceholder(call)) {
+        continue;
+      }
+      const output =
+        typeof result.content === "string" && result.content.length > 0
+          ? result.content
+          : "(no output)";
+      const { outcome, error } = resolveReplayOutcome(result);
+      // A failed step's output is often `null` — the error lives only in
+      // `result.error` — so the model saw "null" and could not tell why the
+      // call failed, or that it had. Carry the error text into the output.
+      const replayedOutput =
+        outcome === "error" && error && !output.includes(error)
+          ? output === "null" || output === "(no output)"
+            ? JSON.stringify({ error })
+            : `${output}\n[error: ${error}]`
+          : output;
+      paired.push({
+        step: {
+          callId: allocateId(call.toolCallId),
+          toolName: call.tool ?? result.tool ?? "unknown",
+          args: call.args ?? {},
+          output: replayedOutput,
+          outcome,
+        },
+        stepIndex: call.metadata?.stepIndex,
+      });
+    }
+    if (paired.length > 0) {
+      // Split by recorded step; pairs without one form a single step.
+      const byStep = new Map<number | undefined, ToolReplayStep[]>();
+      for (const entry of paired) {
+        const key =
+          typeof entry.stepIndex === "number" ? entry.stepIndex : undefined;
+        const bucket = byStep.get(key);
+        if (bucket) {
+          bucket.push(entry.step);
+        } else {
+          byStep.set(key, [entry.step]);
+        }
+      }
+      const ordered = [...byStep.entries()].sort(([a], [b]) => {
+        if (a === undefined) {
+          return b === undefined ? 0 : -1;
+        }
+        return b === undefined ? 1 : a - b;
+      });
+      for (const [, group] of ordered) {
+        steps.push(group);
+      }
+    }
+    calls = [];
+    results = [];
+  };
+  for (const row of rows) {
+    if (row.role === "tool_call") {
+      // A call after results closes the previous step.
+      if (results.length > 0) {
+        flush();
+      }
+      calls.push(row);
+    } else if (row.role === "tool_result") {
+      results.push(row);
+    }
+  }
+  flush();
+  return steps;
+};
+
+/**
+ * The compact text form of one replayed tool call. `→ unknown` is what a
+ * call whose result was lost to compaction gets: never `ok`, since nothing
+ * says it succeeded.
+ */
+const toolStepMarker = (step: ToolReplayStep): string =>
+  `[called ${step.toolName} → ${step.outcome}]`;
+
+/**
+ * Text of an assistant turn whose tool steps are replayed as markers: the
+ * marker lines, then the turn's own text.
+ */
+const prependMarkers = (markers: string, text: string): string =>
+  text.length > 0 ? `${markers}\n${text}` : markers;
+
+/**
+ * A message the legacy `MultimodalChatMessage[]` shape can carry: not a tool
+ * turn, and not an assistant turn made of tool-call parts. Both come only from
+ * `"full"` replay, which that shape cannot express.
+ */
+const isMultimodalChatMessage = (
+  message: MultimodalChatMessage | ModelMessage,
+): message is MultimodalChatMessage =>
+  message.role !== "tool" &&
+  !(
+    Array.isArray(message.content) &&
+    message.content.some(
+      (part) => (part as { type?: string }).type === "tool-call",
+    )
+  );
+
+/**
+ * Full replay of one step: an assistant turn of tool-call parts followed by a
+ * tool turn of tool-result parts, in the shape every native converter already
+ * round-trips mid-turn.
+ */
+const toolStepMessages = (step: ToolReplayStep[]): ModelMessage[] => {
+  const callParts: ToolCallPart[] = step.map((s) => ({
+    type: "tool-call",
+    toolCallId: s.callId,
+    toolName: s.toolName,
+    input: s.args,
+  }));
+  const resultParts: ToolResultPart[] = step.map((s) => ({
+    type: "tool-result",
+    toolCallId: s.callId,
+    toolName: s.toolName,
+    output: s.output,
+  }));
+  const assistant: AssistantModelMessage = {
+    role: "assistant",
+    content: callParts,
+  };
+  const tool: ToolModelMessage = { role: "tool", content: resultParts };
+  return [assistant, tool];
+};
+
+/**
+ * Replay a session's tool rows into the prompt while the caller converts the
+ * regular rows its own way.
+ *
+ * Usage: normalise the history with `rows()`, then for each row call
+ * `consume(row)`; a `true` return means the row was a tool row and is now
+ * held. Before converting a non-tool row (and once after the last row) call
+ * `flush(messages, nextRole)`, which appends whatever the held tool rows
+ * amount to under `mode`:
+ *
+ * - `"full"`: paired tool-call / tool-result turns, one pair per step.
+ * - `"marker"`: markers are folded into the assistant text — returned for
+ *   the caller to prepend when the next row is the assistant that answered
+ *   after those tools; otherwise appended to the assistant turn just
+ *   emitted, or emitted as a marker-only assistant turn when there is none.
+ * - `"off"`: dropped.
+ *
+ * The caller owns the conversion of regular rows so that the text and the
+ * multimodal builders keep their own (different) handling of them.
+ */
+export const createToolStepReplay = (
+  mode: ToolReplayMode,
+): {
+  rows: <TRow extends ToolHistoryRow>(rows: ReadonlyArray<TRow>) => TRow[];
+  consume: (row: ToolHistoryRow) => boolean;
+  /**
+   * Append the held steps to `messages`. Returns marker text the caller must
+   * prepend to the assistant row it is about to convert, or undefined.
+   */
+  flush: (
+    messages: Array<ModelMessage | MultimodalChatMessage>,
+    nextRole: string | undefined,
+  ) => string | undefined;
+} => {
+  let held: ToolHistoryRow[] = [];
+  // One allocator per replay: ids must be unique across the whole history,
+  // not merely within one flush.
+  const allocateId = createReplayIdAllocator();
+  return {
+    rows: (rows) => (mode === "off" ? [...rows] : normalizeToolRowOrder(rows)),
+    consume: (row) => {
+      if (!isToolRow(row)) {
+        return false;
+      }
+      if (mode !== "off") {
+        held.push(row);
+      }
+      return true;
+    },
+    flush: (messages, nextRole) => {
+      if (held.length === 0) {
+        return undefined;
+      }
+      const steps = pairToolSteps(held, allocateId);
+      held = [];
+      if (steps.length === 0) {
+        return undefined;
+      }
+      if (mode === "full") {
+        for (const step of steps) {
+          messages.push(...toolStepMessages(step));
+        }
+        return undefined;
+      }
+      const markers = steps.flat().map(toolStepMarker);
+      if (nextRole === "assistant") {
+        return markers.join("\n");
+      }
+      const last = messages[messages.length - 1];
+      if (
+        last &&
+        last.role === "assistant" &&
+        typeof last.content === "string"
+      ) {
+        last.content = `${last.content}\n${markers.join("\n")}`;
+        return undefined;
+      }
+      messages.push({ role: "assistant", content: markers.join("\n") });
+      return undefined;
+    },
+  };
+};
 
 /**
  * Format CSV metadata for LLM consumption
@@ -663,15 +1053,29 @@ export async function buildMessagesArray(
     });
   }
 
-  // Add conversation history if available
-  // Convert ChatMessages to ModelMessages and filter out tool messages
+  // Add conversation history if available. Regular rows convert one-to-one;
+  // tool_call / tool_result rows are replayed per `replayToolSteps`.
   if (hasConversationHistory && options.conversationMessages) {
-    for (const chatMessage of options.conversationMessages) {
+    const replay = createToolStepReplay(resolveToolReplayMode(options));
+    for (const chatMessage of replay.rows(options.conversationMessages)) {
+      if (replay.consume(chatMessage)) {
+        continue;
+      }
+      const markers = replay.flush(messages, chatMessage.role);
       const coreMessage = toModelMessage(chatMessage);
       if (coreMessage) {
+        if (markers && coreMessage.role === "assistant") {
+          coreMessage.content = prependMarkers(
+            markers,
+            coreMessage.content as string,
+          );
+        }
         messages.push(coreMessage);
+      } else if (markers) {
+        messages.push({ role: "assistant", content: markers });
       }
     }
+    replay.flush(messages, undefined);
   }
 
   // Add current user prompt (required)
@@ -1835,6 +2239,31 @@ export async function buildMultimodalMessagesArray(
   provider: string,
   model: string,
 ): Promise<MultimodalChatMessage[]> {
+  // The legacy shape has no tool role, so a `"full"` replay degrades to
+  // markers here; callers that can carry tool turns (the core MessageBuilder)
+  // use buildMultimodalModelMessages directly.
+  const mode = resolveToolReplayMode(options);
+  const messages = await buildMultimodalModelMessages(
+    options,
+    provider,
+    model,
+    mode === "full" ? "marker" : mode,
+  );
+  return messages.filter(isMultimodalChatMessage);
+}
+
+/**
+ * The multimodal builder proper. Returns model messages so a session's tool
+ * steps can be replayed as real tool turns (`replayToolSteps: "full"`) on a
+ * turn that also carries files or images; `buildMultimodalMessagesArray`
+ * wraps this for callers on the older `MultimodalChatMessage[]` shape.
+ */
+export async function buildMultimodalModelMessages(
+  options: GenerateOptions,
+  provider: string,
+  model: string,
+  replayMode: ToolReplayMode = resolveToolReplayMode(options),
+): Promise<Array<MultimodalChatMessage | ModelMessage>> {
   // Media-only callers (avatar / music / video) may omit `input` entirely.
   // Normalise to an empty object so all sub-functions can access input.*
   // without defensive null checks on every field access.
@@ -1938,17 +2367,11 @@ export async function buildMultimodalMessagesArray(
       inp.files = [];
     }
 
-    const standardMessages = await buildMessagesArray(
-      options as TextGenerationOptions,
-    );
-    return standardMessages.map((msg) => {
-      const msgProviderOptions = (msg as Record<string, unknown>)
-        .providerOptions as Record<string, unknown> | undefined;
-      return {
-        role: msg.role,
-        content: msg.content,
-        ...(msgProviderOptions && { providerOptions: msgProviderOptions }),
-      } as MultimodalChatMessage;
+    // Already model messages, providerOptions included; the replay mode
+    // decided here has to travel with them.
+    return buildMessagesArray({
+      ...(options as TextGenerationOptions),
+      replayToolSteps: replayMode,
     });
   }
 
@@ -1960,7 +2383,7 @@ export async function buildMultimodalMessagesArray(
     );
   }
 
-  const messages: MultimodalChatMessage[] = [];
+  const messages: Array<MultimodalChatMessage | ModelMessage> = [];
 
   // Build enhanced system prompt. Gate on the same `hasPDFs` predicate used
   // for routing above — a PDF supplied only via input.content (no explicit
@@ -1978,12 +2401,17 @@ export async function buildMultimodalMessagesArray(
     } as MultimodalChatMessage);
   }
 
-  // Add conversation history if available
+  // Add conversation history if available. tool_call / tool_result rows are
+  // replayed per `replayMode`; the rest convert as before.
   const hasConversationHistory =
     options.conversationHistory && options.conversationHistory.length > 0;
   if (hasConversationHistory && options.conversationHistory) {
-    for (const msg of options.conversationHistory) {
-      // Filter out tool_call and tool_result roles — only user/assistant/system are valid for AI providers
+    const replay = createToolStepReplay(replayMode);
+    for (const msg of replay.rows(options.conversationHistory)) {
+      if (replay.consume(msg)) {
+        continue;
+      }
+      const markers = replay.flush(messages, msg.role);
       if (
         msg.role === "user" ||
         msg.role === "assistant" ||
@@ -2009,6 +2437,9 @@ export async function buildMultimodalMessagesArray(
           );
           if (textParts.length === 0) {
             // All content was tool_use/tool_result/non-text — skip message
+            if (markers) {
+              messages.push({ role: "assistant", content: markers });
+            }
             continue;
           }
           // Check if any retained text part carries providerOptions
@@ -2032,7 +2463,20 @@ export async function buildMultimodalMessagesArray(
 
         // Skip empty string content to avoid Claude API rejection
         if (sanitizedContent === "") {
+          if (markers) {
+            messages.push({ role: "assistant", content: markers });
+          }
           continue;
+        }
+
+        if (markers && msg.role === "assistant") {
+          sanitizedContent =
+            typeof sanitizedContent === "string"
+              ? prependMarkers(markers, sanitizedContent)
+              : [
+                  { type: "text", text: markers },
+                  ...(sanitizedContent as MessageContent[]),
+                ];
         }
 
         messages.push({
@@ -2040,8 +2484,11 @@ export async function buildMultimodalMessagesArray(
           content: sanitizedContent as typeof msg.content,
           ...(providerOptions && { providerOptions }),
         });
+      } else if (markers) {
+        messages.push({ role: "assistant", content: markers });
       }
     }
+    replay.flush(messages, undefined);
   }
 
   // Handle multimodal content

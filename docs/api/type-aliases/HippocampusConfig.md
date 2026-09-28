@@ -26,19 +26,7 @@ Constructor config accepted by the Hippocampus class.
 
 ### neurolink?
 
-> `optional` **neurolink?**: `object`
-
-#### provider?
-
-> `optional` **provider?**: `string`
-
-#### model?
-
-> `optional` **model?**: `string`
-
-#### temperature?
-
-> `optional` **temperature?**: `number`
+> `optional` **neurolink?**: [`HippocampusNeurolinkConfig`](HippocampusNeurolinkConfig.md)
 
 ---
 

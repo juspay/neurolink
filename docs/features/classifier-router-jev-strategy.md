@@ -11,7 +11,11 @@ calibrated confidence on each. This page is the strategy's own mechanics —
 `classifyJev()` itself never throws: any failure, timeout, or malformed answer
 falls back to `classifyHeuristic()`. Setting `TYPESAFE_API_KEY` (or
 `AI_GATEWAY_API_KEY`) upgrades routing; it cannot make routing worse than before
-the key existed.
+the key existed. "Configured" counts the environment, the instance
+`credentials`, and the request's own per-call `credentials` — a host that holds
+no decision key but passes a tenant's `credentials: { laya }` on a `generate()`
+call routes that call with `jev`, and the decision goes to the tenant's
+account.
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";

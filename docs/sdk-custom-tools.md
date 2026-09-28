@@ -401,6 +401,17 @@ execute: async (args) => {
 };
 ```
 
+A returned error is classified as a failure everywhere the SDK reports one,
+exactly as a thrown error is. A result is error-shaped when it carries
+`isError: true` (the MCP convention), a non-null `error` field (`{ error:
+"User not found" }`), or a `status` of `"error"` / `"failed"` / `"failure"` /
+`"fail"`. Such a call emits `tool:end` with `success: false` and the error
+text, is stored in session memory as `success: false`, replays on later turns
+as `[called <tool> → error]`, and is reported with `isError: true` in
+`result.toolExecutions`. The model still receives the full object you
+returned — classification only affects telemetry and memory, never what the
+model sees.
+
 ### 4. Async Operations
 
 All execute functions must return promises:
@@ -610,6 +621,72 @@ async function registerDynamicTools(config: ToolConfig[]) {
 const toolConfigs = await loadToolConfigs();
 await registerDynamicTools(toolConfigs);
 ```
+
+### Forcing a Tool Call
+
+`toolChoice` tells the model whether it must call a tool on a step:
+
+| Value                             | Effect                                           |
+| --------------------------------- | ------------------------------------------------ |
+| `"auto"` (default)                | The model decides whether and which tool to call |
+| `"none"`                          | No tool calls on any step                        |
+| `"required"`                      | The model must call at least one tool            |
+| `{ type: "tool", toolName: "x" }` | The model must call the named tool               |
+
+A forced choice (`"required"` or a named tool) is applied only to the first
+`toolChoiceSteps` steps of the tool loop — **default 1** — after which the
+model is free to answer. Holding a forced choice on every step would compel
+a tool call on every step, and the turn could only end when `maxSteps` ran
+out. `"auto"` and `"none"` are applied unchanged on every step.
+
+```typescript
+// Force `lookup_order` once, then let the model answer from the result.
+const result = await neurolink.generate({
+  input: { text: "Where is order 4471?" },
+  toolChoice: { type: "tool", toolName: "lookup_order" },
+});
+
+// Demand a tool on the first two steps, e.g. a search followed by a fetch.
+await neurolink.generate({
+  input: { text: "Summarise today's release notes" },
+  toolChoice: "required",
+  toolChoiceSteps: 2,
+});
+```
+
+For anything finer, `prepareStep` runs before every step and may return a
+`toolChoice` for that step, which takes precedence over `toolChoiceSteps`:
+
+```typescript
+await neurolink.generate({
+  input: { text: "Plan, then execute" },
+  prepareStep: async ({ stepNumber, steps }) => {
+    if (stepNumber === 0) {
+      return { toolChoice: { type: "tool", toolName: "make_plan" } };
+    }
+    if (steps.at(-1)?.toolCalls.some((c) => c.toolName === "make_plan")) {
+      return { toolChoice: "required" };
+    }
+    return { toolChoice: "auto" };
+  },
+});
+```
+
+`prepareStep` receives `{ stepNumber, steps, maxSteps, model }`, where `steps`
+holds one record per completed step (its text, tool calls — with `input`
+already parsed into an object — tool results, finish reason and usage,
+including prompt-cache tokens where the provider reports them). Only the
+returned `toolChoice` is honoured; the legacy `model` and
+`experimental_activeTools` / `activeTools` fields are accepted for source
+compatibility but ignored, and their presence is logged once as a warning —
+use `toolFilter` / `excludeTools` to scope tools. A hook that throws is
+logged and that step falls back to the `toolChoice` / `toolChoiceSteps` rule;
+a hook still pending when the turn is aborted or times out is released with
+the abort. Both `toolChoice` and `prepareStep` apply to `stream()` as well.
+
+Vertex, Google AI Studio and Bedrock do not honour `toolChoice` at all today.
+SageMaker honours `tools`, `toolChoice` and `prepareStep` on `generate()`
+only: its `stream()` sends the prompt without tools.
 
 ## 📊 Performance Considerations
 

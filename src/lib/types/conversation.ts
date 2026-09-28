@@ -67,11 +67,98 @@ export type {
 export type StorageConfig = HippocampusStorageConfig;
 
 /**
+ * How stored `tool_call` / `tool_result` rows are replayed into the prompt
+ * on later turns of a session (see `ConversationMemoryConfig.replayToolSteps`).
+ *
+ * - `"full"`: replayed as real tool-call / tool-result turns, so the model
+ *   sees the exact call and its output.
+ * - `"marker"`: a compact text line per tool call
+ *   (`[called <tool> → ok]` / `[called <tool> → error]`) folded into the
+ *   assistant turn, so the model knows what it did without the payload.
+ * - `"off"`: tool rows are dropped from the prompt, as before this option.
+ */
+export type ToolReplayMode = "full" | "marker" | "off";
+
+/**
+ * The fields the tool-step replay reads off a stored history row. Structural
+ * rather than `ChatMessage` because the multimodal builder's history is typed
+ * as `{ role: string; content: string }` while carrying the same rows.
+ */
+export type ToolHistoryRow = {
+  /** Row id; a `repair-*` prefix marks a placeholder `repairToolPairs` invented. */
+  id?: string;
+  role: string;
+  content?: unknown;
+  tool?: string;
+  toolCallId?: string;
+  args?: Record<string, unknown>;
+  result?: { success?: boolean; error?: string };
+  metadata?: { stepIndex?: number; isSummary?: boolean; isSkill?: boolean };
+};
+
+/**
+ * What a replayed step tells the model about the call's outcome: `"ok"`,
+ * `"error"` (the result was a failure — thrown, rejected, or an `isError`
+ * payload), or `"unknown"` when the real result was lost to compaction and
+ * `repairToolPairs` filled the gap with a placeholder.
+ */
+export type ToolReplayOutcome = "ok" | "error" | "unknown";
+
+/** One paired call/result from a session's history, ready to replay. */
+export type ToolReplayStep = {
+  callId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  output: string;
+  outcome: ToolReplayOutcome;
+};
+
+/**
+ * One tool call as handed to conversation-memory storage after a loop step.
+ * The stores read `args` (Redis also `arguments` / `parameters`), so the
+ * field is named for what they read — an `input` key here is silently
+ * persisted as `{}`, which is exactly the bug this type exists to prevent.
+ */
+export type MemoryToolCallRecord = {
+  toolCallId?: string;
+  toolName?: string;
+  args?: Record<string, unknown>;
+  /** Zero-based loop step, persisted as `metadata.stepIndex` by stores that keep it. */
+  stepIndex?: number;
+  /** Gemini 3 thought signature riding on the step's first call. */
+  thoughtSignature?: string;
+  timestamp?: Date;
+};
+
+/** One tool result as handed to conversation-memory storage after a loop step. */
+export type MemoryToolResultRecord = {
+  toolCallId?: string;
+  toolName?: string;
+  output?: unknown;
+  /** Legacy alias of `output`; stores read whichever is present. */
+  result?: unknown;
+  /** Set when the execution failed; persisted as `result.error` and `success: false`. */
+  error?: string;
+  stepIndex?: number;
+  timestamp?: Date;
+};
+
+/**
  * Configuration for conversation memory feature
  */
 export type ConversationMemoryConfig = {
   /** Enable conversation memory feature */
   enabled: boolean;
+
+  /**
+   * How a session's stored tool steps are replayed into later prompts.
+   * Default `"marker"`. `"full"` replays real tool-call / tool-result turns
+   * (costs tokens per replayed step and, on Anthropic, changes the prompt
+   * prefix ahead of the cached system breakpoint); `"off"` restores the
+   * previous behaviour of dropping them. Overridable per request via
+   * `replayToolSteps` on the generate / stream options.
+   */
+  replayToolSteps?: ToolReplayMode;
 
   /** Maximum number of sessions to keep in memory (default: 50) */
   maxSessions?: number;

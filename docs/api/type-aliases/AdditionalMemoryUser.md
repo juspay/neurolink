@@ -52,7 +52,9 @@ Whether to write conversation into this user's memory. Defaults to true.
 
 > `optional` **prompt?**: `string`
 
-Custom condensation prompt for this user. Overrides the default Hippocampus prompt.
+Custom condensation prompt for this user. Overrides the instance prompt.
+Must contain `{{OLD_MEMORY}}` and `{{NEW_CONTENT}}`; a template missing
+either is logged and this owner falls back to the instance prompt.
 
 ---
 

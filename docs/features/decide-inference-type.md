@@ -460,9 +460,150 @@ See [per-query RAG retrieval planning](/docs/features/rag-retrieval-planning)
 for the breadth rubric and why its confidence bar is deliberately lower than
 tool routing's or compaction's.
 
+### One funnel for all five sites
+
+Every one of those calls is stamped with a `site` — `routing`, `toolRouting`,
+`contextRelevance`, `summaryGate` or `ragPlan` (the `DecisionSite` union) — and
+goes through one private path on `NeuroLink`, which is also where a bound
+`tryDecide()` lands. For the four sites that run inside a NeuroLink request —
+`routing`, `toolRouting`, `contextRelevance` and `summaryGate` — that path
+forwards the outer `generate()` / `stream()` call's per-call `credentials`,
+`abortSignal` and `requestId` (the top-level option, else
+`context.requestId`) to the decision, so a request that carries
+`credentials: { laya: {...} }` routes and compacts against _that_ account
+rather than the instance's; for `routing` the per-call credentials also count
+towards the `auto` strategy's activation, so a host that holds no decision key
+itself still routes a request that carries one. `ragPlan` runs inside a
+host-wired `RAGPipeline`, outside any NeuroLink request, so it receives only
+what the host puts on the options it hands `tryDecide` (see "Host-wired
+consumers" below). The path also adds `decision.site` and
+`decision.host_question_count` to the `model.decision` span; emits
+`decision:before` / `decision:after` on the instance emitter; and runs the
+`decisionHooks` described next. Without hooks or listeners, the decision
+payload — state and questions — is unchanged; per-call `credentials` are still
+forwarded, so the full request on the wire (account, base URL) can differ from
+the instance's.
+
+---
+
+## Riding along: `decisionHooks`
+
+Latency on a decision model is flat in question count, so a host with its own
+questions about the same request pays nothing to ask them in the round trip
+NeuroLink is already making. `decisionHooks` on the constructor does exactly
+that — one request per site, never a second:
+
+```ts
+const neurolink = new NeuroLink({
+  classifierRouter: { enabled: true, pool },
+  decisionHooks: {
+    // Called before each site's call with NeuroLink's own questions. Return
+    // extra questions under ids of your choosing, or undefined to add none.
+    extendQuestions: ({ site, state }) =>
+      site === "routing"
+        ? {
+            tone: { type: "boolean", instructions: "Is the request polite?" },
+            team: {
+              type: "choice",
+              instructions: "Which team owns this?",
+              criteria: { payments: "Money movement", platform: "Rest" },
+            },
+          }
+        : undefined,
+    // Called with YOUR answers under YOUR ids, plus the full result.
+    onAnswers: ({ site, answers, result }) => {
+      const team = readDecisionChoice(answers, "team");
+      if (team && team.confidence > 0.7) {
+        tagRequest(team.choice);
+      }
+    },
+  },
+});
+```
+
+What the funnel guarantees:
+
+| Concern                 | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Id collisions           | Host questions travel as `host__0`, `host__1`, … on the wire, so they can never collide with `difficulty`, `model`, `server__N`, `msg__N`, …; `onAnswers` maps them back to your ids.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Malformed questions     | Each is checked at runtime (`isDecisionQuestion`); an invalid one is dropped with a warning, its siblings still go.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| The provider's cap      | Additions are capped at `maxQuestions − NeuroLink's own count`, dropped from the end with a warning. Without this one question too many would refuse the WHOLE request, and NeuroLink's routing would degrade. This is a count cap, and only Laya declares one (64). TypeSafe and XOR cap a request by tokens, not by count: their `decisionLimits()` reading has **no `maxQuestions` key** (absent, never `Infinity`), and every well-formed addition goes on the wire. For TypeSafe (`enforcedLocally: false`) size your questions with `decisionLimits()` and `estimateDecisionStateTokens()` — an over-long host question can still make the request exceed its state-plus-question or combined-request budget, and that refusal is not caught locally. For XOR the reading also carries `media` (8 images, one video, an 8 MiB body), which is the ceiling the questions share with the state and any media. |
+| A throwing or slow hook | Logged at `warn`; the decision proceeds with NeuroLink's own questions. Each hook is bounded by `hookTimeoutMs` (default 2000 ms) because both sit on the request path; the bound must be a finite number from 1 to 2^31 − 1 ms — anything else, `Infinity` included, falls back to the default with one warning, because a timer given such a delay fires immediately. Neither hook can change what NeuroLink does with its own answers — `onAnswers` and the events receive copies.                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| An unreadable return    | A return value from `extendQuestions` that cannot be read or copied (a proxy, a throwing getter, a function-valued field) is treated as a hook failure: logged at `warn`, and the decision proceeds with NeuroLink's own questions. Every question that is accepted travels as a copy, so editing your object after the hook returned changes nothing on the wire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| A throwing listener     | A `decision:before` / `decision:after` listener that throws is logged at `warn` and the call continues; the events are observe-only, and their `state` / `questions` / `answers` are copies — editing them changes neither the request on the wire nor NeuroLink's own question objects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| NeuroLink's consumers   | See only their own ids, exactly as without hooks. If anything host-facing throws after the call returned, the consumer still gets its own answers from that call; if it throws before, the call is made with NeuroLink's own questions. A host cannot turn a decision into an exception.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Host-wired consumers    | A `RAGPipeline` or `ClassifierRouter` you constructed with `decide: (o) => neurolink.tryDecide(o)` gets the same treatment — the consumer stamps the site, `tryDecide` honours it. Overriding or patching `decide()` on the instance is honoured too: every site call, `tryDecide` included, dispatches through it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Question ids            | Your ids are ordinary map keys — `__proto__` or `constructor` come back under exactly that name in `onAnswers` and `hostAnswers`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| No hooks, no provider   | Nothing changes. Without a decision provider — none in the environment, the instance `credentials` or the request's per-call `credentials` — no hook runs and no event fires; `tryDecide` returns `null` exactly as it did before hooks existed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+The two events are observe-only and fire once per site call whether or not it
+produced a result, so a decision path that has stopped working stays visible:
+
+```ts
+import type { DecisionAfterEvent } from "@juspay/neurolink";
+
+neurolink.getEventEmitter().on("decision:after", (event) => {
+  const { site, answers, hostAnswers, latencyMs, provider, model, result } =
+    event as DecisionAfterEvent; // result is null when the call failed
+});
+```
+
+`decision:before` carries `{ site, state, questions, hostQuestionCount }` —
+everything about to be sent, host questions already namespaced — plus the
+`sessionId` and `requestId` of the surrounding request, so a host can join the
+events of one turn. Both events fire only when a decision provider is
+configured; without one there is no call to observe.
+
 ---
 
 ## Limits and gotchas
+
+### Reading the limits before you send: `decisionLimits()`
+
+`neurolink.decisionLimits({ provider?, model?, credentials? })` returns the
+figures the pre-flight check compares against, resolved for one model —
+provider as `decide()` resolves it, model as `model ?? the model decide() sends`
+(the one registered for the provider: `LAYA_MODEL` / `TYPESAFE_MODEL` as read
+when providers were registered, else the default — a later change to the
+variable moves neither), the per-model entry flattened over the base:
+
+```ts
+const limits = neurolink.decisionLimits(); // null with no decision provider
+// laya, typed-decisions → { provider: "laya", model: "typed-decisions",
+//   maxStateTokens: 768, maxQuestions: 64, nonAsciiTokensPerChar: 1.5,
+//   enforcedLocally: true }
+// typesafe → { maxStateTokens: 33000, enforcedLocally: false }
+//   (no maxQuestions key: TypeSafe caps by tokens, not by count)
+// xor → { maxStateTokens: 200000, nonAsciiTokensPerChar: 1,
+//   media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+//   enforcedLocally: true }
+//   (no maxQuestions key either; `media` is absent for the text-only providers)
+
+if (
+  limits &&
+  estimateDecisionStateTokens(state, limits) > limits.maxStateTokens
+) {
+  state = shorten(state);
+}
+```
+
+`maxQuestions` is present only for a provider that caps by question count
+(Laya); a reading without the key has no count cap, and a host should test
+for the key rather than compare against `Infinity`. `media` is present only
+for a provider that reads images or video (XOR); its absence is what the
+media refusal for TypeSafe and Laya is based on.
+
+`enforcedLocally` says who refuses: NeuroLink itself, before any network call
+(Laya and XOR, whose servers would silently truncate or fail inside the
+engine), or the provider's server
+(TypeSafe, whose descriptor row is marked `advisory` and is _reported_ but never
+enforced here — a local refusal would turn a measured server ceiling into a
+client one that drifts from it). `estimateDecisionStateTokens` is the very
+function the pre-flight refusal uses, so a state it sizes as fitting is sent
+and one it sizes as over is refused; pass the reading so non-ASCII text is
+charged at the model's measured rate. A named `provider` is read whether or
+not it is configured — its limits are facts about the model — while the
+default requires a configured provider, as `tryDecide()` does.
 
 **Laya reads far less than Jev.** About 768 tokens of state on
 `typed-decisions` and `multilingual`, and 320 on `english`, `auto` or an

@@ -30,6 +30,7 @@ import type { ModelPoolConfig } from "./modelPool.js";
 import type { RequestRouter } from "./requestRouter.js";
 import type { ClassifierRouterConfig } from "./classifierRouter.js";
 import type { ContextRelevanceOptions } from "./context.js";
+import type { DecisionHooks } from "./decision.js";
 import type { SkillsConfig } from "./skills.js";
 import type { KnowledgeGroundingConfig } from "./knowledge.js";
 
@@ -174,6 +175,14 @@ export type NeurolinkConstructorConfig = {
    * which is the same activation rule every other decision consumer uses.
    */
   contextRelevance?: ContextRelevanceOptions;
+  /**
+   * Ride along on the decision calls NeuroLink already makes for routing,
+   * tool routing, compaction and RAG planning: add your own questions to the
+   * same round trip and read the answers back. Observe-only with respect to
+   * NeuroLink's behaviour, fail-open, and inert until a decision provider is
+   * configured. See {@link DecisionHooks}.
+   */
+  decisionHooks?: DecisionHooks;
   /**
    * Native skills: versioned, discoverable instruction packs (SOPs,
    * playbooks) with progressive disclosure. When enabled, each

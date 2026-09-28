@@ -23,6 +23,7 @@ import type {
   AnthropicAuthConfig,
   AnthropicAuthMethod,
   ClaudeSubscriptionTier,
+  ToolReplayMode,
 } from "../../lib/types/index.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 // Use TokenUsage from standard types - no local interface needed
@@ -136,6 +137,32 @@ export class CLICommandFactory {
         .filter(Boolean);
     }
     return normalized;
+  }
+
+  /**
+   * The loop's `set toolChoiceSteps` / `set replayToolSteps` values in the
+   * shape `generate()` / `stream()` take. Session variables arrive as raw
+   * strings or numbers, so each is validated rather than cast: a bad value
+   * is dropped here and the SDK default applies.
+   */
+  private static loopToolStepOptions(vars: Record<string, unknown>): {
+    toolChoiceSteps?: number;
+    replayToolSteps?: ToolReplayMode;
+  } {
+    const out: { toolChoiceSteps?: number; replayToolSteps?: ToolReplayMode } =
+      {};
+    const steps =
+      typeof vars.toolChoiceSteps === "string"
+        ? Number(vars.toolChoiceSteps)
+        : vars.toolChoiceSteps;
+    if (typeof steps === "number" && Number.isInteger(steps) && steps >= 0) {
+      out.toolChoiceSteps = steps;
+    }
+    const replay = vars.replayToolSteps;
+    if (replay === "full" || replay === "marker" || replay === "off") {
+      out.replayToolSteps = replay;
+    }
+    return out;
   }
 
   // Common options available on all commands
@@ -3831,6 +3858,9 @@ export class CLICommandFactory {
           enabledToolNames: enhancedOptions.enabledToolNames as
             | string[]
             | undefined,
+          // Loop `set` variables the schema accepts; without an explicit
+          // entry here they were echoed as set and then dropped.
+          ...CLICommandFactory.loopToolStepOptions(enhancedOptions),
           enableAnalytics: enhancedOptions.enableAnalytics,
           enableEvaluation: enhancedOptions.enableEvaluation,
           evaluationDomain: enhancedOptions.evaluationDomain as
@@ -4182,6 +4212,7 @@ export class CLICommandFactory {
         enabledToolNames: enhancedOptions.enabledToolNames as
           | string[]
           | undefined,
+        ...CLICommandFactory.loopToolStepOptions(enhancedOptions),
         enableAnalytics: enhancedOptions.enableAnalytics as boolean | undefined,
         enableEvaluation: enhancedOptions.enableEvaluation as
           | boolean

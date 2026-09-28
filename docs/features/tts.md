@@ -233,7 +233,17 @@ tts: {
 
 ## TTS Synthesis Modes
 
-NeuroLink supports two TTS synthesis modes:
+NeuroLink supports two TTS synthesis modes, selected with `tts.mode`:
+
+| `tts.mode`           | What is spoken                    | Model call | `usage`   |
+| -------------------- | --------------------------------- | ---------- | --------- |
+| `"direct"` (default) | the input text / prompt, verbatim | none       | all zeros |
+| `"response"`         | the model's generated reply       | yes        | real      |
+
+`result.ttsMetadata.mode` reports which one ran. The older
+`useAiResponse: true` flag still means `mode: "response"` and is still
+honoured, but an explicit `mode` wins when both are present. `stream()`
+always synthesizes the streamed reply and ignores `mode`.
 
 ### Mode 1: Direct Text-to-Speech (Default)
 
@@ -245,14 +255,21 @@ const result = await neurolink.generate({
   provider: "google-ai",
   tts: {
     enabled: true,
-    useAiResponse: false, // Default: synthesize input text
+    mode: "direct", // Default: synthesize input text
     voice: "en-US-Neural2-C",
   },
 });
 
 // Audio contains: "Welcome to our service!"
-// No AI generation occurs
+// No AI generation occurs; result.ttsMetadata.mode === "direct"
 ```
+
+> **Direct mode ignores LLM options.** Because no model is called, `tools`,
+> `systemPrompt`, `conversationMessages`, `schema` and
+> `conversationMemoryConfig` have no effect. If a request carries any of them
+> without an explicit `tts.mode`, NeuroLink logs one warning naming the
+> ignored options — the usual fix is `mode: "response"`. The request is never
+> rejected, so existing "speak this text" callers are unaffected.
 
 **Use cases:**
 
@@ -271,17 +288,17 @@ const result = await neurolink.generate({
   provider: "google-ai",
   tts: {
     enabled: true,
-    useAiResponse: true, // Synthesize AI's response
+    mode: "response", // Synthesize AI's response (legacy: useAiResponse: true)
     voice: "en-US-Neural2-C",
   },
 });
 
 // AI generates joke text
 // TTS synthesizes the joke audio
-// Both text and audio available in result
+// Both text and audio available in result; result.ttsMetadata.mode === "response"
 ```
 
-> **Note:** when `useAiResponse: true`, NeuroLink synthesizes the chat
+> **Note:** when `mode: "response"`, NeuroLink synthesizes the chat
 > provider's text response. If your chat provider has no TTS counterpart
 > (e.g. `anthropic`, `bedrock`), set `tts.provider` explicitly — otherwise
 > streaming continues as text-only and logs a provider-resolution warning.
@@ -294,6 +311,77 @@ const result = await neurolink.generate({
 - Interactive AI conversations
 - Dynamic content narration
 - AI-powered podcasts
+
+### Cleaning text for speech (`tts.sanitize`)
+
+Model output is written for a screen. Read aloud, `**bold**` becomes
+"asterisk asterisk", a URL is spelled out letter by letter, and an emoji is
+announced by name. `tts.sanitize` runs the text through
+`prepareTextForSpeech()` first:
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Summarise the release notes" },
+  tts: { enabled: true, mode: "response", sanitize: true },
+});
+```
+
+With `sanitize: true` the defaults apply; pass an object to tune them:
+
+| Option            | Default                 | Effect                                                                                                                   |
+| ----------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `markdown`        | `true`                  | Strip headings, emphasis, inline code, bullets, blockquotes, HTML tags; tables become comma-separated rows; links → text |
+| `codeBlocks`      | `"phrase"`              | Fenced code: `"phrase"` speaks `codeBlockPhrase`, `"drop"` removes it, `"keep"` reads the contents                       |
+| `codeBlockPhrase` | `"Code block omitted."` | Spoken stand-in for a fenced block                                                                                       |
+| `urls`            | `"hostname"`            | `https://docs.example.com/a/b` → `docs.example.com` (an IDN host in Unicode, not punycode); `"remove"` drops the URL     |
+| `emoji`           | `true`                  | Remove emoji and pictographs with their skin-tone modifiers, variation selectors and the joiners between them            |
+
+It is **off by default**: existing callers get byte-identical synthesis
+input. The pass is careful about what it does not touch:
+
+- Emphasis is a **pair** around a word run — `**bold**`, `*it*`, `_this_` — so
+  an asterisk between digits is arithmetic and stays: `2*3*4 = 24` is spoken
+  as written, as is `*123*1#`. Backslash escapes are resolved first and the
+  escaped character is kept: `\*not bold\*` becomes `*not bold*`.
+- Only real HTML tag names are stripped (`<b>`, `<br/>`, `<a href>`, …).
+  Angle-bracketed placeholders such as `<Enter>` or `<order-id>`, generics
+  and comparisons are left alone.
+- The zero-width joiner is removed only between or beside pictographs; in
+  Indic and Arabic text, where it shapes letters, it is kept.
+
+In `stream()` the pass runs **per segment** with code blocks kept (fence lines
+stripped), because a segment may hold an unterminated fence. Segments are cut
+at sentence ends with no awareness of markdown spans, so a construct that
+crosses a segment boundary — a link whose `](` lands in the next segment, an
+emphasis run closed two sentences later — is not recognised and its markers
+are spoken. Use `generate()` with `mode: "response"` when the whole reply must
+be cleaned as one text. The function is exported for use on your own text:
+
+```typescript
+import { prepareTextForSpeech } from "@juspay/neurolink";
+
+prepareTextForSpeech(
+  "## Title\n\nSee **this** at https://docs.example.com/x 🎉",
+);
+// → "Title\n\nSee this at docs.example.com"
+```
+
+Every regular expression in the pass is linear-time, and every bounded span
+excludes its own opener so a run of openers cannot walk the bound. Measured
+on one machine (Node 24): 1 MB of ordinary markdown takes about 36 ms, and
+the worst adversarial shapes — 1 MB of `[`, `![`, `**`, `<span ` or
+`<http://` — each take 4–8 ms. Two of those numbers used to be much larger:
+1 MB of `[` cost 2.6 s until the link-label class excluded `[`, and 1 MB of
+`<http://` cost about 380 ms (a reviewer measured 0.5 s) until the autolink
+target class excluded `<` — each unterminated opener had been walking the
+full 2,048-character target bound before failing. Emphasis boundaries are
+Unicode-aware (`\p{P}` / `\p{S}` around the delimiter run), so `**` is
+stripped before a danda, a full-width colon, a curly quote or an em dash as
+well as before ASCII punctuation, and the pair rule still leaves `2*3*4`,
+`x**2` and `Dial *123*1#` alone. In `generate()` the pass is skipped for
+input more than four times the provider's text cap, which `TTSProcessor`
+rejects as `TTS_TEXT_TOO_LONG` either way, so an oversized input fails at
+once rather than after a cleanup it could never pass.
 
 ---
 
@@ -444,7 +532,8 @@ const result = await neurolink.generate({
   provider: "google-ai", // or "vertex"
   tts: {
     enabled: true, // Enable TTS output
-    useAiResponse: false, // false = input text, true = AI response
+    mode: "direct", // "direct" = input text (default), "response" = AI reply
+    sanitize: false, // true | SpeechSanitizeOptions — strip markdown/URLs/emoji first
     voice: "en-US-Neural2-C", // Voice identifier
     format: "mp3", // Audio format: "mp3" | "wav" | "ogg"
     speed: 1.0, // Speaking rate: 0.25-4.0

@@ -458,11 +458,11 @@ export function createAnthropicLoopAdapter<
       };
     },
 
-    buildStepRequest(
+    async buildStepRequest(
       conversation: TMessage[],
       step: number,
-    ): AgenticLoopStepRequest {
-      return { raw: config.buildParams(conversation, step) };
+    ): Promise<AgenticLoopStepRequest> {
+      return { raw: await config.buildParams(conversation, step) };
     },
 
     async executeStep(

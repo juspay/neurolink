@@ -284,7 +284,7 @@ export function toolResultsOnWire(body: string): string[] {
 
 /** Placeholder AWS credentials. Signed, never validated, never real. */
 export const PLACEHOLDER_AWS_ENV = {
-  AWS_ACCESS_KEY_ID: "AKIALOCALENDPOINTONLY",
+  AWS_ACCESS_KEY_ID: "AKIALOCALENDPOINTONLY", // placeholder, not a real key
   AWS_SECRET_ACCESS_KEY: "local-endpoint-secret-not-real",
   AWS_REGION: "us-east-1",
 } as const;

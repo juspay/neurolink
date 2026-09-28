@@ -14,6 +14,7 @@
 import { execSync, spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { isPlaceholderSecret, splitRgMatch } from "./lib/secretPlaceholder.js";
 
 // ANSI color codes for output formatting
 const colors: Record<string, string> = {
@@ -991,23 +992,12 @@ class SecurityValidator {
         if (output.trim()) {
           const matches = output.trim().split("\n");
           const validMatches = matches.filter((match: string) => {
-            const [, , content] = match.split(":", 3);
-            if (!content) return false;
-
-            // Enhanced placeholder detection
-            const cleanContent = content.trim().toLowerCase();
-            return !(
-              cleanContent.includes("your-") ||
-              cleanContent.includes("example") ||
-              cleanContent.includes("placeholder") ||
-              cleanContent.includes("dummy") ||
-              cleanContent.includes("test") ||
-              cleanContent.includes("sample") ||
-              cleanContent.includes("xxx") ||
-              cleanContent.includes("replace") ||
-              cleanContent.includes("here") ||
-              /^[x\-_=<>[\]{}()]{10,}$/.test(cleanContent)
-            );
+            const parsed = splitRgMatch(match);
+            if (!parsed || !parsed.content.trim()) return false;
+            // Judged from the matched token and a trailing comment only —
+            // see scripts/lib/secretPlaceholder.ts for why neither the
+            // pre-colon text nor the whole line is the right scope.
+            return !isPlaceholderSecret(parsed.content, pattern);
           });
 
           if (validMatches.length > 0) {

@@ -13,7 +13,11 @@ import {
   estimateTokens,
   TOKENS_PER_MESSAGE,
 } from "../utils/tokenEstimation.js";
-import type { BudgetCheckResult, BudgetCheckParams } from "../types/index.js";
+import type {
+  BudgetCheckResult,
+  BudgetCheckParams,
+  ToolReplayMode,
+} from "../types/index.js";
 import {
   SpanSerializer,
   SpanType,
@@ -33,6 +37,68 @@ const HISTORY_BUDGET_SAFETY_FACTOR = 0.95;
 
 /** Estimated tokens per tool definition */
 const TOKENS_PER_TOOL_DEFINITION = 200;
+
+/**
+ * Tokens one `[called <tool> → ok]` marker line costs. The tool name is the
+ * only variable part and is short; a fixed figure keeps the estimate cheap.
+ */
+const TOKENS_PER_TOOL_MARKER = 12;
+
+/**
+ * Estimate the history at the size it will REACH THE MODEL.
+ *
+ * Tool rows are stored at full size (arguments plus the whole output), but
+ * the prompt carries them per `replayToolSteps`: `"marker"` — the default —
+ * sends one short line per call and nothing for the result, `"off"` sends
+ * nothing, `"full"` sends the stored payload. Counting them at stored size
+ * under `"marker"` made the budget check and the summarization trigger see
+ * a history several times larger than the prompt, so summarization fired
+ * turns before the real prompt was anywhere near the window.
+ *
+ * Without a mode the rows count at stored size, which is also right for the
+ * providers that replay tool rows natively in their own wire shape
+ * regardless of the mode (see `replaysToolRowsNatively`).
+ */
+function estimateHistoryTokens(
+  messages: Array<{ role: string; content: unknown }>,
+  provider: string,
+  mode: ToolReplayMode | undefined,
+): number {
+  if (mode === undefined || mode === "full") {
+    return estimateMessagesTokens(messages, provider);
+  }
+  const regular = messages.filter(
+    (m) => m.role !== "tool_call" && m.role !== "tool_result",
+  );
+  let total = estimateMessagesTokens(regular, provider);
+  if (mode === "marker") {
+    // One marker per call; a result adds nothing beyond its call's marker.
+    // `result.error` rides along on the marker only as "→ error", so it is
+    // not counted either.
+    total +=
+      messages.filter((m) => m.role === "tool_call").length *
+      (TOKENS_PER_TOOL_MARKER + TOKENS_PER_MESSAGE);
+  }
+  return total;
+}
+
+/**
+ * Providers whose native history builders replay stored tool rows in their
+ * own wire shape whatever `replayToolSteps` says (Claude-on-Vertex, Gemini
+ * on Vertex and AI Studio). Their tool rows always reach the model at full
+ * size, so the mode must not shrink the estimate for them.
+ */
+const NATIVE_TOOL_REPLAY_PROVIDERS: ReadonlySet<string> = new Set([
+  "vertex",
+  "google-ai",
+  "google-vertex",
+  "googlevertex",
+  "google-ai-studio",
+]);
+
+function replaysToolRowsNatively(provider: string): boolean {
+  return NATIVE_TOOL_REPLAY_PROVIDERS.has(provider.toLowerCase());
+}
 
 /**
  * Tokens the CONVERSATION HISTORY may occupy, i.e. the model's available input
@@ -113,6 +179,7 @@ export function checkContextBudget(
       toolDefinitions,
       fileAttachments,
       compactionThreshold = DEFAULT_COMPACTION_THRESHOLD,
+      toolReplayMode,
     } = params;
 
     const availableInputTokens = getAvailableInputTokens(
@@ -127,9 +194,10 @@ export function checkContextBudget(
       : 0;
 
     const conversationHistoryTokens = conversationMessages?.length
-      ? estimateMessagesTokens(
+      ? estimateHistoryTokens(
           conversationMessages as Array<{ role: string; content: string }>,
           provider,
+          replaysToolRowsNatively(provider) ? undefined : toolReplayMode,
         )
       : 0;
 

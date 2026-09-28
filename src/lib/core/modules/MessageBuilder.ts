@@ -9,7 +9,7 @@ import type {
 import { logger } from "../../utils/logger.js";
 import {
   buildMessagesArray,
-  buildMultimodalMessagesArray,
+  buildMultimodalModelMessages,
 } from "../../utils/messageBuilder.js";
 import type { ModelMessage } from "../../types/index.js";
 
@@ -104,7 +104,7 @@ export class MessageBuilder {
         const { isMultimodal, hasImages, hasFiles } = detectMultimodal(options);
         span.setAttribute(ATTR.MSG_IS_MULTIMODAL, isMultimodal);
 
-        let messages: ModelMessage[] | MultimodalChatMessage[];
+        let messages: Array<ModelMessage | MultimodalChatMessage>;
         if (isMultimodal) {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(
@@ -153,12 +153,13 @@ export class MessageBuilder {
             enableEvaluation: options.enableEvaluation,
             context: options.context,
             conversationHistory: options.conversationMessages,
+            replayToolSteps: options.replayToolSteps,
             schema: options.schema,
             output: options.output,
             fileRegistry: options.fileRegistry,
           };
 
-          messages = await buildMultimodalMessagesArray(
+          messages = await buildMultimodalModelMessages(
             multimodalOptions,
             this.providerName,
             this.modelName,
@@ -191,13 +192,16 @@ export class MessageBuilder {
             .providerOptions as Record<string, unknown> | undefined;
           if (typeof msg.content === "string") {
             return {
-              role: msg.role as "user" | "assistant" | "system",
+              role: msg.role as "user" | "assistant" | "system" | "tool",
               content: msg.content,
               ...(providerOptions && { providerOptions }),
             } as ModelMessage;
           } else {
             return {
-              role: msg.role as "user" | "assistant" | "system",
+              // `tool` rides through untouched: a replayed tool step
+              // (replayToolSteps: "full") is a tool turn of tool-result parts,
+              // and its tool-call parts fall to the passthrough branch below.
+              role: msg.role as "user" | "assistant" | "system" | "tool",
               content: (msg.content as Array<Record<string, unknown>>).map(
                 (item) => {
                   const itemProviderOptions = item.providerOptions as
@@ -276,7 +280,7 @@ export class MessageBuilder {
         const { isMultimodal, hasImages, hasFiles } = detectMultimodal(options);
         span.setAttribute(ATTR.MSG_IS_MULTIMODAL, isMultimodal);
 
-        let messages: ModelMessage[] | MultimodalChatMessage[];
+        let messages: Array<ModelMessage | MultimodalChatMessage>;
         if (isMultimodal) {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(
@@ -327,12 +331,13 @@ export class MessageBuilder {
             context: options.context,
             conversationHistory: (options as TextGenerationOptions)
               .conversationMessages,
+            replayToolSteps: options.replayToolSteps,
             schema: options.schema,
             output: options.output,
             fileRegistry: (options as Record<string, unknown>).fileRegistry,
           };
 
-          messages = await buildMultimodalMessagesArray(
+          messages = await buildMultimodalModelMessages(
             multimodalOptions,
             this.providerName,
             this.modelName,
@@ -365,13 +370,16 @@ export class MessageBuilder {
             .providerOptions as Record<string, unknown> | undefined;
           if (typeof msg.content === "string") {
             return {
-              role: msg.role as "user" | "assistant" | "system",
+              role: msg.role as "user" | "assistant" | "system" | "tool",
               content: msg.content,
               ...(providerOptions && { providerOptions }),
             } as ModelMessage;
           } else {
             return {
-              role: msg.role as "user" | "assistant" | "system",
+              // `tool` rides through untouched: a replayed tool step
+              // (replayToolSteps: "full") is a tool turn of tool-result parts,
+              // and its tool-call parts fall to the passthrough branch below.
+              role: msg.role as "user" | "assistant" | "system" | "tool",
               content: (msg.content as Array<Record<string, unknown>>).map(
                 (item) => {
                   const itemProviderOptions = item.providerOptions as

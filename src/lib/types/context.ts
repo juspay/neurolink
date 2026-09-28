@@ -5,7 +5,11 @@
 
 import type { ExecutionContext } from "../types/tools.js";
 import type { JsonObject, JsonValue } from "./common.js";
-import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ToolReplayMode,
+} from "./conversation.js";
 import type { DecisionCallerFn } from "./decision.js";
 
 /**
@@ -671,6 +675,13 @@ export type BudgetCheckParams = {
   fileAttachments?: Array<{ content: string }>;
   /** Compaction trigger threshold (0.0-1.0). Default: 0.80 */
   compactionThreshold?: number;
+  /**
+   * How this request replays stored `tool_call` / `tool_result` rows
+   * (`replayToolSteps`). When set, tool rows are estimated at the size they
+   * reach the model in that mode rather than at stored size; when omitted
+   * they count at stored size.
+   */
+  toolReplayMode?: ToolReplayMode;
 };
 
 /** A file prepared for potential summarization. */

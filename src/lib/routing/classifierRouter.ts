@@ -146,7 +146,7 @@ export class ClassifierRouter {
     try {
       // Both the LLM and Jev strategies can pick a model straight out of the
       // pool — the generic path for custom/registry-less models.
-      const strategy = this.resolveStrategy();
+      const strategy = this.resolveStrategy(input);
       const usesCandidates =
         (strategy === "jev" && !!this.deps.decide) ||
         (strategy === "llm" && !!this.deps.generate);
@@ -193,7 +193,9 @@ export class ClassifierRouter {
    * moment a decision provider is configured; without one the behaviour is
    * exactly what it was before Jev existed.
    */
-  private resolveStrategy(): ClassifierStrategyKind {
+  private resolveStrategy(
+    input: ClassifierRouterInput,
+  ): ClassifierStrategyKind {
     const configured = this.config.classifier ?? "auto";
     if (configured !== "auto") {
       return configured;
@@ -201,10 +203,11 @@ export class ClassifierRouter {
     // A decision provider that is both registered AND configured is the whole
     // activation condition — this is where "if somebody sets it we start
     // using it" lives for routing. The caller's check also counts the
-    // credentials it was constructed with.
+    // credentials it was constructed with and the request's own per-call
+    // credentials, which the decision call itself will use.
     const hasProvider = this.deps.hasDecisionProvider
-      ? this.deps.hasDecisionProvider()
-      : resolveDefaultDecisionProvider() !== undefined;
+      ? this.deps.hasDecisionProvider(input.credentials)
+      : resolveDefaultDecisionProvider(input.credentials) !== undefined;
     return this.deps.decide && hasProvider ? "jev" : "heuristic";
   }
 

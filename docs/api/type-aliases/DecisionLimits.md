@@ -59,3 +59,16 @@ Per-model limits, keyed by model id; each field overrides the one above.
 > `optional` **media?**: [`DecisionMediaLimits`](DecisionMediaLimits.md)
 
 What the provider accepts besides text. Absent means text only.
+
+---
+
+### advisory?
+
+> `optional` **advisory?**: `boolean`
+
+True when these figures describe the provider's own server-side ceiling,
+published so callers can plan against it, and NeuroLink does NOT refuse
+locally — the server does, with its own `max_tokens_exceeded`. Absent or
+false means NeuroLink refuses an over-limit request before any network
+call. `NeuroLink.decisionLimits()` reports the distinction as
+`enforcedLocally`.

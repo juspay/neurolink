@@ -61,3 +61,29 @@ Whether this request is tied to a session, independent of the (withheld) session
 > `optional` **priorMessageCount?**: `number`
 
 Number of prior conversation messages the caller supplied, when known.
+
+---
+
+### credentials?
+
+> `optional` **credentials?**: [`NeurolinkCredentials`](NeurolinkCredentials.md)
+
+The outer request's per-call credentials, forwarded to the decision call
+so it reaches the caller's provider account rather than the instance's.
+Never part of the state sent to the model.
+
+---
+
+### signal?
+
+> `optional` **signal?**: `AbortSignal`
+
+The outer request's abort signal; an abandoned turn abandons its routing call.
+
+---
+
+### requestId?
+
+> `optional` **requestId?**: `string`
+
+The outer request's id, for hook and event correlation. Never sent to the model.

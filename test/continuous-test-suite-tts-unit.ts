@@ -29,6 +29,13 @@
  * the body download. The alternative is a test that really waits 30 seconds
  * to find out; determinism buys a millisecond-scale proof of the same scope.
  *
+ * The ElevenLabs cases at the end drive the exported `ElevenLabsTTS` handler
+ * and `generate({ tts })` against a local `http.createServer` stub standing in
+ * for api.elevenlabs.io, so the exact `output_format`, `voice_settings` and
+ * `language_code` on the wire — and the retry count after a transient 5xx —
+ * can be asserted without a key. That is a recorded backend, not an internal
+ * seam: everything reached is the shipped public surface.
+ *
  * The compile-only proofs below assert nothing at runtime; they exist so
  * `pnpm run check:tools-tests`, which typechecks this file against the built
  * `dist` types, fails if the public TTS type surface regresses.
@@ -45,10 +52,13 @@ import {
 } from "./helpers/harness.js";
 import {
   AIProviderFactory,
+  ElevenLabsTTS,
   getMetricsAggregator,
   GoogleTTSHandler,
   NeuroLink,
   OpenAITTS,
+  logger,
+  prepareTextForSpeech,
   TTSProcessor,
   TTSError,
   TTS_ERROR_CODES,
@@ -56,6 +66,7 @@ import {
 import { ProviderHealthChecker } from "../dist/utils/providerHealth.js";
 import type {
   AIProvider,
+  ElevenLabsTTSOptions,
   EnhancedGenerateResult,
   StreamOptions,
   StreamResult,
@@ -66,11 +77,25 @@ import type {
 } from "../dist/index.js";
 import { stub, withStubs } from "./helpers/stubs.js";
 import { Duplex } from "node:stream";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 
 // `offline: true` — this suite registers stub handlers and drives
 // createOfflineProvider; nothing in it touches a network. A test that never
 // finishes here is therefore a hang in the code under test, so the harness
 // reports a per-test timeout as a failure rather than the default skip.
+/** Exact-token hostname check (CodeQL flags `includes(host)` as incomplete URL sanitization). */
+function hasHostToken(text: string, host: string): boolean {
+  const trailing = new Set([".", ",", ";", ":", "!", "?", ")"]);
+  return text.split(/\s+/).some((word) => {
+    let end = word.length;
+    while (end > 0 && trailing.has(word[end - 1])) {
+      end--;
+    }
+    return word.slice(0, end) === host;
+  });
+}
+
 const { test, runSuite } = defineSuite("TTSProcessor (unit)", {
   offline: true,
 });
@@ -4448,6 +4473,1515 @@ await test("PR#1746 F3: mapFormat gives pcm16 an actionable reason instead of a 
     "Unsupported audio format",
     "a truly invalid format keeps the plain unsupported-format message",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Item 6 — prepareTextForSpeech, tts.sanitize, tts.mode / ttsMetadata.mode
+// ---------------------------------------------------------------------------
+
+const SPEECH_FIXTURE = [
+  "# Release notes",
+  "",
+  "Some **bold** text, _italic_ text and `inline code` 🎉.",
+  "Read more at https://docs.example.com/guide/install?x=1 today.",
+  "",
+  "```ts",
+  "const answer = 42;",
+  "```",
+  "",
+  "- first bullet",
+  "- second bullet",
+  "",
+  "| col a | col b |",
+  "|-------|-------|",
+  "| 1     | 2     |",
+  "",
+  "Thanks 👍🏽",
+].join("\n");
+
+/** Characters and tokens the sanitized output must not carry. */
+const EMOJI_PROBE = /\p{Extended_Pictographic}/u;
+
+await test("prepareTextForSpeech strips headings, emphasis, code, bullets, tables, URLs and emoji", () => {
+  const out = prepareTextForSpeech(SPEECH_FIXTURE);
+  assert(!out.includes("**"), "bold markers are removed");
+  assert(!out.includes("_italic_"), "italic markers are removed");
+  assert(out.includes("italic text"), "italic contents are kept");
+  assert(!out.includes("`"), "backticks are removed");
+  assert(out.includes("inline code"), "inline code contents are kept");
+  assert(!out.includes("#"), "heading markers are removed");
+  assert(out.startsWith("Release notes"), "heading text is kept");
+  assert(!out.includes("http"), "URLs are not spelled out");
+  assert(
+    hasHostToken(out, "docs.example.com"),
+    "a URL is reduced to its hostname by default",
+  );
+  assert(
+    !out.includes("const answer"),
+    "fenced code is not read out by default",
+  );
+  assert(
+    out.includes("Code block omitted."),
+    "fenced code is replaced by the spoken phrase",
+  );
+  assert(!/^- /m.test(out), "list bullets are removed");
+  assert(out.includes("first bullet"), "list items are kept");
+  assert(!out.includes("|"), "table pipes are removed");
+  assert(
+    out.includes("col a, col b"),
+    "a table row is read as comma-separated cells",
+  );
+  assert(!out.includes("-------"), "the table separator row is dropped");
+  assert(!EMOJI_PROBE.test(out), "emoji are removed");
+  assert(
+    !out.includes("\u{1F3FD}"),
+    "skin-tone modifiers are removed with their emoji",
+  );
+  assertEqual(
+    prepareTextForSpeech(SPEECH_FIXTURE),
+    out,
+    "the function is deterministic",
+  );
+});
+
+await test("prepareTextForSpeech options: keep/drop code, remove URLs, leave markdown", () => {
+  const kept = prepareTextForSpeech(SPEECH_FIXTURE, { codeBlocks: "keep" });
+  assert(
+    kept.includes("const answer = 42;"),
+    "keep mode reads the code contents",
+  );
+  assert(!kept.includes("```"), "keep mode still strips the fence lines");
+
+  const dropped = prepareTextForSpeech(SPEECH_FIXTURE, { codeBlocks: "drop" });
+  assert(!dropped.includes("const answer"), "drop mode removes the contents");
+  assert(!dropped.includes("Code block omitted"), "drop mode adds no phrase");
+
+  const noUrls = prepareTextForSpeech("See https://a.example.com/x now.", {
+    urls: "remove",
+  });
+  assertEqual(
+    noUrls,
+    "See now.",
+    "remove mode drops the URL and keeps the sentence",
+  );
+
+  const rawMarkdown = prepareTextForSpeech("**keep me** 🎉", {
+    markdown: false,
+  });
+  assertEqual(
+    rawMarkdown,
+    "**keep me**",
+    "markdown: false leaves markup but still drops emoji",
+  );
+
+  const keepEmoji = prepareTextForSpeech("**hi** 🎉", { emoji: false });
+  assertEqual(
+    keepEmoji,
+    "hi 🎉",
+    "emoji: false leaves emoji but still strips markup",
+  );
+});
+
+await test("prepareTextForSpeech: emphasis is a pair around a word run, so arithmetic and escaped markers survive", () => {
+  assertEqual(
+    prepareTextForSpeech("Total is 2*3*4 = 24 and \\*not bold\\*"),
+    "Total is 2*3*4 = 24 and *not bold*",
+    "asterisks between digits are arithmetic and escaped asterisks are literal",
+  );
+  assertEqual(
+    prepareTextForSpeech("**bold** and *it* and 2*3*4 and a\\*b"),
+    "bold and it and 2*3*4 and a*b",
+    "paired emphasis is stripped while unpaired and escaped asterisks stay",
+  );
+  assertEqual(
+    prepareTextForSpeech("Dial *123*1# for your balance"),
+    "Dial *123*1# for your balance",
+    "a closer glued to a following digit is not a closer",
+  );
+  assertEqual(
+    prepareTextForSpeech("**Note:** _italic_ and snake_case_var and __init__"),
+    "Note: italic and snake_case_var and init",
+    "underscore emphasis needs word edges; snake_case is untouched",
+  );
+  assertEqual(
+    prepareTextForSpeech("**bold *and italic* inside** ok"),
+    "bold and italic inside ok",
+    "nested emphasis is peeled level by level",
+  );
+  assertEqual(
+    prepareTextForSpeech(
+      "\\# not a heading and \\[not a link\\](x) and 5 \\\\ 3",
+    ),
+    "# not a heading and [not a link](x) and 5 \\ 3",
+    "escapes are resolved before the link pass and the character is kept",
+  );
+  assertEqual(
+    prepareTextForSpeech("x**2 + y**2 = z**2"),
+    "x**2 + y**2 = z**2",
+    "a delimiter next to another delimiter is not a boundary, so exponents survive",
+  );
+});
+
+await test("prepareTextForSpeech: emphasis boundaries are Unicode — Hindi, Chinese, curly quotes, an em dash and a slash all close a pair", () => {
+  // Each string is one the ASCII-only boundary classes left the asterisks
+  // in: the closer sits before a danda, a full-width colon, a right curly
+  // quote, an em dash or a slash, and the opener after a space, a left curly
+  // quote or a slash. Expected: asterisks gone, every other character kept.
+  const cases: Array<[string, string]> = [
+    ["आपका **भुगतान सफल रहा**।", "आपका भुगतान सफल रहा।"],
+    ["**总结**：", "总结："],
+    ["“**Quoted**”", "“Quoted”"],
+    ["**Fast**—and", "Fast—and"],
+    ["**Yes**/**No**", "Yes/No"],
+  ];
+  cases.forEach(([input, expected], index) => {
+    assertEqual(
+      prepareTextForSpeech(input),
+      expected,
+      `emphasis is stripped around non-ASCII neighbours (case ${index + 1} of ${cases.length})`,
+    );
+  });
+  assertEqual(
+    prepareTextForSpeech("«**fr**» and (**paren**) and **a** b"),
+    "«fr» and (paren) and a b",
+    "guillemets, brackets and a no-break space are boundaries too",
+  );
+  // The arithmetic and keypad shapes must survive the wider classes.
+  assertEqual(
+    prepareTextForSpeech("2*3*4 and 5 * 3 = 15 and Dial *123*1# now"),
+    "2*3*4 and 5 * 3 = 15 and Dial *123*1# now",
+    "asterisks between digits, spaced operators and a keypad code are untouched",
+  );
+});
+
+await test("prepareTextForSpeech: only HTML tag names are stripped; placeholders, generics and comparisons stay", () => {
+  assertEqual(
+    prepareTextForSpeech(
+      "Press <Enter> to continue; replace <order-id> with yours",
+    ),
+    "Press <Enter> to continue; replace <order-id> with yours",
+    "an angle-bracketed placeholder is not a tag",
+  );
+  assertEqual(
+    prepareTextForSpeech("<b>bold</b> <A HREF=x>link</A> <br/> <p>para</p>"),
+    "bold link para",
+    "real HTML tags go, case-insensitively, with their attributes",
+  );
+  assertEqual(
+    prepareTextForSpeech("Map<string, T> and x<y and y>z and `<void>`"),
+    "Map<string, T> and x<y and y>z and <void>",
+    "generics, comparisons and code spans keep their angle brackets",
+  );
+  assertEqual(
+    prepareTextForSpeech("<strongly> <a-thing>"),
+    "<strongly> <a-thing>",
+    "a name that merely starts with a tag name is not a tag",
+  );
+});
+
+await test("prepareTextForSpeech: ZWJ survives outside emoji, IDN hosts are spoken in Unicode, schemes are case-insensitive", () => {
+  const malayalam = "\u0D15\u0D4D\u200D\u0D37"; // ക്‍ഷ — the joiner shapes the conjunct
+  const devanagari = "\u0928\u093F\u200D";
+  assertEqual(
+    prepareTextForSpeech(`${malayalam} ${devanagari} done`),
+    `${malayalam} ${devanagari} done`,
+    "a zero-width joiner in Indic text is left in place",
+  );
+  assertEqual(
+    prepareTextForSpeech(
+      "family \u{1F468}\u200D\u{1F469}\u200D\u{1F467} hand \u{1F44B}\u{1F3FD} keycap 1\uFE0F\u20E3 ok",
+    ),
+    "family hand keycap 1 ok",
+    "a joined emoji sequence, a skin-toned emoji and a keycap combiner go entirely",
+  );
+  assertEqual(
+    prepareTextForSpeech("see https://m\u00FCnchen.example/x now"),
+    "see m\u00FCnchen.example now",
+    "an IDN host is spoken in Unicode, not punycode",
+  );
+  assertEqual(
+    prepareTextForSpeech("see HTTPS://Example.COM/y now"),
+    "see example.com now",
+    "an upper-case scheme still reduces to the host",
+  );
+});
+
+await test("prepareTextForSpeech is linear on adversarial input", () => {
+  // Unclosed openers of every inline construct, long runs of the characters
+  // that precede a required token, and a fence that never closes.
+  const adversarial =
+    "**".repeat(100_000) +
+    " ".repeat(100_000) +
+    "\n" +
+    "![a](".repeat(20_000) +
+    "[b](".repeat(20_000) +
+    "<span ".repeat(20_000) +
+    "`".repeat(50_000) +
+    " *".repeat(50_000) +
+    "\u{1F468}\u200D".repeat(20_000) +
+    "\n```\n" +
+    "x".repeat(100_000);
+  const started = Date.now();
+  const out = prepareTextForSpeech(adversarial);
+  const elapsed = Date.now() - started;
+  assert(typeof out === "string", "the pass completes");
+  assert(
+    elapsed < 5_000,
+    `the pass finished in ${elapsed}ms on ~600 KB of adversarial input`,
+  );
+
+  // The worst shapes found in review: a run of link openers, where each `[`
+  // used to walk the 1,000-character label bound before failing — 2.6 s per
+  // MB here, 7 s on the reviewer's machine — and a run of `<http://`, where
+  // each unterminated autolink walked the 2,048-character target bound —
+  // about 380 ms per MB here, 0.5 s on the reviewer's. Both classes now
+  // exclude their own opener, so every shape here is one step per character:
+  // 4–8 ms per MB on this machine. The bound is loose for a loaded runner but
+  // still well under the 380 ms the autolink shape cost before the fix.
+  for (const [opener, count] of [
+    ["[", 1_000_000],
+    ["![", 500_000],
+    ["[x](", 250_000],
+    ["**", 500_000],
+    ["<http://", 131_072],
+    ["<https://", 116_509],
+  ] as const) {
+    const openers = opener.repeat(count);
+    const from = Date.now();
+    prepareTextForSpeech(openers);
+    const took = Date.now() - from;
+    assert(
+      took < 250,
+      `a 1 MB run of "${opener}" openers finished in ${took}ms`,
+    );
+  }
+});
+
+await test("generate({ tts }) direct mode: sanitize is off by default (byte-identical) and on when asked", async () => {
+  const provider = uniqueProvider("sanitize-direct");
+  const { handler, calls } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+  const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+  const text = "**Hello** there 🎉 see https://docs.example.com/x";
+
+  const plain = await neurolink.generate({
+    input: { text },
+    provider: "openai",
+    credentials: { openai: { apiKey: "offline-test-key" } },
+    disableTools: true,
+    tts: { enabled: true, provider },
+  });
+  assertEqual(calls.length, 1, "the handler ran once for the unsanitized call");
+  assertEqual(
+    calls[0]?.text,
+    text,
+    "without sanitize the handler receives the input byte-for-byte",
+  );
+  assertEqual(plain.ttsMetadata?.mode, "direct", "mode defaults to direct");
+  assertEqual(plain.ttsMetadata?.success, true, "direct synthesis succeeded");
+  assertEqual(plain.usage?.total, 0, "direct mode makes no model call");
+
+  await neurolink.generate({
+    input: { text },
+    provider: "openai",
+    credentials: { openai: { apiKey: "offline-test-key" } },
+    disableTools: true,
+    tts: { enabled: true, provider, sanitize: true },
+  });
+  assertEqual(calls.length, 2, "the handler ran once for the sanitized call");
+  const received = calls[1]?.text ?? "";
+  assert(!received.includes("**"), "sanitized text has no emphasis markers");
+  assert(!received.includes("http"), "sanitized text has no URL scheme");
+  assert(!EMOJI_PROBE.test(received), "sanitized text has no emoji");
+  assert(received.includes("Hello there"), "sanitized text keeps the words");
+  assert(
+    hasHostToken(received, "docs.example.com"),
+    "sanitized text keeps the hostname",
+  );
+});
+
+/**
+ * A local OpenAI-compatible chat endpoint so response-mode synthesis has a
+ * model reply to speak without a key. Returns the fixed `reply` for every
+ * request.
+ */
+async function withLocalChatCompletions<T>(
+  reply: string,
+  fn: (baseURL: string) => Promise<T>,
+): Promise<T> {
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: "chatcmpl-local",
+          object: "chat.completion",
+          created: 1,
+          model: "gpt-4o-mini",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: reply },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 3, completion_tokens: 3, total_tokens: 6 },
+        }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn(`http://127.0.0.1:${port}/v1`);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+await test("generate({ tts }) response mode: tts.mode wins, legacy useAiResponse still works, sanitize applies to the reply", async () => {
+  const provider = uniqueProvider("mode-response");
+  const { handler, calls } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+  const reply =
+    "## Answer\n\nThe **answer** is 42 🎯 (https://example.org/why).";
+
+  await withLocalChatCompletions(reply, async (baseURL) => {
+    const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+    const common = {
+      input: { text: "what is the answer?" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      credentials: { openai: { apiKey: "offline-test-key", baseURL } },
+      disableTools: true,
+    } as const;
+
+    const explicit = await neurolink.generate({
+      ...common,
+      tts: { enabled: true, provider, mode: "response" },
+    });
+    assertEqual(
+      explicit.ttsMetadata?.mode,
+      "response",
+      "mode: response is reported",
+    );
+    assertEqual(
+      explicit.ttsMetadata?.success,
+      true,
+      "response synthesis succeeded",
+    );
+    assertEqual(
+      explicit.content,
+      reply,
+      "the model reply is the result content",
+    );
+    assertEqual(calls.length, 1, "the handler ran once");
+    assertEqual(
+      calls[0]?.text,
+      reply,
+      "without sanitize the handler receives the reply verbatim",
+    );
+
+    const legacy = await neurolink.generate({
+      ...common,
+      tts: { enabled: true, provider, useAiResponse: true },
+    });
+    assertEqual(
+      legacy.ttsMetadata?.mode,
+      "response",
+      "legacy useAiResponse: true still means response",
+    );
+    assertEqual(calls.length, 2, "the handler ran for the legacy call");
+    assertEqual(
+      calls[1]?.text,
+      reply,
+      "legacy path also passes the reply verbatim",
+    );
+
+    // An explicit mode overrides a contradictory legacy flag.
+    const overridden = await neurolink.generate({
+      ...common,
+      tts: { enabled: true, provider, mode: "direct", useAiResponse: true },
+    });
+    assertEqual(
+      overridden.ttsMetadata?.mode,
+      "direct",
+      "mode: direct wins over useAiResponse: true",
+    );
+    assertEqual(overridden.usage?.total, 0, "direct mode made no model call");
+    assertEqual(
+      calls[2]?.text,
+      "what is the answer?",
+      "direct mode spoke the input",
+    );
+
+    const sanitized = await neurolink.generate({
+      ...common,
+      tts: { enabled: true, provider, mode: "response", sanitize: true },
+    });
+    assertEqual(
+      sanitized.ttsMetadata?.mode,
+      "response",
+      "sanitized call ran in response mode",
+    );
+    const received = calls[3]?.text ?? "";
+    assert(!received.includes("**"), "sanitized reply has no emphasis markers");
+    assert(!received.includes("##"), "sanitized reply has no heading markers");
+    assert(!received.includes("http"), "sanitized reply has no URL scheme");
+    assert(!EMOJI_PROBE.test(received), "sanitized reply has no emoji");
+    assert(
+      received.includes("The answer is 42"),
+      "sanitized reply keeps the words",
+    );
+  });
+});
+
+await test("stream({ tts, sanitize }) strips markup per segment and keeps fenced contents", async () => {
+  const provider = uniqueProvider("sanitize-stream");
+  const { handler, calls } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+  const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream(
+    { enabled: true, provider, streamingBufferSize: 10, sanitize: true },
+    [
+      "## Heading. ",
+      "Some **bold** words 🎉. ",
+      "```ts\nconst x = 1;\n```\n",
+      "Visit https://docs.example.com/a now.",
+    ],
+  );
+  assert(ttsAudioChunks.length > 0, "audio chunks were produced");
+  assertEqual(ttsMetadata?.success, true, "streaming synthesis succeeded");
+  const spoken = calls.map((c) => c.text).join(" ");
+  assert(calls.length > 0, "the handler received segments");
+  assert(!spoken.includes("**"), "no segment carries emphasis markers");
+  assert(!spoken.includes("##"), "no segment carries heading markers");
+  assert(!spoken.includes("```"), "no segment carries fence lines");
+  assert(
+    spoken.includes("const x = 1;"),
+    "streaming keeps fenced contents (extent is unknowable per segment)",
+  );
+  assert(!spoken.includes("http"), "no segment carries a URL scheme");
+  assert(!EMOJI_PROBE.test(spoken), "no segment carries emoji");
+});
+
+// ---------------------------------------------------------------------------
+// Item 4 — ElevenLabs output formats, speed clamp, language_code, retry.
+// Driven against a local stub of api.elevenlabs.io: deterministic, no key.
+// ---------------------------------------------------------------------------
+
+type RecordedElevenLabsRequest = {
+  url: string;
+  headers: http.IncomingHttpHeaders;
+  /** `Date.now()` when the request body had fully arrived. */
+  receivedAt: number;
+  body: {
+    text?: string;
+    model_id?: string;
+    voice_settings?: Record<string, unknown>;
+    language_code?: string;
+  };
+};
+
+/** Bytes an Ogg/Opus container starts with: the "OggS" page marker, then an "OpusHead" packet. */
+const OGG_OPUS_STUB_BODY = Buffer.concat([
+  Buffer.from("OggS"),
+  Buffer.alloc(24),
+  Buffer.from("OpusHead"),
+  Buffer.alloc(16),
+]);
+
+async function withElevenLabsStub<T>(
+  fn: (ctx: {
+    baseUrl: string;
+    requests: RecordedElevenLabsRequest[];
+    failNextWith: (status: number, retryAfter?: string) => void;
+  }) => Promise<T>,
+): Promise<T> {
+  const requests: RecordedElevenLabsRequest[] = [];
+  const pendingFailures: Array<{ status: number; retryAfter?: string }> = [];
+  const server = http.createServer((req, res) => {
+    let raw = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk: string) => {
+      raw += chunk;
+    });
+    req.on("end", () => {
+      requests.push({
+        url: req.url ?? "",
+        headers: req.headers,
+        receivedAt: Date.now(),
+        body: raw ? (JSON.parse(raw) as RecordedElevenLabsRequest["body"]) : {},
+      });
+      const failure = pendingFailures.shift();
+      if (failure) {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (failure.retryAfter !== undefined) {
+          headers["Retry-After"] = failure.retryAfter;
+        }
+        res.writeHead(failure.status, headers);
+        res.end(JSON.stringify({ detail: { message: "stubbed failure" } }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "audio/ogg" });
+      res.end(OGG_OPUS_STUB_BODY);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn({
+      baseUrl: `http://127.0.0.1:${port}/v1`,
+      requests,
+      failNextWith: (status, retryAfter) => {
+        pendingFailures.push({ status, retryAfter });
+      },
+    });
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+/**
+ * Identity helper that types an options literal as the ElevenLabs-specific
+ * shape, so provider-only fields (`baseUrl`, `opusBitrate`, `retries`, ...)
+ * pass the excess-property check where a generic `TTSOptions` is expected.
+ */
+function elevenLabs(options: ElevenLabsTTSOptions): ElevenLabsTTSOptions {
+  return options;
+}
+
+function outputFormatOf(
+  request: RecordedElevenLabsRequest | undefined,
+): string {
+  const url = new URL(request?.url ?? "/", "http://stub");
+  return url.searchParams.get("output_format") ?? "";
+}
+
+await test("ElevenLabs: ogg/opus request opus_48000_<kbps>, report opus @ 48000, and never the invalid ogg_22050", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+    const ogg = await handler.synthesize(
+      "hello",
+      elevenLabs({ format: "ogg", baseUrl }),
+    );
+    assertEqual(
+      outputFormatOf(requests[0]),
+      "opus_48000_64",
+      "ogg maps to opus_48000_64 by default",
+    );
+    assertEqual(ogg.format, "opus", "result format is opus");
+    assertEqual(
+      ogg.sampleRate,
+      48000,
+      "sample rate is parsed from the format string",
+    );
+    assertEqual(
+      ogg.buffer.subarray(0, 4).toString("latin1"),
+      "OggS",
+      "the stub body is returned untouched",
+    );
+    assertEqual(
+      ogg.metadata?.requestedFormat,
+      "ogg",
+      "requestedFormat metadata is preserved",
+    );
+    assertEqual(
+      ogg.metadata?.outputFormat,
+      "opus_48000_64",
+      "outputFormat metadata names the wire value",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        format: "opus",
+        baseUrl,
+        opusBitrate: 128,
+      }),
+    );
+    assertEqual(
+      outputFormatOf(requests[1]),
+      "opus_48000_128",
+      "opusBitrate selects the opus variant",
+    );
+
+    const wav = await handler.synthesize(
+      "hello",
+      elevenLabs({ format: "wav", baseUrl }),
+    );
+    assertEqual(
+      outputFormatOf(requests[2]),
+      "pcm_44100",
+      "wav stays pcm_44100",
+    );
+    assertEqual(wav.format, "pcm16", "raw PCM is reported as pcm16");
+    assertEqual(wav.sampleRate, 44100, "pcm sample rate is parsed");
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        format: "mp3",
+        baseUrl,
+        mp3Bitrate: 64,
+      }),
+    );
+    assertEqual(
+      outputFormatOf(requests[3]),
+      "mp3_44100_64",
+      "mp3Bitrate selects the mp3 variant",
+    );
+
+    for (const request of requests) {
+      assert(
+        !request.url.includes("ogg_22050"),
+        "no request carries the old invalid ogg_22050 value",
+      );
+    }
+  });
+});
+
+await test("ElevenLabs: speed is clamped into 0.7–1.2 and language_code is sent only on the models that accept it", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+
+    await handler.synthesize("hello", elevenLabs({ baseUrl, speed: 3.5 }));
+    assertEqual(
+      requests[0]?.body.voice_settings?.speed,
+      1.2,
+      "a speed above the range is clamped to 1.2",
+    );
+
+    await handler.synthesize("hello", elevenLabs({ baseUrl, speed: 0.25 }));
+    assertEqual(
+      requests[1]?.body.voice_settings?.speed,
+      0.7,
+      "a speed below the range is clamped to 0.7",
+    );
+
+    await handler.synthesize("hello", elevenLabs({ baseUrl, speed: 1.0 }));
+    assertEqual(
+      requests[2]?.body.voice_settings?.speed,
+      1.0,
+      "an in-range speed is sent as is",
+    );
+
+    await handler.synthesize("hello", elevenLabs({ baseUrl }));
+    assertEqual(
+      requests[3]?.body.voice_settings?.speed,
+      undefined,
+      "no speed is sent when none was asked for",
+    );
+    assertEqual(
+      requests[3]?.body.voice_settings?.stability,
+      0.5,
+      "default voice settings are still present",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        baseUrl,
+        model: "eleven_flash_v2_5",
+        language: "hi",
+      }),
+    );
+    assertEqual(
+      requests[4]?.body.model_id,
+      "eleven_flash_v2_5",
+      "the model is sent",
+    );
+    assertEqual(
+      requests[4]?.body.language_code,
+      "hi",
+      "language_code is present on eleven_flash_v2_5",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        baseUrl,
+        model: "eleven_turbo_v2_5",
+        languageCode: "de",
+      }),
+    );
+    assertEqual(
+      requests[5]?.body.language_code,
+      "de",
+      "languageCode is present on eleven_turbo_v2_5",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        baseUrl,
+        model: "eleven_multilingual_v2",
+        language: "hi",
+      }),
+    );
+    assertEqual(
+      requests[6]?.body.language_code,
+      undefined,
+      "language_code is dropped on eleven_multilingual_v2",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({
+        baseUrl,
+        voiceSettings: { stability: 0.9, speed: 1.1 },
+        stability: 0.1,
+      }),
+    );
+    assertEqual(
+      requests[7]?.body.voice_settings?.stability,
+      0.9,
+      "raw voiceSettings win over the camelCase field",
+    );
+    assertEqual(
+      requests[7]?.body.voice_settings?.speed,
+      1.1,
+      "voiceSettings.speed is honoured",
+    );
+    assertEqual(
+      requests[7]?.headers["xi-api-key"],
+      "stub-credential",
+      "the constructor credential is the value of the ElevenLabs auth header",
+    );
+  });
+});
+
+await test("ElevenLabs: a transient 5xx is retried exactly once by default, honouring Retry-After; a 4xx is not retried", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests, failNextWith }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+
+    failNextWith(503, "0");
+    const recovered = await handler.synthesize(
+      "hello",
+      elevenLabs({
+        baseUrl,
+        format: "ogg",
+      }),
+    );
+    assertEqual(
+      requests.length,
+      2,
+      "a transient failure followed by success makes exactly two requests",
+    );
+    assertEqual(recovered.format, "opus", "the retried call returns the audio");
+
+    failNextWith(429, "0");
+    failNextWith(503, "0");
+    let exhausted: unknown;
+    try {
+      await handler.synthesize("hello", elevenLabs({ baseUrl, retries: 1 }));
+    } catch (err) {
+      exhausted = err;
+    }
+    assertEqual(
+      requests.length,
+      4,
+      "retries: 1 means two attempts and then the failure surfaces",
+    );
+    assert(exhausted instanceof TTSError, "the surfaced failure is a TTSError");
+    assertEqual(
+      (exhausted as TTSError).code,
+      TTS_ERROR_CODES.SYNTHESIS_FAILED,
+      "the failure carries the synthesis code",
+    );
+    assertEqual(
+      (exhausted as TTSError).retriable,
+      true,
+      "a 5xx-exhausted failure is marked retriable",
+    );
+
+    failNextWith(503, "0");
+    failNextWith(503, "0");
+    failNextWith(503, "0");
+    await handler.synthesize("hello", elevenLabs({ baseUrl, retries: 3 }));
+    assertEqual(requests.length, 8, "retries: 3 allows four attempts");
+
+    failNextWith(422);
+    let rejected: unknown;
+    try {
+      await handler.synthesize("hello", elevenLabs({ baseUrl, retries: 3 }));
+    } catch (err) {
+      rejected = err;
+    }
+    assertEqual(
+      requests.length,
+      9,
+      "a 4xx makes exactly one request regardless of retries",
+    );
+    assert(rejected instanceof TTSError, "the 4xx failure is a TTSError");
+    assertEqual(
+      (rejected as TTSError).retriable,
+      false,
+      "a 4xx failure is not marked retriable",
+    );
+
+    failNextWith(503, "0");
+    let noRetry: unknown;
+    try {
+      await handler.synthesize("hello", elevenLabs({ baseUrl, retries: 0 }));
+    } catch (err) {
+      noRetry = err;
+    }
+    assertEqual(requests.length, 10, "retries: 0 disables the retry");
+    assert(
+      noRetry instanceof TTSError,
+      "retries: 0 surfaces the first failure",
+    );
+
+    // `Retry-After: 0` cannot tell an honoured header from an ignored one.
+    // A one-second header must hold the second attempt back by about that
+    // long, where the fallback backoff would have resent after 500 ms.
+    failNextWith(503, "1");
+    await handler.synthesize("hello", elevenLabs({ baseUrl }));
+    assertEqual(requests.length, 12, "the Retry-After: 1 failure was retried");
+    const waited =
+      (requests[11]?.receivedAt ?? 0) - (requests[10]?.receivedAt ?? 0);
+    assert(
+      waited >= 900,
+      `the second attempt started ${waited}ms after the first; Retry-After: 1 asks for about 1000`,
+    );
+  });
+});
+
+await test("ElevenLabs: language is reduced to ISO 639-1 and sent on every model but multilingual_v2; env defaults set voice and model", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl, model: "eleven_flash_v2_5", language: "en-US" }),
+    );
+    assertEqual(
+      requests[0]?.body.language_code,
+      "en",
+      "a BCP-47 tag is reduced to its primary subtag",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl, model: "eleven_v3", languageCode: "pt_BR" }),
+    );
+    assertEqual(
+      requests[1]?.body.language_code,
+      "pt",
+      "eleven_v3 receives the code (the API ignores it where unsupported rather than rejecting)",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl, model: "eleven_multilingual_v2", language: "hi" }),
+    );
+    assertEqual(
+      requests[2]?.body.language_code,
+      undefined,
+      "eleven_multilingual_v2, which rejects the field, still gets none",
+    );
+
+    const savedVoice = process.env.ELEVENLABS_VOICE_ID;
+    const savedModel = process.env.ELEVENLABS_MODEL;
+    process.env.ELEVENLABS_VOICE_ID = "env-voice-123";
+    process.env.ELEVENLABS_MODEL = "eleven_flash_v2_5";
+    try {
+      const fromEnv = new ElevenLabsTTS("stub-credential");
+      await fromEnv.synthesize("hello", elevenLabs({ baseUrl }));
+      assert(
+        (requests[3]?.url ?? "").includes("/text-to-speech/env-voice-123?"),
+        "ELEVENLABS_VOICE_ID is the default voice",
+      );
+      assertEqual(
+        requests[3]?.body.model_id,
+        "eleven_flash_v2_5",
+        "ELEVENLABS_MODEL is the default model",
+      );
+      await fromEnv.synthesize(
+        "hello",
+        elevenLabs({ baseUrl, voice: "explicit-voice", model: "eleven_v3" }),
+      );
+      assert(
+        (requests[4]?.url ?? "").includes("/text-to-speech/explicit-voice?"),
+        "a per-request voice still wins over the env default",
+      );
+      assertEqual(
+        requests[4]?.body.model_id,
+        "eleven_v3",
+        "a per-request model still wins over the env default",
+      );
+    } finally {
+      if (savedVoice === undefined) {
+        delete process.env.ELEVENLABS_VOICE_ID;
+      } else {
+        process.env.ELEVENLABS_VOICE_ID = savedVoice;
+      }
+      if (savedModel === undefined) {
+        delete process.env.ELEVENLABS_MODEL;
+      } else {
+        process.env.ELEVENLABS_MODEL = savedModel;
+      }
+    }
+  });
+});
+
+await test("ElevenLabs: an unlisted bitrate falls back to the default; a timeout above the timer ceiling is clamped, not fired at once", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+    // Off the declared unions on purpose: what a JavaScript caller can send.
+    const rogue = JSON.parse(
+      '{"mp3Bitrate":999,"opusBitrate":"64; DROP"}',
+    ) as ElevenLabsTTSOptions;
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ ...rogue, baseUrl, format: "mp3" }),
+    );
+    assertEqual(
+      outputFormatOf(requests[0]),
+      "mp3_44100_128",
+      "an unlisted mp3Bitrate is replaced by the default",
+    );
+
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ ...rogue, baseUrl, format: "opus" }),
+    );
+    assertEqual(
+      outputFormatOf(requests[1]),
+      "opus_48000_64",
+      "a non-numeric opusBitrate is replaced by the default",
+    );
+
+    const started = Date.now();
+    const result = await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl, timeoutMs: 2 ** 31 + 5, retries: 0 }),
+    );
+    assert(
+      result.size > 0 && Date.now() - started < 5_000,
+      "a timeoutMs above 2^31-1 behaves as a long timeout, not an immediate abort",
+    );
+    assertEqual(requests.length, 3, "each call made exactly one request");
+  });
+});
+
+/** A stand-in that never answers: every request is held open and its arrival time recorded. */
+async function withStallingElevenLabsStub<T>(
+  fn: (ctx: { baseUrl: string; arrivals: number[] }) => Promise<T>,
+): Promise<T> {
+  const arrivals: number[] = [];
+  const held = new Set<http.ServerResponse>();
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      arrivals.push(Date.now());
+      held.add(res);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn({ baseUrl: `http://127.0.0.1:${port}/v1`, arrivals });
+  } finally {
+    for (const res of held) {
+      res.destroy();
+    }
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+const settle = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+await test("ElevenLabs: a signal aborts the attempt in flight and ends the retry loop, from the handler and from generate({ abortSignal })", async () => {
+  await withStallingElevenLabsStub(async ({ baseUrl, arrivals }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 100);
+    const started = Date.now();
+    let cancelled: unknown;
+    try {
+      await handler.synthesize(
+        "hello",
+        elevenLabs({
+          baseUrl,
+          timeoutMs: 200,
+          retries: 3,
+          signal: controller.signal,
+        }),
+      );
+    } catch (err) {
+      cancelled = err;
+    }
+    const elapsed = Date.now() - started;
+    assert(
+      cancelled instanceof TTSError,
+      "the cancelled call surfaces a TTSError",
+    );
+    assertEqual(
+      (cancelled as TTSError).retriable,
+      false,
+      "a caller-cancelled synthesis is not marked retriable",
+    );
+    assert(
+      elapsed < 1_000,
+      `the call returned ${elapsed}ms after starting, at the abort rather than at the timeout or after a retry`,
+    );
+    // The old loop would have timed the attempt out at 200 ms, paused 500 ms
+    // and sent a second request at ~700 ms. Wait past that.
+    await settle(1_000);
+    assertEqual(
+      arrivals.length,
+      1,
+      "no further request was sent after the signal fired",
+    );
+  });
+
+  await withStallingElevenLabsStub(async ({ baseUrl, arrivals }) => {
+    const provider = uniqueProvider("elevenlabs-stall");
+    TTSProcessor.registerHandler(
+      provider,
+      new ElevenLabsTTS("stub-credential"),
+    );
+    const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 100);
+    const started = Date.now();
+    const result = await neurolink.generate({
+      input: { text: "hello" },
+      provider: "openai",
+      credentials: { openai: { apiKey: "offline-test-key" } },
+      disableTools: true,
+      abortSignal: controller.signal,
+      tts: elevenLabs({
+        enabled: true,
+        provider,
+        baseUrl,
+        timeoutMs: 200,
+        retries: 3,
+      }),
+    });
+    const elapsed = Date.now() - started;
+    assertEqual(
+      result.ttsMetadata?.mode,
+      "direct",
+      "the call ran in direct mode",
+    );
+    assertEqual(
+      result.ttsMetadata?.success,
+      false,
+      "the aborted synthesis is reported as unsuccessful",
+    );
+    assert(
+      elapsed < 1_000,
+      `generate() returned ${elapsed}ms after starting, at the caller's abort`,
+    );
+    await settle(1_000);
+    assertEqual(
+      arrivals.length,
+      1,
+      "generate()'s abortSignal reaches the handler: no ghost request after the caller gave up",
+    );
+  });
+});
+
+await test("ElevenLabs: only transport failures are retried — a pre-request TypeError fails at once, a refused connection is resent", async () => {
+  const handler = new ElevenLabsTTS("stub-credential");
+
+  const started = Date.now();
+  let malformed: unknown;
+  try {
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl: "http://%zz/v1", retries: 3 }),
+    );
+  } catch (err) {
+    malformed = err;
+  }
+  assert(
+    malformed instanceof TTSError,
+    "a malformed base URL surfaces a TTSError",
+  );
+  assert(
+    Date.now() - started < 400,
+    "a malformed base URL is not retried through the 500 ms backoff",
+  );
+
+  // A port nothing listens on: take one from an ephemeral listener, then
+  // close it so the connection is refused at the socket.
+  const probe = http.createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const { port } = probe.address() as AddressInfo;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+
+  const refusedStart = Date.now();
+  let refused: unknown;
+  try {
+    await handler.synthesize(
+      "hello",
+      elevenLabs({ baseUrl: `http://127.0.0.1:${port}/v1`, retries: 1 }),
+    );
+  } catch (err) {
+    refused = err;
+  }
+  const refusedElapsed = Date.now() - refusedStart;
+  assert(
+    refused instanceof TTSError,
+    "a refused connection surfaces a TTSError",
+  );
+  assertEqual(
+    (refused as TTSError).retriable,
+    true,
+    "a refused connection is marked retriable",
+  );
+  assert(
+    refusedElapsed >= 450,
+    `a refused connection was retried after the backoff (took ${refusedElapsed}ms)`,
+  );
+});
+
+await test("generate({ tts }) direct mode: the LLM-shaped warning fires for caller options only, never for memory NeuroLink attached itself", async () => {
+  const provider = uniqueProvider("warn-scope");
+  const { handler } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+  const warnings: string[] = [];
+  const warnSpy = stub(logger, "warn", (...args: unknown[]) => {
+    warnings.push(typeof args[0] === "string" ? args[0] : "");
+  });
+  const isTtsWarning = (line: string): boolean =>
+    line.includes("tts.enabled without tts.mode");
+  try {
+    // Precondition: the warning path is live for an option the caller set.
+    const plain = new NeuroLink({ conversationMemory: { enabled: false } });
+    await plain.generate({
+      input: { text: "speak this" },
+      provider: "openai",
+      credentials: { openai: { apiKey: "offline-test-key" } },
+      disableTools: true,
+      systemPrompt: "You are terse.",
+      tts: { enabled: true, provider },
+    });
+    const callerWarnings = warnings.filter(isTtsWarning);
+    assertEqual(
+      callerWarnings.length,
+      1,
+      "a caller-supplied systemPrompt on a direct-TTS call is warned about once",
+    );
+    assert(
+      (callerWarnings[0] ?? "").includes("systemPrompt"),
+      "the warning names the caller's option",
+    );
+    assert(
+      !(callerWarnings[0] ?? "").includes("conversationMemoryConfig"),
+      "the warning never names the instance's memory configuration",
+    );
+    warnings.length = 0;
+
+    const remembered = new NeuroLink({
+      conversationMemory: { enabled: true },
+    });
+    for (let turn = 0; turn < 3; turn++) {
+      const result = await remembered.generate({
+        input: { text: `turn ${turn}` },
+        provider: "openai",
+        credentials: { openai: { apiKey: "offline-test-key" } },
+        disableTools: true,
+        context: { userId: "voice-user", sessionId: "voice-session" },
+        tts: { enabled: true, provider },
+      });
+      assertEqual(
+        result.ttsMetadata?.mode,
+        "direct",
+        `turn ${turn} ran in direct mode`,
+      );
+    }
+    assertEqual(
+      warnings.filter(isTtsWarning).length,
+      0,
+      "a memory-enabled instance with no caller-supplied LLM options is never warned, including on turns that carry injected history",
+    );
+  } finally {
+    warnSpy.restore();
+  }
+});
+
+await test("generate({ tts, sanitize }) direct mode: text far over the provider cap is rejected at once, without a sanitize pass", async () => {
+  const provider = uniqueProvider("sanitize-cap");
+  const { handler, calls } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+  const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+  const started = Date.now();
+  const result = await neurolink.generate({
+    input: { text: "[".repeat(1_000_000) },
+    provider: "openai",
+    credentials: { openai: { apiKey: "offline-test-key" } },
+    disableTools: true,
+    tts: { enabled: true, provider, sanitize: true },
+  });
+  const elapsed = Date.now() - started;
+  assertEqual(result.ttsMetadata?.success, false, "the oversized text fails");
+  assertEqual(
+    result.ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.TEXT_TOO_LONG,
+    "the failure is the length rejection",
+  );
+  assertEqual(calls.length, 0, "the handler was never called");
+  assert(
+    elapsed < 1_000,
+    `the rejection took ${elapsed}ms for 1 MB of link openers`,
+  );
+});
+
+await test("ElevenLabs: generate({ tts }) reaches the stub through the registry with format, sanitize and time budget", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests, failNextWith }) => {
+    const provider = uniqueProvider("elevenlabs-stub");
+    TTSProcessor.registerHandler(
+      provider,
+      new ElevenLabsTTS("stub-credential"),
+    );
+    const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+
+    failNextWith(503, "0");
+    const result = await neurolink.generate({
+      input: { text: "**Hello** from the stub 🎉 https://example.com/path" },
+      provider: "openai",
+      credentials: { openai: { apiKey: "offline-test-key" } },
+      disableTools: true,
+      // A tiny provider timeout with a larger handler budget: the outer
+      // withTimeoutFn must be raised to the handler's own budget, or the
+      // retry after the stubbed 5xx would be cut off from outside.
+      timeout: 50,
+      tts: elevenLabs({
+        enabled: true,
+        provider,
+        format: "ogg",
+        sanitize: true,
+        baseUrl,
+        timeoutMs: 5_000,
+        retries: 1,
+      }),
+    });
+    assertEqual(
+      result.ttsMetadata?.mode,
+      "direct",
+      "generate() reports direct mode",
+    );
+    assertEqual(
+      result.ttsMetadata?.success,
+      true,
+      "the retried synthesis succeeded inside the raised budget",
+    );
+    assertEqual(result.audio?.format, "opus", "the audio is reported as opus");
+    assertEqual(
+      result.audio?.sampleRate,
+      48000,
+      "the audio sample rate is 48000",
+    );
+    assertEqual(requests.length, 2, "one stubbed failure plus one success");
+    assertEqual(
+      outputFormatOf(requests[1]),
+      "opus_48000_64",
+      "the wire format is the opus family",
+    );
+    assertEqual(
+      requests[1]?.body.text,
+      "Hello from the stub example.com",
+      "the sanitized text reached the wire",
+    );
+  });
+});
+
+/**
+ * Register `handler` under the real `elevenlabs` name for the duration of
+ * `fn`, then put back whatever was there. The default time budget is keyed
+ * on that name, so a uniquely named stub cannot reach the branch under
+ * test — which is exactly how the previous version of the test below passed
+ * without exercising it.
+ */
+async function withElevenLabsRegistered<T>(
+  handler: TTSHandler,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = TTSProcessor.getHandler("elevenlabs");
+  TTSProcessor.registerHandler("elevenlabs", handler);
+  try {
+    return await fn();
+  } finally {
+    if (previous) {
+      TTSProcessor.registerHandler("elevenlabs", previous);
+    } else {
+      const remaining = snapshotTTSRegistry().filter(
+        ([name]) => name !== "elevenlabs",
+      );
+      restoreTTSRegistry(remaining);
+    }
+  }
+}
+
+await test("ElevenLabs: generate({ tts }) with no handler knobs still gets the documented default retry inside the raised budget, and the provider match is case-insensitive", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests, failNextWith }) => {
+    await withElevenLabsRegistered(
+      new ElevenLabsTTS("stub-credential"),
+      async () => {
+        const neurolink = new NeuroLink({
+          conversationMemory: { enabled: false },
+        });
+
+        // The outer synthesis timeout is raised to the handler's default
+        // budget (30 s × 2 attempts + pause slack) only when the resolved
+        // provider is ElevenLabs. `Retry-After: 1` holds the retry back by a
+        // second — twenty times the 50 ms provider timeout — so with a budget
+        // of 0 the outer timeout fires during the pause and the retry never
+        // succeeds. (The earlier form of this test used `Retry-After: 0` and
+        // a uniquely named stub: the retry finished inside 50 ms and the
+        // budget branch was never reached.)
+        failNextWith(503, "1");
+        const lower = await neurolink.generate({
+          input: { text: "Hello again" },
+          provider: "openai",
+          credentials: { openai: { apiKey: "offline-test-key" } },
+          disableTools: true,
+          timeout: 50,
+          tts: elevenLabs({ enabled: true, provider: "elevenlabs", baseUrl }),
+        });
+        assertEqual(
+          lower.ttsMetadata?.success,
+          true,
+          "the default retry ran and succeeded inside the raised budget",
+        );
+        assertEqual(requests.length, 2, "one stubbed failure plus one success");
+
+        // The registry resolves the name case-insensitively, so "ElevenLabs"
+        // reaches the same handler; the budget check used to be an exact
+        // string match and gave that spelling a budget of 0.
+        failNextWith(503, "1");
+        const mixed = await neurolink.generate({
+          input: { text: "Hello once more" },
+          provider: "openai",
+          credentials: { openai: { apiKey: "offline-test-key" } },
+          disableTools: true,
+          timeout: 50,
+          tts: elevenLabs({ enabled: true, provider: "ElevenLabs", baseUrl }),
+        });
+        assertEqual(
+          mixed.ttsMetadata?.success,
+          true,
+          "a mixed-case provider name gets the same default budget",
+        );
+        assertEqual(
+          requests.length,
+          4,
+          "the mixed-case call also made a failure and a retry",
+        );
+
+        // Precondition for both assertions above: with the budget branch
+        // not taken, the same request really does fail — a stub under a name
+        // the budget does not know, on the same 50 ms provider timeout.
+        const other = uniqueProvider("not-a-retrying-provider");
+        TTSProcessor.registerHandler(
+          other,
+          new ElevenLabsTTS("stub-credential"),
+        );
+        failNextWith(503, "1");
+        const cut = await neurolink.generate({
+          input: { text: "Hello, cut short" },
+          provider: "openai",
+          credentials: { openai: { apiKey: "offline-test-key" } },
+          disableTools: true,
+          timeout: 50,
+          tts: elevenLabs({ enabled: true, provider: other, baseUrl }),
+        });
+        assertEqual(
+          cut.ttsMetadata?.success,
+          false,
+          "without the ElevenLabs budget the 50 ms provider timeout cuts the retry pause",
+        );
+        assertIncludes(
+          cut.ttsMetadata?.error?.message ?? "",
+          "timed out after 50ms",
+          "the failure is the outer synthesis timeout",
+        );
+      },
+    );
+  });
+});
+
+await test("ElevenLabs: aborting during a retry pause settles at once and clears the backoff timer", async () => {
+  await withElevenLabsStub(async ({ baseUrl, requests, failNextWith }) => {
+    const handler = new ElevenLabsTTS("stub-credential");
+    const controller = new AbortController();
+
+    // The pause used to race a bare delay() against the signal: the promise
+    // settled at the abort, but the backoff timer stayed armed for up to ten
+    // seconds and kept the event loop alive. A 503 with the largest
+    // Retry-After the handler honours arms exactly that ten-second timer;
+    // it is the only 10 000 ms timer in play (the per-attempt timeout is
+    // 30 s, the harness budget 240 s), so watching setTimeout/clearTimeout
+    // for that delay proves the arm and the disarm in milliseconds.
+    const events: string[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    let pauseTimer: unknown;
+    const setTimeoutStub = stub(globalThis, "setTimeout", ((
+      callback: () => void,
+      delay?: number,
+      ...rest: unknown[]
+    ) => {
+      const timer = (
+        realSetTimeout as unknown as (...args: unknown[]) => unknown
+      )(callback, delay, ...rest);
+      if (delay === 10_000) {
+        pauseTimer = timer;
+        events.push("arm");
+      }
+      return timer;
+    }) as unknown as typeof setTimeout);
+    const clearTimeoutStub = stub(globalThis, "clearTimeout", ((
+      timer?: unknown,
+    ) => {
+      if (timer !== undefined && timer === pauseTimer) {
+        events.push("disarm");
+      }
+      return (realClearTimeout as unknown as (...args: unknown[]) => void)(
+        timer,
+      );
+    }) as unknown as typeof clearTimeout);
+
+    failNextWith(503, "10");
+    const started = Date.now();
+    let cancelled: unknown;
+    await withStubs([setTimeoutStub, clearTimeoutStub], async () => {
+      realSetTimeout(() => controller.abort(), 100);
+      try {
+        await handler.synthesize(
+          "hello",
+          elevenLabs({ baseUrl, retries: 1, signal: controller.signal }),
+        );
+      } catch (err) {
+        cancelled = err;
+      }
+    });
+    const elapsed = Date.now() - started;
+    assert(
+      cancelled instanceof TTSError,
+      "the cancelled synthesis surfaces a TTSError",
+    );
+    assert(
+      elapsed < 1_000,
+      `the call settled ${elapsed}ms after starting, at the abort rather than after the pause`,
+    );
+    assertEqual(requests.length, 1, "no retry was sent after the abort");
+    assertEqual(
+      events.join(","),
+      "arm,disarm",
+      "the ten-second backoff timer was armed by the pause and cleared at the abort",
+    );
+  });
 });
 
 try {
