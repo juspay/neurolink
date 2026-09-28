@@ -11900,6 +11900,22 @@ Current user's request: ${currentInput}`;
     // Apply per-call tool filtering for system prompt tool descriptions
     availableTools = this.applyToolInfoFiltering(availableTools, options);
 
+    // M3: a provider whose descriptor declares toolSupport "none" can never
+    // call a tool in ANY form — not natively, not via prompt injection — so
+    // `availableTools` here is dead weight, not a signal. Left non-empty, it
+    // still drives createToolAwareSystemPrompt()'s prompt-injection branch
+    // (that branch triggers on `!provider.supportsTools()`, which is also
+    // true for these providers) and inflates the stream budget check below
+    // via `toolDefinitions`, so an image-generation-only provider like
+    // Recraft can fail a fabricated "exceeds model budget" check before its
+    // own request-kind routing (BaseProvider.stream() -> resolveRequestKind)
+    // ever runs. Clearing it here restores the provider's real outcome —
+    // its own refusal, a genuine vendor error, or success — as what
+    // surfaces, without touching the budget check for any text provider.
+    if (ProviderFactory.getDescriptor(providerName)?.toolSupport === "none") {
+      availableTools = [];
+    }
+
     // Skip tool prompt injection if skipToolPromptInjection is true.
     // For providers with native tool calling (instance truth via
     // supportsTools()), the listing is skipped and only the short damping

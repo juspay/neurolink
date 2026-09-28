@@ -541,19 +541,33 @@ async function testServiceMimeLabelling(): Promise<void> {
  * silent empty result — so those are asserted, not skipped.
  */
 async function testRecraftSurfaces(): Promise<void> {
-  // What the stream surface *should* say is Recraft's own refusal:
-  // "image-generation-only provider; streaming chat is not available".
-  // What it currently says is a ContextBudgetExceededError — the budget check
-  // runs ahead of the provider, and recraftv3's 1300-token window cannot hold
-  // the tool definitions, so the caller is told to trim a prompt for a
-  // provider that can never stream at all. That is a real defect, filed
-  // separately; it is not this change's to fix, and weakening the assertion to
-  // match it would hide it. So these cases assert the part that is true today
-  // and load-bearing: the surface refuses rather than hanging, exiting 0, or
-  // returning an empty success.
+  // FIXED (M3): the stream surface used to say neither what it should nor
+  // what actually happened. createMCPStream() (neurolink.ts) built a full
+  // tool-aware system prompt and counted every available tool definition
+  // into its pre-dispatch budget check for EVERY provider, including ones
+  // whose descriptor declares toolSupport "none" and can never use a tool in
+  // any form (recraft among them). Against recraftv3's ~2,000-token window
+  // (correct for an image-prompt model, contextWindows.ts) that inflated a
+  // three-word prompt to ~8,700 estimated tokens, and the pre-dispatch hard
+  // cap threw "Stream context exceeds model budget…" before
+  // RecraftProvider.stream() ever ran — masking whatever the provider itself
+  // would have said. (That is NOT recraft.ts's own "streaming chat is not
+  // available" refusal, which is structurally unreachable here:
+  // resolveRequestKind() classifies recraftv3 as an "image" request, so
+  // BaseProvider.stream() routes it through executeFakeStreaming() ->
+  // executeImageGeneration() and recraft.ts's executeStream() override never
+  // runs.) The fix clears `availableTools` before the budget check for
+  // toolSupport:"none" providers, so the request is sized on what it actually
+  // contains and the real outcome — the vendor's own error, or a real
+  // generated image — is what surfaces instead of a fabricated local one.
   const REFUSES_SOMEHOW = /error|fail|not available|exceed|budget/i;
 
-  // --- SDK stream: declared unsupported, must refuse in the documented way.
+  // --- SDK stream: must reach a real provider outcome, the same three
+  // legitimate shapes the cli-stream case below already accounts for — a
+  // successful generation (account has credit), a recognisable vendor
+  // error, or the documented refusal. Only a drain that yields nothing and
+  // raises nothing is a failure: that is neither an outcome nor a refusal.
+  const SDK_STREAM_CASE = "Recraft sdk-stream reaches a real provider outcome";
   try {
     const nl = new NeuroLink({ conversationMemory: { enabled: false } });
     const streamed = await nl.stream({
@@ -561,18 +575,25 @@ async function testRecraftSurfaces(): Promise<void> {
       provider: "recraft",
       model: "recraftv3",
     });
+    let sawOutput = false;
     for await (const _chunk of streamed.stream) {
-      // drain; reaching here at all means the refusal never happened
+      // Any chunk counts, not just one with `.content`: a successful image
+      // result yields a `{ type: "image", imageOutput }` chunk shape.
+      sawOutput = true;
     }
+    // PRECONDITION: at least one chunk must have been observed, or this
+    // would pass vacuously on a stream that silently drains empty.
     record(
-      "Recraft sdk-stream refuses rather than yielding a silent success",
-      false,
-      "the stream drained without raising",
+      SDK_STREAM_CASE,
+      sawOutput,
+      sawOutput
+        ? "the stream completed (account has credit — a real image was generated)"
+        : "the stream drained with no chunks and no error",
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     record(
-      "Recraft sdk-stream refuses rather than yielding a silent success",
+      SDK_STREAM_CASE,
       REFUSES_SOMEHOW.test(msg) && msg.length > 0,
       `refusal carried no recognisable failure text (${msg.length} chars)`,
     );
@@ -692,15 +713,12 @@ async function testRecraftSurfaces(): Promise<void> {
     }
   }
 
-  // --- CLI stream: the refusal must survive the trip through the CLI.
+  // --- CLI stream: the provider's real outcome must survive the trip
+  // through the CLI, not the generic BudgetChecker/tool-injection pass.
   //
-  // Key-gated, and matched against Recraft's OWN refusal rather than a generic
-  // /error|fail/ pattern. Unguarded and generic, both assertions were satisfied
-  // by the provider failing at setup — "Recraft API key is not set" exits
-  // non-zero and contains "not set", so the case passed without ever reaching
-  // the streaming contract it claims to exercise, and would equally have
-  // passed on an unrelated error. Asserting the specific text is what makes a
-  // pass mean the right thing failed.
+  // Key-gated: without a key, provider construction fails before the budget
+  // check ever runs, and a pass there would prove nothing about the ordering
+  // this case exists to cover.
   if (!process.env.RECRAFT_API_KEY) {
     record("Recraft cli-stream (skip — no RECRAFT_API_KEY)", true);
   } else {
@@ -712,57 +730,59 @@ async function testRecraftSurfaces(): Promise<void> {
       "--model",
       "recraftv3",
     ]);
-    record(
-      "Recraft cli-stream refuses rather than exiting 0",
-      cliStream.code !== 0,
-      `exit ${cliStream.code}`,
-    );
-    // Two outcomes are accepted, and the reason is a finding rather than
-    // laziness. Recraft's refusal ("image-generation-only provider; streaming
-    // chat is not available", recraft.ts:102) is what SHOULD surface. It does
-    // not: `recraft` declares a 2,000-token window (contextWindows.ts:129,
-    // correct for an image-prompt model), the CLI injects tool definitions
-    // into the stream request anyway, and BudgetChecker rejects at roughly
-    // 8,700 estimated tokens against a 1,000-token budget before the provider
-    // is ever asked. So a three-word prompt is answered with "Reduce prompt or
-    // tool-definition size" and the caller never learns the provider cannot
-    // stream at all.
-    //
-    // Asserting only the correct refusal would fail; asserting only "something
-    // failed" is the tautology this case was rewritten to escape. So both are
-    // named explicitly: the test stays green and honest, and the day the
-    // ordering is fixed the first branch starts matching. The masking itself
-    // is tracked separately — it is a CLI/budget ordering defect, not a MIME
-    // labelling one, and does not belong in this PR.
     const streamOut = cliStream.stderr + cliStream.stdout;
-    const namedRefusal = /image-generation-only/i.test(streamOut);
-    const maskedByBudget = /exceeds model budget/i.test(streamOut);
-    // `record` prints its detail on a PASS as well as a failure, so the text
-    // has to describe what was observed rather than what would be wrong. A
-    // green line reading like a failure is its own hazard in this repo.
+    // PRECONDITION for the negative assertion below: prove the subprocess
+    // actually ran and produced something to inspect, so "the masking text
+    // is absent" cannot pass vacuously against empty output. `record` prints
+    // its detail on a PASS as well as a failure, so the text has to describe
+    // what was observed either way.
     record(
-      "Recraft cli-stream fails for a reason it can name",
-      namedRefusal || maskedByBudget,
-      namedRefusal
-        ? "named the image-generation-only refusal"
-        : maskedByBudget
-          ? "rejected by the budget check before the provider was asked"
-          : "neither the documented refusal nor the known budget rejection appeared",
+      "Recraft cli-stream produced observable output",
+      streamOut.length > 0,
+      streamOut.length > 0
+        ? `${streamOut.length} chars captured`
+        : "no stdout/stderr captured from the CLI subprocess",
     );
-    // The masking is REPORTED, not asserted. An assertion that the refusal is
-    // still hidden would be inverted: it passes only while the defect exists,
-    // so fixing the ordering in another module would turn this suite red, and
-    // the failure text would tell the reader to delete a case rather than
-    // naming a regression. The case above already covers the contract in both
-    // directions, so asserting this too adds a failure mode without adding
-    // coverage. A log line keeps the observation visible and costs nothing when
-    // the defect is fixed.
+    // The one outcome that must NEVER happen again: the fabricated
+    // budget-exceeded message standing in for the provider's real answer.
+    // This is the deterministic half of the fix and does not depend on the
+    // test account's credit balance — see the red/green proof this case was
+    // added to accompany.
+    const maskedByBudget = /exceeds model budget/i.test(streamOut);
+    record(
+      "Recraft cli-stream is not masked by the generic budget check",
+      !maskedByBudget,
+      maskedByBudget
+        ? "the fabricated budget-exceeded message surfaced ahead of the provider's own outcome"
+        : "no budget-exceeded text appeared",
+    );
+    // Which real outcome appears instead depends on the account's credit
+    // state, an external fact this suite does not control, so it is reported
+    // across all three legitimate shapes rather than pinned to one:
+    // Recraft's own "image-generation-only" refusal (were it ever reachable),
+    // a genuine vendor error, or a real generated image.
+    const namedRefusal = /image-generation-only/i.test(streamOut);
+    const vendorBlocked = isVendorBlocked(streamOut);
+    const succeeded = cliStream.code === 0;
+    record(
+      "Recraft cli-stream reaches a real provider outcome",
+      succeeded || namedRefusal || vendorBlocked,
+      succeeded
+        ? "the stream completed (account has credit — a real image was generated)"
+        : namedRefusal
+          ? "named the image-generation-only refusal"
+          : vendorBlocked
+            ? "the provider's own vendor error surfaced"
+            : "neither success, the documented refusal, nor a recognisable vendor error appeared",
+    );
     log(
-      namedRefusal
-        ? "  ℹ️  cli-stream named the image-generation-only refusal — the budget check no longer masks it"
-        : maskedByBudget
-          ? "  ℹ️  cli-stream refusal is masked by the budget check (tool definitions exceed a 2,000-token window before the provider is asked)"
-          : "  ℹ️  cli-stream failed for an unrecognised reason — worth a look",
+      succeeded
+        ? "  ℹ️  cli-stream succeeded — recraft generated an image via fake streaming"
+        : namedRefusal
+          ? "  ℹ️  cli-stream named the image-generation-only refusal"
+          : vendorBlocked
+            ? "  ℹ️  cli-stream surfaced the provider's real vendor error — no budget masking"
+            : "  ℹ️  cli-stream failed for an unrecognised reason — worth a look",
     );
   }
 }
