@@ -1,0 +1,82 @@
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_test","type":"message","role":"assistant","content":[],"model":"claude-sonnet-5","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":0}}}
+
+event: ping
+data: {"type":"ping"}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":", world"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_abc123","name":"get_weather","input":{}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"location\":"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\"NYC\"}"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+===EXPECTED_CODEX_SSE===
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_ID1","object":"response","status":"in_progress","created_at":0,"model":"gpt-5-codex","output":[],"usage":null,"incomplete_details":null,"error":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp_ID1","object":"response","status":"in_progress","created_at":0,"model":"gpt-5-codex","output":[],"usage":null,"incomplete_details":null,"error":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":0,"item":{"id":"msg_ID1","type":"message","role":"assistant","status":"in_progress","content":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","output_index":0,"item_id":"msg_ID1","content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","output_index":0,"item_id":"msg_ID1","content_index":0,"delta":"Hello"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","output_index":0,"item_id":"msg_ID1","content_index":0,"delta":", world"}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","output_index":0,"item_id":"msg_ID1","content_index":0,"text":"Hello, world"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","output_index":0,"item_id":"msg_ID1","content_index":0,"part":{"type":"output_text","text":"Hello, world","annotations":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg_ID1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Hello, world","annotations":[]}]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":1,"item":{"id":"fc_ID1","type":"function_call","status":"in_progress","call_id":"toolu_abc123","name":"get_weather","arguments":""}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","output_index":1,"item_id":"fc_ID1","delta":"{\"location\":"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","output_index":1,"item_id":"fc_ID1","delta":"\"NYC\"}"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","output_index":1,"item_id":"fc_ID1","arguments":"{\"location\":\"NYC\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","output_index":1,"item":{"id":"fc_ID1","type":"function_call","status":"completed","call_id":"toolu_abc123","name":"get_weather","arguments":"{\"location\":\"NYC\"}"}}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_ID1","object":"response","created_at":0,"status":"completed","model":"gpt-5-codex","output":[{"id":"msg_ID1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Hello, world","annotations":[]}]},{"id":"fc_ID1","type":"function_call","status":"completed","call_id":"toolu_abc123","name":"get_weather","arguments":"{\"location\":\"NYC\"}"}],"usage":{"input_tokens":10,"output_tokens":12,"total_tokens":22},"incomplete_details":null,"error":null}}
+

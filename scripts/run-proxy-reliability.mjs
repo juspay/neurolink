@@ -12,6 +12,9 @@ const checks = [
   // the Codex-outbound request translation direction (native Codex ->
   // ClaudeRequest), not proxy request/accounting.
   ["tsx", "test/continuous-test-suite-codex-outbound-translation.ts"],
+  // Not name-templated below because it is not a `proxy-*` suite: it covers the
+  // Anthropic-to-Codex response translation direction, not proxy request/accounting.
+  ["tsx", "test/continuous-test-suite-codex-response-translation.ts"],
   ...[
     "request-lifecycle",
     "http-disconnect",

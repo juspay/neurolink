@@ -424,6 +424,11 @@ export default [
             // the same input, which a live model cannot be made to reproduce
             // turn-for-turn.
             "test/continuous-test-suite-codex-outbound-translation.ts",
+            // Byte-exact SSE frame ordering, a truncated tool-call-argument
+            // sequence, and a randomized ordering-invariant sweep over the
+            // Anthropic -> Codex response/stream codec — none reproducible
+            // from a live provider call on demand.
+            "test/continuous-test-suite-codex-response-translation.ts",
 
             // Isolated rolling workers inject startup stalls and crashes while
             // the built restart CLI and real streaming sockets are exercised.

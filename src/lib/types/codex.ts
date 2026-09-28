@@ -380,3 +380,103 @@ export type CodexOutboundMessageGroup = {
   role: "user" | "assistant";
   blocks: ClaudeContentBlock[];
 };
+
+// =============================================================================
+// RESPONSE/STREAM CODEC TYPES (Anthropic -> Codex wire format). Mirrors the
+// native-request types above but for the outbound direction: an Anthropic-shaped
+// `ClaudeResponse`/SSE stream translated into the Codex Responses shape a native
+// Codex client expects.
+// =============================================================================
+
+/** Lifecycle status of one item inside a Codex Responses `output[]` array. */
+export type CodexResponseItemStatus =
+  | "in_progress"
+  | "completed"
+  | "incomplete";
+
+/** Wire usage block inside a synthesized response.completed / non-stream response. */
+export type CodexResponseUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  /** Omitted entirely when neither cache field was observed on the Anthropic side. */
+  input_tokens_details?: {
+    cached_tokens?: number;
+    cache_write_tokens?: number;
+  };
+  /** Always omitted — ClaudeUsage carries no reasoning-token count to source it from. */
+  output_tokens_details?: { reasoning_tokens?: number };
+};
+
+/** One `output_text` content part inside a Codex `message` output item. */
+export type CodexResponseOutputTextPart = {
+  type: "output_text";
+  text: string;
+  annotations: [];
+};
+
+/** A synthesized assistant-text item in a Codex `response.output[]` array. */
+export type CodexResponseMessageItem = {
+  id: string;
+  type: "message";
+  role: "assistant";
+  status: CodexResponseItemStatus;
+  content: CodexResponseOutputTextPart[];
+};
+
+/** A synthesized tool-call item in a Codex `response.output[]` array. */
+export type CodexResponseFunctionCallItem = {
+  id: string;
+  type: "function_call";
+  status: CodexResponseItemStatus;
+  call_id: string;
+  name: string;
+  /** Concatenation of raw partial_json fragments. Valid JSON when status is
+   *  "completed"; may be a truncated, non-JSON fragment when status is
+   *  "incomplete" (closed early by a mid-stream failure). */
+  arguments: string;
+};
+
+/** One item in a Codex `response.output[]` array, discriminated by `type`. */
+export type CodexResponseItem =
+  | CodexResponseMessageItem
+  | CodexResponseFunctionCallItem;
+
+/** A complete Codex Responses envelope — the non-streaming body, and the shape
+ *  carried inside a terminal `response.*` SSE event's `response` field. */
+export type CodexResponseEnvelope = {
+  id: string;
+  object: "response";
+  created_at: number;
+  status: "completed" | "incomplete" | "failed";
+  model: string;
+  output: CodexResponseItem[];
+  usage?: CodexResponseUsage;
+  incomplete_details: { reason: "max_output_tokens" } | null;
+  error: { code: string; message: string } | null;
+};
+
+/** The Codex Responses SSE event-type vocabulary this codec emits. */
+export type CodexResponseSSEEventType =
+  | "response.created"
+  | "response.in_progress"
+  | "response.output_item.added"
+  | "response.content_part.added"
+  | "response.output_text.delta"
+  | "response.output_text.done"
+  | "response.content_part.done"
+  | "response.function_call_arguments.delta"
+  | "response.function_call_arguments.done"
+  | "response.output_item.done"
+  | "response.completed"
+  | "response.incomplete"
+  | "response.failed";
+
+/** Incremental Codex-shape SSE frames and the terminal envelope they resolve to. */
+export type CodexResponseStream = {
+  frames: AsyncGenerator<string, CodexResponseEnvelope>;
+  cancel: (reason?: unknown) => Promise<void>;
+};
+
+/** Which output item kind (if any) `CodexResponsesStreamSerializer` currently has open. */
+export type CodexResponseOpenItemKind = "message" | "function_call" | null;
