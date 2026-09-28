@@ -148,6 +148,22 @@ function getProxyMetrics(): ProxyMetrics {
       description: "Total failed fallback provider responses",
       unit: "{failure}",
     }),
+    schemaDegradedTotal: meter.createCounter(
+      "proxy_codex_outbound_schema_degraded_total",
+      {
+        description:
+          "Total Codex-outbound tool declarations whose JSON Schema needed flattening or lost a feature on the way to a Claude tool",
+        unit: "{tool}",
+      },
+    ),
+    unsupportedFieldTotal: meter.createCounter(
+      "proxy_codex_outbound_unsupported_field_total",
+      {
+        description:
+          "Total Codex-outbound request fields this repo cannot faithfully represent in the Claude request, dropped rather than failing the translation",
+        unit: "{field}",
+      },
+    ),
   };
 
   _metrics = createdMetrics;
@@ -1109,6 +1125,49 @@ export function recordFallbackAttempt(attrs: {
         error: attrs.errorMessage?.slice(0, 100) ?? "unknown",
       });
     }
+  } catch {
+    // metrics are best-effort
+  }
+}
+
+/**
+ * Records one Codex-outbound tool-declaration schema degradation (a
+ * `$ref`/`$defs` flatten that hit a circular reference, a dropped `strict`
+ * flag, or a custom grammar tool wrapped into a one-string schema). `reason`
+ * is a short, stable label — never the schema or tool-name text itself, so a
+ * call site cannot accidentally leak request payload into a metric label.
+ */
+export function recordCodexOutboundSchemaDegraded(attrs: {
+  toolName: string;
+  reason: string;
+}): void {
+  try {
+    const m = getProxyMetrics();
+    m.schemaDegradedTotal.add(1, {
+      toolName: attrs.toolName.slice(0, 100),
+      reason: attrs.reason.slice(0, 100),
+    });
+  } catch {
+    // metrics are best-effort
+  }
+}
+
+/**
+ * Records one Codex-outbound request field dropped during translation
+ * because this repo has no faithful Claude-request representation for it
+ * (e.g. a malformed `function_call.arguments` string wrapped instead of
+ * parsed). Mirrors `recordCodexOutboundSchemaDegraded`'s label discipline.
+ */
+export function recordCodexOutboundUnsupportedField(attrs: {
+  field: string;
+  reason: string;
+}): void {
+  try {
+    const m = getProxyMetrics();
+    m.unsupportedFieldTotal.add(1, {
+      field: attrs.field.slice(0, 100),
+      reason: attrs.reason.slice(0, 100),
+    });
   } catch {
     // metrics are best-effort
   }

@@ -163,8 +163,9 @@ export type ClaudeRequest = {
   stream?: boolean;
   tools?: ClaudeTool[];
   tool_choice?:
-    | { type: "auto" | "any" | "none" }
-    | { type: "tool"; name: string };
+    | { type: "none" }
+    | { type: "auto" | "any"; disable_parallel_tool_use?: boolean }
+    | { type: "tool"; name: string; disable_parallel_tool_use?: boolean };
   thinking?: { type: string; budget_tokens?: number };
   metadata?: ClaudeMetadata;
 };
@@ -2191,6 +2192,13 @@ export type ProxyMetrics = {
   fallbackAttemptsTotal: Counter;
   fallbackSuccessTotal: Counter;
   fallbackFailureTotal: Counter;
+  /** Codex-outbound: a declared tool's JSON Schema needed flattening or lost
+   *  a feature (circular $ref, dropped `strict`, a custom grammar tool wrapped
+   *  into a one-string schema) on its way to a Claude tool. */
+  schemaDegradedTotal: Counter;
+  /** Codex-outbound: an inbound field this repo cannot faithfully represent
+   *  in the Claude request was dropped rather than failing the translation. */
+  unsupportedFieldTotal: Counter;
 };
 
 /** Context for a proxy request at the root span level. */

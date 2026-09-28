@@ -75,7 +75,7 @@ Matches POST /v1/messages.
 
 ### tool_choice?
 
-> `optional` **tool_choice?**: \{ `type`: `"auto"` \| `"any"` \| `"none"`; \} \| \{ `type`: `"tool"`; `name`: `string`; \}
+> `optional` **tool_choice?**: \{ `type`: `"none"`; \} \| \{ `type`: `"auto"` \| `"any"`; `disable_parallel_tool_use?`: `boolean`; \} \| \{ `type`: `"tool"`; `name`: `string`; `disable_parallel_tool_use?`: `boolean`; \}
 
 ---
 
