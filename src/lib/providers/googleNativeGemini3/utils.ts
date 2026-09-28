@@ -39,6 +39,16 @@ import type {
   GeminiMultimodalInput,
   MultimodalAudioEntry,
   MultimodalVideoEntry,
+  ModelMessage,
+  TextPart,
+  ImagePart,
+  FilePart,
+  ToolCallPart,
+  ToolResultPart,
+  UserContent,
+  AssistantContent,
+  ToolContent,
+  DataContent,
 } from "../../types/index.js";
 import {
   needsAudioTranscode,
@@ -564,6 +574,13 @@ export function refreshNativeToolDeclarations(
 export function buildNativeConfig(
   options: {
     temperature?: number;
+    /**
+     * Nucleus sampling. Subject to the same registry-driven
+     * sampling-param strip as `temperature` — a model that rejects
+     * classic sampling params (see `SAMPLING_PARAM_REJECTING_FAMILIES`)
+     * gets neither on the wire.
+     */
+    topP?: number;
     maxTokens?: number;
     systemPrompt?: string;
     /**
@@ -591,12 +608,15 @@ export function buildNativeConfig(
   const samplingParams = resolveSamplingParams(
     "google-ai",
     options.model,
-    { temperature: options.temperature ?? 1.0 }, // Gemini 3 requires 1.0 for tool calling
+    { temperature: options.temperature ?? 1.0, topP: options.topP }, // Gemini 3 requires 1.0 for tool calling
     "googleAiStudio.buildNativeConfig",
   );
   const config: Record<string, unknown> = {
     ...(samplingParams.temperature !== undefined && {
       temperature: samplingParams.temperature,
+    }),
+    ...(samplingParams.topP !== undefined && {
+      topP: samplingParams.topP,
     }),
     maxOutputTokens: options.maxTokens,
   };
@@ -1724,6 +1744,356 @@ export function prependConversationMessages(
       contents.push({ role: "user", parts: seg.resultParts });
     }
   }
+}
+
+// ── Gemini contents ↔ V3 prompt conversion ──
+//
+// Caller model middleware (transformParams / wrapGenerate / wrapStream)
+// operates on the generic `ModelMessage[]` prompt shape, not on Gemini's
+// native `contents`. These two functions are the boundary: the native
+// stream/generate loops build `contents` exactly as they always have, hand
+// it through `geminiContentsToV3Prompt` before invoking middleware, and
+// rebuild `contents` from whatever prompt the middleware settled on via
+// `v3PromptToGeminiContents`.
+
+function hasTextField(part: unknown): part is { text: string } {
+  if (typeof part !== "object" || part === null || !("text" in part)) {
+    return false;
+  }
+  return typeof part.text === "string";
+}
+
+function hasInlineDataField(
+  part: unknown,
+): part is { inlineData: { mimeType: string; data: string } } {
+  if (typeof part !== "object" || part === null || !("inlineData" in part)) {
+    return false;
+  }
+  const inline = part.inlineData;
+  return (
+    typeof inline === "object" &&
+    inline !== null &&
+    "mimeType" in inline &&
+    "data" in inline
+  );
+}
+
+function hasFunctionCallField(
+  part: unknown,
+): part is { functionCall: NativeFunctionCall; thoughtSignature?: string } {
+  return typeof part === "object" && part !== null && "functionCall" in part;
+}
+
+function hasFunctionResponseField(
+  part: unknown,
+): part is NativeFunctionResponse {
+  return (
+    typeof part === "object" && part !== null && "functionResponse" in part
+  );
+}
+
+function readThoughtSignature(part: unknown): string | undefined {
+  if (
+    typeof part !== "object" ||
+    part === null ||
+    !("thoughtSignature" in part)
+  ) {
+    return undefined;
+  }
+  return typeof part.thoughtSignature === "string"
+    ? part.thoughtSignature
+    : undefined;
+}
+
+function withThoughtSignature<
+  T extends { providerOptions?: Record<string, Record<string, unknown>> },
+>(part: T, thoughtSignature: string | undefined): T {
+  if (!thoughtSignature) {
+    return part;
+  }
+  return {
+    ...part,
+    providerOptions: {
+      ...part.providerOptions,
+      googleAiStudio: {
+        ...part.providerOptions?.googleAiStudio,
+        thoughtSignature,
+      },
+    },
+  };
+}
+
+function readProviderThoughtSignature(
+  providerOptions: unknown,
+): string | undefined {
+  if (typeof providerOptions !== "object" || providerOptions === null) {
+    return undefined;
+  }
+  const studio = (providerOptions as Record<string, unknown>).googleAiStudio;
+  if (typeof studio !== "object" || studio === null) {
+    return undefined;
+  }
+  const sig = (studio as Record<string, unknown>).thoughtSignature;
+  return typeof sig === "string" ? sig : undefined;
+}
+
+function isFunctionResponseOnlyEntry(parts: unknown[]): boolean {
+  return parts.length > 0 && parts.every(hasFunctionResponseField);
+}
+
+function toV3ToolResultPart(part: unknown): ToolResultPart | undefined {
+  if (!hasFunctionResponseField(part)) {
+    return undefined;
+  }
+  return {
+    type: "tool-result",
+    // Gemini pairs a function response to its call by position, not by id —
+    // nothing downstream of this conversion reads this value back.
+    toolCallId: `gemini-tool-${randomUUID()}`,
+    toolName: part.functionResponse.name,
+    output: part.functionResponse.response,
+  };
+}
+
+function toV3UserPart(
+  part: unknown,
+): TextPart | ImagePart | FilePart | undefined {
+  if (hasTextField(part)) {
+    return withThoughtSignature<TextPart>(
+      { type: "text", text: part.text },
+      readThoughtSignature(part),
+    );
+  }
+  if (hasInlineDataField(part)) {
+    return {
+      type: "file",
+      data: part.inlineData.data,
+      mediaType: part.inlineData.mimeType,
+    };
+  }
+  return undefined;
+}
+
+function toV3AssistantPart(part: unknown): TextPart | ToolCallPart | undefined {
+  if (hasTextField(part)) {
+    return withThoughtSignature<TextPart>(
+      { type: "text", text: part.text },
+      readThoughtSignature(part),
+    );
+  }
+  if (hasFunctionCallField(part)) {
+    return withThoughtSignature<ToolCallPart>(
+      {
+        type: "tool-call",
+        toolCallId: `gemini-tool-${randomUUID()}`,
+        toolName: part.functionCall.name,
+        input: part.functionCall.args ?? {},
+      },
+      part.thoughtSignature,
+    );
+  }
+  return undefined;
+}
+
+/**
+ * Convert a native Gemini `contents` array (the shape this module builds and
+ * `prependConversationMessages` emits) into the generic V3 prompt shape that
+ * caller model middleware operates on.
+ *
+ * Gemini has no wire-visible `system` role — `systemInstruction` rides
+ * separately on `config` — so this only ever emits `user` / `assistant` /
+ * `tool` messages. A `functionResponse`-only `user` entry becomes a V3
+ * `tool` message rather than `user`: `UserModelMessage.content` cannot carry
+ * a `ToolResultPart`, only `ToolModelMessage.content` can, and that grouping
+ * (a `model` turn of `functionCall` parts followed by a `user` turn of
+ * matching `functionResponse` parts) is exactly what
+ * `prependConversationMessages` above produces.
+ */
+export function geminiContentsToV3Prompt(
+  contents: Array<{ role: string; parts: unknown[] }>,
+): ModelMessage[] {
+  const messages: ModelMessage[] = [];
+  for (const entry of contents) {
+    const parts = Array.isArray(entry.parts) ? entry.parts : [];
+    if (entry.role === "user" && isFunctionResponseOnlyEntry(parts)) {
+      const content = parts
+        .map(toV3ToolResultPart)
+        .filter((p): p is ToolResultPart => p !== undefined);
+      if (content.length > 0) {
+        messages.push({ role: "tool", content });
+      }
+      continue;
+    }
+    if (entry.role === "user") {
+      const content = parts
+        .map(toV3UserPart)
+        .filter((p): p is TextPart | ImagePart | FilePart => p !== undefined);
+      if (content.length > 0) {
+        messages.push({ role: "user", content });
+      }
+      continue;
+    }
+    if (entry.role === "model") {
+      const content = parts
+        .map(toV3AssistantPart)
+        .filter((p): p is TextPart | ToolCallPart => p !== undefined);
+      if (content.length > 0) {
+        messages.push({ role: "assistant", content });
+      }
+    }
+  }
+  return messages;
+}
+
+function dataContentToBase64(data: DataContent): string {
+  if (typeof data === "string") {
+    return data;
+  }
+  if (Buffer.isBuffer(data)) {
+    return data.toString("base64");
+  }
+  if (data instanceof ArrayBuffer) {
+    return Buffer.from(data).toString("base64");
+  }
+  return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString(
+    "base64",
+  );
+}
+
+function userContentToGeminiParts(content: UserContent): unknown[] {
+  if (typeof content === "string") {
+    return content.length > 0 ? [{ text: content }] : [];
+  }
+  const parts: unknown[] = [];
+  for (const part of content) {
+    if (part.type === "text") {
+      if (part.text.length > 0) {
+        const sig = readProviderThoughtSignature(part.providerOptions);
+        parts.push(
+          sig
+            ? { text: part.text, thoughtSignature: sig }
+            : { text: part.text },
+        );
+      }
+    } else if (part.type === "image" && !(part.image instanceof URL)) {
+      parts.push({
+        inlineData: {
+          mimeType: part.mediaType ?? "application/octet-stream",
+          data: dataContentToBase64(part.image),
+        },
+      });
+    } else if (part.type === "file" && !(part.data instanceof URL)) {
+      parts.push({
+        inlineData: {
+          mimeType: part.mediaType,
+          data: dataContentToBase64(part.data),
+        },
+      });
+    }
+  }
+  return parts;
+}
+
+function assistantContentToGeminiParts(content: AssistantContent): unknown[] {
+  if (typeof content === "string") {
+    return content.length > 0 ? [{ text: content }] : [];
+  }
+  const parts: unknown[] = [];
+  for (const part of content) {
+    if (part.type === "text") {
+      if (part.text.length > 0) {
+        const sig = readProviderThoughtSignature(part.providerOptions);
+        parts.push(
+          sig
+            ? { text: part.text, thoughtSignature: sig }
+            : { text: part.text },
+        );
+      }
+    } else if (part.type === "tool-call") {
+      const sig = readProviderThoughtSignature(part.providerOptions);
+      const call: Record<string, unknown> = {
+        functionCall: {
+          name: part.toolName,
+          args: (part.input ?? {}) as Record<string, unknown>,
+        },
+      };
+      if (sig) {
+        call.thoughtSignature = sig;
+      }
+      parts.push(call);
+    }
+    // `reasoning` / `file` / `tool-result` / `tool-approval-request` parts on
+    // an assistant message have no native Gemini wire shape and are dropped
+    // — this path never emitted them into `contents` before this conversion
+    // existed either.
+  }
+  return parts;
+}
+
+function toolContentToGeminiParts(content: ToolContent): unknown[] {
+  const parts: unknown[] = [];
+  for (const item of content) {
+    if (item.type === "tool-result") {
+      parts.push({
+        functionResponse: {
+          name: item.toolName,
+          response:
+            item.output && typeof item.output === "object"
+              ? (item.output as Record<string, unknown>)
+              : { result: item.output },
+        },
+      });
+    }
+  }
+  return parts;
+}
+
+/**
+ * Reverse of `geminiContentsToV3Prompt`: rebuild a native Gemini `contents`
+ * array from a (possibly middleware-rewritten) V3 prompt. A `system`
+ * message has no `contents` entry of its own — Gemini carries it on
+ * `config.systemInstruction` — so its text is returned separately
+ * (`systemText`) and the caller folds it into the request config.
+ *
+ * The synthesized `toolCallId` from the forward direction is intentionally
+ * discarded: Gemini pairs a call to its result by position, not by id, so
+ * reconstruction only needs `{name, args}` / `{name, response}`.
+ */
+export function v3PromptToGeminiContents(prompt: ModelMessage[]): {
+  contents: Array<{ role: string; parts: unknown[] }>;
+  systemText?: string;
+} {
+  const contents: Array<{ role: string; parts: unknown[] }> = [];
+  const systemChunks: string[] = [];
+  for (const message of prompt) {
+    if (message.role === "system") {
+      if (message.content.length > 0) {
+        systemChunks.push(message.content);
+      }
+      continue;
+    }
+    if (message.role === "user") {
+      const parts = userContentToGeminiParts(message.content);
+      if (parts.length > 0) {
+        contents.push({ role: "user", parts });
+      }
+      continue;
+    }
+    if (message.role === "assistant") {
+      const parts = assistantContentToGeminiParts(message.content);
+      if (parts.length > 0) {
+        contents.push({ role: "model", parts });
+      }
+      continue;
+    }
+    const parts = toolContentToGeminiParts(message.content);
+    if (parts.length > 0) {
+      contents.push({ role: "user", parts });
+    }
+  }
+  return systemChunks.length > 0
+    ? { contents, systemText: systemChunks.join("\n\n") }
+    : { contents };
 }
 
 /**

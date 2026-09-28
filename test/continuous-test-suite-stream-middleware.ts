@@ -1221,4 +1221,1117 @@ await test("guardrail bad-word filtering catches a term split across adjacent te
   }
 });
 
+// ---------------------------------------------------------------------------
+// AI STUDIO — native generate()/stream() middleware.
+//
+// Google AI Studio's generate() and stream() never go through the AI SDK's
+// LanguageModel plumbing the way the OpenAI-compatible family above does —
+// both hand-roll an agentic loop directly against @google/genai — so before
+// this fix neither transformParams nor wrapGenerate/wrapStream ever ran on
+// this provider (see docs/plans/2026-09-07-middleware-on-native-providers.md).
+// The stand-in below speaks the Gemini REST wire format directly and is
+// reached via the public `credentials.googleAiStudio.baseURL` option, the
+// same mechanism continuous-test-suite-aistudio-loop-characterization.ts
+// uses. Sibling PRs add their own sections here for Vertex and Bedrock.
+//
+// `createProbe` / `emptyRecord` / `middlewareOptions` / `MARKER` / `readText`
+// / `bounded` above are provider-agnostic and reused as-is.
+// ---------------------------------------------------------------------------
+
+const AI_STUDIO_MODEL = "gemini-2.0-flash";
+
+/**
+ * One streamed candidate chunk in the SSE framing the @google/genai SDK
+ * expects. Omitting `finishReason` (undefined, not "STOP") produces a
+ * non-terminal chunk — the shape a real mid-turn delta has.
+ */
+function aiStudioSse(
+  parts: Array<Record<string, unknown>>,
+  finishReason?: string,
+): string {
+  const payload = {
+    candidates: [
+      {
+        content: { parts, role: "model" },
+        ...(finishReason ? { finishReason } : {}),
+        index: 0,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 5,
+      candidatesTokenCount: 4,
+      totalTokenCount: 9,
+    },
+  };
+  return `data: ${JSON.stringify(payload)}\r\n\r\n`;
+}
+
+function aiStudioTextTurn(text: string): string {
+  return aiStudioSse([{ text }], "STOP");
+}
+
+/**
+ * A single-turn SSE response carrying cache-read and reasoning (thinking)
+ * token counts on `usageMetadata` — the shape Gemini reports when part of
+ * the prompt was served from cache and part of the response was thinking.
+ * `promptTokenCount` is deliberately cache-inclusive, matching the
+ * OVERLAPPING convention documented at its call sites in client.ts.
+ */
+function aiStudioCacheUsageTurn(text: string): string {
+  const payload = {
+    candidates: [
+      {
+        content: { parts: [{ text }], role: "model" },
+        finishReason: "STOP",
+        index: 0,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 1000,
+      candidatesTokenCount: 100,
+      cachedContentTokenCount: 800,
+      thoughtsTokenCount: 50,
+      totalTokenCount: 1150,
+    },
+  };
+  return `data: ${JSON.stringify(payload)}\r\n\r\n`;
+}
+
+type AiStudioStandInCall = { body: Record<string, unknown> };
+type AiStudioStandIn = {
+  calls: AiStudioStandInCall[];
+  port: number;
+  close: () => Promise<void>;
+};
+
+async function startAiStudioStandIn(
+  reply: (callIndex: number) => string,
+): Promise<AiStudioStandIn> {
+  const calls: AiStudioStandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        body = {};
+      }
+      calls.push({ body });
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(reply(calls.length - 1));
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      }),
+  };
+}
+
+/**
+ * Opens the response, writes one non-terminal chunk (enough for a consumer
+ * to observe content and break out), then stays silent — used by the
+ * cancellation case to prove a caller breaking out of the returned stream
+ * still reaches the upstream socket through the new V3 wrapping.
+ */
+async function startAiStudioSilentStandIn(): Promise<{
+  received: Promise<void>;
+  closed: () => boolean;
+  port: number;
+  close: () => Promise<void>;
+}> {
+  let resolveReceived: () => void;
+  const received = new Promise<void>((resolve) => {
+    resolveReceived = resolve;
+  });
+  let closed = false;
+  const server: Server = createServer((req, res) => {
+    req.on("data", () => {
+      /* drain */
+    });
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.on("close", () => {
+        closed = true;
+      });
+      res.write(aiStudioSse([{ text: "first" }]));
+      resolveReceived();
+      // Deliberately never ends — only cancellation should close this.
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    received,
+    closed: () => closed,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+function aiStudioCredentialsFor(port: number) {
+  return {
+    googleAiStudio: {
+      apiKey: "test-key",
+      baseURL: `http://127.0.0.1:${port}`,
+    },
+  };
+}
+
+function lastAiStudioBody(
+  server: AiStudioStandIn,
+): Record<string, unknown> | undefined {
+  return server.calls[server.calls.length - 1]?.body;
+}
+
+await test("AI Studio: generate applies model middleware (precondition)", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const record = emptyRecord();
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    assert.ok(
+      record.transformParamsCalls.length > 0,
+      "probe never ran on AI Studio generate — the native generate path bypasses caller model middleware",
+    );
+    assert.ok(
+      record.wrapGenerateCalls > 0,
+      "wrapGenerate never fired on the AI Studio generate path",
+    );
+    const body = lastAiStudioBody(server);
+    assert.ok(
+      body && JSON.stringify(body.contents ?? {}).includes(MARKER),
+      "the transformParams rewrite did not reach the wire on AI Studio generate",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("AI Studio: stream applies model middleware", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const record = emptyRecord();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    await bounded(readText(result));
+    assert.ok(
+      server.calls.length > 0,
+      "the AI Studio stand-in was never called — the stream never left the machine, so nothing below can be concluded about middleware",
+    );
+    assert.ok(
+      record.transformParamsCalls.length > 0,
+      "transformParams never fired on the AI Studio streaming path",
+    );
+    assert.ok(
+      record.transformParamsCalls.includes("stream"),
+      'transformParams fired but never with type "stream" on AI Studio stream()',
+    );
+    assert.ok(
+      record.wrapStreamCalls > 0,
+      "wrapStream never fired on the AI Studio streaming path",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("AI Studio: a stream transformParams rewrite reaches the wire", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const record = emptyRecord();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    await bounded(readText(result));
+    const body = lastAiStudioBody(server);
+    assert.ok(
+      body,
+      "the AI Studio stand-in captured no request body for the stream",
+    );
+    assert.ok(
+      JSON.stringify(body?.contents ?? {}).includes(MARKER),
+      "the transformParams rewrite did not reach the wire on AI Studio stream",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("AI Studio: wrapStream observes the V3 terminal event with usage", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  const seen: LanguageModelV3StreamPart[] = [];
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "ai-studio-wire-filter", name: "AI Studio wire filter" },
+    wrapStream: async ({ doStream }) => {
+      const result = await doStream();
+      return {
+        ...result,
+        stream: result.stream.pipeThrough(
+          new TransformStream({
+            transform(part: LanguageModelV3StreamPart, controller) {
+              seen.push(part);
+              controller.enqueue(
+                part.type === "text-delta"
+                  ? { ...part, delta: part.delta.toUpperCase() }
+                  : part,
+              );
+            },
+          }),
+        ),
+      };
+    },
+  };
+  try {
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-wire-filter"],
+      },
+    });
+    const text = await bounded(readText(result));
+    assert.equal(
+      text,
+      "HELLO FROM AI STUDIO",
+      "filtered text lost on AI Studio stream",
+    );
+    assert.ok(server.calls.length > 0, "AI Studio stand-in was never reached");
+    const finishParts = seen.filter((part) => part.type === "finish");
+    assert.equal(
+      finishParts.length,
+      1,
+      "terminal event not forwarded on AI Studio stream",
+    );
+    const finish = finishParts[0];
+    assert.ok(
+      finish.type === "finish" && (finish.usage.outputTokens.total ?? 0) > 0,
+      "AI Studio finish part carried no usage",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: wrapGenerate observes the V3 generate result with usage", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  let observedText: string | undefined;
+  let observedOutputTokens: number | undefined;
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "ai-studio-generate-observer",
+      name: "AI Studio generate observer",
+    },
+    wrapGenerate: async ({ doGenerate }) => {
+      const result = await doGenerate();
+      const textPart = result.content.find(
+        (c): c is { type: "text"; text: string } => c.type === "text",
+      );
+      observedText = textPart?.text;
+      observedOutputTokens = result.usage.outputTokens.total;
+      return result;
+    },
+  };
+  try {
+    const result = await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-generate-observer"],
+      },
+    });
+    assert.equal(
+      result.content,
+      "hello from ai studio",
+      "AI Studio generate content lost through middleware",
+    );
+    assert.ok(
+      observedText?.includes("hello from ai studio"),
+      "wrapGenerate never observed the V3 text content on AI Studio generate",
+    );
+    assert.ok(
+      (observedOutputTokens ?? 0) > 0,
+      "wrapGenerate observed a V3 result with no usage on AI Studio generate",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+// `gemini-3-fable-preview` isn't a registered model, so it falls back to
+// `SAMPLING_PARAM_REJECTING_FAMILIES` in modelRegistry.ts, which matches it
+// on `/fable/i` — the shared cross-provider family that rejects classic
+// sampling params. `buildNativeConfig` strips temperature/topP for it; the
+// generate bridge must not reintroduce them from the raw call options.
+const SAMPLING_REJECTING_MODEL = "gemini-3-fable-preview";
+
+await test("AI Studio: generate keeps the sampling-param strip in effect for a model that rejects them", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  try {
+    const base = {
+      input: { text: "hi" },
+      provider: "google-ai",
+      disableTools: true,
+      disableInternalFallback: true,
+      maxTokens: 50,
+      temperature: 0.42,
+      topP: 0.77,
+      credentials: aiStudioCredentialsFor(server.port),
+    };
+
+    // Control: a model the registry treats as supporting sampling params —
+    // establishes that this harness's request/response/body-capture round
+    // trip actually carries temperature/topP end to end, so an absence on
+    // the rejecting-family run below means the strip held, not that the
+    // field never makes it onto the wire in this test at all.
+    await nl.generate({ ...base, model: AI_STUDIO_MODEL });
+    assert.equal(
+      server.calls.length,
+      1,
+      "precondition: AI Studio generate control call not reached",
+    );
+    const controlBody = lastAiStudioBody(server) as {
+      generationConfig?: { temperature?: number; topP?: number };
+    };
+    assert.equal(
+      controlBody.generationConfig?.temperature,
+      0.42,
+      "precondition: control model lost its temperature",
+    );
+    assert.equal(
+      controlBody.generationConfig?.topP,
+      0.77,
+      "precondition: control model lost its topP",
+    );
+
+    // Test: same call options, a sampling-rejecting model id.
+    await nl.generate({ ...base, model: SAMPLING_REJECTING_MODEL });
+    assert.equal(
+      server.calls.length,
+      2,
+      "precondition: AI Studio generate rejecting-family call not reached",
+    );
+    const strippedBody = lastAiStudioBody(server) as {
+      generationConfig?: {
+        temperature?: number;
+        topP?: number;
+        maxOutputTokens?: number;
+      };
+    };
+    // An ungated field (never subject to the sampling-param strip) proves
+    // this body was parsed and inspected correctly, not merely empty.
+    assert.equal(
+      strippedBody.generationConfig?.maxOutputTokens,
+      50,
+      "precondition: rejecting-family generate body missing an ungated field",
+    );
+    assert.equal(
+      strippedBody.generationConfig?.temperature,
+      undefined,
+      "AI Studio generate reintroduced temperature for a sampling-rejecting model",
+    );
+    assert.equal(
+      strippedBody.generationConfig?.topP,
+      undefined,
+      "AI Studio generate reintroduced topP for a sampling-rejecting model",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: stream middleware sampling edits reach the wire", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "ai-studio-sampling", name: "AI Studio sampling" },
+    transformParams: async ({ params }) => ({
+      ...params,
+      maxOutputTokens: 77,
+      temperature: 0.25,
+      topP: 0.9,
+    }),
+  };
+  try {
+    await bounded(
+      readText(
+        await nl.stream({
+          input: { text: "hi" },
+          provider: "google-ai",
+          model: AI_STUDIO_MODEL,
+          disableTools: true,
+          disableInternalFallback: true,
+          maxTokens: 128,
+          temperature: 0.7,
+          credentials: aiStudioCredentialsFor(server.port),
+          middleware: {
+            middleware: [middleware],
+            enabledMiddleware: ["ai-studio-sampling"],
+          },
+        }),
+      ),
+    );
+    assert.ok(
+      server.calls.length > 0,
+      "AI Studio sampling fixture not reached",
+    );
+    const body = lastAiStudioBody(server) as {
+      generationConfig?: {
+        temperature?: number;
+        maxOutputTokens?: number;
+        topP?: number;
+      };
+    };
+    assert.equal(
+      body.generationConfig?.maxOutputTokens,
+      77,
+      "AI Studio token override lost",
+    );
+    assert.equal(
+      body.generationConfig?.temperature,
+      0.25,
+      "AI Studio temperature override lost",
+    );
+    assert.equal(
+      body.generationConfig?.topP,
+      0.9,
+      "AI Studio top-p override lost",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: stream keeps the sampling-param strip in effect for a model that rejects them", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  try {
+    const base = {
+      input: { text: "hi" },
+      provider: "google-ai",
+      disableTools: true,
+      disableInternalFallback: true,
+      maxTokens: 50,
+      temperature: 0.42,
+      topP: 0.77,
+      credentials: aiStudioCredentialsFor(server.port),
+    };
+
+    // Control: a model the registry treats as supporting sampling params —
+    // establishes that this harness's request/response/body-capture round
+    // trip actually carries temperature/topP end to end, so an absence on
+    // the rejecting-family run below means the strip held, not that the
+    // field never makes it onto the wire in this test at all.
+    await bounded(
+      readText(await nl.stream({ ...base, model: AI_STUDIO_MODEL })),
+    );
+    assert.equal(
+      server.calls.length,
+      1,
+      "precondition: AI Studio stream control call not reached",
+    );
+    const controlBody = lastAiStudioBody(server) as {
+      generationConfig?: { temperature?: number; topP?: number };
+    };
+    assert.equal(
+      controlBody.generationConfig?.temperature,
+      0.42,
+      "precondition: control model lost its temperature",
+    );
+    assert.equal(
+      controlBody.generationConfig?.topP,
+      0.77,
+      "precondition: control model lost its topP",
+    );
+
+    // Test: same call options, a sampling-rejecting model id (see
+    // SAMPLING_REJECTING_MODEL's definition above the generate-side twin
+    // of this test for why `gemini-3-fable-preview` matches the family).
+    await bounded(
+      readText(await nl.stream({ ...base, model: SAMPLING_REJECTING_MODEL })),
+    );
+    assert.equal(
+      server.calls.length,
+      2,
+      "precondition: AI Studio stream rejecting-family call not reached",
+    );
+    const strippedBody = lastAiStudioBody(server) as {
+      generationConfig?: {
+        temperature?: number;
+        topP?: number;
+        maxOutputTokens?: number;
+      };
+    };
+    // An ungated field (never subject to the sampling-param strip) proves
+    // this body was parsed and inspected correctly, not merely empty.
+    assert.equal(
+      strippedBody.generationConfig?.maxOutputTokens,
+      50,
+      "precondition: rejecting-family stream body missing an ungated field",
+    );
+    assert.equal(
+      strippedBody.generationConfig?.temperature,
+      undefined,
+      "AI Studio stream reintroduced temperature for a sampling-rejecting model",
+    );
+    assert.equal(
+      strippedBody.generationConfig?.topP,
+      undefined,
+      "AI Studio stream reintroduced topP for a sampling-rejecting model",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`AI Studio: precall guardrail blocks ${mode} — target never called`, async () => {
+    const evaluator = await startScriptedChatServer([
+      chatCompletion({
+        content: JSON.stringify({
+          overall: "unsafe",
+          safetyScore: 1,
+          appropriatenessScore: 1,
+          confidenceLevel: 10,
+          suggestedAction: "block",
+          reasoning: "Deterministic blocking fixture",
+        }),
+      }),
+    ]);
+    const target = await startAiStudioStandIn(() =>
+      aiStudioTextTurn("should never be seen"),
+    );
+    const saved = {
+      key: process.env.OPENAI_COMPATIBLE_API_KEY,
+      url: process.env.OPENAI_COMPATIBLE_BASE_URL,
+    };
+    process.env.OPENAI_COMPATIBLE_API_KEY = "test-evaluator-key";
+    process.env.OPENAI_COMPATIBLE_BASE_URL = evaluator.baseURL;
+    const nl = new NeuroLink();
+    try {
+      const options = {
+        input: { text: "block this request" },
+        provider: "google-ai",
+        model: AI_STUDIO_MODEL,
+        disableTools: true,
+        disableInternalFallback: true,
+        enableAnalytics: true,
+        credentials: aiStudioCredentialsFor(target.port),
+        middleware: {
+          middlewareConfig: {
+            guardrails: {
+              enabled: true,
+              config: {
+                precallEvaluation: {
+                  enabled: true,
+                  provider: "openai-compatible",
+                  evaluationModel: "fixture-evaluator",
+                },
+              },
+            },
+          },
+        },
+      };
+      const result =
+        mode === "generate"
+          ? await nl.generate(options)
+          : await nl.stream(options);
+      const content =
+        result && "stream" in result
+          ? await bounded(readText(result))
+          : result?.content;
+      assert.ok(evaluator.wasCalled(), "guardrail evaluator was not exercised");
+      assert.equal(
+        target.calls.length,
+        0,
+        "blocked input reached the AI Studio target",
+      );
+      assert.equal(
+        content,
+        "Request contains inappropriate content and has been blocked.",
+        "AI Studio guardrail refusal was lost",
+      );
+      if (result && "analytics" in result && result.analytics) {
+        await bounded(Promise.resolve(result.analytics));
+      }
+    } finally {
+      if (saved.key === undefined) {
+        delete process.env.OPENAI_COMPATIBLE_API_KEY;
+      } else {
+        process.env.OPENAI_COMPATIBLE_API_KEY = saved.key;
+      }
+      if (saved.url === undefined) {
+        delete process.env.OPENAI_COMPATIBLE_BASE_URL;
+      } else {
+        process.env.OPENAI_COMPATIBLE_BASE_URL = saved.url;
+      }
+      await nl.shutdown();
+      await target.close();
+      await evaluator.close();
+    }
+  });
+}
+
+await test("AI Studio: breaking out of a wrapped stream cancels the upstream socket", async () => {
+  const standIn = await startAiStudioSilentStandIn();
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(standIn.port),
+      middleware: middlewareOptions(emptyRecord()),
+    });
+    await bounded(
+      (async () => {
+        for await (const chunk of result.stream) {
+          if ("content" in chunk && chunk.content) {
+            break;
+          }
+        }
+      })(),
+    );
+    await bounded(standIn.received);
+    await bounded(
+      (async () => {
+        while (!standIn.closed()) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      })(),
+    );
+    assert.ok(
+      standIn.closed(),
+      "upstream socket not closed on AI Studio cancellation",
+    );
+  } finally {
+    await nl.shutdown();
+    await standIn.close();
+  }
+});
+
+await test("AI Studio: audio input bypasses caller model middleware entirely", async () => {
+  // A probe that accepts the raw TCP connection and immediately destroys
+  // the socket. Nothing ever completes the WebSocket handshake, so the
+  // request never succeeds — but critically, @google/genai's Live client
+  // (dist/node/index.cjs Live.connect) only settles its internal
+  // `onopenPromise` from the `onopen` callback; the default/no-op `onerror`
+  // path it wires up does NOT reject that promise. So this branch does not
+  // fail fast with ECONNREFUSED the way a plain HTTP request would —
+  // verified empirically, it hangs until something outside the SDK gives
+  // up (here, the `bounded` wrapper below). That rules out asserting on any
+  // error/message the audio dispatch produces, since none reliably arrives.
+  // The one signal that is real: the probe itself observing a raw TCP
+  // connection, which only happens once the audio/Gemini Live branch has
+  // actually dialed out. That is the precondition below — the absence of
+  // middleware activity proves nothing about *this* branch unless the
+  // branch is proven to have been dispatched first.
+  let connectionsSeen = 0;
+  const probe = createServer();
+  probe.on("connection", (socket) => {
+    connectionsSeen += 1;
+    socket.destroy();
+  });
+  const probePort = await new Promise<number>((resolve) => {
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve(port);
+    });
+  });
+
+  async function* silentFrame(): AsyncIterable<Buffer> {
+    yield Buffer.alloc(320);
+  }
+
+  const record = emptyRecord();
+  const nl = new NeuroLink();
+  try {
+    try {
+      // 10s, not the suite's usual 5s: the observed dial-out latency to
+      // this probe (dynamic `@google/genai` import + Live handshake attempt)
+      // runs ~3-5.5s before the socket is even opened, and the branch never
+      // settles on its own (see above) — so the budget only needs to
+      // outlast that dial-out, not a real response.
+      await bounded(
+        nl.stream({
+          input: { audio: { frames: silentFrame() } },
+          provider: "google-ai",
+          model: "gemini-2.5-flash-preview-native-audio-dialog",
+          disableInternalFallback: true,
+          credentials: aiStudioCredentialsFor(probePort),
+          middleware: middlewareOptions(record),
+        }),
+        10000,
+      );
+    } catch {
+      // Expected — the probe never completes the handshake. Only the
+      // assertions below are under test.
+    }
+    // Precondition: prove the audio/Gemini Live branch was actually
+    // dispatched before trusting the negative assertions below. Without
+    // this, a caller-model-middleware regression that instead sent the
+    // request down the ordinary text/tool path — and failed for some
+    // unrelated reason before ever touching transformParams/wrapStream —
+    // would satisfy both negative assertions for the wrong reason. This
+    // checks the transport-level fact (a TCP connection reached the probe),
+    // not any error message, since this branch does not reliably produce one.
+    assert.ok(
+      connectionsSeen > 0,
+      "the audio/Gemini Live branch was never dispatched — the probe observed no connection attempt, so the assertions below would prove nothing",
+    );
+    assert.equal(
+      record.transformParamsCalls.length,
+      0,
+      "transformParams fired on the audio (Gemini Live) branch",
+    );
+    assert.equal(
+      record.wrapStreamCalls,
+      0,
+      "wrapStream fired on the audio (Gemini Live) branch",
+    );
+  } finally {
+    await nl.shutdown();
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AI STUDIO — caller model middleware system-prompt visibility (forward and
+// reverse), short-circuit stream cleanup, and native-turn usage fidelity.
+// Gemini has no wire-visible system role: the instruction rides separately
+// on `config.systemInstruction`, never inside `contents`. Before the fix,
+// `geminiContentsToV3Prompt(contents)` alone fed `transformParams`, so the
+// caller's system prompt was invisible to middleware on both bridges, and
+// the reverse direction only ever overrode `systemInstruction` when
+// `systemText` was truthy — never signaling "the caller removed it".
+// ---------------------------------------------------------------------------
+
+await test("AI Studio: transformParams observes the caller's system prompt on generate", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  let observedSystemContents: string[] = [];
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "ai-studio-system-observer",
+      name: "AI Studio system observer",
+    },
+    transformParams: async ({ params }) => {
+      observedSystemContents = params.prompt
+        .filter((message) => message.role === "system")
+        .map((message) => message.content);
+      return params;
+    },
+  };
+  const nl = new NeuroLink();
+  try {
+    await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      systemPrompt: "Answer only in French.",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-system-observer"],
+      },
+    });
+    assert.ok(server.calls.length > 0, "AI Studio stand-in was never reached");
+    assert.equal(
+      observedSystemContents.length,
+      1,
+      "transformParams did not see a system message for the caller's systemPrompt on AI Studio generate",
+    );
+    assert.equal(
+      observedSystemContents[0],
+      "Answer only in French.",
+      "the system message transformParams observed did not carry the caller's systemPrompt text",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: a middleware-added system message composes with the caller's on the wire", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "ai-studio-system-append",
+      name: "AI Studio system append",
+    },
+    transformParams: async ({ params }) => ({
+      ...params,
+      prompt: [
+        {
+          role: "system" as const,
+          content: "Always answer in bullet points.",
+        },
+        ...params.prompt,
+      ],
+    }),
+  };
+  const nl = new NeuroLink();
+  try {
+    await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      systemPrompt: "Answer only in French.",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-system-append"],
+      },
+    });
+    const body = lastAiStudioBody(server) as { systemInstruction?: unknown };
+    assert.ok(
+      body?.systemInstruction,
+      "AI Studio wire request carried no systemInstruction at all",
+    );
+    const wireSystemText = JSON.stringify(body.systemInstruction);
+    assert.ok(
+      wireSystemText.includes("Always answer in bullet points."),
+      "the middleware-added system message never reached the AI Studio wire request",
+    );
+    assert.ok(
+      wireSystemText.includes("Answer only in French."),
+      "the caller's original systemPrompt was clobbered by the middleware-added system message",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: middleware clearing every system message removes systemInstruction from the wire", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("hello from ai studio"),
+  );
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "ai-studio-system-strip", name: "AI Studio system strip" },
+    transformParams: async ({ params }) => ({
+      ...params,
+      prompt: params.prompt.filter((message) => message.role !== "system"),
+    }),
+  };
+  const nl = new NeuroLink();
+  try {
+    await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      systemPrompt: "Answer only in French.",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-system-strip"],
+      },
+    });
+    assert.ok(server.calls.length > 0, "AI Studio stand-in was never reached");
+    const body = lastAiStudioBody(server) as { systemInstruction?: unknown };
+    assert.equal(
+      body?.systemInstruction,
+      undefined,
+      "middleware removed every system message but the caller's systemPrompt still reached the AI Studio wire request",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: analytics settle when a short-circuiting stream is abandoned before finish", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioTextTurn("should never be reached"),
+  );
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "ai-studio-short-circuit",
+      name: "AI Studio short circuit",
+    },
+    wrapStream: async () => ({
+      stream: new ReadableStream<LanguageModelV3StreamPart>({
+        start(controller) {
+          controller.enqueue({ type: "text-start", id: "sc" });
+          controller.enqueue({
+            type: "text-delta",
+            id: "sc",
+            delta: "partial",
+          });
+          // Deliberately never enqueues "finish" and never closes — models
+          // a short-circuit stream a caller abandons mid-read, the case
+          // the pre-fix cleanup (gated only on a "finish" part) never ran.
+        },
+      }),
+    }),
+  };
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      enableAnalytics: true,
+      credentials: aiStudioCredentialsFor(server.port),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["ai-studio-short-circuit"],
+      },
+    });
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && chunk.content) {
+        break;
+      }
+    }
+    assert.equal(
+      server.calls.length,
+      0,
+      "synthetic short-circuit stream reached the AI Studio wire — the wrapStream short-circuit did not take effect",
+    );
+    assert.ok(
+      result.analytics,
+      "no analytics promise was exposed on the short-circuit stream",
+    );
+    const analytics = await bounded(Promise.resolve(result.analytics), 5000);
+    assert.ok(
+      (analytics as AnalyticsData).stopReason,
+      "abandoned short-circuit stream settled analytics with no stopReason",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("AI Studio: generate usage preserves cache-read and reasoning tokens from the native turn", async () => {
+  const server = await startAiStudioStandIn(() =>
+    aiStudioCacheUsageTurn("hello from ai studio"),
+  );
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.generate({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model: AI_STUDIO_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: aiStudioCredentialsFor(server.port),
+    });
+    assert.ok(server.calls.length > 0, "AI Studio stand-in was never reached");
+    assert.equal(
+      result.content,
+      "hello from ai studio",
+      "AI Studio generate content lost while exercising cache/reasoning usage",
+    );
+    assert.equal(
+      result.usage?.cacheReadTokens,
+      800,
+      "cache-read tokens from the native AI Studio turn were dropped from the generate result's usage",
+    );
+    assert.equal(
+      result.usage?.reasoning,
+      50,
+      "reasoning tokens from the native AI Studio turn were dropped from the generate result's usage",
+    );
+    assert.equal(
+      result.usage?.total,
+      1150,
+      "the generate result's usage total undercounted once cache/reasoning tokens were introduced",
+    );
+  } finally {
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
 await runSuite();

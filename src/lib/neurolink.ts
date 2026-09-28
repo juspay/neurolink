@@ -5767,6 +5767,12 @@ Current user's request: ${currentInput}`;
       provider: options.provider as AIProviderName,
       model: options.model,
       temperature: options.temperature,
+      // Listed explicitly because this literal is the only road into the
+      // provider: `topP` is declared on both `GenerateOptions` and
+      // `TextGenerationOptions`, but it was missing here and so was silently
+      // dropped on every generate() call regardless of provider, while
+      // stream() (which spreads its options) already forwarded it.
+      topP: options.topP,
       maxTokens: options.maxTokens,
       systemPrompt: options.systemPrompt,
       schema: options.schema,
