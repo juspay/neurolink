@@ -217,8 +217,6 @@ emitter.on("hitl:timeout", (event) => {
 });
 ```
 
-See [human-in-the-loop.md](../human-in-the-loop.md) for complete technical documentation.
-
 ## Troubleshooting
 
 ### Problem: Tool executes without asking for permission
@@ -339,5 +337,3 @@ If upgrading from versions before v7.39.0:
 3. Implement confirmation dialog in your UI
 4. Test with low-risk tools first
 5. Roll out to production gradually
-
-For comprehensive technical documentation, diagrams, and security details, see the [complete HITL guide](../human-in-the-loop.md).

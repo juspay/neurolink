@@ -579,7 +579,6 @@ ollama --version
 ## Related Documentation
 
 - **[Provider Setup Guide](../provider-setup.md)** - General provider configuration
-- **[Ollama Installation Guide](../../ollama-setup.md)** - Detailed platform-specific installation
 
 ---
 

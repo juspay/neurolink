@@ -91,7 +91,7 @@
 1. **Environment Variable Loading**: Added dotenv configuration to test executor
 2. **Provider Fallback Logic**: Simplified provider selection to prevent unwanted fallbacks
 3. **SDK-to-CLI Conversion**: Enhanced test reliability by preferring CLI execution
-4. **Ollama Configuration**: Updated to use breezehq.dev endpoint with proper model
+4. **Ollama Configuration**: Updated to use a hosted Ollama endpoint with proper model
 
 ### Execution Optimizations
 

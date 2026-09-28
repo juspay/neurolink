@@ -4,4 +4,4 @@ title: Troubleshooting
 
 # Troubleshooting
 
-This page has moved. Please see the [Troubleshooting Guide](../reference/troubleshooting.md).
+This page has moved to [Troubleshooting Guide](../reference/troubleshooting.md).

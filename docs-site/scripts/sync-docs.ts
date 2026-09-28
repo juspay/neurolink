@@ -1775,11 +1775,14 @@ const REDIRECT_STUB_MARKER = "This page has moved to";
  *
  * Keeping the list here rather than letting the sync decide quietly is the
  * point: a target claimed by a file that is NOT listed fails the sync, so a
- * new collision has to be looked at instead of silently costing a page. The
- * fourteen stubs are already covered by `config/redirects.ts`; the seven real
- * pages are legacy copies that were never removed when their content moved,
- * and publishing them is not an option — their URLs are redirect sources in
- * `config/redirects.ts`, so a page there collides with the redirect table.
+ * new collision has to be looked at instead of silently costing a page. Every
+ * entry but one is a redirect stub left at a page's old path, so losing it
+ * costs nothing: the page it points to is the one the site publishes. Several
+ * of those old URLs are also redirect sources in `config/redirects.ts`, so
+ * publishing a page there would collide with the redirect table. The exception
+ * is `skills/neurolink-guide/troubleshooting.md`: the neurolink-guide skill
+ * reads it by path, so it stays a real file and loses to
+ * `reference/troubleshooting.md` on the site.
  */
 const KNOWN_SUPERSEDED: ReadonlyArray<{ source: string; target: string }> = [
   { source: "advanced/api-reference.md", target: "sdk/api-reference.md" },

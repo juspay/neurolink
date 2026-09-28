@@ -383,15 +383,14 @@ export SAGEMAKER_TIMEOUT="60000"  # 60 seconds for large models
 
 ### 📖 Complete SageMaker Guide
 
-For comprehensive SageMaker setup, advanced features, and production deployment:
-**[📖 Complete SageMaker Integration Guide](../sagemaker-integration.md)** - Includes:
+For endpoint setup, permissions and production deployment:
+**[📖 Amazon SageMaker Provider Guide](providers/sagemaker.md)** - Includes:
 
-- Model deployment examples
-- Cost optimization strategies
-- Enterprise security patterns
-- Multi-model endpoint management
-- Performance testing and monitoring
-- Troubleshooting and debugging
+- Model endpoint deployment
+- Environment and client configuration
+- IAM policies and VPC connectivity
+- Feature support (streaming, embeddings, tools, structured output)
+- Troubleshooting
 
 ## Google Vertex AI Configuration {#vertex}
 
