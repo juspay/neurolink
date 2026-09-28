@@ -591,9 +591,17 @@ jobs:
       # Kept here as a note because the runner is where it will resurface: if
       # this step starts failing on FileDetector again after a Node or undici
       # bump, that dispatcher-major check is the first place to look.
+      #
+      # test:file-tool-roots is the symlink-escape regression suite for the
+      # built-in file tools (readFile / writeFile / listDirectory / analyzeCSV).
+      # It was never in test:unit, so the containment fix that shipped in
+      # v12.28.0 had no gate at all until a bug-bounty report against 12.23.2
+      # made that visible. Offline against a local replay endpoint: every
+      # assertion passes with the environment stripped, none skip, ~2s.
       - name: Credential-free suites (the rest of test:unit)
         run: |
           pnpm run test:bugfixes
+          pnpm run test:file-tool-roots
           pnpm run test:mcp:infra
           pnpm run test:mcp:spans
           pnpm run test:mcp:stdio-lifecycle

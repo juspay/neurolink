@@ -485,6 +485,19 @@ export type CSVColumnMetadata = {
 /** A parsed CSV row: string-keyed with string (or missing) cell values (#384). */
 export type CSVRow = Record<string, string | undefined>;
 
+/**
+ * How `CSVProcessor.parseCSVFile` opens the file.
+ *
+ * `followSymlinks: false` opens with O_NOFOLLOW, so a symlink at the final
+ * path component is refused (ELOOP) rather than followed. The sandboxed
+ * analyzeCSV tool passes it after containment has resolved the real path,
+ * closing the window between that check and the open. Defaults to `true`; on
+ * Windows, where O_NOFOLLOW does not exist, the option has no effect.
+ */
+export type CSVFileOpenOptions = {
+  followSymlinks?: boolean;
+};
+
 /** Result of decoding a buffer with encoding detection (#362). */
 export type DecodedBuffer = {
   /** Decoded text with any BOM removed. */

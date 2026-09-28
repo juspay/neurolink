@@ -1275,6 +1275,7 @@ console.log(result.content);
 - [CSVDataQualityWarning](type-aliases/CSVDataQualityWarning.md)
 - [CSVColumnMetadata](type-aliases/CSVColumnMetadata.md)
 - [CSVRow](type-aliases/CSVRow.md)
+- [CSVFileOpenOptions](type-aliases/CSVFileOpenOptions.md)
 - [DecodedBuffer](type-aliases/DecodedBuffer.md)
 - [CSVProcessorOptions](type-aliases/CSVProcessorOptions.md)
 - [PDFAPIType](type-aliases/PDFAPIType.md)

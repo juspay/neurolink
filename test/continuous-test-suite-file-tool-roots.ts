@@ -13,11 +13,12 @@
  */
 
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { defineSuite, runCLI } from "./helpers/harness.js";
+import { Skip, defineSuite, runCLI } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
 process.env.NEUROLINK_ENABLE_BASH_TOOL = "true";
@@ -200,6 +201,21 @@ fs.symlinkSync(B, path.join(A, "escape"));
 fs.symlinkSync(B, path.join(A, "linkdir"));
 fs.symlinkSync(B, ALIAS);
 fs.writeFileSync(path.join(B, "secret.txt"), "TOP-SECRET-OUTSIDE");
+// A file link out of the root, a file link and a directory link that stay
+// inside it, and a CSV on each side of the boundary.
+fs.symlinkSync(path.join(B, "secret.txt"), path.join(A, "linkfile"));
+fs.symlinkSync(path.join(A, "a.txt"), path.join(A, "inner"));
+fs.mkdirSync(path.join(A, "sub"));
+fs.writeFileSync(path.join(A, "sub", "s.txt"), "sierra");
+fs.symlinkSync(path.join(A, "sub"), path.join(A, "innerdir"));
+fs.writeFileSync(
+  path.join(A, "inside.csv"),
+  "zebra_count,quokka_total\n1,2\n3,4\n",
+);
+fs.writeFileSync(
+  path.join(B, "outside.csv"),
+  "wombat_count,numbat_total\n5,6\n",
+);
 
 type SdkOptions = Record<string, unknown>;
 type Sdk = {
@@ -621,6 +637,206 @@ await test("a dangling symlink inside the root is refused for reads", async () =
     );
   } finally {
     fs.rmSync(path.join(A, "dangling-read"), { force: true });
+  }
+});
+
+// The remaining symlink vectors from the 2026-09 bug-bounty report, each under
+// the default (working-directory) roots that report was written against.
+
+await test("a file symlink inside the root that points at a file outside it is denied for reads", async () => {
+  const [outcome] = await inDirectory(A, () => runTools([read("linkfile")]));
+  assert.ok(!outcome.success, "a read through a file symlink was accepted");
+  assert.ok(
+    !outcome.text.includes("TOP-SECRET-OUTSIDE"),
+    "content from outside the root leaked through a file symlink",
+  );
+});
+
+await test("overwrite and append through a file symlink that points outside the root are denied", async () => {
+  const victim = path.join(B, "victim.txt");
+  fs.writeFileSync(victim, "ORIGINAL");
+  fs.symlinkSync(victim, path.join(A, "linkvictim"));
+  try {
+    const [overwritten, appended] = await inDirectory(A, () =>
+      runTools([
+        {
+          name: "writeFile",
+          args: { path: "linkvictim", content: "CLOBBERED", mode: "overwrite" },
+        },
+        {
+          name: "writeFile",
+          args: { path: "linkvictim", content: "APPENDED", mode: "append" },
+        },
+      ]),
+    );
+    assert.ok(
+      !overwritten.success,
+      "an overwrite through a file symlink was accepted",
+    );
+    assert.ok(
+      !appended.success,
+      "an append through a file symlink was accepted",
+    );
+    assert.equal(
+      fs.readFileSync(victim, "utf8"),
+      "ORIGINAL",
+      "a file outside the root was modified through a symlink",
+    );
+  } finally {
+    fs.rmSync(path.join(A, "linkvictim"), { force: true });
+    fs.rmSync(victim, { force: true });
+  }
+});
+
+await test("listDirectory through a symlink that points outside the root is denied", async () => {
+  const [outcome] = await inDirectory(A, () =>
+    runTools([{ name: "listDirectory", args: { path: "escape" } }]),
+  );
+  assert.ok(
+    !outcome.success,
+    "a listing through a symlink escape was accepted",
+  );
+  assert.ok(
+    !outcome.text.includes("secret.txt"),
+    "entry names from outside the root leaked through a symlink",
+  );
+});
+
+await test("analyzeCSV through a symlink that points outside the root is denied, and one inside it still parses", async () => {
+  const [escaped, inside] = await inDirectory(A, () =>
+    runTools([
+      {
+        name: "analyzeCSV",
+        args: { filePath: "escape/outside.csv", operation: "describe" },
+      },
+      {
+        name: "analyzeCSV",
+        args: { filePath: "inside.csv", operation: "describe" },
+      },
+    ]),
+  );
+  assert.ok(!escaped.success, "analyzeCSV followed a symlink out of the root");
+  assert.ok(
+    !escaped.text.includes("wombat_count"),
+    "column names from outside the root leaked through analyzeCSV",
+  );
+  assert.ok(inside.success, "analyzeCSV refused a CSV inside the root");
+  assert.ok(
+    inside.text.includes("zebra_count"),
+    "analyzeCSV did not report the columns of a CSV inside the root",
+  );
+});
+
+await test("analyzeCSV refuses a FIFO inside the root at once instead of blocking on open", async () => {
+  if (process.platform === "win32") {
+    throw new Skip("no FIFOs on Windows");
+  }
+  // A FIFO with no writer parks a blocking open() in the threadpool, and a
+  // thread stuck there also keeps the process from exiting — so if this ever
+  // regresses, an in-process tool call would hang the suite rather than fail
+  // it. The call therefore runs in the built CLI, a child the harness kills at
+  // the deadline, and the deadline is the assertion.
+  const fifo = path.join(A, "pipe.csv");
+  execFileSync("mkfifo", [fifo]);
+  const nonce = `n${++nonceCounter}`;
+  try {
+    const result = await runCLI(
+      [
+        "generate",
+        planPrompt(nonce, [
+          {
+            name: "analyzeCSV",
+            args: { filePath: fifo, operation: "describe" },
+          },
+        ]),
+        "--provider",
+        "openai-compatible",
+        "--model",
+        "test-model",
+        "--tool-root",
+        A,
+        "--format",
+        "json",
+      ],
+      {
+        env: { OPENAI_COMPATIBLE_BASE_URL: server.baseURL },
+        timeoutMs: 30_000,
+      },
+    );
+    assert.ok(
+      !/command timed out/.test(result.stderr),
+      "analyzeCSV on a FIFO blocked past the deadline and the CLI had to be killed",
+    );
+    assert.equal(result.exitCode, 0, "the CLI run failed");
+    const [outcome] = server.outcomes(nonce);
+    assert.ok(
+      outcome !== undefined,
+      "the FIFO tool call never produced a result",
+    );
+    assert.ok(!outcome.success, "analyzeCSV accepted a FIFO as a CSV file");
+    assert.ok(
+      /not a regular file/.test(outcome.text),
+      "the FIFO was not refused as a non-regular file",
+    );
+  } finally {
+    fs.rmSync(fifo, { force: true });
+  }
+});
+
+await test("symlinks inside the root that stay inside it are not denied", async () => {
+  const [file, viaDir] = await inDirectory(A, () =>
+    runTools([read("inner"), read("innerdir/s.txt")]),
+  );
+  assert.ok(
+    file.success,
+    "a file symlink to a file inside the root was refused",
+  );
+  assert.ok(
+    file.text.includes("alpha"),
+    "the linked file's content did not come back",
+  );
+  assert.ok(
+    viaDir.success,
+    "a read through a directory symlink inside the root was refused",
+  );
+  assert.ok(
+    viaDir.text.includes("sierra"),
+    "the content behind the inner directory link did not come back",
+  );
+});
+
+await test("listing a directory that holds a dangling symlink succeeds, and links are reported as links without their target's metadata", async () => {
+  fs.symlinkSync(path.join(B, "never.txt"), path.join(A, "dangling-list"));
+  try {
+    const [outcome] = await inDirectory(A, () =>
+      runTools([{ name: "listDirectory", args: { path: "." } }]),
+    );
+    assert.ok(
+      outcome.success,
+      "a directory containing a dangling symlink could not be listed",
+    );
+    assert.ok(
+      /"name"\s*:\s*"dangling-list"\s*,\s*"type"\s*:\s*"symlink"/.test(
+        outcome.text,
+      ),
+      "the dangling link was not reported as a symlink",
+    );
+    // A link's entry carries no `size`: that would be the size of a file
+    // outside the root, read through the link.
+    assert.ok(
+      /"name"\s*:\s*"linkfile"\s*,\s*"type"\s*:\s*"symlink"\s*,\s*"lastModified"/.test(
+        outcome.text,
+      ),
+      "a symlink entry exposed its target's size",
+    );
+    assert.ok(
+      /"name"\s*:\s*"a\.txt"\s*,\s*"type"\s*:\s*"file"\s*,\s*"size"\s*:\s*5/.test(
+        outcome.text,
+      ),
+      "a regular file entry lost its type or size",
+    );
+  } finally {
+    fs.rmSync(path.join(A, "dangling-list"), { force: true });
   }
 });
 

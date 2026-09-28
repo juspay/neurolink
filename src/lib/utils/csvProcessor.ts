@@ -7,6 +7,7 @@
 import csvParser from "csv-parser";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "stream";
+import type { FileHandle } from "fs/promises";
 import { extname } from "path";
 import { logger } from "./logger.js";
 import {
@@ -20,6 +21,7 @@ import { ErrorFactory } from "./errorHandling.js";
 import { withTimeout, TimeoutError } from "./async/withTimeout.js";
 import type {
   FileProcessingResult,
+  CSVFileOpenOptions,
   CSVProcessorOptions,
   CSVRow,
   SampleDataFormat,
@@ -1397,11 +1399,14 @@ export class CSVProcessor {
     filePath: string,
     maxRows: number = 1000,
     timeoutMs: number = DEFAULT_CSV_FILE_PARSE_TIMEOUT_MS,
+    openOptions?: CSVFileOpenOptions,
   ): Promise<CSVRow[]> {
     const { rows } = await this.parseCSVFileWithMeta(
       filePath,
       maxRows,
       timeoutMs,
+      undefined,
+      openOptions,
     );
     return rows;
   }
@@ -1415,6 +1420,7 @@ export class CSVProcessor {
     maxRows: number = 1000,
     timeoutMs: number = DEFAULT_CSV_FILE_PARSE_TIMEOUT_MS,
     encoding?: string,
+    openOptions?: CSVFileOpenOptions,
   ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
     if (typeof filePath !== "string" || filePath.trim().length === 0) {
       throw ErrorFactory.csvInvalidInput(
@@ -1454,10 +1460,74 @@ export class CSVProcessor {
       );
     }
 
-    // #368: a SINGLE createReadStream. We peek its leading bytes to sniff the
+    // The handle is opened through fs.promises because its `flags` accepts a
+    // number; the stream then owns it (autoClose), so destroy() on the error
+    // paths below still releases the descriptor. Three flags do the work:
+    //
+    // - `followSymlinks: false` adds O_NOFOLLOW (0 on Windows, so a no-op
+    //   there): the sandboxed caller has already checked the real path, and a
+    //   link that appears at the final component afterwards must fail with
+    //   ELOOP rather than redirect the read.
+    // - O_NONBLOCK (0 where undefined) so a FIFO with no writer returns from
+    //   open() at once instead of parking the call in the threadpool for ever,
+    //   beyond the reach of any deadline. It is ignored for regular files.
+    // - O_RDONLY, and then a stat on the opened handle: a CSV is a regular
+    //   file, so a FIFO, a device or a directory is refused before the read
+    //   phase, which is also what stops a device read from never ending.
+    //
+    // The open itself runs under the same wall-clock budget as the phases
+    // after it (#1199). A handle that arrives after the deadline is closed
+    // when it does, so the timed-out open cannot leak a descriptor.
+    const noFollow =
+      openOptions?.followSymlinks === false
+        ? (fs.constants.O_NOFOLLOW ?? 0)
+        : 0;
+    const openFlags =
+      fs.constants.O_RDONLY | noFollow | (fs.constants.O_NONBLOCK ?? 0);
+    const openRegularFile = async (): Promise<FileHandle> => {
+      const opened = await fs.promises.open(filePath, openFlags);
+      try {
+        if (!(await opened.stat()).isFile()) {
+          throw new Error("not a regular file");
+        }
+      } catch (error) {
+        await opened.close();
+        throw error;
+      }
+      return opened;
+    };
+    const opening = openRegularFile();
+    let handle: FileHandle;
+    try {
+      handle = await withTimeout(
+        opening,
+        remaining(),
+        "[CSVProcessor] Timed out opening CSV file",
+      );
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        void opening.then(
+          (late) => late.close(),
+          () => undefined,
+        );
+        logger.warn(
+          `[CSVProcessor] Opening ${filePath} exceeded the ${timeoutMs}ms parse budget; returning an empty partial result`,
+        );
+        return { rows: [], timedOut: true };
+      }
+      throw ErrorFactory.csvFileAccessFailed(
+        `[CSVProcessor] Failed to open CSV file (${filePath}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        filePath,
+        error instanceof Error ? error : undefined,
+      );
+    }
+
+    // #368: a SINGLE read stream. We peek its leading bytes to sniff the
     // encoding (#362) and detect a metadata line + delimiter (#361), then
     // replay those bytes back onto the same stream — no second disk read.
-    const rawSource = fs.createReadStream(filePath);
+    const rawSource = handle.createReadStream();
     let prepared: { source: Readable; skipLines: number; delimiter: string };
     try {
       prepared = await withTimeout(

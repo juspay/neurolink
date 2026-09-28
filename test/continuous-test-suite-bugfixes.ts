@@ -1379,6 +1379,58 @@ const tests: TestFunction[] = [
       return ok.success === true;
     },
   },
+  {
+    // The #1004 guard compared strings, so a symlink INSIDE cwd that pointed
+    // outside it passed the check and fs followed the link (bug bounty,
+    // 2026-09; fixed by realpath containment in v12.28.0). This is the case
+    // the original regression test above never had. The full vector set —
+    // file links, dangling links, writes, listDirectory, analyzeCSV — lives in
+    // test/continuous-test-suite-file-tool-roots.ts, end-to-end.
+    name: "directAgentTools: a symlink inside cwd that points outside it is denied (readFile/listDirectory/writeFile)",
+    category: "tool-sandbox",
+    fn: async () => {
+      type Exec = {
+        execute: (a: unknown) => Promise<{ success: boolean; error?: string }>;
+      };
+      const rf = directAgentTools.readFile as unknown as Exec;
+      const wf = directAgentTools.writeFile as unknown as Exec;
+      const ld = directAgentTools.listDirectory as unknown as Exec;
+      const denied = (r: { success: boolean; error?: string }) =>
+        r.success === false && /Access denied/.test(r.error ?? "");
+      const outside = mkdtempSync(pathJoin(tmpdir(), "nl-1004-outside-"));
+      const inside = mkdtempSync(pathJoin(process.cwd(), ".nl-1004-inside-"));
+      const planted = pathJoin(outside, "planted.txt");
+      try {
+        writeFileSync(pathJoin(outside, "secret.txt"), "OUTSIDE");
+        symlinkSync(outside, pathJoin(inside, "linkdir"));
+        symlinkSync(
+          pathJoin(outside, "secret.txt"),
+          pathJoin(inside, "linkfile"),
+        );
+        symlinkSync(planted, pathJoin(inside, "dangling"));
+        const rel = basename(inside);
+        const results = await Promise.all([
+          rf.execute({ path: `${rel}/linkdir/secret.txt` }),
+          rf.execute({ path: `${rel}/linkfile` }),
+          ld.execute({ path: `${rel}/linkdir` }),
+          wf.execute({
+            path: `${rel}/linkdir/pwned.txt`,
+            content: "x",
+            mode: "create",
+          }),
+          wf.execute({ path: `${rel}/dangling`, content: "x", mode: "create" }),
+        ]);
+        return (
+          results.every(denied) &&
+          !existsSync(pathJoin(outside, "pwned.txt")) &&
+          !existsSync(planted)
+        );
+      } finally {
+        rmSync(inside, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  },
   // ---------- isMultimodalInput guards against non-array fields (issue #278) ----------
   {
     name: "isMultimodalInput returns false for non-array fields (no unsafe .length)",

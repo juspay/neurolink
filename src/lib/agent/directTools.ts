@@ -61,6 +61,14 @@ function withRoots(description: string, policy: FileToolRootPolicy): string {
  * `/home/app-evil` against `/home/app` gets through. A path that does not
  * exist yet is checked on its nearest existing ancestor, which is what a
  * write needs. Relative paths resolve against the first root.
+ *
+ * The result is a REAL path, and every consumer opens it with O_NOFOLLOW (or
+ * O_EXCL), so a link swapped in at the final component after this check is
+ * refused by the kernel — on Windows, which has no O_NOFOLLOW, only the
+ * O_EXCL create path keeps that guarantee. A directory component swapped for
+ * a link in that same window is not caught anywhere: Node exposes no
+ * openat/O_PATH walk, so that race is accepted here exactly as
+ * `FileDetector.loadFromPath` accepts it.
  */
 function resolveWithinFileToolRoots(
   target: string,
@@ -92,6 +100,32 @@ function resolveWithinFileToolRoots(
 
 /** Unavailable on Windows, where it is 0 and has no effect. */
 const O_NOFOLLOW = fs.constants.O_NOFOLLOW ?? 0;
+
+const SENSITIVE_SYSTEM_PATH_PREFIXES = [
+  "/etc/",
+  "/sys/",
+  "/proc/",
+  "/dev/",
+  "/root/",
+  "/.ssh/",
+  "/private/etc/",
+  "/private/var/",
+  "c:/windows/",
+  "c:/program files/",
+  "c:/programdata/",
+];
+
+/**
+ * Denylist of system directories analyzeCSV refuses even inside a permitted
+ * root. Expects an already-resolved real path, so what is judged is where the
+ * file actually lives rather than the name it was asked for by.
+ */
+function isSensitiveSystemPath(realPath: string): boolean {
+  const normalized = realPath.toLowerCase().replace(/\\/g, "/");
+  return SENSITIVE_SYSTEM_PATH_PREFIXES.some((prefix) =>
+    normalized.startsWith(prefix),
+  );
+}
 
 /**
  * Write without following a symlink at the final path component. The root
@@ -307,6 +341,7 @@ function createReadFileTool(policy: FileToolRootPolicy): Tool {
   });
 }
 
+/** List one directory inside the roots; entries are lstat'd, never followed. */
 function createListDirectoryTool(policy: FileToolRootPolicy): Tool {
   return tool({
     description: withRoots(
@@ -337,13 +372,21 @@ function createListDirectoryTool(policy: FileToolRootPolicy): Tool {
           ? items
           : items.filter((item) => !item.startsWith("."));
 
+        // lstat, not stat: an entry that is a symlink is reported as one, with
+        // its own metadata. Following it would leak the size and mtime of a
+        // target outside the roots, and a dangling link would fail the whole
+        // listing with ENOENT.
         const itemDetails = filteredItems.map((item) => {
           const itemPath = path.join(resolvedPath, item);
-          const stats = fs.statSync(itemPath);
+          const stats = fs.lstatSync(itemPath);
 
           return {
             name: item,
-            type: stats.isDirectory() ? "directory" : "file",
+            type: stats.isSymbolicLink()
+              ? "symlink"
+              : stats.isDirectory()
+                ? "directory"
+                : "file",
             size: stats.isFile() ? stats.size : undefined,
             lastModified: stats.mtime.toISOString(),
           };
@@ -418,6 +461,10 @@ function createWriteFileTool(policy: FileToolRootPolicy): Tool {
   });
 }
 
+/**
+ * Execute one analyzeCSV call: contain the path, parse the file without
+ * following a final-component link, then run the requested aggregation.
+ */
 async function runAnalyzeCSV(
   { filePath, operation, column, maxRows = 1000 }: AnalyzeCsvToolArgs,
   policy: FileToolRootPolicy,
@@ -444,7 +491,14 @@ async function runAnalyzeCSV(
     logger.info(`[analyzeCSV] Starting CSV parsing (max ${maxRows} rows)...`);
     // #384: parseCSVFile now returns validated Record<string, string |
     // undefined>[] rows, so the previous unchecked cast is unnecessary.
-    const rows = await CSVProcessor.parseCSVFile(resolvedPath, maxRows);
+    // The root check ran on the real path; O_NOFOLLOW refuses a link swapped
+    // in at the final component afterwards, as readFile does.
+    const rows = await CSVProcessor.parseCSVFile(
+      resolvedPath,
+      maxRows,
+      undefined,
+      { followSymlinks: false },
+    );
     logger.info(`[analyzeCSV] ✅ CSV parsing complete: ${rows.length} rows`);
 
     if (rows.length === 0) {
@@ -710,6 +764,7 @@ async function runAnalyzeCSV(
   }
 }
 
+/** The analyzeCSV tool bound to `policy`; its schema refuses paths the roots would. */
 function createAnalyzeCsvTool(policy: FileToolRootPolicy): Tool {
   return tool({
     description: withRoots(
@@ -721,30 +776,14 @@ function createAnalyzeCsvTool(policy: FileToolRootPolicy): Tool {
         .string()
         .refine(
           (inputPath) => {
-            const resolvedPath = path.resolve(inputPath);
-            const normalizedPath = resolvedPath
-              .toLowerCase()
-              .replace(/\\/g, "/");
-
-            const sensitivePatterns = [
-              "/etc/",
-              "/sys/",
-              "/proc/",
-              "/dev/",
-              "/root/",
-              "/.ssh/",
-              "/private/etc/",
-              "/private/var/",
-              "c:/windows/",
-              "c:/program files/",
-              "c:/programdata/",
-            ];
-
+            // Contain first, then apply the system-directory denylist to the
+            // REAL path the guard resolved: a relative path is thereby judged
+            // against the tool root rather than process.cwd(), and a symlink
+            // into /etc under a wide root is seen for where it points.
+            const contained = resolveWithinFileToolRoots(inputPath, policy);
             return (
-              !sensitivePatterns.some((pattern) =>
-                normalizedPath.startsWith(pattern),
-              ) &&
-              resolveWithinFileToolRoots(inputPath, policy).path !== undefined
+              contained.path !== undefined &&
+              !isSensitiveSystemPath(contained.path)
             );
           },
           {
