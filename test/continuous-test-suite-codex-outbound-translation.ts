@@ -334,7 +334,13 @@ test("tool_choice table produces the exact §3.3 shape for each case", () => {
     ],
     ["auto", { type: "auto" }],
     ["none", { type: "none" }],
-    [undefined, undefined],
+    // Tool-call-fidelity PR: an absent tool_choice now defaults explicitly to
+    // {type:"auto"} (previously omitted entirely), so
+    // disable_parallel_tool_use always has a field to attach to regardless of
+    // whether the source request bothered to say "auto" out loud — see the
+    // spec's corrected §2 bijection table and its tool_choice_absent_defaults_auto
+    // test. This row is a deliberate behavior change, not a regression.
+    [undefined, { type: "auto" }],
   ];
   for (const [choice, expected] of cases) {
     const result = translateCodexRequestToClaude(

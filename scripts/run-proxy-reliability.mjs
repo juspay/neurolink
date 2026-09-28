@@ -15,6 +15,10 @@ const checks = [
   // Not name-templated below because it is not a `proxy-*` suite: it covers the
   // Anthropic-to-Codex response translation direction, not proxy request/accounting.
   ["tsx", "test/continuous-test-suite-codex-response-translation.ts"],
+  // Not name-templated below because it is not a `proxy-*` suite: it covers
+  // Codex-outbound tool-call fidelity (tool_choice bijection, toolKindByName
+  // round-tripping, schema flattening), not proxy request/accounting.
+  ["tsx", "test/continuous-test-suite-codex-outbound-tool-fidelity.ts"],
   ...[
     "request-lifecycle",
     "http-disconnect",

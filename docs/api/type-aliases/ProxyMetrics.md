@@ -105,3 +105,22 @@ OTel metric instruments used by the proxy tracer.
 ### fallbackFailureTotal
 
 > **fallbackFailureTotal**: `Counter`
+
+---
+
+### schemaDegradedTotal
+
+> **schemaDegradedTotal**: `Counter`
+
+Codex-outbound: a declared tool's JSON Schema needed flattening or lost
+a feature (circular $ref, dropped `strict`, a custom grammar tool wrapped
+into a one-string schema) on its way to a Claude tool.
+
+---
+
+### unsupportedFieldTotal
+
+> **unsupportedFieldTotal**: `Counter`
+
+Codex-outbound: an inbound field this repo cannot faithfully represent
+in the Claude request was dropped rather than failing the translation.

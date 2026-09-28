@@ -6,6 +6,6 @@
 
 # Type Alias: CodexResponseItem
 
-> **CodexResponseItem** = [`CodexResponseMessageItem`](CodexResponseMessageItem.md) \| [`CodexResponseFunctionCallItem`](CodexResponseFunctionCallItem.md)
+> **CodexResponseItem** = [`CodexResponseMessageItem`](CodexResponseMessageItem.md) \| [`CodexResponseFunctionCallItem`](CodexResponseFunctionCallItem.md) \| [`CodexResponseCustomToolCallItem`](CodexResponseCustomToolCallItem.md)
 
 One item in a Codex `response.output[]` array, discriminated by `type`.

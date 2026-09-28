@@ -26,13 +26,22 @@ import {
   CodexResponsesStreamSerializer,
   serializeCodexResponse,
 } from "./codexResponsesFormat.js";
+import {
+  CODEX_STREAM_MAX_TOOL_CALLS,
+  CODEX_STREAM_SIZE_CEILING_BYTES,
+} from "./streamLimits.js";
 import type {
   ClaudeResponse,
   ClaudeUsage,
+  CodexNativeToolKind,
   CodexResponseEnvelope,
   CodexResponseStream,
   ParsedSSEEvent,
 } from "../types/index.js";
+
+/** Empty by default so an existing caller (no `toolKindByName` argument) keeps
+ *  treating every tool_use block as a `function` call, unchanged. */
+const NO_TOOL_KINDS: ReadonlyMap<string, CodexNativeToolKind> = new Map();
 
 /** A non-2xx reply (either path) or a non-JSON reply (non-streaming path) from
  *  the Anthropic-shape upstream, raised before any Codex frame is sent. */
@@ -48,7 +57,9 @@ export class AnthropicFallbackResponseError extends Error {
   }
 }
 
-/** A pre-commit or post-commit failure while translating the Anthropic SSE stream. */
+/** A pre-commit or post-commit failure while translating the Anthropic SSE
+ *  stream, or a well-formed non-streaming reply this module refuses to
+ *  translate (tool calls over `streamLimits.ts`'s count or size ceiling). */
 export class AnthropicFallbackStreamError extends Error {
   readonly status: number;
   readonly code: string;
@@ -75,9 +86,44 @@ function optionalNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-/** Caps how much unparsed Anthropic SSE text this module will buffer, mirroring
- *  the ceiling `codexFallback.ts` applies on the reverse direction. */
-const MAX_BUFFER_CHARS = 16 * 1024 * 1024;
+/** Caps how much unparsed Anthropic SSE text this module will buffer — now
+ *  centralized in streamLimits.ts alongside the same ceiling `codexFallback.ts`
+ *  applies on the reverse direction, instead of a second local constant. */
+const MAX_BUFFER_CHARS = CODEX_STREAM_SIZE_CEILING_BYTES;
+
+/**
+ * The streaming driver's per-turn tool-call ceilings. `open` and `addArgs`
+ * return the `emitFailure` arguments to end the turn with once a call would
+ * pass the count limit or its accumulated argument text the size limit.
+ */
+function createToolCallCeilings() {
+  let opened = 0;
+  let argsLength = 0;
+  return {
+    open() {
+      if (opened >= CODEX_STREAM_MAX_TOOL_CALLS) {
+        return [
+          502,
+          "Anthropic fallback stream exceeded the tool-call limit",
+          "too_many_tool_calls",
+        ] as const;
+      }
+      opened++;
+      argsLength = 0;
+      return undefined;
+    },
+    addArgs(fragment: string) {
+      argsLength += fragment.length;
+      return argsLength > CODEX_STREAM_SIZE_CEILING_BYTES
+        ? ([
+            502,
+            "Anthropic fallback tool arguments exceeded the size limit",
+            "tool_arguments_too_large",
+          ] as const)
+        : undefined;
+    },
+  };
+}
 
 /**
  * Consume a fully-buffered, non-streaming Anthropic-shape response and
@@ -91,6 +137,7 @@ const MAX_BUFFER_CHARS = 16 * 1024 * 1024;
 export async function consumeAnthropicFallbackResponse(
   response: Response,
   model: string,
+  toolKindByName: ReadonlyMap<string, CodexNativeToolKind> = NO_TOOL_KINDS,
 ): Promise<CodexResponseEnvelope> {
   if (!response.ok) {
     throw new AnthropicFallbackResponseError(
@@ -117,6 +164,30 @@ export async function consumeAnthropicFallbackResponse(
   ) {
     throw new AnthropicFallbackResponseError(response.status, text);
   }
+  const toolUses = parsed.content.filter(
+    (block): block is Record<string, unknown> =>
+      isRecord(block) && block.type === "tool_use",
+  );
+  if (toolUses.length > CODEX_STREAM_MAX_TOOL_CALLS) {
+    throw new AnthropicFallbackStreamError(
+      502,
+      "Anthropic fallback response exceeded the tool-call limit",
+      "too_many_tool_calls",
+    );
+  }
+  if (
+    toolUses.some(
+      (block) =>
+        JSON.stringify(block.input ?? {}).length >
+        CODEX_STREAM_SIZE_CEILING_BYTES,
+    )
+  ) {
+    throw new AnthropicFallbackStreamError(
+      502,
+      "Anthropic fallback tool arguments exceeded the size limit",
+      "tool_arguments_too_large",
+    );
+  }
   // The same number checks the streaming path applies to message_start, so a
   // malformed count becomes 0 (or is omitted) rather than reaching the totals.
   const usage = parsed.usage;
@@ -135,7 +206,7 @@ export async function consumeAnthropicFallbackResponse(
         : { cache_read_input_tokens: cacheRead }),
     },
   };
-  return serializeCodexResponse(result, model);
+  return serializeCodexResponse(result, model, toolKindByName);
 }
 
 /**
@@ -147,6 +218,7 @@ export async function consumeAnthropicFallbackResponse(
 export async function createAnthropicFallbackStream(
   response: Response,
   model: string,
+  toolKindByName: ReadonlyMap<string, CodexNativeToolKind> = NO_TOOL_KINDS,
 ): Promise<CodexResponseStream> {
   if (!response.ok) {
     throw new AnthropicFallbackResponseError(
@@ -198,7 +270,7 @@ export async function createAnthropicFallbackStream(
     );
   }
 
-  const serializer = new CodexResponsesStreamSerializer(model);
+  const serializer = new CodexResponsesStreamSerializer(model, toolKindByName);
 
   async function* frames(): AsyncGenerator<string, CodexResponseEnvelope> {
     yield* serializer.start();
@@ -212,6 +284,7 @@ export async function createAnthropicFallbackStream(
     // input_json_delta also streams for server_tool_use blocks, which have no
     // Codex function_call to feed; only a tool_use block's fragments count.
     let currentBlockType: string | undefined;
+    const ceilings = createToolCallCeilings();
 
     /** One parsed Anthropic SSE event -> zero or more Codex frames, or the
      *  terminal envelope once `message_stop` (or a failure) is reached. */
@@ -239,6 +312,10 @@ export async function createAnthropicFallbackStream(
               ? block.type
               : undefined;
           if (isRecord(block) && block.type === "tool_use") {
+            const overLimit = ceilings.open();
+            if (overLimit) {
+              return yield* serializer.emitFailure(...overLimit);
+            }
             const id = typeof block.id === "string" ? block.id : "";
             const name = typeof block.name === "string" ? block.name : "";
             yield* serializer.openToolCall(id, name);
@@ -259,6 +336,12 @@ export async function createAnthropicFallbackStream(
             currentBlockType === "tool_use" &&
             typeof delta.partial_json === "string"
           ) {
+            // Checked before the fragment is forwarded: the call closes
+            // incomplete, never completed with its arguments cut mid-object.
+            const overLimit = ceilings.addArgs(delta.partial_json);
+            if (overLimit) {
+              return yield* serializer.emitFailure(...overLimit);
+            }
             yield* serializer.pushToolCallArgsDelta(delta.partial_json);
           }
           // thinking_delta: zero frames.

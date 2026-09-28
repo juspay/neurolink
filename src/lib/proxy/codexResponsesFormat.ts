@@ -14,6 +14,8 @@ import type {
   ClaudeContentBlock,
   ClaudeResponse,
   ClaudeUsage,
+  CodexNativeToolKind,
+  CodexResponseCustomToolCallItem,
   CodexResponseEnvelope,
   CodexResponseFunctionCallItem,
   CodexResponseItem,
@@ -22,15 +24,55 @@ import type {
   CodexResponseUsage,
 } from "../types/index.js";
 
+/** Empty by default so every existing caller (no `toolKindByName` argument)
+ *  keeps treating every tool_use block as a `function` call, unchanged. */
+const NO_TOOL_KINDS: ReadonlyMap<string, CodexNativeToolKind> = new Map();
+
+/**
+ * A `custom` tool was wrapped, on the request side, into a single-field
+ * `{ input: "..." }` schema (§3.4 of `codexOutboundFallback.ts`), so the
+ * client's grammar text is that one field. Undefined when the record does not
+ * carry it as a string.
+ */
+function unwrapCustomToolInput(value: unknown): string | undefined {
+  return typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    "input" in value &&
+    typeof value.input === "string"
+    ? value.input
+    : undefined;
+}
+
+/** The accumulated `input_json_delta` text of a custom call, unwrapped, or
+ *  undefined when it is not (yet) a complete `{ input: "..." }` object. */
+function unwrapCustomToolInputJson(text: string): string | undefined {
+  try {
+    return unwrapCustomToolInput(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
+}
+
 /** Same idiom as `generateToolUseId` (`claudeFormat.ts`), Codex's own prefix. */
 export function generateCodexResponseId(): string {
   return `resp_${randomBytes(24).toString("base64url")}`;
 }
 
+const CODEX_ITEM_ID_PREFIX: Record<
+  "message" | "function_call" | "custom_tool_call",
+  string
+> = {
+  message: "msg_",
+  function_call: "fc_",
+  custom_tool_call: "ctc_",
+};
+
 /** Item ids are prefixed by kind so a client can tell message/tool items apart at a glance. */
-export function generateCodexItemId(kind: "message" | "function_call"): string {
-  const prefix = kind === "message" ? "msg_" : "fc_";
-  return `${prefix}${randomBytes(18).toString("base64url").slice(0, 24)}`;
+export function generateCodexItemId(
+  kind: "message" | "function_call" | "custom_tool_call",
+): string {
+  return `${CODEX_ITEM_ID_PREFIX[kind]}${randomBytes(18).toString("base64url").slice(0, 24)}`;
 }
 
 /**
@@ -101,6 +143,7 @@ export function synthesizeCodexUsage(usage: ClaudeUsage): CodexResponseUsage {
 export function buildCodexResponseItem(
   block: ClaudeContentBlock,
   itemId: string,
+  toolKindByName: ReadonlyMap<string, CodexNativeToolKind> = NO_TOOL_KINDS,
 ): CodexResponseItem | null {
   if (block.type === "text") {
     // The streaming path opens a message item only on a block's first delta,
@@ -114,6 +157,19 @@ export function buildCodexResponseItem(
       role: "assistant",
       status: "completed",
       content: [{ type: "output_text", text: block.text, annotations: [] }],
+    };
+  }
+  if (
+    block.type === "tool_use" &&
+    toolKindByName.get(block.name) === "custom"
+  ) {
+    return {
+      id: itemId,
+      type: "custom_tool_call",
+      status: "completed",
+      call_id: codexCallIdFromToolUseId(block.id),
+      name: block.name,
+      input: unwrapCustomToolInput(block.input) ?? JSON.stringify(block.input),
     };
   }
   if (block.type === "tool_use") {
@@ -134,14 +190,20 @@ export function buildCodexResponseItem(
 export function serializeCodexResponse(
   result: ClaudeResponse,
   requestModel: string,
+  toolKindByName: ReadonlyMap<string, CodexNativeToolKind> = NO_TOOL_KINDS,
 ): CodexResponseEnvelope {
   const items: CodexResponseItem[] = [];
   for (const block of result.content) {
     const item = buildCodexResponseItem(
       block,
       generateCodexItemId(
-        block.type === "tool_use" ? "function_call" : "message",
+        block.type !== "tool_use"
+          ? "message"
+          : toolKindByName.get(block.name) === "custom"
+            ? "custom_tool_call"
+            : "function_call",
       ),
+      toolKindByName,
     );
     if (item) {
       items.push(item);
@@ -183,7 +245,13 @@ export class CodexResponsesStreamSerializer {
   private readonly closedItems: CodexResponseItem[] = [];
   private terminalEnvelope: CodexResponseEnvelope | null = null;
 
-  constructor(private readonly model: string) {}
+  constructor(
+    private readonly model: string,
+    private readonly toolKindByName: ReadonlyMap<
+      string,
+      CodexNativeToolKind
+    > = NO_TOOL_KINDS,
+  ) {}
 
   *start(): Generator<string> {
     this.assertNotTerminal();
@@ -225,38 +293,62 @@ export class CodexResponsesStreamSerializer {
     });
   }
 
-  /** Opens the function_call item header at content_block_start, before any argument text
-   *  is known — mirrors what content_block_start already gives us (id, name). */
+  /** Opens the tool-call item header at content_block_start, before any argument text
+   *  is known — mirrors what content_block_start already gives us (id, name). A tool
+   *  the request declared `custom` opens as a `custom_tool_call` item. */
   *openToolCall(toolUseId: string, name: string): Generator<string> {
     this.assertNotTerminal();
     yield* this.closeOpenItem(false);
-    this.openKind = "function_call";
-    this.openItemId = generateCodexItemId("function_call");
+    const kind =
+      this.toolKindByName.get(name) === "custom"
+        ? "custom_tool_call"
+        : "function_call";
+    this.openKind = kind;
+    this.openItemId = generateCodexItemId(kind);
     this.toolCallId = codexCallIdFromToolUseId(toolUseId);
     this.toolName = name;
     this.argsAccum = "";
+    const item: CodexResponseItem =
+      kind === "custom_tool_call"
+        ? {
+            id: this.openItemId,
+            type: kind,
+            status: "in_progress",
+            call_id: this.toolCallId,
+            name: this.toolName,
+            input: "",
+          }
+        : {
+            id: this.openItemId,
+            type: kind,
+            status: "in_progress",
+            call_id: this.toolCallId,
+            name: this.toolName,
+            arguments: "",
+          };
     yield formatSSE("response.output_item.added", {
       type: "response.output_item.added",
       output_index: this.outputIndex,
-      item: {
-        id: this.openItemId,
-        type: "function_call",
-        status: "in_progress",
-        call_id: this.toolCallId,
-        name: this.toolName,
-        arguments: "",
-      },
+      item,
     });
   }
 
   /** Forwards one raw partial_json fragment as-is — no JSON.parse here, because a lone
-   *  fragment is not required to be valid JSON on its own. */
+   *  fragment is not required to be valid JSON on its own. A custom call's fragments
+   *  are the `{"input":"..."}` wrapper, not client text, so they are only buffered;
+   *  `closeToolCall` emits the unwrapped input once the whole wrapper is known. */
   *pushToolCallArgsDelta(rawChunk: string): Generator<string> {
     this.assertNotTerminal();
-    if (this.openKind !== "function_call") {
-      throw new Error("pushToolCallArgsDelta with no open function_call item");
+    if (
+      this.openKind !== "function_call" &&
+      this.openKind !== "custom_tool_call"
+    ) {
+      throw new Error("pushToolCallArgsDelta with no open tool-call item");
     }
     this.argsAccum += rawChunk;
+    if (this.openKind === "custom_tool_call") {
+      return;
+    }
     yield formatSSE("response.function_call_arguments.delta", {
       type: "response.function_call_arguments.delta",
       output_index: this.outputIndex,
@@ -267,13 +359,17 @@ export class CodexResponsesStreamSerializer {
 
   /**
    * Public close for a tool-use block at `content_block_stop`. A no-op when no
-   * function_call item is open, so a driver can call it unconditionally.
+   * tool-call item is open, so a driver can call it unconditionally.
    * Validates the accumulated arguments once, here — the one place validity
    * is required. Throws on malformed JSON; the caller must catch and route to
    * `emitFailure` (never swallowed, never retried after this point).
    */
   *closeToolCall(): Generator<string> {
     this.assertNotTerminal();
+    if (this.openKind === "custom_tool_call") {
+      yield* this.closeCustomToolCall();
+      return;
+    }
     if (this.openKind !== "function_call") {
       return;
     }
@@ -410,6 +506,46 @@ export class CodexResponsesStreamSerializer {
     }
   }
 
+  /**
+   * The custom-kind close: nothing was streamed live, so one input delta
+   * carries the whole unwrapped input, then its done event. Lenient where the
+   * function path throws: the wrapper is Claude's own output for the
+   * single-field schema `mapCodexCustomToolToClaude` declared, so a parse
+   * failure is an internal bug, and the raw accumulated text is emitted rather
+   * than failing the turn over it.
+   */
+  private *closeCustomToolCall(): Generator<string> {
+    const input = unwrapCustomToolInputJson(this.argsAccum) ?? this.argsAccum;
+    yield formatSSE("response.custom_tool_call_input.delta", {
+      type: "response.custom_tool_call_input.delta",
+      output_index: this.outputIndex,
+      item_id: this.openItemId,
+      delta: input,
+    });
+    yield formatSSE("response.custom_tool_call_input.done", {
+      type: "response.custom_tool_call_input.done",
+      output_index: this.outputIndex,
+      item_id: this.openItemId,
+      input,
+    });
+    const item: CodexResponseCustomToolCallItem = {
+      id: this.openItemId,
+      type: "custom_tool_call",
+      status: "completed",
+      call_id: this.toolCallId,
+      name: this.toolName,
+      input,
+    };
+    yield formatSSE("response.output_item.done", {
+      type: "response.output_item.done",
+      output_index: this.outputIndex,
+      item,
+    });
+    this.closedItems.push(item);
+    this.openKind = null;
+    this.outputIndex++;
+  }
+
   private *openMessage(): Generator<string> {
     this.openKind = "message";
     this.openItemId = generateCodexItemId("message");
@@ -444,6 +580,14 @@ export class CodexResponsesStreamSerializer {
       yield* this.closeToolCall();
       return;
     }
+    if (this.openKind === "custom_tool_call") {
+      if (failed) {
+        yield* this.closeFailedCustomToolCall();
+        return;
+      }
+      yield* this.closeToolCall();
+      return;
+    }
     if (this.openKind === "message") {
       yield* this.closeMessageItem(failed);
     }
@@ -463,6 +607,31 @@ export class CodexResponsesStreamSerializer {
       call_id: this.toolCallId,
       name: this.toolName,
       arguments: this.argsAccum,
+    };
+    yield formatSSE("response.output_item.done", {
+      type: "response.output_item.done",
+      output_index: this.outputIndex,
+      item,
+    });
+    this.closedItems.push(item);
+    this.openKind = null;
+    this.outputIndex++;
+  }
+
+  /**
+   * The failure close for a custom call. Its accumulated bytes are Anthropic's
+   * JSON wrapper, not the client's grammar text, so `input` is the unwrapped
+   * string when the wrapper already parses and "" otherwise — an incomplete
+   * item is never executed. No input done event, as on the function path.
+   */
+  private *closeFailedCustomToolCall(): Generator<string> {
+    const item: CodexResponseCustomToolCallItem = {
+      id: this.openItemId,
+      type: "custom_tool_call",
+      status: "incomplete",
+      call_id: this.toolCallId,
+      name: this.toolName,
+      input: unwrapCustomToolInputJson(this.argsAccum) ?? "",
     };
     yield formatSSE("response.output_item.done", {
       type: "response.output_item.done",

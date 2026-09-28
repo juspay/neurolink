@@ -16,6 +16,7 @@ import type {
   AccountCoolingReason,
   AccountQuota,
   ClaudeContentBlock,
+  ClaudeTool,
   InternalResult,
 } from "./proxy.js";
 
@@ -268,6 +269,28 @@ export type CodexNativeToolDeclaration =
   | CodexNativeFunctionToolDeclaration
   | CodexNativeCustomToolDeclaration;
 
+/**
+ * A declared tool's own kind, independent of its namespace. Claude's
+ * `tool_use` block carries only `name` + `input`, with no such discriminator,
+ * so response serialization threads a name -> kind map (built while flattening
+ * `additional_tools` on the request side) to decide whether a tool_use's
+ * `input` is a real JSON-Schema-shaped object (`function`) or the single
+ * grammar-constrained string a custom tool was wrapped into (`custom`).
+ */
+export type CodexNativeToolKind = "function" | "custom";
+
+/**
+ * One declared tool's mapping outcome inside `codexOutboundFallback.ts`:
+ * the translated Claude tool, its kind (for `toolKindByName`), and any
+ * degrade reasons collected while flattening its schema (fed to
+ * `recordCodexOutboundSchemaDegraded` in `proxyTracer.ts`).
+ */
+export type CodexOutboundToolMappingResult = {
+  tool: ClaudeTool;
+  kind: CodexNativeToolKind;
+  reasons: string[];
+};
+
 /** A named group of tool declarations inside one `additional_tools` item. */
 export type CodexNativeToolNamespace = {
   type: "namespace";
@@ -369,11 +392,14 @@ export type CodexNativeRequest = {
  * A `parseCodexNativeRequest`/`translateCodexRequestToClaude` failure. Never thrown.
  * `UNTRANSLATABLE_REQUEST` is a request Codex itself accepts but Anthropic would
  * reject, as opposed to one that is invalid on the Codex wire.
+ * `REQUEST_TOO_LARGE` is a tool-call history over `streamLimits.ts`'s count or
+ * size ceiling; callers map it to HTTP 413 `request_too_large`.
  */
 export type CodexTranslationError =
   | { code: "MALFORMED_REQUEST"; message: string }
   | { code: "SUSPECTED_PARTIAL_HISTORY"; message: string }
-  | { code: "UNTRANSLATABLE_REQUEST"; message: string };
+  | { code: "UNTRANSLATABLE_REQUEST"; message: string }
+  | { code: "REQUEST_TOO_LARGE"; message: string };
 
 /** One coalesced run of same-role content while flattening a native Codex `input` array. */
 export type CodexOutboundMessageGroup = {
@@ -437,10 +463,27 @@ export type CodexResponseFunctionCallItem = {
   arguments: string;
 };
 
+/**
+ * A synthesized call to a tool the request declared `custom` (grammar-
+ * constrained), in the item shape the real backend emits for one — the shape
+ * `codexUsage.ts` reads on the native route and a Codex CLI replays in its
+ * history. `input` is the bare grammar text, never JSON.
+ */
+export type CodexResponseCustomToolCallItem = {
+  id: string;
+  type: "custom_tool_call";
+  status: CodexResponseItemStatus;
+  call_id: string;
+  name: string;
+  /** Empty when status is "incomplete" and the wrapped input never parsed. */
+  input: string;
+};
+
 /** One item in a Codex `response.output[]` array, discriminated by `type`. */
 export type CodexResponseItem =
   | CodexResponseMessageItem
-  | CodexResponseFunctionCallItem;
+  | CodexResponseFunctionCallItem
+  | CodexResponseCustomToolCallItem;
 
 /** A complete Codex Responses envelope — the non-streaming body, and the shape
  *  carried inside a terminal `response.*` SSE event's `response` field. */
@@ -467,6 +510,8 @@ export type CodexResponseSSEEventType =
   | "response.content_part.done"
   | "response.function_call_arguments.delta"
   | "response.function_call_arguments.done"
+  | "response.custom_tool_call_input.delta"
+  | "response.custom_tool_call_input.done"
   | "response.output_item.done"
   | "response.completed"
   | "response.incomplete"
@@ -479,4 +524,8 @@ export type CodexResponseStream = {
 };
 
 /** Which output item kind (if any) `CodexResponsesStreamSerializer` currently has open. */
-export type CodexResponseOpenItemKind = "message" | "function_call" | null;
+export type CodexResponseOpenItemKind =
+  | "message"
+  | "function_call"
+  | "custom_tool_call"
+  | null;

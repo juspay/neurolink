@@ -8,11 +8,14 @@
  * own target/model selection, response/stream translation back to Codex wire
  * format, tool execution, or dispatch/HTTP.
  *
- * `parallel_tool_calls` is parsed and validated but not yet consumed here —
- * `mapCodexToolChoiceToClaude` stays the base bijection this PR ships.
- * Threading it into `tool_choice.disable_parallel_tool_use` (and the matching
- * `ClaudeRequest.tool_choice` type change) is the tool-call-fidelity build-order
- * PR's explicit modification to this same function, not a gap in this one.
+ * `parallel_tool_calls` feeds `tool_choice.disable_parallel_tool_use` in
+ * `mapCodexToolChoiceToClaude`, and tool declarations are flattened through
+ * `inlineJsonSchema` (dropping `strict` and degrading a circular `$ref` to a
+ * bare `{type:"object"}`) — the tool-call-fidelity PR's changes to this file.
+ * A `toolKindByName` map is also returned alongside the translated request,
+ * so response serialization (which sees only Claude's `name`+`input` on a
+ * `tool_use` block, no kind discriminator) knows which declared tools were
+ * `custom` rather than `function`.
  */
 import type {
   ClaudeImageBlock,
@@ -31,12 +34,24 @@ import type {
   CodexNativeRequest,
   CodexNativeToolChoice,
   CodexNativeToolDeclaration,
+  CodexNativeToolKind,
   CodexNativeToolNamespace,
   CodexOutboundMessageGroup,
+  CodexOutboundToolMappingResult,
   CodexReasoningEffort,
   CodexTranslationError,
 } from "../types/index.js";
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
+import { inlineJsonSchema } from "../utils/schemaConversion.js";
+import { parseToolArguments } from "./argumentParsing.js";
+import {
+  recordCodexOutboundSchemaDegraded,
+  recordCodexOutboundUnsupportedField,
+} from "./proxyTracer.js";
+import {
+  CODEX_STREAM_MAX_TOOL_CALLS,
+  CODEX_STREAM_SIZE_CEILING_BYTES,
+} from "./streamLimits.js";
 
 // ---------------------------------------------------------------------------
 // §3.1 parseCodexNativeRequest — the untrusted-JSON -> typed boundary.
@@ -206,69 +221,136 @@ export function parseCodexNativeRequest(
 // §3.3 tool_choice — exact inversion of codexFallback.ts's convertClaudeRequestToCodex.
 // ---------------------------------------------------------------------------
 
+// Absent tool_choice and "auto" both mean the same thing to Codex, and both
+// now map to an *explicit* `{type:"auto"}` (previously: `undefined` for the
+// absent case) so `disable_parallel_tool_use` always has a field on the
+// output to attach to, regardless of whether the source request bothered to
+// say "auto" out loud. `parallel_tool_calls: false` is inert on `"none"` —
+// there is nothing running in parallel to disable.
 function mapCodexToolChoiceToClaude(
   choice: CodexNativeToolChoice | undefined,
-): ClaudeRequest["tool_choice"] | undefined {
-  if (choice === undefined) {
-    return undefined;
+  parallelToolCalls: boolean | undefined,
+): NonNullable<ClaudeRequest["tool_choice"]> {
+  const disable = parallelToolCalls === false;
+  if (choice === undefined || choice === "auto") {
+    return disable
+      ? { type: "auto", disable_parallel_tool_use: true }
+      : { type: "auto" };
   }
   if (choice === "required") {
-    return { type: "any" };
-  }
-  if (choice === "auto") {
-    return { type: "auto" };
+    return disable
+      ? { type: "any", disable_parallel_tool_use: true }
+      : { type: "any" };
   }
   if (choice === "none") {
     return { type: "none" };
   }
-  return { type: "tool", name: choice.name };
+  return disable
+    ? { type: "tool", name: choice.name, disable_parallel_tool_use: true }
+    : { type: "tool", name: choice.name };
 }
 
 // ---------------------------------------------------------------------------
 // §3.4 Tools: flattened across namespaces, split by each declaration's own type.
 // ---------------------------------------------------------------------------
 
+/**
+ * Detection-only walk of a schema's `$ref` chain, independent of
+ * `inlineJsonSchema`'s own flattening — the actual flattening stays fully
+ * delegated to that function unmodified (never reimplemented here), so this
+ * only answers "would a ref chain revisit itself" for the schemaDegraded
+ * counter's benefit.
+ */
+function hasCircularRef(
+  schema: Record<string, unknown>,
+  defs: Record<string, Record<string, unknown>> | undefined,
+  seen: ReadonlySet<string> = new Set(),
+): boolean {
+  if (typeof schema.$ref === "string" && schema.$ref.startsWith("#/")) {
+    if (seen.has(schema.$ref)) {
+      return true;
+    }
+    const key = schema.$ref.split("/").pop();
+    const target = defs && key ? defs[key] : undefined;
+    return target
+      ? hasCircularRef(target, defs, new Set(seen).add(schema.$ref))
+      : false;
+  }
+  const properties = isRecord(schema.properties)
+    ? Object.values(schema.properties)
+    : [];
+  const items = Array.isArray(schema.items)
+    ? schema.items
+    : isRecord(schema.items)
+      ? [schema.items]
+      : [];
+  return [...properties, ...items].some(
+    (value): boolean => isRecord(value) && hasCircularRef(value, defs, seen),
+  );
+}
+
 function mapCodexFunctionToolToClaude(
   tool: CodexNativeFunctionToolDeclaration,
-): ClaudeTool {
+): CodexOutboundToolMappingResult {
+  const reasons: string[] = [];
+  const defs = (tool.parameters.definitions ?? tool.parameters.$defs) as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  if (defs && hasCircularRef(tool.parameters, defs)) {
+    reasons.push("circular_ref_flattened");
+  }
+  const input_schema = inlineJsonSchema(tool.parameters);
+  if (tool.strict) {
+    // Anthropic tool declarations have no `strict`-mode equivalent, so the
+    // flag is dropped rather than silently passed through as an unknown key.
+    reasons.push("strict_mode_flag_dropped");
+  }
   return {
-    name: tool.name,
-    ...(tool.description ? { description: tool.description } : {}),
-    input_schema: tool.parameters,
+    tool: {
+      name: tool.name,
+      ...(tool.description ? { description: tool.description } : {}),
+      input_schema,
+    },
+    kind: "function",
+    reasons,
   };
 }
 
 function mapCodexCustomToolToClaude(
   tool: CodexNativeCustomToolDeclaration,
-): ClaudeTool {
+): CodexOutboundToolMappingResult {
   // Lossy, explicitly flagged: no JSON Schema exists for a Lark/regex grammar.
   // The model is no longer grammar-constrained after this mapping — needs
   // product sign-off before shipping (§10 of the design).
   return {
-    name: tool.name,
-    description: [
-      tool.description,
-      `Grammar (${tool.format.syntax}):\n${tool.format.definition}`,
-    ]
-      .filter((s): s is string => Boolean(s))
-      .join("\n\n"),
-    input_schema: {
-      type: "object",
-      properties: {
-        input: {
-          type: "string",
-          description:
-            "Raw command text, constrained by the grammar in this tool's description.",
+    tool: {
+      name: tool.name,
+      description: [
+        tool.description,
+        `Grammar (${tool.format.syntax}):\n${tool.format.definition}`,
+      ]
+        .filter((s): s is string => Boolean(s))
+        .join("\n\n"),
+      input_schema: {
+        type: "object",
+        properties: {
+          input: {
+            type: "string",
+            description:
+              "Raw command text, constrained by the grammar in this tool's description.",
+          },
         },
+        required: ["input"],
       },
-      required: ["input"],
     },
+    kind: "custom",
+    reasons: ["custom_tool_wrapped"],
   };
 }
 
 function mapCodexToolDeclarationToClaude(
   tool: CodexNativeToolDeclaration,
-): ClaudeTool {
+): CodexOutboundToolMappingResult {
   // Discriminate on the declaration's own `type`, never on which namespace it
   // came from — the real capture disproves the namespace-implies-kind
   // assumption (`exec` is `type:"custom"` inside a `type:"function"`-heavy
@@ -280,14 +362,24 @@ function mapCodexToolDeclarationToClaude(
 
 function buildClaudeTools(
   additionalTools: CodexNativeAdditionalToolsInputItem | undefined,
-): ClaudeTool[] | undefined {
+): {
+  tools: ClaudeTool[] | undefined;
+  toolKindByName: ReadonlyMap<string, CodexNativeToolKind>;
+  reasons: { toolName: string; reason: string }[];
+} {
   if (!additionalTools) {
-    return undefined;
+    return { tools: undefined, toolKindByName: new Map(), reasons: [] };
   }
-  const tools = additionalTools.tools.flatMap((namespace) =>
+  const mapped = additionalTools.tools.flatMap((namespace) =>
     namespace.tools.map(mapCodexToolDeclarationToClaude),
   );
-  return tools.length > 0 ? tools : undefined;
+  return {
+    tools: mapped.length > 0 ? mapped.map((m) => m.tool) : undefined,
+    toolKindByName: new Map(mapped.map((m) => [m.tool.name, m.kind])),
+    reasons: mapped.flatMap((m) =>
+      m.reasons.map((reason) => ({ toolName: m.tool.name, reason })),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -327,19 +419,23 @@ function mapCodexReasoningToThinking(
 }
 
 // ---------------------------------------------------------------------------
-// §3.6 Non-JSON function_call.arguments — never throws.
+// §3.6 Non-JSON function_call.arguments — never throws. Parsing itself is
+// `parseToolArguments` (argumentParsing.ts); this is a cheap, separate,
+// redundant check purely so a malformed (non-empty, non-record) arguments
+// string can be reported via the unsupportedFieldTotal counter without
+// polluting that pure function's return shape with a degrade flag.
 // ---------------------------------------------------------------------------
 
-function parseInboundToolArguments(raw: string): Record<string, unknown> {
+function isMalformedFunctionArguments(raw: string): boolean {
+  if (raw === "") {
+    return false;
+  }
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (isRecord(parsed)) {
-      return parsed;
-    }
+    return !isRecord(parsed);
   } catch {
-    // fall through — not JSON at all (e.g. exec's raw shell command)
+    return true;
   }
-  return { input: raw };
 }
 
 // ---------------------------------------------------------------------------
@@ -430,8 +526,8 @@ function coalesceCodexInputToClaudeMessages(
         // its raw call text maps onto that field unchanged.
         input:
           item.type === "function_call"
-            ? parseInboundToolArguments(item.arguments)
-            : { input: item.input },
+            ? parseToolArguments(item.arguments, "function")
+            : parseToolArguments(item.input, "custom"),
       });
       continue;
     }
@@ -482,6 +578,42 @@ function hasFreshSessionPreamble(
   items: readonly CodexNativeInputItem[],
 ): boolean {
   return items[0]?.type === "additional_tools";
+}
+
+// ---------------------------------------------------------------------------
+// Tool-call history ceilings — the same streamLimits.ts numbers the response
+// leg enforces, so a history is never accepted that the reply could not carry.
+// ---------------------------------------------------------------------------
+
+function toolHistoryText(item: CodexNativeInputItem): string | undefined {
+  switch (item.type) {
+    case "function_call":
+      return item.arguments;
+    case "custom_tool_call":
+      return item.input;
+    case "function_call_output":
+    case "custom_tool_call_output":
+      return item.output;
+    default:
+      return undefined;
+  }
+}
+
+function describeOversizedToolHistory(
+  items: readonly CodexNativeInputItem[],
+): string | undefined {
+  const calls = items.filter(
+    (item) => item.type === "function_call" || item.type === "custom_tool_call",
+  ).length;
+  if (calls > CODEX_STREAM_MAX_TOOL_CALLS) {
+    return `the history carries ${calls} tool calls, over the limit of ${CODEX_STREAM_MAX_TOOL_CALLS}`;
+  }
+  return items.some(
+    (item) =>
+      (toolHistoryText(item)?.length ?? 0) > CODEX_STREAM_SIZE_CEILING_BYTES,
+  )
+    ? `a tool call's arguments or output exceed the limit of ${CODEX_STREAM_SIZE_CEILING_BYTES} characters`
+    : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -593,8 +725,20 @@ export function translateCodexRequestToClaude(
   request: CodexNativeRequest,
   target: { provider: "anthropic" | "vertex"; model: string },
 ):
-  | { ok: true; value: ClaudeRequest }
+  | {
+      ok: true;
+      value: ClaudeRequest;
+      toolKindByName: ReadonlyMap<string, CodexNativeToolKind>;
+    }
   | { ok: false; error: CodexTranslationError } {
+  const oversized = describeOversizedToolHistory(request.input);
+  if (oversized) {
+    return {
+      ok: false,
+      error: { code: "REQUEST_TOO_LARGE", message: oversized },
+    };
+  }
+
   // Read from client_metadata, not top-level session_id/thread_id: the real
   // capture carries neither at top level (only nested in client_metadata),
   // which is why CodexNativeRequest has no top-level fields for them.
@@ -631,9 +775,16 @@ export function translateCodexRequestToClaude(
         item.type === "additional_tools",
     )
     .at(-1);
-  const tools = buildClaudeTools(additionalTools);
-  const toolChoice = mapCodexToolChoiceToClaude(request.tool_choice);
-  const forcesTool = toolChoice?.type === "any" || toolChoice?.type === "tool";
+  const {
+    tools,
+    toolKindByName,
+    reasons: schemaReasons,
+  } = buildClaudeTools(additionalTools);
+  const toolChoice = mapCodexToolChoiceToClaude(
+    request.tool_choice,
+    request.parallel_tool_calls,
+  );
+  const forcesTool = toolChoice.type === "any" || toolChoice.type === "tool";
   if (forcesTool && !tools) {
     return {
       ok: false,
@@ -645,7 +796,7 @@ export function translateCodexRequestToClaude(
     };
   }
   if (
-    toolChoice?.type === "tool" &&
+    toolChoice.type === "tool" &&
     !tools?.some((tool) => tool.name === toolChoice.name)
   ) {
     return {
@@ -695,10 +846,31 @@ export function translateCodexRequestToClaude(
     ...(systemBlocks.length > 0 ? { system: systemBlocks } : {}),
     ...(tools ? { tools } : {}),
     // The Messages API accepts tool_choice only alongside tools.
-    ...(toolChoice && tools ? { tool_choice: toolChoice } : {}),
+    ...(tools ? { tool_choice: toolChoice } : {}),
     ...(thinking ? { thinking } : {}),
     stream: request.stream ?? true,
   };
 
-  return { ok: true, value: claudeRequest };
+  // Recorded only once translation has fully succeeded, so a request that is
+  // rejected earlier (malformed tool_choice, untranslatable content, a
+  // pairing gap) never fires a degrade counter for work that was discarded.
+  for (const reason of schemaReasons) {
+    recordCodexOutboundSchemaDegraded({
+      toolName: reason.toolName,
+      reason: reason.reason,
+    });
+  }
+  for (const item of request.input) {
+    if (
+      item.type === "function_call" &&
+      isMalformedFunctionArguments(item.arguments)
+    ) {
+      recordCodexOutboundUnsupportedField({
+        field: "function_call.arguments",
+        reason: "malformed_arguments_wrapped",
+      });
+    }
+  }
+
+  return { ok: true, value: claudeRequest, toolKindByName };
 }
