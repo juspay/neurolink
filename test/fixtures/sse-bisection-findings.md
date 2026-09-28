@@ -112,8 +112,8 @@ Run against the same real `codex-cli 0.155.1` binary (fresh throwaway
 `CODEX_HOME`, dummy `replay` provider, `--script tool-call`). This is the one
 open question the "Open questions gating the build" table in
 `docs/superpowers/specs/2026-09-27-codex-outbound-fallback-design.md`
-(merged, PR #1825) flagged as answerable without a live account: _"Does the
-real Codex CLI accept a `call_id` it did not mint (a `toolu_`-shaped id)?"\_
+(merged, PR #1825) flagged as answerable without a live account: "Does the
+real Codex CLI accept a `call_id` it did not mint (a `toolu_`-shaped id)?"
 
 The listener sent a `function_call` turn with `id`/`call_id` both set to
 `toolu_replay0000000000000000` (an Anthropic-shaped id, never minted by

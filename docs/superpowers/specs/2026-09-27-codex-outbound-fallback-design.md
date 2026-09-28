@@ -1,6 +1,8 @@
 # Codex Outbound Fallback — Design
 
-> Status: design complete, implementation not started. Produced by 22 parallel agents
+> Status: design complete; implementation under way in build order. PR 1 (the IR
+> types) merged as #1826; PR 2 (the request codec) is #1836; PRs 3 to 8 have not
+> started, and nothing is wired into a route yet. Produced by 22 parallel agents
 > (6 grounding, 8 design, 8 adversarial review) plus 8 resolution passes; every design
 > claim below was checked against the code by a reviewer whose brief was to refute it.
 
@@ -88,14 +90,14 @@ written.
 
 ## Consolidated unresolved items
 
-- **ir-and-types** — whether native Codex ever sends top-level `reasoning`/`tools` on a genuine inbound request — the one check that would settle it is a live-captured native Codex CLI request with non-default reasoning effort set.
+- **ir-and-types** — whether native Codex ever sends top-level `reasoning`/`tools` on a genuine inbound request — **settled for `reasoning`** by the 2026-09-21 capture, which is exactly the check this item asked for (see the gating table above): it is sent with a non-default effort (`{"effort":"xhigh","context":"all_turns"}`). That captured request has no top-level `tools` field, only the nested `additional_tools` item, but one first-turn capture cannot show that no request ever carries one. Still open from the same gating row: whether it ever sends `stream:false`.
 - **ir-and-types** — whether Anthropic's live API ever rejects consecutive same-role messages in some edge case — the one check that would settle it is a probe request against the real API with two consecutive `user` messages.
 - **ir-and-types** — the storage/lifetime contract for a _resumed_ session's id map spanning multiple proxy requests — the one check that would settle it is reading how `originSessionId`/`originThreadId` are persisted by the session-affinity
 - **ir-and-types** — above.
 - **request-translation** — in §10. It converts an unknown into a loud, caller-visible failure instead of a silent one, which is what the "nothing may break silently" requirement demands even without live traffic.
 - **request-translation** — whether `additional_tools`/`developer` items can appear anywhere other than before the first `user` item in real traffic — the one check that would settle it: capture one real Codex CLI multi-turn session with a mid-conv
 - **request-translation** — whether a resumed-session request's `input` is genuinely full-history or incremental — the one check that would settle it: capture one real resumed-session Codex Responses request (the referenced `~/.neurolink/reference/
-- **request-translation** — whether `tool_choice` or `reasoning` ever appear on genuine inbound requests at all (absent from all 4 fixtures) — the one check that would settle it: grep captured production Codex traffic logs (once available) for eith
+- **request-translation** — whether `tool_choice` or `reasoning` ever appear on genuine inbound requests at all (absent from all 4 fixtures) — **settled**: the 2026-09-21 capture carries both, `tool_choice: "auto"` and `reasoning` as quoted in the first item of this list.
 - **request-translation** — whether more than one `additional_tools` item can appear in one request — the one check that would settle it: same real-traffic capture as (1).
 - **response-translation** — a genuine live-captured native Codex Responses SSE transcript (text, tool-call, incomplete/error cases) — the check that would settle it is running a real Codex client through this proxy in observe-only mode and saving t
 - **response-translation** — whether the real ChatGPT backend accepts a non-`call_`-prefixed `call_id` on a _later_ turn served by a real, non-fallback Codex backend directly — the check that would settle it is replaying a captured multi-turn Codex
