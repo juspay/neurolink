@@ -1,9 +1,12 @@
 # Model middleware on Vertex, AI Studio and Bedrock
 
-> **Status:** AI Studio (`301e4e18a`) and Bedrock are implemented. Vertex
-> remains specification only — the rest of this document, including the
-> "still reach none of the five" language below, was written before either
-> landed and is accurate for Vertex alone.
+> **Status:** done. AI Studio (`301e4e18a`), Vertex and Bedrock are all
+> implemented — each via its own synthetic V3 model bridge (`generate()` and
+> `stream()`), so `transformParams` / `wrapGenerate` / `wrapStream` now run on
+> every provider this plan covers. The rest of this document, including the
+> "still reach none of the five" language below, describes the gap as it
+> stood before any of the three landed; it is kept for the record, not as a
+> current description.
 >
 > **Goal:** make `transformParams` / `wrapGenerate` / `wrapStream` run on the
 > three providers that bypass them entirely, on both `generate()` and
@@ -33,35 +36,36 @@ The fifth entry matters, and an earlier draft of this spec got it wrong by
 calling it deleted. `prepareGenerationContext` is live; it is the seam a
 provider reaches by going through `BaseProvider.runGenerateInActiveContext`.
 
-`googleVertex`, `googleAiStudio` and `amazonBedrock` still reach none of the
-five. Verified per file rather than assumed: Vertex and Bedrock contain zero
-references to `prepareGenerationContext`, `getAISDKModelWithMiddleware` or
-`applyMiddlewareToModel`; AI Studio's only mention of
-`runGenerateInActiveContext` is a comment saying it replicates that dispatch
-**because its override bypasses that path**.
-Each overrides `generate()` and `executeStream()` with a native path that
-never wraps its model, so for those three:
+At the time this plan was written, `googleVertex`, `googleAiStudio` and
+`amazonBedrock` reached none of the five: each overrode `generate()` and
+`executeStream()` with a native path that never wrapped its model. All three
+have since closed that gap, each through its own synthetic V3 model bridge
+rather than through one of the five call sites above — the bridge builds a
+`LanguageModelV3` whose `doGenerate`/`doStream` drives the native loop, wraps
+it with `applyMiddlewareToModel`, and reads the middleware-transformed params
+back onto the native request. The symptoms below describe the gap as it
+stood before any of the three landed:
 
-- `transformParams` never fires — a middleware that rewrites the prompt,
-  `maxOutputTokens`, `temperature` or `topP` is silently ignored
-- `wrapGenerate` and `wrapStream` never fire — guardrails do not filter,
-  and a **guardrail that blocks a prompt does not block it**
-- on **Vertex** `onFinish` still fires, special-cased separately via
-  `fireGenerateOnFinish` — which is invoked from `googleVertex/client.ts`
+- `transformParams` never fired — a middleware that rewrote the prompt,
+  `maxOutputTokens`, `temperature` or `topP` was silently ignored
+- `wrapGenerate` and `wrapStream` never fired — guardrails did not filter,
+  and a **guardrail that blocked a prompt did not block it**
+- on **Vertex** `onFinish` still fired, special-cased separately via
+  `fireGenerateOnFinish` — which was invoked from `googleVertex/client.ts`
   and nowhere else
-- on **AI Studio and Bedrock**, not even that: both files contain zero
-  references to `onFinish`, so a caller's `onFinish` is dropped on the
+- on **AI Studio and Bedrock**, not even that: both files contained zero
+  references to `onFinish`, so a caller's `onFinish` was dropped on the
   **generate** path
 
-That last point is about generate only. `stream()` lifecycle callbacks are
+That last point was about generate only. `stream()` lifecycle callbacks were
 unaffected on all three: `BaseProvider.wrapStreamWithLifecycleCallbacks`
 reads `onChunk` / `onFinish` / `onError` and is applied on the generic stream
-path, so a streaming caller still gets them. What no provider here gets is
+path, so a streaming caller still got them. What no provider here got was
 **model** middleware.
 
-The last point is the sharp one: a caller who configures blocking guardrails
-and points at Vertex gets no error and no filtering. It looks configured and
-does nothing.
+The last point was the sharp one: a caller who configured blocking
+guardrails and pointed at any of these three providers got no error and no
+filtering. It looked configured and did nothing.
 
 ### Entry points to change
 

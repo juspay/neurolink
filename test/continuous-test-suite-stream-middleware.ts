@@ -26,8 +26,13 @@ import type {
   StreamOptions,
   StreamResult,
   AnalyticsData,
-  LifecycleChunkPayload,
+  MiddlewareFactoryOptions,
+  OnFinishCallback,
+  OnErrorCallback,
+  OnChunkCallback,
   LifecycleFinishPayload,
+  LifecycleErrorPayload,
+  LifecycleChunkPayload,
 } from "../src/lib/types/index.js";
 import { defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -48,11 +53,12 @@ import {
   logger,
   tool,
   createLifecycleMiddleware,
+  type AIProviderName,
 } from "../dist/index.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Stream middleware", {
+const { test, section, runSuite } = defineSuite("Stream middleware", {
   offline: true,
 });
 
@@ -2358,7 +2364,7 @@ await test("AI Studio: generate usage preserves cache-read and reasoning tokens 
 // returns a hand-built, true V3 delta-shaped stream: `{type: "text-delta",
 // delta: "..."}`, with no legacy `textDelta` field anywhere — exactly the
 // shape the OpenAI-compatible bridge (and, per the original Bedrock report,
-// Bedrock's) emits. Reasoning is split across two deltas ("Hel"/"lo")
+
 // rather than delivered as one chunk: a single-delta stream can't
 // distinguish "fired once per chunk" from "fired once total", which is
 // precisely the distinction this regression needs.
@@ -2577,34 +2583,38 @@ await test("createLifecycleMiddleware applied directly to a hand-built V3 model,
 });
 
 // ---------------------------------------------------------------------------
-// VERTEX — native stream() lifecycle callbacks (double-fire regression).
+// VERTEX — native generate()/stream() loops (Item E4b).
 //
-// GoogleVertexProvider's native @google/genai stream path (like AI Studio
-// above) bypasses the AI SDK LanguageModel plumbing entirely, so it carries
-// its OWN direct lifecycle firer (`wrapStreamResultWithLifecycle` in
-// src/lib/providers/googleVertex/client.ts) for the SAME reason AI Studio
-// needed middleware reproduced natively. Unlike AI Studio's model-level
-// middleware (gated by `isLifecycleStreamCallbacksOwnedByBaseProvider` since
-// the v3DeltaStream fix above), Vertex's firer was never gated: every native
-// Vertex stream's result is ALSO passed, unconditionally, through
-// `BaseProvider.wrapStreamWithLifecycleCallbacks` afterwards (see that
-// method's own "no early return when there are no callbacks" doc comment),
-// so onChunk/onFinish each fired twice — once from Vertex's own firer
-// (enriched with usage/finishReason), once from BaseProvider's generic one
-// (bare `{text, duration}`). Vertex AI Express Mode
-// (`credentials.vertex.apiKey` with no project/location) skips ADC entirely
-// and reaches `credentials.vertex.baseURL`, the same mechanism
-// continuous-test-suite-vertex-loop-characterization.ts uses, so this is
-// reachable offline.
+// AI Studio and Bedrock get their own sections in separate PRs; this one is
+// Vertex-only. Vertex has FOUR native loops — Gemini3 and Anthropic-on-Vertex,
+// each with its own generate() and stream() — that used to call
+// executeNative*Generate/executeNative*Stream directly, bypassing
+// `applyMiddlewareToModel` entirely: the `middleware` option was accepted and
+// silently had no effect. `runNativeGenerateWithMiddleware` /
+// `runNativeStreamWithMiddleware` in googleVertex/client.ts now wrap every one
+// of the four with the same `wrapLanguageModel` chain every other provider
+// already goes through.
+//
+// Reaching any of this offline needs Vertex AI Express Mode
+// (`credentials.vertex.apiKey` with no project/location, which skips ADC and
+// honours `credentials.vertex.baseURL`) — the same affordance
+// vertex-loop-characterization.ts and vertex-claude-characterization.ts rely
+// on. Neither file exports its helpers, so the pieces needed here (env
+// clearing, the two wire formats' SSE builders, the two stand-ins) are
+// re-implemented locally rather than imported.
 // ---------------------------------------------------------------------------
 
-const VERTEX_MODEL = "gemini-2.0-flash";
+section("Vertex");
 
-// Cleared for the duration of the test so a dev machine's ambient ADC
-// configuration (a real GOOGLE_APPLICATION_CREDENTIALS file, a real
-// project/location pair) can't divert the call away from Express Mode's
-// apiKey+baseURL path and toward a real network call.
-const TOUCHED_VERTEX_ENV_VARS = [
+const GEMINI_MODEL = "gemini-2.0-flash";
+const ANTHROPIC_MODEL = "claude-3-5-sonnet-v2@20241022";
+
+/**
+ * Every env var that could pull the provider onto the ADC path instead of
+ * Express Mode. All four project-name fallbacks matter — clearing only one
+ * leaves an ambient project on a dev machine hiding the very path under test.
+ */
+const VERTEX_TOUCHED_ENV_VARS = [
   "GOOGLE_CLOUD_PROJECT",
   "GOOGLE_CLOUD_PROJECT_ID",
   "VERTEX_PROJECT_ID",
@@ -2620,12 +2630,12 @@ const TOUCHED_VERTEX_ENV_VARS = [
 
 function withVertexEnv(): () => void {
   const saved: Record<string, string | undefined> = {};
-  for (const key of TOUCHED_VERTEX_ENV_VARS) {
+  for (const key of VERTEX_TOUCHED_ENV_VARS) {
     saved[key] = process.env[key];
     delete process.env[key];
   }
   return () => {
-    for (const key of TOUCHED_VERTEX_ENV_VARS) {
+    for (const key of VERTEX_TOUCHED_ENV_VARS) {
       const prior = saved[key];
       if (prior === undefined) {
         delete process.env[key];
@@ -2636,9 +2646,2149 @@ function withVertexEnv(): () => void {
   };
 }
 
-type VertexStandInCall = { body: Record<string, unknown> };
+function vertexCredentialsFor(port: number) {
+  return {
+    vertex: { apiKey: "express-key", baseURL: `http://127.0.0.1:${port}` },
+  };
+}
+
+type VertexCapturedFinish = {
+  finishReasonUnified: string;
+  inputTokens: number | undefined;
+  outputTokens: number | undefined;
+};
+
+// --- Gemini3 wire: Gemini `generateContentStream` SSE framing --------------
+
+function geminiSse(
+  parts: Array<Record<string, unknown>>,
+  finishReason?: string,
+): string {
+  const payload = {
+    candidates: [
+      {
+        content: { parts, role: "model" },
+        ...(finishReason ? { finishReason } : {}),
+        index: 0,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 5,
+      candidatesTokenCount: 4,
+      totalTokenCount: 9,
+    },
+  };
+  return `data: ${JSON.stringify(payload)}\r\n\r\n`;
+}
+
+function geminiTextTurn(text: string): string {
+  return geminiSse([{ text }], "STOP");
+}
+
+type GeminiStandInCall = { body: Record<string, unknown> };
+type GeminiStandIn = {
+  calls: GeminiStandInCall[];
+  port: number;
+  close: () => Promise<void>;
+};
+
+/** An SSE body, or a JSON error the stand-in answers with a non-200 status. */
+type GeminiStandInReply = string | { status: number; json: unknown };
+
+async function startGeminiStandIn(
+  reply: (callIndex: number) => GeminiStandInReply,
+): Promise<GeminiStandIn> {
+  const calls: GeminiStandInCall[] = [];
+  const httpServer: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        // Malformed body — keep it empty rather than fail the request.
+      }
+      calls.push({ body });
+      const answer = reply(calls.length - 1);
+      if (typeof answer === "string") {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.write(answer);
+        res.end();
+        return;
+      }
+      res.writeHead(answer.status, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer.json));
+    });
+  });
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, "127.0.0.1", resolve),
+  );
+  const address = httpServer.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => httpServer.close(() => resolve())),
+  };
+}
+
+// --- Anthropic-on-Vertex wire: Anthropic Messages SSE framing --------------
+
+function anthropicSse(event: string, payload: Record<string, unknown>): string {
+  return `event: ${event}\ndata: ${JSON.stringify({ type: event, ...payload })}\n\n`;
+}
+
+/** A turn that emits text and stops — the full message shape, since
+ * `MessageStream` builds its running snapshot from `message_start` and dies
+ * pushing onto `snapshot.content` without it. */
+function anthropicTextTurn(text: string): string[] {
+  return [
+    anthropicSse("message_start", {
+      message: {
+        id: "msg_1",
+        type: "message",
+        role: "assistant",
+        model: ANTHROPIC_MODEL,
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 5, output_tokens: 0 },
+      },
+    }),
+    anthropicSse("content_block_start", {
+      index: 0,
+      content_block: { type: "text", text: "" },
+    }),
+    anthropicSse("content_block_delta", {
+      index: 0,
+      delta: { type: "text_delta", text },
+    }),
+    anthropicSse("content_block_stop", { index: 0 }),
+    anthropicSse("message_delta", {
+      delta: { stop_reason: "end_turn" },
+      usage: { output_tokens: 4 },
+    }),
+    anthropicSse("message_stop", {}),
+  ];
+}
+
+type AnthropicStandInCall = { body: Record<string, unknown> };
+type AnthropicStandIn = {
+  calls: AnthropicStandInCall[];
+  port: number;
+  close: () => Promise<void>;
+};
+
+/**
+ * Folds a case's SSE frames into the single JSON message the non-streaming
+ * endpoint returns, so one fixture serves both wire modes:
+ * executeNativeAnthropicStream calls `messages.stream` (SSE), while
+ * executeNativeAnthropicGenerate calls `messages.create` (single JSON body).
+ */
+function anthropicMessageFromFrames(frames: string[]): Record<string, unknown> {
+  const events = frames.map(
+    (frame) =>
+      JSON.parse(frame.slice(frame.indexOf("data: ") + 6).trim()) as Record<
+        string,
+        unknown
+      >,
+  );
+  const start = events.find((e) => e.type === "message_start") as
+    | { message?: Record<string, unknown> }
+    | undefined;
+  const message: Record<string, unknown> = { ...(start?.message ?? {}) };
+  const content: Array<Record<string, unknown>> = [];
+  for (const event of events) {
+    if (event.type === "content_block_start") {
+      content.push({
+        ...((event.content_block as Record<string, unknown>) ?? {}),
+      });
+    }
+    if (event.type === "content_block_delta") {
+      const delta = (event.delta ?? {}) as Record<string, unknown>;
+      const block = content[content.length - 1];
+      if (!block) {
+        continue;
+      }
+      if (typeof delta.text === "string") {
+        block.text = `${block.text ?? ""}${delta.text}`;
+      }
+    }
+    if (event.type === "message_delta") {
+      Object.assign(message, (event.delta ?? {}) as Record<string, unknown>);
+      // `usage` on a message_delta frame is a SIBLING of `delta`, not nested
+      // inside it (see anthropicTextTurn above) — the real output-token count
+      // lives here, not in message_start's initial `{ output_tokens: 0 }`
+      // snapshot. Merge it into the running usage instead of dropping it, so
+      // the folded message this function returns (the non-streaming stand-in
+      // reply executeNativeAnthropicGenerate's forced-finalization and
+      // backstop calls consume) carries the real token count rather than the
+      // stale start-of-turn one.
+      if (event.usage) {
+        message.usage = {
+          ...(message.usage as Record<string, unknown> | undefined),
+          ...(event.usage as Record<string, unknown>),
+        };
+      }
+    }
+  }
+  message.content = content;
+  return message;
+}
+
+async function startAnthropicStandIn(
+  reply: (callIndex: number) => string[],
+): Promise<AnthropicStandIn> {
+  const calls: AnthropicStandInCall[] = [];
+  const httpServer: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        // Malformed body — keep it empty rather than fail the request.
+      }
+      calls.push({ body });
+      const frames = reply(calls.length - 1);
+      if (body.stream === true) {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        for (const frame of frames) {
+          res.write(frame);
+        }
+        res.end();
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(anthropicMessageFromFrames(frames)));
+    });
+  });
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, "127.0.0.1", resolve),
+  );
+  const address = httpServer.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => httpServer.close(() => resolve())),
+  };
+}
+
+/**
+ * Opens with the first frames of a turn and then never finishes the response
+ * — the upstream a consumer walks away from mid-stream. `closedResponses()`
+ * counts responses whose connection ended. Nothing here ever ends one, so a
+ * client abort is the only thing that can raise it: it is the evidence that
+ * the call was released rather than merely abandoned.
+ */
+type AnthropicHoldOpenStandIn = AnthropicStandIn & {
+  closedResponses: () => number;
+};
+
+async function startAnthropicHoldOpenStandIn(): Promise<AnthropicHoldOpenStandIn> {
+  const calls: AnthropicStandInCall[] = [];
+  let closed = 0;
+  const httpServer: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        // Malformed body — keep it empty rather than fail the request.
+      }
+      calls.push({ body });
+      res.on("close", () => {
+        closed += 1;
+      });
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      // message_start, content_block_start, one text delta — then silence.
+      for (const frame of anthropicTextTurn("held-open reply").slice(0, 3)) {
+        res.write(frame);
+      }
+    });
+  });
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, "127.0.0.1", resolve),
+  );
+  const address = httpServer.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    closedResponses: () => closed,
+    close: () => {
+      httpServer.closeAllConnections();
+      return new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    },
+  };
+}
+
+// --- What one upstream request carried, read through each wire format ------
+//
+// The two formats name the same things differently, so a case that asserts on
+// "the system prompt" or "the sampling params" reads them through the loop's
+// own reader instead of searching the serialized body for a string. A body
+// search cannot tell the system prompt from the user turn.
+
+type VertexWire = {
+  system: string | undefined;
+  userTexts: string[];
+  temperature: number | undefined;
+  topP: number | undefined;
+  maxTokens: number | undefined;
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+const asNumber = (value: unknown): number | undefined =>
+  typeof value === "number" ? value : undefined;
+
+/** The `text` of every entry in a parts array, or the string itself. */
+const textsOf = (parts: unknown): string[] => {
+  if (typeof parts === "string") {
+    return [parts];
+  }
+  return Array.isArray(parts)
+    ? parts.flatMap((part) => {
+        const text = asRecord(part).text;
+        return typeof text === "string" ? [text] : [];
+      })
+    : [];
+};
+
+const joinedOrUndefined = (texts: string[]): string | undefined =>
+  texts.length > 0 ? texts.join("\n") : undefined;
+
+const entriesWithRole = (entries: unknown, role: string): unknown[] =>
+  (Array.isArray(entries) ? entries : []).filter(
+    (entry) => asRecord(entry).role === role,
+  );
+
+function geminiWire(body: Record<string, unknown>): VertexWire {
+  const config = asRecord(body.generationConfig);
+  return {
+    system: joinedOrUndefined(textsOf(asRecord(body.systemInstruction).parts)),
+    userTexts: entriesWithRole(body.contents, "user").flatMap((entry) =>
+      textsOf(asRecord(entry).parts),
+    ),
+    temperature: asNumber(config.temperature),
+    topP: asNumber(config.topP),
+    maxTokens: asNumber(config.maxOutputTokens),
+  };
+}
+
+function anthropicWire(body: Record<string, unknown>): VertexWire {
+  return {
+    system: joinedOrUndefined(textsOf(body.system)),
+    userTexts: entriesWithRole(body.messages, "user").flatMap((entry) =>
+      textsOf(asRecord(entry).content),
+    ),
+    temperature: asNumber(body.temperature),
+    topP: asNumber(body.top_p),
+    maxTokens: asNumber(body.max_tokens),
+  };
+}
+
+// --- One case per native loop -----------------------------------------------
+
 type VertexStandIn = {
-  calls: VertexStandInCall[];
+  calls: Array<{ body: Record<string, unknown> }>;
+  port: number;
+  close: () => Promise<void>;
+};
+
+type VertexLoop = {
+  label: string;
+  mode: "generate" | "stream";
+  model: string;
+  start: (reply: string) => Promise<VertexStandIn>;
+  wire: (body: Record<string, unknown>) => VertexWire;
+};
+
+const VERTEX_REPLY = "vertex reply text";
+const USER_TEXT = "ORIGINAL_USER_QUESTION";
+const SYSTEM_TEXT = "ORIGINAL_SYSTEM_RULES";
+
+const VERTEX_LOOPS: readonly VertexLoop[] = [
+  {
+    label: "Gemini native generate",
+    mode: "generate",
+    model: GEMINI_MODEL,
+    start: (reply) => startGeminiStandIn(() => geminiTextTurn(reply)),
+    wire: geminiWire,
+  },
+  {
+    label: "Gemini native stream",
+    mode: "stream",
+    model: GEMINI_MODEL,
+    start: (reply) => startGeminiStandIn(() => geminiTextTurn(reply)),
+    wire: geminiWire,
+  },
+  {
+    label: "Anthropic native generate",
+    mode: "generate",
+    model: ANTHROPIC_MODEL,
+    start: (reply) => startAnthropicStandIn(() => anthropicTextTurn(reply)),
+    wire: anthropicWire,
+  },
+  {
+    label: "Anthropic native stream",
+    mode: "stream",
+    model: ANTHROPIC_MODEL,
+    start: (reply) => startAnthropicStandIn(() => anthropicTextTurn(reply)),
+    wire: anthropicWire,
+  },
+];
+const GENERATE_LOOPS = VERTEX_LOOPS.filter((loop) => loop.mode === "generate");
+const STREAM_LOOPS = VERTEX_LOOPS.filter((loop) => loop.mode === "stream");
+
+type VertexCallExtras = {
+  systemPrompt?: string;
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
+  enableAnalytics?: boolean;
+  middleware?: MiddlewareFactoryOptions;
+  onFinish?: OnFinishCallback;
+  onError?: OnErrorCallback;
+  onChunk?: OnChunkCallback;
+};
+
+type VertexRun = {
+  text: string;
+  analytics: AnalyticsData | undefined;
+  bodies: Array<Record<string, unknown>>;
+};
+
+/**
+ * Lifecycle callbacks are invoked through promise wrappers with deadline
+ * timers, so a callback that fires late needs time to show up before a count
+ * is read as final. The floor assertion beside every count proves the
+ * callbacks were live; this window is what gives the ceilings their meaning.
+ */
+const settleLifecycle = (): Promise<void> =>
+  new Promise<void>((resolve) => setTimeout(resolve, 250));
+
+/** Runs one call on `loop` against a fresh stand-in and reports what it saw. */
+async function runVertexLoop(
+  loop: VertexLoop,
+  extras: VertexCallExtras = {},
+): Promise<VertexRun> {
+  const server = await loop.start(VERTEX_REPLY);
+  const restoreEnv = withVertexEnv();
+  const sdk = new NeuroLink();
+  try {
+    const options = {
+      input: { text: USER_TEXT },
+      provider: "vertex" as const,
+      model: loop.model,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      ...extras,
+    };
+    if (loop.mode === "generate") {
+      const result = await sdk.generate(options);
+      await settleLifecycle();
+      return {
+        text: result.content,
+        analytics: result.analytics,
+        bodies: server.calls.map((call) => call.body),
+      };
+    }
+    const result = await sdk.stream(options);
+    const text = await bounded(readText(result));
+    const analytics = await bounded(Promise.resolve(result.analytics));
+    await settleLifecycle();
+    return {
+      text,
+      analytics,
+      bodies: server.calls.map((call) => call.body),
+    };
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+}
+
+/**
+ * Runs one call on `loop.model` through the legacy prompt-only
+ * `generateText()` convention instead of `generate()`/`stream()`:
+ * `options.prompt` carries the caller's text and `options.input` is never
+ * set at all. This is a real, currently-supported calling convention — see
+ * `generateTextInInstanceScope` in `src/lib/neurolink.ts`, which validates
+ * `options.prompt` and never touches `options.input` — not a contrived
+ * shape. `runVertexLoop` above always sets `input.text`, so it cannot
+ * exercise this path; this is only meaningful on the generate loops, since
+ * `StreamOptions` has no top-level `prompt` field and `streamText()` always
+ * normalizes to `input.text` before a provider ever sees it.
+ */
+async function runVertexLoopPromptOnly(
+  loop: VertexLoop,
+  extras: VertexCallExtras = {},
+): Promise<VertexRun> {
+  const server = await loop.start(VERTEX_REPLY);
+  const restoreEnv = withVertexEnv();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generateText({
+      prompt: USER_TEXT,
+      provider: "vertex" as AIProviderName,
+      model: loop.model,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      ...extras,
+    });
+    await settleLifecycle();
+    return {
+      text: result.content,
+      analytics: result.analytics,
+      bodies: server.calls.map((call) => call.body),
+    };
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+}
+
+/**
+ * The first upstream request, read through the loop's wire format. Throws
+ * when none arrived, so an assertion about what a request lacks can never
+ * pass on a request that was never sent.
+ */
+function wireOf(loop: VertexLoop, run: VertexRun): VertexWire {
+  const body = run.bodies[0];
+  if (!body) {
+    throw new Error(`the ${loop.label} stand-in was never reached`);
+  }
+  return loop.wire(body);
+}
+
+type MiddlewareParams = Parameters<
+  NonNullable<NeuroLinkMiddleware["transformParams"]>
+>[0]["params"];
+type V3Prompt = MiddlewareParams["prompt"];
+type V3UserMessage = Extract<V3Prompt[number], { role: "user" }>;
+type V3UserParts = Exclude<V3UserMessage["content"], string>;
+
+/**
+ * Prompt content as a middleware written against the V3 spec sees it: a list
+ * of parts. The spec has no string form for a user turn, so such a middleware
+ * does not check for one — which is exactly why handing it a string breaks it.
+ */
+const partsOf = (content: V3UserMessage["content"]): V3UserParts =>
+  content as V3UserParts;
+
+/**
+ * A `transformParams` middleware that records the params it was given before
+ * applying `rewrite`. `seen` is the precondition for every case that asserts
+ * on a rewrite: an empty `seen` means the middleware never ran, and whatever
+ * the wire then shows says nothing about it.
+ */
+function paramsProbe(
+  id: string,
+  rewrite: (params: MiddlewareParams) => MiddlewareParams,
+): { middleware: MiddlewareFactoryOptions; seen: MiddlewareParams[] } {
+  const seen: MiddlewareParams[] = [];
+  const probe: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id, name: id },
+    transformParams: async ({ params }) => {
+      seen.push(params);
+      return rewrite(params);
+    },
+  };
+  return {
+    middleware: { middleware: [probe], enabledMiddleware: [id] },
+    seen,
+  };
+}
+
+const promptRewrite =
+  (rewrite: (prompt: V3Prompt) => V3Prompt) =>
+  (params: MiddlewareParams): MiddlewareParams => ({
+    ...params,
+    prompt: rewrite(params.prompt),
+  });
+
+/** A middleware that observes and changes nothing, counting which hook ran. */
+function countingProbe(id: string): {
+  middleware: MiddlewareFactoryOptions;
+  counts: { generate: number; stream: number };
+} {
+  const counts = { generate: 0, stream: 0 };
+  const probe: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id, name: id },
+    wrapGenerate: async ({ doGenerate }) => {
+      counts.generate += 1;
+      return doGenerate();
+    },
+    wrapStream: async ({ doStream }) => {
+      counts.stream += 1;
+      return doStream();
+    },
+  };
+  return {
+    middleware: { middleware: [probe], enabledMiddleware: [id] },
+    counts,
+  };
+}
+
+function captureLifecycle(): {
+  finishes: LifecycleFinishPayload[];
+  errors: LifecycleErrorPayload[];
+  chunks: LifecycleChunkPayload[];
+  onFinish: OnFinishCallback;
+  onError: OnErrorCallback;
+  onChunk: OnChunkCallback;
+} {
+  const finishes: LifecycleFinishPayload[] = [];
+  const errors: LifecycleErrorPayload[] = [];
+  const chunks: LifecycleChunkPayload[] = [];
+  return {
+    finishes,
+    errors,
+    chunks,
+    onFinish: (payload) => {
+      finishes.push(payload);
+    },
+    onError: (payload) => {
+      errors.push(payload);
+    },
+    onChunk: (payload) => {
+      chunks.push(payload);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// transformParams reaching the wire — one case per native loop.
+// ---------------------------------------------------------------------------
+
+await test("vertex Gemini native generate: a transformParams rewrite reaches the wire", async () => {
+  const server = await startGeminiStandIn(() =>
+    geminiTextTurn("gemini generate reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const record = emptyRecord();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "hello vertex" },
+      provider: "vertex",
+      model: GEMINI_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    if (record.transformParamsCalls.length === 0) {
+      throw new Error(
+        "the probe never ran on the vertex Gemini native generate path",
+      );
+    }
+    if (server.calls.length === 0) {
+      throw new Error("the vertex Gemini stand-in was never reached");
+    }
+    const userText = geminiWire(server.calls[0]?.body ?? {}).userTexts.join(
+      "\n",
+    );
+    if (!userText.includes(MARKER)) {
+      throw new Error(
+        "the transformParams rewrite did not reach the wire on vertex Gemini native generate",
+      );
+    }
+    assert.ok(
+      userText.includes("hello vertex"),
+      "the caller's own text was dropped when the middleware appended a message",
+    );
+    assert.equal(
+      typeof result.content,
+      "string",
+      "the native generate call did not return text content",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("vertex Gemini native stream: a transformParams rewrite reaches the wire and wrapStream observes real usage", async () => {
+  const server = await startGeminiStandIn(() =>
+    geminiTextTurn("gemini stream reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const record = emptyRecord();
+  const capture: { finish: VertexCapturedFinish | undefined } = {
+    finish: undefined,
+  };
+  const probe: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "vertex-stream-probe", name: "Vertex stream probe" },
+    transformParams: async ({ type, params }) => {
+      record.transformParamsCalls.push(type);
+      return {
+        ...params,
+        prompt: [
+          ...params.prompt,
+          { role: "user", content: [{ type: "text", text: MARKER }] },
+        ],
+      };
+    },
+    wrapStream: async ({ doStream }) => {
+      record.wrapStreamCalls += 1;
+      const { stream } = await doStream();
+      const reader = stream.getReader();
+      const relay = new ReadableStream<LanguageModelV3StreamPart>({
+        async pull(controller) {
+          const next = await reader.read();
+          if (next.done) {
+            controller.close();
+            return;
+          }
+          if (next.value.type === "finish") {
+            capture.finish = {
+              finishReasonUnified: next.value.finishReason.unified,
+              inputTokens: next.value.usage.inputTokens.total,
+              outputTokens: next.value.usage.outputTokens.total,
+            };
+          }
+          controller.enqueue(next.value);
+        },
+        async cancel(reason) {
+          await reader.cancel(reason);
+        },
+      });
+      return { stream: relay };
+    },
+  };
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "hello vertex" },
+      provider: "vertex",
+      model: GEMINI_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: {
+        middleware: [probe],
+        enabledMiddleware: ["vertex-stream-probe"],
+      },
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
+    }
+    if (server.calls.length === 0) {
+      throw new Error("the vertex Gemini stand-in was never reached");
+    }
+    const userText = geminiWire(server.calls[0]?.body ?? {}).userTexts.join(
+      "\n",
+    );
+    if (!userText.includes(MARKER)) {
+      throw new Error(
+        "the transformParams rewrite did not reach the wire on vertex Gemini native stream",
+      );
+    }
+    assert.ok(
+      userText.includes("hello vertex"),
+      "the caller's own text was dropped when the middleware appended a message",
+    );
+    assert.ok(
+      text.includes("gemini stream reply"),
+      "the native reply text did not reach the consumer",
+    );
+    if (!capture.finish) {
+      throw new Error("wrapStream never observed a finish part");
+    }
+    assert.ok(
+      typeof capture.finish.inputTokens === "number" &&
+        capture.finish.inputTokens > 0,
+      "wrapStream observed no real input token usage from the native call",
+    );
+    assert.ok(
+      typeof capture.finish.outputTokens === "number" &&
+        capture.finish.outputTokens > 0,
+      "wrapStream observed no real output token usage from the native call",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("vertex Anthropic native generate: a transformParams rewrite reaches the wire", async () => {
+  const server = await startAnthropicStandIn(() =>
+    anthropicTextTurn("anthropic generate reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const record = emptyRecord();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "hello vertex claude" },
+      provider: "vertex",
+      model: ANTHROPIC_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    if (record.transformParamsCalls.length === 0) {
+      throw new Error(
+        "the probe never ran on the vertex Anthropic native generate path",
+      );
+    }
+    if (server.calls.length === 0) {
+      throw new Error("the vertex Anthropic stand-in was never reached");
+    }
+    const userText = anthropicWire(server.calls[0]?.body ?? {}).userTexts.join(
+      "\n",
+    );
+    if (!userText.includes(MARKER)) {
+      throw new Error(
+        "the transformParams rewrite did not reach the wire on vertex Anthropic native generate",
+      );
+    }
+    assert.ok(
+      userText.includes("hello vertex claude"),
+      "the caller's own text was dropped when the middleware appended a message",
+    );
+    assert.equal(
+      typeof result.content,
+      "string",
+      "the native generate call did not return text content",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("vertex Anthropic native stream: a transformParams rewrite reaches the wire", async () => {
+  const server = await startAnthropicStandIn(() =>
+    anthropicTextTurn("anthropic stream reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const record = emptyRecord();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "hello vertex claude" },
+      provider: "vertex",
+      model: ANTHROPIC_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: middlewareOptions(record),
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
+    }
+    if (record.transformParamsCalls.length === 0) {
+      throw new Error(
+        "the probe never ran on the vertex Anthropic native stream path",
+      );
+    }
+    if (server.calls.length === 0) {
+      throw new Error("the vertex Anthropic stand-in was never reached");
+    }
+    const userText = anthropicWire(server.calls[0]?.body ?? {}).userTexts.join(
+      "\n",
+    );
+    if (!userText.includes(MARKER)) {
+      throw new Error(
+        "the transformParams rewrite did not reach the wire on vertex Anthropic native stream",
+      );
+    }
+    assert.ok(
+      userText.includes("hello vertex claude"),
+      "the caller's own text was dropped when the middleware appended a message",
+    );
+    assert.ok(
+      text.includes("anthropic stream reply"),
+      "the native reply text did not reach the consumer",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// wrapGenerate observing the native result (generate side of the pair above,
+// which covered wrapStream).
+// ---------------------------------------------------------------------------
+
+await test("vertex Anthropic native generate: wrapGenerate observes a finishReason and real usage from the native call", async () => {
+  const server = await startAnthropicStandIn(() =>
+    anthropicTextTurn("anthropic generate reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const capture: { finish: VertexCapturedFinish | undefined } = {
+    finish: undefined,
+  };
+  const probe: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "vertex-generate-usage-probe",
+      name: "Vertex generate usage probe",
+    },
+    wrapGenerate: async ({ doGenerate }) => {
+      const generated = await doGenerate();
+      capture.finish = {
+        finishReasonUnified: generated.finishReason.unified,
+        inputTokens: generated.usage.inputTokens.total,
+        outputTokens: generated.usage.outputTokens.total,
+      };
+      return generated;
+    },
+  };
+  const sdk = new NeuroLink();
+  try {
+    await sdk.generate({
+      input: { text: "hello vertex claude" },
+      provider: "vertex",
+      model: ANTHROPIC_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: {
+        middleware: [probe],
+        enabledMiddleware: ["vertex-generate-usage-probe"],
+      },
+    });
+    if (!capture.finish) {
+      throw new Error("wrapGenerate never observed a result");
+    }
+    assert.equal(
+      capture.finish.finishReasonUnified,
+      "stop",
+      "the native finish reason was not carried onto the V3 result",
+    );
+    assert.ok(
+      typeof capture.finish.inputTokens === "number" &&
+        capture.finish.inputTokens > 0,
+      "wrapGenerate observed no real input token usage from the native call",
+    );
+    assert.ok(
+      typeof capture.finish.outputTokens === "number" &&
+        capture.finish.outputTokens > 0,
+      "wrapGenerate observed no real output token usage from the native call",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("vertex Anthropic native generate: a forced-finalization call carries the real message_delta usage, not the message_start snapshot", async () => {
+  // maxSteps: 1 drives the agentic loop's reserved step budget to zero (the
+  // last step is always reserved for the forced final_result call once a
+  // schema is set), so this never visits the main loop at all — it goes
+  // straight to executeNativeAnthropicGenerate's forced-finalization branch,
+  // the one terminal path that calls `messages.create()` WITHOUT forcing
+  // `stream: true`. That is the only way to reach the stand-in's buffered
+  // JSON branch (anthropicMessageFromFrames) instead of its SSE passthrough.
+  const server = await startAnthropicStandIn(() =>
+    anthropicTextTurn("forced finalization reply"),
+  );
+  const restoreEnv = withVertexEnv();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "hello vertex claude" },
+      provider: "vertex",
+      model: ANTHROPIC_MODEL,
+      maxTokens: 32,
+      maxSteps: 1,
+      disableTools: true,
+      disableInternalFallback: true,
+      schema: z.object({ answer: z.string() }),
+      credentials: vertexCredentialsFor(server.port),
+    });
+    assert.equal(
+      server.calls.length,
+      1,
+      "expected exactly one forced-finalization call to the vertex Anthropic stand-in",
+    );
+    assert.equal(
+      server.calls[0]?.body.stream,
+      undefined,
+      "the forced-finalization call unexpectedly requested a streamed response",
+    );
+    // message_start's initial snapshot carries input_tokens: 5, output_tokens: 0;
+    // the turn's message_delta frame carries the real output_tokens: 4 as a
+    // SIBLING of `delta`. A fold that drops it leaves result.usage.output at 0.
+    assert.equal(
+      result.usage?.input,
+      5,
+      "input tokens from the native Anthropic turn were dropped from the generate result's usage",
+    );
+    assert.equal(
+      result.usage?.output,
+      4,
+      "the real output-token count from the turn's message_delta frame did not reach the generate result's usage — it fell back to message_start's stale snapshot",
+    );
+    assert.equal(
+      result.usage?.total,
+      9,
+      "the generate result's usage total did not reflect the real message_delta output-token count",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Precall guardrails blocking the call before it reaches the stand-in.
+//
+// The blocked-branch code in runNativeGenerateWithMiddleware /
+// runNativeStreamWithMiddleware is provider-agnostic — it never inspects
+// which native loop `callNative` closes over — so exercising it once per
+// method (both on Gemini) proves the mechanism for all four loops; it is not
+// Gemini-specific.
+// ---------------------------------------------------------------------------
+
+await test("vertex Gemini native generate: a precall guardrail blocks the call before it reaches the stand-in", async () => {
+  const server = await startGeminiStandIn(() =>
+    geminiTextTurn("should never be requested"),
+  );
+  const restoreEnv = withVertexEnv();
+  let invoked = false;
+  const blockingMiddleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "vertex-block-gemini-generate",
+      name: "Block vertex Gemini generate",
+    },
+    wrapGenerate: async () => {
+      invoked = true;
+      return {
+        content: [{ type: "text", text: "BLOCKED" }],
+        finishReason: { unified: "stop" },
+        usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
+      };
+    },
+  };
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "block this" },
+      provider: "vertex",
+      model: GEMINI_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: {
+        middleware: [blockingMiddleware],
+        enabledMiddleware: ["vertex-block-gemini-generate"],
+      },
+    });
+    assert.ok(invoked, "blocking middleware did not run");
+    assert.equal(
+      server.calls.length,
+      0,
+      "a call a guardrail blocked still reached the vertex Gemini stand-in",
+    );
+    assert.equal(
+      result.content,
+      "BLOCKED",
+      "the guardrail's synthesized content was lost",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("vertex Gemini native stream: a precall guardrail blocks the call before it reaches the stand-in", async () => {
+  const server = await startGeminiStandIn(() =>
+    geminiTextTurn("should never be requested"),
+  );
+  const restoreEnv = withVertexEnv();
+  let invoked = false;
+  const blockingMiddleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: {
+      id: "vertex-block-gemini-stream",
+      name: "Block vertex Gemini stream",
+    },
+    wrapStream: async () => {
+      invoked = true;
+      return {
+        stream: new ReadableStream<LanguageModelV3StreamPart>({
+          start(controller) {
+            controller.enqueue({ type: "text-start", id: "blocked" });
+            controller.enqueue({
+              type: "text-delta",
+              id: "blocked",
+              delta: "BLOCKED",
+            });
+            controller.enqueue({ type: "text-end", id: "blocked" });
+            controller.enqueue({
+              type: "finish",
+              finishReason: { unified: "stop" },
+              usage: {
+                inputTokens: { total: 11 },
+                outputTokens: { total: 4 },
+              },
+            });
+            controller.close();
+          },
+        }),
+      };
+    },
+  };
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "block this" },
+      provider: "vertex",
+      model: GEMINI_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: {
+        middleware: [blockingMiddleware],
+        enabledMiddleware: ["vertex-block-gemini-stream"],
+      },
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
+    }
+    assert.equal(text, "BLOCKED", "blocked content lost");
+    assert.ok(invoked, "blocking middleware did not run");
+    assert.equal(
+      server.calls.length,
+      0,
+      "a stream a guardrail blocked still reached the vertex Gemini stand-in",
+    );
+    // The blocked-branch result exposes `usage` as a live getter (it only
+    // resolves once the drained stream's finish part has been seen). Every
+    // native Vertex stream passes through `withClientStreamSpan`, which
+    // rewraps the result via `{ ...result, stream: wrapped }` — a plain
+    // object spread snapshots an enumerable getter at spread time, so this
+    // proves `preserveStreamResultAccessors` was told to carry `usage`
+    // through that rewrap, not just `finishReason`.
+    assert.equal(
+      result.usage?.input,
+      11,
+      "a blocked stream's usage getter did not survive the span wrapper's object spread",
+    );
+    assert.equal(
+      result.usage?.output,
+      4,
+      "a blocked stream's usage getter did not survive the span wrapper's object spread",
+    );
+    assert.equal(
+      result.usage?.total,
+      15,
+      "a blocked stream's usage total did not survive the span wrapper's object spread",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// What a middleware edit does to the turn — every native loop.
+//
+// Each case reads the wire request through the loop's own reader instead of
+// searching the serialized body. Every assertion about something a request
+// LACKS follows the proof that the request existed, that the middleware ran,
+// and — where a removal is asserted — that a control run carried the thing in
+// the first place; a request that was never sent would otherwise "lack" all of
+// it.
+// ---------------------------------------------------------------------------
+
+const EDITED_SYSTEM_TEXT = "EDITED_SYSTEM_RULES";
+const ADDED_SYSTEM_TEXT = "ADDED_SYSTEM_RULES";
+const APPENDED_TEXT = "APPENDED_CONTEXT";
+const PREPENDED_TEXT = "PREPENDED_CONTEXT";
+const SPREAD_APPENDED_TEXT = "SPREAD_APPENDED_CONTEXT";
+const BLOCKED_TEXT = "BLOCKED";
+
+const userTurn = (text: string): V3Prompt[number] => ({
+  role: "user",
+  content: [{ type: "text", text }],
+});
+
+const systemTurn = (text: string): V3Prompt[number] => ({
+  role: "system",
+  content: text,
+});
+
+const withoutSystem = (prompt: V3Prompt): V3Prompt =>
+  prompt.filter((message) => message.role !== "system");
+
+/** Applies `edit` to every text a user message carries, whatever its shape. */
+const editUserText =
+  (edit: (text: string) => string) =>
+  (prompt: V3Prompt): V3Prompt =>
+    prompt.map((message) => {
+      if (message.role !== "user") {
+        return message;
+      }
+      return typeof message.content === "string"
+        ? { ...message, content: edit(message.content) }
+        : {
+            ...message,
+            content: message.content.map((part) =>
+              part.type === "text" ? { ...part, text: edit(part.text) } : part,
+            ),
+          };
+    });
+
+const joinedUserText = (wire: VertexWire): string => wire.userTexts.join("\n");
+
+for (const loop of VERTEX_LOOPS) {
+  await test(`vertex ${loop.label}: a middleware can edit, remove and add the system prompt`, async () => {
+    const control = await runVertexLoop(loop, { systemPrompt: SYSTEM_TEXT });
+    assert.equal(
+      wireOf(loop, control).system,
+      SYSTEM_TEXT,
+      "the caller's system prompt did not reach the wire when no middleware touched it",
+    );
+
+    const edit = paramsProbe(
+      "system-edit",
+      promptRewrite((prompt) =>
+        prompt.map((message) =>
+          message.role === "system"
+            ? { ...message, content: EDITED_SYSTEM_TEXT }
+            : message,
+        ),
+      ),
+    );
+    const edited = await runVertexLoop(loop, {
+      systemPrompt: SYSTEM_TEXT,
+      middleware: edit.middleware,
+    });
+    assert.ok(
+      edit.seen[0]?.prompt.some(
+        (message) =>
+          message.role === "system" && message.content === SYSTEM_TEXT,
+      ),
+      "the middleware was not shown the caller's system prompt",
+    );
+    assert.equal(
+      wireOf(loop, edited).system,
+      EDITED_SYSTEM_TEXT,
+      "a system prompt the middleware edited did not reach the wire",
+    );
+
+    const removal = paramsProbe("system-remove", promptRewrite(withoutSystem));
+    const removed = await runVertexLoop(loop, {
+      systemPrompt: SYSTEM_TEXT,
+      middleware: removal.middleware,
+    });
+    assert.ok(
+      removal.seen.length > 0,
+      "the system-removal middleware never ran",
+    );
+    const removedWire = wireOf(loop, removed);
+    assert.ok(
+      joinedUserText(removedWire).includes(USER_TEXT),
+      "the user turn did not reach the wire in the removal run",
+    );
+    assert.equal(
+      removedWire.system,
+      undefined,
+      "a system prompt the middleware removed still reached the wire",
+    );
+
+    const addition = paramsProbe(
+      "system-add",
+      promptRewrite((prompt) => [systemTurn(ADDED_SYSTEM_TEXT), ...prompt]),
+    );
+    const added = await runVertexLoop(loop, {
+      middleware: addition.middleware,
+    });
+    assert.ok(
+      addition.seen.length > 0,
+      "the system-addition middleware never ran",
+    );
+    assert.equal(
+      wireOf(loop, added).system,
+      ADDED_SYSTEM_TEXT,
+      "a system message the middleware added did not reach the wire",
+    );
+  });
+}
+
+for (const loop of VERTEX_LOOPS) {
+  await test(`vertex ${loop.label}: a user message a middleware appends or prepends reaches the wire beside the caller's own`, async () => {
+    const append = paramsProbe(
+      "user-append",
+      promptRewrite((prompt) => [...prompt, userTurn(APPENDED_TEXT)]),
+    );
+    const appended = await runVertexLoop(loop, {
+      middleware: append.middleware,
+    });
+    assert.ok(append.seen.length > 0, "the append middleware never ran");
+    assert.deepEqual(
+      wireOf(loop, appended).userTexts,
+      [`${USER_TEXT}\n\n${APPENDED_TEXT}`],
+      "an appended user message did not reach the wire after the caller's text",
+    );
+
+    const prepend = paramsProbe(
+      "user-prepend",
+      promptRewrite((prompt) => [userTurn(PREPENDED_TEXT), ...prompt]),
+    );
+    const prepended = await runVertexLoop(loop, {
+      middleware: prepend.middleware,
+    });
+    assert.ok(prepend.seen.length > 0, "the prepend middleware never ran");
+    assert.deepEqual(
+      wireOf(loop, prepended).userTexts,
+      [`${PREPENDED_TEXT}\n\n${USER_TEXT}`],
+      "a prepended user message did not reach the wire before the caller's text",
+    );
+
+    const edit = paramsProbe(
+      "user-edit",
+      promptRewrite(editUserText((text) => `${text} EDITED`)),
+    );
+    const edited = await runVertexLoop(loop, { middleware: edit.middleware });
+    assert.ok(edit.seen.length > 0, "the edit middleware never ran");
+    assert.deepEqual(
+      wireOf(loop, edited).userTexts,
+      [`${USER_TEXT} EDITED`],
+      "an in-place edit of the user text did not reach the wire",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// A middleware that empties the user turn (CodeRabbit PRRT_kwDOOzxF1c6n6aUz,
+// finding 1). `executeNativeGemini3Generate` and
+// `executeNativeAnthropicGenerate` compute `inputText` from
+// `options.input?.text || options.prompt || "Please respond."` — `||` treats
+// an emptied `input.text` the same as a never-set one and falls through to
+// `options.prompt`, which `buildGenerateTextOptions` snapshots from the
+// ORIGINAL `input.text` before any middleware runs. A redaction a middleware
+// applies is therefore silently discarded: the ORIGINAL, unredacted text
+// still reaches Vertex. Generate loops only — the stream executors read
+// `options.input.text` directly with no `options.prompt` fallback at all
+// (`executeNativeGemini3Stream` builds `userParts` from
+// `options.input.text ?? ""`; `executeNativeAnthropicStream` reads
+// `multimodalInput.text` the same way), so there is no stale snapshot for
+// an empty rewrite to fall back onto on the stream path.
+// ---------------------------------------------------------------------------
+
+for (const loop of GENERATE_LOOPS) {
+  await test(`vertex ${loop.label}: a middleware that empties the user text reaches the wire as empty, not the caller's original`, async () => {
+    const redact = paramsProbe(
+      "user-redact",
+      promptRewrite((prompt) =>
+        prompt.map((message) =>
+          message.role === "user" ? { ...message, content: "" } : message,
+        ),
+      ),
+    );
+    const redacted = await runVertexLoop(loop, {
+      middleware: redact.middleware,
+    });
+    assert.ok(redact.seen.length > 0, "the redaction middleware never ran");
+    assert.ok(
+      redact.seen[0]?.prompt.some((message) => message.role === "user"),
+      "the middleware was not shown a user turn to redact",
+    );
+    assert.deepEqual(
+      wireOf(loop, redacted).userTexts,
+      [""],
+      "a user text a middleware emptied still reached the wire as the caller's original, unredacted text",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// A prompt-only caller (`generateText({ prompt })`, `options.input` never
+// set — CodeRabbit PRRT_kwDOOzxF1c6n6aUz, finding 2).
+// `buildTurnPromptForMiddleware` builds the turn middleware sees from
+// `options.input?.text ?? ""` only, never `options.prompt`, so a
+// prompt-only caller shows middleware an empty user turn. A middleware that
+// then appends to that turn has nothing of the caller's to append to:
+// `applyTurnParamsRewrite` writes the appended-only text back onto
+// `options.input.text` (now non-empty, so it wins the generate functions'
+// `||` chain over the real `options.prompt`), and the caller's actual
+// prompt is replaced rather than carried alongside the addition. Generate
+// loops only: `StreamOptions` has no top-level `prompt` field and
+// `streamText()` always normalizes to `{ input: { text: prompt } }` before a
+// provider ever sees the call, so a stream caller can't reach this shape.
+// ---------------------------------------------------------------------------
+
+for (const loop of GENERATE_LOOPS) {
+  await test(`vertex ${loop.label}: a prompt-only call (generateText, no input.text) shows middleware the real prompt and keeps it when a middleware appends`, async () => {
+    const visibility = paramsProbe(
+      "prompt-only-visibility",
+      (params) => params,
+    );
+    const seen = await runVertexLoopPromptOnly(loop, {
+      middleware: visibility.middleware,
+    });
+    assert.ok(visibility.seen.length > 0, "the middleware never ran");
+    const shownUser = visibility.seen[0]?.prompt.find(
+      (message) => message.role === "user",
+    );
+    const shownText =
+      shownUser && Array.isArray(shownUser.content)
+        ? shownUser.content
+            .flatMap((part) => (part.type === "text" ? [part.text] : []))
+            .join("")
+        : typeof shownUser?.content === "string"
+          ? shownUser.content
+          : "";
+    assert.equal(
+      shownText,
+      USER_TEXT,
+      "a prompt-only call showed middleware an empty user turn instead of the real prompt text",
+    );
+    assert.deepEqual(
+      wireOf(loop, seen).userTexts,
+      [USER_TEXT],
+      "the caller's prompt-only text did not reach the wire unedited",
+    );
+
+    const append = paramsProbe(
+      "prompt-only-append",
+      promptRewrite((prompt) => [...prompt, userTurn(APPENDED_TEXT)]),
+    );
+    const appended = await runVertexLoopPromptOnly(loop, {
+      middleware: append.middleware,
+    });
+    assert.ok(append.seen.length > 0, "the append middleware never ran");
+    assert.deepEqual(
+      wireOf(loop, appended).userTexts,
+      [`${USER_TEXT}\n\n${APPENDED_TEXT}`],
+      "a prompt-only call's real text was replaced by the middleware's addition instead of kept alongside it",
+    );
+  });
+}
+
+for (const loop of VERTEX_LOOPS) {
+  await test(`vertex ${loop.label}: a middleware written against the V3 prompt shape sees the user turn as parts`, async () => {
+    const probe = paramsProbe(
+      "v3-parts",
+      promptRewrite((prompt) =>
+        prompt.map((message) =>
+          message.role === "user" && Array.isArray(message.content)
+            ? {
+                ...message,
+                content: [
+                  ...message.content.map((part) =>
+                    part.type === "text"
+                      ? { ...part, text: part.text.toLowerCase() }
+                      : part,
+                  ),
+                  { type: "text" as const, text: SPREAD_APPENDED_TEXT },
+                ],
+              }
+            : message,
+        ),
+      ),
+    );
+    const run = await runVertexLoop(loop, { middleware: probe.middleware });
+    assert.ok(probe.seen.length > 0, "the V3-shape middleware never ran");
+    const shown = probe.seen[0]?.prompt.find(
+      (message) => message.role === "user",
+    );
+    assert.ok(
+      shown !== undefined && Array.isArray(shown.content),
+      "the user turn reached the middleware as a bare string instead of V3 parts",
+    );
+    assert.deepEqual(
+      wireOf(loop, run).userTexts,
+      [`${USER_TEXT.toLowerCase()}\n\n${SPREAD_APPENDED_TEXT}`],
+      "a rewrite written against V3 user parts did not reach the wire",
+    );
+  });
+}
+
+for (const loop of VERTEX_LOOPS) {
+  await test(`vertex ${loop.label}: sampling params reach the wire, and a middleware can change or remove them`, async () => {
+    const sampling = { temperature: 0.31, topP: 0.87, maxTokens: 32 };
+
+    const inert = paramsProbe("sampling-inert", (params) => params);
+    const control = await runVertexLoop(loop, {
+      ...sampling,
+      middleware: inert.middleware,
+    });
+    assert.equal(
+      inert.seen[0]?.temperature,
+      sampling.temperature,
+      "the middleware was not shown the caller's temperature",
+    );
+    const controlWire = wireOf(loop, control);
+    assert.deepEqual(
+      [controlWire.temperature, controlWire.topP, controlWire.maxTokens],
+      [sampling.temperature, sampling.topP, sampling.maxTokens],
+      "the caller's sampling params did not reach the wire through an inert middleware",
+    );
+
+    const change = paramsProbe("sampling-edit", (params) => ({
+      ...params,
+      temperature: 0.55,
+      topP: 0.66,
+      maxOutputTokens: 48,
+    }));
+    const changed = await runVertexLoop(loop, {
+      ...sampling,
+      middleware: change.middleware,
+    });
+    assert.ok(change.seen.length > 0, "the sampling-edit middleware never ran");
+    const changedWire = wireOf(loop, changed);
+    assert.deepEqual(
+      [changedWire.temperature, changedWire.topP, changedWire.maxTokens],
+      [0.55, 0.66, 48],
+      "sampling params a middleware changed did not reach the wire",
+    );
+
+    const removal = paramsProbe("sampling-remove", (params) => ({
+      ...params,
+      temperature: undefined,
+      topP: undefined,
+      maxOutputTokens: undefined,
+    }));
+    const removed = await runVertexLoop(loop, {
+      ...sampling,
+      middleware: removal.middleware,
+    });
+    assert.equal(
+      removal.seen[0]?.topP,
+      sampling.topP,
+      "the middleware was not shown the topP it then removed",
+    );
+    const removedWire = wireOf(loop, removed);
+    assert.ok(
+      joinedUserText(removedWire).includes(USER_TEXT),
+      "the user turn did not reach the wire in the removal run",
+    );
+    assert.notEqual(
+      removedWire.temperature,
+      sampling.temperature,
+      "a temperature the middleware removed still reached the wire",
+    );
+    assert.equal(
+      removedWire.topP,
+      undefined,
+      "a topP the middleware removed still reached the wire",
+    );
+    assert.notEqual(
+      removedWire.maxTokens,
+      sampling.maxTokens,
+      "a token cap the middleware removed still reached the wire",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Prompt items a native request has no place for.
+// ---------------------------------------------------------------------------
+
+const UNMAPPED_FILE_PAYLOAD = "UNMAPPED_FILE_PAYLOAD";
+const UNMAPPED_ASSISTANT_TEXT = "UNMAPPED_ASSISTANT_TEXT";
+
+/** Runs `body` while recording the first argument of every `logger.warn`. */
+async function captureWarnings<T>(
+  body: () => Promise<T>,
+): Promise<{ result: T; warnings: string[] }> {
+  const warnings: string[] = [];
+  const original = logger.warn;
+  logger.warn = (...args: unknown[]) => {
+    warnings.push(String(args[0]));
+  };
+  try {
+    return { result: await body(), warnings };
+  } finally {
+    logger.warn = original;
+  }
+}
+
+const isUnmappedReport = (warning: string): boolean =>
+  /prompt item/.test(warning);
+
+for (const loop of VERTEX_LOOPS) {
+  await test(`vertex ${loop.label}: prompt items the native request cannot carry are reported, not silently dropped`, async () => {
+    const inert = paramsProbe("unmapped-control", (params) => params);
+    const control = await captureWarnings(() =>
+      runVertexLoop(loop, { middleware: inert.middleware }),
+    );
+    assert.ok(inert.seen.length > 0, "the control middleware never ran");
+    assert.ok(
+      joinedUserText(wireOf(loop, control.result)).includes(USER_TEXT),
+      "the control request never carried the user turn",
+    );
+    assert.equal(
+      control.warnings.filter(isUnmappedReport).length,
+      0,
+      "a middleware that added nothing was warned about",
+    );
+
+    const adding = paramsProbe(
+      "unmapped-add",
+      promptRewrite((prompt) => [
+        ...prompt,
+        {
+          role: "user",
+          content: [
+            {
+              type: "file",
+              data: UNMAPPED_FILE_PAYLOAD,
+              mediaType: "text/plain",
+            },
+          ],
+        },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: UNMAPPED_ASSISTANT_TEXT }],
+        },
+      ]),
+    );
+    const { result: run, warnings } = await captureWarnings(() =>
+      runVertexLoop(loop, { middleware: adding.middleware }),
+    );
+    assert.ok(adding.seen.length > 0, "the item-adding middleware never ran");
+    assert.deepEqual(
+      wireOf(loop, run).userTexts,
+      [USER_TEXT],
+      "the user turn changed although the middleware added no text",
+    );
+    const reports = warnings.filter(isUnmappedReport);
+    assert.equal(
+      reports.length,
+      1,
+      "the dropped prompt items were not reported exactly once",
+    );
+    assert.match(
+      reports[0] ?? "",
+      /2 prompt item/,
+      "the report did not count both dropped items",
+    );
+    const everywhere = `${warnings.join("\n")}\n${JSON.stringify(run.bodies[0])}`;
+    assert.ok(
+      !everywhere.includes(UNMAPPED_FILE_PAYLOAD) &&
+        !everywhere.includes(UNMAPPED_ASSISTANT_TEXT),
+      "an item the request cannot carry leaked into the wire or the warning",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle callbacks — fired once, from the right place.
+//
+// Three things can fire a caller's onFinish/onError/onChunk on a native Vertex
+// call: BaseProvider's stream wrapper, Vertex's own manual firing, and the
+// built-in lifecycle middleware inside the model bridge. The bridge one reads
+// legacy field names a V3 model never produces, so it reports a text of
+// "undefined" and a finishReason of "[object Object]". Every count here sits
+// next to a floor that proves the callbacks were live, since a ceiling alone
+// also passes for callbacks that never fire.
+// ---------------------------------------------------------------------------
+
+const withDirectLifecycle = (
+  middleware: MiddlewareFactoryOptions,
+  lifecycle: ReturnType<typeof captureLifecycle>,
+): MiddlewareFactoryOptions => ({
+  ...middleware,
+  middlewareConfig: {
+    lifecycle: {
+      enabled: true,
+      config: {
+        onFinish: lifecycle.onFinish,
+        onError: lifecycle.onError,
+        onChunk: lifecycle.onChunk,
+      },
+    },
+  },
+});
+
+for (const loop of GENERATE_LOOPS) {
+  await test(`vertex ${loop.label}: top-level onFinish and onError fire once with middleware configured`, async () => {
+    const observed = countingProbe("lifecycle-generate-probe");
+    const lifecycle = captureLifecycle();
+    const run = await runVertexLoop(loop, {
+      middleware: observed.middleware,
+      onFinish: lifecycle.onFinish,
+      onError: lifecycle.onError,
+    });
+    assert.equal(
+      run.text,
+      VERTEX_REPLY,
+      "the native turn did not return the stand-in's reply",
+    );
+    assert.ok(
+      observed.counts.generate > 0,
+      "the middleware chain never wrapped the generate call",
+    );
+    assert.ok(
+      lifecycle.finishes.length >= 1,
+      "onFinish never fired, so its count says nothing",
+    );
+    assert.equal(
+      lifecycle.finishes.length,
+      1,
+      "onFinish fired more than once for one generate call",
+    );
+    assert.equal(
+      lifecycle.finishes[0]?.finishReason,
+      "stop",
+      "onFinish did not carry the turn's real finish reason",
+    );
+    assert.equal(
+      lifecycle.errors.length,
+      0,
+      "onError fired for a generate call that succeeded",
+    );
+  });
+
+  await test(`vertex ${loop.label}: a lifecycle middleware configured directly still fires once`, async () => {
+    const observed = countingProbe("lifecycle-direct-generate-probe");
+    const lifecycle = captureLifecycle();
+    const run = await runVertexLoop(loop, {
+      middleware: withDirectLifecycle(observed.middleware, lifecycle),
+    });
+    assert.equal(
+      run.text,
+      VERTEX_REPLY,
+      "the native turn did not return the stand-in's reply",
+    );
+    assert.ok(
+      observed.counts.generate > 0,
+      "the middleware chain never wrapped the generate call",
+    );
+    assert.equal(
+      lifecycle.finishes.length,
+      1,
+      "a directly configured lifecycle middleware did not fire onFinish exactly once",
+    );
+    assert.equal(
+      lifecycle.errors.length,
+      0,
+      "onError fired for a generate call that succeeded",
+    );
+  });
+}
+
+for (const loop of STREAM_LOOPS) {
+  await test(`vertex ${loop.label}: top-level callbacks are not fired a third time by the bridge`, async () => {
+    const observed = countingProbe("lifecycle-stream-probe");
+    const lifecycle = captureLifecycle();
+    const run = await runVertexLoop(loop, {
+      middleware: observed.middleware,
+      onFinish: lifecycle.onFinish,
+      onError: lifecycle.onError,
+      onChunk: lifecycle.onChunk,
+    });
+    assert.equal(
+      run.text,
+      VERTEX_REPLY,
+      "the native turn did not return the stand-in's reply",
+    );
+    assert.ok(
+      observed.counts.stream > 0,
+      "the middleware chain never wrapped the stream call",
+    );
+    assert.ok(
+      lifecycle.finishes.length >= 1,
+      "onFinish never fired, so its count says nothing",
+    );
+    assert.ok(
+      lifecycle.chunks.length >= 1,
+      "onChunk never fired, so its count says nothing",
+    );
+    // BaseProvider's wrapper and Vertex's own firing already make a pair on a
+    // stream; the bridge's middleware must not add a third.
+    assert.ok(
+      lifecycle.finishes.length <= 2,
+      "onFinish fired more than the provider's own two paths can",
+    );
+    assert.ok(
+      lifecycle.chunks.length <= 2,
+      "onChunk fired more than the provider's own two paths can",
+    );
+    assert.ok(
+      lifecycle.finishes.every((payload) => payload.text === VERTEX_REPLY),
+      "an onFinish payload did not carry the streamed text",
+    );
+    assert.ok(
+      lifecycle.chunks.every(
+        (payload) =>
+          payload.type !== "text-delta" || payload.textDelta === VERTEX_REPLY,
+      ),
+      "an onChunk payload did not carry the streamed delta",
+    );
+    assert.equal(
+      lifecycle.errors.length,
+      0,
+      "onError fired for a stream that succeeded",
+    );
+  });
+
+  await test(`vertex ${loop.label}: a lifecycle middleware configured directly fires each callback once`, async () => {
+    const observed = countingProbe("lifecycle-direct-stream-probe");
+    const lifecycle = captureLifecycle();
+    const run = await runVertexLoop(loop, {
+      middleware: withDirectLifecycle(observed.middleware, lifecycle),
+    });
+    assert.equal(
+      run.text,
+      VERTEX_REPLY,
+      "the native turn did not return the stand-in's reply",
+    );
+    assert.ok(
+      observed.counts.stream > 0,
+      "the middleware chain never wrapped the stream call",
+    );
+    assert.ok(
+      lifecycle.finishes.length >= 1,
+      "onFinish never fired, so its count says nothing",
+    );
+    assert.equal(
+      lifecycle.finishes.length,
+      1,
+      "a directly configured lifecycle fired onFinish more than once",
+    );
+    const deltas = lifecycle.chunks.filter(
+      (payload) => payload.type === "text-delta",
+    );
+    assert.ok(
+      deltas.length >= 1,
+      "onChunk never saw a text delta, so its count says nothing",
+    );
+    assert.equal(
+      deltas.length,
+      1,
+      "a directly configured lifecycle delivered the text delta more than once",
+    );
+    assert.ok(
+      lifecycle.finishes.every((payload) => payload.text === VERTEX_REPLY) &&
+        deltas.every((payload) => payload.textDelta === VERTEX_REPLY),
+      "a lifecycle payload did not carry the streamed text",
+    );
+    assert.equal(
+      lifecycle.errors.length,
+      0,
+      "onError fired for a stream that succeeded",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Schema-complexity recovery is the provider's own business.
+//
+// Vertex answers an over-constrained responseSchema with a deterministic 400,
+// and the Gemini generate loop retries once without the schema. Middleware
+// wraps one model call, and the provider hands it one that succeeds.
+// ---------------------------------------------------------------------------
+
+const TOO_MANY_STATES: GeminiStandInReply = {
+  status: 400,
+  json: {
+    error: {
+      code: 400,
+      message:
+        "The specified schema produces a constraint that has too many states for serving. Simplify the schema.",
+      status: "INVALID_ARGUMENT",
+    },
+  },
+};
+
+const carriesResponseSchema = (body: Record<string, unknown> | undefined) =>
+  /responseSchema|responseJsonSchema/.test(JSON.stringify(body ?? {}));
+
+for (const variant of ["top-level", "direct"] as const) {
+  await test(`vertex Gemini native generate: a schema-complexity retry is one call to middleware and lifecycle callbacks (${variant} callbacks)`, async () => {
+    const server = await startGeminiStandIn((index) =>
+      index === 0 ? TOO_MANY_STATES : geminiTextTurn('{"answer":"retry ok"}'),
+    );
+    const restoreEnv = withVertexEnv();
+    const observed = countingProbe("schema-retry-probe");
+    const lifecycle = captureLifecycle();
+    const schema = z.object({ answer: z.string() });
+    const sdk = new NeuroLink();
+    try {
+      const result = await sdk.generate({
+        input: { text: USER_TEXT },
+        provider: "vertex",
+        model: GEMINI_MODEL,
+        maxTokens: 64,
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: vertexCredentialsFor(server.port),
+        schema,
+        output: { format: "json" },
+        middleware:
+          variant === "direct"
+            ? withDirectLifecycle(observed.middleware, lifecycle)
+            : observed.middleware,
+        ...(variant === "top-level"
+          ? { onFinish: lifecycle.onFinish, onError: lifecycle.onError }
+          : {}),
+      });
+      await settleLifecycle();
+      assert.equal(
+        server.calls.length,
+        2,
+        "the schema-complexity error did not produce exactly one retry",
+      );
+      assert.ok(
+        carriesResponseSchema(server.calls[0]?.body),
+        "the first request carried no response schema, so the retry has nothing to drop",
+      );
+      assert.ok(
+        !carriesResponseSchema(server.calls[1]?.body),
+        "the retry still carried the schema the provider rejected",
+      );
+      assert.equal(
+        asRecord(asRecord(server.calls[1]?.body).generationConfig)
+          .responseMimeType,
+        "application/json",
+        "the retry lost JSON mode along with the schema",
+      );
+      assert.equal(
+        schema.parse(result.structuredData).answer,
+        "retry ok",
+        "the retry's JSON did not reach the caller as structured data",
+      );
+      assert.ok(
+        lifecycle.finishes.length >= 1,
+        "onFinish never fired, so its count says nothing",
+      );
+      assert.equal(
+        observed.counts.generate,
+        1,
+        "middleware saw the provider-internal retry as a second generate call",
+      );
+      assert.equal(
+        lifecycle.finishes.length,
+        1,
+        "onFinish did not fire exactly once for the recovered call",
+      );
+      assert.equal(
+        lifecycle.errors.length,
+        0,
+        "onError fired for a call that recovered",
+      );
+    } finally {
+      await sdk.shutdown();
+      restoreEnv();
+      await server.close();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// A guardrail that blocks generate() before the native call.
+// ---------------------------------------------------------------------------
+
+for (const loop of GENERATE_LOOPS) {
+  await test(`vertex ${loop.label}: a guardrail-blocked call still returns analytics`, async () => {
+    const control = await runVertexLoop(loop, { enableAnalytics: true });
+    assert.ok(
+      control.analytics !== undefined,
+      "an unblocked call returned no analytics, so the blocked comparison has no baseline",
+    );
+    assert.equal(
+      control.analytics.stepsUsed,
+      1,
+      "the unblocked control did not report its one step",
+    );
+    assert.ok(
+      control.analytics.tokenUsage.total > 0,
+      "the unblocked control reported no token usage",
+    );
+
+    let blockedCalls = 0;
+    const blocker: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: { id: "block-for-analytics", name: "Block for analytics" },
+      wrapGenerate: async () => {
+        blockedCalls += 1;
+        return {
+          content: [{ type: "text", text: BLOCKED_TEXT }],
+          finishReason: { unified: "stop" },
+          usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
+        };
+      },
+    };
+    const blocked = await runVertexLoop(loop, {
+      enableAnalytics: true,
+      middleware: {
+        middleware: [blocker],
+        enabledMiddleware: ["block-for-analytics"],
+      },
+    });
+    assert.equal(
+      blockedCalls,
+      1,
+      "the blocking middleware did not run exactly once",
+    );
+    assert.equal(
+      blocked.text,
+      BLOCKED_TEXT,
+      "the guardrail's synthesized content was lost",
+    );
+    assert.equal(
+      blocked.bodies.length,
+      0,
+      "a call the guardrail blocked still reached the stand-in",
+    );
+    const analytics = blocked.analytics;
+    assert.ok(
+      analytics !== undefined,
+      "a blocked call returned no analytics although enableAnalytics was set",
+    );
+    assert.equal(
+      analytics.stepsUsed,
+      0,
+      "a blocked call reported a model step it never took",
+    );
+    assert.equal(
+      analytics.toolCallCount,
+      0,
+      "a blocked call reported tool calls it never made",
+    );
+    assert.equal(
+      analytics.tokenUsage.total,
+      0,
+      "a blocked call reported tokens it never used",
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cancellation — a consumer that walks away from a stream must release the
+// upstream request, not just stop reading it.
+//
+// The stand-in opens the response with the first frames of a turn and then
+// holds it open, so nothing but the client aborting can end the connection.
+// The bridge's ReadableStream is pulled ahead of demand, which leaves a
+// `.next()` parked on the native channel when the consumer breaks. Releasing
+// the native iterator by awaiting its `.return()` queues behind that
+// `.next()`, and the break then stays parked until a frame or the turn clock
+// arrives — with the upstream request still open and nothing left to end it.
+//
+// Only the Anthropic-on-Vertex loop can show this. executeNativeGemini3Stream
+// collects the whole turn before anything reaches the bridge (see the
+// "Collected, NOT forwarded to the consumer" comment at its `pump`), so by the
+// time a consumer can break there is no request left to release.
+// ---------------------------------------------------------------------------
+
+const waitFor = async (
+  condition: () => boolean,
+  deadlineMs: number,
+): Promise<boolean> => {
+  const deadline = Date.now() + deadlineMs;
+  while (!condition() && Date.now() < deadline) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 25));
+  }
+  return condition();
+};
+
+await test("vertex Anthropic native stream: breaking out of the consumer's loop releases the upstream request", async () => {
+  const server = await startAnthropicHoldOpenStandIn();
+  const restoreEnv = withVertexEnv();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "hello vertex claude" },
+      provider: "vertex",
+      model: ANTHROPIC_MODEL,
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      middleware: middlewareOptions(emptyRecord()),
+    });
+    let firstChunkSeen = false;
+    const consumer = (async () => {
+      for await (const chunk of result.stream) {
+        if ("content" in chunk && chunk.content) {
+          firstChunkSeen = true;
+          break;
+        }
+      }
+    })();
+    const returned = await bounded(consumer, 10_000).then(
+      () => true,
+      () => false,
+    );
+    assert.ok(
+      firstChunkSeen,
+      "no content reached the consumer before it broke out of the loop",
+    );
+    assert.ok(
+      returned,
+      "the consumer's break did not return while the upstream response was held open",
+    );
+    assert.equal(
+      server.calls.length,
+      1,
+      "the hold-open stand-in did not receive exactly one request",
+    );
+    assert.ok(
+      await waitFor(() => server.closedResponses() >= 1, 10_000),
+      "the upstream request stayed open after the consumer broke out of the stream",
+    );
+  } finally {
+    await bounded(server.close());
+    await bounded(sdk.shutdown());
+    restoreEnv();
+  }
+});
+
+// Additional regression test for the lifecycle double-fire bug fixed in
+// PR #1869 (src/lib/utils/lifecycleCallbacks.ts), reusing this section's own
+// Express-Mode env-clearing/credentials helpers above. GoogleVertexProvider's
+// native stream path has its own direct onChunk/onFinish firer alongside
+// BaseProvider's generic one; this proves exactly one of the two now fires,
+// with the richer (usage/finishReason-enriched) payload preserved.
+
+type LifecycleVertexStandInCall = { body: Record<string, unknown> };
+type LifecycleVertexStandIn = {
+  calls: LifecycleVertexStandInCall[];
   port: number;
   close: () => Promise<void>;
 };
@@ -2650,8 +4800,8 @@ type VertexStandIn = {
 // section's usage-enrichment assertions below.
 async function startVertexStandIn(
   reply: (callIndex: number) => string,
-): Promise<VertexStandIn> {
-  const calls: VertexStandInCall[] = [];
+): Promise<LifecycleVertexStandIn> {
+  const calls: LifecycleVertexStandInCall[] = [];
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
@@ -2680,15 +4830,6 @@ async function startVertexStandIn(
   };
 }
 
-function vertexCredentialsFor(port: number) {
-  return {
-    vertex: {
-      apiKey: "express-key",
-      baseURL: `http://127.0.0.1:${port}`,
-    },
-  };
-}
-
 await test("Vertex: stream() fires onChunk/onFinish exactly once through the native Gemini stream path (lifecycle double-fire regression)", async () => {
   const restoreEnv = withVertexEnv();
   const server = await startVertexStandIn(() => aiStudioTextTurn("Hello"));
@@ -2700,7 +4841,7 @@ await test("Vertex: stream() fires onChunk/onFinish exactly once through the nat
     const result = await sdk.stream({
       input: { text: "hi" },
       provider: "vertex",
-      model: VERTEX_MODEL,
+      model: GEMINI_MODEL,
       disableTools: true,
       disableInternalFallback: true,
       credentials: vertexCredentialsFor(server.port),
