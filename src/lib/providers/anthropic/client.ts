@@ -2916,7 +2916,14 @@ export class AnthropicProvider extends BaseProvider {
     return {
       stream: transformedStream(),
       provider: this.providerName,
-      model: this.modelName,
+      // Cell-3 identity fix: `this.modelName` is the raw, possibly-unset
+      // constructor arg (undefined whenever a caller relies on the default
+      // model). `modelId` (resolved above as
+      // `this.modelName || getDefaultAnthropicModel()`) is what was actually
+      // put on the wire for this turn — the same value `buildParams` uses to
+      // build the request. Reporting the raw field previously let a
+      // default-model turn's StreamResult claim an undefined/empty model.
+      model: modelId,
       toolCalls: [],
       toolResults: [],
       metadata: turnMetadata,

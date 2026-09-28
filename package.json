@@ -133,6 +133,7 @@
     "test:stream-structured-output": "pnpm exec tsx test/continuous-test-suite-stream-structured-output.ts",
     "test:browser-bundle": "pnpm exec tsx test/continuous-test-suite-browser-bundle.ts",
     "test:providers-mocked": "pnpm exec tsx test/continuous-test-suite-providers-mocked.ts",
+    "test:acceptance-gate": "pnpm exec tsx test/continuous-test-suite-acceptance-gate.ts",
     "scaffold:provider": "pnpm exec tsx tools/scaffold-provider.ts",
     "verify:provider-onboarding": "pnpm exec tsx tools/verify-provider-onboarding.ts",
     "test:openai-compat-catalog": "pnpm exec tsx test/continuous-test-suite-openai-compat-catalog.ts",

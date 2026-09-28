@@ -266,6 +266,7 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
       "mistralai/devstral",
       "meta-llama/llama-3.3",
       "meta-llama/llama-3.2",
+      "meta-llama/llama-3.1",
       "qwen/qwen3",
       "nvidia/nemotron",
     ];

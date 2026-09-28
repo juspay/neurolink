@@ -110,6 +110,35 @@ for (const built of buildCatalogEntries()) {
 }
 
 /**
+ * Catalog provider rows whose base URL can be redirected via a plain
+ * `<ID>_BASE_URL` env var override — every catalog provider except one with
+ * a `computedBaseURL` (currently only cloudflare: its `baseURLTemplate`
+ * needs a templated account-id path segment a flat env var can't satisfy).
+ * Exported so a caller that needs to point a catalog provider at a mock
+ * server (e.g. the credential-free acceptance gate) doesn't need its own
+ * deep dist import into catalog internals — this helper already carries the
+ * Rule-15 exception (see the module header) for exactly that data.
+ */
+export const CATALOG_BASE_URL_ROWS: Array<{
+  id: string;
+  apiKeyEnvVar: string;
+  baseURLEnvVar: string;
+}> = CATALOG_JSON_ENTRIES.filter(
+  (entry) => !computedBaseURLEnvVarById.has(entry.id),
+).map((entry) => ({
+  id: entry.id,
+  apiKeyEnvVar: catalogEnvVar(entry, "apiKey"),
+  baseURLEnvVar: catalogEnvVar(entry, "baseURL"),
+}));
+
+/** Catalog provider ids excluded from CATALOG_BASE_URL_ROWS (computedBaseURL). */
+export const CATALOG_COMPUTED_BASE_URL_IDS: readonly string[] = [
+  ...computedBaseURLEnvVarById.keys(),
+];
+
+export { CATALOG_PROVIDER_IDS };
+
+/**
  * True when the provider has any vision-capable model, and which model to
  * use for vision tests. Default model order for the "which model" question:
  *   1. models.visionModel, when the JSON sets it explicitly (SambaNova —

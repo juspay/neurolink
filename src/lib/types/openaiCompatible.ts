@@ -329,6 +329,16 @@ export type StreamLoopArgs = {
    * schema was requested, or when tools suppress it.
    */
   responseFormat?: OpenAICompatResponseFormat;
+  /**
+   * Fired once per step that echoes a `model` field on the wire (SSE
+   * `chunk.model`, captured by `parseSSEStream` into `OpenAICompatSSEResult.model`).
+   * Lets the caller learn what the SERVER actually served, distinct from the
+   * pre-call resolved/requested `modelId` — a gateway or router can rewrite
+   * an alias to a concrete model id. Not called when a step's response omits
+   * `model` (some backends don't echo it), so the caller must keep its own
+   * fallback.
+   */
+  onModelObserved?: (model: string) => void;
 };
 
 export type OpenAICompatBuildBodyArgs = {

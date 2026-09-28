@@ -173,3 +173,27 @@ Signals the channel that no further chunks will arrive (success or error path al
 `response_format` for this turn's requests, computed once up front from
 `options.schema` (see `suppressResponseFormatWithTools`). Absent when no
 schema was requested, or when tools suppress it.
+
+---
+
+### onModelObserved?
+
+> `optional` **onModelObserved?**: (`model`) => `void`
+
+Fired once per step that echoes a `model` field on the wire (SSE
+`chunk.model`, captured by `parseSSEStream` into `OpenAICompatSSEResult.model`).
+Lets the caller learn what the SERVER actually served, distinct from the
+pre-call resolved/requested `modelId` — a gateway or router can rewrite
+an alias to a concrete model id. Not called when a step's response omits
+`model` (some backends don't echo it), so the caller must keep its own
+fallback.
+
+#### Parameters
+
+##### model
+
+`string`
+
+#### Returns
+
+`void`

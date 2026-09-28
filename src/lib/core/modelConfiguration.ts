@@ -437,6 +437,7 @@ export class ModelConfigurationManager {
         ]),
         toolCapableModels: this.getConfigArray("OLLAMA_TOOL_CAPABLE_MODELS", [
           "llama3.1",
+          "llama3.2",
           "mistral",
           "hermes3",
           "qwen2.5",

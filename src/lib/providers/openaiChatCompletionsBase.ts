@@ -2152,6 +2152,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // middleware short-circuits the request — the case where there is no
     // turn to build on at all.
     let loopConversation: Array<Record<string, unknown>> | undefined;
+    // Cell-3 identity fix: the last model id the SERVER actually echoed on
+    // the wire (via `onModelObserved`, see `runStreamLoop`), distinct from
+    // the pre-call resolved/requested `modelId` below. Stays undefined for
+    // backends that never echo `model` on a chunk, in which case the
+    // `result.model` getter falls back to `modelId` — unchanged behavior.
+    let observedServerModel: string | undefined;
     const providerNameForLoop = this.providerName;
     const streamBaseModel: LanguageModelV3 = {
       specificationVersion: "v3" as const,
@@ -2210,6 +2216,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           resolveUsage,
           resolveFinish,
           responseFormat,
+          onModelObserved: (model) => {
+            observedServerModel = model;
+          },
         });
         const completion: Promise<LanguageModelV3StreamPart> = loopPromise.then(
           () =>
@@ -2483,6 +2492,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       toolsUsed,
       metadata: streamMetadata,
     };
+    // Cell-3 identity fix: `model` starts as a plain `modelId` data property
+    // above (satisfying StreamResult's type and giving every reader a value
+    // even before the loop starts), then gets redefined as a live getter.
+    // A plain reassignment (`result.model = observedServerModel`) would not
+    // survive `preserveLiveStreamAccessors`' re-wrapping at the
+    // BaseProvider/NeuroLink boundaries — those boundaries spread `result`
+    // into a new object BEFORE the background loop has produced a single
+    // chunk, which freezes a plain field at its construction-time value.
+    // Re-defining as a getter (the same mechanism already used for
+    // `toolExecutions` below) means every boundary's spread re-applies the
+    // getter itself, so a caller reading `.model` after draining `.stream`
+    // sees whatever the server actually echoed, falling back to the
+    // pre-call resolved `modelId` when the backend never echoed one.
+    Object.defineProperty(result, "model", {
+      enumerable: true,
+      configurable: true,
+      get: () => observedServerModel ?? modelId,
+    });
     // Lazy getter: every read transforms the live `toolExecutionSummaries`
     // through the canonical `transformToolExecutions()` so consumers see
     // `{name, input, output, duration}[]` (codebase convention), while still
@@ -2534,6 +2561,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       resolveUsage,
       resolveFinish,
       responseFormat,
+      onModelObserved,
     } = args;
 
     // Hoisted above the try so the catch can resolve the usage accumulated
@@ -2675,6 +2703,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         stepFinish = stepResult.finishReason;
         if (stepResult.usage) {
           stepUsage = mergeUsage(stepUsage, stepResult.usage);
+        }
+        // Cell-3 identity fix: `stepResult.model` is what the SERVER echoed
+        // on the wire (parseSSEStream captures `chunk.model`), which can
+        // differ from the pre-call resolved `modelId` a gateway/router was
+        // asked for. Surfaced via callback rather than the method's return
+        // value so `executeStream` can update the already-returned
+        // `StreamResult` in place (see `onModelObserved` wiring there).
+        if (stepResult.model) {
+          onModelObserved?.(stepResult.model);
         }
 
         if (stepResult.toolCalls.size === 0) {
