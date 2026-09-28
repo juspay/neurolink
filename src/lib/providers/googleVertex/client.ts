@@ -3061,6 +3061,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let accumulatedText = "";
     let lastFinishReason: string | undefined;
     const allToolCalls: Array<{
+      toolCallId: string;
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
@@ -3426,7 +3427,11 @@ export class GoogleVertexProvider extends BaseProvider {
         finalText = engineResult.text;
         lastFinishReason = engineResult.rawStopReason ?? lastFinishReason;
         for (const call of engineResult.toolCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
+          allToolCalls.push({
+            toolCallId: call.id,
+            toolName: call.name,
+            args: call.args,
+          });
         }
         for (const execution of engineResult.toolExecutions) {
           toolExecutions.push({
@@ -3614,6 +3619,17 @@ export class GoogleVertexProvider extends BaseProvider {
         reasoningTokens: totalReasoningTokens,
       }),
       responseTime,
+      // The complete attempted-call record (name/args/id), independent of
+      // toolsUsed's success-only names — mirrors the native Anthropic direct
+      // / OpenAI-compatible / SageMaker paths (toolCallsFromSummaries) and
+      // the working Gemini-on-Vertex STREAM path just above. Previously
+      // absent here, so a tool the loop ran internally never reached the
+      // caller's result.toolCalls even though toolsUsed/toolExecutions did.
+      toolCalls: externalToolCalls.map((tc) => ({
+        toolCallId: tc.toolCallId,
+        toolName: tc.toolName,
+        args: tc.args,
+      })),
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
       toolExecutions: resolveToolExecutionRecords(
         options,
@@ -5866,6 +5882,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let accumulatedStepText = "";
     let structuredOutput: Record<string, unknown> | undefined;
     const allToolCalls: Array<{
+      toolCallId: string;
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
@@ -6101,7 +6118,11 @@ export class GoogleVertexProvider extends BaseProvider {
         engineStep,
       ) => {
         for (const result of toolResults) {
-          allToolCalls.push({ toolName: result.name, args: result.args });
+          allToolCalls.push({
+            toolCallId: result.id,
+            toolName: result.name,
+            args: result.args,
+          });
           // Recorded here as well: `toolExecutions` feeds
           // resolveToolExecutionRecords and the result's own
           // toolExecutions, and pushing only to allToolCalls left it empty
@@ -6565,7 +6586,23 @@ export class GoogleVertexProvider extends BaseProvider {
     releaseTurnResources();
 
     const responseTime = Date.now() - startTime;
-    const externalToolCalls = allToolCalls.filter(
+    // Sourced from `engineResult.toolCalls` when the turn produced one, not
+    // the local `allToolCalls` (fed only by the `buildToolResultMessages`
+    // hook below). The engine's own accumulator is pushed to unconditionally
+    // per dispatched batch, before the abortedMidBatch check that skips
+    // `buildToolResultMessages` for that step — so a tool that finished
+    // executing in a batch cut short by an abort is present in
+    // `engineResult.toolCalls` but would otherwise never reach
+    // `allToolCalls`. `allToolCalls` remains the fallback for the rare case
+    // where `resultPromise` itself rejects and `engineResult` never resolves.
+    const engineToolCalls = engineResult
+      ? engineResult.toolCalls.map((call) => ({
+          toolCallId: call.id,
+          toolName: call.name,
+          args: call.args,
+        }))
+      : allToolCalls;
+    const externalToolCalls = engineToolCalls.filter(
       (tc) => tc.toolName !== "final_result",
     );
     const externalToolExecutions = toolExecutions.filter(
@@ -6651,6 +6688,17 @@ export class GoogleVertexProvider extends BaseProvider {
         ...(totalReasoningTokens > 0 && { reasoning: totalReasoningTokens }),
       },
       responseTime,
+      // The complete attempted-call record (name/args/id), independent of
+      // toolsUsed's success-only names — mirrors the native Anthropic direct
+      // / OpenAI-compatible / SageMaker paths (toolCallsFromSummaries) and
+      // the working Gemini-on-Vertex STREAM path. Previously absent here, so
+      // a tool the loop ran internally never reached the caller's
+      // result.toolCalls even though toolsUsed/toolExecutions did.
+      toolCalls: externalToolCalls.map((tc) => ({
+        toolCallId: tc.toolCallId,
+        toolName: tc.toolName,
+        args: tc.args,
+      })),
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
       toolExecutions: resolveToolExecutionRecords(
         options,

@@ -61,6 +61,15 @@ export function createGeminiLoopAdapter(
     return original;
   };
 
+  // Per-turn monotonic counter for `toolCallId` generation. `executeStep` is
+  // called once per loop step, and a fresh `createGeminiLoopAdapter` closure
+  // is made per turn (per generate()/stream() call), so this resets at the
+  // right lifetime while staying unique across every step of one turn —
+  // unlike the step-local array index it replaces, which restarted at 0 on
+  // every step and let two calls to the same tool in different steps collide
+  // on one id once both landed in the same flattened per-turn list.
+  let nextCallIndex = 0;
+
   return {
     providerLabel: config.providerLabel,
     maxSteps: config.maxSteps,
@@ -183,9 +192,11 @@ export function createGeminiLoopAdapter(
 
       const text = extractTextFromParts(collected.rawResponseParts);
 
-      // Names cross the engine boundary in their ORIGINAL form.
-      const allCalls = collected.stepFunctionCalls.map((call, index) => ({
-        id: `${config.providerLabel}_${index}_${call.name}`,
+      // Names cross the engine boundary in their ORIGINAL form. `id` uses the
+      // turn-scoped counter above, not a step-local map index, so two calls
+      // to the same tool in different steps of one turn get distinct ids.
+      const allCalls = collected.stepFunctionCalls.map((call) => ({
+        id: `${config.providerLabel}_${nextCallIndex++}_${call.name}`,
         name: originalNameFor(call.name),
         args: call.args,
       }));

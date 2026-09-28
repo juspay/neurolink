@@ -144,6 +144,28 @@ function declaredToolNames(call: StandInCall | undefined): string[] {
     .filter((n): n is string => typeof n === "string");
 }
 
+/**
+ * Flat, single-level record equality (key set + primitive values) — enough
+ * for the tool-call `args` fixtures in this suite, which are never nested.
+ * Order-independent, unlike a JSON.stringify comparison.
+ */
+function shallowEqualRecord(
+  actual: Record<string, unknown> | undefined,
+  expected: Record<string, unknown>,
+): boolean {
+  if (!actual) {
+    return false;
+  }
+  const actualKeys = Object.keys(actual).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  if (actualKeys.length !== expectedKeys.length) {
+    return false;
+  }
+  return actualKeys.every(
+    (key, i) => key === expectedKeys[i] && actual[key] === expected[key],
+  );
+}
+
 function functionResponsePayloads(
   call: StandInCall | undefined,
 ): Array<{ name?: string; response?: unknown }> {
@@ -941,9 +963,14 @@ await test("the generate path declares and executes a caller's tools", async () 
   // stream drain, and nothing in this suite reached it — every other case
   // drives nl.stream(). Task 10 migrates both loops, so the generate one needs
   // its own baseline or a change there would be invisible here.
+  //
+  // Non-empty args, deliberately: an empty-args fixture can't tell a
+  // regression that drops or overwrites toolCall.args from one that
+  // preserves it — both look identical against {}.
+  const LOOKUP_ARGS = { query: "something" };
   const server = await startStandIn((i) =>
     i === 0
-      ? sse([{ functionCall: { name: "lookup", args: {} } }], "STOP")
+      ? sse([{ functionCall: { name: "lookup", args: LOOKUP_ARGS } }], "STOP")
       : sse([{ text: "generated answer" }], "STOP"),
   );
   const restore = withVertexEnv();
@@ -980,6 +1007,102 @@ await test("the generate path declares and executes a caller's tools", async () 
       typeof result?.content === "string" &&
         result.content.includes("generated answer"),
       "the final turn's text was not returned",
+    );
+    // The internally-executed tool must be visible on the public result, not
+    // just on the wire (asserted above via the stand-in's captured calls).
+    assert(
+      Array.isArray(result?.toolsUsed) && result.toolsUsed.includes("lookup"),
+      "toolsUsed did not record the internally-executed tool",
+    );
+    assert(
+      Array.isArray(result?.toolCalls) &&
+        result.toolCalls.some((call) => call.toolName === "lookup"),
+      "toolCalls did not record the internally-executed tool",
+    );
+    const toolCall = result?.toolCalls?.find(
+      (call) => call.toolName === "lookup",
+    );
+    assert(
+      typeof toolCall?.toolCallId === "string" &&
+        toolCall.toolCallId.length > 0,
+      "the recorded tool call did not carry a toolCallId",
+    );
+    // Precondition: the equality assertion below is only meaningful once the
+    // call was actually found above — otherwise `.args` is read off
+    // `undefined` and the comparison would fail for the wrong reason.
+    assert(
+      toolCall !== undefined,
+      "no matching tool call was found to check args against",
+    );
+    assert(
+      shallowEqualRecord(toolCall?.args, LOOKUP_ARGS),
+      "the recorded tool call's args did not match what the model sent",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+section("toolCallId uniqueness across steps");
+
+await test("the generate path assigns distinct toolCallIds to the same tool called on two different steps", async () => {
+  // Precondition-proving scenario: the SAME tool name is called on two
+  // different loop steps with different args, then a plain text turn ends
+  // it. This is exactly the shape that collided under the step-local
+  // Array.map index geminiLoopAdapter.ts used to build toolCallId with: once
+  // loopEngine.ts flattens every step's calls into one per-turn toolCalls
+  // array, two calls landing at the same step-local index (0) on different
+  // steps produced the identical id `${label}_0_lookup`.
+  const server = await startStandIn((i) => {
+    if (i === 0) {
+      return sse(
+        [{ functionCall: { name: "lookup", args: { query: "first" } } }],
+        "STOP",
+      );
+    }
+    if (i === 1) {
+      return sse(
+        [{ functionCall: { name: "lookup", args: { query: "second" } } }],
+        "STOP",
+      );
+    }
+    return textTurn("done looking twice");
+  });
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  try {
+    const result = await nl().generate({
+      input: { text: "look two things up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    console.log(
+      `    [diagnostic] vertex toolCallId uniqueness: calls=${server.calls.length} tools=${counter.calls} toolCalls=${JSON.stringify(result?.toolCalls)}`,
+    );
+    // Precondition: the tool genuinely executed twice, across two separate
+    // steps — proving the id-collision scenario was actually exercised, not
+    // that the turn ended early after a single call.
+    assert(
+      counter.calls === 2,
+      "the tool did not execute twice across the two steps",
+    );
+    const lookupCalls = (result?.toolCalls ?? []).filter(
+      (call) => call.toolName === "lookup",
+    );
+    assert(
+      lookupCalls.length === 2,
+      "toolCalls did not record both calls to the tool repeated across steps",
+    );
+    const ids = new Set(lookupCalls.map((call) => call.toolCallId));
+    assert(
+      ids.size === 2,
+      "the two calls to the same tool on different steps were recorded with a colliding toolCallId",
     );
   } finally {
     restore();

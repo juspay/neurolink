@@ -199,6 +199,61 @@ function toolTurn(
   return frames;
 }
 
+/**
+ * A turn that asks for MULTIPLE tool calls in one response. `toolTurn` only
+ * models a single tool_use content block, which cannot represent a batch an
+ * abort can land in the MIDDLE of — this emits N content blocks (one per
+ * entry, in order) before the shared message_delta/message_stop close the
+ * turn, exactly as Anthropic does for a genuine multi-tool-call turn.
+ */
+function multiToolTurn(
+  calls: Array<{ name: string; input: Record<string, unknown>; id: string }>,
+): string[] {
+  const frames: string[] = [
+    sse("message_start", {
+      message: {
+        id: "msg_1",
+        type: "message",
+        role: "assistant",
+        model: MODEL,
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 5, output_tokens: 0 },
+      },
+    }),
+  ];
+  calls.forEach((call, index) => {
+    frames.push(
+      sse("content_block_start", {
+        index,
+        content_block: {
+          type: "tool_use",
+          id: call.id,
+          name: call.name,
+          input: {},
+        },
+      }),
+      sse("content_block_delta", {
+        index,
+        delta: {
+          type: "input_json_delta",
+          partial_json: JSON.stringify(call.input),
+        },
+      }),
+      sse("content_block_stop", { index }),
+    );
+  });
+  frames.push(
+    sse("message_delta", {
+      delta: { stop_reason: "tool_use" },
+      usage: { output_tokens: 6 },
+    }),
+    sse("message_stop", {}),
+  );
+  return frames;
+}
+
 type StandInCall = {
   body: Record<string, unknown>;
   /** Recorded so a case can prove which credentials actually went out. */
@@ -217,6 +272,28 @@ function declaredToolNames(call: StandInCall | undefined): string[] {
   return tools
     .map((t) => t.name)
     .filter((n): n is string => typeof n === "string");
+}
+
+/**
+ * Flat, single-level record equality (key set + primitive values) — enough
+ * for the tool-call `args` fixtures in this suite, which are never nested.
+ * Order-independent, unlike a JSON.stringify comparison.
+ */
+function shallowEqualRecord(
+  actual: Record<string, unknown> | undefined,
+  expected: Record<string, unknown>,
+): boolean {
+  if (!actual) {
+    return false;
+  }
+  const actualKeys = Object.keys(actual).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  if (actualKeys.length !== expectedKeys.length) {
+    return false;
+  }
+  return actualKeys.every(
+    (key, i) => key === expectedKeys[i] && actual[key] === expected[key],
+  );
 }
 
 /** tool_result blocks carried back to the model on a given request. */
@@ -681,12 +758,23 @@ section("generate path");
 await test("the generate path declares and executes a caller's tools", async () => {
   // A second, near-duplicate hand-rolled loop lives inside generate(). Pinning
   // it separately matters because the migration touches both.
+  //
+  // { q: "x" } is deliberately non-empty: an empty-args fixture can't tell a
+  // regression that drops or overwrites toolCall.args from one that
+  // preserves it — both look identical against {}.
+  const LOOKUP_ARGS = { q: "x" };
   const server = await startStandIn((i) =>
-    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("generated answer"),
+    i === 0 ? toolTurn("lookup", LOOKUP_ARGS) : textTurn("generated answer"),
   );
   const restore = withVertexEnv();
   const counter = { calls: 0 };
   let content = "";
+  let toolsUsed: string[] = [];
+  let toolCalls: Array<{
+    toolCallId?: string;
+    toolName: string;
+    args?: Record<string, unknown>;
+  }> = [];
   let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
     nl = new NeuroLink();
@@ -701,6 +789,8 @@ await test("the generate path declares and executes a caller's tools", async () 
       credentials: credentialsFor(server.port),
     });
     content = (result as { content?: string })?.content ?? "";
+    toolsUsed = result?.toolsUsed ?? [];
+    toolCalls = result?.toolCalls ?? [];
   } catch {
     // Counts are what is pinned.
   } finally {
@@ -722,6 +812,136 @@ await test("the generate path declares and executes a caller's tools", async () 
   assert(
     content.includes("generated answer"),
     "the generate path did not return the final turn's text",
+  );
+  // The internally-executed tool must be visible on the public result, not
+  // just on the wire (asserted above via server.calls/counter.calls).
+  assert(
+    toolsUsed.includes("lookup"),
+    "toolsUsed did not record the internally-executed tool",
+  );
+  const toolCall = toolCalls.find((call) => call.toolName === "lookup");
+  assert(
+    toolCall !== undefined,
+    "toolCalls did not record the internally-executed tool",
+  );
+  assert(
+    typeof toolCall?.toolCallId === "string" && toolCall.toolCallId.length > 0,
+    "the recorded tool call did not carry a toolCallId",
+  );
+  // Precondition: the equality assertion below is only meaningful once the
+  // call was actually found above — otherwise `.args` is read off
+  // `undefined` and the comparison would fail for the wrong reason.
+  assert(
+    toolCall !== undefined,
+    "no matching tool call was found to check args against",
+  );
+  assert(
+    shallowEqualRecord(toolCall?.args, LOOKUP_ARGS),
+    "the recorded tool call's args did not match what the model sent",
+  );
+});
+
+section("abort mid-batch");
+
+await test("the generate path preserves a tool call that finished before an abort cut its batch short", async () => {
+  // Precondition-proving scenario: ONE step asks for TWO tool calls, and the
+  // abort fires from INSIDE the first tool's own execute() — after it has
+  // already run, before the second is ever dispatched. dispatchStepTools
+  // (loopEngine.ts) checks the turn's abort signal BETWEEN calls in a batch,
+  // so this is exactly the abortedMidBatch path: a batch cut short by a
+  // genuine caller abort, not a step that simply never asked for a second
+  // tool. Under the pre-fix code, buildToolResultMessages — the only place
+  // the provider's local allToolCalls accumulator was populated — is skipped
+  // entirely for a step abortedMidBatch cuts short, so result.toolCalls
+  // would be empty even though the first tool genuinely ran.
+  const server = await startStandIn((i) =>
+    i === 0
+      ? multiToolTurn([
+          { name: "first", input: { step: "one" }, id: "toolu_first" },
+          { name: "second", input: { step: "two" }, id: "toolu_second" },
+        ])
+      : textTurn("should never be reached"),
+  );
+  const restore = withVertexEnv();
+  const controller = new AbortController();
+  const firstCounter = { calls: 0 };
+  const secondCounter = { calls: 0 };
+  let toolCalls: Array<{
+    toolCallId?: string;
+    toolName: string;
+    args?: Record<string, unknown>;
+  }> = [];
+  let generateFailure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
+  try {
+    nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "call both tools" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      abortSignal: controller.signal,
+      tools: {
+        first: {
+          description: "runs once, then cancels the whole turn",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { step: { type: "string" } },
+            additionalProperties: true,
+          }),
+          execute: async () => {
+            firstCounter.calls++;
+            controller.abort();
+            return { done: true };
+          },
+        },
+        second: {
+          description: "must never be dispatched once the batch is cut short",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { step: { type: "string" } },
+            additionalProperties: true,
+          }),
+          execute: async () => {
+            secondCounter.calls++;
+            return { done: true };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    toolCalls = result?.toolCalls ?? [];
+  } catch (error) {
+    generateFailure =
+      error instanceof Error ? error.message.slice(0, 200) : String(error);
+  } finally {
+    await nl?.shutdown();
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude abort-mid-batch: calls=${server.calls.length} first=${firstCounter.calls} second=${secondCounter.calls} toolCalls=${JSON.stringify(toolCalls)} outcome=${generateFailure || "ok"}`,
+  );
+  // Precondition 1: the first tool genuinely ran.
+  assert(
+    firstCounter.calls === 1,
+    "the first tool did not execute exactly once",
+  );
+  // Precondition 2: the second tool genuinely never ran — proving the abort
+  // cut the batch short between the two calls of the same step, rather than
+  // both tools simply completing normally.
+  assert(
+    secondCounter.calls === 0,
+    "the second tool executed despite the mid-batch abort, so the scenario under test did not occur",
+  );
+  // Only now, having proven the abort genuinely cut the batch short between
+  // the two calls, does the actual regression assertion mean anything.
+  const firstCall = toolCalls.find((call) => call.toolName === "first");
+  assert(
+    firstCall !== undefined,
+    "toolCalls did not record the tool that finished executing before the abort cut the batch short",
   );
 });
 
