@@ -373,9 +373,24 @@ Controls whether and which tools the model must call.
 - `"required"`: the model must call at least one tool
 - `{ type: "tool", toolName: string }`: the model must call the specified tool
 
-Note: When used without `prepareStep`, this applies to **every step** in the
-`maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
-will cause infinite tool calls until `maxSteps` is exhausted.
+A forced choice is applied only to the first `toolChoiceSteps` steps
+(default 1); see GenerateOptions.toolChoice.
+
+---
+
+### toolChoiceSteps?
+
+> `optional` **toolChoiceSteps?**: `number`
+
+Leading steps a forced `toolChoice` stays in force (default 1). See GenerateOptions.toolChoiceSteps.
+
+---
+
+### replayToolSteps?
+
+> `optional` **replayToolSteps?**: [`ToolReplayMode`](ToolReplayMode.md)
+
+How stored tool steps are replayed into the prompt. See GenerateOptions.replayToolSteps.
 
 ---
 
@@ -384,12 +399,9 @@ will cause infinite tool calls until `maxSteps` is exhausted.
 > `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 Optional callback that runs before each step in a multi-step generation.
-Allows dynamically changing `toolChoice` and available tools per step.
-
-This is the recommended way to enforce specific tool calls on certain steps
-while allowing the model freedom on others.
-
-Maps to Vercel AI SDK's `experimental_prepareStep`.
+Only a returned `toolChoice` is honoured (for that step); `model` and
+`experimental_activeTools` are accepted but ignored. See
+GenerateOptions.prepareStep.
 
 #### Parameters
 
@@ -415,23 +427,6 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 
 `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
-#### Example
-
-```typescript
-prepareStep: ({ stepNumber, steps }) => {
-  if (stepNumber === 0) {
-    return {
-      toolChoice: { type: "tool", toolName: "myTool" },
-    };
-  }
-  return { toolChoice: "auto" };
-};
-```
-
-#### See
-
-https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
-
 ---
 
 ### tts?
@@ -440,10 +435,20 @@ https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
 
 Text-to-Speech (TTS) configuration
 
-Enable audio generation from text. Behavior depends on useAiResponse flag:
+Enable audio generation from text. Behavior depends on `tts.mode`
+(explicit) or the legacy `useAiResponse` flag:
 
-- When useAiResponse is false/undefined (default): TTS synthesizes the input text directly
-- When useAiResponse is true: TTS synthesizes the AI-generated response
+- `mode: "direct"` / useAiResponse false or undefined (default): TTS
+  synthesizes the input text directly, with no LLM call — `usage` is
+  zero and `content` echoes the input. A direct request that also
+  carries LLM-shaped options (tools, systemPrompt, messages, schema,
+  conversationMemory) logs a warning, since those options have no effect
+  in this mode.
+- `mode: "response"` / useAiResponse true: TTS synthesizes the
+  AI-generated response after generation completes.
+
+`result.ttsMetadata.mode` reports which one ran. Set `tts.sanitize` to
+strip markdown, URLs and emoji before synthesis.
 
 #### Examples
 

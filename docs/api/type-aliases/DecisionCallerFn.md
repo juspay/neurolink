@@ -18,11 +18,14 @@ makes "no decision provider configured" indistinguishable from "the call
 failed" at every call site: both are `null`, and both mean _carry on as
 before_.
 
+The options carry a [DecisionSite](DecisionSite.md) stamp; a bound `tryDecide` routes
+a stamped request through the host's [DecisionHooks](DecisionHooks.md).
+
 ## Parameters
 
 ### options
 
-[`DecisionOptions`](DecisionOptions.md)
+[`DecisionCallerOptions`](DecisionCallerOptions.md)
 
 ## Returns
 

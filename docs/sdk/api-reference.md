@@ -153,7 +153,9 @@ type GenerateOptions = {
   disableTools?: boolean;
   maxSteps?: number; // Max tool execution steps (default: 5)
   toolChoice?: ToolChoice; // 'auto' | 'none' | 'required' | { type: 'tool', toolName: string }
+  toolChoiceSteps?: number; // Leading steps a forced toolChoice stays in force (default: 1)
   prepareStep?: PrepareStepCallback; // Per-step tool choice — see SDK Custom Tools Guide
+  replayToolSteps?: "full" | "marker" | "off"; // How stored tool steps are replayed into the prompt (default: 'marker')
   abortSignal?: AbortSignal; // External cancellation support
   toolFilter?: string[]; // Whitelist of tools to include (only matching tools are available)
   excludeTools?: string[]; // Blacklist of tools to exclude (applied after toolFilter)

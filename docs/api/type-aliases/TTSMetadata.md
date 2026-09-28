@@ -28,6 +28,16 @@ Whether TTS synthesis completed successfully.
 
 ---
 
+### mode?
+
+> `optional` **mode?**: [`TTSSynthesisMode`](TTSSynthesisMode.md)
+
+What was synthesized: the input text (`"direct"`) or the model's reply
+(`"response"`). Set by `generate()`; `stream()` always synthesizes the
+response and reports `"response"` where it records metadata.
+
+---
+
 ### error?
 
 > `optional` **error?**: `object`

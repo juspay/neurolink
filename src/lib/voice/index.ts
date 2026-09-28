@@ -132,6 +132,10 @@ export {
   DeepgramSTT as DeepgramSTTHandler,
 } from "./providers/DeepgramSTT.js";
 export {
+  ElevenLabsSTT,
+  ElevenLabsSTT as ElevenLabsSTTHandler,
+} from "./providers/ElevenLabsSTT.js";
+export {
   GoogleSTT,
   GoogleSTT as GoogleSTTHandler,
 } from "./providers/GoogleSTT.js";
@@ -168,6 +172,7 @@ import { OpenAITTS } from "./providers/OpenAITTS.js";
 
 import { AzureSTT } from "./providers/AzureSTT.js";
 import { DeepgramSTT } from "./providers/DeepgramSTT.js";
+import { ElevenLabsSTT } from "./providers/ElevenLabsSTT.js";
 import { GoogleSTT } from "./providers/GoogleSTT.js";
 import { OpenAISTT } from "./providers/OpenAISTT.js";
 
@@ -208,6 +213,7 @@ const STT_HANDLER_FACTORIES: Readonly<Record<string, () => STTHandler>> = {
   deepgram: () => new DeepgramSTT(),
   "google-stt": () => new GoogleSTT(),
   "azure-stt": () => new AzureSTT(),
+  "elevenlabs-stt": () => new ElevenLabsSTT(),
 };
 
 const STT_HANDLER_CANDIDATES: ReadonlyArray<{

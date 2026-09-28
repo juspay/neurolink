@@ -911,7 +911,7 @@ bounded by evicting the least-recently-used session past 1000 sessions.
 
 #### checkCredentials()
 
-> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"expired"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
 
 Curator P1-1: synchronous credential health check for a single provider.
 
@@ -937,7 +937,7 @@ the provider to check
 
 ##### Returns
 
-`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"expired"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
 
 `{ provider, status, detail }`. Possible status values:
 
@@ -3015,6 +3015,38 @@ when no decision provider is configured, or the call fails
 
 ---
 
+#### decisionLimits()
+
+> **decisionLimits**(`query?`): [`DecisionLimitsReading`](../type-aliases/DecisionLimitsReading.md) \| `null`
+
+What the decision provider can read, resolved for one model — the same
+figures the pre-flight refusal compares against, so a host can size the
+questions it adds through `decisionHooks` (or a state it is about to
+send) before the call instead of after the refusal.
+
+Provider resolution is `decide()`'s; the model is `query.model`, else
+the model `decide()` would send (see `registeredDecisionModel`); the
+per-model entry is flattened over the base. `enforcedLocally` says
+whether NeuroLink refuses an over-limit request itself (Laya) or only
+reports the server's ceiling (TypeSafe, whose limits are advisory).
+
+Returns null when no decision provider is configured and none is named —
+parity with `tryDecide` — and for a provider that declares no limits.
+A named provider is read whether or not it is configured: its limits are
+facts about the model, not about this host's credentials.
+
+##### Parameters
+
+###### query?
+
+[`DecisionLimitsQuery`](../type-aliases/DecisionLimitsQuery.md)
+
+##### Returns
+
+[`DecisionLimitsReading`](../type-aliases/DecisionLimitsReading.md) \| `null`
+
+---
+
 #### tryDecide()
 
 > **tryDecide**(`options`): `Promise`\<[`DecisionResult`](../type-aliases/DecisionResult.md) \| `null`\>
@@ -3033,11 +3065,16 @@ back joined. A batch that fails costs only its own answers, which every
 consumer already reads as "no decision"; null comes back only when every
 batch failed. `decide()` itself stays strict and refuses an over-cap request.
 
+A request stamped with a `site` — every built-in consumer stamps its own,
+so a `RAGPipeline` or `ClassifierRouter` a host wired to this method gets
+the same treatment as NeuroLink's internal ones — also runs the host's
+`decisionHooks` and emits `decision:before` / `decision:after`.
+
 ##### Parameters
 
 ###### options
 
-[`DecisionOptions`](../type-aliases/DecisionOptions.md)
+[`DecisionCallerOptions`](../type-aliases/DecisionCallerOptions.md)
 
 ##### Returns
 

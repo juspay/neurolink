@@ -135,6 +135,7 @@ export async function selectIrrelevantMessages(
   });
 
   const result = await decide({
+    site: "contextRelevance",
     state: {
       current_request: currentRequest.slice(0, 4000),
       conversation: eligible.map((entry, position) => ({
@@ -231,6 +232,7 @@ export async function summaryPreservesContext(
   }
 
   const result = await decide({
+    site: "summaryGate",
     state: {
       summary: summary.slice(0, 12000),
       original_messages: replacedMessages.slice(-60).map((message) => ({

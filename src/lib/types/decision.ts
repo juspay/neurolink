@@ -208,6 +208,58 @@ export type DecisionLimits = {
   >;
   /** What the provider accepts besides text. Absent means text only. */
   media?: DecisionMediaLimits;
+  /**
+   * True when these figures describe the provider's own server-side ceiling,
+   * published so callers can plan against it, and NeuroLink does NOT refuse
+   * locally — the server does, with its own `max_tokens_exceeded`. Absent or
+   * false means NeuroLink refuses an over-limit request before any network
+   * call. `NeuroLink.decisionLimits()` reports the distinction as
+   * `enforcedLocally`.
+   */
+  advisory?: boolean;
+};
+
+/**
+ * A provider's decision limits resolved for one model — the figure the
+ * pre-flight check compares against, flattened from a descriptor's
+ * `decisionLimits` with the per-model override applied.
+ *
+ * Returned by `NeuroLink.decisionLimits()` so a host extending NeuroLink's
+ * questions (see {@link DecisionHooks}) can size its additions before the
+ * call, instead of discovering the cap when the whole request is refused.
+ */
+export type DecisionLimitsReading = {
+  provider: string;
+  model: string;
+  maxStateTokens: number;
+  /**
+   * Absent when the provider caps a request by tokens (or bytes) rather
+   * than by question count — TypeSafe and XOR; `Infinity` is never used.
+   */
+  maxQuestions?: number;
+  nonAsciiTokensPerChar?: number;
+  /** Tokens charged per ASCII digit; see {@link DecisionLimits.digitTokensPerChar}. */
+  digitTokensPerChar?: number;
+  /** Tokens charged per ASCII punctuation/symbol; see {@link DecisionLimits.symbolTokensPerChar}. */
+  symbolTokensPerChar?: number;
+  /** Tokens charged per astral character; see {@link DecisionLimits.astralTokensPerChar}. */
+  astralTokensPerChar?: number;
+  /** What the provider accepts besides text; absent means text only. */
+  media?: DecisionMediaLimits;
+  /**
+   * Whether NeuroLink itself refuses an over-limit request before any network
+   * call (Laya), or merely reports the server's ceiling (TypeSafe).
+   */
+  enforcedLocally: boolean;
+};
+
+/** What `NeuroLink.decisionLimits()` accepts: the same selection `decide()` takes. */
+export type DecisionLimitsQuery = {
+  /** Provider name or alias; defaults to the configured decision provider. */
+  provider?: string;
+  /** Defaults to the provider's configured model, then its default model. */
+  model?: string;
+  credentials?: NeurolinkCredentials;
 };
 
 export type DecisionMediaLimits = {
@@ -318,6 +370,183 @@ export type DecisionOptions = DecisionRequest & {
 };
 
 /**
+ * The built-in consumers of the `decide` inference type — one name per place
+ * NeuroLink asks a decision model something on its own behalf. Each consumer
+ * stamps its request with its site, which is what lets a host's
+ * {@link DecisionHooks} tell the calls apart and lets telemetry attribute them.
+ *
+ * - `routing` — the classifier router (difficulty, capabilities, risk, model, context scope)
+ * - `toolRouting` — one yes/no per MCP server
+ * - `contextRelevance` — one yes/no per earlier message, compaction stage 0
+ * - `summaryGate` — accept or reject a generated summary, compaction stage 3
+ * - `ragPlan` — per-query retrieval plan (`RAGPipeline` only)
+ */
+export type DecisionSite =
+  | "routing"
+  | "toolRouting"
+  | "contextRelevance"
+  | "summaryGate"
+  | "ragPlan";
+
+/**
+ * Options an internal decision site hands its caller: the public
+ * {@link DecisionOptions} plus in-process context that never reaches the
+ * wire. A bound `NeuroLink.tryDecide` accepts it unchanged; a host wrapping
+ * one can read `site` to see which consumer is asking.
+ */
+export type DecisionCallerOptions = DecisionOptions & {
+  /** Which built-in consumer is asking. Unset on a host's own `tryDecide` call. */
+  site?: DecisionSite;
+  /** The conversation the outer request belongs to. Never sent to the model. */
+  sessionId?: string;
+  /** The outer request's id. Never sent to the model. */
+  requestId?: string;
+};
+
+/**
+ * What an internal decision site inherits from the `generate()` / `stream()`
+ * call it runs inside: the per-call credentials (so the decision goes to the
+ * caller's provider account, not the instance's), the abort signal, and the
+ * ids a host's {@link DecisionHooks} may want to correlate on.
+ */
+export type DecisionSiteContext = {
+  credentials?: NeurolinkCredentials;
+  signal?: AbortSignal;
+  sessionId?: string;
+  requestId?: string;
+};
+
+/** What a site call adds to its decision span beyond the request itself. */
+export type DecisionSiteAttributes = {
+  site: DecisionSite;
+  /** Questions a host's `extendQuestions` hook added; 0 without hooks. */
+  hostQuestionCount: number;
+};
+
+/**
+ * What a {@link DecisionHooks} callback sees before the call: the site, the
+ * state NeuroLink is about to send, and NeuroLink's own questions — as
+ * copies, so a hook that edits them cannot reach the wire request.
+ */
+export type DecisionHookContext = {
+  site: DecisionSite;
+  state: DecisionState;
+  /** NeuroLink's own questions for this site, keyed by its own ids. */
+  questions: DecisionQuestionMap;
+  sessionId?: string;
+  requestId?: string;
+};
+
+/** What `onAnswers` receives once the decision has returned. */
+export type DecisionHookAnswersContext = DecisionHookContext & {
+  /**
+   * The host's answers, keyed by the ids the host used in `extendQuestions`
+   * — the namespacing applied on the wire is undone here. Empty when the
+   * host added no questions.
+   */
+  answers: DecisionAnswerMap;
+  /** The whole result, including NeuroLink's own answers under its own ids. */
+  result: DecisionResult;
+};
+
+/**
+ * Ride along on the decision calls NeuroLink already makes.
+ *
+ * Latency on a decision model is flat in question count, so a host with its
+ * own yes/no or choice questions about the same request pays nothing to ask
+ * them in the round trip NeuroLink is making anyway — one request per
+ * {@link DecisionSite}, never a second. The host's questions are namespaced
+ * on the wire so they can never collide with NeuroLink's, capped so they can
+ * never push the request past the provider's question limit (which would
+ * refuse the whole call and degrade NeuroLink's own routing), and answered
+ * back under the host's original ids.
+ *
+ * Both hooks are fail-open: a hook that throws is logged and the decision
+ * proceeds with NeuroLink's own questions, and neither can change what
+ * NeuroLink does with its own answers — every value a hook or listener is
+ * handed is a copy. Without hooks, the decision payload (state and
+ * questions) is exactly what the consumer built; the outer request's
+ * per-call `credentials` are still forwarded, so the account and base URL
+ * on the wire can differ from the instance's. Hooks are inert without a
+ * decision provider: neither runs, and no event fires.
+ */
+export type DecisionHooks = {
+  /**
+   * Return extra questions to send with this site's call, or `undefined` to
+   * add none. An invalid question is dropped with a warning; questions past
+   * the provider's cap are dropped from the end, also with a warning.
+   */
+  extendQuestions?: (
+    context: DecisionHookContext,
+  ) =>
+    | DecisionQuestionMap
+    | undefined
+    | Promise<DecisionQuestionMap | undefined>;
+  /**
+   * Called with the host's answers (under the host's ids) and the full result
+   * whenever a site call returns one. Observe-only: it receives a copy, so
+   * mutating it cannot reach the answers NeuroLink's own consumer reads.
+   */
+  onAnswers?: (context: DecisionHookAnswersContext) => void | Promise<void>;
+  /**
+   * Upper bound, in milliseconds, on each hook call. Both hooks sit on the
+   * request path (routing, tool routing, compaction, RAG planning), so a
+   * hook that hangs would stall the turn; past this bound the call proceeds
+   * as if the hook had returned nothing, with a warning. Default 2000. Must
+   * be a finite number from 1 to {@link MAX_DECISION_HOOK_TIMEOUT_MS};
+   * anything else (including `Infinity`) falls back to the default with one
+   * warning, since a timer given such a delay fires immediately.
+   */
+  hookTimeoutMs?: number;
+};
+
+/** Default bound on a `DecisionHooks` callback, in milliseconds. */
+export const DEFAULT_DECISION_HOOK_TIMEOUT_MS = 2000;
+
+/**
+ * Largest `hookTimeoutMs` a timer honours (2^31 − 1 ms, about 24.8 days).
+ * A delay past it — or `Infinity`, `NaN`, 0, a negative — fires at once,
+ * so such a value falls back to the default instead of timing every hook
+ * out immediately.
+ */
+export const MAX_DECISION_HOOK_TIMEOUT_MS = 2_147_483_647;
+
+/**
+ * Payload of the `decision:before` event, emitted once per site call. `state`
+ * and `questions` are copies: a listener that edits them changes neither
+ * the request on the wire nor the consumer's own question objects.
+ */
+export type DecisionBeforeEvent = {
+  site: DecisionSite;
+  state: DecisionState;
+  /** Everything about to be sent, NeuroLink's own questions plus the host's (namespaced). */
+  questions: DecisionQuestionMap;
+  hostQuestionCount: number;
+  sessionId?: string;
+  requestId?: string;
+};
+
+/**
+ * Payload of the `decision:after` event, emitted once per site call whether
+ * or not it produced a result — a decision path that stopped working must
+ * stay observable. `result` is null when an emitted call failed; with no
+ * decision provider configured, no event fires at all.
+ */
+export type DecisionAfterEvent = {
+  site: DecisionSite;
+  /** NeuroLink's own answers, under its own ids. Empty when `result` is null. */
+  answers: DecisionAnswerMap;
+  /** The host's answers, under the host's original ids. Empty when `result` is null. */
+  hostAnswers: DecisionAnswerMap;
+  latencyMs: number;
+  provider?: string;
+  model?: string;
+  result: DecisionResult | null;
+  sessionId?: string;
+  requestId?: string;
+};
+
+/**
  * Injected fail-open decision caller — typically a bound `NeuroLink.tryDecide`,
  * which returns `null` on any failure rather than throwing.
  *
@@ -327,9 +556,12 @@ export type DecisionOptions = DecisionRequest & {
  * makes "no decision provider configured" indistinguishable from "the call
  * failed" at every call site: both are `null`, and both mean *carry on as
  * before*.
+ *
+ * The options carry a {@link DecisionSite} stamp; a bound `tryDecide` routes
+ * a stamped request through the host's {@link DecisionHooks}.
  */
 export type DecisionCallerFn = (
-  options: DecisionOptions,
+  options: DecisionCallerOptions,
 ) => Promise<DecisionResult | null>;
 
 /**

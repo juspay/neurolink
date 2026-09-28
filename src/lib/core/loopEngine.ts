@@ -393,7 +393,7 @@ export function runAgenticLoop<TConversation>(
           }
         }
 
-        const request = adapter.buildStepRequest(conversation, step);
+        const request = await adapter.buildStepRequest(conversation, step);
 
         // A tool that just became callable starts clean. Its TOOL_NOT_FOUND
         // strikes were recorded against a name that genuinely did not resolve

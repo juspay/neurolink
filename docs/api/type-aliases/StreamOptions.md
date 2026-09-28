@@ -578,6 +578,24 @@ Directories the built-in file tools may touch for this call; see GenerateOptions
 
 Tool choice configuration for streaming generation.
 Mirrors generate() so translated/fallback requests can preserve forced tool use.
+A forced choice (`"required"` or a named tool) is applied only to the
+first `toolChoiceSteps` steps (default 1); see GenerateOptions.toolChoice.
+
+---
+
+### toolChoiceSteps?
+
+> `optional` **toolChoiceSteps?**: `number`
+
+Leading steps a forced `toolChoice` stays in force (default 1). See GenerateOptions.toolChoiceSteps.
+
+---
+
+### replayToolSteps?
+
+> `optional` **replayToolSteps?**: [`ToolReplayMode`](ToolReplayMode.md)
+
+How stored tool steps are replayed into the prompt. See GenerateOptions.replayToolSteps.
 
 ---
 
@@ -586,6 +604,8 @@ Mirrors generate() so translated/fallback requests can preserve forced tool use.
 > `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `activeTools?`: `Record`\<`string`, [`Tool`](Tool.md)\>; \} \| `undefined`\>
 
 Optional callback that runs before each stream step in a multi-step generation.
+Only a returned `toolChoice` is honoured (for that step); `activeTools` is
+accepted but ignored. See GenerateOptions.prepareStep.
 
 #### Parameters
 
@@ -959,39 +979,14 @@ other failures (network, 5xx, timeouts) bubble immediately.
 
 ### memory?
 
-> `optional` **memory?**: `object`
+> `optional` **memory?**: [`MemoryCallOptions`](MemoryCallOptions.md)
 
 Per-call memory control.
 
 Override the global memory SDK behavior for this specific call.
 All flags default to `true` when the global memory SDK is enabled.
 If the global memory SDK is disabled, these flags have no effect.
-
-#### enabled?
-
-> `optional` **enabled?**: `boolean`
-
-Master toggle for this call. When false, both read and write are skipped. Defaults to true.
-
-#### read?
-
-> `optional` **read?**: `boolean`
-
-Whether to read condensed memory and prepend to prompt. Defaults to true.
-
-#### write?
-
-> `optional` **write?**: `boolean`
-
-Whether to write (add/condense) the conversation into memory after completion. Defaults to true.
-
-#### additionalUsers?
-
-> `optional` **additionalUsers?**: [`AdditionalMemoryUser`](AdditionalMemoryUser.md)[]
-
-Additional users whose memory should be retrieved/stored alongside the primary user.
-Each entry can override the condensation prompt and maxWords for that user.
-Primary user is still determined by context.userId.
+Shared with `GenerateOptions` — see `MemoryCallOptions`.
 
 ---
 

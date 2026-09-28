@@ -136,6 +136,15 @@ class NeuroLinkLogger {
   }
 
   /**
+   * The process-wide sink currently receiving log events, or undefined when
+   * none is set. Lets code that must construct an instance without changing
+   * the sink capture it beforehand and put it back afterwards.
+   */
+  getEventEmitter(): LogEventEmitter | undefined {
+    return this.eventEmitter;
+  }
+
+  /**
    * Clears the event emitter reference.
    * Should be called when a NeuroLink instance is disposed to prevent memory
    * leaks. Pass the disposing instance's emitter so a short-lived instance
@@ -709,6 +718,7 @@ export const logger = {
   clearLogs: () => neuroLinkLogger.clearLogs(),
   setEventEmitter: (emitter: LogEventEmitter) =>
     neuroLinkLogger.setEventEmitter(emitter),
+  getEventEmitter: () => neuroLinkLogger.getEventEmitter(),
   clearEventEmitter: (ifEmitter?: LogEventEmitter) =>
     neuroLinkLogger.clearEventEmitter(ifEmitter),
   // Per-instance routing (see NeuroLinkLogger.runInInstanceScope)

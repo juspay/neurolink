@@ -114,6 +114,9 @@
     "test:middleware": "pnpm exec tsx test/continuous-test-suite-middleware.ts",
     "test:stream-middleware": "pnpm exec tsx test/continuous-test-suite-stream-middleware.ts",
     "test:stream-tool-telemetry": "pnpm exec tsx test/continuous-test-suite-stream-tool-telemetry.ts",
+    "test:tool-replay": "pnpm exec tsx test/continuous-test-suite-tool-replay.ts",
+    "test:memory:hippocampus": "pnpm exec tsx test/continuous-test-suite-memory-hippocampus.ts",
+    "test:security-check-filter": "pnpm exec tsx test/continuous-test-suite-security-check-filter.ts",
     "test:stream-teardown-abort": "pnpm exec tsx test/continuous-test-suite-stream-teardown-abort.ts",
     "test:observability": "pnpm exec tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "pnpm exec tsx test/continuous-test-suite-ppt.ts",
@@ -478,7 +481,7 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "peerDependencies": {
-    "@juspay/hippocampus": ">=0.1.8",
+    "@juspay/hippocampus": ">=0.2.1",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
     "react": ">=18.0.0",

@@ -197,6 +197,14 @@ Features:
 
 `void`
 
+### getEventEmitter
+
+> **getEventEmitter**: () => [`LogEventEmitter`](../type-aliases/LogEventEmitter.md) \| `undefined`
+
+#### Returns
+
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md) \| `undefined`
+
 ### clearEventEmitter
 
 > **clearEventEmitter**: (`ifEmitter?`) => `void`

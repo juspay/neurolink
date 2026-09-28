@@ -8,8 +8,6 @@
 
 > **STTResult** = `object`
 
-STT result from transcription
-
 ## Properties
 
 ### text
@@ -24,7 +22,12 @@ Full transcribed text
 
 > **confidence**: `number`
 
-Confidence score (0-1)
+Transcript confidence (0-1) — Deepgram's alternative confidence,
+Whisper's `exp(avg_logprob)`, Scribe's mean per-word `exp(logprob)`.
+Always present: a strict-TS consumer reads it without a guard. A provider
+with no transcript-level signal reports 0 and, where it can, says so in
+`metadata.confidenceSource` rather than passing off a different number
+(a language-detection probability, say) as this one silently.
 
 ---
 
@@ -97,3 +100,9 @@ Provider name
 > `optional` **model?**: `string`
 
 Model used
+
+#### confidenceSource?
+
+> `optional` **confidenceSource?**: [`STTConfidenceSource`](STTConfidenceSource.md)
+
+What `confidence` was derived from, for providers that must choose.

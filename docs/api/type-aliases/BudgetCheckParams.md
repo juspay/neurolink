@@ -77,3 +77,14 @@ Parameters for budget checking.
 > `optional` **compactionThreshold?**: `number`
 
 Compaction trigger threshold (0.0-1.0). Default: 0.80
+
+---
+
+### toolReplayMode?
+
+> `optional` **toolReplayMode?**: [`ToolReplayMode`](ToolReplayMode.md)
+
+How this request replays stored `tool_call` / `tool_result` rows
+(`replayToolSteps`). When set, tool rows are estimated at the size they
+reach the model in that mode rather than at stored size; when omitted
+they count at stored size.

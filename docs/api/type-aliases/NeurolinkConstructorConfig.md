@@ -210,6 +210,18 @@ which is the same activation rule every other decision consumer uses.
 
 ---
 
+### decisionHooks?
+
+> `optional` **decisionHooks?**: [`DecisionHooks`](DecisionHooks.md)
+
+Ride along on the decision calls NeuroLink already makes for routing,
+tool routing, compaction and RAG planning: add your own questions to the
+same round trip and read the answers back. Observe-only with respect to
+NeuroLink's behaviour, fail-open, and inert until a decision provider is
+configured. See [DecisionHooks](DecisionHooks.md).
+
+---
+
 ### skills?
 
 > `optional` **skills?**: [`SkillsConfig`](SkillsConfig.md)

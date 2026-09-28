@@ -76,10 +76,13 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { NeuroLink, tool } from "../dist/index.js";
+import type { HippocampusLike } from "../dist/index.js";
 
 assertDistFresh();
 
@@ -159,6 +162,7 @@ function startToolCallServer(toolName: string) {
   return new Promise<{
     port: number;
     requestCountNow(): number;
+    requestBodies: Array<Record<string, unknown>>;
     close(): Promise<void>;
   }>((resolve) => {
     server.listen(0, "127.0.0.1", () => {
@@ -167,6 +171,7 @@ function startToolCallServer(toolName: string) {
       resolve({
         port,
         requestCountNow: () => requestCount,
+        requestBodies,
         close: () =>
           new Promise<void>((r) => {
             server.closeAllConnections?.();
@@ -662,6 +667,376 @@ function assertToolTelemetryPresent(
     toolName,
     "toolExecutions entry names the wrong tool",
   );
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic Messages SSE stand-in (direct Anthropic stream path)
+// ---------------------------------------------------------------------------
+
+const ANTHROPIC_ENV_VARS = [
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_AUTH_METHOD",
+  "ANTHROPIC_OAUTH_TOKEN",
+  "CLAUDE_OAUTH_TOKEN",
+] as const;
+
+/**
+ * Pin api_key auth at the stand-in for one case, restoring the env after.
+ * Same rationale as the loop-characterization suite: an ambient OAuth
+ * credentials file would otherwise route construction elsewhere.
+ */
+function withAnthropicEnv(port: number): () => void {
+  const saved: Record<string, string | undefined> = {};
+  for (const key of ANTHROPIC_ENV_VARS) {
+    saved[key] = process.env[key];
+  }
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+  process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+  delete process.env.ANTHROPIC_OAUTH_TOKEN;
+  delete process.env.CLAUDE_OAUTH_TOKEN;
+  return () => {
+    for (const key of ANTHROPIC_ENV_VARS) {
+      const prior = saved[key];
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  };
+}
+
+function anthropicSse(event: string, payload: Record<string, unknown>): string {
+  return `event: ${event}\ndata: ${JSON.stringify({ type: event, ...payload })}\n\n`;
+}
+
+/** One scripted Anthropic turn: a tool_use with these arguments, or text. */
+type AnthropicScriptedTurn =
+  | { toolUse: { name: string; input: Record<string, unknown>; id?: string } }
+  | { text: string };
+
+/**
+ * A scripted Anthropic Messages SSE stand-in: request N answers with
+ * `script[N]` (the last entry repeats). Genuine Anthropic SSE framing, so the
+ * real SDK's event parsing runs, and every request body is recorded so a
+ * test can assert on what the SDK sent per step.
+ */
+async function startScriptedAnthropicServer(
+  script: ReadonlyArray<AnthropicScriptedTurn>,
+) {
+  const bodies: Array<Record<string, unknown>> = [];
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    } catch {
+      body = {};
+    }
+    bodies.push(body);
+    const turn = script[Math.min(bodies.length - 1, script.length - 1)];
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    const frames: string[] = [
+      anthropicSse("message_start", {
+        message: { id: "msg_1", usage: { input_tokens: 5, output_tokens: 0 } },
+      }),
+    ];
+    if ("toolUse" in turn) {
+      frames.push(
+        anthropicSse("content_block_start", {
+          index: 0,
+          content_block: {
+            type: "tool_use",
+            id: turn.toolUse.id ?? `toolu_${bodies.length}`,
+            name: turn.toolUse.name,
+            input: {},
+          },
+        }),
+        anthropicSse("content_block_delta", {
+          index: 0,
+          delta: {
+            type: "input_json_delta",
+            partial_json: JSON.stringify(turn.toolUse.input),
+          },
+        }),
+        anthropicSse("content_block_stop", { index: 0 }),
+        anthropicSse("message_delta", {
+          delta: { stop_reason: "tool_use" },
+          usage: { output_tokens: 6 },
+        }),
+      );
+    } else {
+      frames.push(
+        anthropicSse("content_block_start", {
+          index: 0,
+          content_block: { type: "text", text: "" },
+        }),
+        anthropicSse("content_block_delta", {
+          index: 0,
+          delta: { type: "text_delta", text: turn.text },
+        }),
+        anthropicSse("content_block_stop", { index: 0 }),
+        anthropicSse("message_delta", {
+          delta: { stop_reason: "end_turn" },
+          usage: { output_tokens: 4 },
+        }),
+      );
+    }
+    frames.push(anthropicSse("message_stop", {}));
+    for (const frame of frames) {
+      res.write(frame);
+    }
+    res.end();
+  });
+  await once(server.listen(0, "127.0.0.1"), "listening");
+  const address = server.address();
+  return {
+    port: typeof address === "object" && address ? address.port : 0,
+    bodies,
+    close: () =>
+      new Promise<void>((r) => {
+        server.closeAllConnections?.();
+        server.close(() => r());
+      }),
+  };
+}
+
+/**
+ * Request 0 → one tool_use block; every later request → a text answer.
+ */
+async function startAnthropicToolCallServer(toolName: string) {
+  return startScriptedAnthropicServer([
+    { toolUse: { name: toolName, input: { orderId: "1" }, id: "toolu_1" } },
+    { text: "it shipped" },
+  ]);
+}
+
+/** One scripted OpenAI chat-completions turn (non-streaming JSON). */
+type OpenAIScriptedTurn =
+  | { toolCall: { name: string; args: Record<string, unknown>; id?: string } }
+  | { text: string };
+
+/**
+ * A scripted, NON-streaming OpenAI chat-completions stand-in — the shape
+ * generate() speaks — recording every request body.
+ */
+async function startScriptedOpenAIServer(
+  script: ReadonlyArray<OpenAIScriptedTurn>,
+) {
+  const bodies: Array<Record<string, unknown>> = [];
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    } catch {
+      body = {};
+    }
+    bodies.push(body);
+    const turn = script[Math.min(bodies.length - 1, script.length - 1)];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        id: "chatcmpl-scripted",
+        object: "chat.completion",
+        created: 1,
+        model: "gpt-4o-mini",
+        choices: [
+          {
+            index: 0,
+            message:
+              "toolCall" in turn
+                ? {
+                    role: "assistant",
+                    content: null,
+                    tool_calls: [
+                      {
+                        id: turn.toolCall.id ?? `call_${bodies.length}`,
+                        type: "function",
+                        function: {
+                          name: turn.toolCall.name,
+                          arguments: JSON.stringify(turn.toolCall.args),
+                        },
+                      },
+                    ],
+                  }
+                : { role: "assistant", content: turn.text },
+            finish_reason: "toolCall" in turn ? "tool_calls" : "stop",
+          },
+        ],
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+      }),
+    );
+  });
+  await once(server.listen(0, "127.0.0.1"), "listening");
+  const address = server.address();
+  return {
+    port: typeof address === "object" && address ? address.port : 0,
+    bodies,
+    close: () =>
+      new Promise<void>((r) => {
+        server.closeAllConnections?.();
+        server.close(() => r());
+      }),
+  };
+}
+
+const MCP_FIXTURE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "mcp-direct-name-repair-server.mjs",
+);
+
+/** Every `content` text of every message in a captured request body. */
+function bodyText(body: Record<string, unknown> | undefined): string {
+  const messages = (body?.messages ?? []) as Array<{ content?: unknown }>;
+  const out: string[] = [];
+  for (const message of messages) {
+    if (typeof message.content === "string") {
+      out.push(message.content);
+    } else if (Array.isArray(message.content)) {
+      for (const block of message.content as Array<Record<string, unknown>>) {
+        if (typeof block.text === "string") {
+          out.push(block.text);
+        }
+        if (typeof block.content === "string") {
+          out.push(block.content);
+        }
+        if (Array.isArray(block.content)) {
+          for (const inner of block.content as Array<Record<string, unknown>>) {
+            if (typeof inner.text === "string") {
+              out.push(inner.text);
+            }
+          }
+        }
+      }
+    }
+  }
+  return out.join("\n");
+}
+
+/**
+ * A loopback OpenAI SSE stand-in whose tool is chosen BY THE REQUEST: a
+ * request that declares tools and carries no `tool` message yet is answered
+ * with a call to the first tool it declares; any other request with text.
+ * Two concurrent streams on one instance therefore each get their own turn
+ * shape from one shared server.
+ */
+async function startToolByRequestServer(): Promise<{
+  baseURL: string;
+  close(): Promise<void>;
+}> {
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    let body: {
+      messages?: Array<{ role?: string }>;
+      tools?: Array<{ function?: { name?: string } }>;
+    };
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    } catch {
+      body = {};
+    }
+    const answered = (body.messages ?? []).some((m) => m.role === "tool");
+    const toolName = body.tools?.[0]?.function?.name;
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    const frame = (delta: Record<string, unknown>, finish: string | null) =>
+      res.write(
+        `data: ${JSON.stringify({
+          id: "chatcmpl-tool-by-request",
+          object: "chat.completion.chunk",
+          model: "gpt-4o-mini",
+          choices: [{ index: 0, delta, finish_reason: finish }],
+        })}\n\n`,
+      );
+    if (!answered && toolName) {
+      frame(
+        {
+          tool_calls: [
+            {
+              index: 0,
+              id: `call_${toolName}`,
+              type: "function",
+              function: { name: toolName, arguments: "{}" },
+            },
+          ],
+        },
+        null,
+      );
+      frame({}, "tool_calls");
+    } else {
+      frame(
+        { role: "assistant", content: `done via ${toolName ?? "none"}` },
+        null,
+      );
+      frame({}, "stop");
+    }
+    res.write("data: [DONE]\n\n");
+    res.end();
+  });
+  await once(server.listen(0, "127.0.0.1"), "listening");
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    baseURL: `http://127.0.0.1:${port}/v1`,
+    close: () =>
+      new Promise<void>((r) => {
+        server.closeAllConnections?.();
+        server.close(() => r());
+      }),
+  };
+}
+
+/**
+ * The smallest host-managed memory client the public
+ * `conversationMemory.memory.client` seam accepts. It exists so the per-call
+ * `memory.shouldWrite` hook runs; nothing here asserts on what it stores.
+ */
+class FakeMemoryClient implements HippocampusLike {
+  private readonly store = new Map<string, string>();
+
+  async add(ownerId: string, content: string): Promise<string> {
+    this.store.set(ownerId, content);
+    return content;
+  }
+
+  async get(ownerId: string): Promise<string | null> {
+    return this.store.get(ownerId) ?? null;
+  }
+
+  async delete(ownerId: string): Promise<void> {
+    this.store.delete(ownerId);
+  }
+
+  async close(): Promise<void> {
+    // nothing to release
+  }
+}
+
+/** Poll until `predicate` holds or `timeoutMs` elapses; memory writes are deferred. */
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs = 5_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  return predicate();
 }
 
 void runSuite(async () => {
@@ -1210,6 +1585,1097 @@ void runSuite(async () => {
     } finally {
       await sdk.shutdown();
       await fixture.close();
+    }
+  });
+
+  await test("a forced toolChoice lapses after toolChoiceSteps on the streamed OpenAI-compatible loop", async () => {
+    // The wire `tool_choice` was resolved once and sent unchanged on every
+    // step, so a named tool was demanded again on the follow-up request and
+    // the loop could only end at maxSteps. The stand-in answers request 0
+    // with a tool call and request 1 with the final answer, so the two
+    // bodies it records are exactly step 0 and step 1.
+    const toolName = "get_weather";
+    const fixture = await startToolCallServer(toolName);
+    const sdk = new NeuroLink();
+    try {
+      const result = await sdk.stream({
+        input: { text: "what is the weather in lisbon" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        maxSteps: 3,
+        disableInternalFallback: true,
+        enabledToolNames: [toolName],
+        toolChoice: { type: "tool", toolName },
+        credentials: {
+          openai: {
+            apiKey: "test-key",
+            baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+          },
+        },
+        tools: {
+          [toolName]: tool({
+            inputSchema: z.object({ city: z.string() }),
+            execute: async ({ city }: { city: string }) => ({
+              city,
+              forecast: "sunny",
+            }),
+          }),
+        },
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(
+        fixture.requestBodies.length,
+        2,
+        "precondition failed: a forced call then an answer should take exactly two requests",
+      );
+      const step0 = fixture.requestBodies[0].tool_choice as
+        | { type?: string; function?: { name?: string } }
+        | string
+        | undefined;
+      assert.ok(
+        typeof step0 === "object" &&
+          step0?.type === "function" &&
+          step0.function?.name === toolName,
+        "step 0 did not carry the forced function tool_choice",
+      );
+      const step1 = fixture.requestBodies[1].tool_choice;
+      assert.ok(
+        step1 === undefined || step1 === "auto",
+        "step 1 still carried the forced tool_choice",
+      );
+    } finally {
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("the direct Anthropic stream reports toolsUsed / toolCalls / toolExecutions for a registerTool tool", async () => {
+    // The direct Anthropic stream result returned `toolCalls: []` and never
+    // surfaced the tool names it collected, so `toolsUsed` came back empty
+    // for every tool on that path and `enhancedWithTools` was always false.
+    // Driven against a local Anthropic Messages SSE stand-in with the real
+    // SDK, so no key is needed and the suite stays offline.
+    const toolName = "lookup_order";
+    const fixture = await startAnthropicToolCallServer(toolName);
+    const restore = withAnthropicEnv(fixture.port);
+    const sdk = new NeuroLink();
+    let executions = 0;
+    sdk.registerTool(toolName, {
+      name: toolName,
+      description: "look an order up",
+      inputSchema: {
+        type: "object",
+        properties: { orderId: { type: "string" } },
+      },
+      execute: async () => {
+        executions++;
+        return { status: "shipped" };
+      },
+    });
+    try {
+      const result = await sdk.stream({
+        input: { text: "where is order 1?" },
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        maxSteps: 3,
+        maxTokens: 64,
+        disableInternalFallback: true,
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(executions, 1, "precondition failed: the tool did not run");
+      assert.ok(
+        Array.isArray(result.toolsUsed) && result.toolsUsed.includes(toolName),
+        "toolsUsed does not name the registerTool tool that ran",
+      );
+      assert.ok(
+        Array.isArray(result.toolCalls) &&
+          result.toolCalls.some((c) => c.toolName === toolName),
+        "toolCalls does not name the registerTool tool that ran",
+      );
+      assert.ok(
+        Array.isArray(result.toolExecutions) &&
+          result.toolExecutions.length === 1,
+        "toolExecutions does not record the one execution",
+      );
+    } finally {
+      restore();
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("one execution emits exactly one tool:start and one tool:end — registerTool and per-call tools alike, on the public stream() path", async () => {
+    // Regression for a double-wrap: per-call tools are instrumented at the
+    // merge point, then the execution recorder replaces `execute`, and a
+    // provider's own fallback instrumentation must recognise the tool as
+    // already instrumented. Two pairs per execution still looks "paired".
+    const toolName = "lookup_order";
+    for (const variant of ["registerTool", "per-call"] as const) {
+      // The fixture answers its first request with the tool_use and later
+      // ones with text, so each variant gets its own.
+      const fixture = await startAnthropicToolCallServer(toolName);
+      const restore = withAnthropicEnv(fixture.port);
+      try {
+        const sdk = new NeuroLink();
+        let executions = 0;
+        const execute = async () => {
+          executions++;
+          // A measurable duration, so responseTime > 0 is deterministic.
+          await new Promise((r) => setTimeout(r, 5));
+          return { status: "shipped" };
+        };
+        if (variant === "registerTool") {
+          sdk.registerTool(toolName, {
+            name: toolName,
+            description: "look an order up",
+            inputSchema: {
+              type: "object",
+              properties: { orderId: { type: "string" } },
+            },
+            execute,
+          });
+        }
+        const perCallTools =
+          variant === "per-call"
+            ? {
+                [toolName]: tool({
+                  description: "look an order up",
+                  inputSchema: z.object({ orderId: z.string().optional() }),
+                  execute,
+                }),
+              }
+            : undefined;
+        let starts = 0;
+        let ends = 0;
+        const endPayloads: Array<Record<string, unknown>> = [];
+        const emitter = sdk.getEventEmitter();
+        const onStart = () => {
+          starts++;
+        };
+        const onEnd = (...args: unknown[]) => {
+          ends++;
+          endPayloads.push((args[0] ?? {}) as Record<string, unknown>);
+        };
+        emitter.on("tool:start", onStart);
+        emitter.on("tool:end", onEnd);
+        try {
+          const result = await sdk.stream({
+            input: { text: "where is order 1?" },
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            maxSteps: 3,
+            maxTokens: 64,
+            disableInternalFallback: true,
+            ...(perCallTools ? { tools: perCallTools } : {}),
+          });
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          assert.equal(
+            executions,
+            1,
+            `precondition failed: the ${variant} tool did not run once`,
+          );
+          assert.equal(
+            starts,
+            1,
+            `${variant} tool: tool:start count is not exactly one per execution`,
+          );
+          assert.equal(
+            ends,
+            1,
+            `${variant} tool: tool:end count is not exactly one per execution`,
+          );
+          // The payload, not just the count: a wrapper that fired the right
+          // number of events with the wrong classification or a zeroed
+          // duration would still pass a count-only check.
+          const end = endPayloads[0];
+          assert.equal(
+            end.success,
+            true,
+            `${variant} tool: tool:end did not report success for a successful run`,
+          );
+          assert.equal(
+            end.toolName,
+            toolName,
+            `${variant} tool: tool:end names the wrong tool`,
+          );
+          assert.ok(
+            typeof end.responseTime === "number" && end.responseTime > 0,
+            `${variant} tool: tool:end responseTime is not the real duration`,
+          );
+          assert.equal(
+            end.error,
+            undefined,
+            `${variant} tool: tool:end carries an error on a successful run`,
+          );
+        } finally {
+          emitter.off("tool:start", onStart);
+          emitter.off("tool:end", onEnd);
+          await sdk.shutdown();
+        }
+      } finally {
+        restore();
+        await fixture.close();
+      }
+    }
+  });
+
+  await test("a tool that returns an MCP-shaped isError result emits one tool:end with success:false and the error text", async () => {
+    // wrapExecuteWithEvents used to emit success:true for every non-throwing
+    // execute, so tool spans and error metrics counted a returned MCP
+    // failure as a success. The step-finish emitter it replaced classified
+    // `{ isError: true }`; the wrapper must too.
+    const toolName = "lookup_order";
+    const fixture = await startAnthropicToolCallServer(toolName);
+    const restore = withAnthropicEnv(fixture.port);
+    const sdk = new NeuroLink();
+    const ends: Array<Record<string, unknown>> = [];
+    const emitter = sdk.getEventEmitter();
+    const onEnd = (...args: unknown[]) => {
+      ends.push((args[0] ?? {}) as Record<string, unknown>);
+    };
+    emitter.on("tool:end", onEnd);
+    try {
+      const result = await sdk.stream({
+        input: { text: "where is order 1?" },
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        maxSteps: 3,
+        maxTokens: 64,
+        disableInternalFallback: true,
+        tools: {
+          [toolName]: tool({
+            description: "look an order up",
+            inputSchema: z.object({ orderId: z.string().optional() }),
+            execute: async () => ({
+              isError: true,
+              content: [{ type: "text", text: "upstream 403" }],
+            }),
+          }),
+        },
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(ends.length, 1, "tool:end did not fire exactly once");
+      assert.equal(
+        ends[0].success,
+        false,
+        "an isError result was reported as a success",
+      );
+      assert.equal(
+        ends[0].error,
+        "upstream 403",
+        "tool:end does not carry the text extracted from the isError result",
+      );
+      assert.equal(ends[0].toolName, toolName, "tool:end names the wrong tool");
+    } finally {
+      emitter.off("tool:end", onEnd);
+      restore();
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("a placeholder error value (false) alongside isError:true does not suppress the real content text", async () => {
+    // extractIsErrorText used to treat any error !== undefined/null as
+    // meaningful, so a falsy placeholder like `error: false` — set on every
+    // call by some tools regardless of outcome — serialized to the literal
+    // string "false" instead of falling through to the real content text.
+    const toolName = "lookup_order";
+    const fixture = await startAnthropicToolCallServer(toolName);
+    const restore = withAnthropicEnv(fixture.port);
+    const sdk = new NeuroLink();
+    const ends: Array<Record<string, unknown>> = [];
+    const emitter = sdk.getEventEmitter();
+    const onEnd = (...args: unknown[]) => {
+      ends.push((args[0] ?? {}) as Record<string, unknown>);
+    };
+    emitter.on("tool:end", onEnd);
+    try {
+      const result = await sdk.stream({
+        input: { text: "where is order 1?" },
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        maxSteps: 3,
+        maxTokens: 64,
+        disableInternalFallback: true,
+        tools: {
+          [toolName]: tool({
+            description: "look an order up",
+            inputSchema: z.object({ orderId: z.string().optional() }),
+            execute: async () => ({
+              isError: true,
+              error: false,
+              content: [{ type: "text", text: "upstream 403" }],
+            }),
+          }),
+        },
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(ends.length, 1, "tool:end did not fire exactly once");
+      assert.equal(
+        ends[0].error,
+        "upstream 403",
+        "a placeholder error:false must not shadow the real content text",
+      );
+    } finally {
+      emitter.off("tool:end", onEnd);
+      restore();
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("a throwing tool:end listener neither fails the tool run nor produces a second tool:end", async () => {
+    // A metrics listener that throws on an unexpected payload used to
+    // propagate out of the wrapper: the tool had run, the loop was told it
+    // failed (so the model may retry a side effect), and the wrapper's catch
+    // emitted a SECOND tool:end for the same execution.
+    const toolName = "pay_invoice";
+    const fixture = await startAnthropicToolCallServer(toolName);
+    const restore = withAnthropicEnv(fixture.port);
+    const sdk = new NeuroLink();
+    const emitter = sdk.getEventEmitter();
+    const seen: Array<Record<string, unknown>> = [];
+    const thrower = () => {
+      throw new Error("listener boom");
+    };
+    const observer = (...args: unknown[]) => {
+      seen.push((args[0] ?? {}) as Record<string, unknown>);
+    };
+    // Observer FIRST: Node's EventEmitter stops at a throwing listener, so a
+    // listener registered after the thrower never runs — that is the
+    // emitter's contract, not the wrapper's. What the wrapper owns is that
+    // the throw neither fails the run nor triggers a second tool:end, which
+    // the earlier observer would see.
+    emitter.on("tool:end", observer);
+    emitter.on("tool:end", thrower);
+    let sideEffects = 0;
+    try {
+      const result = await sdk.stream({
+        input: { text: "pay invoice 1" },
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        maxSteps: 3,
+        maxTokens: 64,
+        disableInternalFallback: true,
+        tools: {
+          [toolName]: tool({
+            description: "pay an invoice",
+            inputSchema: z.object({ orderId: z.string().optional() }),
+            execute: async () => {
+              sideEffects++;
+              return { paid: true };
+            },
+          }),
+        },
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        if (
+          chunk &&
+          typeof chunk === "object" &&
+          "content" in chunk &&
+          typeof (chunk as { content: unknown }).content === "string"
+        ) {
+          text += (chunk as { content: string }).content;
+        }
+      }
+      assert.equal(sideEffects, 1, "the tool did not run exactly once");
+      assert.ok(text.includes("it shipped"), "the turn did not complete");
+      // Exactly one, successful, tool:end — a second one would have come
+      // from the wrapper's catch treating the listener's throw as a failure.
+      assert.equal(seen.length, 1, "tool:end did not fire exactly once");
+      assert.equal(
+        seen[0].success,
+        true,
+        "a successful run was reported as a failure because a listener threw",
+      );
+      const executions = result.toolExecutions as
+        | ReadonlyArray<Record<string, unknown>>
+        | undefined;
+      assert.ok(
+        Array.isArray(executions) &&
+          executions.length === 1 &&
+          executions[0].isError !== true,
+        "the execution record marks a successful run as an error",
+      );
+    } finally {
+      emitter.off("tool:end", thrower);
+      emitter.off("tool:end", observer);
+      restore();
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("a tool call the loop rejects before execute (unknown tool) still emits a tool:start / tool:end(success:false) pair — stream and generate", async () => {
+    // A hallucinated tool name runs no executor, so nothing emitted for it
+    // and event consumers saw zero attempts while toolResults held the
+    // failure. Both the streamed OpenAI-compat loop and the native generate
+    // loop must report the rejection.
+    for (const surface of ["stream", "generate"] as const) {
+      const fixture =
+        surface === "stream"
+          ? await startToolCallServer("ghost_tool")
+          : await startScriptedOpenAIServer([
+              { toolCall: { name: "ghost_tool", args: { city: "lisbon" } } },
+              { text: "It is sunny." },
+            ]);
+      const sdk = new NeuroLink();
+      const events: Array<[string, Record<string, unknown>]> = [];
+      const emitter = sdk.getEventEmitter();
+      const onStart = (...args: unknown[]) =>
+        events.push(["start", (args[0] ?? {}) as Record<string, unknown>]);
+      const onEnd = (...args: unknown[]) =>
+        events.push(["end", (args[0] ?? {}) as Record<string, unknown>]);
+      emitter.on("tool:start", onStart);
+      emitter.on("tool:end", onEnd);
+      try {
+        const options = {
+          input: { text: "what is the weather in lisbon" },
+          provider: "openai",
+          model: "gpt-4o-mini",
+          maxSteps: 3,
+          disableInternalFallback: true,
+          enabledToolNames: ["real_tool"],
+          credentials: {
+            openai: {
+              apiKey: "test-key",
+              baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+            },
+          },
+          tools: {
+            real_tool: tool({
+              inputSchema: z.object({ city: z.string() }),
+              execute: async () => ({ forecast: "sunny" }),
+            }),
+          },
+        } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0];
+        if (surface === "stream") {
+          const result = await sdk.stream(options);
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+        } else {
+          await sdk.generate(options);
+        }
+        const ghost = events.filter(([, p]) => p.toolName === "ghost_tool");
+        assert.equal(
+          ghost.filter(([kind]) => kind === "start").length,
+          1,
+          `${surface}: the rejected call emitted no tool:start`,
+        );
+        const ends = ghost.filter(([kind]) => kind === "end");
+        assert.equal(
+          ends.length,
+          1,
+          `${surface}: the rejected call emitted no tool:end`,
+        );
+        assert.equal(
+          ends[0][1].success,
+          false,
+          `${surface}: the rejected call was reported as a success`,
+        );
+        assert.ok(
+          typeof ends[0][1].error === "string" && ends[0][1].error.length > 0,
+          `${surface}: the rejected call's tool:end carries no error`,
+        );
+      } finally {
+        emitter.off("tool:start", onStart);
+        emitter.off("tool:end", onEnd);
+        await sdk.shutdown();
+        await fixture.close();
+      }
+    }
+  });
+
+  await test("a forced toolChoice lapses after toolChoiceSteps on generate() over the OpenAI-compatible loop and on the Anthropic stream (offline)", async () => {
+    // Both sites were covered live only, so a regression that re-sent the
+    // forced choice on every step (looping to maxSteps) left offline CI
+    // green. The stand-ins record every body, so step 0 and step 1 are the
+    // first two requests.
+    const toolName = "get_weather";
+    {
+      const fixture = await startScriptedOpenAIServer([
+        { toolCall: { name: toolName, args: { city: "lisbon" } } },
+        { text: "It is sunny." },
+      ]);
+      const sdk = new NeuroLink();
+      try {
+        await sdk.generate({
+          input: { text: "what is the weather in lisbon" },
+          provider: "openai",
+          model: "gpt-4o-mini",
+          maxSteps: 3,
+          disableInternalFallback: true,
+          enabledToolNames: [toolName],
+          toolChoice: { type: "tool", toolName },
+          credentials: {
+            openai: {
+              apiKey: "test-key",
+              baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+            },
+          },
+          tools: {
+            [toolName]: tool({
+              inputSchema: z.object({ city: z.string() }),
+              execute: async ({ city }: { city: string }) => ({
+                city,
+                forecast: "sunny",
+              }),
+            }),
+          },
+        } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+        assert.equal(
+          fixture.bodies.length,
+          2,
+          "generate: a forced call then an answer should take exactly two requests",
+        );
+        const step0 = fixture.bodies[0].tool_choice as
+          | { type?: string; function?: { name?: string } }
+          | undefined;
+        assert.ok(
+          step0?.type === "function" && step0.function?.name === toolName,
+          "generate: step 0 did not carry the forced function tool_choice",
+        );
+        const step1 = fixture.bodies[1].tool_choice;
+        assert.ok(
+          step1 === undefined || step1 === "auto",
+          "generate: step 1 still carried the forced tool_choice",
+        );
+      } finally {
+        await sdk.shutdown();
+        await fixture.close();
+      }
+    }
+    {
+      const fixture = await startAnthropicToolCallServer(toolName);
+      const restore = withAnthropicEnv(fixture.port);
+      const sdk = new NeuroLink();
+      try {
+        const result = await sdk.stream({
+          input: { text: "what is the weather in lisbon" },
+          provider: "anthropic",
+          model: "claude-3-5-sonnet-20241022",
+          maxSteps: 3,
+          maxTokens: 64,
+          disableInternalFallback: true,
+          toolChoice: { type: "tool", toolName },
+          tools: {
+            [toolName]: tool({
+              inputSchema: z.object({ orderId: z.string().optional() }),
+              execute: async () => ({ forecast: "sunny" }),
+            }),
+          },
+        });
+        for await (const _chunk of result.stream) {
+          // drain
+        }
+        assert.equal(
+          fixture.bodies.length,
+          2,
+          "anthropic stream: a forced call then an answer should take exactly two requests",
+        );
+        const step0 = fixture.bodies[0].tool_choice as
+          | { type?: string; name?: string }
+          | undefined;
+        assert.ok(
+          step0?.type === "tool" && step0.name === toolName,
+          "anthropic stream: step 0 did not carry the forced tool_choice",
+        );
+        const step1 = fixture.bodies[1].tool_choice as
+          | { type?: string }
+          | undefined;
+        assert.ok(
+          step1 === undefined || step1.type === "auto",
+          "anthropic stream: step 1 still carried the forced tool_choice",
+        );
+      } finally {
+        restore();
+        await sdk.shutdown();
+        await fixture.close();
+      }
+    }
+  });
+
+  await test("tools.discovery: a tool hydrated by search_tools mid-turn is callable on the next step — Anthropic stream and OpenAI-compatible generate", async () => {
+    // The provider loops must use BaseProvider's merged tool record AS IS.
+    // A copy (a fresh `{}` from Object.entries) loses the discovery record's
+    // non-enumerable resolver and never receives the tools search_tools
+    // hydrates into the original, so the model's follow-up call to the
+    // loaded tool failed with "Tool not found". Driven with a real stdio MCP
+    // fixture, so the deferred catalog is genuine.
+    const hydrated = "get_pull_request";
+    for (const surface of ["anthropic-stream", "openai-generate"] as const) {
+      const serverId = `discovery-${surface}-${process.pid}`;
+      const sdk = new NeuroLink({ tools: { discovery: true } });
+      const added = await sdk.addExternalMCPServer(serverId, {
+        id: serverId,
+        name: serverId,
+        description: "discovery fixture",
+        transport: "stdio",
+        status: "initializing",
+        tools: [],
+        command: process.execPath,
+        args: [MCP_FIXTURE],
+      });
+      assert.ok(added.success, `${surface}: the MCP fixture failed to connect`);
+      const sessionId = `discovery-${surface}-${Date.now()}`;
+      const anthropicFixture =
+        surface === "anthropic-stream"
+          ? await startScriptedAnthropicServer([
+              { toolUse: { name: "search_tools", input: { query: hydrated } } },
+              { toolUse: { name: hydrated, input: { echo: "hi" } } },
+              { text: "done" },
+            ])
+          : undefined;
+      const openaiFixture =
+        surface === "openai-generate"
+          ? await startScriptedOpenAIServer([
+              { toolCall: { name: "search_tools", args: { query: hydrated } } },
+              { toolCall: { name: hydrated, args: { echo: "hi" } } },
+              { text: "done" },
+            ])
+          : undefined;
+      const restore = anthropicFixture
+        ? withAnthropicEnv(anthropicFixture.port)
+        : () => {};
+      try {
+        if (surface === "anthropic-stream" && anthropicFixture) {
+          const result = await sdk.stream({
+            input: { text: "look up PR 1" },
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            maxSteps: 4,
+            maxTokens: 64,
+            disableInternalFallback: true,
+            context: { sessionId },
+          });
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          assert.equal(
+            anthropicFixture.bodies.length,
+            3,
+            `${surface}: search then call then answer should take three requests`,
+          );
+          const step0Tools = (anthropicFixture.bodies[0].tools ?? []) as Array<{
+            name: string;
+          }>;
+          assert.ok(
+            step0Tools.some((t) => t.name === "search_tools") &&
+              !step0Tools.some((t) => t.name === hydrated),
+            `${surface}: precondition failed — the fixture tool was not deferred behind search_tools`,
+          );
+          const step2Tools = (anthropicFixture.bodies[2].tools ?? []) as Array<{
+            name: string;
+          }>;
+          assert.ok(
+            step2Tools.some((t) => t.name === hydrated),
+            `${surface}: the hydrated tool was not advertised on the step after search_tools`,
+          );
+          const text = bodyText(anthropicFixture.bodies[2]);
+          assert.ok(
+            text.includes(`ran:${hydrated}:hi`),
+            `${surface}: the hydrated tool's result did not reach the next step`,
+          );
+          assert.ok(
+            !text.includes("Tool not found") &&
+              !text.includes("not registered"),
+            `${surface}: the hydrated tool call was rejected`,
+          );
+        } else if (openaiFixture) {
+          await sdk.generate({
+            input: { text: "look up PR 1" },
+            provider: "openai",
+            model: "gpt-4o-mini",
+            maxSteps: 4,
+            disableInternalFallback: true,
+            context: { sessionId },
+            credentials: {
+              openai: {
+                apiKey: "test-key",
+                baseURL: `http://127.0.0.1:${openaiFixture.port}/v1`,
+              },
+            },
+          });
+          assert.equal(
+            openaiFixture.bodies.length,
+            3,
+            `${surface}: search then call then answer should take three requests`,
+          );
+          const step0Tools = (openaiFixture.bodies[0].tools ?? []) as Array<{
+            function?: { name?: string };
+          }>;
+          assert.ok(
+            step0Tools.some((t) => t.function?.name === "search_tools") &&
+              !step0Tools.some((t) => t.function?.name === hydrated),
+            `${surface}: precondition failed — the fixture tool was not deferred behind search_tools`,
+          );
+          const text = bodyText(openaiFixture.bodies[2]);
+          assert.ok(
+            text.includes(`ran:${hydrated}:hi`),
+            `${surface}: the hydrated tool's result did not reach the next step`,
+          );
+          assert.ok(
+            !text.includes("Tool not found") &&
+              !text.includes("not registered"),
+            `${surface}: the hydrated tool call was rejected`,
+          );
+        }
+      } finally {
+        restore();
+        await sdk.shutdownExternalMCPServers();
+        await sdk.shutdown();
+        await anthropicFixture?.close();
+        await openaiFixture?.close();
+      }
+    }
+  });
+
+  await test("a tool that returns { error } emits tool:end success:false, reports isError in toolExecutions, and is stored as a failed call", async () => {
+    // toolResultStatus only accepted `isError: true`, while the execution
+    // recorder's isErrorShapedToolResult also accepted `{ error }` and a
+    // failing `status` — the shape docs/sdk-custom-tools.md recommends. The
+    // same call therefore emitted `tool:end` with success:true and was stored
+    // success:true while `toolExecutions[].isError` said true. The four
+    // classifiers now share one predicate.
+    const toolName = "lookup_user";
+    const fixture = await startAnthropicToolCallServer(toolName);
+    const restore = withAnthropicEnv(fixture.port);
+    const sessionId = `error-shape-${Date.now()}`;
+    const sdk = new NeuroLink({ conversationMemory: { enabled: true } });
+    const ends: Array<Record<string, unknown>> = [];
+    const emitter = sdk.getEventEmitter();
+    const onEnd = (...args: unknown[]) => {
+      ends.push((args[0] ?? {}) as Record<string, unknown>);
+    };
+    emitter.on("tool:end", onEnd);
+    try {
+      const result = await sdk.stream({
+        input: { text: "who is user 1?" },
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        maxSteps: 3,
+        maxTokens: 64,
+        disableInternalFallback: true,
+        context: { sessionId },
+        tools: {
+          [toolName]: tool({
+            description: "look a user up",
+            inputSchema: z.object({ orderId: z.string().optional() }),
+            execute: async () => ({ error: "User not found" }),
+          }),
+        },
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(ends.length, 1, "tool:end did not fire exactly once");
+      assert.equal(
+        ends[0].success,
+        false,
+        "an { error } result was reported as a success by tool:end",
+      );
+      assert.equal(
+        ends[0].error,
+        "User not found",
+        "tool:end does not carry the error text from the { error } result",
+      );
+      const executions = result.toolExecutions ?? [];
+      assert.equal(
+        executions.length,
+        1,
+        "toolExecutions does not record the single execution",
+      );
+      // The recorder's records carry `isError`; read it off a plain copy
+      // since the public StreamResult type still declares the older shape.
+      const firstExecution: Record<string, unknown> = { ...executions[0] };
+      assert.equal(
+        firstExecution.isError,
+        true,
+        "toolExecutions reports the { error } result as a success",
+      );
+      const rows = await sdk.getSessionMessages(sessionId);
+      const stored = rows.find((r) => r.role === "tool_result");
+      assert.ok(stored !== undefined, "no tool_result row was stored");
+      assert.equal(
+        stored?.result?.success,
+        false,
+        "the stored tool_result row reports success for the { error } result",
+      );
+      assert.equal(
+        stored?.result?.error,
+        "User not found",
+        "the stored tool_result row does not carry the error text",
+      );
+    } finally {
+      emitter.off("tool:end", onEnd);
+      restore();
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("a prepareStep hook that rejects after the turn was aborted does not raise an unhandled rejection", async () => {
+    // awaitPrepareStep returned a rejection for an already-aborted signal
+    // without attaching any handler to the hook's own promise. When that
+    // promise rejected later — a policy service failing after the caller
+    // cancelled — it was an unhandled rejection, which terminates Node
+    // under the default policy. The listener below is what keeps THIS
+    // process alive on the old build; on the fixed build it never fires.
+    const toolName = "get_weather";
+    const fixture = await startScriptedOpenAIServer([
+      { toolCall: { name: toolName, args: { city: "lisbon" } } },
+      { text: "It is sunny." },
+    ]);
+    const sdk = new NeuroLink();
+    const controller = new AbortController();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    let hookCalls = 0;
+    let hookRejected = false;
+    try {
+      let turnRejected = false;
+      try {
+        await sdk.generate({
+          input: { text: "what is the weather in lisbon" },
+          provider: "openai",
+          model: "gpt-4o-mini",
+          maxSteps: 3,
+          disableInternalFallback: true,
+          abortSignal: controller.signal,
+          credentials: {
+            openai: {
+              apiKey: "test-key",
+              baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+            },
+          },
+          tools: {
+            [toolName]: tool({
+              inputSchema: z.object({ city: z.string() }),
+              execute: async ({ city }: { city: string }) => ({
+                city,
+                forecast: "sunny",
+              }),
+            }),
+          },
+          // Cancel the turn while the hook's promise is still pending, then
+          // fail that promise after the loop has already moved on.
+          prepareStep: () => {
+            hookCalls++;
+            controller.abort();
+            return new Promise((_resolve, reject) => {
+              setTimeout(() => {
+                hookRejected = true;
+                reject(new Error("policy service failed"));
+              }, 50);
+            });
+          },
+        } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+      } catch {
+        turnRejected = true;
+      }
+      assert.equal(hookCalls, 1, "precondition failed: the hook did not run");
+      assert.ok(
+        turnRejected,
+        "precondition failed: the aborted turn did not reject",
+      );
+      assert.equal(
+        fixture.bodies.length,
+        0,
+        "precondition failed: the aborted turn still sent a request",
+      );
+      // Let the abandoned hook promise reject, and Node report it if it is
+      // unobserved (the report is dispatched from the microtask/tick queue).
+      await new Promise((r) => setTimeout(r, 250));
+      assert.ok(
+        hookRejected,
+        "precondition failed: the hook's promise never rejected",
+      );
+      assert.equal(
+        unhandled.length,
+        0,
+        "the hook's late rejection was left unhandled",
+      );
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("a prepareStep hook that rejects with its own AbortError, on a turn nobody cancelled, is a hook failure and the turn completes", async () => {
+    // Abort-versus-failure was decided by `error.name === "AbortError"`, so
+    // a hook whose policy-service call timed out (an AbortError of its own)
+    // ended the whole turn. It is now decided by the loop's signal.
+    const toolName = "get_weather";
+    const fixture = await startScriptedOpenAIServer([
+      { toolCall: { name: toolName, args: { city: "lisbon" } } },
+      { text: "It is sunny." },
+    ]);
+    const sdk = new NeuroLink();
+    let hookCalls = 0;
+    try {
+      const result = await sdk.generate({
+        input: { text: "what is the weather in lisbon" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        maxSteps: 3,
+        disableInternalFallback: true,
+        abortSignal: new AbortController().signal,
+        credentials: {
+          openai: {
+            apiKey: "test-key",
+            baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+          },
+        },
+        tools: {
+          [toolName]: tool({
+            inputSchema: z.object({ city: z.string() }),
+            execute: async ({ city }: { city: string }) => ({
+              city,
+              forecast: "sunny",
+            }),
+          }),
+        },
+        prepareStep: async () => {
+          hookCalls++;
+          const error = new Error("policy service timed out");
+          error.name = "AbortError";
+          throw error;
+        },
+      } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+      assert.ok(hookCalls >= 1, "precondition failed: the hook did not run");
+      assert.equal(
+        fixture.bodies.length,
+        2,
+        "the turn did not run to its answer after the hook's AbortError",
+      );
+      assert.ok(
+        typeof result.content === "string" && result.content.includes("sunny"),
+        "the turn's answer did not reach the caller",
+      );
+    } finally {
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("stream(): a turn that used no tools hands its memory hooks an empty toolsUsed even while another stream's tool runs on the same instance", async () => {
+    // The stream memory turn fell back to the INSTANCE-WIDE tool:start
+    // events whenever the per-request list was empty, so a stream that used
+    // no tools, running beside any other tool call on the same instance,
+    // handed that tool's name to its shouldWrite / onBeforeStore. An empty
+    // per-request list is authoritative now, as it is for generate().
+    const server = await startToolByRequestServer();
+    const fake = new FakeMemoryClient();
+    const sdk = new NeuroLink({
+      credentials: {
+        openai: { apiKey: "sk-mock", baseURL: server.baseURL },
+      },
+      conversationMemory: {
+        enabled: true,
+        memory: { enabled: true, client: fake },
+      },
+    });
+    const turns = new Map<string, { toolsUsed?: string[] }>();
+    const gate = {
+      toolStarted: () => {},
+      releaseTool: () => {},
+    };
+    const toolStarted = new Promise<void>((resolve) => {
+      gate.toolStarted = resolve;
+    });
+    const toolReleased = new Promise<void>((resolve) => {
+      gate.releaseTool = resolve;
+    });
+    const shouldWrite = (turn: { userId: string; toolsUsed?: string[] }) => {
+      turns.set(turn.userId, { toolsUsed: turn.toolsUsed });
+      return true;
+    };
+    const drain = async (r: { stream: AsyncIterable<unknown> }) => {
+      for await (const _chunk of r.stream) {
+        // drain
+      }
+    };
+    try {
+      // The tool-less stream first, so its event listeners are attached
+      // when the other stream's tool:start fires.
+      const quiet = await sdk.stream({
+        input: { text: "just say hello" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        context: { userId: "user-quiet", sessionId: "session-quiet" },
+        disableInternalFallback: true,
+        disableTools: true,
+        timeout: 30_000,
+        memory: { shouldWrite },
+      });
+      const busy = await sdk.stream({
+        input: { text: "run tool_busy" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        context: { userId: "user-busy", sessionId: "session-busy" },
+        maxSteps: 3,
+        disableInternalFallback: true,
+        timeout: 30_000,
+        enabledToolNames: ["tool_busy"],
+        tools: {
+          tool_busy: tool({
+            description: "a tool the other stream must not see",
+            inputSchema: z.object({}),
+            execute: async () => {
+              gate.toolStarted();
+              await toolReleased;
+              return { ok: true };
+            },
+          }),
+        },
+        memory: { shouldWrite },
+      });
+      const busyDrained = drain(busy);
+      // Hold the quiet stream's memory turn until the other tool has STARTED
+      // (its tool:start has been emitted on the shared emitter).
+      await toolStarted;
+      await drain(quiet);
+      assert.ok(
+        await waitForCondition(() => turns.has("user-quiet")),
+        "the tool-less stream's write never reached shouldWrite",
+      );
+      const quietTools = turns.get("user-quiet")?.toolsUsed ?? [];
+      assert.equal(
+        quietTools.length,
+        0,
+        "the tool-less stream's hook was handed another stream's tool",
+      );
+      gate.releaseTool();
+      await busyDrained;
+      assert.ok(
+        await waitForCondition(() => turns.has("user-busy")),
+        "the tool stream's write never reached shouldWrite",
+      );
+      assert.deepEqual(
+        turns.get("user-busy")?.toolsUsed ?? [],
+        ["tool_busy"],
+        "the tool stream's hook does not see its own tool",
+      );
+    } finally {
+      gate.releaseTool();
+      await sdk.shutdown();
+      await server.close();
     }
   });
 });

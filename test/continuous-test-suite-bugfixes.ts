@@ -5649,6 +5649,131 @@ exit 127
     },
   },
   {
+    name: "openai-compatible stream() emits exactly one tool:start and tool:end pair per per-call tool execution on NeuroLink event bus",
+    category: "openai-compatible",
+    fn: async () => {
+      const originalFetch = globalThis.fetch;
+      let call = 0;
+      try {
+        globalThis.fetch = (async () => {
+          call++;
+          if (call === 1) {
+            const stream = new ReadableStream<Uint8Array>({
+              start(controller) {
+                const enc = new TextEncoder();
+                controller.enqueue(
+                  enc.encode(
+                    `data: ${JSON.stringify({
+                      choices: [
+                        {
+                          index: 0,
+                          delta: {
+                            tool_calls: [
+                              {
+                                index: 0,
+                                id: "tc1",
+                                type: "function",
+                                function: { name: "ping", arguments: "{}" },
+                              },
+                            ],
+                          },
+                          finish_reason: null,
+                        },
+                      ],
+                    })}\n\n`,
+                  ),
+                );
+                controller.enqueue(
+                  enc.encode(
+                    `data: ${JSON.stringify({
+                      choices: [
+                        { index: 0, delta: {}, finish_reason: "tool_calls" },
+                      ],
+                    })}\n\n`,
+                  ),
+                );
+                controller.enqueue(enc.encode("data: [DONE]\n\n"));
+                controller.close();
+              },
+            });
+            return new Response(stream, {
+              status: 200,
+              headers: { "content-type": "text/event-stream" },
+            });
+          }
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              const enc = new TextEncoder();
+              controller.enqueue(
+                enc.encode(
+                  `data: ${JSON.stringify({
+                    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                  })}\n\n`,
+                ),
+              );
+              controller.enqueue(enc.encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          });
+          return new Response(stream, {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          });
+        }) as typeof fetch;
+        // The PUBLIC path, not a direct executeStream() call: per-call tools
+        // are event-wrapped once, at BaseProvider's merge point, and the
+        // provider loop must use that merged record as is. A direct
+        // executeStream() with a raw tool bypasses the merge and proves
+        // nothing about the shipped surface.
+        const { NeuroLink, jsonSchema } = await import("../dist/index.js");
+        const nl = new NeuroLink();
+        const events: string[] = [];
+        const emitter = nl.getEventEmitter();
+        emitter.on("tool:start", () => events.push("start"));
+        emitter.on("tool:end", () => events.push("end"));
+        try {
+          const result = await nl.stream({
+            input: { text: "ping" },
+            provider: "openai-compatible",
+            model: "test-model",
+            maxSteps: 3,
+            disableInternalFallback: true,
+            credentials: {
+              openaiCompatible: {
+                apiKey: "k",
+                baseURL: "http://fake.local/v1",
+              },
+            },
+            tools: {
+              ping: {
+                description: "p",
+                inputSchema: jsonSchema({
+                  type: "object",
+                  properties: {},
+                  required: [],
+                }),
+                execute: async () => "pong",
+              },
+            },
+          });
+          for await (const _ of result.stream) {
+            void _;
+          }
+        } finally {
+          await nl.shutdown();
+        }
+        // Exactly one pair per execution: a second wrapper layer (the loop's
+        // own emit, or re-instrumenting a recorder-wrapped tool) would double
+        // both counts while still looking "paired".
+        const starts = events.filter((e) => e === "start").length;
+        const ends = events.filter((e) => e === "end").length;
+        return starts === 1 && ends === 1;
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  {
     name: "openai-compatible.doGenerate forwards responseFormat: json_object",
     category: "openai-compatible",
     fn: async () => {

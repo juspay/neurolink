@@ -100,6 +100,7 @@ export async function decideSearchPlan(
   }
 
   const result = await decide({
+    site: "ragPlan",
     state: { query: query.slice(0, 4000) },
     // The map is assembled dynamically above; its members are all valid
     // question shapes, which the cast asserts once here rather than at four

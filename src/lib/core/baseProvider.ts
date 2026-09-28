@@ -17,7 +17,7 @@ import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
-import { resolveRequestKind } from "./resolveRequestKind.js";
+import { resolveRequestKind, resolveTTSMode } from "./resolveRequestKind.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
   FileToolRootPolicy,
@@ -39,6 +39,10 @@ import type {
   EmbedInput,
   DecisionRequest,
   DecisionResult,
+  MemoryToolCallRecord,
+  MemoryToolResultRecord,
+  ToolExecutionSummaryInternal,
+  ToolReplayMode,
 } from "../types/index.js";
 import {
   ERROR_CODES,
@@ -97,7 +101,15 @@ import {
   transformToolExecutions,
 } from "../utils/transformationUtils.js";
 import { ToolExecutionRecorder } from "./toolExecutionRecorder.js";
-import { TTS_ERROR_CODES, TTSProcessor } from "../utils/ttsProcessor.js";
+import {
+  resolveTTSHandlerBudgetMs,
+  TTS_ERROR_CODES,
+  TTSProcessor,
+} from "../utils/ttsProcessor.js";
+import {
+  prepareTextForSpeech,
+  resolveSpeechSanitizeOptions,
+} from "../utils/speechText.js";
 import {
   executeVideoAnalysis,
   hasVideoFrames,
@@ -1389,6 +1401,7 @@ export abstract class BaseProvider implements AIProvider {
         ? {
             attempted: TTSProcessor.supports(ttsProvider),
             success: false,
+            mode: "response",
           }
         : result?.ttsMetadata;
       const onTTSComplete = incrementalTTS
@@ -1748,10 +1761,15 @@ export abstract class BaseProvider implements AIProvider {
   }> {
     const shouldUseTools = this.shouldUseTools(options, true);
     const baseTools = shouldUseTools ? await this.getAllTools() : {};
+    // Registered and MCP tools arrive from ToolsManager already emitting
+    // tool:start / tool:end; per-call tools get the same wrapper here so the
+    // event bus sees every execution exactly once.
     let tools = shouldUseTools
       ? {
           ...baseTools,
-          ...(options.tools || {}),
+          ...this.toolsManager.wrapExternalToolsWithEvents(
+            (options.tools || {}) as Record<string, Tool>,
+          ),
         }
       : {};
 
@@ -1798,7 +1816,9 @@ export abstract class BaseProvider implements AIProvider {
       return {};
     }
     const baseTools = await this.getAllTools();
-    const externalTools = (options.tools || {}) as Record<string, Tool>;
+    const externalTools = this.toolsManager.wrapExternalToolsWithEvents(
+      (options.tools || {}) as Record<string, Tool>,
+    );
     let merged = { ...baseTools, ...externalTools };
 
     // Apply per-call tool filtering (whitelist/blacklist)
@@ -1852,7 +1872,50 @@ export abstract class BaseProvider implements AIProvider {
   private async buildMessages(
     options: TextGenerationOptions,
   ): Promise<ModelMessage[]> {
+    this.applyToolReplayDefault(options);
     return this.messageBuilder.buildMessages(options);
+  }
+
+  /**
+   * Fold the instance's `conversationMemory.replayToolSteps` into the request
+   * when the caller set none, so every path into the message builder — text
+   * or multimodal, generate or stream — reads one resolved value. The
+   * builder itself defaults to `"marker"` when neither is set.
+   *
+   * Then degrade `"full"` to `"marker"` for a request that declares no tools:
+   * Anthropic rejects a prompt carrying tool_use / tool_result blocks without
+   * a `tools` field ("Requests which include tool_use or tool_result blocks
+   * must define tools"), so a tools-off call — `disableTools`, or a filter
+   * that removed every tool — in a session that already ran one would fail
+   * on every later turn. Runs after the provider has merged `options.tools`,
+   * which is where every native path calls the builder from.
+   */
+  protected applyToolReplayDefault(
+    options: StreamOptions | TextGenerationOptions,
+  ): void {
+    if (options.replayToolSteps === undefined) {
+      const configured: ToolReplayMode | undefined =
+        this.neurolink?.conversationMemory?.config?.replayToolSteps;
+      if (configured !== undefined) {
+        options.replayToolSteps = configured;
+      }
+    }
+    if (options.replayToolSteps !== "full") {
+      return;
+    }
+    const declaredTools = options.tools;
+    const declaresNoTools =
+      options.disableTools === true ||
+      (declaredTools !== undefined &&
+        declaredTools !== null &&
+        typeof declaredTools === "object" &&
+        Object.keys(declaredTools).length === 0);
+    if (declaresNoTools) {
+      logger.debug(
+        `[${this.providerName}] replayToolSteps "full" degraded to "marker": the request declares no tools`,
+      );
+      options.replayToolSteps = "marker";
+    }
   }
 
   /**
@@ -1866,6 +1929,7 @@ export abstract class BaseProvider implements AIProvider {
   protected async buildMessagesForStream(
     options: StreamOptions | TextGenerationOptions,
   ): Promise<ModelMessage[]> {
+    this.applyToolReplayDefault(options);
     return this.messageBuilder.buildMessagesForStream(options);
   }
 
@@ -2161,6 +2225,15 @@ export abstract class BaseProvider implements AIProvider {
     }
   }
 
+  /**
+   * Mode 1 — synthesize the input text itself, with no LLM call.
+   *
+   * This is the documented default for `generate({ tts: { enabled: true } })`
+   * and what every "speak this text" caller relies on, so a request that
+   * looks like it wanted the model's reply (tools, a system prompt, message
+   * history, a schema, conversation memory) is warned about, never rejected:
+   * those options have no effect here, and the fix is `tts.mode: "response"`.
+   */
   protected async handleDirectTTSSynthesis(
     options: TextGenerationOptions,
     startTime: number,
@@ -2178,20 +2251,29 @@ export abstract class BaseProvider implements AIProvider {
       return this.enhanceResult(baseResult, options, startTime);
     }
 
+    this.warnIfDirectTTSLooksLikeResponseRequest(options);
+
     const ttsStartTime = Date.now();
     const ttsProvider =
       ttsOptions.provider ?? options.provider ?? this.providerName;
-    const ttsTimeout = this.getTimeout(options);
+    const ttsTimeout = this.resolveTTSSynthesisTimeout(
+      options,
+      ttsOptions,
+      ttsProvider,
+    );
+    const speechText = this.prepareTTSInput(textToSynthesize, ttsOptions);
     try {
-      baseResult.audio = await withTimeoutFn(
-        () =>
-          TTSProcessor.synthesize(textToSynthesize, ttsProvider, ttsOptions),
+      baseResult.audio = await this.runTTSSynthesis(
+        speechText,
+        ttsProvider,
+        ttsOptions,
         ttsTimeout,
-        `TTS synthesis timed out after ${ttsTimeout}ms for provider "${ttsProvider}"`,
+        options.abortSignal,
       );
       baseResult.ttsMetadata = {
         attempted: true,
         success: true,
+        mode: "direct",
         latency: Date.now() - ttsStartTime,
       };
     } catch (ttsError) {
@@ -2200,6 +2282,7 @@ export abstract class BaseProvider implements AIProvider {
       baseResult.ttsMetadata = {
         attempted: true,
         success: false,
+        mode: "direct",
         error,
         latency,
       };
@@ -2211,6 +2294,135 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     return this.enhanceResult(baseResult, options, startTime);
+  }
+
+  /**
+   * One warning when a direct-synthesis request carries options that only a
+   * model call would honour and the caller never chose a mode. Silence is
+   * the wrong answer here — the caller gets `usage` of zero and `content`
+   * echoing their prompt, and would otherwise have to guess why.
+   *
+   * Only options the CALLER supplied count. `conversationMemoryConfig` is
+   * attached by NeuroLink to every request on a memory-enabled instance, and
+   * on such an instance `conversationMessages` is the stored history
+   * NeuroLink injected itself — neither is something the caller set, and a
+   * voice bot with memory used to see this warning on every turn after the
+   * first for options it never passed.
+   */
+  private warnIfDirectTTSLooksLikeResponseRequest(
+    options: TextGenerationOptions,
+  ): void {
+    const tts = options.tts;
+    if (!tts || tts.mode !== undefined || tts.useAiResponse !== undefined) {
+      return;
+    }
+    const memoryAttached = options.conversationMemoryConfig !== undefined;
+    const llmShaped: string[] = [];
+    if (options.tools && Object.keys(options.tools).length > 0) {
+      llmShaped.push("tools");
+    }
+    if (options.systemPrompt) {
+      llmShaped.push("systemPrompt");
+    }
+    if (
+      !memoryAttached &&
+      options.conversationMessages &&
+      options.conversationMessages.length > 0
+    ) {
+      llmShaped.push("conversationMessages");
+    }
+    if (options.conversationHistory && options.conversationHistory.length > 0) {
+      llmShaped.push("conversationHistory");
+    }
+    if (options.schema) {
+      llmShaped.push("schema");
+    }
+    if (llmShaped.length === 0) {
+      return;
+    }
+    logger.warn(
+      `[${this.providerName}] tts.enabled without tts.mode synthesizes the INPUT text and makes no model call, so ${llmShaped.join(", ")} will be ignored. Set tts.mode: "response" to speak the model's reply, or tts.mode: "direct" to silence this warning.`,
+    );
+  }
+
+  /**
+   * Outer bound on one synthesis call: the provider's request timeout, raised
+   * to whatever the handler itself may legitimately spend — `timeoutMs × (1 +
+   * retries)` plus retry pauses, with the handler defaults (30 s, one retry)
+   * standing in for a knob the caller left unset. Without the raise, a
+   * handler's own retry loop could be cut off from outside one attempt in:
+   * with the 60 s provider default, a first attempt that hung to its 30 s
+   * abort left no room for the documented default retry.
+   */
+  private resolveTTSSynthesisTimeout(
+    options: TextGenerationOptions,
+    ttsOptions: NonNullable<TextGenerationOptions["tts"]>,
+    ttsProvider: string,
+  ): number {
+    return Math.max(
+      this.getTimeout(options),
+      resolveTTSHandlerBudgetMs(ttsOptions, ttsProvider),
+    );
+  }
+
+  /**
+   * Apply `tts.sanitize` (off by default — existing callers see byte-identical
+   * input). Always runs when configured, regardless of the raw text's
+   * length against the provider's cap: sanitizing can shrink text a great
+   * deal (the default `codeBlocks: "phrase"` replaces a whole fenced block
+   * with one short phrase, `urls: "hostname"` shortens every link), so a
+   * reply that is over the cap raw can still fit after sanitizing — a coding
+   * answer with a large code block is exactly the reply this option is for.
+   * A reply still over the cap afterwards is rejected downstream by
+   * `TTSProcessor.synthesize` as `TTS_TEXT_TOO_LONG`, same as today.
+   */
+  private prepareTTSInput(
+    text: string,
+    ttsOptions: NonNullable<TextGenerationOptions["tts"]>,
+  ): string {
+    const sanitizeOptions = resolveSpeechSanitizeOptions(ttsOptions.sanitize);
+    if (!sanitizeOptions) {
+      return text;
+    }
+    return prepareTextForSpeech(text, sanitizeOptions);
+  }
+
+  /**
+   * One synthesis call under the outer budget. The handler receives a signal
+   * that fires when that budget lapses or the caller's own `abortSignal`
+   * does, so a handler with a retry loop (ElevenLabs) stops rather than
+   * pausing and issuing a further billable request after the caller has
+   * already been told the synthesis failed.
+   */
+  private async runTTSSynthesis(
+    speechText: string,
+    ttsProvider: string,
+    ttsOptions: NonNullable<TextGenerationOptions["tts"]>,
+    ttsTimeout: number,
+    abortSignal: AbortSignal | undefined,
+  ): Promise<TTSResult> {
+    const cancel = new AbortController();
+    const signals = [cancel.signal];
+    if (abortSignal) {
+      signals.push(abortSignal);
+    }
+    if (ttsOptions.signal) {
+      signals.push(ttsOptions.signal);
+    }
+    const signal = AbortSignal.any(signals);
+    try {
+      return await withTimeoutFn(
+        () =>
+          TTSProcessor.synthesize(speechText, ttsProvider, {
+            ...ttsOptions,
+            signal,
+          }),
+        ttsTimeout,
+        `TTS synthesis timed out after ${ttsTimeout}ms for provider "${ttsProvider}"`,
+      );
+    } finally {
+      cancel.abort();
+    }
   }
 
   private async handleVideoFrameGeneration(
@@ -2327,17 +2539,105 @@ export abstract class BaseProvider implements AIProvider {
     result: EnhancedGenerateResult,
     options: TextGenerationOptions,
     startTime: number,
+    toolExecutionSummaries?: ReadonlyArray<ToolExecutionSummaryInternal>,
   ): Promise<EnhancedGenerateResult> {
     // onFinish is NOT fired here. `applyGenerateLifecycleMiddleware` folds it
     // into `options.middleware.middlewareConfig.lifecycle`, and the native
     // paths now wrap their model, so the lifecycle middleware fires it.
     // Firing it here too would deliver every callback twice.
     await this.recordPerformanceMetrics(result.usage, Date.now() - startTime);
+    await this.persistGenerateToolSteps(options, toolExecutionSummaries);
     const synthesized = await this.synthesizeAIResponseIfNeeded(
       result,
       options,
     );
     return this.enhanceResult(synthesized, options, startTime);
+  }
+
+  /**
+   * Persist a generate() turn's tool steps into conversation memory.
+   *
+   * The stream loops store each step's calls and results as they run;
+   * generate() never did, so the same session held tool rows for streamed
+   * turns and none for generated ones, and a later turn could not replay
+   * what generate() had called. Every native generate path closes out
+   * through finalizeNativeGenerate, so this is the one place to do it.
+   *
+   * Gated on a real session id: the storage helper otherwise invents a
+   * `session-<nanoid>` key, and on the in-memory backend that creates a
+   * throwaway session per tool-using call — evicting real ones once
+   * `maxSessions` is reached. A turn with no session has no history to
+   * replay into, so there is nothing to persist.
+   */
+  private async persistGenerateToolSteps(
+    options: TextGenerationOptions,
+    summaries: ReadonlyArray<ToolExecutionSummaryInternal> | undefined,
+  ): Promise<void> {
+    if (!summaries || summaries.length === 0) {
+      return;
+    }
+    const sessionId =
+      options.context?.sessionId ??
+      (options as { sessionId?: unknown }).sessionId;
+    if (typeof sessionId !== "string" || sessionId.length === 0) {
+      return;
+    }
+    // One storage call per loop step, in step order. The stream loops store
+    // as each step finishes, so a step's calls and results sit together;
+    // storing a whole generate() turn as one batch replayed a sequential
+    // lookup-then-send as a single parallel step, with the second call's
+    // arguments appearing before the output they were built from.
+    //
+    // Summaries arrive in execution order, so a new batch starts whenever
+    // the step changes rather than grouping by stepIndex value: a provider
+    // can run the native loop more than once against the same summaries
+    // array (a response_format rejection retry, a schema-validation retry),
+    // and each run numbers its own steps from 0 — grouping by value would
+    // merge run 1's step 0 with run 2's step 0 into one parallel batch.
+    const batches: ToolExecutionSummaryInternal[][] = [];
+    for (const summary of summaries) {
+      const last = batches[batches.length - 1];
+      if (last && last[0]!.stepIndex === summary.stepIndex) {
+        last.push(summary);
+      } else {
+        batches.push([summary]);
+      }
+    }
+    for (const stepSummaries of batches) {
+      const toolCalls: MemoryToolCallRecord[] = stepSummaries.map((s) => ({
+        toolCallId: s.toolCallId,
+        toolName: s.toolName,
+        args:
+          s.input !== null &&
+          typeof s.input === "object" &&
+          !Array.isArray(s.input)
+            ? (s.input as Record<string, unknown>)
+            : {},
+        ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        timestamp: s.startTime,
+      }));
+      const toolResults: MemoryToolResultRecord[] = stepSummaries.map((s) => ({
+        toolCallId: s.toolCallId,
+        toolName: s.toolName,
+        output: s.output,
+        ...(s.error ? { error: s.error } : {}),
+        ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        timestamp: s.endTime,
+      }));
+      try {
+        await this.handleToolExecutionStorage(
+          toolCalls,
+          toolResults,
+          options,
+          new Date(),
+        );
+      } catch (error) {
+        logger.warn(`[${this.providerName}] Failed to store tool executions`, {
+          provider: this.providerName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   /**
@@ -2389,7 +2689,7 @@ export abstract class BaseProvider implements AIProvider {
     enhancedResult: EnhancedGenerateResult,
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
-    if (!options.tts?.enabled || !options.tts?.useAiResponse) {
+    if (!options.tts?.enabled || resolveTTSMode(options.tts) !== "response") {
       return enhancedResult;
     }
 
@@ -2405,6 +2705,7 @@ export abstract class BaseProvider implements AIProvider {
         hasProvider: !!ttsProvider,
         ttsConfig: {
           enabled: options.tts?.enabled,
+          mode: options.tts?.mode,
           useAiResponse: options.tts?.useAiResponse,
         },
         reason: !aiResponse
@@ -2416,17 +2717,25 @@ export abstract class BaseProvider implements AIProvider {
         ttsMetadata: {
           attempted: false,
           success: false,
+          mode: "response",
         },
       };
     }
 
     const ttsStartTime = Date.now();
-    const ttsTimeout = this.getTimeout(options);
+    const ttsTimeout = this.resolveTTSSynthesisTimeout(
+      options,
+      ttsOptions,
+      ttsProvider,
+    );
+    const speechText = this.prepareTTSInput(aiResponse, ttsOptions);
     try {
-      const ttsResult = await withTimeoutFn(
-        () => TTSProcessor.synthesize(aiResponse, ttsProvider, ttsOptions),
+      const ttsResult = await this.runTTSSynthesis(
+        speechText,
+        ttsProvider,
+        ttsOptions,
         ttsTimeout,
-        `TTS synthesis timed out after ${ttsTimeout}ms for provider "${ttsProvider}"`,
+        options.abortSignal,
       );
       return {
         ...enhancedResult,
@@ -2434,6 +2743,7 @@ export abstract class BaseProvider implements AIProvider {
         ttsMetadata: {
           attempted: true,
           success: true,
+          mode: "response",
           latency: Date.now() - ttsStartTime,
         },
       };
@@ -2450,6 +2760,7 @@ export abstract class BaseProvider implements AIProvider {
         ttsMetadata: {
           attempted: true,
           success: false,
+          mode: "response",
           error,
           latency,
         },
@@ -3114,6 +3425,18 @@ export abstract class BaseProvider implements AIProvider {
     this.toolsManager.setDirectTools(
       policy.roots === null ? this.directTools : createDirectAgentTools(policy),
     );
+  }
+
+  /**
+   * Emit the start/end pair for a tool call a loop rejected before execute
+   * (unknown tool, schema rejection). See ToolsManager.emitRejectedToolCall.
+   */
+  protected emitRejectedToolCall(
+    toolName: string,
+    error: string,
+    toolCallId?: string,
+  ): void {
+    this.toolsManager.emitRejectedToolCall(toolName, error, toolCallId);
   }
 
   /**
@@ -3942,8 +4265,8 @@ export abstract class BaseProvider implements AIProvider {
    * Check if tool executions should be stored and handle storage
    */
   protected async handleToolExecutionStorage(
-    toolCalls: unknown[],
-    toolResults: unknown[],
+    toolCalls: MemoryToolCallRecord[],
+    toolResults: MemoryToolResultRecord[],
     options: TextGenerationOptions | StreamOptions,
     currentTime: Date,
   ): Promise<void> {

@@ -387,8 +387,15 @@ export async function classifyJev(
   // short conversational one.
   // Continuity is sent as `session_bound` / `prior_messages`, never as the
   // raw sessionId: the id is an opaque identifier that tells a third-party
-  // model nothing, so it stays in-process.
+  // model nothing, so it stays in-process — as do the site stamp, the
+  // per-call credentials and the ids below, which the caller reads and the
+  // wire never sees.
   const result = await decide({
+    site: "routing",
+    credentials: input.credentials,
+    signal: input.signal,
+    sessionId: input.sessionId,
+    requestId: input.requestId,
     state: {
       request: (input.prompt ?? "").slice(0, 8000),
       estimated_input_tokens: input.estimatedInputTokens ?? 0,

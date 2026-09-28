@@ -175,8 +175,12 @@ name, and 64 questions, because its server answers a longer state from the
 first 1,024 tokens without saying so. Non-ASCII characters are charged at a
 measured per-checkpoint rate (`nonAsciiTokensPerChar`: 1.5, or 0.6 on
 `multilingual`), since the ~4-characters-per-token estimate is several times
-too generous for non-Latin scripts. TypeSafe declares none and relies on its
-server. XOR declares a conservative 200,000-token state window, no question cap, and
+too generous for non-Latin scripts. TypeSafe's row is `advisory: true` —
+33,000 state tokens, no question-count cap (it bounds a request by tokens) —
+so `decisionLimits()` reports it while the pre-flight check skips it and its
+server keeps refusing; adding a plain (non-advisory) row to a descriptor
+silently turns on local refusal for that provider. XOR declares a conservative
+200,000-token state window, no question cap, and
 `media` of up to 8 images and one video per request (prepared by
 `src/lib/utils/decisionMedia.ts`). Perplexity declares a 100,000-token state
 window, 128 questions and `media` of up to 8 images and no video, with a 32 MiB
@@ -199,7 +203,8 @@ still be refused. The
 provider also checks image format and the 2,048-tile cap per image locally,
 because a larger image stalls the API for about a minute before an HTML 504. XOR
 and Perplexity are the providers with `media`; every other provider refuses media
-before any request.
+before any request. `maxQuestions` is optional in `DecisionLimits` and in the
+`decisionLimits()` reading: absent means "no count cap", never `Infinity`.
 
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20
@@ -228,6 +233,43 @@ counts, latency percentiles and the output-token aggregate at once.
 catalogue renders candidate lines that the routing call's `model` question
 chooses between, and the budget threshold is read out of that same call's
 `context` answer. Neither costs a second round trip.
+
+**All five stamp a `site` and funnel through `NeuroLink.siteDecide`.** Each
+call site sets `site: "<DecisionSite>"` on the options it hands its injected
+`DecisionCallerFn` (`routing`, `toolRouting`, `contextRelevance`,
+`summaryGate`, `ragPlan`), and the three internal lambdas that used to call
+`tryDecide` directly — the classifier's constructor dep, `contextCompactorDeps`,
+tool routing's `decideFn` — now call the private `siteDecide(request, outer)`,
+where `outer` carries the surrounding request's per-call `credentials`,
+`abortSignal`, `sessionId` and `requestId` (the classifier's arrive on
+`ClassifierRouterInput` instead, since its caller is fixed at construction).
+`tryDecide` itself routes a stamped request through `siteDecide`, which is how
+a host-wired `RAGPipeline` or `ClassifierRouter` gets the same treatment. That
+one path runs the host's `decisionHooks` (namespacing host questions as
+`host__N`, capping them at the provider's `maxQuestions` when it declares one
+— Laya does; TypeSafe and XOR do not, and take every well-formed addition —
+splitting answers back), emits `decision:before` / `decision:after`, and adds `decision.site` +
+`decision.host_question_count` to the `MODEL_DECISION` span. Without hooks or
+listeners the decision payload (state and questions) is unchanged; per-call
+`credentials` are still forwarded, so the account and base URL on the wire can
+differ from the instance's. The path is fail-open by construction: without a
+decision provider it runs no hook and emits no event (null, as before hooks
+existed); everything host-facing runs inside one `try`, so a host throw falls
+back to the answers already obtained or to a call with NeuroLink's own
+questions; and every host-facing value is a `structuredClone` — of the state,
+the questions and the result only, never of the request's `images` / `video`,
+which ride through to the wire as the caller's own Buffers (and the result
+keeps `mediaBytes`), so an XOR request gets the same funnel. The wire call
+dispatches through `this.decide()`, so an override or patch on the public
+method sees every site call. `decisionLimits()` / `estimateDecisionStateTokens`
+expose the pre-flight check's own flattening and estimator
+(`utils/decisionLimits.ts`); `decisionLimits()` reports the model `decide()`
+would send — the one registered for the provider, not a fresh read of
+`LAYA_MODEL`. TypeSafe's descriptor row is `advisory: true` and is reported,
+never enforced. XOR's reading is `{ maxStateTokens: 200000,
+nonAsciiTokensPerChar: 1, media: { maxImages: 8, video: true,
+maxRequestBytes: 8 MiB }, enforcedLocally: true }` with no `maxQuestions` key
+at all — test for the key, never compare against `Infinity`.
 
 ### Pattern: Factory + Registry
 

@@ -24,10 +24,9 @@ import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlsInText } from "../utils/logSanitize.js";
 import {
-  CHARS_PER_TOKEN,
-  estimateTokens,
-  serializeForEstimate,
-} from "../utils/tokenEstimation.js";
+  estimateDecisionStateTokens,
+  resolveDecisionLimitsReading,
+} from "../utils/decisionLimits.js";
 
 /**
  * Generous enough for a cold start (measured at 2.0–2.7s after idle on Jev)
@@ -210,68 +209,6 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
     }
     signal?.addEventListener("abort", onAbort, { once: true });
   });
-
-/**
- * `estimateTokens` assumes ~4 characters per token. That holds for English
- * and is several times too generous for other scripts on an English
- * tokenizer, so when a provider declares a rate, non-ASCII characters are
- * counted at it instead. ASCII text is estimated exactly as before.
- */
-function estimateDecisionStateTokens(
-  text: string,
-  nonAsciiTokensPerChar: number | undefined,
-  rates: {
-    digit?: number;
-    symbol?: number;
-    astral?: number;
-  } = {},
-): number {
-  const { digit, symbol, astral } = rates;
-  if (
-    nonAsciiTokensPerChar === undefined &&
-    digit === undefined &&
-    symbol === undefined &&
-    astral === undefined
-  ) {
-    return estimateTokens(text);
-  }
-  // Each class of character is counted once, at its own rate. A class with no
-  // declared rate stays in the ordinary four-characters-a-token estimate (or,
-  // for non-ASCII, at that estimate's per-character rate), so a provider that
-  // declares none of the extra rates is estimated exactly as before.
-  const isDigit = (c: string) => c >= "0" && c <= "9";
-  const isSymbol = (c: string) => /[!-/:-@[-`{-~]/.test(c);
-  let digits = 0;
-  let symbols = 0;
-  let astrals = 0;
-  let nonAscii = 0;
-  const rest: string[] = [];
-  for (const c of text) {
-    const code = c.codePointAt(0) ?? 0;
-    if (code > 0xffff && astral !== undefined) {
-      astrals += 1;
-    } else if (code > 0x7f) {
-      nonAscii += 1;
-    } else if (digit !== undefined && isDigit(c)) {
-      digits += 1;
-    } else if (symbol !== undefined && isSymbol(c)) {
-      symbols += 1;
-    } else {
-      rest.push(c);
-    }
-  }
-  // Digits, punctuation and astral characters (emoji) are charged separately
-  // only when the provider declares a rate for them: a tokenizer that reads each
-  // digit, and most punctuation, on its own makes a number-heavy or JSON-heavy
-  // state several times longer than four characters a token suggests.
-  return (
-    estimateTokens(rest.join("")) +
-    Math.ceil(digits * (digit ?? 0)) +
-    Math.ceil(symbols * (symbol ?? 0)) +
-    Math.ceil(astrals * (astral ?? 0)) +
-    Math.ceil(nonAscii * (nonAsciiTokensPerChar ?? 1 / CHARS_PER_TOKEN))
-  );
-}
 
 /**
  * The shared half of every "System One" decision provider — a model that takes
@@ -729,16 +666,23 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
    * Refuse a request the model cannot read in full. An encoder cuts the state
    * off past its window without saying so, so without this a decision would
    * be made on input the model never saw — and reported as if it had.
+   *
+   * Advisory limits (`decisionLimits.advisory`) are skipped: they publish a
+   * server's own ceiling for `NeuroLink.decisionLimits()` to report, and the
+   * server enforces them itself. The estimator and the flattening are the
+   * same functions that method uses, so a host that sizes a state against the
+   * reading measures exactly what is checked here.
    */
   private assertWithinDecisionLimits(
     request: DecisionRequest,
     model: string,
     questionCount: number,
   ): void {
-    const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
-      this.providerName,
-    )?.decisionLimits;
-    if (!limits) {
+    const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName);
+    const limits = descriptor
+      ? resolveDecisionLimitsReading(descriptor, model)
+      : null;
+    if (!limits || !limits.enforcedLocally) {
       return;
     }
     const label = this.vendorLabel();
@@ -752,17 +696,8 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         retryable: false,
       });
     }
-    const modelLimits = limits.models?.[model];
-    const maxStateTokens = modelLimits?.maxStateTokens ?? limits.maxStateTokens;
-    const stateTokens = estimateDecisionStateTokens(
-      serializeForEstimate(request.state),
-      modelLimits?.nonAsciiTokensPerChar ?? limits.nonAsciiTokensPerChar,
-      {
-        digit: limits.digitTokensPerChar,
-        symbol: limits.symbolTokensPerChar,
-        astral: limits.astralTokensPerChar,
-      },
-    );
+    const { maxStateTokens } = limits;
+    const stateTokens = estimateDecisionStateTokens(request.state, limits);
     if (stateTokens > maxStateTokens) {
       throw this.decisionError({
         kind: "max_tokens_exceeded",

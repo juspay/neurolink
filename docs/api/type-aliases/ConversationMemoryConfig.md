@@ -20,6 +20,19 @@ Enable conversation memory feature
 
 ---
 
+### replayToolSteps?
+
+> `optional` **replayToolSteps?**: [`ToolReplayMode`](ToolReplayMode.md)
+
+How a session's stored tool steps are replayed into later prompts.
+Default `"marker"`. `"full"` replays real tool-call / tool-result turns
+(costs tokens per replayed step and, on Anthropic, changes the prompt
+prefix ahead of the cached system breakpoint); `"off"` restores the
+previous behaviour of dropping them. Overridable per request via
+`replayToolSteps` on the generate / stream options.
+
+---
+
 ### maxSessions?
 
 > `optional` **maxSessions?**: `number`

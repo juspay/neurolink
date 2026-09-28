@@ -1020,12 +1020,22 @@ See [OpenAI](#1-openai) above — the same key is used for both LLM and TTS.
 
 ---
 
-### 17. ElevenLabs TTS
+### 17. ElevenLabs TTS + STT
 
 #### Required Variables
 
 ```bash
 ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+```
+
+One key serves the `elevenlabs` TTS handler, the `elevenlabs-stt` (Scribe)
+STT handler and `elevenlabs-music`.
+
+#### Optional Variables
+
+```bash
+# API base URL including the /v1 prefix — for a proxy or a test stub.
+ELEVENLABS_BASE_URL="https://api.elevenlabs.io/v1"
 ```
 
 #### How to Get ElevenLabs API Key
@@ -1038,8 +1048,15 @@ ELEVENLABS_API_KEY="your-elevenlabs-api-key"
 #### Supported Models
 
 - `eleven_multilingual_v2` (default) - Best quality, 29 languages
-- `eleven_turbo_v2_5` - Low-latency streaming, 32 languages
-- `eleven_flash_v2_5` - Fastest, suitable for real-time use
+- `eleven_v3` - Most expressive, 70+ languages, accepts `language`
+- `eleven_turbo_v2_5` - Low-latency streaming, 32 languages, accepts `language`
+- `eleven_flash_v2_5` - Fastest, suitable for real-time use, accepts `language`
+- `eleven_flash_v2`, `eleven_turbo_v2`, `eleven_monolingual_v1` - English variants
+- STT: `scribe_v2` (default), `scribe_v2_medical`; `scribe_v1` and `scribe_v1_experimental` are deprecated
+
+See the [ElevenLabs provider guide](/docs/getting-started/providers/elevenlabs)
+for formats (Opus 48 kHz for `ogg`/`opus`), speed clamping, retries and the
+Scribe STT options.
 
 ---
 

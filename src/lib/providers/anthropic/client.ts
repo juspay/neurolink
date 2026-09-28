@@ -45,6 +45,7 @@ import type {
   AnthropicProviderConfig,
   StreamOptions,
   StreamResult,
+  StreamToolResult,
   ValidationSchema,
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -96,11 +97,18 @@ import { calculateCost } from "../../utils/pricing.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
 import { DEFAULT_BEFORE_STEP_TIMEOUT_MS } from "../../utils/parameterValidation.js";
-import type { AgenticLoopReclaimResult } from "../../types/index.js";
+import type {
+  AgenticLoopReclaimResult,
+  MemoryToolCallRecord,
+  MemoryToolResultRecord,
+  StepResult,
+} from "../../types/index.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import {
   hasNativeDoGenerate,
+  resolveStepToolChoice,
   runNativeGenerateLoop,
+  toPrepareStepRecord,
 } from "../../core/nativeGenerateLoop.js";
 import { withProviderRetry } from "../../utils/providerRetry.js";
 import { resolveRequestKind } from "../../core/resolveRequestKind.js";
@@ -126,7 +134,6 @@ import {
   normalizeResolvedToolChoice,
   resolveToolChoice,
 } from "../../utils/toolChoice.js";
-import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
 import type { LanguageModel, Tool } from "../../types/index.js";
 import { NoOutputGeneratedError } from "../../utils/generationErrors.js";
 import {
@@ -2067,6 +2074,11 @@ export class AnthropicProvider extends BaseProvider {
         ...(hasTools && options.toolChoice
           ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
           : {}),
+        ...(options.toolChoiceSteps !== undefined
+          ? { toolChoiceSteps: options.toolChoiceSteps }
+          : {}),
+        ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
+        modelId,
         ...(responseFormat ? { responseFormat } : {}),
         ...(providerOptions ? { providerOptions } : {}),
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
@@ -2088,6 +2100,8 @@ export class AnthropicProvider extends BaseProvider {
           ).catch((err: unknown) => {
             throw this.handleProviderError(err);
           }),
+        onRejectedToolCall: (name, error, id) =>
+          this.emitRejectedToolCall(name, error, id),
       },
       toolExecutionSummaries,
     );
@@ -2129,7 +2143,12 @@ export class AnthropicProvider extends BaseProvider {
       enhancedWithTools: loop.toolsUsed.length > 0,
     };
 
-    return this.finalizeNativeGenerate(enhanced, options, startTime);
+    return this.finalizeNativeGenerate(
+      enhanced,
+      options,
+      startTime,
+      toolExecutionSummaries,
+    );
   }
 
   /**
@@ -2241,6 +2260,11 @@ export class AnthropicProvider extends BaseProvider {
       // options.tools is pre-merged by BaseProvider.stream() with base tools
       // (MCP/built-in) + user-provided tools (RAG, etc.)
       shouldUseTools = !options.disableTools && this.supportsTools();
+      // Used as is: BaseProvider.stream() already event-wrapped, recorder-
+      // wrapped and discovery-partitioned this record, and search_tools
+      // hydrates new tools into THIS object mid-turn. A copy would lose the
+      // null prototype, the non-enumerable resolver and every later
+      // hydration, so a discovered tool the model then called was "not found".
       toolsRecord = shouldUseTools
         ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
@@ -2279,15 +2303,18 @@ export class AnthropicProvider extends BaseProvider {
     }
 
     const modelId = this.modelName || getDefaultAnthropicModel();
-    const anthropicToolChoice =
+    // The turn's choice in NeuroLink shape. Translated to the wire PER STEP
+    // inside buildParams, because a forced choice applies only to the first
+    // `toolChoiceSteps` steps — baked in once, it compelled a tool call on
+    // every step and the turn ran until maxSteps.
+    const turnToolChoice =
       shouldUseTools && anthropicTools && anthropicTools.length > 0
-        ? relaxForcedToolChoice(
-            modelId,
-            toolChoiceToAnthropic(
-              resolveToolChoice(options, toolsRecord, shouldUseTools),
-            ),
-          )
+        ? resolveToolChoice(options, toolsRecord, shouldUseTools)
         : undefined;
+    // Completed-step records handed to a caller's prepareStep hook. Filled by
+    // the buildToolResultMessages wrapper below, which is the only per-step
+    // hook that sees a step's calls and results together.
+    const stepRecords: StepResult<Record<string, Tool>>[] = [];
 
     // Extended thinking: enabled when the caller supplies an explicit token
     // budget (mirrors the previous experimental_thinking gating). Thinking
@@ -2316,7 +2343,6 @@ export class AnthropicProvider extends BaseProvider {
     });
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const emitter = this.neurolink?.getEventEmitter();
     const channel = createStreamChannel<{
       content: string;
       reasoning?: string;
@@ -2373,7 +2399,15 @@ export class AnthropicProvider extends BaseProvider {
 
     let capturedProviderError: unknown;
     const client = this.client;
+    // Every attempted call, for the no-output sentinel below; the result
+    // reports only calls that returned a value, the rule the generate loop
+    // and Bedrock already follow.
     const toolsUsed: string[] = [];
+    const toolsSucceeded: string[] = [];
+    // Every tool this turn ran, in the loop's own summary shape. Backs the
+    // result's toolCalls / toolResults / toolExecutions getters, which read it
+    // live so a consumer that drains the stream first sees the full turn.
+    const streamToolSummaries: ToolExecutionSummaryInternal[] = [];
     const streamStartTime = Date.now();
 
     // Mutable-reference contract from StreamResult.metadata: created before
@@ -2527,9 +2561,36 @@ export class AnthropicProvider extends BaseProvider {
         return { conversation: rebuilt };
       };
 
-      const buildParams = (
+      const buildParams = async (
         conversation: Anthropic.Messages.MessageParam[],
-      ): Anthropic.Messages.MessageCreateParamsNonStreaming => {
+        step: number,
+      ): Promise<Anthropic.Messages.MessageCreateParamsNonStreaming> => {
+        // Consulted whenever there is a base choice OR a hook: a hook with
+        // no base choice still gets to force a tool on a given step.
+        // No declared tools → no tool_choice and no hook call; Anthropic
+        // rejects a tool_choice on a request without tools.
+        const anthropicToolChoice =
+          (turnToolChoice !== undefined || options.prepareStep) &&
+          anthropicTools &&
+          anthropicTools.length > 0
+            ? // Per step, so a prepareStep-forced choice gets the same
+              // Claude 5.5/5.1 relaxation as the turn's base choice.
+              relaxForcedToolChoice(
+                modelId,
+                toolChoiceToAnthropic(
+                  await resolveStepToolChoice({
+                    base: turnToolChoice,
+                    step,
+                    toolChoiceSteps: options.toolChoiceSteps,
+                    prepareStep: options.prepareStep,
+                    steps: stepRecords,
+                    maxSteps,
+                    model: modelId,
+                    ...(abortSignal ? { abortSignal } : {}),
+                  }),
+                ),
+              )
+            : undefined;
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
         // new tools into toolsRecord between steps; Claude only calls tools
         // declared in the request, so advertise them now.
@@ -2645,38 +2706,86 @@ export class AnthropicProvider extends BaseProvider {
           toolResults,
           engineStep,
         ) => {
+          const settledAt = new Date();
           for (const result of toolResults) {
             toolsUsed.push(result.name);
+            if (!result.error) {
+              toolsSucceeded.push(result.name);
+            }
+            streamToolSummaries.push({
+              toolCallId: result.id,
+              toolName: result.name,
+              input: result.args,
+              ...(result.error
+                ? { error: result.error }
+                : { output: result.output }),
+              // The engine reports a step's results together, after the
+              // batch has settled, so per-tool timing is not available here;
+              // `toolExecutions` prefers the execution recorder's own records,
+              // which do carry it.
+              startTime: settledAt,
+              endTime: settledAt,
+              stepIndex: engineStep,
+            });
           }
-          const toolCallsForStorage = toolResults.map((result) => ({
-            type: "tool-call" as const,
-            toolCallId: result.id,
-            toolName: result.name,
-            args: result.args,
-          }));
-          const toolResultsForStorage = toolResults.map((result) =>
-            result.error
-              ? {
-                  type: "tool-result" as const,
-                  toolCallId: result.id,
-                  toolName: result.name,
-                  error: result.error,
-                }
-              : {
-                  type: "tool-result" as const,
-                  toolCallId: result.id,
-                  toolName: result.name,
-                  result: result.output,
-                },
+          const rawBlocks: ReadonlyArray<unknown> = stepResult.raw;
+          stepRecords.push(
+            toPrepareStepRecord({
+              stepNumber: engineStep,
+              content: rawBlocks.map(
+                (block) => block as Record<string, unknown>,
+              ),
+              text: stepResult.text,
+              toolCalls: stepResult.toolCalls.map((call) => ({
+                toolName: call.name,
+                toolCallId: call.id,
+                input: call.args,
+              })),
+              toolResults: toolResults.map((result) => ({
+                toolName: result.name,
+                toolCallId: result.id,
+                output: result.error ? { error: result.error } : result.output,
+              })),
+              finishReason: "tool-calls",
+              inputTokens: stepResult.usage.inputTokens,
+              outputTokens: stepResult.usage.outputTokens,
+              ...(stepResult.usage.cacheReadTokens !== undefined ||
+              stepResult.usage.cacheWriteTokens !== undefined
+                ? {
+                    cacheReadTokens: stepResult.usage.cacheReadTokens ?? 0,
+                    cacheWriteTokens: stepResult.usage.cacheWriteTokens ?? 0,
+                  }
+                : {}),
+            }),
           );
-          emitToolEndFromStepFinish(
-            emitter,
-            toolResultsForStorage.map((tr) => ({
-              toolName: tr.toolName,
-              result: "result" in tr ? tr.result : undefined,
-              error: "error" in tr ? tr.error : undefined,
-            })),
+          // `tool:start` / `tool:end` are emitted by the executor itself
+          // (ToolsManager, external MCP, neurolink.executeTool), so nothing is
+          // emitted here: a second `tool:end` per result — with a zeroed
+          // responseTime — used to be, and doubled every consumer's count.
+          const toolCallsForStorage: MemoryToolCallRecord[] = toolResults.map(
+            (result) => ({
+              toolCallId: result.id,
+              toolName: result.name,
+              args: result.args,
+              stepIndex: engineStep,
+            }),
           );
+          const toolResultsForStorage: MemoryToolResultRecord[] =
+            toolResults.map((result) =>
+              result.error
+                ? {
+                    toolCallId: result.id,
+                    toolName: result.name,
+                    error: result.error,
+                    stepIndex: engineStep,
+                  }
+                : {
+                    toolCallId: result.id,
+                    toolName: result.name,
+                    output: result.output,
+                    stepIndex: engineStep,
+                  },
+            );
           this.handleToolExecutionStorage(
             toolCallsForStorage,
             toolResultsForStorage,
@@ -3005,7 +3114,7 @@ export class AnthropicProvider extends BaseProvider {
       }
     };
 
-    return {
+    const result: StreamResult = {
       stream: transformedStream(),
       provider: this.providerName,
       // Cell-3 identity fix: `this.modelName` is the raw, possibly-unset
@@ -3016,8 +3125,14 @@ export class AnthropicProvider extends BaseProvider {
       // build the request. Reporting the raw field previously let a
       // default-model turn's StreamResult claim an undefined/empty model.
       model: modelId,
-      toolCalls: [],
-      toolResults: [],
+      // `toolCalls` / `toolResults` / `toolExecutions` are defined as live
+      // getters below, over the per-turn summaries.
+      // The live array: pushed as steps settle, so a consumer reading after
+      // the drain sees every tool that ran and returned a value (a thrown or
+      // not-found call is not "used"). This was never returned before, so
+      // `toolsUsed` came back empty for every tool on this path and
+      // `enhancedWithTools` was always false.
+      toolsUsed: toolsSucceeded,
       metadata: turnMetadata,
       // Wire the deferred usage/finish promises into the analytics collector
       // (mirrors openaiChatCompletionsBase). Without this the loop computed a
@@ -3052,6 +3167,47 @@ export class AnthropicProvider extends BaseProvider {
         return analytics;
       }),
     };
+    // Live getters, mirroring openaiChatCompletionsBase: the wrapper layers
+    // (BaseProvider.stream, NeuroLink.stream) re-apply accessor descriptors
+    // rather than spreading values, so these resolve when read, after the
+    // background loop has run the tools — a plain value here would be the
+    // empty snapshot taken before the first chunk.
+    Object.defineProperty(result, "toolCalls", {
+      enumerable: true,
+      configurable: true,
+      get: () => toolCallsFromSummaries(streamToolSummaries),
+    });
+    Object.defineProperty(result, "toolResults", {
+      enumerable: true,
+      configurable: true,
+      get: () =>
+        streamToolSummaries.map((s) => ({
+          toolName: s.toolName,
+          id: s.toolCallId,
+          status: s.error ? ("failure" as const) : ("success" as const),
+          ...(s.error ? { error: s.error } : {}),
+          ...(s.output !== undefined
+            ? { output: s.output as StreamToolResult["output"] }
+            : {}),
+        })),
+    });
+    Object.defineProperty(result, "toolExecutions", {
+      enumerable: true,
+      configurable: true,
+      get: () =>
+        resolveToolExecutionRecords(
+          options,
+          transformToolExecutions(
+            streamToolSummaries.map((s) => ({
+              toolName: s.toolName,
+              input: s.input,
+              output: s.error ? { error: s.error } : s.output,
+              duration: s.endTime.getTime() - s.startTime.getTime(),
+            })),
+          ),
+        ),
+    });
+    return result;
   }
 
   async isAvailable(): Promise<boolean> {

@@ -31,12 +31,14 @@ import "dotenv/config";
  *   2. No catalog kind declares the same primary/alias name twice internally
  *      — that would silently overwrite one entry's registration with another
  *      inside the one `HandlerRegistry` instance backing that kind.
- *   3. The only names reused ACROSS different kinds are the two the catalog
+ *   3. The only names reused ACROSS different kinds are the three the catalog
  *      deliberately reuses on purpose: "replicate" (a distinct handler class
- *      per kind in video/avatar/music — the plan's own running example) and
+ *      per kind in video/avatar/music — the plan's own running example),
  *      "vertex" (Google Cloud Vertex AI, both a TTS alias for google-ai and
- *      the Video kind's own primary name). Every other name reused across
- *      kinds is an unpinned regression this suite exists to catch.
+ *      the Video kind's own primary name) and "elevenlabs" (the TTS primary
+ *      and an STT alias for elevenlabs-stt, so `provider: "elevenlabs"`
+ *      works on both sides of the same account). Every other name reused
+ *      across kinds is an unpinned regression this suite exists to catch.
  *   4. Every kind's `defaultProviderFor()` result is itself a member of that
  *      kind's own `providerChoicesFor()` list.
  *   5. Registrations are isolated per kind: a name registered on one processor
@@ -78,6 +80,7 @@ type Kind = (typeof ALL_KINDS)[number];
 const EXPECTED_CROSS_KIND_NAMES: Readonly<Record<string, ReadonlySet<Kind>>> = {
   replicate: new Set<Kind>(["video", "avatar", "music"]),
   vertex: new Set<Kind>(["tts", "video"]),
+  elevenlabs: new Set<Kind>(["tts", "stt"]),
 };
 
 await runSuite(async () => {
@@ -112,7 +115,7 @@ await runSuite(async () => {
     }
   });
 
-  await test("names reused across kinds are limited to the two documented cases (replicate, vertex)", async () => {
+  await test("names reused across kinds are limited to the three documented cases (replicate, vertex, elevenlabs)", async () => {
     const { MEDIA_HANDLER_CATALOG } =
       await import("../dist/factories/mediaHandlerCatalog.js");
     const kindsByName = new Map<string, Set<Kind>>();

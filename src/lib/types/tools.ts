@@ -426,6 +426,8 @@ export type ToolEventPayload = {
   timestamp?: number;
   duration?: number;
   executionId?: string;
+  /** The model's tool-call id when the loop supplied one, for pairing start/end. */
+  toolCallId?: string;
 };
 
 /**
@@ -693,3 +695,17 @@ export type BashToolResult = {
   stderr: string;
   error?: string;
 };
+
+/**
+ * Own property stamped on a tool object whose `execute` already emits one
+ * `tool:start` / `tool:end` pair per execution. It lives on the OBJECT, not
+ * the function: later layers (the execution recorder, discovery) replace
+ * `execute` via `{ ...tool, execute }`, which drops a function-identity check
+ * but carries a symbol-keyed own property along.
+ */
+export const TOOL_EVENTS_WRAPPED: unique symbol = Symbol.for(
+  "neurolink.toolEventsWrapped",
+);
+
+/** A `Tool` that may carry the {@link TOOL_EVENTS_WRAPPED} marker. */
+export type EventWrappedTool = Tool & { [TOOL_EVENTS_WRAPPED]?: true };

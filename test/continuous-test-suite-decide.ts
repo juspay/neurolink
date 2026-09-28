@@ -37,7 +37,9 @@ const fetchCapture = installFetchCapture();
  */
 
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import {
   AIProviderName,
@@ -52,6 +54,7 @@ import {
   decisionBooleanConfidence,
   decisionKey,
   enrichCandidate,
+  estimateDecisionStateTokens,
   gateDecisionBoolean,
   NeuroLink,
   PROVIDER_DESCRIPTORS_BY_NAME,
@@ -68,7 +71,14 @@ import {
   summaryPreservesContext,
   TYPESAFE_MAX_STATE_TOKENS,
 } from "../dist/index.js";
-import { defineSuite, logSection, runCLI } from "./helpers/harness.js";
+import type {
+  DecisionAfterEvent,
+  DecisionBeforeEvent,
+  DecisionHookAnswersContext,
+  DecisionHookContext,
+  DecisionQuestionMap,
+} from "../dist/index.js";
+import { defineSuite, delay, logSection, runCLI } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { flatPng } from "./helpers/flatPng.js";
 
@@ -130,6 +140,18 @@ const HAS_CLOUDFLARE_CLEF =
   REAL_CLOUDFLARE_ACCOUNT_ID.trim() !== "";
 const REAL_CLOUDFLARE_CLEF_BASE_URL = process.env.CLOUDFLARE_CLEF_BASE_URL;
 const REAL_CLOUDFLARE_CLEF_MODEL = process.env.CLOUDFLARE_CLEF_MODEL;
+// Section 19 reads LAYA_MODEL as an input to model resolution, so it is
+// saved and restored like the keys rather than deleted outright.
+const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
+// The model the registry recorded for laya: LAYA_MODEL as it read at
+// registration, else the default. The registry reads it once, so a test
+// that merely deletes LAYA_MODEL mid-run does not change what was already
+// registered — asserting against this instead of a hardcoded literal keeps
+// these tests correct on a machine or CI job that sets LAYA_MODEL.
+const EXPECTED_LAYA_MODEL = process.env.LAYA_MODEL?.trim() || "typed-decisions";
+// The model the registry recorded for xor: XOR_MODEL as it read at
+// registration, else the default. Never deleted, so this stays the truth.
+const EXPECTED_XOR_MODEL = process.env.XOR_MODEL || "xor-1.1";
 
 function restoreEnv(): void {
   if (HAS_KEY) {
@@ -197,6 +219,11 @@ function restoreEnv(): void {
   } else {
     delete process.env.CLOUDFLARE_CLEF_MODEL;
   }
+  if (REAL_LAYA_MODEL !== undefined) {
+    process.env.LAYA_MODEL = REAL_LAYA_MODEL;
+  } else {
+    delete process.env.LAYA_MODEL;
+  }
 }
 
 /**
@@ -220,6 +247,7 @@ function clearDecisionKeys(): void {
   delete process.env.CLOUDFLARE_ACCOUNT_ID;
   delete process.env.CLOUDFLARE_CLEF_BASE_URL;
   delete process.env.CLOUDFLARE_CLEF_MODEL;
+  delete process.env.LAYA_MODEL;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -5125,5 +5153,1750 @@ await test("19.13 — live: decide --provider cloudflare-clef --image --format j
     "stderr must not hold a stack trace",
   );
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection("20. Decision hooks, limits and per-call credentials");
+// ───────────────────────────────────────────────────────────────────────────
+
+/** One request a fake Laya server received, as much as the tests inspect. */
+type FakePredictRequest = {
+  path: string;
+  authorization: string | null;
+  body: Record<string, unknown>;
+};
+
+/**
+ * A local stand-in for a System One server (Laya's `/predict`, XOR's
+ * `/v1/systemone` — same wire): answers whatever questions it receives
+ * with well-formed, confident answers, so a decision can be driven
+ * end-to-end — hooks, namespacing, caps, events, credentials, media —
+ * with no network and no key. Answers are deterministic: a `noul` is 0.9 —
+ * except a per-server routing question (`server__N`) and the summary gate's
+ * `is_refusal`, which get a confident 0.05 so tool routing has something to
+ * drop and a summary is accepted — a `choice` picks "hard" when offered (so
+ * the classifier's difficulty verdict clears the upgrade bar) and the first
+ * option otherwise, and a `score` lands on the last level. The recorded
+ * body keeps `images` / `video` exactly as they arrived, so a test can
+ * check what a media request put on the wire.
+ */
+async function startFakeSystemOne(): Promise<{
+  port: number;
+  requests: FakePredictRequest[];
+  close: () => Promise<void>;
+}> {
+  const requests: FakePredictRequest[] = [];
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString());
+      const body = isRecordLike(parsed) ? parsed : {};
+      requests.push({
+        path: req.url ?? "",
+        authorization: req.headers.authorization ?? null,
+        body,
+      });
+      const questions = isRecordLike(body.questions) ? body.questions : {};
+      const answers: Record<string, unknown> = {};
+      for (const [id, raw] of Object.entries(questions)) {
+        const question = isRecordLike(raw) ? raw : {};
+        if (question.type === "noul") {
+          const confidentNo = id.startsWith("server__") || id === "is_refusal";
+          answers[id] = { type: "noul", noul: confidentNo ? 0.05 : 0.9 };
+        } else if (question.type === "choice") {
+          const options = isRecordLike(question.criteria)
+            ? Object.keys(question.criteria)
+            : [];
+          const choice = options.includes("hard") ? "hard" : (options[0] ?? "");
+          const probabilities: Record<string, number> = {};
+          for (const option of options) {
+            probabilities[option] =
+              option === choice ? 0.85 : 0.15 / Math.max(1, options.length - 1);
+          }
+          answers[id] = {
+            type: "choice",
+            choice,
+            probabilities,
+            confidence: 0.8,
+          };
+        } else if (question.type === "score") {
+          const levels = Array.isArray(question.criteria)
+            ? question.criteria
+            : [];
+          const last = Math.max(0, levels.length - 1);
+          const legend: Record<string, string> = {};
+          const probabilities: Record<string, number> = {};
+          levels.forEach((level, index) => {
+            legend[String(index)] = typeof level === "string" ? level : "";
+            probabilities[String(index)] =
+              index === last ? 0.9 : 0.1 / Math.max(1, last);
+          });
+          answers[id] = {
+            type: "score",
+            score: last,
+            legend,
+            probabilities,
+            confidence: 0.9,
+          };
+        }
+      }
+      res.setHeader("content-type", "application/json");
+      res.end(
+        JSON.stringify({
+          model:
+            typeof body.model === "string" ? body.model : "typed-decisions",
+          answers,
+          usage: { input_tokens: 120, output_tokens: 0 },
+        }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    port,
+    requests,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+/** The fake as a Laya deployment: `LAYA_BASE_URL` is the route prefix. */
+async function startFakeLaya(): Promise<{
+  baseURL: string;
+  requests: FakePredictRequest[];
+  close: () => Promise<void>;
+}> {
+  const fake = await startFakeSystemOne();
+  return { ...fake, baseURL: `http://127.0.0.1:${fake.port}/laya` };
+}
+
+/**
+ * The fake as an XOR deployment: `XOR_BASE_URL` is the origin, and the
+ * provider appends `/v1/systemone` itself.
+ */
+async function startFakeXor(): Promise<{
+  baseURL: string;
+  requests: FakePredictRequest[];
+  close: () => Promise<void>;
+}> {
+  const fake = await startFakeSystemOne();
+  return { ...fake, baseURL: `http://127.0.0.1:${fake.port}` };
+}
+
+/** Question ids a fake request carried, in wire order. */
+function questionIdsOf(request: FakePredictRequest): string[] {
+  return isRecordLike(request.body.questions)
+    ? Object.keys(request.body.questions)
+    : [];
+}
+
+const HOST_QUESTIONS: DecisionQuestionMap = {
+  tone: {
+    type: "boolean",
+    instructions: "Is the request phrased politely?",
+  },
+  team: {
+    type: "choice",
+    instructions: "Which team owns this?",
+    criteria: { payments: "Money movement", platform: "Everything else" },
+  },
+};
+
+await test("20.1 — decisionLimits() is null with no decision provider configured", async () => {
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink();
+    assert(
+      nl.decisionLimits() === null,
+      "a reading was produced with no decision provider configured",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("20.2 — laya limits flatten per model and are enforced locally", async () => {
+  try {
+    // A developer's own LAYA_MODEL must not decide which model "the default" is.
+    clearDecisionKeys();
+    const nl = new NeuroLink();
+    const unlisted = nl.decisionLimits({ provider: "laya", model: "en" });
+    assert(unlisted !== null, "no reading for an unlisted laya model");
+    assert(
+      unlisted!.provider === "laya" &&
+        unlisted!.maxStateTokens === 320 &&
+        unlisted!.maxQuestions === 64 &&
+        unlisted!.nonAsciiTokensPerChar === 1.5 &&
+        unlisted!.enforcedLocally === true,
+      "an unlisted laya model must read the base 320/64/1.5, enforced locally",
+    );
+    const typed = nl.decisionLimits({
+      provider: "laya",
+      model: "typed-decisions",
+    });
+    assert(
+      typed !== null &&
+        typed.maxStateTokens === 768 &&
+        typed.nonAsciiTokensPerChar === 1.5 &&
+        typed.maxQuestions === 64,
+      "typed-decisions must override the state window and inherit the rest",
+    );
+    const multilingual = nl.decisionLimits({
+      provider: "laya",
+      model: "multilingual",
+    });
+    assert(
+      multilingual !== null &&
+        multilingual.maxStateTokens === 768 &&
+        multilingual.nonAsciiTokensPerChar === 0.6,
+      "multilingual must override both the window and the non-ASCII rate",
+    );
+    // No model named: the model decide() sends — the one registered for the
+    // provider (LAYA_MODEL as read at registration, else the default).
+    // EXPECTED_LAYA_MODEL mirrors that read, so this holds whether or not
+    // LAYA_MODEL is set in this run's environment; 20.19 proves the
+    // agreement with the wire either way.
+    const byDefault = nl.decisionLimits({ provider: "laya" });
+    assert(
+      byDefault !== null &&
+        byDefault.model === EXPECTED_LAYA_MODEL &&
+        (EXPECTED_LAYA_MODEL !== "typed-decisions" ||
+          byDefault.maxStateTokens === 768),
+      "the default laya model must be the one decide() would send",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("20.3 — typesafe limits are advisory: reported, not enforced", async () => {
+  const nl = new NeuroLink();
+  const reading = nl.decisionLimits({ provider: "typesafe" });
+  assert(reading !== null, "no reading for typesafe");
+  assert(
+    reading!.maxStateTokens === TYPESAFE_MAX_STATE_TOKENS,
+    "the descriptor's advisory window must equal the exported constant",
+  );
+  assert(
+    reading!.enforcedLocally === false,
+    "typesafe limits must not be enforced locally",
+  );
+  assert(
+    reading!.maxQuestions === undefined,
+    "typesafe caps a request by tokens, not by question count",
+  );
+  assert(
+    reading!.model === "jev-latest",
+    "the default typesafe model must be reported",
+  );
+  // An alias resolves the same as the canonical name, as it does in decide().
+  const viaAlias = nl.decisionLimits({ provider: "jev" });
+  assert(
+    viaAlias !== null && viaAlias.provider === "typesafe",
+    "a provider alias must resolve to the canonical descriptor",
+  );
+  // A text provider has no decision limits to read.
+  assert(
+    nl.decisionLimits({ provider: "openai" }) === null,
+    "a text provider must not produce a decision reading",
+  );
+});
+
+await test("20.4 — decisionLimits() resolves the default provider from SDK credentials", async () => {
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink({
+      credentials: {
+        laya: { apiKey: "sk-placeholder", baseURL: "http://127.0.0.1:9/laya" },
+      },
+    });
+    const reading = nl.decisionLimits();
+    assert(
+      reading !== null && reading.provider === "laya",
+      "credentials given to the constructor must configure the default provider",
+    );
+    // Per-call credentials count too, as they do for decide().
+    const bare = new NeuroLink();
+    const perCall = bare.decisionLimits({
+      credentials: {
+        laya: { apiKey: "sk-placeholder", baseURL: "http://127.0.0.1:9/laya" },
+      },
+    });
+    assert(
+      perCall !== null && perCall.provider === "laya",
+      "per-call credentials must configure the default provider",
+    );
+    // A named model wins over the registered default, and the reading is
+    // flattened for it.
+    const named = nl.decisionLimits({ model: "english" });
+    assert(
+      named !== null &&
+        named.model === "english" &&
+        named.maxStateTokens === 320,
+      "query.model must select the model the reading is flattened for",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("20.5 — estimateDecisionStateTokens is the pre-flight refusal's own estimator", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+    });
+    const limits = nl.decisionLimits({
+      provider: "laya",
+      model: "typed-decisions",
+    });
+    assert(limits !== null, "no laya reading");
+    // Non-ASCII text is exactly where the two estimates could disagree: the
+    // reading carries the rate, so the estimate must too.
+    // 22 characters per repeat, 4 of them non-ASCII: 100 repeats estimate to
+    // ~550 tokens at 4 chars/token but ~1,050 once the 1.5-per-character
+    // rate is charged, which is what puts the fixture over a 768 window.
+    const fits = "Wörter über Prüfung — ".repeat(20);
+    const overflows = "Wörter über Prüfung — ".repeat(100);
+    const fitsTokens = estimateDecisionStateTokens(fits, limits!);
+    const overflowTokens = estimateDecisionStateTokens(overflows, limits!);
+    assert(
+      fitsTokens <= limits!.maxStateTokens &&
+        overflowTokens > limits!.maxStateTokens,
+      "the two fixtures must sit on opposite sides of the reading's window",
+    );
+    // Without the rate the over-window state would be estimated as fitting —
+    // which is why the reading's rate is part of the contract.
+    assert(
+      estimateDecisionStateTokens(overflows) <= limits!.maxStateTokens,
+      "the fixture must only overflow once non-ASCII characters are charged at the rate",
+    );
+
+    fetchCapture.reset();
+    const accepted = await nl.decide({
+      provider: "laya",
+      model: "typed-decisions",
+      state: fits,
+      questions: { urgent: ALL_THREE.urgent },
+    });
+    assert(
+      accepted.answers.urgent !== undefined,
+      "the in-window state was not answered",
+    );
+    assert(
+      fake.requests.length === 1,
+      "the in-window state must reach the server exactly once",
+    );
+
+    let refused: unknown = null;
+    try {
+      await nl.decide({
+        provider: "laya",
+        model: "typed-decisions",
+        state: overflows,
+        questions: { urgent: ALL_THREE.urgent },
+      });
+    } catch (error) {
+      refused = error;
+    }
+    assert(refused !== null, "the over-window state was not refused");
+    const cause = (refused as { cause?: { kind?: string } }).cause;
+    assert(
+      cause?.kind === "max_tokens_exceeded",
+      "the refusal must be classified as max_tokens_exceeded",
+    );
+    assert(
+      fake.requests.length === 1,
+      "a locally refused state must never reach the server",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.6 — through generate(): the routing site runs the hooks, namespaces host ids, answers under the host's", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const seen: DecisionHookContext[] = [];
+    const answered: DecisionHookAnswersContext[] = [];
+    const before: DecisionBeforeEvent[] = [];
+    const after: DecisionAfterEvent[] = [];
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+      classifierRouter: { enabled: true, pool: POOL },
+      decisionHooks: {
+        extendQuestions: (context) => {
+          seen.push(context);
+          return HOST_QUESTIONS;
+        },
+        onAnswers: (context) => {
+          answered.push(context);
+        },
+      },
+    });
+    const emitter = nl.getEventEmitter();
+    emitter.on("decision:before", (event) =>
+      before.push(event as DecisionBeforeEvent),
+    );
+    emitter.on("decision:after", (event) =>
+      after.push(event as DecisionAfterEvent),
+    );
+
+    // `typesafe` generates no text, so the turn fails locally right after
+    // routing — which is the only part under test — with no LLM call.
+    await nl
+      .generate({ input: { text: HARD_PROMPT }, provider: "typesafe" })
+      .then(
+        () => null,
+        () => null,
+      );
+
+    assert(
+      seen.length === 1,
+      "extendQuestions must run exactly once per routing turn",
+    );
+    assert(
+      seen[0]!.site === "routing",
+      "the classifier's call must be stamped as the routing site",
+    );
+    assert(
+      "difficulty" in seen[0]!.questions && !("tone" in seen[0]!.questions),
+      "the hook must see NeuroLink's own questions, not its own",
+    );
+
+    assert(
+      fake.requests.length === 1,
+      "exactly one decision request must reach the server",
+    );
+    const wireIds = questionIdsOf(fake.requests[0]!);
+    assert(
+      wireIds.includes("difficulty") &&
+        wireIds.includes("host__0") &&
+        wireIds.includes("host__1") &&
+        !wireIds.includes("tone") &&
+        !wireIds.includes("team"),
+      "host questions must travel under the host namespace, never their own ids",
+    );
+
+    assert(answered.length === 1, "onAnswers must run exactly once");
+    const hostAnswers = answered[0]!.answers;
+    assert(
+      readDecisionBoolean(hostAnswers, "tone") === 0.9 &&
+        readDecisionChoice(hostAnswers, "team")?.choice === "payments",
+      "host answers must come back under the host's original ids",
+    );
+    assert(
+      !("host__0" in hostAnswers) && !("difficulty" in hostAnswers),
+      "the host's answer map must hold only the host's answers",
+    );
+    assert(
+      "difficulty" in answered[0]!.result.answers &&
+        "host__0" in answered[0]!.result.answers,
+      "the full result must still carry every answer under its wire id",
+    );
+
+    assert(
+      before.length === 1 && after.length === 1,
+      "one before/after pair must fire for the turn",
+    );
+    assert(
+      before[0]!.site === "routing" && before[0]!.hostQuestionCount === 2,
+      "decision:before must name the site and count the host questions",
+    );
+    assert(
+      after[0]!.site === "routing" &&
+        after[0]!.provider === "laya" &&
+        after[0]!.model === EXPECTED_LAYA_MODEL &&
+        typeof after[0]!.latencyMs === "number" &&
+        "difficulty" in after[0]!.answers &&
+        !("host__0" in after[0]!.answers) &&
+        readDecisionBoolean(after[0]!.hostAnswers, "tone") === 0.9,
+      "decision:after must split NeuroLink's answers from the host's",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.7 — host additions are capped at the provider's question limit, and warned about", async () => {
+  const fake = await startFakeLaya();
+  const previousDebug = process.env.NEUROLINK_DEBUG;
+  try {
+    clearDecisionKeys();
+    // Warnings are hidden unless debugging; the cap warning is part of the contract.
+    process.env.NEUROLINK_DEBUG = "true";
+    const tooMany: Record<string, { type: "boolean"; instructions: string }> =
+      {};
+    for (let index = 0; index < 100; index++) {
+      tooMany[`q${index}`] = {
+        type: "boolean",
+        instructions: `Host question ${index}?`,
+      };
+    }
+    const warnings: string[] = [];
+    let hostAnswerCount = -1;
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+      classifierRouter: { enabled: true, pool: POOL },
+      decisionHooks: {
+        extendQuestions: () => tooMany,
+        onAnswers: (context) => {
+          hostAnswerCount = Object.keys(context.answers).length;
+        },
+      },
+    });
+    nl.getEventEmitter().on("log-event", (event) => {
+      const entry = event as { level?: string; message?: string };
+      if (entry.level === "warn" && typeof entry.message === "string") {
+        warnings.push(entry.message);
+      }
+    });
+    await nl
+      .generate({ input: { text: HARD_PROMPT }, provider: "typesafe" })
+      .then(
+        () => null,
+        () => null,
+      );
+    const limits = nl.decisionLimits({ provider: "laya" });
+    assert(limits !== null, "no laya reading");
+    assert(
+      fake.requests.length === 1,
+      "the capped request must still be sent, once",
+    );
+    const wireIds = questionIdsOf(fake.requests[0]!);
+    assert(
+      wireIds.length === limits!.maxQuestions,
+      "the request must carry exactly the provider's maximum, not one more",
+    );
+    const ownCount = wireIds.filter((id) => !id.startsWith("host__")).length;
+    assert(
+      ownCount > 0 &&
+        wireIds.filter((id) => id.startsWith("host__")).length ===
+          limits!.maxQuestions - ownCount,
+      "every one of NeuroLink's own questions must survive; only host questions are dropped",
+    );
+    assert(
+      hostAnswerCount === limits!.maxQuestions - ownCount,
+      "the host must get an answer for every question that was sent",
+    );
+    assert(
+      warnings.some(
+        (message) =>
+          message.includes("dropped") && message.includes("host question"),
+      ),
+      "dropping host questions must be warned about",
+    );
+  } finally {
+    if (previousDebug === undefined) {
+      delete process.env.NEUROLINK_DEBUG;
+    } else {
+      process.env.NEUROLINK_DEBUG = previousDebug;
+    }
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.8 — a throwing hook, or a malformed question, never changes the routing verdict", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    // A host-wired ClassifierRouter decides its strategy from the
+    // environment (no `hasDecisionProvider` dep here), so the fake is
+    // configured there; the instances below inherit it.
+    process.env.LAYA_API_KEY = "sk-fake";
+    process.env.LAYA_BASE_URL = fake.baseURL;
+    // Reference verdict: same fake, no hooks.
+    const plain = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => new NeuroLink().tryDecide(o) },
+    );
+    const reference = await plain.route({ prompt: HARD_PROMPT });
+    assert(
+      reference !== null && reference.reason?.startsWith("jev") === true,
+      "the fake server must drive the jev strategy for the reference verdict",
+    );
+
+    const throwing = new NeuroLink({
+      decisionHooks: {
+        extendQuestions: () => {
+          throw new Error("host hook exploded");
+        },
+        onAnswers: () => {
+          throw new Error("host observer exploded");
+        },
+      },
+    });
+    const throwingRouter = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => throwing.tryDecide(o) },
+    );
+    const withThrow = await throwingRouter.route({ prompt: HARD_PROMPT });
+    assert(
+      withThrow !== null &&
+        withThrow.difficulty === reference!.difficulty &&
+        withThrow.model === reference!.model &&
+        withThrow.provider === reference!.provider,
+      "a throwing hook must leave the routing verdict exactly as without hooks",
+    );
+    assert(
+      questionIdsOf(fake.requests[fake.requests.length - 1]!).every(
+        (id) => !id.startsWith("host__"),
+      ),
+      "a throwing hook must add nothing to the wire",
+    );
+
+    // A malformed question is dropped on its own; a valid sibling still rides along.
+    const malformed = new NeuroLink({
+      decisionHooks: {
+        extendQuestions: () =>
+          ({
+            broken: {
+              type: "choice",
+              instructions: "one option only",
+              criteria: { only: "x" },
+            },
+            missing: { type: "boolean" },
+            fine: { type: "boolean", instructions: "Is it fine?" },
+          }) as unknown as DecisionQuestionMap,
+      },
+    });
+    const malformedRouter = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => malformed.tryDecide(o) },
+    );
+    const withMalformed = await malformedRouter.route({ prompt: HARD_PROMPT });
+    assert(
+      withMalformed !== null &&
+        withMalformed.difficulty === reference!.difficulty,
+      "a malformed host question must not change the verdict",
+    );
+    const lastIds = questionIdsOf(fake.requests[fake.requests.length - 1]!);
+    assert(
+      lastIds.filter((id) => id.startsWith("host__")).length === 1,
+      "only the well-formed host question may reach the wire",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.13 — a hung hook, a throwing listener and an onAnswers mutation are all contained", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    process.env.LAYA_API_KEY = "sk-fake";
+    process.env.LAYA_BASE_URL = fake.baseURL;
+    const plain = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => new NeuroLink().tryDecide(o) },
+    );
+    const reference = await plain.route({ prompt: HARD_PROMPT });
+    assert(
+      reference !== null && reference.reason?.startsWith("jev") === true,
+      "the fake server must drive the jev strategy for the reference verdict",
+    );
+
+    // 1. extendQuestions that never resolves: bounded by hookTimeoutMs, the
+    //    call proceeds with NeuroLink's own questions and finishes promptly.
+    let mutatedByHost = false;
+    const nl = new NeuroLink({
+      decisionHooks: {
+        hookTimeoutMs: 100,
+        extendQuestions: () => new Promise<undefined>(() => undefined),
+        onAnswers: ({ result }) => {
+          // 3. Edit what the host is handed; the consumer must not see it.
+          for (const answer of Object.values(result.answers)) {
+            // Every variant carries a probability-ish number; flipping it to
+            // an impossible value would derail the classifier if it leaked.
+            if (answer.type === "boolean") {
+              (answer as { probability: number }).probability = -1;
+            } else if (answer.type === "choice") {
+              (answer as { choice: string }).choice = "tampered";
+            } else {
+              (answer as { score: number }).score = -1;
+            }
+          }
+          mutatedByHost = true;
+        },
+      },
+    });
+    // 2. A listener that throws on both events.
+    const emitter = nl.getEventEmitter();
+    const boom = () => {
+      throw new Error("listener exploded");
+    };
+    emitter.on("decision:before", boom);
+    emitter.on("decision:after", boom);
+    const router = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => nl.tryDecide(o) },
+    );
+    const startedAt = Date.now();
+    const verdict = await router.route({ prompt: HARD_PROMPT });
+    const elapsed = Date.now() - startedAt;
+    emitter.off("decision:before", boom);
+    emitter.off("decision:after", boom);
+    assert(
+      verdict !== null &&
+        verdict.difficulty === reference!.difficulty &&
+        verdict.model === reference!.model,
+      "a hung hook and a throwing listener must leave the verdict as without hooks",
+    );
+    assert(
+      elapsed < 5_000,
+      "a hung extendQuestions must be cut off at hookTimeoutMs, not stall the turn",
+    );
+    assert(
+      questionIdsOf(fake.requests[fake.requests.length - 1]!).every(
+        (id) => !id.startsWith("host__"),
+      ),
+      "a timed-out hook must add nothing to the wire",
+    );
+    assert(mutatedByHost, "onAnswers must still run after the hook timeout");
+    assert(
+      verdict!.reason?.startsWith("jev") === true,
+      "the consumer's answers must be unaffected by the host's mutation",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.9 — every built-in site is stamped, and a host-wired consumer gets the hooks too", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const sites: string[] = [];
+    const before: string[] = [];
+    const after: string[] = [];
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+      decisionHooks: {
+        extendQuestions: (context) => {
+          sites.push(context.site);
+          return undefined;
+        },
+      },
+    });
+    const emitter = nl.getEventEmitter();
+    emitter.on("decision:before", (event) =>
+      before.push((event as DecisionBeforeEvent).site),
+    );
+    emitter.on("decision:after", (event) =>
+      after.push((event as DecisionAfterEvent).site),
+    );
+    // The same wiring a host uses for its own RAGPipeline / ClassifierRouter.
+    const decide = (o: Parameters<typeof nl.tryDecide>[0]) => nl.tryDecide(o);
+
+    const servers = await selectServersByDecision(
+      "open a pull request",
+      CATALOG,
+      decide,
+    );
+    assert(
+      servers !== null,
+      "tool routing produced no outcome against the fake",
+    );
+    const dropped = await selectIrrelevantMessages(
+      TRANSCRIPT,
+      "rename the retry constant",
+      decide,
+      { protectRecent: 1 },
+    );
+    // The fake answers every message as needed, so nothing is dropped — the
+    // call itself is what is under test here.
+    assert(dropped === null, "the fake must answer every message as needed");
+    const kept = await summaryPreservesContext(
+      "A faithful summary.",
+      TRANSCRIPT,
+      decide,
+    );
+    assert(kept === true, "a confident yes must accept the summary");
+    const plan = await decideSearchPlan("what is the refund window?", decide, {
+      defaultTopK: 5,
+      canHybrid: true,
+      canGraph: true,
+      canRerank: true,
+    });
+    assert(plan !== null, "RAG planning produced no plan against the fake");
+
+    const expected = [
+      "toolRouting",
+      "contextRelevance",
+      "summaryGate",
+      "ragPlan",
+    ];
+    assert(
+      JSON.stringify(sites) === JSON.stringify(expected),
+      "each consumer must stamp its own site, in call order",
+    );
+    assert(
+      JSON.stringify(before) === JSON.stringify(expected) &&
+        JSON.stringify(after) === JSON.stringify(expected),
+      "one decision:before and one decision:after must fire per site call",
+    );
+    assert(
+      fake.requests.length === 4,
+      "each site must cost exactly one round trip",
+    );
+
+    // A host's own tryDecide call is not a site: no hook, no event.
+    await nl.tryDecide({
+      state: SUPPORT_TICKET,
+      questions: { urgent: ALL_THREE.urgent },
+    });
+    assert(
+      sites.length === 4 && before.length === 4,
+      "a plain tryDecide call must run no hook and emit no site event",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.10 — the decision span names its site and counts the host's questions", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+      decisionHooks: { extendQuestions: () => HOST_QUESTIONS },
+    });
+    nl.resetMetrics();
+    await decideSearchPlan(
+      "what is the refund window?",
+      (o) => nl.tryDecide(o),
+      {
+        defaultTopK: 5,
+        canHybrid: true,
+        canGraph: true,
+        canRerank: true,
+      },
+    );
+    const span = nl.getSpans().find((s) => s.type === "model.decision");
+    assert(span !== undefined, "no decision span was recorded");
+    assert(
+      span!.attributes["decision.site"] === "ragPlan",
+      "the span must name the site that asked",
+    );
+    assert(
+      span!.attributes["decision.host_question_count"] === 2,
+      "the span must count the host's questions",
+    );
+    assert(
+      span!.attributes["decision.question_count"] === 6,
+      "question_count must count everything sent, NeuroLink's four plus the host's two",
+    );
+    // A plain call carries neither attribute — it is not a site.
+    nl.resetMetrics();
+    await nl.tryDecide({
+      state: SUPPORT_TICKET,
+      questions: { urgent: ALL_THREE.urgent },
+    });
+    const plain = nl.getSpans().find((s) => s.type === "model.decision");
+    assert(
+      plain !== undefined && !("decision.site" in plain.attributes),
+      "a host's own decision must not be attributed to a site",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.11 — per-call credentials reach the classifier's decision, not the instance's", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    fetchCapture.reset();
+    // The instance points at a dead address: if the routing decision used the
+    // instance credentials it would be recorded there and fail, not answered.
+    const nl = new NeuroLink({
+      credentials: {
+        laya: { apiKey: "sk-instance", baseURL: "http://127.0.0.1:9/laya" },
+      },
+      classifierRouter: { enabled: true, pool: POOL },
+    });
+    await nl
+      .generate({
+        input: { text: HARD_PROMPT },
+        provider: "typesafe",
+        credentials: { laya: { apiKey: "sk-per-call", baseURL: fake.baseURL } },
+      })
+      .then(
+        () => null,
+        () => null,
+      );
+    assert(
+      fake.requests.length === 1,
+      "the per-call server must see exactly one decision request",
+    );
+    assert(
+      fake.requests[0]!.authorization === "Bearer sk-per-call",
+      "the decision must carry the per-call key, not the instance key",
+    );
+    assert(
+      fake.requests[0]!.path === "/laya/predict",
+      "the decision must go to the per-call base URL",
+    );
+    assert(
+      fetchCapture.list().filter((c) => c.url.startsWith("http://127.0.0.1:9/"))
+        .length === 0,
+      "nothing may be sent to the instance-level base URL",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.12 — a host-wired consumer can pass per-call credentials on the options it hands tryDecide", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const sitesSeen: string[] = [];
+    const nl = new NeuroLink({
+      credentials: {
+        laya: { apiKey: "sk-instance", baseURL: "http://127.0.0.1:9/laya" },
+      },
+      decisionHooks: {
+        extendQuestions: (context) => {
+          sitesSeen.push(context.site);
+          return undefined;
+        },
+      },
+    });
+    const perCall = { laya: { apiKey: "sk-per-call", baseURL: fake.baseURL } };
+    // Tool routing, as generate() wires it: the outer request's credentials
+    // travel on the options the site hands to tryDecide.
+    const servers = await selectServersByDecision(
+      "open a pull request",
+      CATALOG,
+      (o) => nl.tryDecide({ ...o, credentials: perCall }),
+    );
+    assert(
+      servers !== null,
+      "tool routing produced no outcome against the fake",
+    );
+    assert(
+      fake.requests.length === 1 &&
+        fake.requests[0]!.authorization === "Bearer sk-per-call",
+      "the tool routing decision must carry the per-call key",
+    );
+    assert(
+      sitesSeen.length === 1 && sitesSeen[0] === "toolRouting",
+      "the hook must see the tool routing site",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+/** Warn-level log messages from `nl`, visible only with NEUROLINK_DEBUG. */
+function collectWarnings(nl: InstanceType<typeof NeuroLink>): string[] {
+  const warnings: string[] = [];
+  nl.getEventEmitter().on("log-event", (event) => {
+    const entry = event as { level?: string; message?: string };
+    if (entry.level === "warn" && typeof entry.message === "string") {
+      warnings.push(entry.message);
+    }
+  });
+  return warnings;
+}
+
+/** Runs `fn` with warnings visible, restoring NEUROLINK_DEBUG afterwards. */
+async function withDebugLogs<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = process.env.NEUROLINK_DEBUG;
+  process.env.NEUROLINK_DEBUG = "true";
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NEUROLINK_DEBUG;
+    } else {
+      process.env.NEUROLINK_DEBUG = previous;
+    }
+  }
+}
+
+/** A site-stamped request, as a host-wired consumer hands it to tryDecide. */
+const RAG_PLAN_REQUEST = {
+  site: "ragPlan" as const,
+  state: SUPPORT_TICKET,
+  questions: { urgent: ALL_THREE.urgent },
+};
+
+await test("20.14 — an out-of-range hookTimeoutMs falls back to the default with one warning, instead of timing every hook out", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    await withDebugLogs(async () => {
+      // Infinity is the natural way to say "no bound" — a timer given it
+      // fires at once, so a 150 ms hook would never contribute a question.
+      const nl = new NeuroLink({
+        credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+        decisionHooks: {
+          hookTimeoutMs: Number.POSITIVE_INFINITY,
+          extendQuestions: async () => {
+            await delay(150);
+            return HOST_QUESTIONS;
+          },
+        },
+      });
+      const warnings = collectWarnings(nl);
+      const first = await nl.tryDecide(RAG_PLAN_REQUEST);
+      const second = await nl.tryDecide(RAG_PLAN_REQUEST);
+      assert(
+        first !== null && second !== null,
+        "both site calls must produce a result",
+      );
+      assert(
+        fake.requests.length === 2 &&
+          fake.requests.every((request) =>
+            questionIdsOf(request).includes("host__1"),
+          ),
+        "the slow hook must still contribute its questions under the default bound",
+      );
+      assert(
+        warnings.filter((message) => message.includes("hookTimeoutMs"))
+          .length === 1,
+        "the invalid bound must be warned about exactly once per instance",
+      );
+      // Every other unusable value takes the same fallback.
+      for (const bad of [0, -5, Number.NaN, 2 ** 31]) {
+        const other = new NeuroLink({
+          credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+          decisionHooks: {
+            hookTimeoutMs: bad,
+            extendQuestions: async () => {
+              await delay(50);
+              return HOST_QUESTIONS;
+            },
+          },
+        });
+        const otherWarnings = collectWarnings(other);
+        await other.tryDecide(RAG_PLAN_REQUEST);
+        assert(
+          questionIdsOf(fake.requests[fake.requests.length - 1]!).includes(
+            "host__0",
+          ) && otherWarnings.some((m) => m.includes("hookTimeoutMs")),
+          "an unusable bound must fall back to the default and be warned about",
+        );
+      }
+    });
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.15 — without a decision provider the hooks and events are inert: no hook runs, no event fires, null as before", async () => {
+  try {
+    clearDecisionKeys();
+    let extendCalls = 0;
+    let answerCalls = 0;
+    let events = 0;
+    const nl = new NeuroLink({
+      decisionHooks: {
+        extendQuestions: () => {
+          extendCalls += 1;
+          return HOST_QUESTIONS;
+        },
+        onAnswers: () => {
+          answerCalls += 1;
+        },
+      },
+    });
+    const emitter = nl.getEventEmitter();
+    emitter.on("decision:before", () => (events += 1));
+    emitter.on("decision:after", () => (events += 1));
+    // Precondition: nothing is configured.
+    assert(
+      nl.decisionLimits() === null,
+      "precondition: no decision provider may be configured",
+    );
+    const result = await nl.tryDecide({
+      site: "toolRouting",
+      state: SUPPORT_TICKET,
+      questions: { urgent: ALL_THREE.urgent },
+    });
+    assert(result === null, "with no provider the site call must return null");
+    assert(
+      extendCalls === 0 && answerCalls === 0,
+      "no hook may run when no decision request can be made",
+    );
+    assert(
+      events === 0,
+      "no decision event may fire when no decision request can be made",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("20.16 — a host cannot turn a site decision into an exception: unreadable hook returns, a missing question map", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const credentials = {
+      laya: { apiKey: "sk-fake", baseURL: fake.baseURL },
+    };
+    const own = { urgent: ALL_THREE.urgent };
+    // A return value whose keys cannot even be listed.
+    const proxied = new NeuroLink({
+      credentials,
+      decisionHooks: {
+        extendQuestions: () =>
+          new Proxy(
+            {},
+            {
+              ownKeys: () => {
+                throw new Error("boom-ownKeys");
+              },
+            },
+          ) as DecisionQuestionMap,
+      },
+    });
+    const viaProxy = await proxied.tryDecide(RAG_PLAN_REQUEST);
+    assert(
+      viaProxy !== null && "urgent" in viaProxy.answers,
+      "a proxy that throws on enumeration must still yield NeuroLink's own answers",
+    );
+    // A question whose getter throws, beside a well-formed sibling.
+    const throwingGetter = new NeuroLink({
+      credentials,
+      decisionHooks: {
+        extendQuestions: () => {
+          const bag: Record<string, unknown> = { fine: HOST_QUESTIONS.tone };
+          Object.defineProperty(bag, "broken", {
+            enumerable: true,
+            get: () => {
+              throw new Error("boom-getter");
+            },
+          });
+          return bag as DecisionQuestionMap;
+        },
+      },
+    });
+    const viaGetter = await throwingGetter.tryDecide(RAG_PLAN_REQUEST);
+    assert(
+      viaGetter !== null && "urgent" in viaGetter.answers,
+      "a throwing getter must still yield NeuroLink's own answers",
+    );
+    assert(
+      Object.keys(viaGetter!.answers).every((id) => !id.startsWith("host__")),
+      "the consumer must never see a host id, whichever path answered",
+    );
+    // A site-stamped request with no question map at all: null, never a throw.
+    const plain = new NeuroLink({ credentials });
+    const withoutQuestions = await plain.tryDecide({
+      site: "ragPlan",
+      state: SUPPORT_TICKET,
+      questions: undefined as unknown as DecisionQuestionMap,
+    });
+    assert(
+      withoutQuestions === null,
+      "a malformed site request must resolve to null, exactly as without a site",
+    );
+    // A listener that throws only AFTER the wire call returned: the consumer
+    // still gets the answers that call produced, and no second call is made.
+    const before = fake.requests.length;
+    const lateThrow = new NeuroLink({
+      credentials,
+      decisionHooks: { extendQuestions: () => HOST_QUESTIONS },
+    });
+    lateThrow.getEventEmitter().on("decision:after", () => {
+      throw new Error("after-listener exploded");
+    });
+    const afterThrow = await lateThrow.tryDecide({
+      site: "ragPlan",
+      state: SUPPORT_TICKET,
+      questions: own,
+    });
+    assert(
+      afterThrow !== null &&
+        "urgent" in afterThrow.answers &&
+        !("host__0" in afterThrow.answers),
+      "a throwing after-listener must leave the consumer its own answers",
+    );
+    assert(
+      fake.requests.length === before + 1,
+      "a failure after the call must not cost a second round trip",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.17 — a listener or hook that edits what it is handed changes neither the wire nor the next call", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    process.env.LAYA_API_KEY = "sk-fake";
+    process.env.LAYA_BASE_URL = fake.baseURL;
+    const nl = new NeuroLink({
+      decisionHooks: {
+        extendQuestions: (context) => {
+          // Edit the consumer's own question and state in place.
+          (
+            context.questions as Record<string, { instructions: unknown }>
+          ).difficulty!.instructions = "HOOK-REWRITTEN";
+          (context.state as Record<string, unknown>).injected_by_hook = true;
+          return undefined;
+        },
+      },
+    });
+    nl.getEventEmitter().on("decision:before", (event) => {
+      const payload = event as DecisionBeforeEvent;
+      const difficulty = (
+        payload.questions as Record<
+          string,
+          { criteria: Record<string, string> }
+        >
+      ).difficulty!;
+      // The rubric is a module constant inside the classifier: an edit that
+      // reached it would rewrite every later routing call in the process.
+      difficulty.criteria.trivial = "LISTENER-REWRITTEN RUBRIC";
+      (payload.state as Record<string, unknown>).injected_by_listener = true;
+    });
+    const router = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => nl.tryDecide(o) },
+    );
+    await router.route({ prompt: HARD_PROMPT });
+    // Second call with the listener still attached, then a third from a
+    // fresh instance with no hooks or listeners at all.
+    await router.route({ prompt: HARD_PROMPT });
+    const bare = new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => new NeuroLink().tryDecide(o) },
+    );
+    await bare.route({ prompt: HARD_PROMPT });
+    assert(fake.requests.length === 3, "three routing requests must be sent");
+    for (const request of fake.requests) {
+      const questions = request.body.questions as Record<
+        string,
+        { instructions?: unknown; criteria?: Record<string, string> }
+      >;
+      const state = request.body.state as Record<string, unknown>;
+      assert(
+        questions.difficulty?.instructions !== "HOOK-REWRITTEN" &&
+          questions.difficulty?.criteria?.trivial !==
+            "LISTENER-REWRITTEN RUBRIC",
+        "no edit made by a hook or listener may reach the wire",
+      );
+      assert(
+        !("injected_by_hook" in state) && !("injected_by_listener" in state),
+        "no state field added by a hook or listener may reach the wire",
+      );
+    }
+    const trivialRubrics = new Set(
+      fake.requests.map(
+        (request) =>
+          (
+            request.body.questions as Record<
+              string,
+              { criteria?: Record<string, string> }
+            >
+          ).difficulty?.criteria?.trivial,
+      ),
+    );
+    assert(
+      trivialRubrics.size === 1,
+      "every call must send the same rubric: the consumer's constant was never edited",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.18 — a host question id of __proto__ or constructor keeps its answer", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    // An object literal with a "__proto__" key sets the prototype; only
+    // fromEntries makes it an own key, which is what a host mapping
+    // user-defined names to question ids ends up with.
+    const hostQuestions = Object.fromEntries([
+      ["__proto__", HOST_QUESTIONS.tone],
+      ["constructor", HOST_QUESTIONS.tone],
+      ["ok", HOST_QUESTIONS.tone],
+    ]) as DecisionQuestionMap;
+    let answered: DecisionHookAnswersContext | undefined;
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+      decisionHooks: {
+        extendQuestions: () => hostQuestions,
+        onAnswers: (context) => {
+          answered = context;
+        },
+      },
+    });
+    const after: DecisionAfterEvent[] = [];
+    nl.getEventEmitter().on("decision:after", (event) =>
+      after.push(event as DecisionAfterEvent),
+    );
+    const result = await nl.tryDecide(RAG_PLAN_REQUEST);
+    assert(result !== null, "the site call must produce a result");
+    assert(
+      questionIdsOf(fake.requests[0]!).filter((id) => id.startsWith("host__"))
+        .length === 3,
+      "all three host questions must travel on the wire",
+    );
+    assert(answered !== undefined, "onAnswers must have run");
+    for (const id of ["__proto__", "constructor", "ok"]) {
+      assert(
+        Object.hasOwn(answered!.answers, id) &&
+          readDecisionBoolean(answered!.answers, id) === 0.9,
+        `the host's answer under "${id}" must come back as an own key`,
+      );
+      assert(
+        Object.hasOwn(after[0]!.hostAnswers, id),
+        `decision:after must carry the host's "${id}" answer as an own key`,
+      );
+    }
+    assert(
+      Object.keys(result!.answers).length === 1 && "urgent" in result!.answers,
+      "the consumer must see only its own answer",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.19 — every site call dispatches through decide(): a subclass override and an instance patch both see it", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    // A host-wired ClassifierRouter decides its strategy from the
+    // environment (no `hasDecisionProvider` dep), so the fake is configured
+    // there; every instance below inherits it.
+    process.env.LAYA_API_KEY = "sk-fake";
+    process.env.LAYA_BASE_URL = fake.baseURL;
+    let overrideCalls = 0;
+    class CountingNeuroLink extends NeuroLink {
+      override async decide(
+        options: Parameters<NeuroLink["decide"]>[0],
+      ): ReturnType<NeuroLink["decide"]> {
+        overrideCalls += 1;
+        return super.decide(options);
+      }
+    }
+    const subclassed = new CountingNeuroLink();
+    const routed = await new ClassifierRouter(
+      { enabled: true, pool: POOL },
+      { decide: (o) => subclassed.tryDecide(o) },
+    ).route({ prompt: HARD_PROMPT });
+    assert(
+      routed !== null && routed.reason?.startsWith("jev") === true,
+      "the routing site must have used the decision model",
+    );
+    // Read through fresh consts: an `asserts` narrowing of the counter to a
+    // literal would otherwise make the second comparison a type error.
+    const afterRouting = overrideCalls;
+    assert(
+      afterRouting === 1,
+      "the routing site's call must go through the subclass's decide()",
+    );
+    await subclassed.tryDecide(RAG_PLAN_REQUEST);
+    const afterSite = overrideCalls;
+    assert(
+      afterSite === 2,
+      "a host-wired site call must go through the override too",
+    );
+
+    // An instance patch — a per-tenant cache or rate limit — is honoured the
+    // same way, and its throw stays inside tryDecide's null contract.
+    let patchCalls = 0;
+    const patched = new NeuroLink();
+    const original = patched.decide.bind(patched);
+    patched.decide = async (options) => {
+      patchCalls += 1;
+      if (patchCalls > 1) {
+        throw new Error("tenant over quota");
+      }
+      return original(options);
+    };
+    const first = await patched.tryDecide(RAG_PLAN_REQUEST);
+    const second = await patched.tryDecide(RAG_PLAN_REQUEST);
+    assert(
+      patchCalls === 2 && first !== null && second === null,
+      "an instance patch must see every site call, and its throw must become null",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.20 — decisionLimits() names the model decide() sends, whatever LAYA_MODEL says now", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink({
+      credentials: { laya: { apiKey: "sk-fake", baseURL: fake.baseURL } },
+    });
+    const sentModel = async (): Promise<string | undefined> => {
+      const index = fake.requests.length;
+      await nl.decide({
+        state: SUPPORT_TICKET,
+        questions: { urgent: ALL_THREE.urgent },
+      });
+      const model = fake.requests[index]?.body.model;
+      return typeof model === "string" ? model : undefined;
+    };
+    // The variable is flipped between calls; decide() sends the model the
+    // provider was registered with, and the reading must say the same —
+    // sizing a state against a window the pre-flight check will not apply
+    // is exactly the mismatch this guards against.
+    for (const value of [
+      "english",
+      "multilingual",
+      " typed-decisions ",
+      undefined,
+    ]) {
+      if (value === undefined) {
+        delete process.env.LAYA_MODEL;
+      } else {
+        process.env.LAYA_MODEL = value;
+      }
+      const sent = await sentModel();
+      const reading = nl.decisionLimits();
+      assert(
+        sent !== undefined && reading !== null && reading.model === sent,
+        "the reading must name exactly the model the decision request carried",
+      );
+      assert(
+        nl.decisionLimits({ provider: "laya" })?.model === sent,
+        "naming the provider must not change which model the reading is for",
+      );
+    }
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.21 — the routing site carries the documented top-level requestId, and activates on per-call credentials alone", async () => {
+  const fake = await startFakeLaya();
+  try {
+    clearDecisionKeys();
+    const seen: Array<{ site: string; requestId?: string }> = [];
+    // No decision key at instance or environment level: the request's own
+    // credentials are the only way to a decision model.
+    const nl = new NeuroLink({
+      classifierRouter: { enabled: true, pool: POOL },
+    });
+    nl.getEventEmitter().on("decision:before", (event) => {
+      const payload = event as DecisionBeforeEvent;
+      seen.push({ site: payload.site, requestId: payload.requestId });
+    });
+    await nl
+      .generate({
+        input: { text: HARD_PROMPT },
+        provider: "typesafe",
+        requestId: "req-top-level",
+        credentials: { laya: { apiKey: "sk-per-call", baseURL: fake.baseURL } },
+      })
+      .then(
+        () => null,
+        () => null,
+      );
+    assert(
+      fake.requests.length === 1 &&
+        fake.requests[0]!.authorization === "Bearer sk-per-call",
+      "per-call credentials alone must activate the routing site, on the caller's account",
+    );
+    assert(
+      seen.length === 1 &&
+        seen[0]!.site === "routing" &&
+        seen[0]!.requestId === "req-top-level",
+      "the routing event must carry the top-level requestId",
+    );
+    // Without per-call credentials the same instance routes by heuristic:
+    // no request, no event.
+    await nl
+      .generate({ input: { text: HARD_PROMPT }, provider: "typesafe" })
+      .then(
+        () => null,
+        () => null,
+      );
+    assert(
+      fake.requests.length === 1 && seen.length === 1,
+      "with no credentials anywhere the routing site must stay inert",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.22 — xor through the routing site: hooks run, host ids are namespaced, the image reaches the wire as a data URL", async () => {
+  const fake = await startFakeXor();
+  try {
+    clearDecisionKeys();
+    const image = await readFile(`${XOR_FIXTURE_DIR}red.png`);
+    const expectedDataUrl = `data:image/png;base64,${image.toString("base64")}`;
+    const seen: DecisionHookContext[] = [];
+    const answered: DecisionHookAnswersContext[] = [];
+    const before: DecisionBeforeEvent[] = [];
+    const after: DecisionAfterEvent[] = [];
+    const nl = new NeuroLink({
+      decisionHooks: {
+        extendQuestions: (context) => {
+          seen.push(context);
+          return HOST_QUESTIONS;
+        },
+        onAnswers: (context) => {
+          answered.push(context);
+        },
+      },
+    });
+    const emitter = nl.getEventEmitter();
+    emitter.on("decision:before", (event) =>
+      before.push(event as DecisionBeforeEvent),
+    );
+    emitter.on("decision:after", (event) =>
+      after.push(event as DecisionAfterEvent),
+    );
+
+    // A host-wired consumer stamps the site itself. The request names xor,
+    // carries one image (which only xor reads) and its own per-call
+    // credentials — everything the funnel has to keep intact on its way to
+    // the wire.
+    const result = await nl.tryDecide({
+      site: "routing",
+      provider: "xor",
+      credentials: { xor: { apiKey: "sk-fake-xor", baseURL: fake.baseURL } },
+      state: "A product photo from a listing.",
+      questions: { urgent: ALL_THREE.urgent },
+      images: [image],
+    });
+    assert(result !== null, "the fake must answer the xor request");
+    assert(
+      seen.length === 1 && seen[0]!.site === "routing",
+      "extendQuestions must run once, stamped as the routing site",
+    );
+    assert(
+      "urgent" in seen[0]!.questions && !("tone" in seen[0]!.questions),
+      "the hook must see the consumer's own questions, not its own",
+    );
+
+    assert(
+      fake.requests.length === 1,
+      "exactly one decision request must reach the server",
+    );
+    const request = fake.requests[0]!;
+    assert(
+      request.path === "/v1/systemone" &&
+        request.authorization === "Bearer sk-fake-xor",
+      "the request must reach xor's route on the per-call credentials",
+    );
+    assert(
+      request.body.model === EXPECTED_XOR_MODEL,
+      "the body must name the model the registry recorded for xor",
+    );
+    const wireIds = questionIdsOf(request);
+    assert(
+      wireIds.includes("urgent") &&
+        wireIds.includes("host__0") &&
+        wireIds.includes("host__1") &&
+        !wireIds.includes("tone") &&
+        !wireIds.includes("team"),
+      "host questions must travel under the host namespace, never their own ids",
+    );
+    const images = request.body.images;
+    assert(
+      Array.isArray(images) &&
+        images.length === 1 &&
+        images[0] === expectedDataUrl,
+      "the wire body must carry the image as one data URL, byte for byte",
+    );
+    assert(
+      !("video" in request.body),
+      "no video was sent, so none may appear on the wire",
+    );
+
+    // The consumer's result: its own ids only, media accounting intact.
+    assert(
+      result!.provider === "xor" &&
+        "urgent" in result!.answers &&
+        !("host__0" in result!.answers) &&
+        !("tone" in result!.answers),
+      "the consumer must see only its own answers",
+    );
+    assert(
+      result!.mediaBytes === expectedDataUrl.length,
+      "mediaBytes must survive the answer split",
+    );
+    assert(answered.length === 1, "onAnswers must run exactly once");
+    assert(
+      readDecisionBoolean(answered[0]!.answers, "tone") === 0.9 &&
+        readDecisionChoice(answered[0]!.answers, "team")?.choice ===
+          "payments" &&
+        answered[0]!.result.mediaBytes === expectedDataUrl.length,
+      "onAnswers must get the host's answers under its own ids, and the full result with its media accounting",
+    );
+    assert(
+      before.length === 1 &&
+        before[0]!.site === "routing" &&
+        before[0]!.hostQuestionCount === 2,
+      "decision:before must name the site and count the host questions",
+    );
+    assert(
+      after.length === 1 &&
+        after[0]!.site === "routing" &&
+        after[0]!.provider === "xor" &&
+        after[0]!.model === EXPECTED_XOR_MODEL &&
+        after[0]!.result?.mediaBytes === expectedDataUrl.length &&
+        "urgent" in after[0]!.answers &&
+        !("host__0" in after[0]!.answers) &&
+        readDecisionBoolean(after[0]!.hostAnswers, "tone") === 0.9,
+      "decision:after must split the answers and carry the media accounting",
+    );
+    assert(
+      Buffer.isBuffer(image) &&
+        image.equals(await readFile(`${XOR_FIXTURE_DIR}red.png`)),
+      "the caller's image Buffer must be left exactly as it was handed in",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("20.23 — decisionLimits({ provider: 'xor' }): a state window and media limits, no question cap, enforced locally", async () => {
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink();
+    const reading = nl.decisionLimits({ provider: "xor" });
+    assert(reading !== null, "no reading for xor");
+    assert(
+      reading!.provider === "xor" && reading!.model === EXPECTED_XOR_MODEL,
+      "the reading must name xor and the model decide() would send",
+    );
+    assert(
+      reading!.maxStateTokens === 200_000,
+      "xor must read its conservative 200,000-token state window",
+    );
+    assert(
+      reading!.nonAsciiTokensPerChar === 1,
+      "xor must charge non-ASCII text at one token per character",
+    );
+    assert(
+      !("maxQuestions" in reading!),
+      "xor has no question-count cap, so maxQuestions must be absent — not Infinity, not undefined-as-a-key",
+    );
+    assert(
+      reading!.media !== undefined &&
+        reading!.media.maxImages === 8 &&
+        reading!.media.video === true &&
+        reading!.media.maxRequestBytes === 8 * 1024 * 1024,
+      "the reading must carry xor's media limits: 8 images, one video, an 8 MiB body",
+    );
+    assert(
+      reading!.enforcedLocally === true,
+      "xor's limits are enforced locally, unlike typesafe's advisory row",
+    );
+    // The two text-only providers still read no media, so a host can tell
+    // from the reading alone where an image may go.
+    assert(
+      nl.decisionLimits({ provider: "laya", model: "typed-decisions" })!
+        .media === undefined &&
+        nl.decisionLimits({ provider: "typesafe" })!.media === undefined,
+      "laya and typesafe must read no media limits",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("20.24 — with no question cap, every well-formed host addition goes: 100 for xor, where laya would keep 63", async () => {
+  const fake = await startFakeXor();
+  const previousDebug = process.env.NEUROLINK_DEBUG;
+  try {
+    clearDecisionKeys();
+    // Warnings are hidden unless debugging; the absence of the drop warning
+    // is part of the contract here.
+    process.env.NEUROLINK_DEBUG = "true";
+    const HOST_COUNT = 100;
+    const many: Record<string, DecisionQuestionMap[string]> = {};
+    for (let index = 0; index < HOST_COUNT; index += 1) {
+      many[`q${index}`] = {
+        type: "boolean",
+        instructions: `Host question ${index}?`,
+      };
+    }
+    const hostIds = new Set<string>();
+    const warnings: string[] = [];
+    const nl = new NeuroLink({
+      credentials: { xor: { apiKey: "sk-fake-xor", baseURL: fake.baseURL } },
+      decisionHooks: {
+        extendQuestions: () => many,
+        onAnswers: (context) => {
+          for (const id of Object.keys(context.answers)) {
+            hostIds.add(id);
+          }
+        },
+      },
+    });
+    nl.getEventEmitter().on("log-event", (event) => {
+      const entry = event as { level?: string; message?: string };
+      if (entry.level === "warn" && typeof entry.message === "string") {
+        warnings.push(entry.message);
+      }
+    });
+    const result = await nl.tryDecide({
+      site: "toolRouting",
+      state: SUPPORT_TICKET,
+      questions: { urgent: ALL_THREE.urgent },
+    });
+    assert(result !== null, "the fake must answer the xor request");
+    assert(fake.requests.length === 1, "one request must reach the server");
+    const wireIds = questionIdsOf(fake.requests[0]!);
+    assert(
+      wireIds.length === HOST_COUNT + 1 &&
+        wireIds.filter((id) => id.startsWith("host__")).length === HOST_COUNT,
+      "every host question must reach the wire when the provider caps by tokens, not by count",
+    );
+    assert(
+      hostIds.size === HOST_COUNT && [...hostIds].every((id) => id in many),
+      "every host answer must come back under the host's own id",
+    );
+    assert(
+      Object.keys(result!.answers).length === 1 && "urgent" in result!.answers,
+      "the consumer must still see only its own answer",
+    );
+    assert(
+      !warnings.some(
+        (message) =>
+          message.includes("dropped") && message.includes("host question"),
+      ),
+      "nothing was dropped, so no drop warning may be logged",
+    );
+  } finally {
+    await fake.close();
+    if (previousDebug === undefined) {
+      delete process.env.NEUROLINK_DEBUG;
+    } else {
+      process.env.NEUROLINK_DEBUG = previousDebug;
+    }
+    restoreEnv();
+  }
+});
+
+restoreEnv();
 
 await runSuite();

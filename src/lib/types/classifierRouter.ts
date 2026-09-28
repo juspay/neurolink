@@ -16,6 +16,7 @@
 
 import type { ValidationSchema } from "./aliases.js";
 import type { DecisionCallerFn } from "./decision.js";
+import type { NeurolinkCredentials } from "./providers.js";
 
 /** Coarse difficulty buckets the classifier maps a request into. */
 export type ClassifierDifficulty =
@@ -331,6 +332,16 @@ export type ClassifierRouterInput = {
   sessionBound?: boolean;
   /** Number of prior conversation messages the caller supplied, when known. */
   priorMessageCount?: number;
+  /**
+   * The outer request's per-call credentials, forwarded to the decision call
+   * so it reaches the caller's provider account rather than the instance's.
+   * Never part of the state sent to the model.
+   */
+  credentials?: NeurolinkCredentials;
+  /** The outer request's abort signal; an abandoned turn abandons its routing call. */
+  signal?: AbortSignal;
+  /** The outer request's id, for hook and event correlation. Never sent to the model. */
+  requestId?: string;
 };
 
 /** Enriched per-model metadata used while ranking pool members. */
@@ -390,9 +401,11 @@ export type ClassifierRouterDeps = {
   decide?: ClassifierDecideFn;
   /**
    * Whether a decision provider is configured for this caller, counting the
-   * credentials it was given as well as the environment. Omit to check the
-   * environment alone.
+   * credentials it was given as well as the environment — and the request's
+   * own per-call `credentials`, passed in from `ClassifierRouterInput`, so a
+   * caller that holds no decision key itself can still route a request that
+   * carries one. Omit to check the environment alone.
    */
-  hasDecisionProvider?: () => boolean;
+  hasDecisionProvider?: (callCredentials?: NeurolinkCredentials) => boolean;
   logger?: ClassifierLogger;
 };

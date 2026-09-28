@@ -56,6 +56,27 @@ export function serializeToolResult(result: unknown, maxChars: number): string {
  * Error-shaped tool results (MCP `isError`, `{error}` payloads) count as
  * failures even though the loop received them as normal returns.
  */
+/**
+ * True for an `error` value that actually carries something — `true`, a
+ * non-empty string, or a non-empty object/array — never a falsy placeholder
+ * a tool sets on every call (`error: false`, `error: 0`, `error: {}`).
+ */
+export function isMeaningfulError(error: unknown): boolean {
+  if (error === true) {
+    return true;
+  }
+  if (typeof error === "string") {
+    return error.length > 0;
+  }
+  if (Array.isArray(error)) {
+    return error.length > 0;
+  }
+  if (typeof error === "object" && error !== null) {
+    return Object.keys(error).length > 0;
+  }
+  return false;
+}
+
 export function isErrorShapedToolResult(result: unknown): boolean {
   if (!result || typeof result !== "object") {
     return false;
@@ -64,10 +85,14 @@ export function isErrorShapedToolResult(result: unknown): boolean {
   if (record.isError === true) {
     return true;
   }
-  if (record.error !== undefined && record.error !== null) {
+  if (isMeaningfulError(record.error)) {
     return true;
   }
-  if (typeof record.status === "string") {
+  if (
+    typeof record.status === "string" &&
+    record.success !== true &&
+    record.ok !== true
+  ) {
     return ["error", "failed", "failure", "fail"].includes(
       record.status.toLowerCase().trim(),
     );

@@ -480,6 +480,21 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // defaultHealthSweepPriority: all three feed generation fallback chains,
     // and a text-less provider must never be reachable from them.
     timeouts: { decideMs: 5000 },
+    // ADVISORY, not enforced: Jev's server refuses an over-limit request
+    // itself (measured by bisection — a 33,002-token state accepted, 33,003
+    // rejected), so this row exists for `decisionLimits()` to report, and the
+    // pre-flight check skips it. Refusing locally would turn a measured server
+    // ceiling into a client one that drifts from it silently. The number
+    // mirrors TYPESAFE_MAX_STATE_TOKENS in providers/typesafe.ts (which
+    // cannot be imported here without a provider → descriptor cycle); the
+    // decide suite pins the two equal. No question COUNT cap has been
+    // measured — 400 questions beside a near-ceiling state were accepted —
+    // because TypeSafe bounds a request by tokens (TYPESAFE_MAX_REQUEST_TOKENS,
+    // 64K on state plus all questions), not by count.
+    decisionLimits: {
+      maxStateTokens: 33_000,
+      advisory: true,
+    },
     setupUrl: "https://console.typesafe.ai/keys",
   },
   // Laya MUST stay after TypeSafe, XOR after Laya, Perplexity after XOR, and

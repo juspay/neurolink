@@ -4,6 +4,8 @@
  * generate/stream request is asking for.
  */
 
+import type { TTSSynthesisMode } from "./tts.js";
+
 export type RequestKind =
   | "text"
   | "image"
@@ -24,8 +26,15 @@ export type RequestKindInput = {
     mode?: string;
     format?: string;
   };
-  tts?: {
-    enabled?: boolean;
-    useAiResponse?: boolean;
-  };
+  tts?: RequestKindTTSInput;
+};
+
+/**
+ * The two `tts` fields that decide between direct synthesis and synthesizing
+ * the model's reply. `mode` wins; `useAiResponse` is the legacy spelling.
+ */
+export type RequestKindTTSInput = {
+  enabled?: boolean;
+  mode?: TTSSynthesisMode;
+  useAiResponse?: boolean;
 };

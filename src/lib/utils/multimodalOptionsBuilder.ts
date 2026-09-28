@@ -81,6 +81,7 @@ export function buildMultimodalOptions(
     officeOptions: options.officeOptions,
     systemPrompt: options.systemPrompt,
     conversationHistory: options.conversationMessages,
+    replayToolSteps: options.replayToolSteps,
     provider: providerName,
     model: modelName,
     temperature: options.temperature,

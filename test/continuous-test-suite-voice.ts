@@ -1059,11 +1059,16 @@ async function testHandlerRegistration(): Promise<boolean | null> {
     // Import TTSProcessor from dist
     const { TTSProcessor } = await import("../dist/utils/ttsProcessor.js");
 
+    // registerDefault{TTS,STT}Handlers skip a handler whose credential is
+    // absent, so the ElevenLabs entries are only expected when the key is set.
+    const elevenLabsConfigured = Boolean(
+      process.env.ELEVENLABS_API_KEY?.trim(),
+    );
     const ttsProviders = [
       "google-ai",
       "vertex",
       "openai-tts",
-      "elevenlabs",
+      ...(elevenLabsConfigured ? ["elevenlabs"] : []),
       "azure-tts",
     ];
     const ttsChecks: Array<{ provider: string; supported: boolean }> = [];
@@ -1090,7 +1095,13 @@ async function testHandlerRegistration(): Promise<boolean | null> {
 
     // D3: removed "openai-stt" — that provider id is not registered.
     // The OpenAI STT provider is registered as "whisper".
-    const sttProviders = ["whisper", "deepgram", "google-stt", "azure-stt"];
+    const sttProviders = [
+      "whisper",
+      "deepgram",
+      "google-stt",
+      "azure-stt",
+      ...(elevenLabsConfigured ? ["elevenlabs-stt"] : []),
+    ];
     const sttChecks: Array<{ provider: string; supported: boolean }> = [];
 
     for (const provider of sttProviders) {

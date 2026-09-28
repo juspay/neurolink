@@ -71,6 +71,18 @@ Flexible type to support both typed and legacy event patterns
 
 ---
 
+### decision:before
+
+> **decision:before**: `unknown`
+
+---
+
+### decision:after
+
+> **decision:after**: `unknown`
+
+---
+
 ### response:start
 
 > **response:start**: `unknown`

@@ -58,9 +58,28 @@
 
 ---
 
-### openAIToolChoice
+### stepToolChoice
 
-> **openAIToolChoice**: [`OpenAICompatToolChoiceWire`](OpenAICompatToolChoiceWire.md) \| `undefined`
+> **stepToolChoice**: (`step`, `steps`) => `Promise`\<[`OpenAICompatToolChoiceWire`](OpenAICompatToolChoiceWire.md) \| `undefined`\>
+
+The wire `tool_choice` for one step. A function rather than a value
+because a forced choice applies only to the first `toolChoiceSteps`
+steps, and a caller's `prepareStep` hook may override it per step;
+`steps` is the record of the steps completed so far, handed to that hook.
+
+#### Parameters
+
+##### step
+
+`number`
+
+##### steps
+
+[`StepResult`](StepResult.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>[]
+
+#### Returns
+
+`Promise`\<[`OpenAICompatToolChoiceWire`](OpenAICompatToolChoiceWire.md) \| `undefined`\>
 
 ---
 
@@ -75,12 +94,6 @@
 > `optional` **toolNameFromWire?**: `Map`\<`string`, `string`\>
 
 Wire → registered tool-name map when sanitization was needed (see buildWireToolNameMaps).
-
----
-
-### emitter
-
-> **emitter**: `TypedEventEmitter`\<[`NeuroLinkEvents`](NeuroLinkEvents.md)\> \| `undefined`
 
 ---
 

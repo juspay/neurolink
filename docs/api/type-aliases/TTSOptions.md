@@ -20,7 +20,27 @@ Enable TTS output
 
 ---
 
-### useAiResponse?
+### mode?
+
+> `optional` **mode?**: [`TTSSynthesisMode`](TTSSynthesisMode.md)
+
+What to synthesize: the input text (`"direct"`, the default) or the
+model's reply (`"response"`). An explicit `mode` wins over the legacy
+`useAiResponse` flag. Ignored by `stream()`, which always synthesizes the
+streamed response.
+
+#### Example
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Tell me a joke" },
+  tts: { enabled: true, mode: "response" },
+});
+```
+
+---
+
+### ~~useAiResponse?~~
 
 > `optional` **useAiResponse?**: `boolean`
 
@@ -37,6 +57,11 @@ When true: TTS will synthesize the AI-generated response after generation comple
 ```ts
 false;
 ```
+
+#### Deprecated
+
+Use `mode: "response"` / `mode: "direct"` instead. Still
+honoured when `mode` is not set.
 
 #### Examples
 
@@ -57,6 +82,36 @@ const result = await neurolink.generate({
 });
 // AI generates the joke, then TTS synthesizes the AI's response
 ```
+
+---
+
+### sanitize?
+
+> `optional` **sanitize?**: `boolean` \| [`SpeechSanitizeOptions`](SpeechSanitizeOptions.md)
+
+Clean the text before it reaches the voice: strip markdown, reduce URLs
+to their hostname, drop emoji. `true` applies the defaults of
+[SpeechSanitizeOptions](SpeechSanitizeOptions.md); an object tunes them. Off by default so
+existing callers get byte-identical synthesis input. In `stream()` the
+pass runs per segment with fenced code kept (fence lines stripped).
+
+#### Default
+
+```ts
+false;
+```
+
+---
+
+### signal?
+
+> `optional` **signal?**: `AbortSignal`
+
+Cancels synthesis. A handler that supports it (ElevenLabs) aborts the
+request in flight and makes no further retry attempt once this fires.
+`generate()` derives one from its own synthesis timeout and the caller's
+`abortSignal`, so a handler's retry loop cannot outlive the call that
+started it and issue a billable request nobody is waiting for.
 
 ---
 
@@ -81,6 +136,18 @@ Audio format (default: mp3)
 > `optional` **speed?**: `number`
 
 Speaking rate 0.25-4.0 (default: 1.0)
+
+---
+
+### language?
+
+> `optional` **language?**: `string`
+
+BCP-47 language tag (e.g. "en-US", "hi") for providers that accept one.
+Provider-specific: ElevenLabs reduces it to the ISO 639-1 primary subtag
+(`en-US` → `en`) and forwards it as `language_code` on every model except
+`eleven_multilingual_v2`, which rejects the field; Cartesia maps it to
+`language`.
 
 ---
 

@@ -12,7 +12,9 @@ import type {
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { logger } from "../../utils/logger.js";
+import { TOOL_EVENTS_WRAPPED } from "../../types/index.js";
 import { getKeyCount } from "../../utils/transformationUtils.js";
+import { extractIsErrorText } from "../../utils/toolResultStatus.js";
 import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
 import {
   generateToolOutputPreview,
@@ -20,7 +22,27 @@ import {
   RETRIEVE_CONTEXT_TOOL_NAME,
 } from "../../context/toolOutputLimits.js";
 import type { NeuroLink } from "../../neurolink.js";
-import type { Tool } from "../../types/index.js";
+import type { EventWrappedTool, Tool } from "../../types/index.js";
+
+/**
+ * Own property stamped on a tool object whose `execute` already emits
+ * `tool:start` / `tool:end`. It lives on the OBJECT, not the function: later
+ * layers (the execution recorder, discovery) replace `execute` via
+ * `{ ...tool, execute }`, which drops a function-identity check but carries a
+ * symbol-keyed own property along — so one execution still yields one pair.
+ */
+
+function isEventWrappedTool(tool: unknown): boolean {
+  return (
+    typeof tool === "object" &&
+    tool !== null &&
+    (tool as EventWrappedTool)[TOOL_EVENTS_WRAPPED] === true
+  );
+}
+
+function markEventWrapped<T extends Tool>(tool: T): T {
+  return Object.assign(tool, { [TOOL_EVENTS_WRAPPED]: true as const });
+}
 import { tool as createAISDKTool, jsonSchema } from "../../utils/tool.js";
 
 /** Abort-shaped error so provider loops route it to their cancellation path. */
@@ -243,6 +265,12 @@ export class ToolsManager {
   // Session context
   protected sessionId?: string;
   protected userId?: string;
+
+  // Execute functions this manager already instrumented for tool events,
+  // so re-wrapping is a no-op rather than a second start/end pair.
+  private readonly eventWrappedExecutes = new WeakSet<
+    (params: unknown, execOptions?: unknown) => Promise<unknown>
+  >();
 
   constructor(
     private readonly providerName: AIProviderName,
@@ -573,16 +601,154 @@ export class ToolsManager {
     this.userId = userId;
   }
 
+  /**
+   * Emit one tool event. A listener that throws must never reach the tool
+   * loop: it would turn a successful execution into a failed one (the model
+   * then retries a side effect that already happened) and, from inside the
+   * wrapper's catch, produce a second `tool:end` for the same call. Listener
+   * failures are logged and swallowed here instead.
+   */
   private emitToolEvent(
     eventName: "tool:start" | "tool:end",
     toolName: string,
     payload: Omit<ToolEventPayload, "tool" | "toolName">,
   ): void {
-    if (this.neurolink?.getEventEmitter) {
+    if (!this.neurolink?.getEventEmitter) {
+      return;
+    }
+    try {
       this.neurolink
         .getEventEmitter()
         .emit(eventName, createToolEventPayload(toolName, payload));
+    } catch (listenerError) {
+      logger.warn(`A ${eventName} listener threw for tool ${toolName}`, {
+        error:
+          listenerError instanceof Error
+            ? listenerError.message
+            : String(listenerError),
+      });
     }
+  }
+
+  /**
+   * Wrap an execute function so one `tool:start` and exactly one `tool:end`
+   * (with the real duration) fire per invocation. Idempotent: a function this
+   * manager already wrapped is returned as is, so a tool that re-enters
+   * resolution (the stream → generate fallback re-resolves `options.tools`)
+   * never emits twice.
+   *
+   * A result the tool RETURNED with `isError: true` (MCP failure, breaker
+   * refusal, a thrown error already converted by `neurolink.executeTool`) is
+   * a failure: `tool:end` carries `success: false` and the extracted text,
+   * as the step-finish emitter this wrapper replaced did.
+   */
+  private wrapExecuteWithEvents(
+    toolName: string,
+    execute: (params: unknown, execOptions?: unknown) => Promise<unknown>,
+  ): (params: unknown, execOptions?: unknown) => Promise<unknown> {
+    if (this.eventWrappedExecutes.has(execute)) {
+      return execute;
+    }
+    const wrapped = async (params: unknown, execOptions?: unknown) => {
+      const startTime = Date.now();
+      // The loop's execute options carry the model's tool_call id, which is
+      // what lets a listener pair concurrent same-name start/end events.
+      const toolCallId =
+        execOptions && typeof execOptions === "object"
+          ? (execOptions as { toolCallId?: unknown }).toolCallId
+          : undefined;
+      const idField =
+        typeof toolCallId === "string" && toolCallId.length > 0
+          ? { toolCallId }
+          : {};
+      this.emitToolEvent("tool:start", toolName, {
+        input: params,
+        ...idField,
+      });
+
+      let result: unknown;
+      try {
+        result = await execute(params, execOptions);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.emitToolEvent("tool:end", toolName, {
+          error: errorMsg,
+          success: false,
+          responseTime: Date.now() - startTime,
+          ...idField,
+        });
+        throw error;
+      }
+      const isErrorText = extractIsErrorText(result);
+      this.emitToolEvent("tool:end", toolName, {
+        result,
+        success: isErrorText === undefined,
+        ...(isErrorText !== undefined ? { error: isErrorText } : {}),
+        responseTime: Date.now() - startTime,
+        ...idField,
+      });
+      return result;
+    };
+    this.eventWrappedExecutes.add(wrapped);
+    return wrapped;
+  }
+
+  /**
+   * Report a tool call the loop rejected BEFORE any execute ran — an unknown
+   * tool name, arguments the schema rejected, a breaker skip. Nothing else
+   * emits for such a call, so listeners (memory event capture, tool spans,
+   * error-rate metrics) saw zero attempts while the result list held the
+   * failures. One `tool:start` / `tool:end(success: false)` pair.
+   */
+  emitRejectedToolCall(
+    toolName: string,
+    error: string,
+    toolCallId?: string,
+  ): void {
+    const idField = toolCallId ? { toolCallId } : {};
+    this.emitToolEvent("tool:start", toolName, { ...idField });
+    this.emitToolEvent("tool:end", toolName, {
+      error,
+      success: false,
+      responseTime: 0,
+      ...idField,
+    });
+  }
+
+  /**
+   * Give per-call tools (`options.tools`) the same `tool:start` / `tool:end`
+   * emission that registered and MCP tools get from their executors. Tools
+   * without an `execute` pass through untouched.
+   */
+  wrapExternalToolsWithEvents(
+    tools: Record<string, Tool>,
+  ): Record<string, Tool> {
+    const wrapped: Record<string, Tool> = {};
+    for (const [toolName, tool] of Object.entries(tools)) {
+      if (isEventWrappedTool(tool)) {
+        wrapped[toolName] = tool;
+        continue;
+      }
+      const execute =
+        tool && typeof tool === "object" && "execute" in tool
+          ? (
+              tool as {
+                execute?: (
+                  params: unknown,
+                  execOptions?: unknown,
+                ) => Promise<unknown>;
+              }
+            ).execute
+          : undefined;
+      wrapped[toolName] =
+        typeof execute === "function"
+          ? markEventWrapped({
+              ...tool,
+              execute: this.wrapExecuteWithEvents(toolName, execute),
+            } as Tool)
+          : tool;
+    }
+    return wrapped;
   }
 
   /**
@@ -773,32 +939,10 @@ export class ToolsManager {
           toolName,
           originalExecute,
         );
-        tools[toolName] = {
+        tools[toolName] = markEventWrapped({
           ...(directTool as Tool),
-          execute: async (params: unknown, execOptions?: unknown) => {
-            const startTime = Date.now();
-            this.emitToolEvent("tool:start", toolName, { input: params });
-
-            try {
-              const result = await guardedExecute(params, execOptions);
-              this.emitToolEvent("tool:end", toolName, {
-                result,
-                success: true,
-                responseTime: Date.now() - startTime,
-              });
-              return result;
-            } catch (error) {
-              const errorMsg =
-                error instanceof Error ? error.message : String(error);
-              this.emitToolEvent("tool:end", toolName, {
-                error: errorMsg,
-                success: false,
-                responseTime: Date.now() - startTime,
-              });
-              throw error;
-            }
-          },
-        } as Tool;
+          execute: this.wrapExecuteWithEvents(toolName, guardedExecute),
+        } as Tool);
       } else {
         // Fallback: include tool as-is if it doesn't have execute function
         tools[toolName] = directTool as Tool;
@@ -962,65 +1106,117 @@ export class ToolsManager {
         finalSchema = z.object({});
       }
 
-      return createAISDKTool<unknown, unknown>({
-        description: toolInfo.description || `Tool ${toolName}`,
-        inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
-        execute: async (params: unknown) => {
-          const customToolSpan = tracers.sdk.startSpan(
-            "neurolink.tools.execute_custom",
-            {
-              attributes: {
-                "tool.name": toolName,
-                "tool.type": "custom",
-                // Curator P1-3: pure wrapper — duplicates the AI SDK's
-                // ai.toolCall observation in Langfuse. Keep the OTel span
-                // for internal metrics; filter from Langfuse export.
-                "langfuse.internal": true,
+      // Emits its own tool:start / tool:end through neurolink.executeTool, so
+      // it is marked as instrumented and never wrapped a second time.
+      return markEventWrapped(
+        createAISDKTool<unknown, unknown>({
+          description: toolInfo.description || `Tool ${toolName}`,
+          inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
+          execute: async (params: unknown) => {
+            const customToolSpan = tracers.sdk.startSpan(
+              "neurolink.tools.execute_custom",
+              {
+                attributes: {
+                  "tool.name": toolName,
+                  "tool.type": "custom",
+                  // Curator P1-3: pure wrapper — duplicates the AI SDK's
+                  // ai.toolCall observation in Langfuse. Keep the OTel span
+                  // for internal metrics; filter from Langfuse export.
+                  "langfuse.internal": true,
+                },
               },
-            },
-          );
+            );
 
-          const startTime = Date.now();
-          let executionId: string | undefined;
+            const startTime = Date.now();
+            let executionId: string | undefined;
 
-          try {
-            // Route through NeuroLink.executeTool() when available for MCP enhancement support
-            // (cache, middleware, annotations, circuit breaker, routing)
-            if (this.toolExecutor) {
-              // Per-tool timeout and retries flow through the customTools map
-              // (set at registration via ToolRegistrationOptions).
-              // The execute wrapper in registerTool already enforces timeouts,
-              // but we also forward them to toolExecutor for MCP-level handling.
-              const toolTimeoutMs = toolInfo.timeoutMs;
-              const toolMaxRetries = toolInfo.maxRetries;
-              const hasRegistrationOptions =
-                toolTimeoutMs !== undefined || toolMaxRetries !== undefined;
-              const result = await this.toolExecutor(
-                toolName,
-                params,
-                hasRegistrationOptions
-                  ? {
-                      ...(toolTimeoutMs !== undefined && {
-                        timeout: toolTimeoutMs,
-                      }),
-                      ...(toolMaxRetries !== undefined && {
-                        maxRetries: toolMaxRetries,
-                      }),
-                    }
-                  : undefined,
-              );
+            try {
+              // Route through NeuroLink.executeTool() when available for MCP enhancement support
+              // (cache, middleware, annotations, circuit breaker, routing)
+              if (this.toolExecutor) {
+                // Per-tool timeout and retries flow through the customTools map
+                // (set at registration via ToolRegistrationOptions).
+                // The execute wrapper in registerTool already enforces timeouts,
+                // but we also forward them to toolExecutor for MCP-level handling.
+                const toolTimeoutMs = toolInfo.timeoutMs;
+                const toolMaxRetries = toolInfo.maxRetries;
+                const hasRegistrationOptions =
+                  toolTimeoutMs !== undefined || toolMaxRetries !== undefined;
+                const result = await this.toolExecutor(
+                  toolName,
+                  params,
+                  hasRegistrationOptions
+                    ? {
+                        ...(toolTimeoutMs !== undefined && {
+                          timeout: toolTimeoutMs,
+                        }),
+                        ...(toolMaxRetries !== undefined && {
+                          maxRetries: toolMaxRetries,
+                        }),
+                      }
+                    : undefined,
+                );
+
+                const convertedResult = this.utilities?.convertToolResult
+                  ? await this.utilities.convertToolResult(result)
+                  : result;
+                const endTime = Date.now();
+
+                customToolSpan.setAttribute(
+                  "tool.duration_ms",
+                  endTime - startTime,
+                );
+
+                let errorResult: string | undefined = undefined;
+                if (
+                  convertedResult &&
+                  typeof convertedResult === "object" &&
+                  "isError" in convertedResult &&
+                  convertedResult.isError
+                ) {
+                  try {
+                    errorResult = JSON.stringify(convertedResult);
+                  } catch (error) {
+                    logger.error(
+                      `Failed to serialize error result for ${toolName}`,
+                      error,
+                    );
+                  }
+                }
+
+                customToolSpan.setAttribute(
+                  "tool.result.status",
+                  errorResult ? "error" : "success",
+                );
+                if (errorResult) {
+                  customToolSpan.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: `Tool ${toolName} returned isError: true`,
+                  });
+                } else {
+                  customToolSpan.setStatus({ code: SpanStatusCode.OK });
+                }
+
+                return convertedResult;
+              }
+
+              // Fallback: direct execution (standalone usage without NeuroLink SDK)
+              if (this.neurolink?.emitToolStart) {
+                executionId = this.neurolink.emitToolStart(
+                  toolName,
+                  params,
+                  startTime,
+                );
+              }
+              const result = await toolInfo.execute(params as ToolArgs);
 
               const convertedResult = this.utilities?.convertToolResult
                 ? await this.utilities.convertToolResult(result)
                 : result;
               const endTime = Date.now();
 
-              customToolSpan.setAttribute(
-                "tool.duration_ms",
-                endTime - startTime,
-              );
-
               let errorResult: string | undefined = undefined;
+
               if (
                 convertedResult &&
                 typeof convertedResult === "object" &&
@@ -1037,6 +1233,22 @@ export class ToolsManager {
                 }
               }
 
+              // Emit tool end event (success or handled error)
+              if (this.neurolink?.emitToolEnd) {
+                this.neurolink.emitToolEnd(
+                  toolName,
+                  convertedResult,
+                  errorResult,
+                  startTime,
+                  endTime,
+                  executionId,
+                );
+              }
+
+              customToolSpan.setAttribute(
+                "tool.duration_ms",
+                endTime - startTime,
+              );
               customToolSpan.setAttribute(
                 "tool.result.status",
                 errorResult ? "error" : "success",
@@ -1051,112 +1263,48 @@ export class ToolsManager {
               }
 
               return convertedResult;
-            }
+            } catch (error) {
+              const endTime = Date.now();
+              const errorMsg =
+                error instanceof Error ? error.message : String(error);
 
-            // Fallback: direct execution (standalone usage without NeuroLink SDK)
-            if (this.neurolink?.emitToolStart) {
-              executionId = this.neurolink.emitToolStart(
-                toolName,
-                params,
-                startTime,
-              );
-            }
-            const result = await toolInfo.execute(params as ToolArgs);
-
-            const convertedResult = this.utilities?.convertToolResult
-              ? await this.utilities.convertToolResult(result)
-              : result;
-            const endTime = Date.now();
-
-            let errorResult: string | undefined = undefined;
-
-            if (
-              convertedResult &&
-              typeof convertedResult === "object" &&
-              "isError" in convertedResult &&
-              convertedResult.isError
-            ) {
-              try {
-                errorResult = JSON.stringify(convertedResult);
-              } catch (error) {
-                logger.error(
-                  `Failed to serialize error result for ${toolName}`,
-                  error,
+              // Emit tool end event (error) — only for fallback path
+              // When toolExecutor is used, executeTool() handles event emission
+              if (!this.toolExecutor && this.neurolink?.emitToolEnd) {
+                this.neurolink.emitToolEnd(
+                  toolName,
+                  undefined, // no result
+                  errorMsg,
+                  startTime,
+                  endTime,
+                  executionId,
+                );
+                logger.debug(
+                  `Custom tool error: ${toolName} (${endTime - startTime}ms)`,
+                  { error: errorMsg },
                 );
               }
-            }
 
-            // Emit tool end event (success or handled error)
-            if (this.neurolink?.emitToolEnd) {
-              this.neurolink.emitToolEnd(
-                toolName,
-                convertedResult,
-                errorResult,
-                startTime,
-                endTime,
-                executionId,
+              customToolSpan.setAttribute(
+                "tool.duration_ms",
+                endTime - startTime,
               );
-            }
-
-            customToolSpan.setAttribute(
-              "tool.duration_ms",
-              endTime - startTime,
-            );
-            customToolSpan.setAttribute(
-              "tool.result.status",
-              errorResult ? "error" : "success",
-            );
-            if (errorResult) {
+              customToolSpan.setAttribute("tool.result.status", "error");
+              customToolSpan.recordException(
+                error instanceof Error ? error : new Error(errorMsg),
+              );
               customToolSpan.setStatus({
                 code: SpanStatusCode.ERROR,
-                message: `Tool ${toolName} returned isError: true`,
+                message: errorMsg,
               });
-            } else {
-              customToolSpan.setStatus({ code: SpanStatusCode.OK });
+
+              throw error;
+            } finally {
+              customToolSpan.end();
             }
-
-            return convertedResult;
-          } catch (error) {
-            const endTime = Date.now();
-            const errorMsg =
-              error instanceof Error ? error.message : String(error);
-
-            // Emit tool end event (error) — only for fallback path
-            // When toolExecutor is used, executeTool() handles event emission
-            if (!this.toolExecutor && this.neurolink?.emitToolEnd) {
-              this.neurolink.emitToolEnd(
-                toolName,
-                undefined, // no result
-                errorMsg,
-                startTime,
-                endTime,
-                executionId,
-              );
-              logger.debug(
-                `Custom tool error: ${toolName} (${endTime - startTime}ms)`,
-                { error: errorMsg },
-              );
-            }
-
-            customToolSpan.setAttribute(
-              "tool.duration_ms",
-              endTime - startTime,
-            );
-            customToolSpan.setAttribute("tool.result.status", "error");
-            customToolSpan.recordException(
-              error instanceof Error ? error : new Error(errorMsg),
-            );
-            customToolSpan.setStatus({
-              code: SpanStatusCode.ERROR,
-              message: errorMsg,
-            });
-
-            throw error;
-          } finally {
-            customToolSpan.end();
-          }
-        },
-      });
+          },
+        }),
+      );
     } catch (toolCreationError) {
       logger.error(`Failed to create tool: ${toolName}`, toolCreationError);
       return null;
@@ -1225,37 +1373,26 @@ export class ToolsManager {
         rawExecute,
       );
 
-      return createAISDKTool<unknown, unknown>({
-        description: tool.description || `External MCP tool ${tool.name}`,
-        inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
-        execute: async (params: unknown, execOptions?: unknown) => {
-          const startTime = Date.now();
-          this.emitToolEvent("tool:start", tool.name, { input: params });
+      const loggedExecute = async (params: unknown, execOptions?: unknown) => {
+        try {
+          return await guardedExecute(params, execOptions);
+        } catch (mcpError) {
+          logger.error(`External MCP tool failed: ${tool.name}`, {
+            serverId: tool.serverId,
+            error:
+              mcpError instanceof Error ? mcpError.message : String(mcpError),
+          });
+          throw mcpError;
+        }
+      };
 
-          try {
-            const result = await guardedExecute(params, execOptions);
-            this.emitToolEvent("tool:end", tool.name, {
-              result,
-              success: true,
-              responseTime: Date.now() - startTime,
-            });
-            return result;
-          } catch (mcpError) {
-            const errorMsg =
-              mcpError instanceof Error ? mcpError.message : String(mcpError);
-            this.emitToolEvent("tool:end", tool.name, {
-              error: errorMsg,
-              success: false,
-              responseTime: Date.now() - startTime,
-            });
-            logger.error(`External MCP tool failed: ${tool.name}`, {
-              serverId: tool.serverId,
-              error: errorMsg,
-            });
-            throw mcpError;
-          }
-        },
-      });
+      return markEventWrapped(
+        createAISDKTool<unknown, unknown>({
+          description: tool.description || `External MCP tool ${tool.name}`,
+          inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
+          execute: this.wrapExecuteWithEvents(tool.name, loggedExecute),
+        }),
+      );
     } catch (toolCreationError) {
       logger.error(
         `Failed to create external MCP tool: ${tool.name}`,

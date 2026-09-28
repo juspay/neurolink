@@ -54,7 +54,7 @@ can drive perfectly, rejected for members it never touches.
 
 ### buildParams
 
-> **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming`
+> **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming` \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming`\>
 
 Returns the NON-streaming params. The adapter adds `stream: true` itself,
 so requiring the streaming variant here would force every caller to
@@ -74,7 +74,7 @@ the adapter is about to overwrite.
 
 #### Returns
 
-`Anthropic.Messages.MessageCreateParamsNonStreaming`
+`Anthropic.Messages.MessageCreateParamsNonStreaming` \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming`\>
 
 ---
 

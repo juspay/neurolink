@@ -66,6 +66,7 @@ const neurolink = new NeuroLink({
     enableSummarization: true,
     summarizationProvider: "vertex", // Provider for summarization LLM calls
     summarizationModel: "gemini-2.5-flash", // Model for summarization LLM calls
+    replayToolSteps: "marker", // How stored tool steps are replayed on later turns — see below
     contextCompaction: {
       enabled: true, // Enable auto-compaction (default: true when summarization enabled)
       threshold: 0.8, // Compaction trigger threshold, 0.0–1.0 (default: 0.80)
@@ -107,6 +108,85 @@ These environment variables configure conversation memory and summarization, whi
 | `NEUROLINK_MEMORY_MAX_SESSIONS`    | `50`                        | Maximum number of sessions to keep in memory          |
 
 Source: `src/lib/config/conversationMemory.ts`
+
+---
+
+## Replaying Tool Steps on Later Turns
+
+Every tool call a turn makes is stored in the session as a `tool_call` /
+`tool_result` pair — on both the in-memory and Redis backends, and for
+`generate()` as well as `stream()`. `replayToolSteps` decides how those rows
+reach the model on the session's later turns:
+
+| Mode       | What the model sees on the next turn                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"marker"` | **Default.** One compact line per call, folded into the assistant turn: `[called lookup_order → ok]`, `→ error` when the call threw, was rejected or returned an error-shaped result (`isError: true`, an `error` field, or a failing `status`), or `→ unknown` when the result was lost to compaction. |
+| `"full"`   | The real tool call and its output, as tool-call / tool-result turns in the provider's own wire shape. A failed call's output carries the error text.                                                                                                                                                    |
+| `"off"`    | Tool rows are dropped from the prompt; only the surface user / assistant text is replayed.                                                                                                                                                                                                              |
+
+Set it on the instance, or per request (the request wins):
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true, replayToolSteps: "full" },
+});
+
+await neurolink.generate({
+  input: { text: "And which carrier?" },
+  context: { sessionId },
+  replayToolSteps: "marker", // this turn only
+});
+```
+
+CLI loop sessions accept the same knob: `/set replayToolSteps full`.
+
+What to know before choosing `"full"`:
+
+- **Only paired rows are replayed.** A call whose result never arrived (or
+  the reverse) is dropped, because Anthropic and OpenAI reject an orphaned
+  tool call / result outright. When compaction or a history slice leaves a
+  call without its result, the memory layer's pair repair fills the gap with
+  a placeholder result: the marker then reads `→ unknown` and `"full"`
+  replays the placeholder text (`[Tool result unavailable - conversation was
+compacted]`), never a fabricated outcome. A result whose call was lost is
+  dropped altogether — the model never made that call.
+- **A request that declares no tools degrades `"full"` to `"marker"`.** With
+  `disableTools: true`, or a `toolFilter` that removes every tool, Anthropic
+  rejects a prompt that carries tool blocks without a `tools` field, so such
+  a turn is sent with markers instead.
+- **Steps stay sequential.** `generate()` stores one batch per loop step and
+  the rows carry `stepIndex`, so a `lookup` followed by a `send` built from
+  its output replays as two steps, not one parallel call.
+- **Tokens.** Each replayed step costs its arguments and output on every
+  later turn of the session. The replay reads the `tool_result` content as
+  the memory layer returns it, so Stage 1 pruning and the Redis backend's
+  `sendToolPreview` (`maxToolOutputBytes` / `maxToolOutputLines`) both apply
+  before a result is replayed.
+- **Prompt caching.** On Anthropic the replayed blocks sit inside `messages`,
+  ahead of the rolling history breakpoints, so a session that switches modes
+  mid-way changes its cached prefix. Pick a mode per session, not per turn,
+  when cache hits matter.
+- **Native replay is unchanged.** Claude-on-Vertex and Gemini already replay
+  tool steps from the stored rows in their own wire shape and do not go
+  through this option; it governs the direct Anthropic, OpenAI-compatible
+  and SageMaker `generate()` / `stream()` paths. On Amazon Bedrock only a
+  turn that carries images or files goes through the shared history builder
+  (where `"full"` degrades to `"marker"`, since that path cannot carry tool
+  turns); a text-only Bedrock turn sends the current prompt without stored
+  history, so no mode applies to it. SageMaker's `stream()` sends no tools
+  at all, so `tools`, `toolChoice` and `prepareStep` apply to its `generate()`
+  only.
+- **Context budget.** Tool rows are stored at full size, but the budget check
+  and the summarization trigger size them the way the chosen mode sends
+  them — one line per call under `"marker"`, nothing under `"off"` — so the
+  default mode no longer triggers summarization on tool output the model
+  never receives. This covers every budget check on the `generate()` and
+  `stream()` paths, including the post-compaction and post-truncation
+  re-checks. It does **not** yet reach the compaction stages themselves:
+  once compaction runs, Stage 1 pruning, Stage 3 summarization and Stage 4
+  truncation still measure tool rows at stored size, so under `"marker"` or
+  `"off"` a stage may prune or summarize more history than the prompt would
+  have carried. Threading the mode into the compactor is a follow-up.
 
 ---
 
