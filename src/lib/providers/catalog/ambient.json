@@ -1,0 +1,117 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "ambient",
+  "displayName": "Ambient",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.ambient.xyz/v1"
+  },
+  "models": {
+    "default": "ambient/large",
+    "fallbacks": ["z-ai/glm-5.2", "qwen/qwen3.6-27b", "qwen/qwen3.8-27b"],
+    "defaultContextWindow": 202752,
+    "defaultMaxOutputTokens": 202752,
+    "catalog": {
+      "ambient/large": {
+        "contextWindow": 202752,
+        "maxOutputTokens": 202752,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.0,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Ambient's own recommended default — the model id used in every example on the vendor's docs (the plain chat-completions curl example and the streaming curl example both send model: \"ambient/large\"). Documented as \"an Ambient-managed alias rather than a distinct model. Its specs mirror whatever concrete model it currently points to\" (https://ambient.xyz/docs/build/models, retrieved 2026-09-28); today it mirrors z-ai/glm-5.2 exactly — identical context_length, max_output_length and pricing in the unauthenticated GET https://api.ambient.xyz/v1/models response taken 2026-09-28. Text-only (input_modalities: [\"text\"]); no vision. The live roster's supported_features for this id are tools, json_mode, structured_outputs, reasoning, logprobs — this is the vendor's own server-reported metadata, not a live POST probe (none was possible credential-free), so capabilities.tools and capabilities.structuredOutput are marked true on that basis alone, while the combined capabilities (tools+response_format in one request, tool-call deltas under streaming) are unverified and both structuredOutputWithTools and toolsWithStreaming are left false pending a live-keyed probe. maxOutputTokens equals the context window in the vendor's own catalog entry (202,752 tokens each, i.e. \"198K\" as rounded on the docs models page)."
+      },
+      "z-ai/glm-5.2": {
+        "contextWindow": 202752,
+        "maxOutputTokens": 202752,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.0,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The concrete underlying model that ambient/large currently aliases. The vendor's docs models page states \"GLM 5.2 ... is the supported production model\" (https://ambient.xyz/docs/build/models, retrieved 2026-09-28); other catalog ids may be previews with no guarantees. Text-only, no vision. Same live-roster numbers (unauthenticated GET https://api.ambient.xyz/v1/models, 2026-09-28) and the same unverified-combined-capability caveats as ambient/large — kept as a fallback pinned to a concrete id in case the ambient/large alias target changes underneath it."
+      },
+      "qwen/qwen3.6-27b": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.32,
+          "output": 3.2,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "Qwen3.6 27B. The live roster's input_modalities are [\"text\",\"image\"] and the vendor's own description reads \"natively multimodal (text + image) dense 27B, hybrid attention. Served FP8 at 32k context, thinking off.\" (unauthenticated GET https://api.ambient.xyz/v1/models, 2026-09-28). The vendor's docs models page marks non-GLM-5.2 entries as possible previews served with no guarantees, so status is preview here. vision: true is taken from input_modalities; set as models.visionModel since the default (ambient/large) is text-only. Same unverified-combined-capability caveats as the other entries (no live POST probe was possible)."
+      },
+      "qwen/qwen3.8-27b": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.32,
+          "output": 3.2,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "Qwen3.8 27B. The live roster's own description calls it \"natively multimodal (text + image + video) dense 27B, Apache 2.0, hybrid attention\" but input_modalities lists only [\"text\",\"image\"] — no \"video\" entry — so vision: true here is based on input_modalities, not the prose \"video\" claim, and no video-input support is declared. Same preview status and unverified-combined-capability caveats as qwen3.6-27b (unauthenticated GET https://api.ambient.xyz/v1/models, 2026-09-28)."
+      }
+    },
+    "topModels": [
+      "ambient/large",
+      "z-ai/glm-5.2",
+      "qwen/qwen3.6-27b",
+      "qwen/qwen3.8-27b"
+    ],
+    "visionModel": "qwen/qwen3.6-27b"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid Ambient API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 400,
+      "pattern": "Unknown model",
+      "class": "invalid-model",
+      "message": "Ambient model '{model}' not found. Pick a current model from the unauthenticated GET https://api.ambient.xyz/v1/models roster or {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://app.ambient.xyz",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://app.ambient.xyz and sign in",
+      "2. Click \"Get API key\" to create a key",
+      "3. Ambient has no free tier — the cheapest option is the $1/mo Starter plan (https://ambient.xyz/pricing); confirm current billing terms before use",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI- and Anthropic-compatible endpoint at https://api.ambient.xyz/v1 (vendor's own docs: \"Point your OpenAI or Anthropic SDK at Ambient and get verified inference in minutes, no rewrite required\"). Pay-per-token API billing; no free tier. Inference is cryptographically verified via the vendor's \"Proof of Logits\" protocol."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.ambient.xyz/v1/models — 4 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

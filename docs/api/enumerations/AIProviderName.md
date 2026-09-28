@@ -94,6 +94,24 @@ Supported AI Provider Names
 
 ---
 
+### ABOVE_DEV
+
+> **ABOVE_DEV**: `"above-dev"`
+
+---
+
+### AIAND
+
+> **AIAND**: `"aiand"`
+
+---
+
+### AMBIENT
+
+> **AMBIENT**: `"ambient"`
+
+---
+
 ### API_ROUTE
 
 > **API_ROUTE**: `"api-route"`
@@ -106,9 +124,27 @@ Supported AI Provider Names
 
 ---
 
+### BEE_HEOSSI
+
+> **BEE_HEOSSI**: `"bee-heossi"`
+
+---
+
 ### CEREBRAS
 
 > **CEREBRAS**: `"cerebras"`
+
+---
+
+### CHARM_HYPER
+
+> **CHARM_HYPER**: `"charm-hyper"`
+
+---
+
+### CHUTES
+
+> **CHUTES**: `"chutes"`
 
 ---
 
@@ -118,9 +154,27 @@ Supported AI Provider Names
 
 ---
 
+### DEEPINFRA
+
+> **DEEPINFRA**: `"deepinfra"`
+
+---
+
 ### DEEPSEEK
 
 > **DEEPSEEK**: `"deepseek"`
+
+---
+
+### EMPIRIOLABS
+
+> **EMPIRIOLABS**: `"empiriolabs"`
+
+---
+
+### FEATHERLESS_AI
+
+> **FEATHERLESS_AI**: `"featherless-ai"`
 
 ---
 
@@ -160,9 +214,39 @@ Supported AI Provider Names
 
 ---
 
+### INCO
+
+> **INCO**: `"inco"`
+
+---
+
+### INFERENCE_NET
+
+> **INFERENCE_NET**: `"inference-net"`
+
+---
+
 ### IO_INTELLIGENCE
 
 > **IO_INTELLIGENCE**: `"io-intelligence"`
+
+---
+
+### KOSCOMPUTE
+
+> **KOSCOMPUTE**: `"koscompute"`
+
+---
+
+### LILAC
+
+> **LILAC**: `"lilac"`
+
+---
+
+### LLMTECH
+
+> **LLMTECH**: `"llmtech"`
 
 ---
 
@@ -178,15 +262,39 @@ Supported AI Provider Names
 
 ---
 
+### MOARK
+
+> **MOARK**: `"moark"`
+
+---
+
 ### MORPH
 
 > **MORPH**: `"morph"`
 
 ---
 
+### NEURALWATT
+
+> **NEURALWATT**: `"neuralwatt"`
+
+---
+
 ### NOVITA
 
 > **NOVITA**: `"novita"`
+
+---
+
+### OVHCLOUD
+
+> **OVHCLOUD**: `"ovhcloud"`
+
+---
+
+### PARETO_INFERENCE
+
+> **PARETO_INFERENCE**: `"pareto-inference"`
 
 ---
 
@@ -199,6 +307,18 @@ Supported AI Provider Names
 ### SAMBANOVA
 
 > **SAMBANOVA**: `"sambanova"`
+
+---
+
+### SARVAM
+
+> **SARVAM**: `"sarvam"`
+
+---
+
+### SYNTHETIC
+
+> **SYNTHETIC**: `"synthetic"`
 
 ---
 

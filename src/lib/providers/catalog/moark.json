@@ -1,0 +1,94 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "moark",
+  "displayName": "Moark",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.moark.com/v1"
+  },
+  "models": {
+    "default": "Qwen3-8B",
+    "fallbacks": [
+      "Qwen3-4B",
+      "ERNIE-4.5-Turbo",
+      "GLM-5.3",
+      "kimi-k3",
+      "DeepSeek-V4-Pro-0813"
+    ],
+    "defaultContextWindow": 32000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "Qwen3-8B": {
+        "vision": false,
+        "status": "production",
+        "description": "Recommended — roster-verified via unauthenticated GET https://moark.com/v1/models (2026-09-28, HTTP 200, 222 models). Chosen as `default` because Moark's own text-generation guide (https://moark.com/docs/products/apis/texts/text-generation, retrieved 2026-09-28) names Qwen3-8B and Qwen3-4B specifically as its suggested free-testing/validation models ('免费在线体验', quick-validation picks) — the only concrete, documented model recommendation on that page that also matches a currently-live roster id; the page's other named examples (Qwen2.5-72B-Instruct used in every code sample, kimi-k2-instruct and DeepSeek-R1 for long-text/reasoning, ERNIE-4.5-Turbo for multilingual) are not presented as free and, except ERNIE-4.5-Turbo, are no longer on the live roster. No credential-free capability probe was possible (chat/completions is POST-only, and this onboarding used unauthenticated GETs only): tool calling, structured output (guided_json/guided_choice) and SSE streaming are documented generically for the API but not confirmed against this specific model. contextWindow/maxOutputTokens are left unset on every model in this catalog — Moark's docs give only a generic '32K、128K 等' illustration (not tied to any model) and GET /v1/models returns only {id, object, created, owned_by}, no context_length or pricing fields."
+      },
+      "Qwen3-4B": {
+        "vision": false,
+        "status": "production",
+        "description": "Roster-verified only (unauthenticated GET https://moark.com/v1/models, 2026-09-28). Named alongside Qwen3-8B as a free testing/validation model on Moark's text-generation guide (https://moark.com/docs/products/apis/texts/text-generation, retrieved 2026-09-28) — smaller sibling of the default. Not itself capability-probed; fallback."
+      },
+      "ERNIE-4.5-Turbo": {
+        "vision": false,
+        "status": "production",
+        "description": "Roster-verified only (unauthenticated GET https://moark.com/v1/models, 2026-09-28). Baidu ERNIE 4.5 Turbo — named by Moark's text-generation guide (retrieved 2026-09-28) as its suggested model for multilingual use cases. Not itself capability-probed; fallback."
+      },
+      "GLM-5.3": {
+        "vision": false,
+        "status": "production",
+        "description": "Roster-verified only (unauthenticated GET https://moark.com/v1/models, 2026-09-28). Zhipu GLM-5.3 — present on the live roster; Moark's text-generation guide does not name it specifically (its worked examples use Qwen2.5-72B-Instruct instead, which is not on the current roster). Included as a general-purpose fallback on roster presence alone; not capability-probed."
+      },
+      "kimi-k3": {
+        "vision": false,
+        "status": "production",
+        "description": "Roster-verified only (unauthenticated GET https://moark.com/v1/models, 2026-09-28). Moonshot AI Kimi K3 — the closest live-roster match to Moark's docs-suggested 'long text' pick (the exact doc-named id, kimi-k2-instruct, is no longer on the roster; Kimi-K2.7-Code and Kimi-K2.6 are also present but code-branded/older). Not capability-probed; fallback."
+      },
+      "DeepSeek-V4-Pro-0813": {
+        "vision": false,
+        "status": "production",
+        "description": "Roster-verified only (unauthenticated GET https://moark.com/v1/models, 2026-09-28). DeepSeek V4 Pro — the closest live-roster match to Moark's docs-suggested 'specialized reasoning' pick (the exact doc-named id, DeepSeek-R1, is no longer on the roster). Not capability-probed; fallback."
+      }
+    },
+    "topModels": [
+      "Qwen3-8B",
+      "Qwen3-4B",
+      "ERNIE-4.5-Turbo",
+      "GLM-5.3",
+      "kimi-k3",
+      "DeepSeek-V4-Pro-0813"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://moark.com/dashboard/tokens",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://moark.com and sign in — no separate signup page is documented, only workbench login",
+      "2. Go to 工作台 → 设置 → 访问令牌 (Workbench → Settings → Access Tokens) at https://moark.com/dashboard/tokens and create a token",
+      "3. Fund a prepaid resource package before making live calls (e.g. the all-model package, https://moark.com/serverless-api/order?package=1910) — billing is prepaid, charged per-call or per-token (https://moark.com/docs/products/apis, retrieved 2026-09-28); models can be tried free in the web console, but no formal free-tier API policy is documented, and package usage is non-refundable (https://moark.com/docs/billing/purchase, retrieved 2026-09-28)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.moark.com/v1 — Moark's own docs state '模力方舟的 Serverless API 兼容开发者喜爱且社区流行的 OpenAI 风格 API' (https://moark.com/docs/products/apis/texts/text-generation, retrieved 2026-09-28), serving 222 models (unauthenticated GET /v1/models, 2026-09-28) spanning text, vision, image, video, audio, embedding and reranking — this entry covers only the OpenAI-compatible chat/completions surface. The vendor also documents vLLM-style guided_json/guided_choice structured-decoding parameters, distinct from the OpenAI response_format field NeuroLink's generic client sends, so structuredOutput is not claimed here without a live probe."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://moark.com/v1/models — 222 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

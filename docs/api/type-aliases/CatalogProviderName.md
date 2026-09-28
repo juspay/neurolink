@@ -6,4 +6,4 @@
 
 # Type Alias: CatalogProviderName
 
-> **CatalogProviderName** = `"api-route"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"deepseek"` \| `"fireworks"` \| `"friendli"` \| `"gmicloud"` \| `"groq"` \| `"huggingface"` \| `"inception-labs"` \| `"io-intelligence"` \| `"mancer"` \| `"mistral"` \| `"morph"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together-ai"` \| `"upstage"` \| `"xai"`
+> **CatalogProviderName** = `"above-dev"` \| `"aiand"` \| `"ambient"` \| `"api-route"` \| `"baseten"` \| `"bee-heossi"` \| `"cerebras"` \| `"charm-hyper"` \| `"chutes"` \| `"cloudflare"` \| `"deepinfra"` \| `"deepseek"` \| `"empiriolabs"` \| `"featherless-ai"` \| `"fireworks"` \| `"friendli"` \| `"gmicloud"` \| `"groq"` \| `"huggingface"` \| `"inception-labs"` \| `"inco"` \| `"inference-net"` \| `"io-intelligence"` \| `"koscompute"` \| `"lilac"` \| `"llmtech"` \| `"mancer"` \| `"mistral"` \| `"moark"` \| `"morph"` \| `"neuralwatt"` \| `"novita"` \| `"ovhcloud"` \| `"pareto-inference"` \| `"perplexity"` \| `"sambanova"` \| `"sarvam"` \| `"synthetic"` \| `"together-ai"` \| `"upstage"` \| `"xai"`

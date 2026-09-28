@@ -1,0 +1,72 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "sarvam",
+  "displayName": "Sarvam AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.sarvam.ai/v1"
+  },
+  "models": {
+    "default": "sarvam-105b",
+    "fallbacks": ["sarvam-105b-conversations"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 2048,
+    "catalog": {
+      "sarvam-105b": {
+        "contextWindow": 128000,
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Sarvam's flagship chat model, documented as \"(128K context) for complex reasoning and agentic tasks\" (https://docs.sarvam.ai/api-reference-docs/chat/chat-completions, retrieved 2026-09-28). The /v1/chat/completions endpoint serves only sarvam-105b and sarvam-105b-conversations per the vendor's own reference — confirmed live by an unauthenticated GET https://api.sarvam.ai/v1/models on 2026-09-28 (HTTP 200, exactly these 2 ids, no key used). Request/response wire shape is OpenAI-compatible: messages[] with system/developer/user/assistant/tool roles, choices[].message/finish_reason (stop, length, tool_calls, content_filter, deprecated function_call), object: \"chat.completion\". tools + tool_choice (function calling) and response_format json_schema/json_object (Structured Outputs) are both documented generically for this endpoint, not per model — none of this was live-probed, since onboarding was credential-free (no API key, no POST request made to the vendor's API). Sarvam-specific reasoning_effort (low/high/max, default medium, disable by sending null) plus a reasoning_content field on the response message are documented — the basis for capabilities.thinking here. max_tokens defaults to 2048 if the caller omits it and the docs state no maximum output ceiling, so defaultMaxOutputTokens below reflects that documented default rather than a hard cap; maxOutputTokens is left unset on this entry rather than inventing one. Pricing is documented only in Indian Rupees — ₹29.28 input / ₹73.2 output / ₹10.98 cached-input per 1M tokens (https://docs.sarvam.ai/api/getting-started/pricing.md, retrieved 2026-09-28); pricingPerMTok is left unset here rather than placing an INR figure in a field every other catalog entry uses for USD, since the vendor states no INR/USD rate to convert by without inventing a number. The message content-part schema also declares an image_url part (standard OpenAI-compatible shape), but the vendor documents no vision/multimodal capability for either model, so vision stays false and models.visionModel is left unset.",
+        "enumMember": "SARVAM_105B"
+      },
+      "sarvam-105b-conversations": {
+        "contextWindow": 32000,
+        "vision": false,
+        "status": "production",
+        "description": "Sarvam's conversational variant, documented as \"(32K context) for real-time conversational and voice-agent workloads\" (https://docs.sarvam.ai/api-reference-docs/chat/chat-completions, retrieved 2026-09-28) — kept as the fallback behind the larger-context sarvam-105b. Same endpoint, same OpenAI-compatible wire shape, tools/response_format documentation and reasoning_effort/reasoning_content fields as sarvam-105b (see that entry); confirmed live alongside it by the same unauthenticated GET https://api.sarvam.ai/v1/models on 2026-09-28 (HTTP 200). Pricing per the vendor's pricing page is identical to sarvam-105b — ₹29.28 input / ₹73.2 output / ₹10.98 cached-input per 1M tokens, stated only in INR — so pricingPerMTok is left unset for the same reason.",
+        "enumMember": "SARVAM_105B_CONVERSATIONS"
+      }
+    },
+    "topModels": ["sarvam-105b", "sarvam-105b-conversations"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 403,
+      "pattern": "invalid_api_key_error|Invalid API key",
+      "class": "authentication",
+      "message": "Invalid Sarvam AI API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://dashboard.sarvam.ai",
+    "apiKeyFormat": "^sk_[A-Za-z0-9_-]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://dashboard.sarvam.ai and sign in or create an account",
+      "2. Create an API subscription key from the dashboard (documented format: sk_xxx)",
+      "3. Every new account receives ₹100 in starter credits, then usage-based billing applies (https://docs.sarvam.ai/api/getting-started/pricing.md) — no ongoing free tier beyond that starter credit is documented",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.sarvam.ai/v1, serving only sarvam-105b and sarvam-105b-conversations via POST /v1/chat/completions. The vendor's own API reference authenticates its raw HTTP examples with a standard Authorization: Bearer <token> header — what NeuroLink's generic OpenAI-compatible provider sends. Sarvam's stated preference is instead an api-subscription-key header, which its Python/TypeScript SDKs use; both are documented as accepted on every endpoint, so no custom auth-header quirk is needed here."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.sarvam.ai/v1/models — 2 models (sarvam-105b, sarvam-105b-conversations); credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

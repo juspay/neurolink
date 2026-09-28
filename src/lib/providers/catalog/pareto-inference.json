@@ -1,0 +1,74 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "pareto-inference",
+  "displayName": "Pareto Inference",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.paretoinference.com/v1"
+  },
+  "models": {
+    "default": "z-ai/glm-5.3-flash",
+    "fallbacks": ["z-ai/glm-5.3-flash"],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "z-ai/glm-5.3-flash": {
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.03,
+          "output": 0.1,
+          "cachedInput": 0.006
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - the only model Pareto serves; GLM 5.3 Flash (Zhipu/Z.ai), run on Pareto's own GPUs. Confirmed live via an unauthenticated GET https://api.paretoinference.com/v1/models on 2026-09-28 (HTTP 200, exactly one id: z-ai/glm-5.3-flash, owned_by z-ai) - no key used, matching the docs' note that GET /models needs no API key. The docs also document a bare alias, glm-5.3-flash, for the same model (https://docs.paretoinference.com/api-reference, retrieved 2026-09-28). Wire is OpenAI Chat Completions: POST /chat/completions with required model + messages ('Use the OpenAI message format'), the answer read from choices[0].message.content, SSE streaming with text in choices[0].delta.content and tool calls in choices[0].delta.tool_calls, a final usage event when stream_options.include_usage is true, and a terminal 'data: [DONE]' (https://docs.paretoinference.com/api-reference, retrieved 2026-09-28). Output tokens (max_tokens / max_completion_tokens - send only one) range 1-131,072, defaulting to 131,072 when both are omitted - that figure is this entry's defaultMaxOutputTokens and maxOutputTokens. Pareto documents no separate context-length figure anywhere: 'We do not disclose the technical details of our GLM 5.3 Flash serving system' (https://docs.paretoinference.com/how-pareto-works, retrieved 2026-09-28), and no context-window number appears on the quickstart, API reference, how-it-works, errors, or pricing pages, so models.defaultContextWindow above (131,072) reuses the documented output ceiling as a conservative floor rather than a vendor-stated context length - correct it once Pareto publishes one or an authenticated probe reveals one; contextWindow is deliberately left unset on this model entry rather than restating that same undocumented floor as a per-model fact. Pricing from https://docs.paretoinference.com/pricing, retrieved 2026-09-28: $0.03 per 1M input tokens, $0.10 per 1M output tokens, $0.006 per 1M cached-input tokens ('a cache hit is not guaranteed'). tools ('Sends OpenAI function tools') and response_format ('Requests a structured response') are both documented request parameters, but the same request-parameters table hedges both of them - plus tool_choice and logprobs - with 'Model support can differ'; there is no model-specific confirmation for z-ai/glm-5.3-flash and no live probe was possible credential-free, so capabilities.tools is 'model-dependent' here and toolsWithStreaming/structuredOutput/structuredOutputWithTools are left false rather than asserted from a hedged parameter table. reasoning_effort ('Sets the reasoning level') is documented as a plain, unhedged request parameter - unlike tools/response_format/tool_choice/logprobs it carries no 'Model support can differ' caveat - which is the basis for capabilities.thinking: true. Vision/image input and an embeddings endpoint are not documented anywhere on docs.paretoinference.com, so vision stays false and models.visionModel is left unset. No live capability probe was run: this is credential-free onboarding, no Pareto API key was ever created, and no POST request was ever sent to the vendor - see evidence.liveMatrix: null."
+      }
+    },
+    "topModels": ["z-ai/glm-5.3-flash"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid Pareto Inference API key. Check {apiKeyEnvVar}. Pareto documents 401 as \"the chat API key is missing, invalid, or no longer active\" (unauthenticated GET /models needs no key, so this only affects POST /chat/completions) but publishes no example error body - get or replace a key at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "pattern": "credit_exhausted|credit_insufficient|model_capacity",
+      "class": "rate-limit",
+      "message": "Pareto rate/credit limit hit for {model}. Documented causes: credit_exhausted (no credits left - buy more), credit_insufficient (held credits below what max_tokens could use - lower max_tokens or buy credits), or model_capacity (the model is at capacity, not an account limit - honor Retry-After). See {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://paretoinference.com/dashboard",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://paretoinference.com/dashboard and sign in",
+      "2. Add a payment card - Pareto has no free tier; a card and prepaid credits are required before a key is issued (https://docs.paretoinference.com/pricing)",
+      "3. Buy prepaid credits, then create your API key from the dashboard",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible Chat Completions endpoint at https://api.paretoinference.com/v1, serving exactly one hosted model - z-ai/glm-5.3-flash (GLM 5.3 Flash), also reachable via the documented alias glm-5.3-flash - on Pareto's own GPUs. No free tier: a payment card and prepaid credits are required before a key is issued. Pareto offers zero data retention (ZDR) and does not keep request content after a request finishes."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.paretoinference.com/v1/models - 1 model; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

@@ -269,6 +269,48 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### aboveDev?
+
+> `optional` **aboveDev?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### aiand?
+
+> `optional` **aiand?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### ambient?
+
+> `optional` **ambient?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### apiRoute?
 
 > `optional` **apiRoute?**: `object`
@@ -297,9 +339,51 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### beeHeossi?
+
+> `optional` **beeHeossi?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### cerebras?
 
 > `optional` **cerebras?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### charmHyper?
+
+> `optional` **charmHyper?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### chutes?
+
+> `optional` **chutes?**: `object`
 
 #### apiKey?
 
@@ -329,9 +413,51 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### deepinfra?
+
+> `optional` **deepinfra?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### deepseek?
 
 > `optional` **deepseek?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### empiriolabs?
+
+> `optional` **empiriolabs?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### featherlessAi?
+
+> `optional` **featherlessAi?**: `object`
 
 #### apiKey?
 
@@ -427,9 +553,79 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### inco?
+
+> `optional` **inco?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### inferenceNet?
+
+> `optional` **inferenceNet?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### ioIntelligence?
 
 > `optional` **ioIntelligence?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### koscompute?
+
+> `optional` **koscompute?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### lilac?
+
+> `optional` **lilac?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### llmtech?
+
+> `optional` **llmtech?**: `object`
 
 #### apiKey?
 
@@ -469,6 +665,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### moark?
+
+> `optional` **moark?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### morph?
 
 > `optional` **morph?**: `object`
@@ -483,9 +693,51 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### neuralwatt?
+
+> `optional` **neuralwatt?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### novita?
 
 > `optional` **novita?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### ovhcloud?
+
+> `optional` **ovhcloud?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### paretoInference?
+
+> `optional` **paretoInference?**: `object`
 
 #### apiKey?
 
@@ -514,6 +766,34 @@ Inline service-account fields (alternative to serviceAccountKey)
 ### sambanova?
 
 > `optional` **sambanova?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### sarvam?
+
+> `optional` **sarvam?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### synthetic?
+
+> `optional` **synthetic?**: `object`
 
 #### apiKey?
 

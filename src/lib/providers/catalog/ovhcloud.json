@@ -1,0 +1,232 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "ovhcloud",
+  "displayName": "OVHcloud AI Endpoints",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+    "envOverrides": {
+      "apiKey": "OVH_AI_ENDPOINTS_ACCESS_TOKEN"
+    }
+  },
+  "models": {
+    "default": "gpt-oss-120b",
+    "fallbacks": [
+      "gpt-oss-20b",
+      "Meta-Llama-3_3-70B-Instruct",
+      "Qwen3.6-27B",
+      "Mistral-Small-3.2-24B-Instruct-2506",
+      "Qwen3.5-9B"
+    ],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.09,
+          "output": 0.47
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended default — OpenAI's open-weight gpt-oss-120b, the exact model OVHcloud's own getting-started guide uses for every code sample (docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-getting-started, retrieved 2026-09-28), and the most fully documented model on the public catalog card (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/gpt-oss-120b/, retrieved 2026-09-28). That card's own \"Supported Features\" list names exactly Function calling, Reasoning and Streaming; its \"Output Formats\" list names raw_text, json_object and json_schema. The card's Python example builds the request with `Authorization: f\"Bearer {os.getenv('OVH_AI_ENDPOINTS_ACCESS_TOKEN')}\"` against https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions, and reads a `reasoning_effort` generation parameter (low/medium/high) plus a `reasoning_content` response field — the basis for capabilities.thinking. No sign-in or API key was used to read any of this; it is all public documentation plus the unauthenticated GET on /v1/models. contextWindow and maxOutputTokens are the live, unauthenticated /v1/models response's own context_length/max_completion_tokens fields for this id (GET run 2026-09-28, HTTP 200). Pricing is that same response's per-token USD pricing (prompt/completion fields) converted to $/MTok; the EUR-denominated marketing catalog card quotes the same model at €0.08 in / €0.4 out per Mtoken, consistent with the API's USD figures at roughly current EUR/USD. No live request of any kind (chat, streaming, tool call) was made against this model — the entry is docs- and roster-verified only; see evidence.liveMatrix (null)."
+      },
+      "gpt-oss-20b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.05,
+          "output": 0.18
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI's smaller open-weight gpt-oss-20b. Listed on the public catalog card (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) as a \"Reasoning LLM\" with Function calling: Yes, priced €0.04 in / €0.15 out per Mtoken — consistent with this id's per-token USD pricing on the live, unauthenticated GET /v1/models response (2026-09-28, HTTP 200), which also supplies contextWindow/maxOutputTokens. Not individually probed; roster-verified fallback."
+      },
+      "Qwen3.6-27B": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.47,
+          "output": 3.19
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen3.6-27B, listed on the public catalog card as \"Visual LLM (New)\" with Vision: Yes and Function calling: Yes (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28), priced €0.4 in / €2.7 out per Mtoken there — consistent with this id's per-token USD pricing on the live, unauthenticated GET /v1/models (2026-09-28, HTTP 200), which also supplies contextWindow/maxOutputTokens. Not individually probed; roster-verified fallback. No image-input wire format is documented, so it is not set as models.visionModel."
+      },
+      "Qwen3.8-27B": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.47,
+          "output": 3.19
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen3.8-27B, a newer sibling of Qwen3.6-27B on the same catalog card, same \"Visual LLM (New)\" row: Vision: Yes, Function calling: Yes, €0.4 in / €2.7 out per Mtoken (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — consistent with this id's per-token USD pricing on the live GET /v1/models (2026-09-28). Not individually probed; roster-verified fallback."
+      },
+      "Qwen3.5-397B-A17B": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.71,
+          "output": 4.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen3.5-397B-A17B, the largest model in this roster (397B-parameter MoE, ~17B active). Catalog card: \"Visual LLM (New)\", Vision: Yes, Function calling: Yes, €0.6 in / €3.6 out per Mtoken (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — consistent with this id's per-token USD pricing on the live GET /v1/models (2026-09-28). Not individually probed; roster-verified fallback."
+      },
+      "Qwen3.5-9B": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.12,
+          "output": 0.18
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen3.5-9B, the smallest of the Qwen3.x \"Visual LLM (New)\" row: Vision: Yes, Function calling: Yes, €0.1 in / €0.15 out per Mtoken (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — consistent with this id's per-token USD pricing on the live GET /v1/models (2026-09-28). Not individually probed; roster-verified fallback."
+      },
+      "Meta-Llama-3_3-70B-Instruct": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.74,
+          "output": 0.74
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Meta Llama 3.3 70B Instruct, a plain non-reasoning chat model. Catalog card: \"LLM\" category, Vision: No, Function calling: Yes, €0.67 in / €0.67 out per Mtoken (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — consistent with this id's per-token USD pricing on the live GET /v1/models (2026-09-28). Not individually probed; roster-verified fallback."
+      },
+      "Qwen2.5-VL-72B-Instruct": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 1.01,
+          "output": 1.01
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen2.5-VL-72B-Instruct — a dedicated vision-language model (\"VL\"). Catalog card: \"Visual LLM\" category, Vision: Yes, Function calling: No, €0.91 in / €0.91 out per Mtoken (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — the only model in this roster the vendor's own catalog explicitly marks Vision: Yes together with a specific, non-reasoning-family name, so it is set as models.visionModel. No image wire format (base64 vs. URL, content-parts shape) is documented, and no image request was sent (credential-free). Pricing/context/output-cap consistent with the live GET /v1/models (2026-09-28). Not individually probed; roster-verified."
+      },
+      "Qwen3-Coder-30B-A3B-Instruct": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.07,
+          "output": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Qwen3-Coder-30B-A3B-Instruct — present on the live, unauthenticated GET /v1/models response (2026-09-28, HTTP 200: id, context_length=262144, max_completion_tokens=262144, USD pricing) but not yet on the public marketing catalog card (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, checked 2026-09-28 — that page lists 20 of the API's 24 live ids; this is one of the 4 not yet listed there). vision:false follows the model family naming (a code-instruct Qwen3 build, no \"VL\"/visual designation) rather than an explicit per-model vision flag; tools support is likewise not individually confirmed for this id — roster-verified only, not capability-probed."
+      },
+      "Mistral-Small-3.2-24B-Instruct-2506": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.31
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Small 3.2 24B Instruct (2506 snapshot) — present on the live, unauthenticated GET /v1/models response (2026-09-28, HTTP 200) but not yet on the public marketing catalog card (checked 2026-09-28, one of the 4 live ids not yet listed there). Mistral's own upstream Small 3.2 release is text-only in its OVH deployment name (no \"VL\"/visual designation); vision:false and tools support are not individually confirmed for this id — roster-verified only."
+      },
+      "Mistral-7B-Instruct-v0.3": {
+        "contextWindow": 65536,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.11,
+          "output": 0.11
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral 7B Instruct v0.3 — present on the live, unauthenticated GET /v1/models response (2026-09-28, HTTP 200) but not on the public marketing catalog card (checked 2026-09-28). Small, plain instruct model; vision:false and tools support are not individually confirmed for this id — roster-verified fallback only."
+      },
+      "Mistral-Nemo-Instruct-2407": {
+        "contextWindow": 65536,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.14
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Nemo Instruct (2407 snapshot) — present on the live, unauthenticated GET /v1/models response (2026-09-28, HTTP 200) but not on the public marketing catalog card (checked 2026-09-28). Plain instruct model; vision:false and tools support are not individually confirmed for this id — roster-verified fallback only."
+      },
+      "Qwen3Guard-Gen-8B": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0,
+          "output": 0
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Qwen3Guard-Gen-8B — a moderation/safety classifier, not a general-purpose chat model. Catalog card: \"LLM Guard (Beta)\" category, priced Free (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28) — the live GET /v1/models response (2026-09-28) shows prompt/completion pricing of 0 for this id, confirming it. status is \"preview\" because the vendor explicitly labels it Beta. Kept out of models.fallbacks/topModels since it answers moderation prompts, not open-ended generation."
+      },
+      "Qwen3Guard-Gen-0.6B": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0,
+          "output": 0
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Qwen3Guard-Gen-0.6B — smaller sibling of Qwen3Guard-Gen-8B, same moderation/safety-classifier role. Catalog card: \"LLM Guard (Beta)\" category, priced Free (ovhcloud.com/en/public-cloud/ai-endpoints/catalog/, retrieved 2026-09-28); the live GET /v1/models response (2026-09-28) confirms 0 pricing for this id. status \"preview\" per the vendor's own Beta label. Kept out of models.fallbacks/topModels for the same reason as the 8B variant."
+      }
+    },
+    "topModels": [
+      "gpt-oss-120b",
+      "gpt-oss-20b",
+      "Qwen3.6-27B",
+      "Qwen3.8-27B",
+      "Qwen3.5-397B-A17B",
+      "Qwen3.5-9B",
+      "Meta-Llama-3_3-70B-Instruct",
+      "Qwen2.5-VL-72B-Instruct",
+      "Mistral-Small-3.2-24B-Instruct-2506"
+    ],
+    "visionModel": "Qwen2.5-VL-72B-Instruct"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 403,
+      "pattern": "Authentication Failed",
+      "class": "authentication",
+      "message": "Invalid or revoked OVHcloud AI Endpoints access token. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://www.ovhcloud.com/en/public-cloud/ai-endpoints/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://www.ovhcloud.com/en/public-cloud/ai-endpoints/ and click Start now, which signs you in to (or creates) an OVHcloud Public Cloud manager account",
+      "2. In the manager, open Public Cloud > your project > AI & Machine Learning > AI Endpoints, and add a payment method to the project — OVHcloud states that projects in Discovery mode (no payment method) cannot use the service",
+      "3. Create an AI Endpoints API access token in that section; it is shown only once, so store it yourself, and note it can be given an expiration date and revoked",
+      "4. Set {apiKeyEnvVar} in your .env file (the vendor's own docs name this exact variable)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://oai.endpoints.kepler.ai.cloud.ovh.net/v1, documented as \"compatible with the OpenAI specifications\" (docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-getting-started). Several models (both Qwen3Guard classifiers, stable-diffusion-xl, the four NVIDIA Riva TTS voices) are billed at €0/free, but the account itself requires a payment method on the Public Cloud project before any API key can be used — OVHcloud's own docs: \"projects in Discovery mode (without a payment method) cannot use the service.\" A very limited anonymous tier also exists (2 requests/minute per IP per model, undocumented auth shape) but is not what {apiKeyEnvVar} configures. Authenticated rate limit is documented as 400 requests/minute per project per model; over that returns HTTP 429. This catalog entry covers only the chat-completions models; OVHcloud AI Endpoints also serves speech-to-text (Whisper), text-to-speech (NVIDIA Riva), image generation (Stable Diffusion XL) and embeddings (bge-m3, bge-multilingual-gemma2, Qwen3-Embedding-8B) models on the same platform, which are out of scope for this Tier-2 chat-completions integration."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models — 24 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

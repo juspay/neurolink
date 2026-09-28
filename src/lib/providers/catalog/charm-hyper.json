@@ -1,0 +1,349 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "charm-hyper",
+  "displayName": "Charm Hyper",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://hyper.charm.land/v1"
+  },
+  "models": {
+    "default": "deepseek-v4-pro",
+    "fallbacks": [
+      "deepseek-v4-flash",
+      "deepseek-v4.1-flash",
+      "kimi-k2-thinking",
+      "glm-5.3",
+      "qwen3.8-max"
+    ],
+    "defaultContextWindow": 1000000,
+    "defaultMaxOutputTokens": 384000,
+    "catalog": {
+      "deepseek-v4-pro": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 384000,
+        "pricingPerMTok": {
+          "input": 2.4,
+          "output": 4.8,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro; reasoning effort levels high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28). Default for this entry — chosen as the `model` value used in Hyper's own worked request example on the Chat Completions reference page (docs/api/openai-chat-completions.html), the doc page for the exact endpoint NeuroLink calls. Hyper does not label any model \"default\" or \"recommended\" anywhere in its docs; the homepage quick-start's own example instead uses deepseek-v4-flash. No live capability probe was run (credential-free onboarding) — reconfirm this choice once a key is available."
+      },
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash — newest DeepSeek Flash snapshot on the roster; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "deepseek-v4-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 384000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.4,
+          "cachedInput": 0.04
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash — used as the worked `model` example on Hyper's homepage quick-start (a different example than the Chat Completions reference page, which uses deepseek-v4-pro); reasoning effort levels low/high/max (default high). Hyper's marketing page docs/models.html lists 'DeepSeek V4 Flash' among models with attachment support, but the live /v1/models roster reports capabilities.vision=false for this id — a documented inconsistency, flagged rather than resolved. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "deepseek-v4-pro-0813": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.437216,
+          "output": 4.311648,
+          "cachedInput": 0.047907
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro, 0813 snapshot — dated pin of the Pro line; reasoning effort levels low/high (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 384000,
+        "pricingPerMTok": {
+          "input": 0.44,
+          "output": 1.32,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash, 0731 snapshot — dated pin of the Flash line; reasoning effort levels low/high (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "kimi-k3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 16000,
+        "pricingPerMTok": {
+          "input": 3.2664,
+          "output": 16.332,
+          "cachedInput": 0.32664
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot Kimi K3 — vision-capable per the live roster; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "kimi-k2-thinking": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 26214,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.5,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Moonshot Kimi K2 Thinking — reasoning-first Kimi variant; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "kimi-k2.7-code": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 16000,
+        "pricingPerMTok": {
+          "input": 1.03436,
+          "output": 4.3552,
+          "cachedInput": 0.206872
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot Kimi K2.7 Code — code-focused Kimi variant, vision-capable per the live roster; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "glm-5.3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 1.52432,
+          "output": 4.79072,
+          "cachedInput": 0.283088
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.3. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.16332,
+          "output": 0.5444,
+          "cachedInput": 0.031575
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Zhipu GLM 5.3 Flash — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "glm-5.2": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 1.52432,
+          "output": 4.79072,
+          "cachedInput": 0.152432
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.2 — prior GLM generation. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "minimax-m3": {
+        "contextWindow": 512000,
+        "maxOutputTokens": 512000,
+        "pricingPerMTok": {
+          "input": 0.32664,
+          "output": 1.30656,
+          "cachedInput": 0.064239
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MiniMax M3 — vision-capable per the live roster; unusually large max_output_tokens (512K, equal to its context window). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "minimax-m2.7": {
+        "contextWindow": 262100,
+        "maxOutputTokens": 6553,
+        "pricingPerMTok": {
+          "input": 0.484,
+          "output": 1.852,
+          "cachedInput": 0.242
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.7 — prior MiniMax generation. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "inkling": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 1.0888,
+          "output": 4.40964,
+          "cachedInput": 0.185096
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Inkling — vision-capable model on the roster; vendor lineage not stated on the pages read for this entry. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.8-max": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.8 Max — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.8-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.47,
+          "cachedInput": 0.016
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.8 Flash — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.8-27b": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 3,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.8 27B — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.8-2.4t-a95b": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6,
+          "cachedInput": 0.25
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Alibaba Qwen3.8 2.4T-A95B (large MoE variant). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.7-max": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 2.5,
+          "output": 7.5,
+          "cachedInput": 0.5
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Alibaba Qwen3.7 Max — prior Qwen generation. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.7-plus": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 1.2,
+          "output": 4.8,
+          "cachedInput": 0.24
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.7 Plus — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "qwen3.7-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.8,
+          "cachedInput": 0.04
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.7 Flash — vision-capable per the live roster. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 13107,
+        "pricingPerMTok": {
+          "input": 0.178,
+          "output": 0.68,
+          "cachedInput": 0.089
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI's open-weight gpt-oss-120b. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      },
+      "gemma-4-26b-a4b-it": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 25600,
+        "pricingPerMTok": {
+          "input": 0.098,
+          "output": 0.334,
+          "cachedInput": 0.049
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Google Gemma 4 26B A4B, instruction-tuned. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+      }
+    },
+    "topModels": [
+      "deepseek-v4-pro",
+      "deepseek-v4.1-flash",
+      "deepseek-v4-flash",
+      "kimi-k3",
+      "kimi-k2-thinking",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "qwen3.8-max"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid api key",
+      "class": "authentication",
+      "message": "Invalid Charm Hyper API key (keys start with sk-hyper-). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://hyper.charm.land/auth?mode=signup",
+    "apiKeyFormat": "^sk-hyper-.+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://hyper.charm.land/auth?mode=signup and sign up (Google, GitHub, or email)",
+      "2. Copy an API key from the Hyper Dashboard — it starts with sk-hyper-",
+      "3. Free plan: $0/month, 100 Hypercredits/month (1 Hypercredit ≈ $0.05); paid subscription ($20/month, 250 Hypercredits/day) and prepaid bundles (never expire) are also available",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://hyper.charm.land/v1 (POST /v1/chat/completions; Hyper also documents an Anthropic-compatible /v1/messages, not used by this entry). GET /v1/models is public and needs no key. Docs- and roster-verified only — this entry was onboarded credential-free, so no authenticated request, tool-call, or structured-output probe was ever made; see evidence.liveMatrix (null) and re-run docs/provider-integration/tiers/tier-2-catalog-entry.md's live-verification steps before treating capabilities as proven."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://hyper.charm.land/v1/models — 23 models, e.g. deepseek-v4.1-flash, deepseek-v4-pro-0813, kimi-k3, glm-5.3, minimax-m3; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

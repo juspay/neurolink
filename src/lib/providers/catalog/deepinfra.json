@@ -1,0 +1,157 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "deepinfra",
+  "displayName": "DeepInfra",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.deepinfra.com/v1/openai"
+  },
+  "models": {
+    "default": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "fallbacks": [
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "openai/gpt-oss-120b",
+      "moonshotai/Kimi-K3",
+      "zai-org/GLM-5.2",
+      "anthropic/claude-haiku-4-5",
+      "Qwen/Qwen3-14B",
+      "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.06,
+          "output": 0.18,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended default — DeepInfra's own tool-calling documentation (docs.deepinfra.com/chat/tool-calling, retrieved 2026-09-28) uses this exact model in its function-calling example (a get_current_weather tool_call round-trip), and its reasoning documentation (docs.deepinfra.com/chat/reasoning) names it among the models that support the reasoning_effort parameter (none/low/medium/high). Live on the unauthenticated GET /v1/openai/models roster (2026-09-28, 187 models) with context_length/max_tokens both 1,048,576 and pricing $0.06/$0.18 per MTok input/output ($0.015 cached-input read). No vision/vlm tag on the live roster. models.defaultMaxOutputTokens (16,384) follows the vendor's documented general cap rather than this per-model figure — see models-level note."
+      },
+      "deepseek-ai/DeepSeek-V4-Pro-0813": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.3,
+          "output": 2.6,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek's larger Pro variant; roster-listed only (not itself named in a DeepInfra docs example) via the unauthenticated GET /v1/openai/models (2026-09-28) — context 1,048,576, $1.30/$2.60 per MTok input/output, $0.10 cached-input read. Fallback."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.037,
+          "output": 0.17
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI's open-weight 120B model hosted on DeepInfra; tagged reasoning + reasoning_effort on the live roster GET (2026-09-28) — context 131,072, $0.037/$0.17 per MTok input/output. Not itself named in DeepInfra's docs examples; fallback."
+      },
+      "moonshotai/Kimi-K3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 2.85,
+          "output": 14.25,
+          "cachedInput": 0.285
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Named in DeepInfra's tool-calling documentation as \"the current Kimi model in our catalog\" (docs.deepinfra.com/chat/tool-calling). Tagged vlm + vision on the live roster GET (2026-09-28), hence vision: true here (not independently probed for a working vision reply) — context 1,048,576, $2.85/$14.25 per MTok input/output, $0.285 cached-input read. Fallback."
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 2.4,
+          "cachedInput": 0.14
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Listed by DeepInfra's reasoning documentation (docs.deepinfra.com/chat/reasoning) as one of the models supporting reasoning_effort. Live roster GET (2026-09-28) — context 1,048,576, $0.75/$2.40 per MTok input/output, $0.14 cached-input read. Fallback."
+      },
+      "anthropic/claude-haiku-4-5": {
+        "contextWindow": 200000,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 5.0
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Anthropic's Claude Haiku 4.5 as served through DeepInfra's model marketplace (owned_by: deepinfra on the live roster). Tagged vlm + vision + reasoning_effort + reasoning on the GET /v1/openai/models roster (2026-09-28), hence vision: true here (not independently probed) — context 200,000, $1.00/$5.00 per MTok input/output. Not itself named in DeepInfra's docs examples; fallback."
+      },
+      "Qwen/Qwen3-14B": {
+        "contextWindow": 40960,
+        "pricingPerMTok": {
+          "input": 0.12,
+          "output": 0.24
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Smaller Qwen reasoning-tagged model; roster-listed only via the unauthenticated GET /v1/openai/models (2026-09-28) — context 40,960, $0.12/$0.24 per MTok input/output. Fallback."
+      },
+      "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
+        "contextWindow": 327680,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Meta Llama 4 Scout; tagged vlm + vision on the live roster GET (2026-09-28), hence vision: true here (not independently probed) — context 327,680, $0.10/$0.30 per MTok input/output. Roster-listed only; fallback."
+      }
+    },
+    "topModels": [
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "openai/gpt-oss-120b",
+      "moonshotai/Kimi-K3",
+      "zai-org/GLM-5.2",
+      "anthropic/claude-haiku-4-5",
+      "Qwen/Qwen3-14B",
+      "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    ],
+    "visionModel": "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://deepinfra.com/dash/api_keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://deepinfra.com/dash/api_keys and sign in (Google, GitHub, email & password, or Corporate SSO — see https://docs.deepinfra.com/account/signing-in)",
+      "2. Create an API key and copy it when it is shown",
+      "3. No free tier: DeepInfra requires a card or pre-payment before any request succeeds (https://deepinfra.com/pricing)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.deepinfra.com/v1/openai (docs.deepinfra.com/chat/overview), serving 180+ open-weight and proprietary chat models. No documented auth-failure error body was found on the docs site or the public OpenAPI spec (api.deepinfra.com/openapi.json only documents 200/422 for chat/completions) without a live credentialed probe, so errorRules is empty pending live verification."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.deepinfra.com/v1/openai/models — 187 models; credential-free, no key used",
+      "status": 200
+    },
+    "billingProbe": {
+      "date": "2026-09-28",
+      "method": "public page https://deepinfra.com/pricing — \"You have to add a card or pre-pay or you won't be able to use our services\"; no free tier documented; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

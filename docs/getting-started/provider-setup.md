@@ -44,6 +44,26 @@ Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each ha
 - **[Mancer](providers/mancer.md)** - default `deepseek-v4-flash` (`MANCER_API_KEY`); **no tool calling**
 - **[Upstage](providers/upstage.md)** - Solar models; default `solar-pro4` (`UPSTAGE_API_KEY`)
 - **[API Route](providers/api-route.md)** - OpenAI-compatible passthrough; default `claude-sonnet-4-6` (`API_ROUTE_API_KEY`)
+- **[DeepInfra](providers/deepinfra.md)** - default `deepseek-ai/DeepSeek-V4-Flash-0731` (`DEEPINFRA_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Featherless AI](providers/featherless-ai.md)** - default `unsloth/Llama-3.3-70B-Instruct` (`FEATHERLESS_AI_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Chutes](providers/chutes.md)** - default `moonshotai/Kimi-K2.6-TEE` (`CHUTES_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[OVHcloud AI Endpoints](providers/ovhcloud.md)** - default `gpt-oss-120b` (`OVH_AI_ENDPOINTS_ACCESS_TOKEN`); docs- and roster-verified, not yet live-verified
+- **[Sarvam AI](providers/sarvam.md)** - default `sarvam-105b` (`SARVAM_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Synthetic](providers/synthetic.md)** - default `syn:large:text` (`SYNTHETIC_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Ambient](providers/ambient.md)** - default `ambient/large` (`AMBIENT_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Inference.net](providers/inference-net.md)** - default `glm-5.2` (`INFERENCE_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[EmpirioLabs AI](providers/empiriolabs.md)** - default `glm-5-3` (`EMPIRIOLABS_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[above.dev](providers/above-dev.md)** - default `deepseek-v4.1-flash` (`ABOVE_DEV_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[ai&](providers/aiand.md)** - default `openai/gpt-oss-120b` (`AIAND_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Bee by HEOSSI](providers/bee-heossi.md)** - default `bee-cell` (`BEE_HEOSSI_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Charm Hyper](providers/charm-hyper.md)** - default `deepseek-v4-pro` (`CHARM_HYPER_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Inco](providers/inco.md)** - default `glm-5.3` (`INCO_API_KEY`); **no tool calling**; docs- and roster-verified, not yet live-verified
+- **[Kosmik Compute](providers/koscompute.md)** - default `qwen/qwen3.8-27b` (`KOSCOMPUTE_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Lilac](providers/lilac.md)** - default `moonshotai/kimi-k2.6` (`LILAC_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[LLM Tech](providers/llmtech.md)** - default `nvidia/Qwen3.8-27B-NVFP4` (`LLMTECH_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Moark](providers/moark.md)** - default `Qwen3-8B` (`MOARK_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Neuralwatt](providers/neuralwatt.md)** - default `glm-5.3` (`NEURALWATT_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Pareto Inference](providers/pareto-inference.md)** - default `z-ai/glm-5.3-flash` (`PARETO_INFERENCE_API_KEY`); docs- and roster-verified, not yet live-verified
 
 Embedding, media-generation, and decision-only providers — not part of `generate()`/`stream()` provider selection in the same way, but each has a setup guide:
 

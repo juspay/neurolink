@@ -1,0 +1,194 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "above-dev",
+  "displayName": "above.dev",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.above.dev/v1"
+  },
+  "models": {
+    "default": "deepseek-v4.1-flash",
+    "fallbacks": [
+      "glm-5.3-flash",
+      "mimo-v2.6-flash",
+      "deepseek-v4-pro",
+      "glm-5.2",
+      "mimo-v2.6-pro",
+      "glm-5.2-fast",
+      "qwen3.8-max",
+      "mimo-v2.6-pro-ultraspeed"
+    ],
+    "defaultContextWindow": 1000000,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash (also addressable as deepseek-v4-flash), tier T1. above.dev's own default: naming no model routes here (\"the cheapest model in the catalog\", https://above.dev/docs, retrieved 2026-09-28). GET /v1/models (unauthenticated, 2026-09-28) self-reports supports_tool_calls, supports_streaming, supports_json_mode, supports_structured_output and supports_vision all true, and supports_reasoning true, but none of this was independently probed — no key was used. Pricing uses above.dev's documented time-of-day split (peak 01:00-04:00 and 06:00-10:00 UTC weekdays, else off-peak; weekends fully off-peak in Beijing time) so pricingPerMTok is omitted rather than collapsed to one number: input $0.165-$0.33/M, cache-hit $0.0033-$0.0066/M, output $0.66-$1.32/M (https://above.dev/docs, retrieved 2026-09-28)."
+      },
+      "deepseek-v4-pro": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro, tier T2 (\"Agentic — multi-step, tool-capable\" per the docs' tier table). Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Time-of-day pricing per https://above.dev/docs (retrieved 2026-09-28) — input $0.726-$1.452/M, cache-hit $0.0242-$0.0484/M, output $2.178-$4.356/M — so pricingPerMTok is omitted (see deepseek-v4.1-flash for why)."
+      },
+      "glm-5.2": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.54,
+          "output": 4.84,
+          "cachedInput": 0.154
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.2, tier T2. Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Flat (non-time-of-day) pricing per https://above.dev/docs, retrieved 2026-09-28."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.165,
+          "output": 0.55,
+          "cachedInput": 0.0319
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Zhipu GLM 5.3 Flash, tier T1. Roster-listed via unauthenticated GET /v1/models (2026-09-28), which self-reports supports_vision true for this id; not capability-probed with a real image. Flat pricing per https://above.dev/docs, retrieved 2026-09-28. Note: a separate id, glm-5.3-flash-modal, is named in the docs' Limits section as one of two \"free-tier routes\" capped at 16,384 output tokens — that id does not appear in the current /v1/models roster and is a distinct route from this one; not represented in this catalog."
+      },
+      "glm-5.2-fast": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 2.31,
+          "output": 7.26,
+          "cachedInput": 0.231
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.2 Fast, tier T3 (\"Highest capability in the catalog\" per the docs' tier table). Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Flat pricing per https://above.dev/docs, retrieved 2026-09-28."
+      },
+      "qwen3.8-max": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 2.2,
+          "output": 6.6,
+          "cachedInput": 0.275
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen 3.8 Max, tier T3. Roster-listed via unauthenticated GET /v1/models (2026-09-28), which self-reports supports_vision true for this id; not capability-probed with a real image. Flat pricing per https://above.dev/docs, retrieved 2026-09-28."
+      },
+      "mimo-v2.6-pro": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.5077,
+          "output": 1.0154,
+          "cachedInput": 0.0042
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiMo V2.6 Pro (also addressable as mimo-v2.5-pro), tier T2. Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Flat pricing per https://above.dev/docs, retrieved 2026-09-28."
+      },
+      "mimo-v2.6-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.1692,
+          "output": 0.3385,
+          "cachedInput": 0.0034
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiMo V2.6 Flash, tier T1. Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Flat pricing per https://above.dev/docs, retrieved 2026-09-28."
+      },
+      "mimo-v2.6-pro-ultraspeed": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 5.0769,
+          "output": 10.1538,
+          "cachedInput": 0.0423
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiMo V2.6 Pro UltraSpeed, tier T3. Roster-listed via unauthenticated GET /v1/models (2026-09-28); not capability-probed. Flat pricing per https://above.dev/docs, retrieved 2026-09-28."
+      }
+    },
+    "topModels": [
+      "deepseek-v4.1-flash",
+      "glm-5.3-flash",
+      "mimo-v2.6-flash",
+      "deepseek-v4-pro",
+      "glm-5.2",
+      "mimo-v2.6-pro",
+      "glm-5.2-fast",
+      "qwen3.8-max",
+      "mimo-v2.6-pro-ultraspeed"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or missing above.dev API key (401 Unauthorised). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "above.dev account balance is insufficient (402 payment required). Top up at https://above.dev/pricing"
+    },
+    {
+      "status": 403,
+      "class": "invalid-model",
+      "message": "above.dev model '{model}' is not enabled for this key (403 model_not_allowed_for_key) — it may be plan-restricted or in private beta. Pick another model or contact above.dev."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "above.dev rate limit exceeded (429 rate_limit_exceeded, 300 requests/minute per account). Retry after the documented Retry-After header."
+    },
+    {
+      "status": 504,
+      "class": "network",
+      "message": "above.dev upstream model did not respond in time (504 provider_timeout). Retry the request."
+    }
+  ],
+  "setup": {
+    "url": "https://above.dev/pricing",
+    "apiKeyFormat": "^sk-gw-.+$",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://above.dev/pricing and purchase credit — API keys are issued only after purchase, there is no free signup",
+      "2. Copy the issued key — it starts with sk-gw- (the docs give only the prefix, not a full character-set spec)",
+      "3. Manage or rotate the key from https://above.dev/dashboard if it is ever compromised — a key grants full access to your credit balance",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible gateway at https://api.above.dev/v1, routing to a small DeepSeek/GLM/Qwen/MiMo catalog. POST /v1/chat/completions is documented as an alias that delegates to the vendor's native POST /v1/messages with \"identical behaviour\". No free tier for account access — a key is issued only after purchase at above.dev/pricing (the docs separately mention two lower-cap \"free-tier routes\", glm-5.3-flash-modal and deepseek-v4.1-flash-modal, but those ids are outside the current /v1/models roster and still require a purchased key). Account-wide rate limit is 300 requests/minute; every current model accepts up to 131,072 output tokens. The docs describe the `tools` and `response_format` request fields only as routing signals (\"presence influences routing toward tool-capable models\" / \"scores toward structured-output models\"), in explicit contrast to `tool_choice` and `temperature`, which the same table states are \"passed through to the model\" — so this entry does not assert tool calling or structured output as a confirmed, working capability without a live probe."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.above.dev/v1/models — 9 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

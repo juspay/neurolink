@@ -1,0 +1,107 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "lilac",
+  "displayName": "Lilac",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.getlilac.com/v1"
+  },
+  "models": {
+    "default": "moonshotai/kimi-k2.6",
+    "fallbacks": [
+      "minimaxai/minimax-m3",
+      "zai-org/glm-5.2",
+      "google/gemma-4-31b-it"
+    ],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 262144,
+    "catalog": {
+      "moonshotai/kimi-k2.6": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.7,
+          "output": 3.5,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot AI Kimi K2.6 — the model used in every code sample on Lilac's own quickstart and chat-completions docs (including its vision example), so it is chosen as `default` on that basis; no capability probe was possible without a key. Vendor description: 'Moonshot AI's multimodal agentic model for long-horizon coding, tool use, and design workflows.' Live roster (unauthenticated GET /v1/models, 2026-09-28): context_length 262144, top_provider.max_completion_tokens 262144 (not documented separately as a distinct output ceiling — the roster reports it equal to the context window, so treat it as an upper bound rather than a proven lower cap), INT4 quantization, input_modalities text+image (no video). supported_parameters includes response_format, structured_outputs, tools and tool_choice; supported_features is [tools, reasoning]. Pricing per https://docs.getlilac.com/inference/models (retrieved 2026-09-28, matches the live roster exactly): $0.70 / $3.50 per MTok input/output, $0.16 per MTok cached input. docs.getlilac.com/inference/openai-compatibility.md lists vision, tool/function calling and structured output (JSON mode) as generally-supported features of the API; this model's own architecture also reports image input, so vision is true here."
+      },
+      "minimaxai/minimax-m3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.28,
+          "output": 1.1,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MiniMax M3 — the largest-context model on the roster. Vendor description: 'MiniMax's native multimodal 428B MoE reasoning model with a 1M-token context window and agentic tool-use support.' Live roster (2026-09-28): context_length 1048576, max_completion_tokens 1048576, FP8, input_modalities text+image+video (vision true). supported_parameters includes response_format, structured_outputs, tools, tool_choice and chat_template_kwargs (MiniMax's per-model reasoning toggle is `thinking_mode`). Pricing per docs.getlilac.com/inference/models (2026-09-28, matches roster): $0.28 / $1.10 per MTok input/output, $0.05 per MTok cached input. Roster-verified only, not capability-probed without a key; first fallback."
+      },
+      "zai-org/glm-5.2": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 524288,
+        "pricingPerMTok": {
+          "input": 0.9,
+          "output": 3,
+          "cachedInput": 0.17
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.2. Vendor description: '743B MoE model for long-context reasoning, coding, and agentic tool-use workflows.' Live roster (2026-09-28): context_length 524288, max_completion_tokens 524288, FP8/NVFP4, input_modalities text-only (no image/video — vision false, the only non-vision model in this roster). supported_parameters includes response_format, structured_outputs, tools, tool_choice and reasoning_effort — this is the one model whose docs say `reasoning_effort` also works as a plain top-level field (OpenAI-style), not only inside `chat_template_kwargs`. Pricing per docs.getlilac.com/inference/models (2026-09-28, matches roster): $0.90 / $3.00 per MTok input/output, $0.17 per MTok cached input. Roster-verified only, not capability-probed without a key; fallback."
+      },
+      "google/gemma-4-31b-it": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.11,
+          "output": 0.35
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Google Gemma 4 31B instruct-tuned. Vendor description: 'Google's open 31B instruction-tuned model.' Live roster (2026-09-28): context_length 262144, max_completion_tokens 262144, FP8, input_modalities text+image+video (vision true). supported_parameters includes response_format and tools but, unlike the other three models on this roster, does NOT list structured_outputs — and docs.getlilac.com/inference/models carries an explicit caveat for this model: combining its reasoning parser with `enable_thinking: false` 'can silently disable xgrammar-backed structured output.' Pricing per docs (2026-09-28, matches roster): $0.11 / $0.35 per MTok input/output; no cached-input rate is published for this model (the live roster returns no `input_cache_read` field for it either). Roster-verified only, not capability-probed without a key; fallback."
+      }
+    },
+    "topModels": [
+      "moonshotai/kimi-k2.6",
+      "minimaxai/minimax-m3",
+      "zai-org/glm-5.2",
+      "google/gemma-4-31b-it"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://console.getlilac.com",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://console.getlilac.com and sign up with your email or a Google account",
+      "2. Create an organization, then go to API Keys in the dashboard and create a new key — it is shown only once, so copy it immediately",
+      "3. Go to Billing, click Add Credits and complete the Stripe checkout (as little as $5.00) — a positive credit balance is required before you can make any API request; there is no free tier or free credits",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.getlilac.com/v1 — docs.getlilac.com/inference/openai-compatibility.md states it 'provides an OpenAI-compatible API' and that pointing the official OpenAI SDK at it with a new base_url/api_key is sufficient. GET /v1/models is public and unauthenticated (confirmed live, 200, 4 models, 2026-09-28). Embeddings, audio, fine-tuning, the Assistants API, Batch API and file uploads are explicitly documented as not yet available. Billing is prepaid credit via Stripe with no minimum spend or contract once funded, but a positive balance is required before any request succeeds — no free tier. Rate limit: 200 requests/minute per organization; excess requests may get HTTP 429 with a Retry-After header. No self-service signup URL was found in the initial lead for this vendor, but docs.getlilac.com/inference/quickstart.md (fetched 2026-09-28) documents a normal self-serve console at console.getlilac.com — new-model requests still go through contact@getlilac.com, and enterprises wanting monthly invoicing instead of prepaid credits can also email that address."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.getlilac.com/v1/models — 4 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

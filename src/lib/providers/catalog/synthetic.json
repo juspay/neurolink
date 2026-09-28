@@ -1,0 +1,205 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "synthetic",
+  "displayName": "Synthetic",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.synthetic.new/openai/v1"
+  },
+  "models": {
+    "default": "syn:large:text",
+    "fallbacks": [
+      "syn:small:text",
+      "syn:large:vision",
+      "syn:small:vision",
+      "hf:zai-org/GLM-5.3-Flash",
+      "hf:openai/gpt-oss-120b",
+      "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+      "hf:deepseek-ai/DeepSeek-V4.1-Flash",
+      "hf:moonshotai/Kimi-K3",
+      "hf:Qwen/Qwen3.8-27B",
+      "hf:zai-org/GLM-4.7-Flash"
+    ],
+    "defaultContextWindow": 524288,
+    "defaultMaxOutputTokens": 65536,
+    "catalog": {
+      "syn:large:text": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Recommended - Synthetic's \"large:text\" convenience alias for deepseek-ai/DeepSeek-V4.1-Flash, described by the vendor as \"an efficient near-Fable model with vision.\" Despite the `:text` suffix it accepts image input (input_modalities: text, image, per the live roster). 512K context, 64K max output. Per unauthenticated GET https://api.synthetic.new/openai/v1/models (2026-09-28, HTTP 200): supported_features = tools, json_mode, structured_outputs, reasoning; reasoning_parameters.efforts = none/low/high/xhigh/max. Pricing (converted from the roster's per-token USD rates): $0.60 / $1.20 per MTok input/output, $0.03 per MTok cached input. Also reachable via the underlying weights id hf:deepseek-ai/DeepSeek-V4.1-Flash (same model, same pricing) — see that catalog entry. Not itself capability-probed with a live key; this is a roster+docs verified entry (see evidence.liveMatrix: null)."
+      },
+      "syn:small:text": {
+        "contextWindow": 196608,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.5,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Synthetic's \"small:text\" convenience alias for zai-org/GLM-4.7-Flash — the smaller, faster sibling in the ~30B-parameter class, text-only input (no image modality on the live roster). Consumes rate limits more slowly per the vendor's own description. 192K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $0.10 / $0.50 per MTok input/output, $0.02 per MTok cached input. Also reachable via hf:zai-org/GLM-4.7-Flash (same model). Roster+docs verified only; no live key probe."
+      },
+      "syn:large:vision": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.45
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Synthetic's \"large:vision\" convenience alias for moonshotai/Kimi-K3, described by the vendor as \"a massive 2.8T-parameter open-source model ... [that] supports vision on uploaded images.\" 512K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $3.00 / $15.00 per MTok input/output, $0.45 per MTok cached input — the most expensive model in this roster. Also reachable via hf:moonshotai/Kimi-K3 (same model). Roster+docs verified only; no live key probe."
+      },
+      "syn:small:vision": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 2.2,
+          "cachedInput": 0.09
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Synthetic's \"small:vision\" convenience alias for Qwen/Qwen3.8-27B — \"a small but capable coding and vision model from Qwen\" that consumes rate limits less quickly per the vendor. 256K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $0.45 / $2.20 per MTok input/output, $0.09 per MTok cached input. Also reachable via hf:Qwen/Qwen3.8-27B (same model). Roster+docs verified only; no live key probe."
+      },
+      "hf:zai-org/GLM-5.3-Flash": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.04
+        },
+        "vision": true,
+        "status": "production",
+        "description": "zai-org GLM-5.3-Flash, described by the vendor as \"an extremely efficient, Opus-4.8-equivalent model with vision.\" No `syn:` short alias — only reachable via this hf: (Hugging Face weights id) form. 512K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $0.15 / $0.50 per MTok input/output, $0.04 per MTok cached input. Roster+docs verified only; no live key probe."
+      },
+      "hf:openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.1,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI's open-weight gpt-oss-120b, described by the vendor as \"OpenAI's largest open-source model. A strong reasoning model with great support for agentic tasks.\" Text-only input on the live roster. 128K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $0.10 / $0.10 per MTok input/output, $0.02 per MTok cached input. Roster+docs verified only; no live key probe."
+      },
+      "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.0,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NVIDIA Nemotron-3-Super-120B (NVFP4 quant on the roster id; the vendor's own hugging_face_id field reports the FP8 build), described by the vendor as \"a fast, 120b-parameter model with good support for coding agents. Consumes rate limits more slowly.\" Text-only input on the live roster. 256K context, 64K max output. supported_features = tools, json_mode, structured_outputs, reasoning (live roster GET, 2026-09-28). Pricing: $0.30 / $1.00 per MTok input/output, $0.06 per MTok cached input. Roster+docs verified only; no live key probe."
+      },
+      "hf:deepseek-ai/DeepSeek-V4.1-Flash": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Underlying weights id for the model also reachable via the syn:large:text convenience alias — same hugging_face_id, same pricing, same specs. Kept as a distinct catalog/fallback entry because both id forms are valid values for `model` on the live roster. See syn:large:text for the fuller description."
+      },
+      "hf:moonshotai/Kimi-K3": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.45
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Underlying weights id for the model also reachable via the syn:large:vision convenience alias — same hugging_face_id, same pricing, same specs. Kept as a distinct catalog/fallback entry because both id forms are valid values for `model` on the live roster. See syn:large:vision for the fuller description."
+      },
+      "hf:Qwen/Qwen3.8-27B": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 2.2,
+          "cachedInput": 0.09
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Underlying weights id for the model also reachable via the syn:small:vision convenience alias — same hugging_face_id (Qwen/Qwen3.8-27B-FP8), same pricing, same specs. Kept as a distinct catalog/fallback entry because both id forms are valid values for `model` on the live roster. See syn:small:vision for the fuller description."
+      },
+      "hf:zai-org/GLM-4.7-Flash": {
+        "contextWindow": 196608,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.5,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Underlying weights id for the model also reachable via the syn:small:text convenience alias — same hugging_face_id, same pricing, same specs. Kept as a distinct catalog/fallback entry because both id forms are valid values for `model` on the live roster. See syn:small:text for the fuller description."
+      }
+    },
+    "topModels": [
+      "syn:large:text",
+      "syn:small:text",
+      "syn:large:vision",
+      "syn:small:vision",
+      "hf:zai-org/GLM-5.3-Flash"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://synthetic.new",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://synthetic.new and choose Sign up (or Log in if you already have an account)",
+      "2. Subscribe to a Pack ($1/day or $30/month, 500 requests/5hr per the pricing page) or set up enterprise usage-based billing — Synthetic has no free tier or keyless trial",
+      "3. Generate an API key from your account dashboard",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.synthetic.new/openai/v1 (confirmed by both the vendor's own docs and LiteLLM's third-party provider page, which lists /chat/completions as the only supported operation), serving 11 model ids covering 7 unique always-on open-source models (DeepSeek V4.1 Flash, Kimi K3, Qwen 3.8 27B, GLM 5.3 Flash, GLM 4.7 Flash, GPT-OSS-120B, Nemotron-3-Super-120B) under one flat-fee or usage-based subscription. No free tier or keyless trial; billing is a $1/day or $30/month pack (500 req/5hr) or enterprise pay-per-token. The pricing page also lists a separate embeddings model (hf:nomic-ai/nomic-embed-text-v1.5) included in the subscription, but NeuroLink's embeddings capability is not currently wired for Tier-2 catalog providers (only OpenAI, Google AI Studio, Google Vertex and Bedrock embed natively), so capabilities.embeddings is false here regardless of vendor support."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.synthetic.new/openai/v1/models — 11 models; credential-free, no key used",
+      "status": 200
+    },
+    "billingProbe": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://synthetic.new/pricing — no free tier; $1/day or $30/month subscription pack (500 req/5hr), or enterprise usage-based pricing; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

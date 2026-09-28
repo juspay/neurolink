@@ -1,0 +1,63 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "llmtech",
+  "displayName": "LLM Tech",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.llmtech.eu/v1"
+  },
+  "models": {
+    "default": "nvidia/Qwen3.8-27B-NVFP4",
+    "fallbacks": ["nvidia/Qwen3.8-27B-NVFP4"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 32768,
+    "catalog": {
+      "nvidia/Qwen3.8-27B-NVFP4": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 2.09,
+          "cachedInput": 0.04
+        },
+        "vision": true,
+        "status": "production",
+        "description": "LLM Tech's sole hosted chat model (NVFP4-quantized Qwen3.8-27B on Blackwell), self-hosted on EU hardware (GPU node in Italy, edge in Nuremberg). Re-verified live via unauthenticated GET https://api.llmtech.eu/v1/models on 2026-09-28 (HTTP 200, exactly 1 model): context_length 262144, max_output/max_output_tokens 32768, pricing_per_m input $0.25 / output $2.09 / cache_read $0.04 per MTok, and a features array of [tools, json_mode, structured_outputs, logprobs, reasoning, vision] on the model object itself. All of this matches the vendor's own model page (https://llmtech.eu/models/qwen3.8-27b, retrieved 2026-09-28), which documents: an OpenAI-compatible client.chat.completions.create(...) quickstart against this baseURL; SSE streaming ('SSE, OpenAI format', stream=True in the sample); tool calling ('yes, with structured outputs'); real vision support ('yes, the vision tower is kept in BF16 and works' — image tokens count toward prompt_tokens and bill at the input rate, e.g. a 64x64 PNG costs 64 image tokens; images must go in a user message, not a system message; the page notes third-party listings calling this model text-only are wrong); reasoning control via enable_thinking/reasoning_effort request parameters; automatic prompt caching billed at the cache rate; and zero data retention (prompts/completions 'never used for training'). No response_format wire example or combined tools+response_format request is shown or was probed (see capabilities.structuredOutputWithTools). Not itself capability-probed end to end — credential-free onboarding, no API key used."
+      }
+    },
+    "topModels": ["nvidia/Qwen3.8-27B-NVFP4"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://llmtech.eu/models/qwen3.8-27b",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. LLM Tech publishes no public signup or self-service key page as of 2026-09-28 (self-service is described on the vendor's site as 'planned'); email artem@llmtech.eu to request a key — the account dashboard (https://llmtech.eu/cabinet/) confirms keys are issued by the company rather than self-created ('we hold no passwords and no accounts'; 'paste the API key we issued you')",
+      "2. Once you receive a key, https://llmtech.eu/cabinet/ shows current-month billing (totals, a daily usage chart, invoice line items) by pasting the key in — there is no separate account or login",
+      "3. Billing is pay-per-token USD with 'no subscription, no minimums' (input $0.25/M, output $2.09/M, cached input $0.04/M per https://llmtech.eu/models/qwen3.8-27b); no free tier is documented, so budget for paid usage from the first call",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.llmtech.eu/v1, self-hosted on EU hardware (GPU node in Italy, edge in Nuremberg), serving a single model — nvidia/Qwen3.8-27B-NVFP4 — confirmed live by an unauthenticated GET /v1/models. No public signup exists; keys are issued manually by the vendor via email. The vendor states zero data retention: prompts and completions are never used for training."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.llmtech.eu/v1/models — 1 model; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

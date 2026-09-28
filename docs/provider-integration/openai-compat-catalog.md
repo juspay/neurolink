@@ -1,9 +1,7 @@
 # OpenAI-Compatible Provider Catalog
 
-Sixteen OpenAI-compatible providers — API Route, Baseten, SambaNova,
-Cerebras, Groq, xAI, Together AI, Fireworks AI, Perplexity, Mistral,
-Cloudflare Workers AI, GMI Cloud, Inception Labs, io.net Intelligence,
-Mancer, Upstage — are registered from **one JSON file each**, under
+Every OpenAI-compatible provider in the catalog (41 as of 2026-09-28; the
+directory is the list) is registered from **one JSON file each**, under
 `src/lib/providers/catalog/<id>.json`, and served by one generic class,
 `ConfiguredOpenAICompatProvider`
 (`src/lib/providers/configuredOpenAICompat.ts`). Adding another provider to
@@ -116,3 +114,9 @@ This is expressed via the JSON's `quirks.registryDefaultIgnoresModelEnvVar`
 `getDefaultModel(MISTRAL)` now returns the real generation default
 (`mistral-small-2506`) rather than the registry literal — a disclosed
 bug-fix-grade delta, since the two disagreed before.
+
+## What comes next
+
+The credential-free growth queue in `docs/provider-integration/growth-queue.json` lists every
+verified candidate vendor by wave (W1 = hosted OpenAI-compatible, the catalog path). Entries
+onboarded from it carry `evidence.liveMatrix: null` until a live run with a real key.

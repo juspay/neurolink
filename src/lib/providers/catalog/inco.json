@@ -1,0 +1,196 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "inco",
+  "displayName": "Inco",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.inco.ai/v1"
+  },
+  "models": {
+    "default": "glm-5.3",
+    "fallbacks": [
+      "deepseek-v4.1-flash",
+      "kimi-k3",
+      "glm-5.3-flash",
+      "minimax-m3",
+      "glm-5.3:fast",
+      "kimi-k3:fast",
+      "deepseek-v4.1-flash:fast",
+      "glm-5.3-flash:fast",
+      "minimax-m3:fast"
+    ],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "glm-5.3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3 — standard tier, 744B parameters, exposes `reasoning_effort: true` on the live catalog. Text-only (no `modalities` field in the API response). GLM-5.3-licensed; model card https://huggingface.co/zai-org/GLM-5.3. No vendor-documented recommended/default model exists (per https://platform.inco.ai/docs), so this id was chosen editorially as the catalog default for its reasoning capability and mid-range pricing among the roster. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $1.40 / $4.40 per MTok input/output, $0.26 cached input."
+      },
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.006
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash — standard tier, 552B parameters, `reasoning_effort: true`. Text-only (no `modalities` field); compare the `:fast` variant of this id below, which does carry a vision-capable `modalities` field. MIT-licensed; model card https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.30 / $1.20 per MTok input/output, $0.006 cached input. Fallback."
+      },
+      "kimi-k3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K3 — standard tier, 2.8T parameters (MoE), `reasoning_effort: true`. Text-only (no `modalities` field). Licensed under the Kimi K3 License; model card https://huggingface.co/moonshotai/Kimi-K3. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $3.00 / $15.00 per MTok input/output, $0.30 cached input. Fallback."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3 Flash — standard tier, 320B parameters. `reasoning_effort: false` and no `modalities` field on this id (contrast the `:fast` variant, which is vision-capable per its `modalities` field). Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.15 / $0.50 per MTok input/output, $0.03 cached input. Fallback."
+      },
+      "minimax-m3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MiniMax M3 — standard tier, 428B parameters, `reasoning_effort: true`. The live catalog's `modalities` field lists `input: [text, image]`, `output: [text]` for this id, so it is marked vision-capable — not independently probed for a working image reply (no key was used; see evidence.liveMatrix). MiniMax Community License; model card https://huggingface.co/MiniMaxAI/MiniMax-M3. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.30 / $1.20 per MTok input/output, $0.06 cached input. Fallback."
+      },
+      "glm-5.3:fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 2.8,
+          "output": 8.8,
+          "cachedInput": 0.52
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3 (Fast) — fast-tier sibling of the default `glm-5.3`; same context and parameter count, `reasoning_effort: false`, no `modalities` field. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $2.80 / $8.80 per MTok input/output, $0.52 cached input — 2x the standard tier's price for the lower-latency \"fast\" variant. Fallback."
+      },
+      "kimi-k3:fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 6,
+          "output": 30,
+          "cachedInput": 0.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K3 (Fast) — fast-tier sibling of `kimi-k3`; same 2.8T parameters, `reasoning_effort: false`, no `modalities` field. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $6.00 / $30.00 per MTok input/output, $0.60 cached input. Fallback."
+      },
+      "deepseek-v4.1-flash:fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.012
+        },
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash (Fast) — fast-tier sibling of `deepseek-v4.1-flash`. The live catalog's `modalities` field lists `input: [text, image]`, `output: [text]` for this id specifically (the standard, non-fast id carries no `modalities` field), so only this entry is marked vision-capable — not independently probed for a working image reply (no key was used; see evidence.liveMatrix). Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.60 / $2.40 per MTok input/output, $0.012 cached input. Fallback."
+      },
+      "glm-5.3-flash:fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "GLM 5.3 Flash (Fast) — fast-tier sibling of `glm-5.3-flash`. The live catalog's `modalities` field lists `input: [text, image]`, `output: [text]` for this id specifically (the standard, non-fast id carries no `modalities` field), so only this entry is marked vision-capable — not independently probed for a working image reply (no key was used; see evidence.liveMatrix). MIT-licensed; model card https://huggingface.co/zai-org/GLM-5.3-Flash. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.15 / $0.50 per MTok input/output, $0.03 cached input — same price as the non-fast `glm-5.3-flash`. Fallback."
+      },
+      "minimax-m3:fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.12
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MiniMax M3 (Fast) — fast-tier sibling of `minimax-m3`; same 428B parameters and vision-capable `modalities` field, `reasoning_effort: false`. Pricing per unauthenticated GET https://api.inco.ai/v1/models (2026-09-28, HTTP 200): $0.60 / $2.40 per MTok input/output, $0.12 cached input. Fallback."
+      }
+    },
+    "topModels": [
+      "glm-5.3",
+      "kimi-k3",
+      "deepseek-v4.1-flash",
+      "glm-5.3-flash",
+      "minimax-m3"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid_api_key|key_expired",
+      "class": "authentication",
+      "message": "Invalid Inco API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 404,
+      "pattern": "model_not_found",
+      "class": "invalid-model",
+      "message": "Inco model '{model}' not found. Pick a current model from the public /v1/models roster or {setupUrl}"
+    },
+    {
+      "status": 429,
+      "pattern": "rate_limit_exceeded|spend_limit_exceeded",
+      "class": "rate-limit",
+      "message": "Inco rate limit exceeded (per-minute cap or monthly spend cap). Wait and retry, or check your plan at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://platform.inco.ai/waitlist",
+    "apiKeyFormat": "^sk-inco-",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://platform.inco.ai/waitlist and request access — Inco is currently waitlist-gated, not open signup; existing users sign in at https://platform.inco.ai/sign-in",
+      "2. Once approved, create an API key on the dashboard's Keys page (https://platform.inco.ai/keys) — it is shown in full only once and starts with sk-inco-",
+      "3. Add prepaid credit before use: billing is strictly pay-per-token with no free tier, and a zero balance returns HTTP 402 (`credit_balance_exhausted`) until you top up",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible Chat Completions endpoint at https://api.inco.ai/v1 (per vendor docs, also reachable via an Anthropic-SDK-shaped API at the host root https://api.inco.ai). The public model catalog (GET /v1/models) is fetchable without a key — confirmed live 2026-09-28, HTTP 200 with 10 models. Access to a working key is currently gated by a waitlist (https://platform.inco.ai/waitlist), and billing is strictly prepaid pay-per-token with no stated free tier (https://platform.inco.ai/docs#limits)."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.inco.ai/v1/models — 10 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

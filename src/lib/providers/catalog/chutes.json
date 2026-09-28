@@ -1,0 +1,236 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "chutes",
+  "displayName": "Chutes",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://llm.chutes.ai/v1"
+  },
+  "models": {
+    "default": "moonshotai/Kimi-K2.6-TEE",
+    "fallbacks": [
+      "moonshotai/Kimi-K3-TEE",
+      "deepseek-ai/DeepSeek-V4-Flash-0731-TEE",
+      "zai-org/GLM-5.2-TEE",
+      "Qwen/Qwen3.5-397B-A17B-TEE",
+      "Qwen/Qwen3.6-27B-TEE",
+      "Qwen/Qwen3.8-27B-TEE",
+      "Qwen/Qwen3-235B-A22B-Thinking-2507-TEE",
+      "deepseek-ai/DeepSeek-V3.2-TEE",
+      "zai-org/GLM-5.1-TEE",
+      "google/gemma-4-31B-turbo-TEE",
+      "Qwen/Qwen3-32B-TEE",
+      "unsloth/Mistral-Nemo-Instruct-2407-TEE",
+      "Nemotron-3-Nano-Omni-30B-TEE"
+    ],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 65535,
+    "catalog": {
+      "moonshotai/Kimi-K2.6-TEE": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65535,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 2.85,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Default — this is the model Chutes' own homepage code sample uses for the documented POST https://llm.chutes.ai/v1/chat/completions example (model, messages, stream:true, Authorization: Bearer $CHUTES_API_KEY), the strongest wire-shape evidence available without a key. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). The public roster entry (root moonshotai/Kimi-K3, confidential_compute:true, owned_by vllm) lists context_length 262144, max_output_length 65535, input_modalities [text, image, video] and supported_features [json_mode, structured_outputs, tools, reasoning] — matched by the function-calling guide (https://chutes.ai/docs/guides/agents-and-tools, OpenAI-shaped tools/tool_choice/tool_call_id) and by the JSON-mode example on the same page (response_format:{type:\"json_object\"}). None of this was exercised end to end — no API key was used, so vision/tool/JSON-mode support and pricing are roster- and docs-verified only, not live-probed. Pricing ($0.50/$2.85 per MTok in/out, $0.05 cached) is read directly from the same GET /v1/models response and is consistent with https://chutes.ai/pricing's stated USD-per-1M-token PAYG billing."
+      },
+      "moonshotai/Kimi-K3-TEE": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 65535,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot Kimi K3 — largest context window in the roster (1,048,576 tokens) and the same declared feature set as the default (json_mode, structured_outputs, tools, reasoning) plus image/video input modalities per the public /v1/models entry. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not itself capability-probed (no key used); fallback."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731-TEE": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.44,
+          "output": 1.32,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash (0731 snapshot) — 1,048,576-token context window and the largest documented max_output_length in the roster (131,072). Text-only input per input_modalities. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "zai-org/GLM-5.2-TEE": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 65535,
+        "pricingPerMTok": {
+          "input": 1.25,
+          "output": 3.95,
+          "cachedInput": 0.125
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.2 — 1,048,576-token context window, text-only input per input_modalities. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "Qwen/Qwen3.5-397B-A17B-TEE": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 3.0,
+          "cachedInput": 0.045
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.5 397B-A17B (MoE) — image input documented in input_modalities alongside the full json_mode/tools/structured_outputs/reasoning feature set. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "Qwen/Qwen3.6-27B-TEE": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 2.0,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.6 27B — image input documented in input_modalities alongside the full feature set. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "Qwen/Qwen3.8-27B-TEE": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.24,
+          "output": 2.2,
+          "cachedInput": 0.024
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.8 27B — image input documented in input_modalities alongside the full feature set. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "Qwen/Qwen3-235B-A22B-Thinking-2507-TEE": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.2989,
+          "output": 1.1957,
+          "cachedInput": 0.0299
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 3 235B-A22B Thinking (2507 snapshot) — a reasoning-focused variant whose max_output_length equals its full 262,144-token context window, so a generous max_tokens budget matters most for this entry. Text-only input per input_modalities. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "deepseek-ai/DeepSeek-V3.2-TEE": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 1.0,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V3.2 — text-only input per input_modalities, full documented feature set. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "zai-org/GLM-5.1-TEE": {
+        "contextWindow": 202752,
+        "maxOutputTokens": 65535,
+        "pricingPerMTok": {
+          "input": 0.98,
+          "output": 3.08,
+          "cachedInput": 0.098
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.1 — prior GLM generation, text-only input per input_modalities. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "google/gemma-4-31B-turbo-TEE": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.12,
+          "output": 0.37,
+          "cachedInput": 0.012
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Google Gemma 4 31B Turbo — image input documented in input_modalities. The roster reports a 262,144 max_model_len against a smaller 131,072 context_length; contextWindow here uses the latter (context_length), the field name this catalog treats as the documented context window — see https://llm.chutes.ai/v1/models. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "Qwen/Qwen3-32B-TEE": {
+        "contextWindow": 40960,
+        "maxOutputTokens": 40960,
+        "pricingPerMTok": {
+          "input": 0.104,
+          "output": 0.416,
+          "cachedInput": 0.0104
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 3 32B — smallest documented context window in the roster (40,960 tokens), text-only input. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      },
+      "unsloth/Mistral-Nemo-Instruct-2407-TEE": {
+        "pricingPerMTok": {
+          "input": 0.0245,
+          "output": 0.0978,
+          "cachedInput": 0.0024
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Nemo Instruct (2407, Unsloth build) — the public /v1/models entry gives only max_model_len (131,072); context_length, max_output_length, input_modalities and supported_features are all null/absent for this id, so no context window, output cap, vision or tool/JSON-mode capability is asserted here (contextWindow and maxOutputTokens are omitted rather than guessed from max_model_len, which is not documented as equivalent to either). credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Cheapest model in the roster by list price. Roster-listed only; not capability-probed; fallback."
+      },
+      "Nemotron-3-Nano-Omni-30B-TEE": {
+        "pricingPerMTok": {
+          "input": 0.0245,
+          "output": 0.0978,
+          "cachedInput": 0.0024
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Nemotron 3 Nano Omni 30B — same undocumented-field pattern as unsloth/Mistral-Nemo-Instruct-2407-TEE: only max_model_len (131,072) is given; context_length, max_output_length, input_modalities and supported_features are all null/absent. The \"Omni\" name suggests multimodal capability, but nothing in the public roster confirms it, so vision is left false here rather than inferred from the name. credential-free roster probe: unauthenticated GET https://llm.chutes.ai/v1/models on 2026-09-28 (HTTP 200, 14 models). Roster-listed only; not capability-probed; fallback."
+      }
+    },
+    "topModels": [
+      "moonshotai/Kimi-K2.6-TEE",
+      "moonshotai/Kimi-K3-TEE",
+      "deepseek-ai/DeepSeek-V4-Flash-0731-TEE",
+      "zai-org/GLM-5.2-TEE",
+      "Qwen/Qwen3.5-397B-A17B-TEE",
+      "deepseek-ai/DeepSeek-V3.2-TEE"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://chutes.ai/signup",
+    "apiKeyFormat": "^cpk_[A-Za-z0-9_-]+$",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://chutes.ai/signup and create an account (pick a username; sign up with Google, GitHub, or optionally link a Bittensor wallet — no card is asked for on this page)",
+      "2. Manage billing and create API keys at https://api.chutes.ai (account/billing/API-key management is a separate host from the inference API)",
+      "3. Review current token pricing at https://chutes.ai/pricing before making requests — pay-as-you-go per token (USD per 1M tokens) plus optional paid Plus/Pro plans; no free trial credits are documented, so budget for a funded account from the first call",
+      "4. Set {apiKeyEnvVar} in your .env file — keys are issued with a cpk_ prefix and must be sent as Authorization: Bearer {apiKeyEnvVar} (X-API-Key is not a supported auth scheme)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://llm.chutes.ai/v1 (chat completions confirmed via the vendor's own homepage code sample), serving a small TEE (confidential-compute) model roster — 14 ids at the time of writing, confirmed by an unauthenticated GET /v1/models. Billing is pay-as-you-go per token; the pricing page's free-trial FAQ answer is collapsed/unconfirmed and no free-tier language appears elsewhere in the public docs, so billingPolicy is recorded conservatively as no-free-tier pending a live-key check."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://llm.chutes.ai/v1/models — 14 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

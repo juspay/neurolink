@@ -1,0 +1,81 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "koscompute",
+  "displayName": "Kosmik Compute",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.koscompute.com/v1"
+  },
+  "models": {
+    "default": "qwen/qwen3.8-27b",
+    "fallbacks": ["qwen/qwen3.8-27b"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 32768,
+    "catalog": {
+      "qwen/qwen3.8-27b": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.35,
+          "output": 2.2,
+          "cachedInput": 0.09
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.8 27B (fp8) — the only chat-capable model in KosCompute's roster; the other 6 ids returned by /v1/models are Whisper transcription and TTS models (endpoint_kind audio/tts), not chat. Confirmed via unauthenticated GET https://api.koscompute.com/v1/models (2026-09-28, HTTP 200): context_length 262144 (modality_context_lengths.text), 131072 for image input; max_output_length/max_output 32768; pricing input $0.35 / output $2.20 per MTok, cached input $0.09 (the response's own precomputed input/output/cache_read fields, matching prompt/completion/input_cache_read per-token rates); supported_features [tool_calling, json_mode, structured_outputs, reasoning]; supported_endpoints [/v1/chat/completions, /v1/responses, /v1/messages]; input_modalities [text, image] with vision.max_pixels 1048576. model_info reports reasoning:true, extended_thinking:true, thinking_default:true, max_thinking_tokens:8192, supported_reasoning_efforts [none, low, medium, xhigh]. Docs corroborate generically for the chat-completions surface: api.koscompute.com/docs/guides/tool-calling/ (tools array, tool_choice auto|none|required|named, results read from choices[0].message.tool_calls), /docs/guides/structured-output/ (response_format json_object and json_schema, 'Unsupported models return a 400 capability error' for models lacking json_mode/structured_outputs — this model advertises both), and /docs/guides/streaming/ (stream:true, text/event-stream, data: [DONE]). No live capability probe was run (credential-free onboarding, no API key) — see evidence.liveMatrix: null."
+      }
+    },
+    "topModels": ["qwen/qwen3.8-27b"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid KosCompute API key. Check {apiKeyEnvVar}. See {setupUrl} for what KosCompute's docs publish on authentication — the vendor documents 401 as 'missing, invalid, expired, inactive, or conflicting credentials' but gives no example error body or code string."
+    },
+    {
+      "status": 404,
+      "pattern": "model_not_found",
+      "class": "invalid-model",
+      "message": "KosCompute model '{model}' not found. Pick a current id from an unauthenticated GET https://api.koscompute.com/v1/models."
+    },
+    {
+      "status": 429,
+      "pattern": "concurrent_limit_exceeded",
+      "class": "rate-limit",
+      "message": "KosCompute per-key concurrency limit exceeded for '{model}'. Wait for an in-flight request to finish, or reduce parallel requests, before retrying."
+    }
+  ],
+  "setup": {
+    "url": "https://api.koscompute.com/docs/overview/quickstart/",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. KosCompute publishes no public signup, dashboard, or key-management page as of 2026-09-28 — the docs' quickstart (this URL) assumes you already hold a key and only shows how to use one, via `export KOSCOMPUTE_API_KEY=\"your-api-key\"`; the site's only 'Start building' call-to-action also points here, not to a signup form",
+      "2. The docs reference an account 'balance' (/docs/overview/authentication/: 'Authentication success does not guarantee model access, remaining account balance, or available capacity') but publish no pricing, free-tier, or top-up page, so billing policy could not be confirmed from public sources — treat this entry's `no-free-tier` as the conservative default in the absence of any documented free allocation, not a confirmed vendor policy",
+      "3. Once you have a key (provisioned out of band), set {apiKeyEnvVar} in your .env file",
+      "4. Sanity-check connectivity first with an unauthenticated GET https://api.koscompute.com/v1/models (no key needed) before spending a real chat request"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.koscompute.com/v1, described by the vendor as EU-hosted inference (docs: 'EU-hosted, OpenAI-compatible inference for chat, reasoning, vision, speech recognition, and speech synthesis'); also exposes Responses-API and Anthropic-Messages-compatible surfaces for the same chat model. No public signup or key-management page is published, and billing policy is unconfirmed."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.koscompute.com/v1/models — 7 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

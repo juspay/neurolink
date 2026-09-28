@@ -1,0 +1,143 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "empiriolabs",
+  "displayName": "EmpirioLabs AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.empiriolabs.ai/v1"
+  },
+  "models": {
+    "default": "glm-5-3",
+    "fallbacks": [
+      "glm-5-3-flash",
+      "glm-5-2",
+      "kimi-k3",
+      "qwen3-7-max",
+      "minimax-m2-7-highspeed"
+    ],
+    "defaultContextWindow": 1000000,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "glm-5-3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 1.4
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended — EmpirioLabs' own roster marks this is_featured=true (GET /v1/models, 2026-09-28). Zhipu GLM-5.3: reasoning model with native function calling and web search, response_format json_object structured output, 1M token context, 131,072 token max output — all read directly from the unauthenticated GET https://api.empiriolabs.ai/v1/models. Pricing from the same roster: $1.40 / $4.40 per MTok input/output, $1.40 per MTok cached input. Onboarded credential-free — no live chat, streaming or tool-call request was made, so wire behavior (SSE framing, a real tool_call round-trip, image input) is roster- and docs-verified only, not live-probed; see evidence.liveMatrix (null)."
+      },
+      "glm-5-3-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.075,
+          "output": 0.25,
+          "cachedInput": 0.075
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Zhipu GLM-5.3 Flash — lighter/cheaper sibling of the default. The roster marks capabilities.images=true (also video_understanding and document_understanding features), function calling and json_object structured output. 1M context, 131,072 max output. Pricing: $0.075 / $0.25 per MTok input/output, $0.075 cached. Roster-listed only, not capability-probed (credential-free onboarding — no live request made); fallback."
+      },
+      "glm-5-2": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 1.4
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.2 — prior GLM generation; reasoning, function calling, web search; json_object structured output; 1M context, 131,072 max output. Pricing $1.40 / $4.40 per MTok. Roster-listed only, not capability-probed; fallback."
+      },
+      "kimi-k3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot Kimi K3 — reasoning, function calling, multimodal (capabilities.images=true on the roster), agentic coding and web search; strict json_schema structured output (a stronger guarantee than glm-5-3's json_object). 1M context, 131,072 max output. Pricing $3 / $15 per MTok. Roster-listed only, not capability-probed; fallback."
+      },
+      "qwen3-7-max": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 2.5,
+          "output": 7.5,
+          "cachedInput": 2.5
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Alibaba Qwen3.7 Max — flagship text reasoning model with code_interpreter, function calling and agentic coding; strict json_schema structured output. 1M context, 65,536 max output (lower than the GLM family's 131,072 — read from the roster, not assumed). Pricing $2.50 / $7.50 per MTok. Roster-listed only, not capability-probed; fallback."
+      },
+      "minimax-m2-7-highspeed": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.7 Highspeed — reasoning and function calling only (no vision or web_search declared on the roster); json_object structured output. Smallest context in this curated set (200K, 32,768 max output) — kept as the lightest/cheapest fallback. Pricing $0.30 / $1.20 per MTok, $0.03 cached. Roster-listed only, not capability-probed; fallback."
+      }
+    },
+    "topModels": [
+      "glm-5-3",
+      "glm-5-3-flash",
+      "glm-5-2",
+      "kimi-k3",
+      "qwen3-7-max",
+      "minimax-m2-7-highspeed"
+    ],
+    "visionModel": "glm-5-3-flash"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid EmpirioLabs API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://platform.empiriolabs.ai",
+    "apiKeyFormat": "^sk-empiriolabs-",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://platform.empiriolabs.ai and create an account",
+      "2. Create an API key from the dashboard (keys use the sk-empiriolabs- prefix, up to 50 per account)",
+      "3. Selected models (e.g. GLM 4.7 Flash) run at $0 cost; other models draw from prepaid credits topped up via the dashboard Billing page — confirm current pricing before heavy use",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.empiriolabs.ai/v1 (docs.empiriolabs.ai confirms it accepts the OpenAI Chat Completions request format). Hosts a large catalog — 217 models on an unauthenticated GET /v1/models as of 2026-09-28 — spanning text, vision, audio, video, image and 3D generation; this catalog entry covers only a curated set of text/chat-completions-capable models. New accounts default to 50 RPM / 2,000,000 TPM."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.empiriolabs.ai/v1/models — 217 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

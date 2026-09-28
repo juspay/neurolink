@@ -1,0 +1,179 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "neuralwatt",
+  "displayName": "Neuralwatt",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.neuralwatt.com/v1"
+  },
+  "models": {
+    "default": "glm-5.3",
+    "fallbacks": [
+      "glm-5.3-flash",
+      "qwen-3.8-27b",
+      "qwen3.6-35b",
+      "kimi-k2.7-code",
+      "kimi-k3",
+      "deepseek-v4.1-flash",
+      "gemma-4-31b"
+    ],
+    "defaultContextWindow": 1048560,
+    "defaultMaxOutputTokens": 4096,
+    "visionModel": "qwen-3.8-27b",
+    "catalog": {
+      "glm-5.3": {
+        "contextWindow": 1048560,
+        "pricingPerMTok": {
+          "input": 1.45,
+          "output": 4.5,
+          "cachedInput": 0.145
+        },
+        "vision": false,
+        "status": "production",
+        "description": "ZhipuAI GLM 5.3 (fp8-native, zai-org/GLM-5.3) — the model used in every quickstart code sample on https://docs.neuralwatt.com/quickstart (curl, Python and Node.js all default to \"glm-5.3\"), so it is treated as Neuralwatt's own recommended default here. Roster metadata (GET /v1/models, 2026-09-28) marks reasoning mandatory (default effort \"max\") and declares tools:true and json_mode:true, but neither claim was independently probed — this onboarding is fully credential-free, no POST request was made. json_mode is not backed by a documented `response_format` parameter anywhere in the chat-completions API reference (https://docs.neuralwatt.com/api-reference/inference/create-a-chat-completion, retrieved 2026-09-28), so capabilities.structuredOutput is left false rather than trusting the flag alone. limits.max_output_tokens is null for this model in the live roster — omitted here rather than invented; models.defaultMaxOutputTokens (4096) is a generic placeholder, not a Neuralwatt-stated ceiling for this model. Pricing per the same roster response: $1.45 / $4.50 per MTok input/output, $0.145 cached input."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048560,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "ZhipuAI GLM 5.3 Flash — lighter/cheaper sibling of the default. Roster-listed only (GET /v1/models, 2026-09-28); not itself exercised in any code sample; fallback. vision:true and max_output_tokens are as declared by the roster response — the latter is null there, so it is omitted rather than invented."
+      },
+      "qwen-3.8-27b": {
+        "contextWindow": 262128,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 3.2,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.8 27B (Qwen/Qwen3.8-27B-FP8) — dense 27B VL model with native 262K context; the first entry in Neuralwatt's own /v1/models roster (GET, 2026-09-28) and one of the few catalog entries with a documented max_output_tokens ceiling (131,072) and image limits (max_images:20, max_images_total:200), so it is used as models.visionModel. Roster-listed and roster-priced only; fallback, not capability-probed (credential-free onboarding, no POST made)."
+      },
+      "qwen3.6-35b": {
+        "contextWindow": 262128,
+        "pricingPerMTok": {
+          "input": 0.29,
+          "output": 1.15,
+          "cachedInput": 0.029
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.6 35B — roster-listed only (GET /v1/models, 2026-09-28); not capability-probed; fallback. max_output_tokens is null in the roster response, so it is omitted here."
+      },
+      "kimi-k2.7-code": {
+        "contextWindow": 262128,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4.0,
+          "cachedInput": 0.095
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI Kimi K2.7 Code (moonshotai/Kimi-K2.7-Code) — \"quant-agnostic canonical name for the Kimi K2.7 Code family\" per the roster's own description field (GET /v1/models, 2026-09-28). Roster-listed and roster-priced only; not capability-probed; fallback. max_output_tokens is null in the roster response, so it is omitted here."
+      },
+      "kimi-k3": {
+        "contextWindow": 1048560,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI Kimi K3 — general-purpose sibling of the Code line, 1M context per the roster (GET /v1/models, 2026-09-28). Roster-listed only; not capability-probed; fallback. max_output_tokens is null in the roster response, so it is omitted here."
+      },
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1048560,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.015
+        },
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash — roster-listed with a documented max_output_tokens ceiling (393,216) and vision:true (GET /v1/models, 2026-09-28). Not capability-probed; fallback."
+      },
+      "gemma-4-31b": {
+        "contextWindow": 262128,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0.144,
+          "output": 0.42,
+          "cachedInput": 0.0144
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NVIDIA's Gemma 4 31B build (owned_by/provider \"nvidia\" per the roster, GET /v1/models, 2026-09-28) — the only catalog entry from that provider label. Roster-listed with a documented max_output_tokens ceiling (16,384); not capability-probed; fallback."
+      }
+    },
+    "topModels": [
+      "glm-5.3",
+      "glm-5.3-flash",
+      "qwen-3.8-27b",
+      "qwen3.6-35b",
+      "kimi-k2.7-code",
+      "kimi-k3",
+      "deepseek-v4.1-flash",
+      "gemma-4-31b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|invalid_api_key|authentication_error",
+      "class": "authentication",
+      "message": "Invalid Neuralwatt API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 404,
+      "pattern": "model_not_found|not\\s+found",
+      "class": "invalid-model",
+      "message": "Neuralwatt model '{model}' not found. Pick a current model from the unauthenticated GET https://api.neuralwatt.com/v1/models roster or {setupUrl}"
+    },
+    {
+      "status": 429,
+      "pattern": "rate_limit_exceeded|concurrent_budget_exceeded|tpm_uncached_exceeded",
+      "class": "rate-limit",
+      "message": "Neuralwatt rate limit hit for {model}. The error body includes retry_after and a retry_strategy — back off and retry rather than failing immediately."
+    }
+  ],
+  "setup": {
+    "url": "https://portal.neuralwatt.com",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://portal.neuralwatt.com and sign up",
+      "2. Add a payment method in Dashboard > Billing — new accounts start with a $0 balance, and adding a card grants $1.00 in free trial credit (no charge is made; the credit is valid for 30 days)",
+      "3. Navigate to Dashboard > API Keys and create a new key — copy it immediately, it is shown in full only once and starts with sk-",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.neuralwatt.com/v1 (\"Neuralwatt Cloud\"), serving 21 hosted open-weight models across Qwen, MoonshotAI Kimi, ZhipuAI GLM, DeepSeek and an NVIDIA Gemma build, with per-request energy and cost reporting (SSE comment lines / X-Request-Cost-USD headers). New accounts start at a $0 balance; adding a payment method grants a $1.00 trial credit valid 30 days, then usage is pay-per-token. Not all models support tool calling per Neuralwatt's own tool-calling guide — check a given model's capabilities on the /v1/models roster before relying on it."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.neuralwatt.com/v1/models — 21 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

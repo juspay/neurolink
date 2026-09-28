@@ -1,0 +1,204 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "aiand",
+  "displayName": "ai&",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.aiand.com/v1"
+  },
+  "models": {
+    "default": "openai/gpt-oss-120b",
+    "fallbacks": [
+      "zai-org/glm-5.3",
+      "zai-org/glm-5.2",
+      "deepseek-ai/deepseek-v4-pro",
+      "deepseek-ai/deepseek-v4-flash",
+      "moonshotai/kimi-k3",
+      "moonshotai/kimi-k2.7-code",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.6-27b",
+      "motif-technologies/motif-3",
+      "google/gemma-4-31b-it"
+    ],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.08
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Default — the model used in ai&'s own quickstart curl example (https://docs.aiand.com/, retrieved 2026-09-28): 'curl https://api.aiand.com/v1/chat/completions -H \"Authorization: Bearer sk-your-api-key\" -d {\"model\": \"openai/gpt-oss-120b\", ...}'. Vendor description (GET /v1/models, 2026-09-28): \"Open GPT reasoning model for self-hosted agents and controllable deployments\". Cheapest model on the roster. Documents `reasoning` + `tool_calling` capabilities and a `reasoning_effort` request parameter with model-specific values low/medium/high (default medium) — see https://docs.aiand.com/api/chat-completions/. No `vision` capability listed, so image/video input is expected to be rejected. Docs- and roster-verified only — no API key was used, so no live chat/stream/tool call was made against this or any other model in this catalog."
+      },
+      "zai-org/glm-5.3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 4.0,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Flagship GLM model for long-horizon coding, agents, and complex project delivery\". reasoning_effort values low/high/max, default max. 1M context. Roster-listed and priced only, not itself capability-probed; fallback."
+      },
+      "zai-org/glm-5.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 4.0,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Open flagship GLM for long-horizon coding agents and million-token context work\". reasoning_effort values none/high/max, default max. Roster-listed only; fallback."
+      },
+      "deepseek-ai/deepseek-v4-pro": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 2.5,
+          "cachedInput": 0.25
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Open MoE flagship with million-token context for coding and long agent runs\". reasoning_effort values none/high/max, default none. Roster-listed only; fallback."
+      },
+      "deepseek-ai/deepseek-v4-flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.25,
+          "cachedInput": 0.08
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Fast DeepSeek V4 lane for economical reasoning, coding, and long-context work\". reasoning_effort values none/high/max, default none. Roster-listed only; fallback."
+      },
+      "moonshotai/kimi-k3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 12.5,
+          "cachedInput": 0.5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Multimodal Kimi model with 1M context and toggleable max-effort thinking for long-horizon agent work\". reasoning_effort values low/high/max, default max. Lists `vision` in its capabilities array, but ai&'s vision docs (https://docs.aiand.com/capabilities/vision/) describe images/video as uploaded via the Files API first and referenced by `file_id` — not the inline base64 `image_url` data-URI shape NeuroLink's other providers use — and that flow was not exercised (no key used). Roster-listed only; fallback."
+      },
+      "moonshotai/kimi-k2.7-code": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 3.5,
+          "cachedInput": 0.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Coding-focused Kimi model, stronger on long-horizon repo work with less overthinking\". reasoning_effort fixed to high (only value listed). Lists `vision`; see the kimi-k3 note above on ai&'s Files-API-based image/video flow being unverified here. Roster-listed only; fallback."
+      },
+      "qwen/qwen3.8-27b": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 3.0,
+          "cachedInput": 0.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Dense 27B vision-language model for coding, agent tasks, and image and video understanding\". reasoning_effort values none/low/medium/xhigh, default medium. Lists `vision`; see the kimi-k3 note above on ai&'s Files-API-based image/video flow being unverified here. Roster-listed only; fallback."
+      },
+      "qwen/qwen3.6-27b": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.32,
+          "output": 3.2,
+          "cachedInput": 0.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Qwen vision-language model for visual reasoning, documents, and agent tasks\". reasoning_effort values none/high, default high. Lists `vision`; see the kimi-k3 note above on ai&'s Files-API-based image/video flow being unverified here. Roster-listed only; fallback."
+      },
+      "motif-technologies/motif-3": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 2.0,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Motif 3 is a large-scale, decoder-only Mixture-of-Experts (MoE) language model with 314 billion total parameters and 13.2 billion parameters activated per token.\" reasoning_effort values none/high, default high. Roster-listed only; fallback."
+      },
+      "google/gemma-4-31b-it": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.5,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vendor description (GET /v1/models, 2026-09-28): \"Largest Gemma 4 instruction model for open, self-hosted chat and reasoning\". reasoning_effort values none/high, default none. Lists `vision`; see the kimi-k3 note above on ai&'s Files-API-based image/video flow being unverified here. Roster-listed only; fallback."
+      }
+    },
+    "topModels": [
+      "openai/gpt-oss-120b",
+      "zai-org/glm-5.3",
+      "deepseek-ai/deepseek-v4-flash",
+      "moonshotai/kimi-k3",
+      "qwen/qwen3.8-27b",
+      "zai-org/glm-5.2",
+      "google/gemma-4-31b-it"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid_api_key|authentication_error",
+      "class": "authentication",
+      "message": "Invalid ai& API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "pattern": "rate_limit_exceeded|rate_limit_error",
+      "class": "rate-limit",
+      "message": "ai& rate limit exceeded. Check the X-RateLimit-Policy response header and retry with backoff, or review your plan at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://console.aiand.com/playground",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://console.aiand.com/playground and sign in (Google, GitHub, or a magic-link email — https://docs.aiand.com/authentication/)",
+      "2. Create an organization API key under Organizations → API Keys (https://docs.aiand.com/organizations/api-keys/) — shown in full only once, and starts with sk-",
+      "3. ai& is prepaid only, no free tier: add credits via Stripe Checkout before making requests (https://docs.aiand.com/billing/credits/) — a zero balance returns HTTP 402 until credits are added",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.aiand.com/v1 (also exposes Anthropic-shaped /v1/messages, a Responses endpoint, and legacy Completions), serving zai-org GLM, Qwen, Kimi (moonshotai), DeepSeek V4, Google Gemma 4, Motif-3 and OpenAI gpt-oss open-weight models, each with a documented per-model `reasoning_effort` control. Prepaid credit billing only — no free tier; failed requests are not billed."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.aiand.com/v1/models — 11 models; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

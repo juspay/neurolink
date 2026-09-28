@@ -1,0 +1,212 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "featherless-ai",
+  "displayName": "Featherless AI",
+  "aliases": ["featherless"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.featherless.ai/v1"
+  },
+  "models": {
+    "default": "unsloth/Llama-3.3-70B-Instruct",
+    "fallbacks": [
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "Sao10K/L3.3-70B-Euryale-v2.3",
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.0",
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.1",
+      "KaraKaraWitch/Llama-MiraiFanfare-3.3-70B",
+      "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+      "recursal/QRWKV6-32B-Instruct-Preview-v0.1",
+      "RWKV/v6-Finch-14B-HF",
+      "RWKV/EagleX-7B-Chat-V0.5-pth",
+      "recursal/EagleX_1-7T_Chat",
+      "recursal/EagleX_1-7T"
+    ],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "unsloth/Llama-3.3-70B-Instruct": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 2.6,
+          "output": 3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended default — an ungated community re-upload of Meta's Llama 3.3 70B Instruct. Chosen over the official meta-llama/Llama-3.3-70B-Instruct entry because that one is Hugging-Face-gated on Featherless (HTTP 403 'Unauthorized... the model is gated and you need to agree to the model's license' per https://featherless.ai/docs/api-reference-error-codes, requiring a manual 'Unlock Model' click in the account UI before first use — not credential-free-verifiable and not a good zero-touch SDK default). contextWindow and pricing are the live values from GET https://api.featherless.ai/v1/models (2026-09-28): context_length=32768, pricing.input/output already expressed as $/MTok. The vendor's per-model 'features' flag on this id reports tool_use:true, but Featherless's own Tool Calling guide (https://featherless.ai/docs/tool-calling) names only the moonshotai/Kimi-K2-Instruct and Qwen 3 model families as natively supported and says other models need a prompting workaround — so capabilities.tools is declared model-dependent at the provider level rather than assumed true for this specific id. No response_format/JSON-mode, streaming (SSE/stream:true), or combined tools+schema behavior is documented anywhere in the Featherless docs checked (Overview, API overview and common options, Completions, Quickstart, API examples, Tool Calling, Chat template kwargs, Models & Model Compatibility) — see evidence for the full list of pages checked."
+      },
+      "meta-llama/Llama-3.3-70B-Instruct": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.65,
+          "output": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Meta's official Llama 3.3 70B Instruct weights. The live roster (GET /v1/models, 2026-09-28) marks this id is_gated:true; Featherless's error-codes page documents that a gated model 403s ('Unauthorized... need to agree to the model's license') until the account clicks 'Unlock Model' on the model's page — kept as a fallback for roster completeness, not the default, for that reason. features.tool_use:true on the live roster entry."
+      },
+      "Sao10K/L3.3-70B-Euryale-v2.3": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.65,
+          "output": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Sao10K's Euryale v2.3, a Llama-3.3-70B roleplay/long-form-writing fine-tune — one of the community model families Featherless's own site advertises under its 'LLMs for Roleplay' catalog filter. Not Hugging-Face-gated. Roster-listed only (GET /v1/models, 2026-09-28); not itself capability-probed. features.tool_use:true on the live roster entry, but see the default model's note on capabilities.tools being provider-level model-dependent."
+      },
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.0": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 2.6,
+          "output": 3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "EVA-UNIT-01's EVA-LLaMA 3.33 70B v0.0, a creative-writing/roleplay-oriented Llama-3.3-70B fine-tune. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); not capability-probed. features.tool_use:true on the live roster entry."
+      },
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.1": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 2.6,
+          "output": 3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "EVA-UNIT-01's EVA-LLaMA 3.33 70B v0.1 — later revision of v0.0, same roleplay/creative-writing fine-tune line. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); not capability-probed. features.tool_use:true on the live roster entry."
+      },
+      "KaraKaraWitch/Llama-MiraiFanfare-3.3-70B": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 2.6,
+          "output": 3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "KaraKaraWitch's Llama MiraiFanfare 3.3 70B, a community Llama-3.3-70B fine-tune. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); not capability-probed. features.tool_use:true on the live roster entry."
+      },
+      "huihui-ai/Llama-3.3-70B-Instruct-abliterated": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.65,
+          "output": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "huihui-ai's 'abliterated' (safety-refusal-ablated) Llama 3.3 70B Instruct — present on Featherless's own live roster and listed under its 'Abliterated Models' catalog filter. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); not capability-probed. features.tool_use:true on the live roster entry."
+      },
+      "recursal/QRWKV6-32B-Instruct-Preview-v0.1": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.265,
+          "output": 0.65
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recursal's QRWKV6 32B Instruct Preview — a non-transformer (RWKV-hybrid) architecture explicitly called out on Featherless's Models & Model Compatibility page as one of the few model classes served at a 32k context tier. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); no tool_use flag on the live roster entry; not capability-probed."
+      },
+      "RWKV/v6-Finch-14B-HF": {
+        "contextWindow": 16384,
+        "pricingPerMTok": {
+          "input": 0.10775,
+          "output": 0.28
+        },
+        "vision": false,
+        "status": "production",
+        "description": "RWKV v6 'Finch' 14B — a non-transformer RWKV architecture model. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); no tool_use flag on the live roster entry; not capability-probed."
+      },
+      "RWKV/EagleX-7B-Chat-V0.5-pth": {
+        "contextWindow": 16384,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "RWKV EagleX 7B Chat, an early RWKV5-architecture chat checkpoint. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); no tool_use flag on the live roster entry; not capability-probed."
+      },
+      "recursal/EagleX_1-7T_Chat": {
+        "contextWindow": 16384,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recursal's EagleX 1.7T (chat-tuned), an RWKV5-architecture model. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); no tool_use flag on the live roster entry; not capability-probed."
+      },
+      "recursal/EagleX_1-7T": {
+        "contextWindow": 16384,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recursal's EagleX 1.7T base (non-chat-tuned) checkpoint, an RWKV5-architecture model. Not gated. Roster-listed only (GET /v1/models, 2026-09-28); no tool_use flag on the live roster entry; not capability-probed."
+      }
+    },
+    "topModels": [
+      "unsloth/Llama-3.3-70B-Instruct",
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "Sao10K/L3.3-70B-Euryale-v2.3",
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.0",
+      "EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.1",
+      "KaraKaraWitch/Llama-MiraiFanfare-3.3-70B",
+      "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+      "recursal/QRWKV6-32B-Instruct-Preview-v0.1",
+      "RWKV/v6-Finch-14B-HF",
+      "RWKV/EagleX-7B-Chat-V0.5-pth",
+      "recursal/EagleX_1-7T_Chat",
+      "recursal/EagleX_1-7T"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": false,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid Featherless API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 403,
+      "class": "invalid-model",
+      "message": "Featherless model '{model}' is gated — sign in at featherless.ai, open the model's page and click \"Unlock Model\" to accept its license, or pick a non-gated model. See {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://featherless.ai/register",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://featherless.ai/register and create an account (or https://featherless.ai/login if you already have one)",
+      "2. Subscribe to a plan — Chat ($25/mo, unlimited tokens, 32K context) or Developer ($50/mo in credits, billed per token, up to 256K context); Featherless has no free or keyless tier",
+      "3. Generate an API key from the API keys section of your account",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.featherless.ai/v1 ('designed to be API compatible with OpenAI' per https://featherless.ai/docs/api-overview-and-common-options), serving a roster of 22,000+ community and open-weight models — many roleplay, uncensored and abliterated fine-tunes alongside mainline Llama/Qwen/DeepSeek-derived checkpoints. Some models are Hugging-Face-gated and 403 until manually unlocked in the account UI. No free tier: plans start at $25/mo."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://api.featherless.ai/v1/models — 22060 models; credential-free, no key used",
+      "status": 200
+    },
+    "billingProbe": {
+      "date": "2026-09-28",
+      "method": "unauthenticated GET https://featherless.ai/pricing — no free tier mentioned anywhere on the page; plans are Chat $25/mo, Developer $50/mo in credits (billed per token), Business custom; credential-free, no key used",
+      "status": 200
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1848"
+  }
+}

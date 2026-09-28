@@ -147,6 +147,26 @@ jobs:
           MANCER_API_KEY: ${{ secrets.MANCER_API_KEY }}
           NOVITA_API_KEY: ${{ secrets.NOVITA_API_KEY }}
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          FEATHERLESS_AI_API_KEY: ${{ secrets.FEATHERLESS_AI_API_KEY }}
+          CHUTES_API_KEY: ${{ secrets.CHUTES_API_KEY }}
+          OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+          SYNTHETIC_API_KEY: ${{ secrets.SYNTHETIC_API_KEY }}
+          AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
+          INFERENCE_API_KEY: ${{ secrets.INFERENCE_API_KEY }}
+          EMPIRIOLABS_API_KEY: ${{ secrets.EMPIRIOLABS_API_KEY }}
+          ABOVE_DEV_API_KEY: ${{ secrets.ABOVE_DEV_API_KEY }}
+          AIAND_API_KEY: ${{ secrets.AIAND_API_KEY }}
+          BEE_HEOSSI_API_KEY: ${{ secrets.BEE_HEOSSI_API_KEY }}
+          CHARM_HYPER_API_KEY: ${{ secrets.CHARM_HYPER_API_KEY }}
+          INCO_API_KEY: ${{ secrets.INCO_API_KEY }}
+          KOSCOMPUTE_API_KEY: ${{ secrets.KOSCOMPUTE_API_KEY }}
+          LILAC_API_KEY: ${{ secrets.LILAC_API_KEY }}
+          LLMTECH_API_KEY: ${{ secrets.LLMTECH_API_KEY }}
+          MOARK_API_KEY: ${{ secrets.MOARK_API_KEY }}
+          NEURALWATT_API_KEY: ${{ secrets.NEURALWATT_API_KEY }}
+          PARETO_INFERENCE_API_KEY: ${{ secrets.PARETO_INFERENCE_API_KEY }}
           VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}

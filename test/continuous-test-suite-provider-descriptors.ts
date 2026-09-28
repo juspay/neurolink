@@ -818,12 +818,14 @@ await runSuite(async () => {
       // xor is the third decide-only provider: no tools for the same reason.
       "xor",
     ]);
-    // A catalog entry with capabilities.tools: false derives toolSupport
-    // "none" (buildCatalogDescriptor), which the runtime treats exactly like
-    // the original prompt-only set. Derived from the JSON so the next such
-    // vendor joins without editing the suite (mancer is the first).
+    // A catalog entry whose capabilities.tools is anything but true derives a
+    // non-native toolSupport (buildCatalogDescriptor): false gives "none"
+    // (mancer was the first), "model-dependent" gives "model-dependent", and
+    // the runtime treats both exactly like the original prompt-only set.
+    // Derived from the JSON so the next such vendor joins without editing
+    // the suite.
     for (const entry of CATALOG_JSON_ENTRIES) {
-      if (!entry.capabilities.tools) {
+      if (entry.capabilities.tools !== true) {
         originalPromptOnly.add(entry.id);
       }
     }
