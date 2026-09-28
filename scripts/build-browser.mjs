@@ -346,6 +346,35 @@ export const SEMRESATTRS_SERVICE_VERSION='service.version';
 export default{trace,context,propagation,metrics,diag,SpanStatusCode,SpanKind};
 `;
 
+// schemaConversion.ts loads these two through createRequire(import.meta.url),
+// which is what keeps Node consumers from paying for them at import time. It
+// also hides them from esbuild, and the generic `module` stub answers every
+// require() with `{}` — so without this the browser artifact would send every
+// Zod 3 tool, Zod 3 `schema` and JSON-Schema-defined tool to the model with no
+// parameters, and say nothing about it. Import them statically here so they are
+// bundled, and let the stub's require() hand them back.
+const REQUIRE_BACKED_PACKAGES = ['zod-to-json-schema', 'json-schema-to-zod'];
+const GENERIC_CREATE_REQUIRE = 'export const createRequire = () => () => ({});';
+
+if (!NODE_STUB_JS.includes(GENERIC_CREATE_REQUIRE)) {
+  console.error(
+    '[NeuroLink:browser] FATAL: the node stub no longer contains the generic createRequire ' +
+      'line, so the `module` stub that serves ' +
+      REQUIRE_BACKED_PACKAGES.join(' and ') +
+      ' cannot be derived from it. Update GENERIC_CREATE_REQUIRE in scripts/build-browser.mjs.',
+  );
+  process.exit(1);
+}
+
+const MODULE_STUB_JS = [
+  ...REQUIRE_BACKED_PACKAGES.map((id, i) => `import * as requireBacked${i} from '${id}';`),
+  `const requireBacked = { ${REQUIRE_BACKED_PACKAGES.map((id, i) => `'${id}': requireBacked${i}`).join(', ')} };`,
+  NODE_STUB_JS.replace(
+    GENERIC_CREATE_REQUIRE,
+    'export const createRequire = () => (id) => requireBacked[id] ?? {};',
+  ),
+].join('\n');
+
 const catchAllPlugin = {
   name: 'catch-all-stub',
   setup(build) {
@@ -365,7 +394,13 @@ const catchAllPlugin = {
       return undefined;
     });
 
-    build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({ contents: NODE_STUB_JS, loader: 'js' }));
+    // resolveDir: the module stub imports bare package names, and a virtual
+    // namespace has no directory to resolve them from unless one is given.
+    build.onLoad({ filter: /.*/, namespace: 'node-stub' }, (args) =>
+      args.path === 'module' || args.path === 'node:module'
+        ? { contents: MODULE_STUB_JS, loader: 'js', resolveDir: process.cwd() }
+        : { contents: NODE_STUB_JS, loader: 'js' },
+    );
     build.onLoad({ filter: /.*/, namespace: 'otel-stub' }, () => ({ contents: OTEL_STUB_JS, loader: 'js' }));
     build.onLoad({ filter: /.*/, namespace: 'npm-stub' }, () => ({ contents: PROXY_STUB_JS, loader: 'js' }));
   },

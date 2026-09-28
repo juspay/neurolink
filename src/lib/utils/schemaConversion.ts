@@ -1,5 +1,6 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { jsonSchemaToZod } from "json-schema-to-zod";
+import { createRequire } from "node:module";
+import type { zodToJsonSchema as ZodToJsonSchemaFn } from "zod-to-json-schema";
+import type { jsonSchemaToZod as JsonSchemaToZodFn } from "json-schema-to-zod";
 import * as zodModule from "zod";
 import { z } from "zod";
 import type {
@@ -9,6 +10,84 @@ import type {
   Zod4NativeParams,
 } from "../types/index.js";
 import { logger } from "./logger.js";
+
+/**
+ * zod-to-json-schema and json-schema-to-zod are loaded synchronously via
+ * require() on first actual use, not via a top-level import, so merely
+ * importing this module no longer pulls in either package for the many
+ * callers who never convert a schema. Both ship a CJS `require` export
+ * condition (checked against their package.json), so require() works on
+ * any Node >=22.0.0 — no experimental flag, unlike require(esm) of a local
+ * ES module (which only works unflagged from Node >=22.12). Zod itself
+ * stays a normal static import: its runtime schemas (`z`, `zodModule`) are
+ * public exports used well beyond schema conversion. Follows the pattern in
+ * src/lib/proxy/otelLogSink.ts — construction stays one synchronous call,
+ * exactly as before; only the *import* is deferred.
+ *
+ * A require() made through createRequire() is invisible to bundlers, so a
+ * consumer that bundles the SDK without these packages next to the output can
+ * no longer resolve them, and listing them as external changes nothing for the
+ * same reason: the bundler never sees the call. That must not pass for a
+ * schema that simply had no properties: the failure is reported once per
+ * package at error level (the only level shown without NEUROLINK_DEBUG),
+ * remembered so later calls neither retry the lookup nor repeat the report,
+ * and the caller degrades exactly as it does when a conversion throws. The
+ * browser artifact is the one bundle we build ourselves;
+ * scripts/build-browser.mjs bundles both packages into it and serves them from
+ * its `module` stub.
+ */
+const require = createRequire(import.meta.url);
+
+function lazyPackageFunction<Fn extends (...args: never[]) => unknown>(
+  packageName: string,
+  exportName: string,
+): () => Fn | undefined {
+  let attempted = false;
+  let resolved: Fn | undefined;
+  return () => {
+    if (attempted) {
+      return resolved;
+    }
+    attempted = true;
+    let failure: string | undefined;
+    try {
+      const loadedModule: unknown = require(packageName);
+      const candidate =
+        typeof loadedModule === "object" && loadedModule !== null
+          ? Reflect.get(loadedModule, exportName)
+          : undefined;
+      if (typeof candidate === "function") {
+        resolved = candidate as Fn;
+      } else {
+        failure = `it resolved without a "${exportName}" function`;
+      }
+    } catch (error) {
+      failure = (error instanceof Error ? error.message : String(error)).split(
+        "\n",
+      )[0];
+    }
+    if (failure !== undefined) {
+      logger.error(
+        `[SCHEMA-CONVERSION] Cannot load "${packageName}" (${failure}). Any schema ` +
+          `that needs it is replaced with an empty object schema, so the model ` +
+          `sees no parameters for it. The SDK loads this package at run time ` +
+          `and a bundler cannot see that load, so bundling the SDK does not ` +
+          `provide it: install "${packageName}" where @juspay/neurolink can ` +
+          `resolve it, next to your bundle if you bundle the SDK.`,
+      );
+    }
+    return resolved;
+  };
+}
+
+const loadZodToJsonSchema = lazyPackageFunction<typeof ZodToJsonSchemaFn>(
+  "zod-to-json-schema",
+  "zodToJsonSchema",
+);
+const loadJsonSchemaToZod = lazyPackageFunction<typeof JsonSchemaToZodFn>(
+  "json-schema-to-zod",
+  "jsonSchemaToZod",
+);
 
 // Zod 4 ships a built-in `z.toJSONSchema(...)`. Zod 3 does not — it returned
 // nothing of the sort and we relied entirely on `zod-to-json-schema`. The
@@ -505,12 +584,16 @@ export function convertZodToJsonSchema(
   }
 
   // Zod 3 fallback path
+  const convertWithZodToJsonSchema = loadZodToJsonSchema();
+  if (!convertWithZodToJsonSchema) {
+    return { type: "object", properties: {} };
+  }
   try {
     // Zod 4→3 boundary: zodToJsonSchema types reference Zod 3's ZodSchema via zod/v3.
     // Runtime compatible — cast through unknown at this third-party boundary only.
     // eslint-disable-next-line no-restricted-syntax -- genuine third-party type-system boundary: zod-to-json-schema's input type is zod/v3's ZodType, structurally incompatible with the Zod 4 schema held here (no overlap, single assertion cannot compile); runtime-compatible fallback contract documented above.
     const zodV3Schema = zodSchema as unknown as ZodToJsonSchemaInput;
-    const jsonSchema = zodToJsonSchema(zodV3Schema, {
+    const jsonSchema = convertWithZodToJsonSchema(zodV3Schema, {
       name: "ToolParameters",
       target,
       errorMessages: true,
@@ -815,7 +898,11 @@ export function convertJsonSchemaToZod(
     });
 
     // Use official library to convert JSON Schema to Zod code
-    const zodCodeResult = jsonSchemaToZod(jsonSchema, {
+    const convertToZodCode = loadJsonSchemaToZod();
+    if (!convertToZodCode) {
+      return z.object({}).passthrough();
+    }
+    const zodCodeResult = convertToZodCode(jsonSchema, {
       module: "esm",
       name: "schema",
     });

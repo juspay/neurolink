@@ -34,6 +34,28 @@ example: NeuroLink's video processor only calls `(await import("sharp")).default
 frame-resize path (`src/lib/processors/media/VideoProcessor.ts`), not anywhere near startup. If you
 never touch video, `sharp`'s native bindings never load into your process.
 
+## Schema conversion loads on first use, not on import
+
+Converting between Zod schemas and JSON Schema — for a Zod 3 tool's parameters, or a plain
+JSON Schema `parameters`/`inputSchema` object — needs `zod-to-json-schema` or
+`json-schema-to-zod` respectively (`src/lib/utils/schemaConversion.ts`). Neither is a top-level
+import: both load via `require()`, through `createRequire(import.meta.url)`, the first time a
+conversion actually runs, so importing the SDK — or converting only Zod 4 schemas, which use
+Zod's own built-in `z.toJSONSchema()` and never touch either package — never pulls them in. A
+`require()` made this way is not one a bundler follows, so nothing on the SDK's import graph
+pulls either package in ahead of use.
+
+The flip side is that a bundler cannot resolve this load for you. It does not see the
+`require()`, so bundling the SDK does not make these two packages available to it, and listing
+them as `external` changes nothing about it. They have to be resolvable at run time from where
+the bundle runs, so ship `zod-to-json-schema` and `json-schema-to-zod` in the `node_modules`
+next to it. When they are not, the `require()` fails. That failure degrades rather than
+crashes — a schema or tool that needed the missing package gets an empty object schema instead,
+logged once per package at error level — but the model then sees no parameters for it, so treat
+the error log as actionable, not just informational. The one bundle we ship ourselves, the
+browser artifact (`dist/browser/neurolink.min.js`), is handled in its build:
+`scripts/build-browser.mjs` bundles both packages in and serves them through its `module` stub.
+
 ## The package exposes real subpath entry points, not one giant bundle
 
 `package.json`'s `exports` map lists separate entry points — `./voice`, `./music`, `./avatar`,
