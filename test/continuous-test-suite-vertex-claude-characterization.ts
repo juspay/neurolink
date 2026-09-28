@@ -1075,4 +1075,79 @@ await test("a deferred tool hydrated mid-turn is executed and observed with a to
   );
 });
 
+// E1b — appended as its own section/function, deliberately placed after every
+// other section in this file rather than folded into "caller-supplied tools"
+// above, so it does not collide with open PR #1843's edits to this same file
+// (and to continuous-test-suite-vertex-loop-characterization.ts).
+section("toolCalls reflects the drained stream (E1b)");
+
+await test("stream().toolCalls includes the executed tool after the caller drains the stream", async () => {
+  // Regression coverage for the shared streamState snapshot bug (E1b, see
+  // src/lib/neurolink.ts's runStandardStreamRequest). It used to copy
+  // mcpStreamOutcome.toolCalls into streamState.toolCalls synchronously,
+  // immediately after createMCPStream returns and BEFORE the caller ever
+  // pulls a chunk from the stream. For a background-loop provider — this
+  // one: Claude-on-Vertex's native Anthropic SDK loop only fills
+  // `allToolCalls` (exposed through a `toolCalls` getter) as the stream is
+  // drained — that snapshot was taken while the loop had not run yet, so it
+  // froze at an empty array for good; only a cross-provider fallback branch
+  // ever reassigned it, and this case never takes that branch. `toolCalls`
+  // is read below only AFTER the for-await loop has fully drained the
+  // stream — exactly the read a real caller performs, and exactly the one
+  // the bug served empty even though the tool really did execute.
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "e1b" }) : textTurn("done"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let nl: InstanceType<typeof NeuroLink> | undefined;
+  let toolCallCountAfterDrain = -1;
+  let toolCallNamesAfterDrain: string[] = [];
+  try {
+    nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    // The read that matters: after the stream is fully drained, not before.
+    toolCallCountAfterDrain = result.toolCalls?.length ?? -1;
+    toolCallNamesAfterDrain = (result.toolCalls ?? []).map((t) => t.toolName);
+  } catch {
+    // The post-drain toolCalls read is what is pinned, not the outcome.
+  } finally {
+    await nl?.shutdown();
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude post-drain toolCalls: standInCalls=${server.calls.length} executed=${counter.calls} toolCallCount=${toolCallCountAfterDrain}`,
+  );
+  // Precondition: the tool must actually have executed, or a passing
+  // toolCallCountAfterDrain assertion below would prove nothing about the
+  // snapshot bug — it also has to be true that there is a real tool call to
+  // observe.
+  assert(
+    counter.calls === 1,
+    "the caller's tool did not execute once, so this run cannot discriminate the snapshot bug",
+  );
+  assert(
+    toolCallCountAfterDrain === 1,
+    "result.toolCalls read after the stream fully drained did not contain the executed tool call",
+  );
+  assert(
+    toolCallNamesAfterDrain.includes("lookup"),
+    "result.toolCalls read after draining did not name the executed tool",
+  );
+});
+
 await runSuite();

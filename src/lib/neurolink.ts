@@ -10631,11 +10631,35 @@ Current user's request: ${currentInput}`;
           },
         });
       ttsMetadataSink?.(streamTtsMetadata);
+      // E1b: do NOT snapshot mcpStreamOutcome.toolCalls/toolResults here.
+      // For a provider whose tool loop runs in the background (native Vertex
+      // Claude — see the `allToolCalls`-backed getter in
+      // googleVertex/client.ts), toolCalls/toolResults are live getters that
+      // are still empty at this instant: `createMCPStream` has only just
+      // kicked the loop off, and it fills in as the caller drains
+      // `incrementalStream` below. Reading the getter now and storing the
+      // returned VALUE freezes that empty snapshot forever, because a
+      // property assignment is not a live binding — previously only the
+      // cross-provider fallback branch (handleStreamFallback) ever
+      // reassigned it, so every other path returned an empty array even
+      // after the caller had fully drained a stream with real tool calls.
+      // `streamState.toolCalls`/`toolResults` now start undefined and are
+      // set only by that fallback branch; every read goes through
+      // `currentToolCalls`/`currentToolResults`, which fall through to
+      // `mcpStreamOutcome`'s own (possibly still-live) getter so a read
+      // after the stream completes sees the real, current value. Providers
+      // that populate toolCalls eagerly (a plain array, not a getter) are
+      // unaffected — `mcpStreamOutcome.toolCalls` already holds their final
+      // value the first time it's read.
       const streamState = {
         finishReason: mcpStreamOutcome.finishReason ?? "stop",
-        toolCalls: mcpStreamOutcome.toolCalls ?? [],
-        toolResults: mcpStreamOutcome.toolResults ?? [],
+        toolCalls: undefined as StreamToolCall[] | undefined,
+        toolResults: undefined as StreamToolResult[] | undefined,
       };
+      const currentToolCalls = (): StreamToolCall[] =>
+        streamState.toolCalls ?? mcpStreamOutcome.toolCalls ?? [];
+      const currentToolResults = (): StreamToolResult[] =>
+        streamState.toolResults ?? mcpStreamOutcome.toolResults ?? [];
 
       streamSpan.setAttribute(ATTR.NL_PROVIDER, providerName || "unknown");
 
@@ -10734,8 +10758,8 @@ Current user's request: ${currentInput}`;
             !cappedByCallerBudget &&
             !metadata.fallbackAttempted &&
             !enhancedOptions.disableInternalFallback &&
-            streamState.toolCalls.length === 0 &&
-            streamState.toolResults.length === 0
+            currentToolCalls().length === 0 &&
+            currentToolResults().length === 0
           ) {
             const fallbackStream = self.handleStreamFallback(
               metadata,
@@ -10885,7 +10909,7 @@ Current user's request: ${currentInput}`;
                 provider: finalProvider,
                 model: finalModel,
                 responseTime: Date.now() - streamStartTime,
-                toolsUsed: streamState.toolCalls?.map((t) => t.toolName),
+                toolsUsed: currentToolCalls().map((t) => t.toolName),
                 timestamp: Date.now(),
                 result: {
                   content: accumulatedContent,
@@ -10988,29 +11012,32 @@ Current user's request: ${currentInput}`;
       );
       streamResult.finishReason =
         streamState.finishReason || streamResult.finishReason;
-      // Unresolved #1819 review comment: a top-level cross-provider fallback
-      // (handleStreamFallback, inside `processedStream` above) only
-      // reassigns `streamState.toolCalls`/`toolResults` once the caller
-      // starts draining the stream — strictly AFTER this point, since
-      // `processedStream` is a lazy async generator and the
-      // `processStreamResult` call above resolves without pulling a single
-      // chunk. A plain value copy here (`streamResult.toolCalls =
-      // streamState.toolCalls`) would freeze whatever streamState held at
-      // THIS instant — the primary attempt's (usually empty) arrays —
-      // because a property assignment is not a live binding. Define live
-      // getters instead so every later read reflects streamState's current
-      // value, mirroring the pattern #1819 already used to keep
-      // finishReason/usage/model live via getters over streamState/
-      // mcpStreamOutcome.
+      // #1819 / E1b: a top-level cross-provider fallback (handleStreamFallback,
+      // inside `processedStream` above) only reassigns
+      // `streamState.toolCalls`/`toolResults` once the caller starts draining
+      // the stream — strictly AFTER this point, since `processedStream` is a
+      // lazy async generator and the `processStreamResult` call above
+      // resolves without pulling a single chunk. A plain value copy here
+      // (`streamResult.toolCalls = streamState.toolCalls`) would freeze
+      // whatever streamState held at THIS instant — always undefined this
+      // early — because a property assignment is not a live binding. Define
+      // live getters instead, routed through `currentToolCalls`/
+      // `currentToolResults` (see their definition above) so every later
+      // read reflects the fallback override once set, and otherwise falls
+      // through live to `mcpStreamOutcome`'s own getter — which is what
+      // fixes a background-tool-loop provider (native Vertex Claude)
+      // reporting empty toolCalls: that getter is only populated by the time
+      // the caller has finished draining the stream, and this getter is read
+      // after that, not frozen before it.
       Object.defineProperty(streamResult, "toolCalls", {
         enumerable: true,
         configurable: true,
-        get: () => streamState.toolCalls,
+        get: () => currentToolCalls(),
       });
       Object.defineProperty(streamResult, "toolResults", {
         enumerable: true,
         configurable: true,
-        get: () => streamState.toolResults,
+        get: () => currentToolResults(),
       });
       if (!streamResult.usage) {
         streamResult.usage = mcpStreamOutcome.usage;
@@ -11468,8 +11495,12 @@ Current user's request: ${currentInput}`;
     },
     streamState: {
       finishReason: string;
-      toolCalls: StreamToolCall[];
-      toolResults: StreamToolResult[];
+      // Undefined until this fallback branch reassigns them (see below) or
+      // the caller reads through `currentToolCalls`/`currentToolResults` in
+      // runStandardStreamRequest, which fall through live to
+      // `mcpStreamOutcome` while these stay unset.
+      toolCalls: StreamToolCall[] | undefined;
+      toolResults: StreamToolResult[] | undefined;
     },
     originalPrompt: string | undefined,
     enhancedOptions: StreamOptions,
