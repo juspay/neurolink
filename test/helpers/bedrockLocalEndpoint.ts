@@ -20,6 +20,7 @@
 import {
   createServer,
   type Http2Server,
+  type Http2ServerResponse,
   type ServerHttp2Session,
 } from "node:http2";
 import { crc32 } from "node:zlib";
@@ -29,6 +30,13 @@ export type CapturedRequest = {
   path: string;
   /** Raw request body as sent. */
   body: string;
+  /**
+   * True once the client closed this request's stream before the stand-in had
+   * finished answering it: wire-level evidence that an abort reached the
+   * transport. A request the stand-in answers in full never sets it, so
+   * observing an abort means keeping the request open with `hold`.
+   */
+  aborted: boolean;
 };
 
 /**
@@ -95,7 +103,80 @@ export type LocalBedrockOptions = {
    * only the model's decision is scripted.
    */
   toolUse?: { name: string; input?: Record<string, unknown> };
+  /**
+   * Token usage every reply reports. The cache counters stay off the wire
+   * unless given. Defaults to 5 in, 1 out.
+   */
+  usage?: LocalBedrockUsage;
+  /**
+   * Answer ConverseStream with 403 AccessDeniedException naming the streaming
+   * permission, as IAM does for a principal that may call Converse but not
+   * InvokeModelWithResponseStream. Buffered Converse keeps working, which is
+   * the condition the provider's non-streaming fallback exists for.
+   */
+  denyStream?: boolean;
+  /** Answer buffered Converse with 400 ValidationException. */
+  failConverse?: boolean;
+  /**
+   * Leave one operation unanswered, so a test can act on a request that is
+   * genuinely still in flight. `"converse-stream"` sends the message start and
+   * the first text delta and then never ends the response; `"converse"` never
+   * answers at all. The other operation, and a scripted `toolUse` turn, answer
+   * normally, so a fallback or a tool loop cannot hang on the wrong one.
+   *
+   * Holding also stops the server echoing GOAWAY. The SDK sends
+   * GOAWAY(NO_ERROR) as soon as response headers arrive, Node's h2 server
+   * answers by closing its session, which sends a GOAWAY back, and the SDK's
+   * session handler reads any GOAWAY as the end of the connection and cancels
+   * every open stream. Without this the transport would end a held request on
+   * its first bytes, before any abort under test could act. A real service does
+   * not echo.
+   */
+  hold?: "converse" | "converse-stream";
 };
+
+export type LocalBedrockUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens?: number;
+  cacheWriteInputTokens?: number;
+};
+
+const DEFAULT_USAGE: LocalBedrockUsage = { inputTokens: 5, outputTokens: 1 };
+
+/**
+ * The `usage` block of a reply. `totalTokens` is the sum of every counter
+ * given; the provider's loop adapter reads the individual counters and never
+ * this one.
+ */
+function usagePayload(usage: LocalBedrockUsage): Record<string, number> {
+  const { cacheReadInputTokens, cacheWriteInputTokens } = usage;
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens:
+      usage.inputTokens +
+      usage.outputTokens +
+      (cacheReadInputTokens ?? 0) +
+      (cacheWriteInputTokens ?? 0),
+    ...(cacheReadInputTokens !== undefined && { cacheReadInputTokens }),
+    ...(cacheWriteInputTokens !== undefined && { cacheWriteInputTokens }),
+  };
+}
+
+/** An AWS restJson1 error: the exception name rides in `x-amzn-errortype`. */
+function respondWithError(
+  res: Http2ServerResponse,
+  status: number,
+  errorType: string,
+  message: string,
+): void {
+  res.writeHead(status, {
+    "content-type": "application/json",
+    "x-amzn-errortype": errorType,
+  });
+  res.end(JSON.stringify({ message }));
+}
 
 export type LocalBedrock = {
   /** Value for AWS_ENDPOINT_URL_BEDROCK_RUNTIME. */
@@ -129,18 +210,43 @@ export async function startLocalBedrock(
   server.on("session", (session) => {
     sessions.add(session);
     session.on("close", () => sessions.delete(session));
+    if (options.hold) {
+      // See `hold`: Node's h2 server echoes the client's GOAWAY(NO_ERROR) by
+      // closing its session, which a real service does not do.
+      session.close = () => undefined;
+    }
   });
 
   server.on("request", (req, res) => {
     const chunks: Buffer[] = [];
+    let captured: CapturedRequest | undefined;
+    // `close` also follows a normal `end()`, so an abort is a close the
+    // stand-in did not cause itself.
+    res.on("close", () => {
+      if (captured && !res.writableEnded) {
+        captured.aborted = true;
+      }
+    });
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
-      requests.push({
+      captured = {
         path: req.url ?? "",
         body: Buffer.concat(chunks).toString("utf8"),
-      });
+        aborted: false,
+      };
+      requests.push(captured);
+      const usage = usagePayload(options.usage ?? DEFAULT_USAGE);
       if ((req.url ?? "").includes("converse-stream")) {
         streamCalls += 1;
+        if (options.denyStream) {
+          respondWithError(
+            res,
+            403,
+            "AccessDeniedException",
+            "User: arn:aws:iam::000000000000:user/local-endpoint is not authorized to perform: bedrock:InvokeModelWithResponseStream on resource: arn:aws:bedrock:us-east-1::foundation-model/local because no identity-based policy allows the bedrock:InvokeModelWithResponseStream action",
+          );
+          return;
+        }
         res.writeHead(200, {
           "content-type": "application/vnd.amazon.eventstream",
         });
@@ -170,6 +276,7 @@ export async function startLocalBedrock(
           );
           res.write(streamEvent("contentBlockStop", { contentBlockIndex: 0 }));
           res.write(streamEvent("messageStop", { stopReason: "tool_use" }));
+          res.write(streamEvent("metadata", { usage }));
           res.end();
           return;
         }
@@ -180,12 +287,35 @@ export async function startLocalBedrock(
             delta: { text: reply },
           }),
         );
+        if (options.hold === "converse-stream") {
+          return;
+        }
         res.write(streamEvent("contentBlockStop", { contentBlockIndex: 0 }));
         res.write(streamEvent("messageStop", { stopReason: "end_turn" }));
+        // Real ConverseStream ends with a `metadata` event carrying usage —
+        // without it, a caller (or test) that checks the turn's reported
+        // token usage on the streaming path sees zeros no matter what
+        // actually happened.
+        res.write(streamEvent("metadata", { usage }));
         res.end();
         return;
       }
       converseCalls += 1;
+      if (options.failConverse) {
+        respondWithError(
+          res,
+          400,
+          "ValidationException",
+          "The provided request is not valid",
+        );
+        return;
+      }
+      if (
+        options.hold === "converse" &&
+        !(options.toolUse && converseCalls === 1)
+      ) {
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       if (options.toolUse && converseCalls === 1) {
         res.end(
@@ -205,7 +335,7 @@ export async function startLocalBedrock(
               },
             },
             stopReason: "tool_use",
-            usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6 },
+            usage,
           }),
         );
         return;
@@ -216,7 +346,7 @@ export async function startLocalBedrock(
             message: { role: "assistant", content: [{ text: reply }] },
           },
           stopReason: "end_turn",
-          usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6 },
+          usage,
         }),
       );
     });

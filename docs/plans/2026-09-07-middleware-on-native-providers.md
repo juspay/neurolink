@@ -1,6 +1,9 @@
 # Model middleware on Vertex, AI Studio and Bedrock
 
-> **Status:** specification. Nothing here is implemented.
+> **Status:** AI Studio (`301e4e18a`) and Bedrock are implemented. Vertex
+> remains specification only — the rest of this document, including the
+> "still reach none of the five" language below, was written before either
+> landed and is accurate for Vertex alone.
 >
 > **Goal:** make `transformParams` / `wrapGenerate` / `wrapStream` run on the
 > three providers that bypass them entirely, on both `generate()` and

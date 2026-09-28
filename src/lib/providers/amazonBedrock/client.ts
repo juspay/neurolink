@@ -19,14 +19,28 @@ import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
 import { transformToolExecutions } from "../../utils/transformationUtils.js";
+import { composeAbortSignals } from "../../utils/timeout.js";
 import { createBedrockLoopAdapter } from "./loopAdapter.js";
+import {
+  bedrockChunksToV3Stream,
+  bedrockConversationFromV3Prompt,
+  bedrockV3StreamToChunks,
+  buildV3PromptFromBedrock,
+  isTextOnlyBedrockConversation,
+  unsentBedrockMiddlewareOptions,
+  unwrapBedrockToolInputSchema,
+} from "./modelBridge.js";
 import type { NeuroLink } from "../../neurolink.js";
 import type {
+  AgenticLoopChunk,
   AgenticLoopResult,
   AgenticLoopStepRequest,
   AgenticLoopUsage,
   EmbedInput,
   JsonValue,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
   StreamOptions,
   StreamResult,
   Tool,
@@ -513,54 +527,220 @@ export class AmazonBedrockProvider extends BaseProvider {
       "bedrock.converse",
     );
 
-    const adapter = createBedrockLoopAdapter({
-      client: this.bedrockClient,
-      streaming: false,
-      region: this.region,
-      maxSteps,
-      buildCommandInput: (conversation) => ({
-        modelId: this.modelName || this.getDefaultModel(),
-        messages: this.convertToAWSMessages(conversation),
-        system: [
-          {
-            text:
-              options.systemPrompt ||
-              "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.",
+    const systemPromptText =
+      options.systemPrompt ||
+      "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.";
+
+    // Builds a fresh adapter per turn — the generate model's `doGenerate` may
+    // run this more than once is never true today (one call per turn), but a
+    // fresh adapter keeps `buildCommandInput` closed over the exact
+    // (possibly middleware-transformed) system/conversation/sampling for
+    // that call, rather than the outer ones.
+    const runTurn = (
+      conversation: BedrockMessage[],
+      system: string,
+      maxTokens: number | undefined,
+      temperature: number | undefined,
+      signal: AbortSignal | undefined,
+    ): Promise<AgenticLoopResult<BedrockMessage[]>> => {
+      const adapter = createBedrockLoopAdapter({
+        client: this.bedrockClient,
+        streaming: false,
+        region: this.region,
+        maxSteps,
+        buildCommandInput: (conv) => ({
+          modelId: this.modelName || this.getDefaultModel(),
+          messages: this.convertToAWSMessages(conv),
+          // Converse rejects a blank block; transformParams may empty this.
+          ...(system ? { system: [{ text: system }] } : {}),
+          inferenceConfig: {
+            maxTokens,
+            ...(temperature !== undefined && { temperature }),
           },
-        ],
-        inferenceConfig: {
-          maxTokens: options.maxTokens,
-          ...(sampling.temperature !== undefined && {
-            temperature: sampling.temperature,
-          }),
-        },
-        ...(toolConfig ? { toolConfig } : {}),
-      }),
-    });
+          ...(toolConfig ? { toolConfig } : {}),
+        }),
+      });
+      const { resultPromise } = runAgenticLoop(adapter, conversation, {
+        tools: this.toEngineTools(tools),
+        abortSignal: signal,
+        // `toEngineTools` adds no deadline of its own, so this is the only
+        // per-tool bound on the turn. The engine defaults when it is absent.
+        ...(options.toolTimeoutMs !== undefined
+          ? { toolTimeoutMs: options.toolTimeoutMs }
+          : {}),
+      });
+      return resultPromise;
+    };
 
     try {
-      const { resultPromise } = runAgenticLoop(
-        adapter,
-        this.conversationHistory,
-        {
-          tools: this.toEngineTools(tools),
-          abortSignal: options.abortSignal,
-          // `toEngineTools` adds no deadline of its own, so this is the only
-          // per-tool bound on the turn. The engine defaults when it is absent.
-          ...(options.toolTimeoutMs !== undefined
-            ? { toolTimeoutMs: options.toolTimeoutMs }
-            : {}),
-        },
-      );
-      const result = await resultPromise;
-      this.conversationHistory = result.conversation;
+      const initialConversation = this.conversationHistory;
+      let text: string;
+      let finishReason: string | undefined;
+      let rawFinishReason: string | undefined;
+      let usage: AgenticLoopUsage;
+      let toolExecutions: AgenticLoopResult<BedrockMessage[]>["toolExecutions"];
+      let conversationOut: BedrockMessage[];
 
-      const input = result.usage.inputTokens;
-      const output = result.usage.outputTokens;
-      const cacheRead = result.usage.cacheReadTokens ?? 0;
-      const cacheWrite = result.usage.cacheWriteTokens ?? 0;
+      if (isTextOnlyBedrockConversation(initialConversation)) {
+        // Model middleware (transformParams/wrapGenerate) applies only to a
+        // text-only starting turn — see modelBridge.ts's header comment.
+        const v3Tools = toolConfig?.tools
+          ?.map((t) => t.toolSpec)
+          .filter((spec): spec is ToolSpecification => !!spec)
+          .map((spec) => ({
+            type: "function" as const,
+            name: spec.name ?? "",
+            description: spec.description,
+            inputSchema: unwrapBedrockToolInputSchema(spec.inputSchema),
+          }));
+
+        // Set only if `doGenerate` actually ran the loop — a guardrails-style
+        // wrapGenerate can answer from its own precall without ever calling
+        // it, and the richer loop result (toolExecutions/conversation) is
+        // then unavailable, tolerated below via `loopResult?.`.
+        let capturedLoopResult:
+          | Promise<AgenticLoopResult<BedrockMessage[]>>
+          | undefined;
+
+        const generateModel: LanguageModelV3 = {
+          specificationVersion: "v3",
+          provider: this.providerName,
+          modelId: this.modelName || this.getDefaultModel(),
+          supportedUrls: {},
+          doGenerate: async (params: LanguageModelV3CallOptions) => {
+            if (params.tools !== undefined && params.tools !== v3Tools) {
+              logger.warn(
+                "[AmazonBedrockProvider] middleware rewrote 'tools' on the generate path; the rewrite was ignored and the caller's original tool configuration was sent",
+              );
+            }
+            this.warnOnUnsentMiddlewareOptions("generate", params);
+            // Read AFTER transformParams: by AI SDK contract, `params` here
+            // is already the transformed version, so a prompt rewrite
+            // reaches the wire.
+            const { system, conversation } = bedrockConversationFromV3Prompt(
+              params.prompt,
+            );
+            const loopResult = runTurn(
+              conversation,
+              system,
+              params.maxOutputTokens ?? options.maxTokens,
+              params.temperature ?? sampling.temperature,
+              // Composed, not `??`: a middleware's signal must not displace
+              // the caller's.
+              composeAbortSignals(options.abortSignal, params.abortSignal),
+            );
+            capturedLoopResult = loopResult;
+            const resolved = await loopResult;
+            return {
+              content: resolved.text
+                ? [{ type: "text" as const, text: resolved.text }]
+                : [],
+              finishReason: {
+                unified: resolved.finishReason,
+                raw: resolved.rawStopReason,
+              },
+              usage: {
+                inputTokens: {
+                  // `inputTokens` is the fresh portion only; AWS reports cache
+                  // reads/writes beside it, so `total` sums all three.
+                  total:
+                    resolved.usage.inputTokens +
+                    (resolved.usage.cacheReadTokens ?? 0) +
+                    (resolved.usage.cacheWriteTokens ?? 0),
+                  noCache: resolved.usage.inputTokens,
+                  cacheRead: resolved.usage.cacheReadTokens,
+                  cacheWrite: resolved.usage.cacheWriteTokens,
+                },
+                outputTokens: { total: resolved.usage.outputTokens },
+              },
+            };
+          },
+          // This model exists only to be driven through doGenerate.
+          doStream: () => {
+            throw new Error(
+              "AmazonBedrockProvider's generate model does not implement doStream",
+            );
+          },
+        };
+
+        const wrappedModel = await this.applyMiddlewareToModel(
+          generateModel,
+          options,
+        );
+        if (typeof wrappedModel === "string") {
+          throw new Error(
+            "AmazonBedrockProvider: middleware returned a model id string, not a native model handle",
+          );
+        }
+        const v3Result = await wrappedModel.doGenerate({
+          prompt: buildV3PromptFromBedrock(
+            systemPromptText,
+            initialConversation,
+          ),
+          maxOutputTokens: options.maxTokens,
+          temperature: sampling.temperature,
+          ...(v3Tools ? { tools: v3Tools } : {}),
+          // Seed the signal so a middleware can compose with it, not replace it.
+          abortSignal: options.abortSignal,
+        });
+
+        // Settled, not re-thrown: a wrapGenerate may have caught the loop's
+        // rejection and answered itself, and a bare `await` would re-throw it
+        // over that recovered result.
+        const loopResult = await capturedLoopResult?.catch(() => undefined);
+        text = v3Result.content
+          .filter(
+            (part): part is Extract<typeof part, { type: "text" }> =>
+              part.type === "text",
+          )
+          .map((part) => part.text)
+          .join("");
+        finishReason =
+          loopResult?.finishReason ?? v3Result.finishReason.unified;
+        rawFinishReason =
+          loopResult?.rawStopReason ?? v3Result.finishReason.raw;
+        usage = loopResult?.usage ?? {
+          // `AgenticLoopUsage.inputTokens` is the fresh count, so read
+          // `noCache`; `total` would double-count the cache tokens below.
+          inputTokens:
+            v3Result.usage.inputTokens.noCache ??
+            v3Result.usage.inputTokens.total ??
+            0,
+          outputTokens: v3Result.usage.outputTokens.total ?? 0,
+          ...(v3Result.usage.inputTokens.cacheRead !== undefined && {
+            cacheReadTokens: v3Result.usage.inputTokens.cacheRead,
+          }),
+          ...(v3Result.usage.inputTokens.cacheWrite !== undefined && {
+            cacheWriteTokens: v3Result.usage.inputTokens.cacheWrite,
+          }),
+        };
+        toolExecutions = loopResult?.toolExecutions ?? [];
+        conversationOut = loopResult?.conversation ?? initialConversation;
+      } else {
+        this.logMultimodalMiddlewareSkip(options);
+        const loopResult = await runTurn(
+          initialConversation,
+          systemPromptText,
+          options.maxTokens,
+          sampling.temperature,
+          options.abortSignal,
+        );
+        text = loopResult.text || "";
+        finishReason = loopResult.finishReason;
+        rawFinishReason = loopResult.rawStopReason;
+        usage = loopResult.usage;
+        toolExecutions = loopResult.toolExecutions;
+        conversationOut = loopResult.conversation;
+      }
+
+      this.conversationHistory = conversationOut;
+
+      const input = usage.inputTokens;
+      const output = usage.outputTokens;
+      const cacheRead = usage.cacheReadTokens ?? 0;
+      const cacheWrite = usage.cacheWriteTokens ?? 0;
       return {
-        text: result.text || "",
+        text: text || "",
         usage: {
           input,
           output,
@@ -575,9 +755,9 @@ export class AmazonBedrockProvider extends BaseProvider {
         // so a turn stopped at the step cap reported "tool_use" here while
         // the same turn reported "tool-calls" when streamed. The raw value is
         // kept alongside rather than dropped.
-        finishReason: result.finishReason,
-        rawFinishReason: result.rawStopReason,
-        toolExecutions: result.toolExecutions,
+        finishReason,
+        rawFinishReason,
+        toolExecutions,
       };
     } catch (error) {
       logger.error(
@@ -1113,15 +1293,28 @@ export class AmazonBedrockProvider extends BaseProvider {
           );
           const errorObj = error as Error;
 
-          // Check if error is related to streaming permissions
+          // Check if error is related to streaming permissions. Gated on the
+          // real AWS SDK service-exception shape ($metadata) first: a
+          // middleware's wrapStream/transformParams can throw an arbitrary
+          // Error whose message happens to contain "streaming" or whose name
+          // happens to collide with an AWS exception name, and without this
+          // guard that error was silently swallowed and retried as if AWS
+          // itself had rejected the streaming call (see
+          // BedrockRuntimeServiceException in the AWS SDK, which carries
+          // $fault/$metadata on every genuine service exception).
+          const hasAwsServiceExceptionShape =
+            typeof errorObj === "object" &&
+            errorObj !== null &&
+            "$metadata" in errorObj;
           const isPermissionError =
-            errorObj?.name === "AccessDeniedException" ||
-            errorObj?.name === "UnauthorizedOperation" ||
-            errorObj?.message?.includes(
-              "bedrock:InvokeModelWithResponseStream",
-            ) ||
-            errorObj?.message?.includes("streaming") ||
-            errorObj?.message?.includes("ConverseStream");
+            hasAwsServiceExceptionShape &&
+            (errorObj?.name === "AccessDeniedException" ||
+              errorObj?.name === "UnauthorizedOperation" ||
+              errorObj?.message?.includes(
+                "bedrock:InvokeModelWithResponseStream",
+              ) ||
+              errorObj?.message?.includes("streaming") ||
+              errorObj?.message?.includes("ConverseStream"));
 
           logger.debug(
             "[TRACE] executeStream CATCH - checking if permission error",
@@ -1242,6 +1435,241 @@ export class AmazonBedrockProvider extends BaseProvider {
     );
   }
 
+  /**
+   * A multimodal turn skips model middleware (see modelBridge.ts's header).
+   * WARN when middleware was configured, per request or on the provider,
+   * since it silently did not run; multimodal turns alone are unremarkable,
+   * so stay at debug otherwise.
+   */
+  private logMultimodalMiddlewareSkip(
+    options: TextGenerationOptions | StreamOptions,
+  ): void {
+    if (options.middleware ?? this.middlewareOptions) {
+      logger.warn(
+        "[AmazonBedrockProvider] multimodal turn — configured middleware was NOT applied (text-only turns only)",
+      );
+      return;
+    }
+    logger.debug(
+      "[AmazonBedrockProvider] multimodal turn — skipping model middleware wrapping (text-only turns only)",
+    );
+  }
+
+  /**
+   * `inferenceConfig` carries `maxTokens` and `temperature` only, so any other
+   * sampling option a middleware sets would be dropped without a trace.
+   * `tools` is reported where it is compared, at each call site.
+   */
+  private warnOnUnsentMiddlewareOptions(
+    path: "generate" | "stream",
+    params: LanguageModelV3CallOptions,
+  ): void {
+    const unsent = unsentBedrockMiddlewareOptions(params);
+    if (unsent.length > 0) {
+      logger.warn(
+        `[AmazonBedrockProvider] middleware set options the native Bedrock path does not send on the ${path} path; ignored: ${unsent.map((name) => `'${name}'`).join(", ")}`,
+      );
+    }
+  }
+
+  /**
+   * Runs the turn behind `streamingConversationLoop`: the model-middleware
+   * path for a text-only starting turn, or the direct fallback for a
+   * multimodal one. Extracted only to keep `streamingConversationLoop`
+   * readable — the branching logic itself is unchanged from what it
+   * replaced.
+   */
+  private async buildBedrockStreamTurn(params: {
+    initialConversation: BedrockMessage[];
+    systemPromptText: string;
+    options: StreamOptions;
+    sampling: { temperature?: number };
+    toolConfig: ToolConfiguration | null;
+    turnAbort: AbortController;
+    runTurn: (
+      conversation: BedrockMessage[],
+      system: string,
+      maxTokens: number | undefined,
+      temperature: number | undefined,
+      signal: AbortSignal | undefined,
+    ) => {
+      stream: AsyncIterable<AgenticLoopChunk>;
+      resultPromise: Promise<AgenticLoopResult<BedrockMessage[]>>;
+    };
+    raceFirstStep: (
+      resultPromise: Promise<AgenticLoopResult<BedrockMessage[]>>,
+    ) => Promise<void>;
+  }): Promise<{
+    stream: AsyncIterable<AgenticLoopChunk>;
+    capturedLoopResult:
+      | Promise<AgenticLoopResult<BedrockMessage[]>>
+      | undefined;
+  }> {
+    const {
+      initialConversation,
+      systemPromptText,
+      options,
+      sampling,
+      toolConfig,
+      turnAbort,
+      runTurn,
+      raceFirstStep,
+    } = params;
+    if (!isTextOnlyBedrockConversation(initialConversation)) {
+      this.logMultimodalMiddlewareSkip(options);
+      const turn = runTurn(
+        initialConversation,
+        systemPromptText,
+        options.maxTokens,
+        sampling.temperature,
+        turnAbort.signal,
+      );
+      await raceFirstStep(turn.resultPromise);
+      return { stream: turn.stream, capturedLoopResult: turn.resultPromise };
+    }
+
+    // Model middleware (transformParams/wrapStream) applies only to a
+    // text-only starting turn — see modelBridge.ts's header comment.
+    const v3Tools = toolConfig?.tools
+      ?.map((t) => t.toolSpec)
+      .filter((spec): spec is ToolSpecification => !!spec)
+      .map((spec) => ({
+        type: "function" as const,
+        name: spec.name ?? "",
+        description: spec.description,
+        inputSchema: unwrapBedrockToolInputSchema(spec.inputSchema),
+      }));
+
+    // Set only once the loop actually starts — a guardrails-style wrapStream
+    // can answer from its own precall without ever calling `doStream`
+    // (correction 3), and the richer loop result (toolExecutions/
+    // conversation/mapped finishReason) is then unavailable. The caller
+    // tolerates `undefined`.
+    let capturedLoopResult:
+      | Promise<AgenticLoopResult<BedrockMessage[]>>
+      | undefined;
+
+    const streamModel: LanguageModelV3 = {
+      specificationVersion: "v3",
+      provider: this.providerName,
+      modelId: this.modelName || this.getDefaultModel(),
+      supportedUrls: {},
+      // This model exists only to be driven through doStream.
+      doGenerate: () => {
+        throw new Error(
+          "AmazonBedrockProvider's stream model does not implement doGenerate",
+        );
+      },
+      doStream: async (params: LanguageModelV3CallOptions) => {
+        if (params.tools !== undefined && params.tools !== v3Tools) {
+          logger.warn(
+            "[AmazonBedrockProvider] middleware rewrote 'tools' on the stream path; the rewrite was ignored and the caller's original tool configuration was sent",
+          );
+        }
+        this.warnOnUnsentMiddlewareOptions("stream", params);
+        // Read AFTER transformParams: by AI SDK contract, `params` here is
+        // already the transformed version, so a prompt rewrite reaches the
+        // wire (correction 1).
+        const { system, conversation } = bedrockConversationFromV3Prompt(
+          params.prompt,
+        );
+        const turn = runTurn(
+          conversation,
+          system,
+          params.maxOutputTokens ?? options.maxTokens,
+          params.temperature ?? sampling.temperature,
+          // Composed, not `??`: turnAbort.signal already carries the
+          // caller's abort, BaseProvider's teardown signal, and the stream
+          // consumer's own cancel() (wired below) — a middleware's
+          // transformParams-set abortSignal must add to that, never replace
+          // it outright.
+          composeAbortSignals(turnAbort.signal, params.abortSignal),
+        );
+        capturedLoopResult = turn.resultPromise;
+        await raceFirstStep(turn.resultPromise);
+
+        const finish: Promise<LanguageModelV3StreamPart> =
+          turn.resultPromise.then((result) => ({
+            type: "finish" as const,
+            finishReason: {
+              unified: result.finishReason,
+              raw: result.rawStopReason,
+            },
+            usage: {
+              inputTokens: {
+                // Same fresh-vs-total split as the generate path above —
+                // `result.usage.inputTokens` excludes cache reads/writes.
+                total:
+                  result.usage.inputTokens +
+                  (result.usage.cacheReadTokens ?? 0) +
+                  (result.usage.cacheWriteTokens ?? 0),
+                noCache: result.usage.inputTokens,
+                cacheRead: result.usage.cacheReadTokens,
+                cacheWrite: result.usage.cacheWriteTokens,
+              },
+              outputTokens: { total: result.usage.outputTokens },
+            },
+          }));
+        // The turn can reject before anything reads this terminal event.
+        void finish.catch(() => undefined);
+
+        return {
+          stream: bedrockChunksToV3Stream(turn.stream, finish, () =>
+            turnAbort.abort(),
+          ),
+        };
+      },
+    };
+
+    const wrappedModel = await this.applyMiddlewareToModel(
+      streamModel,
+      options,
+    );
+    if (typeof wrappedModel === "string") {
+      throw new Error(
+        "AmazonBedrockProvider: middleware returned a model id string, not a native model handle",
+      );
+    }
+    const v3StreamResult = await wrappedModel.doStream({
+      prompt: buildV3PromptFromBedrock(systemPromptText, initialConversation),
+      maxOutputTokens: options.maxTokens,
+      temperature: sampling.temperature,
+      ...(v3Tools ? { tools: v3Tools } : {}),
+      abortSignal: turnAbort.signal,
+    });
+    return {
+      stream: bedrockV3StreamToChunks(v3StreamResult.stream),
+      capturedLoopResult,
+    };
+  }
+
+  /**
+   * Turns a settled loop outcome's usage into the shape both the analytics
+   * resolution and the stream's own `finally` block report. Shared so the
+   * two call sites in `streamingConversationLoop` can't drift.
+   */
+  private summarizeBedrockStreamUsage(usage: AgenticLoopUsage | undefined): {
+    input: number;
+    output: number;
+    total: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  } {
+    const input = usage?.inputTokens ?? 0;
+    const output = usage?.outputTokens ?? 0;
+    const cacheRead = usage?.cacheReadTokens ?? 0;
+    const cacheWrite = usage?.cacheWriteTokens ?? 0;
+    return {
+      input,
+      output,
+      // Cache reads/writes are billed tokens reported separately from
+      // inputTokens — the total must include them.
+      total: input + cacheRead + cacheWrite + output,
+      ...(cacheRead > 0 && { cacheReadTokens: cacheRead }),
+      ...(cacheWrite > 0 && { cacheCreationTokens: cacheWrite }),
+    };
+  }
+
   private async streamingConversationLoop(
     options: StreamOptions,
     streamSpan: Span,
@@ -1263,30 +1691,9 @@ export class AmazonBedrockProvider extends BaseProvider {
       "bedrock.converseStream",
     );
 
-    const baseAdapter = createBedrockLoopAdapter({
-      client: this.bedrockClient,
-      streaming: true,
-      region: this.region,
-      maxSteps,
-      buildCommandInput: (conversation) => ({
-        modelId: this.modelName || this.getDefaultModel(),
-        messages: this.convertToAWSMessages(conversation),
-        system: [
-          {
-            text:
-              options.systemPrompt ||
-              "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.",
-          },
-        ],
-        inferenceConfig: {
-          maxTokens: options.maxTokens,
-          ...(sampling.temperature !== undefined && {
-            temperature: sampling.temperature,
-          }),
-        },
-        ...(toolConfig ? { toolConfig } : {}),
-      }),
-    });
+    const systemPromptText =
+      options.systemPrompt ||
+      "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.";
 
     // executeStream() falls back to non-streaming generate() when the first
     // call fails on permissions, and that only works if the failure reaches it
@@ -1312,61 +1719,126 @@ export class AmazonBedrockProvider extends BaseProvider {
       };
     });
 
-    const adapter = {
-      ...baseAdapter,
-      executeStep: async (
-        request: AgenticLoopStepRequest,
-        channel: { push(chunk: { content: string }): void },
-        signal: AbortSignal,
-      ) => {
-        const stepResult = await baseAdapter.executeStep(
-          request,
-          channel,
-          signal,
-        );
-        firstStepSent();
-        return stepResult;
-      },
+    // Shared by both branches below: whichever turn runs awaits this right
+    // after starting, so executeStream's permission fallback still sees a
+    // synchronous first-call failure.
+    const raceFirstStep = async (
+      resultPromise: Promise<AgenticLoopResult<BedrockMessage[]>>,
+    ): Promise<void> => {
+      const settledHere = resultPromise.then(
+        (result) => ({ result, error: undefined as unknown }),
+        (error: unknown) => ({ result: undefined, error }),
+      );
+      // A turn that ends without ever completing a step — an abort before
+      // the first request, or a failure the engine gave up retrying — would
+      // leave `firstStep` pending forever, so the settled outcome releases
+      // the wait too.
+      await Promise.race([firstStep, settledHere]);
+      if (!firstStepSucceeded) {
+        const outcome = await settledHere;
+        if (outcome.error) {
+          throw outcome.error;
+        }
+      }
     };
 
-    streamSpan.addEvent("stream.api_call", {
-      "bedrock.tool_count": toolConfig?.tools?.length ?? 0,
-    });
-
-    const { stream, resultPromise } = runAgenticLoop(
-      adapter,
-      this.conversationHistory,
-      {
+    const runTurn = (
+      conversation: BedrockMessage[],
+      system: string,
+      maxTokens: number | undefined,
+      temperature: number | undefined,
+      signal: AbortSignal | undefined,
+    ): {
+      stream: AsyncIterable<AgenticLoopChunk>;
+      resultPromise: Promise<AgenticLoopResult<BedrockMessage[]>>;
+    } => {
+      const baseAdapter = createBedrockLoopAdapter({
+        client: this.bedrockClient,
+        streaming: true,
+        region: this.region,
+        maxSteps,
+        buildCommandInput: (conv) => ({
+          modelId: this.modelName || this.getDefaultModel(),
+          messages: this.convertToAWSMessages(conv),
+          // Converse rejects a blank block; transformParams may empty this.
+          ...(system ? { system: [{ text: system }] } : {}),
+          inferenceConfig: {
+            maxTokens,
+            ...(temperature !== undefined && { temperature }),
+          },
+          ...(toolConfig ? { toolConfig } : {}),
+        }),
+      });
+      const adapter = {
+        ...baseAdapter,
+        executeStep: async (
+          request: AgenticLoopStepRequest,
+          channel: { push(chunk: { content: string }): void },
+          signal: AbortSignal,
+        ) => {
+          const stepResult = await baseAdapter.executeStep(
+            request,
+            channel,
+            signal,
+          );
+          firstStepSent();
+          return stepResult;
+        },
+      };
+      streamSpan.addEvent("stream.api_call", {
+        "bedrock.tool_count": toolConfig?.tools?.length ?? 0,
+      });
+      return runAgenticLoop(adapter, conversation, {
         tools: this.toEngineTools(tools),
-        abortSignal: options.abortSignal,
+        abortSignal: signal,
         // `toEngineTools` adds no deadline of its own, so this is the only
         // per-tool bound on the turn. The engine defaults when it is absent.
         ...(options.toolTimeoutMs !== undefined
           ? { toolTimeoutMs: options.toolTimeoutMs }
           : {}),
-      },
-    );
+      });
+    };
+
+    const initialConversation = this.conversationHistory;
+
+    // Turn-scoped abort: a V3 stream's `cancel()` (consumer broke out early)
+    // must tear this turn's request down even when the caller passed no
+    // signal. Chained so a caller abort still cascades.
+    const turnAbort = new AbortController();
+    if (options.abortSignal) {
+      if (options.abortSignal.aborted) {
+        turnAbort.abort();
+      } else {
+        options.abortSignal.addEventListener("abort", () => turnAbort.abort(), {
+          once: true,
+        });
+      }
+    }
+
+    // The request is already sent when this can throw; abort it so it is not
+    // orphaned once the caller (e.g. the permission fallback) moves on.
+    const { stream, capturedLoopResult } = await this.buildBedrockStreamTurn({
+      initialConversation,
+      systemPromptText,
+      options,
+      sampling,
+      toolConfig,
+      turnAbort,
+      runTurn,
+      raceFirstStep,
+    }).catch((error: unknown) => {
+      turnAbort.abort();
+      throw error;
+    });
 
     // The stream surfaces the same failure, so this settled view exists only
     // so the turn's outcome can be read without a second unhandled rejection.
-    const settled = resultPromise.then(
+    // `capturedLoopResult` is undefined only when middleware blocked the turn
+    // before `doStream` ran (correction 3) — every reader below tolerates it.
+    const settled = (capturedLoopResult ?? Promise.resolve(undefined)).then(
       (result) => ({ result, error: undefined as unknown }),
       (error: unknown) => ({ result: undefined, error }),
     );
-
-    // A turn that ends without ever completing a step — an abort before the
-    // first request, or a failure the engine gave up retrying — would leave
-    // `firstStep` pending forever, so the settled outcome releases the wait
-    // too.
-    await Promise.race([firstStep, settled]);
-    if (!firstStepSucceeded) {
-      // The turn ended before any send succeeded. Surface its error here so
-      // executeStream's permission fallback still sees it synchronously.
-      const outcome = await settled;
-      if (outcome.error) {
-        throw outcome.error;
-      }
-    }
 
     const streamEmitter = this.neurolink?.getEventEmitter();
     const self = this;
@@ -1382,30 +1854,6 @@ export class AmazonBedrockProvider extends BaseProvider {
       },
     );
 
-    const usageFromOutcome = (
-      usage: AgenticLoopUsage | undefined,
-    ): {
-      input: number;
-      output: number;
-      total: number;
-      cacheReadTokens?: number;
-      cacheCreationTokens?: number;
-    } => {
-      const input = usage?.inputTokens ?? 0;
-      const output = usage?.outputTokens ?? 0;
-      const cacheRead = usage?.cacheReadTokens ?? 0;
-      const cacheWrite = usage?.cacheWriteTokens ?? 0;
-      return {
-        input,
-        output,
-        // Cache reads/writes are billed tokens reported separately from
-        // inputTokens — the total must include them.
-        total: input + cacheRead + cacheWrite + output,
-        ...(cacheRead > 0 && { cacheReadTokens: cacheRead }),
-        ...(cacheWrite > 0 && { cacheCreationTokens: cacheWrite }),
-      };
-    };
-
     // Bind analytics to the turn ending, not to the consumer draining the
     // stream. A caller that awaits `result.analytics` without iterating
     // `result.stream` would otherwise wait forever, because the generator
@@ -1417,7 +1865,7 @@ export class AmazonBedrockProvider extends BaseProvider {
           this.providerName,
           this.modelName || this.getDefaultModel(),
           {
-            usage: usageFromOutcome(outcome.result?.usage),
+            usage: this.summarizeBedrockStreamUsage(outcome.result?.usage),
             // createAnalytics derives toolCallCount from these. Passing usage
             // alone left every streamed Bedrock turn reporting no tool calls,
             // however many it made.
@@ -1454,7 +1902,9 @@ export class AmazonBedrockProvider extends BaseProvider {
           if (outcome.error) {
             streamErrored = true;
           }
-          const aggregatedUsage = usageFromOutcome(outcome.result?.usage);
+          const aggregatedUsage = self.summarizeBedrockStreamUsage(
+            outcome.result?.usage,
+          );
 
           if (outcome.result) {
             self.conversationHistory = outcome.result.conversation;

@@ -3,8 +3,10 @@ import "dotenv/config";
 
 /**
  * Public generate()/stream() middleware contracts for the OpenAI-compatible
- * family. Local HTTP fixtures prove prompt rewrites, real tool execution,
- * guardrail blocking/filtering, error propagation, completion and cancellation.
+ * family, plus dedicated sections for AI Studio and Bedrock near the end of
+ * the file (a sibling PR adds Vertex the same way). Local HTTP fixtures
+ * prove prompt rewrites, real tool execution, guardrail blocking/filtering,
+ * error propagation, completion and cancellation.
  * Runtime imports use only the built entry; type-only imports are erased.
  *
  * Run: pnpm run build && pnpm run test:stream-middleware
@@ -20,6 +22,8 @@ import type {
   LanguageModelV3CallOptions,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
+  GenerateOptions,
+  StreamOptions,
   StreamResult,
   AnalyticsData,
   LifecycleChunkPayload,
@@ -33,7 +37,18 @@ import {
   startScriptedChatServer,
   chatCompletion,
 } from "./helpers/mockChatServer.js";
-import { NeuroLink, tool, createLifecycleMiddleware } from "../dist/index.js";
+import {
+  startLocalBedrock,
+  PLACEHOLDER_AWS_ENV,
+  type CapturedRequest,
+  type LocalBedrock,
+} from "./helpers/bedrockLocalEndpoint.js";
+import {
+  NeuroLink,
+  logger,
+  tool,
+  createLifecycleMiddleware,
+} from "../dist/index.js";
 
 assertDistFresh();
 
@@ -2759,6 +2774,1280 @@ await test("Vertex: stream() fires onChunk/onFinish exactly once through the nat
     await sdk.shutdown();
     await server.close();
     restoreEnv();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// BEDROCK — the same model-middleware contract, proven against Amazon
+// Bedrock's native `generate()`/`stream()` paths. Bedrock goes through the
+// AWS SDK rather than `fetch`, so the stand-in is a local HTTP/2 server
+// pointed to via the SDK's own `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` variable
+// (see `test/helpers/bedrockLocalEndpoint.ts`'s header) — a fetch
+// interceptor would never see these requests. Abort and cancellation are
+// proven from the far end: the stand-in holds a request open (`hold`) and
+// records whether the client closed it (`aborted`), so the assertion is about
+// the transport rather than about anything the caller was handed back.
+// ---------------------------------------------------------------------------
+
+const BEDROCK_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+
+/**
+ * Points the AWS SDK at a local Bedrock stand-in for the duration of `fn` —
+ * the same env-swap `continuous-test-suite-provider-wiring.ts` and
+ * `continuous-test-suite-bedrock-loop-characterization.ts` use. Real SigV4
+ * signing, real routing; nothing reaches AWS. `AWS_SESSION_TOKEN` is
+ * explicitly cleared: a leftover session token from real assumed-role
+ * credentials elsewhere in the environment would otherwise be signed
+ * alongside the placeholder access key below and is never validated by the
+ * stand-in anyway.
+ */
+const withBedrockEnv = async <T>(
+  endpoint: string,
+  fn: () => Promise<T>,
+  extraEnv: Record<string, string> = {},
+): Promise<T> => {
+  const savedEnv = { ...process.env };
+  Object.assign(process.env, PLACEHOLDER_AWS_ENV, extraEnv, {
+    AWS_ENDPOINT_URL_BEDROCK_RUNTIME: endpoint,
+  });
+  delete process.env.AWS_SESSION_TOKEN;
+  try {
+    return await fn();
+  } finally {
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+};
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode} applies model middleware and the transformParams rewrite reaches the wire`, async () => {
+    const local = await startLocalBedrock("OK");
+    const record = emptyRecord();
+    try {
+      await withBedrockEnv(local.endpoint, async () => {
+        const sdk = new NeuroLink();
+        try {
+          const options = {
+            input: { text: "hello" },
+            provider: "bedrock",
+            model: BEDROCK_MODEL,
+            disableTools: true,
+            disableInternalFallback: true,
+            middleware: middlewareOptions(record),
+          };
+          if (mode === "generate") {
+            await sdk.generate(options);
+          } else {
+            await bounded(readText(await sdk.stream(options)));
+          }
+        } finally {
+          await sdk.shutdown();
+        }
+      });
+
+      if (record.transformParamsCalls.length === 0) {
+        throw new Error(`probe never ran on Bedrock ${mode}`);
+      }
+      if (mode === "generate" && record.wrapGenerateCalls === 0) {
+        throw new Error(
+          "wrapGenerate never fired on the Bedrock generate path",
+        );
+      }
+      if (mode === "stream" && record.wrapStreamCalls === 0) {
+        throw new Error("wrapStream never fired on the Bedrock stream path");
+      }
+      if (local.requests.length === 0) {
+        throw new Error(`the Bedrock stand-in was never reached on ${mode}`);
+      }
+      const body = local.requests.at(-1)?.body ?? "";
+      if (!body.includes(MARKER)) {
+        throw new Error(
+          `the transformParams rewrite did not reach the wire on Bedrock ${mode}`,
+        );
+      }
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+await test("Bedrock stream: wrapStream observes the V3 finish part carrying usage", async () => {
+  const local = await startLocalBedrock("OK");
+  const seen: LanguageModelV3StreamPart[] = [];
+  const observer: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "bedrock-wire-observer", name: "Bedrock wire observer" },
+    wrapStream: async ({ doStream }) => {
+      const result = await doStream();
+      return {
+        ...result,
+        stream: result.stream.pipeThrough(
+          new TransformStream({
+            transform(part: LanguageModelV3StreamPart, controller) {
+              seen.push(part);
+              controller.enqueue(part);
+            },
+          }),
+        ),
+      };
+    },
+  };
+  try {
+    await withBedrockEnv(local.endpoint, async () => {
+      const sdk = new NeuroLink();
+      try {
+        const result = await sdk.stream({
+          input: { text: "hello" },
+          provider: "bedrock",
+          model: BEDROCK_MODEL,
+          disableTools: true,
+          disableInternalFallback: true,
+          middleware: {
+            middleware: [observer],
+            enabledMiddleware: ["bedrock-wire-observer"],
+          },
+        });
+        const text = await bounded(readText(result));
+        assert.equal(text, "OK", "stream text lost through the observer");
+      } finally {
+        await sdk.shutdown();
+      }
+    });
+
+    assert.ok(
+      local.requests.length > 0,
+      "the Bedrock stand-in was never reached",
+    );
+    const finish = seen.find(
+      (part): part is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
+        part.type === "finish",
+    );
+    assert.ok(finish, "no V3 finish part observed on the Bedrock stream");
+    // Exact values, not just non-zero: the stand-in's `metadata` event fixes
+    // inputTokens=5/outputTokens=1, so a match here is a genuine proof the
+    // AWS event-stream usage numbers flowed through readStreamedStep and the
+    // V3 bridge unchanged, not merely that some usage arrived.
+    assert.equal(
+      finish?.usage.outputTokens.total,
+      1,
+      "the V3 finish part did not carry the Bedrock stand-in's outputTokens",
+    );
+    assert.equal(
+      finish?.usage.inputTokens.total,
+      5,
+      "the V3 finish part did not carry the Bedrock stand-in's inputTokens",
+    );
+  } finally {
+    await local.close();
+  }
+});
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: precall guardrail blocks the turn before it reaches the wire`, async () => {
+    const evaluator = await startScriptedChatServer([
+      chatCompletion({
+        content: JSON.stringify({
+          overall: "unsafe",
+          safetyScore: 1,
+          appropriatenessScore: 1,
+          confidenceLevel: 10,
+          suggestedAction: "block",
+          reasoning: "Deterministic blocking fixture",
+        }),
+      }),
+    ]);
+    const local = await startLocalBedrock("OK");
+    try {
+      await withBedrockEnv(
+        local.endpoint,
+        async () => {
+          const sdk = new NeuroLink();
+          try {
+            const options = {
+              input: { text: "block this request" },
+              provider: "bedrock",
+              model: BEDROCK_MODEL,
+              disableTools: true,
+              disableInternalFallback: true,
+              middleware: {
+                middlewareConfig: {
+                  guardrails: {
+                    enabled: true,
+                    config: {
+                      precallEvaluation: {
+                        enabled: true,
+                        provider: "openai-compatible",
+                        evaluationModel: "fixture-evaluator",
+                      },
+                    },
+                  },
+                },
+              },
+            };
+            const content =
+              mode === "generate"
+                ? (await sdk.generate(options)).content
+                : await bounded(readText(await sdk.stream(options)));
+            assert.ok(
+              evaluator.wasCalled(),
+              "guardrail evaluator was not exercised",
+            );
+            assert.equal(
+              local.requests.length,
+              0,
+              "blocked input reached the Bedrock stand-in",
+            );
+            assert.equal(
+              content,
+              "Request contains inappropriate content and has been blocked.",
+              "guardrail refusal was lost on Bedrock",
+            );
+          } finally {
+            await sdk.shutdown();
+          }
+        },
+        {
+          OPENAI_COMPATIBLE_API_KEY: "test-evaluator-key",
+          OPENAI_COMPATIBLE_BASE_URL: evaluator.baseURL,
+        },
+      );
+    } finally {
+      await local.close();
+      await evaluator.close();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// BEDROCK, continued. Each case below rests on something only the far end can
+// show: the request body the stand-in recorded, or whether the client closed a
+// request the stand-in was holding open on purpose (`hold` / `aborted` in the
+// helper). A pass-through probe cannot tell those apart from a working turn.
+// ---------------------------------------------------------------------------
+
+const REFUSAL_MARKER = "BEDROCK_MIDDLEWARE_REFUSED";
+const LOOKUP = "lookup_thing";
+
+/** Poll until `predicate` holds. False if the deadline passes first. */
+const waitUntil = async (
+  predicate: () => boolean,
+  deadlineMs = 15_000,
+): Promise<boolean> => {
+  const end = Date.now() + deadlineMs;
+  while (!predicate()) {
+    if (Date.now() >= end) {
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return true;
+};
+
+type Settled<T> =
+  | { status: "ok"; value: T }
+  | { status: "error"; message: string }
+  | { status: "timeout" };
+
+/**
+ * Await a call whose failure is part of the claim. `defineSuite` reports any
+ * thrown message that reads like a provider error as a SKIP, so a Bedrock
+ * error escaping a test body could turn a real failure into a pass. Settling
+ * the call here keeps its outcome a value the assertion names.
+ */
+const settle = async <T>(
+  promise: PromiseLike<T>,
+  deadlineMs = 30_000,
+): Promise<Settled<T>> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise).then(
+        (value): Settled<T> => ({ status: "ok", value }),
+        (error: unknown): Settled<T> => ({
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      ),
+      new Promise<Settled<T>>((resolve) => {
+        timer = setTimeout(() => resolve({ status: "timeout" }), deadlineMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+const isStreamRequest = (request: CapturedRequest): boolean =>
+  request.path.endsWith("/converse-stream");
+
+/** The fields of a Converse request body these cases read. */
+type WireBody = {
+  system?: Array<{ text?: string }>;
+  inferenceConfig?: { maxTokens?: number; temperature?: number };
+  toolConfig?: {
+    tools?: Array<{
+      toolSpec?: { name?: string; inputSchema?: { json?: unknown } };
+    }>;
+  };
+};
+
+const parseWireBody = (request: CapturedRequest): WireBody =>
+  JSON.parse(request.body) as WireBody;
+
+const hasText = (block: { text?: string }): boolean =>
+  (block.text ?? "").trim() !== "";
+
+const withBedrockSdk = async <T>(
+  local: LocalBedrock,
+  fn: (sdk: NeuroLink) => Promise<T>,
+  extraEnv: Record<string, string> = {},
+): Promise<T> =>
+  withBedrockEnv(
+    local.endpoint,
+    async () => {
+      const sdk = new NeuroLink();
+      try {
+        return await fn(sdk);
+      } finally {
+        await sdk.shutdown();
+      }
+    },
+    extraEnv,
+  );
+
+type TurnOptions = GenerateOptions & StreamOptions;
+
+const turnOptions = (
+  middleware: NeuroLinkMiddleware,
+  extra: Partial<TurnOptions> = {},
+): TurnOptions => ({
+  input: { text: "hello" },
+  provider: "bedrock",
+  model: BEDROCK_MODEL,
+  disableTools: true,
+  disableInternalFallback: true,
+  middleware: {
+    middleware: [middleware],
+    enabledMiddleware: [middleware.metadata.id],
+  },
+  ...extra,
+});
+
+const runTurn = async (
+  sdk: NeuroLink,
+  mode: "generate" | "stream",
+  options: TurnOptions,
+): Promise<string> =>
+  mode === "generate"
+    ? (await sdk.generate(options)).content
+    : readText(await sdk.stream(options));
+
+for (const mode of ["generate", "stream"] as const) {
+  for (const style of ["replaces", "composes"] as const) {
+    await test(`Bedrock ${mode}: a caller abort reaches the wire when a middleware ${style} the abort signal`, async () => {
+      const local = await startLocalBedrock("OK", {
+        hold: mode === "generate" ? "converse" : "converse-stream",
+      });
+      const caller = new AbortController();
+      // Nothing fires this by itself, so it can never end the held request in
+      // the caller's place. It is released below so a failing run does not
+      // leave that request open.
+      const own = new AbortController();
+      const seen: { signal?: AbortSignal } = {};
+      const signalMiddleware: NeuroLinkMiddleware = {
+        specificationVersion: "v3",
+        metadata: { id: "bedrock-signal", name: "Bedrock signal" },
+        transformParams: async ({ params }) => {
+          seen.signal = params.abortSignal;
+          return {
+            ...params,
+            abortSignal:
+              style === "replaces"
+                ? own.signal
+                : AbortSignal.any([
+                    ...(params.abortSignal ? [params.abortSignal] : []),
+                    own.signal,
+                  ]),
+          };
+        },
+      };
+      try {
+        await withBedrockSdk(local, async (sdk) => {
+          const options = turnOptions(signalMiddleware, {
+            abortSignal: caller.signal,
+          });
+          const pending = settle<unknown>(
+            mode === "generate" ? sdk.generate(options) : sdk.stream(options),
+          );
+          try {
+            assert.ok(
+              await waitUntil(() => local.requests.length > 0),
+              "the Bedrock stand-in was never reached",
+            );
+            const request = local.requests[0];
+            assert.equal(
+              request.aborted,
+              false,
+              "the held request was closed before the caller aborted",
+            );
+            assert.ok(
+              seen.signal,
+              "the middleware was not offered the caller's abort signal",
+            );
+            caller.abort();
+            assert.ok(
+              await waitUntil(() => seen.signal?.aborted === true, 5_000),
+              "the signal offered to the middleware did not follow the caller's abort",
+            );
+            assert.ok(
+              await waitUntil(() => request.aborted, 10_000),
+              "the caller's abort never reached the wire",
+            );
+          } finally {
+            own.abort();
+            caller.abort();
+          }
+          const outcome = await pending;
+          assert.notEqual(
+            outcome.status,
+            "timeout",
+            "the call never settled after the caller aborted",
+          );
+        });
+      } finally {
+        await local.close();
+      }
+    });
+  }
+}
+
+for (const variant of ["message", "name"] as const) {
+  await test(`Bedrock stream: a middleware refusal that reads like a streaming-permission error is surfaced, not retried on Converse (${variant})`, async () => {
+    const local = await startLocalBedrock("OK");
+    const seen = { refusals: 0 };
+    // Both variants match what the streaming-permission fallback looks for, on
+    // an error that is not an AWS service exception and never left the process.
+    const refuser: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: { id: "bedrock-refuser", name: "Bedrock refuser" },
+      ...(variant === "message"
+        ? {
+            wrapStream: async () => {
+              seen.refusals += 1;
+              throw new Error(
+                `${REFUSAL_MARKER}: streaming is not permitted by policy`,
+              );
+            },
+          }
+        : {
+            transformParams: async () => {
+              seen.refusals += 1;
+              throw Object.assign(
+                new Error(`${REFUSAL_MARKER}: refused by policy`),
+                { name: "AccessDeniedException" },
+              );
+            },
+          }),
+    };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        const outcome = await settle(
+          runTurn(sdk, "stream", turnOptions(refuser)),
+        );
+        assert.equal(seen.refusals, 1, "the refusing middleware never ran");
+        assert.equal(
+          outcome.status,
+          "error",
+          "the middleware's refusal was recovered from instead of surfaced",
+        );
+        assert.ok(
+          outcome.status === "error" &&
+            outcome.message.includes(REFUSAL_MARKER),
+          "the surfaced error is not the middleware's refusal",
+        );
+        assert.equal(
+          local.requests.length,
+          0,
+          "a Converse request went out after the middleware refused the turn",
+        );
+      });
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+await test("Bedrock stream: a genuine streaming-permission denial still falls back to Converse with middleware configured", async () => {
+  const local = await startLocalBedrock("OK", { denyStream: true });
+  const record = emptyRecord();
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      const outcome = await settle(
+        runTurn(sdk, "stream", turnOptions(createProbe(record))),
+      );
+      assert.ok(
+        record.wrapStreamCalls >= 1,
+        "the middleware was not in the path of the denied stream",
+      );
+      assert.ok(outcome.status === "ok", "the fallback turn did not complete");
+      assert.equal(
+        outcome.value,
+        "OK",
+        "the Converse fallback did not answer the turn",
+      );
+      assert.deepEqual(
+        local.requests.map((request) =>
+          isStreamRequest(request) ? "stream" : "converse",
+        ),
+        ["stream", "converse"],
+        "the fallback did not follow the denied stream with one Converse request",
+      );
+    });
+  } finally {
+    await local.close();
+  }
+});
+
+type FinishUsage = Extract<
+  LanguageModelV3StreamPart,
+  { type: "finish" }
+>["usage"];
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: the usage a middleware sees keeps fresh input apart from cache reads and writes`, async () => {
+    const local = await startLocalBedrock("OK", {
+      usage: {
+        inputTokens: 5,
+        outputTokens: 1,
+        cacheReadInputTokens: 10,
+        cacheWriteInputTokens: 7,
+      },
+    });
+    const seen: { usage?: FinishUsage } = {};
+    const observer: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: {
+        id: "bedrock-usage-observer",
+        name: "Bedrock usage observer",
+      },
+      wrapGenerate: async ({ doGenerate }) => {
+        const result = await doGenerate();
+        seen.usage = result.usage;
+        return result;
+      },
+      wrapStream: async ({ doStream }) => {
+        const result = await doStream();
+        return {
+          ...result,
+          stream: result.stream.pipeThrough(
+            new TransformStream({
+              transform(part: LanguageModelV3StreamPart, controller) {
+                if (part.type === "finish") {
+                  seen.usage = part.usage;
+                }
+                controller.enqueue(part);
+              },
+            }),
+          ),
+        };
+      },
+    };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        const outcome = await settle(runTurn(sdk, mode, turnOptions(observer)));
+        assert.equal(outcome.status, "ok", "the turn failed");
+      });
+      assert.ok(seen.usage, "the middleware never observed a usage record");
+      // The AI SDK reads `total` as everything sent and `noCache` as the part
+      // that was not served from the cache; Converse reports only the latter.
+      assert.deepEqual(
+        {
+          total: seen.usage.inputTokens.total,
+          noCache: seen.usage.inputTokens.noCache,
+          cacheRead: seen.usage.inputTokens.cacheRead,
+          cacheWrite: seen.usage.inputTokens.cacheWrite,
+        },
+        { total: 22, noCache: 5, cacheRead: 10, cacheWrite: 7 },
+        "the input-token breakdown the middleware saw is wrong",
+      );
+      assert.equal(
+        seen.usage.outputTokens.total,
+        1,
+        "the output-token count the middleware saw is wrong",
+      );
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+await test("Bedrock generate: a middleware that answers itself reports fresh input tokens, not the cache-inclusive total", async () => {
+  const local = await startLocalBedrock("OK");
+  const selfAnswer: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "bedrock-self-answer", name: "Bedrock self answer" },
+    wrapGenerate: async () => ({
+      content: [{ type: "text", text: "SYNTHETIC" }],
+      finishReason: { unified: "stop", raw: "stop" },
+      usage: {
+        inputTokens: { total: 22, noCache: 5, cacheRead: 10, cacheWrite: 7 },
+        outputTokens: { total: 1, text: 1, reasoning: 0 },
+      },
+      warnings: [],
+    }),
+  };
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      const outcome = await settle(sdk.generate(turnOptions(selfAnswer)));
+      assert.ok(outcome.status === "ok", "the turn failed");
+      assert.equal(
+        local.requests.length,
+        0,
+        "the model was called although the middleware answered",
+      );
+      assert.equal(
+        outcome.value.content,
+        "SYNTHETIC",
+        "the middleware's own answer was lost",
+      );
+      const usage = outcome.value.usage;
+      assert.deepEqual(
+        { input: usage?.input, output: usage?.output, total: usage?.total },
+        { input: 5, output: 1, total: 23 },
+        "the reported usage counts the cache tokens twice",
+      );
+    });
+  } finally {
+    await local.close();
+  }
+});
+
+const schemaTypeOf = (schema: unknown): unknown =>
+  typeof schema === "object" && schema !== null && "type" in schema
+    ? schema.type
+    : undefined;
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: a tool's input schema reaches middleware as plain JSON Schema, not AWS's wire envelope`, async () => {
+    const local = await startLocalBedrock("OK");
+    const seen: { schema?: unknown } = {};
+    const schemaObserver: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: {
+        id: "bedrock-schema-observer",
+        name: "Bedrock schema observer",
+      },
+      transformParams: async ({ params }) => {
+        const declared = params.tools?.find(
+          (candidate) =>
+            candidate.type === "function" && candidate.name === LOOKUP,
+        );
+        seen.schema =
+          declared?.type === "function" ? declared.inputSchema : undefined;
+        return params;
+      },
+    };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        const outcome = await settle(
+          runTurn(
+            sdk,
+            mode,
+            turnOptions(schemaObserver, {
+              disableTools: false,
+              enabledToolNames: [LOOKUP],
+              tools: {
+                [LOOKUP]: tool({
+                  description: "Look a thing up by its needle.",
+                  inputSchema: z.object({ needle: z.string() }),
+                  execute: async () => ({ found: false }),
+                }),
+              },
+            }),
+          ),
+        );
+        assert.equal(outcome.status, "ok", "the turn failed");
+      });
+      assert.ok(
+        local.requests.length > 0,
+        "the Bedrock stand-in was never reached",
+      );
+      const onWire = parseWireBody(local.requests[0]).toolConfig?.tools?.find(
+        (entry) => entry.toolSpec?.name === LOOKUP,
+      )?.toolSpec?.inputSchema;
+      assert.ok(
+        onWire && "json" in onWire,
+        "the tool did not reach the wire in AWS's envelope form",
+      );
+      assert.ok(seen.schema, "the middleware was never offered the tool");
+      assert.equal(
+        schemaTypeOf(seen.schema),
+        "object",
+        "the middleware was handed an envelope instead of a JSON Schema",
+      );
+      assert.deepEqual(
+        seen.schema,
+        onWire.json,
+        "the schema the middleware saw differs from the one on the wire",
+      );
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: a system prompt a middleware removes is left off the wire, not sent as a blank block`, async () => {
+    const local = await startLocalBedrock("OK");
+    const keepSystem: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: { id: "bedrock-keep-system", name: "Bedrock keep system" },
+      transformParams: async ({ params }) => params,
+    };
+    const stripSystem: NeuroLinkMiddleware = {
+      specificationVersion: "v3",
+      metadata: { id: "bedrock-strip-system", name: "Bedrock strip system" },
+      transformParams: async ({ params }) => ({
+        ...params,
+        prompt: params.prompt.filter((message) => message.role !== "system"),
+      }),
+    };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        for (const middleware of [keepSystem, stripSystem]) {
+          const outcome = await settle(
+            runTurn(sdk, mode, turnOptions(middleware)),
+          );
+          assert.equal(outcome.status, "ok", "the turn failed");
+        }
+      });
+      assert.equal(
+        local.requests.length,
+        2,
+        "the stand-in did not receive both turns",
+      );
+      const [kept, stripped] = local.requests.map(parseWireBody);
+      const keptBlocks = kept.system ?? [];
+      assert.ok(
+        keptBlocks.length > 0 && keptBlocks.every(hasText),
+        "the unmodified turn carried no system prompt, so removing it proves nothing",
+      );
+      assert.ok(
+        (stripped.system ?? []).every(hasText),
+        "a blank system block reached the wire after a middleware removed the system prompt",
+      );
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+await test("Bedrock generate: a middleware that recovers from a failed model call is not overruled by the loop's rejection", async () => {
+  const local = await startLocalBedrock("OK", { failConverse: true });
+  const seen: { caught?: string } = {};
+  const recover: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "bedrock-recover", name: "Bedrock recover" },
+    wrapGenerate: async ({ doGenerate }) => {
+      try {
+        return await doGenerate();
+      } catch (error) {
+        seen.caught = error instanceof Error ? error.name : "not an error";
+        return {
+          content: [{ type: "text", text: "RECOVERED" }],
+          finishReason: { unified: "stop", raw: "stop" },
+          usage: {
+            inputTokens: { total: 3, noCache: 3, cacheRead: 0, cacheWrite: 0 },
+            outputTokens: { total: 2, text: 2, reasoning: 0 },
+          },
+          warnings: [],
+        };
+      }
+    },
+  };
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      const outcome = await settle(sdk.generate(turnOptions(recover)));
+      assert.equal(
+        seen.caught,
+        "ValidationException",
+        "the middleware was never handed the model call's failure",
+      );
+      assert.equal(
+        local.requests.length,
+        1,
+        "the failed model call was not made exactly once",
+      );
+      assert.ok(
+        outcome.status === "ok",
+        "the turn rejected although the middleware recovered from the failure",
+      );
+      assert.equal(
+        outcome.value.content,
+        "RECOVERED",
+        "the middleware's recovery was lost",
+      );
+      const usage = outcome.value.usage;
+      assert.deepEqual(
+        { input: usage?.input, output: usage?.output, total: usage?.total },
+        { input: 3, output: 2, total: 5 },
+        "the recovery's usage was not the one reported",
+      );
+    });
+  } finally {
+    await local.close();
+  }
+});
+
+await test("Bedrock stream: a middleware that throws after the loop started does not leave its request in flight", async () => {
+  const local = await startLocalBedrock("OK", {
+    hold: "converse-stream",
+    toolUse: { name: LOOKUP, input: {} },
+  });
+  const caller = new AbortController();
+  const seen = { refused: false };
+  const streamRequests = () => local.requests.filter(isStreamRequest);
+  const refuseAfterStart: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "bedrock-refuse-late", name: "Bedrock refuse late" },
+    wrapStream: async ({ doStream }) => {
+      await doStream();
+      seen.refused = true;
+      throw new Error(`${REFUSAL_MARKER}: refused after the loop started`);
+    },
+  };
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      sdk.registerTool(LOOKUP, {
+        name: LOOKUP,
+        description: "Look a thing up.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+        execute: async () => ({ found: true }),
+      });
+      try {
+        const outcome = await settle(
+          sdk.stream(
+            turnOptions(refuseAfterStart, {
+              disableTools: false,
+              enabledToolNames: [LOOKUP],
+              abortSignal: caller.signal,
+            }),
+          ),
+        );
+        assert.notEqual(outcome.status, "timeout", "the turn never settled");
+        assert.ok(seen.refused, "the middleware never reached its refusal");
+        assert.ok(
+          streamRequests().length >= 1,
+          "the tool loop never sent its first request",
+        );
+        // Where the loop's next request is sent at all, it must not be left
+        // open. The break-out test below shows that request does go out when
+        // nothing stops the loop before it.
+        const sent = await waitUntil(() => streamRequests().length >= 2, 2_000);
+        if (sent) {
+          assert.ok(
+            await waitUntil(() => streamRequests()[1].aborted, 5_000),
+            "a request the orphaned tool loop sent was never closed",
+          );
+        }
+      } finally {
+        caller.abort();
+      }
+    });
+  } finally {
+    await local.close();
+  }
+});
+
+// A 1x1 PNG: enough to make a turn multimodal without adding any weight.
+const PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: a multimodal turn warns that configured middleware was not applied`, async () => {
+    const local = await startLocalBedrock("OK");
+    const record = emptyRecord();
+    const warnings: string[] = [];
+    const originalWarn = logger.warn;
+    // A call, not `local.requests.length` inline: an assertion on that
+    // expression narrows it to a literal, and the next turn's count would then
+    // read as an impossible comparison.
+    const requestCount = (): number => local.requests.length;
+    const skipWarnings = () =>
+      warnings.filter((line) =>
+        line.includes("configured middleware was NOT applied"),
+      ).length;
+    const withImage = {
+      input: { text: "describe this", images: [PIXEL_PNG] },
+    };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        logger.warn = (...args: unknown[]) => {
+          warnings.push(args.map(String).join(" "));
+        };
+        try {
+          const configured = await settle(
+            runTurn(sdk, mode, turnOptions(createProbe(record), withImage)),
+          );
+          assert.equal(configured.status, "ok", "the configured turn failed");
+          assert.ok(
+            requestCount() === 1 && local.requests[0].body.includes('"image"'),
+            "the configured turn did not reach the wire as a multimodal one",
+          );
+          assert.equal(
+            skipWarnings(),
+            1,
+            "skipping the configured middleware was not announced exactly once",
+          );
+
+          const plain = await settle(
+            runTurn(
+              sdk,
+              mode,
+              turnOptions(createProbe(record), {
+                ...withImage,
+                middleware: undefined,
+              }),
+            ),
+          );
+          assert.equal(plain.status, "ok", "the plain turn failed");
+          assert.ok(
+            requestCount() === 2 && local.requests[1].body.includes('"image"'),
+            "the plain turn did not reach the wire as a multimodal one",
+          );
+          assert.equal(
+            skipWarnings(),
+            1,
+            "a turn with no middleware configured warned that middleware was skipped",
+          );
+
+          const textOnly = await settle(
+            runTurn(sdk, mode, turnOptions(createProbe(record))),
+          );
+          assert.equal(textOnly.status, "ok", "the text-only turn failed");
+          assert.equal(
+            requestCount(),
+            3,
+            "the text-only turn did not reach the wire",
+          );
+          assert.equal(
+            skipWarnings(),
+            1,
+            "a text-only turn warned that middleware was skipped",
+          );
+        } finally {
+          logger.warn = originalWarn;
+        }
+      });
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+// A middleware that adds `extra` to every call's params and counts how often
+// it ran, so a test can tell "the hook ran and changed nothing" from "the hook
+// never ran".
+const paramSetter = (
+  extra: Partial<LanguageModelV3CallOptions>,
+  seen: { transformParamsRuns: number },
+): NeuroLinkMiddleware => ({
+  specificationVersion: "v3",
+  metadata: { id: "bedrock-param-setter", name: "Bedrock param setter" },
+  transformParams: async ({ params }) => {
+    seen.transformParamsRuns += 1;
+    return { ...params, ...extra };
+  },
+});
+
+// Converse is sent `maxTokens` and `temperature` and nothing else, so a
+// sampling option a middleware adds cannot reach the model. A middleware cannot
+// repair that, so the claim is narrower: the drop is announced, and the
+// announcement matches what went over the wire.
+for (const mode of ["generate", "stream"] as const) {
+  await test(`Bedrock ${mode}: sampling options a middleware sets that Converse is not sent are warned about`, async () => {
+    const local = await startLocalBedrock("OK");
+    const warnings: string[] = [];
+    const originalWarn = logger.warn;
+    const seen = { transformParamsRuns: 0 };
+    // A call, not `seen.transformParamsRuns` inline: an assertion on that
+    // expression narrows it to a literal, and the next turn's count would
+    // then read as an impossible comparison (see `requestCount` below).
+    const runs = (): number => seen.transformParamsRuns;
+    const requestCount = (): number => local.requests.length;
+    const unsentWarnings = (): string[] =>
+      warnings.filter((line) => line.includes("does not send"));
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        const turn = (extra: Partial<LanguageModelV3CallOptions>) =>
+          settle(runTurn(sdk, mode, turnOptions(paramSetter(extra, seen))));
+        logger.warn = (...args: unknown[]) => {
+          warnings.push(args.map(String).join(" "));
+        };
+        try {
+          const unsent = await turn({
+            topP: 0.3,
+            stopSequences: ["END"],
+            seed: 7,
+          });
+          assert.equal(unsent.status, "ok", "the turn setting options failed");
+          assert.ok(
+            runs() === 1 && requestCount() === 1,
+            "the middleware did not run once on a turn that reached the wire",
+          );
+          const sent = local.requests[0];
+          const inference = parseWireBody(sent).inferenceConfig;
+          // `maxTokens` is caller-controlled and this turn sets none — Bedrock
+          // then sends none on the generate path (unlimited by default) but a
+          // model-ceiling default on the stream path, a pre-existing asymmetry
+          // this test does not exercise. `temperature` alone is always present
+          // on both paths and is enough to prove a real wire request arrived.
+          assert.ok(
+            inference?.temperature !== undefined,
+            "the wire request has no inference settings to compare against",
+          );
+          assert.ok(
+            !/"(topP|stopSequences|seed)"/.test(sent.body),
+            "a warned-about option reached the wire after all",
+          );
+          const announced = unsentWarnings();
+          assert.equal(
+            announced.length,
+            1,
+            "dropping the options was not announced exactly once",
+          );
+          assert.ok(
+            ["'topP'", "'stopSequences'", "'seed'", `${mode} path`].every(
+              (part) => announced[0].includes(part),
+            ),
+            "the announcement does not name every dropped option and the path",
+          );
+
+          const nothing = await turn({});
+          assert.equal(nothing.status, "ok", "the turn setting nothing failed");
+          assert.ok(
+            runs() === 2 && requestCount() === 2,
+            "the middleware did not run on the turn that sets nothing",
+          );
+          assert.equal(
+            unsentWarnings().length,
+            1,
+            "a turn that sets no such option was warned about",
+          );
+
+          const emptyList = await turn({ stopSequences: [] });
+          assert.equal(emptyList.status, "ok", "the empty-list turn failed");
+          assert.ok(
+            runs() === 3 && requestCount() === 3,
+            "the middleware did not run on the empty-list turn",
+          );
+          assert.equal(
+            unsentWarnings().length,
+            1,
+            "an empty stop list was warned about as if it had a value",
+          );
+        } finally {
+          logger.warn = originalWarn;
+        }
+      });
+    } finally {
+      await local.close();
+    }
+  });
+
+  // The other half of the same contract: what the turn does send is what a
+  // middleware set, not what the caller asked for.
+  await test(`Bedrock ${mode}: the temperature and output-token limit a middleware sets reach the wire`, async () => {
+    const local = await startLocalBedrock("OK");
+    const seen = { transformParamsRuns: 0 };
+    // A call, not `seen.transformParamsRuns` inline: an assertion on that
+    // expression narrows it to a literal, and the next turn's count would
+    // then read as an impossible comparison (see `requestCount` below).
+    const runs = (): number => seen.transformParamsRuns;
+    const requestCount = (): number => local.requests.length;
+    const callerAsked = { temperature: 0.9, maxTokens: 1234 };
+    try {
+      await withBedrockSdk(local, async (sdk) => {
+        const control = await settle(
+          runTurn(sdk, mode, turnOptions(paramSetter({}, seen), callerAsked)),
+        );
+        assert.equal(control.status, "ok", "the control turn failed");
+        assert.ok(
+          runs() === 1 && requestCount() === 1,
+          "the middleware did not run on the control turn",
+        );
+        const controlWire = parseWireBody(local.requests[0]).inferenceConfig;
+        assert.equal(
+          controlWire?.temperature,
+          callerAsked.temperature,
+          "the caller's temperature did not reach the wire on the control turn",
+        );
+        assert.equal(
+          controlWire?.maxTokens,
+          callerAsked.maxTokens,
+          "the caller's output-token limit did not reach the wire on the control turn",
+        );
+
+        const rewritten = await settle(
+          runTurn(
+            sdk,
+            mode,
+            turnOptions(
+              paramSetter({ temperature: 0.2, maxOutputTokens: 77 }, seen),
+              callerAsked,
+            ),
+          ),
+        );
+        assert.equal(rewritten.status, "ok", "the rewriting turn failed");
+        assert.ok(
+          runs() === 2 && requestCount() === 2,
+          "the middleware did not run on the rewriting turn",
+        );
+        const wire = parseWireBody(local.requests[1]).inferenceConfig;
+        assert.equal(
+          wire?.temperature,
+          0.2,
+          "the temperature a middleware set did not reach the wire",
+        );
+        assert.equal(
+          wire?.maxTokens,
+          77,
+          "the output-token limit a middleware set did not reach the wire",
+        );
+      });
+    } finally {
+      await local.close();
+    }
+  });
+}
+
+await test("Bedrock stream: breaking out of a wrapped stream aborts the request the tool loop has in flight", async () => {
+  const local = await startLocalBedrock("OK", {
+    hold: "converse-stream",
+    toolUse: { name: LOOKUP, input: {} },
+  });
+  const caller = new AbortController();
+  const seen = { executions: 0 };
+  const streamRequests = () => local.requests.filter(isStreamRequest);
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      sdk.registerTool(LOOKUP, {
+        name: LOOKUP,
+        description: "Look a thing up.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+        execute: async () => {
+          seen.executions += 1;
+          return { found: true };
+        },
+      });
+      try {
+        const opened = await settle(
+          sdk.stream(
+            turnOptions(createProbe(emptyRecord()), {
+              disableTools: false,
+              enabledToolNames: [LOOKUP],
+              abortSignal: caller.signal,
+            }),
+          ),
+        );
+        assert.ok(
+          opened.status === "ok",
+          "the tool turn never returned a stream",
+        );
+        // The consumer can only see content once the loop's second request is
+        // open and answering, and the stand-in never finishes that answer, so
+        // breaking out of the stream leaves a request genuinely in flight.
+        const consumer = settle(
+          (async () => {
+            for await (const chunk of opened.value.stream) {
+              if ("content" in chunk && chunk.content) {
+                break;
+              }
+            }
+          })(),
+        );
+        assert.ok(
+          await waitUntil(() => streamRequests().length >= 2),
+          "the tool loop never sent its second request",
+        );
+        assert.equal(seen.executions, 1, "the tool did not run exactly once");
+        assert.ok(
+          await waitUntil(() => streamRequests()[1].aborted, 8_000),
+          "the request in flight stayed open after the consumer broke out",
+        );
+        assert.notEqual(
+          (await consumer).status,
+          "timeout",
+          "the consumer never returned after breaking out",
+        );
+      } finally {
+        caller.abort();
+      }
+    });
+  } finally {
+    await local.close();
+  }
+});
+
+await test("Bedrock generate: a middleware can rewrite the reply while the loop's finish reason and usage stay authoritative", async () => {
+  const local = await startLocalBedrock("OK", {
+    usage: { inputTokens: 5, outputTokens: 1, cacheReadInputTokens: 10 },
+  });
+  const rewriter: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "bedrock-rewriter", name: "Bedrock rewriter" },
+    wrapGenerate: async ({ doGenerate }) => {
+      const result = await doGenerate();
+      return {
+        ...result,
+        content: [{ type: "text", text: "REWRITTEN" }],
+        finishReason: { unified: "length", raw: "length" },
+        usage: {
+          inputTokens: {
+            total: 900,
+            noCache: 900,
+            cacheRead: 0,
+            cacheWrite: 0,
+          },
+          outputTokens: { total: 90, text: 90, reasoning: 0 },
+        },
+      };
+    },
+  };
+  try {
+    await withBedrockSdk(local, async (sdk) => {
+      const outcome = await settle(sdk.generate(turnOptions(rewriter)));
+      assert.ok(outcome.status === "ok", "the turn failed");
+      assert.equal(
+        local.requests.length,
+        1,
+        "the model was not called once, so there is no loop outcome to read",
+      );
+      assert.equal(
+        outcome.value.content,
+        "REWRITTEN",
+        "the middleware's rewrite of the reply was lost",
+      );
+      assert.equal(
+        outcome.value.finishReason,
+        "stop",
+        "a middleware overrode the finish reason of a turn the model completed",
+      );
+      const usage = outcome.value.usage;
+      assert.deepEqual(
+        { input: usage?.input, output: usage?.output },
+        { input: 5, output: 1 },
+        "a middleware overrode the token usage of a turn that reached the wire",
+      );
+    });
+  } finally {
+    await local.close();
   }
 });
 
