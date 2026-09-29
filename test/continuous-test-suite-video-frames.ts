@@ -37,7 +37,8 @@
 process.env.NEUROLINK_SKIP_MCP = "true";
 
 import "dotenv/config";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -47,7 +48,11 @@ import {
   Skip,
   tempDir,
 } from "./helpers/harness.js";
-import { hasFfmpeg, makeVideoFile } from "./helpers/mediaFixtures.js";
+import {
+  findFfmpeg,
+  hasFfmpeg,
+  makeVideoFile,
+} from "./helpers/mediaFixtures.js";
 
 // The longest test runs two CLI calls in sequence, each allowed 240 s. A live
 // suite reports a per-test timeout as SKIP, so the budget must outlast both
@@ -279,6 +284,222 @@ await test("keyframe timestamps reflect ffmpeg's real sample times, not the idea
   assert(
     lastTimestamp > 2.5,
     `the last kept frame must be labelled near its real sample time, not the idealized schedule (got ${lastTimestamp}s)`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ffmpeg renamed its vfr flag: `-vsync` is gone in 8, `-fps_mode` starts at 5.1
+// ---------------------------------------------------------------------------
+
+// Keyframe extraction failing is non-fatal by design, so on an ffmpeg that
+// rejects the flag the request still succeeds and the model just sees the
+// file's metadata. Only the extraction count and the calls ffmpeg actually
+// received can tell that apart from a clip with nothing to extract.
+//
+// The wrapper makes the locally installed ffmpeg answer like a release on one
+// side of the rename, so the suite exercises both regardless of what CI has.
+// Frames go to a local OpenAI-wire stand-in, so no credentials are involved.
+
+/**
+ * `$SHIM_REJECT` names the flag this pretend release has never heard of; the
+ * other flag is forwarded under whichever spelling the real binary accepts.
+ * Every call is appended to `$SHIM_LOG`.
+ */
+const FFMPEG_SHIM = (realFfmpeg: string): string =>
+  [
+    "#!/bin/bash",
+    `REAL='${realFfmpeg}'`,
+    'printf "%s\\n" "$*" >> "$SHIM_LOG"',
+    "REAL_HAS_FPS_MODE=0",
+    `if "$REAL" -hide_banner -h full 2>/dev/null | grep -q -- '-fps_mode'; then REAL_HAS_FPS_MODE=1; fi`,
+    "args=()",
+    'for arg in "$@"; do',
+    '  if [ "$arg" = "$SHIM_REJECT" ]; then',
+    `    echo "Unrecognized option '$(echo "$SHIM_REJECT" | sed 's/^-//')'." >&2`,
+    '    echo "Error splitting the argument list: Option not found" >&2',
+    "    exit 8",
+    "  fi",
+    '  case "$arg" in',
+    '    -fps_mode) if [ "$REAL_HAS_FPS_MODE" = 1 ]; then args+=("$arg"); else args+=("-vsync"); fi ;;',
+    '    -vsync) if [ "$REAL_HAS_FPS_MODE" = 1 ]; then args+=("-fps_mode"); else args+=("$arg"); fi ;;',
+    '    *) args+=("$arg") ;;',
+    "  esac",
+    "done",
+    'exec "$REAL" "${args[@]}"',
+    "",
+  ].join("\n");
+
+async function startChatStandIn() {
+  const bodies: Array<{ messages?: Array<{ content?: unknown }> }> = [];
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8");
+      const body = raw ? JSON.parse(raw) : {};
+      bodies.push(body);
+      if (body.stream !== true) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            id: "stand-in",
+            object: "chat.completion",
+            created: 1,
+            model: "test-model",
+            choices: [
+              {
+                index: 0,
+                message: { role: "assistant", content: "OK" },
+                finish_reason: "stop",
+              },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        );
+        return;
+      }
+      const chunk = (delta: Record<string, unknown>, finish: string | null) =>
+        `data: ${JSON.stringify({
+          id: "stand-in",
+          object: "chat.completion.chunk",
+          created: 1,
+          model: "test-model",
+          choices: [{ index: 0, delta, finish_reason: finish }],
+        })}\n\n`;
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write(chunk({ role: "assistant", content: "OK" }, null));
+      res.write(chunk({}, "stop"));
+      res.end("data: [DONE]\n\n");
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    baseURL: `http://127.0.0.1:${port}`,
+    imagePartCount: (): number =>
+      bodies
+        .flatMap((body) => body.messages ?? [])
+        .flatMap((message) =>
+          Array.isArray(message.content) ? message.content : [],
+        )
+        .filter((part) => (part as { type?: string }).type === "image_url")
+        .length,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+/** The vfr flag on each ffmpeg call that was extracting frames, in order. */
+function extractionFlags(shimLog: string): string[] {
+  return readFileSync(shimLog, "utf8")
+    .split("\n")
+    .filter((line) => line.includes("select="))
+    .map((line) =>
+      line.includes("-fps_mode")
+        ? "-fps_mode"
+        : line.includes("-vsync")
+          ? "-vsync"
+          : "none",
+    );
+}
+
+async function extractThroughFfmpegThatRejects(
+  rejectedFlag: "-vsync" | "-fps_mode",
+): Promise<{ combined: string; flags: string[]; imageParts: number }> {
+  await requireFrameExtraction();
+  if (process.platform === "win32") {
+    throw new Skip("the ffmpeg wrapper is a bash script");
+  }
+  const realFfmpeg = findFfmpeg();
+  if (!realFfmpeg) {
+    throw new Skip("ffmpeg is unavailable, so no frames can be extracted");
+  }
+
+  const dir = tempDir("neurolink-ffmpeg-flag-");
+  const shim = path.join(dir, "ffmpeg");
+  const shimLog = path.join(dir, "calls.log");
+  writeFileSync(shim, FFMPEG_SHIM(realFfmpeg), { mode: 0o755 });
+  writeFileSync(shimLog, "");
+
+  const standIn = await startChatStandIn();
+  try {
+    const res = await runCLI(
+      [
+        "generate",
+        "Reply OK.",
+        "--file",
+        CLIP,
+        "--provider",
+        "litellm",
+        "--model",
+        "openai/gpt-4o-mini",
+        "--video-frames",
+        "2",
+        "--debug",
+      ],
+      {
+        env: {
+          NEUROLINK_LOG_LEVEL: "debug",
+          LITELLM_API_KEY: "test-key",
+          LITELLM_BASE_URL: `${standIn.baseURL}/v1`,
+          NEUROLINK_LITELLM_SSE_GENERATE: "false",
+          // ffmpeg-static's own override wins over FFMPEG_PATH whenever its
+          // binary is installed, so both must name the wrapper.
+          FFMPEG_BIN: shim,
+          FFMPEG_PATH: shim,
+          SHIM_LOG: shimLog,
+          SHIM_REJECT: rejectedFlag,
+        },
+        timeoutMs: 240_000,
+      },
+    );
+    assert(
+      res.exitCode === 0,
+      `the request must succeed for the frame count to mean anything (exit ${res.exitCode}): ${res.stderr.slice(-400)}`,
+    );
+    return {
+      combined: `${res.stdout}${res.stderr}`,
+      flags: extractionFlags(shimLog),
+      imageParts: standIn.imagePartCount(),
+    };
+  } finally {
+    await standIn.close();
+  }
+}
+
+await test("keyframes are extracted on an ffmpeg that no longer has -vsync", async () => {
+  const { combined, flags, imageParts } =
+    await extractThroughFfmpegThatRejects("-vsync");
+
+  assert(
+    extractedFrameCount(combined) === 2,
+    `both requested frames must be extracted (log said ${extractedFrameCount(combined)})`,
+  );
+  assert(
+    imageParts === 2,
+    `both frames must reach the model, not just the file's metadata (got ${imageParts})`,
+  );
+  assert(
+    flags.length === 1 && flags[0] === "-fps_mode",
+    `one extraction call using -fps_mode is expected (got ${JSON.stringify(flags)})`,
+  );
+});
+
+await test("keyframes are still extracted on an ffmpeg that predates -fps_mode, after exactly one retry", async () => {
+  const { combined, flags, imageParts } =
+    await extractThroughFfmpegThatRejects("-fps_mode");
+
+  assert(
+    extractedFrameCount(combined) === 2,
+    `both requested frames must be extracted (log said ${extractedFrameCount(combined)})`,
+  );
+  assert(
+    imageParts === 2,
+    `both frames must reach the model, not just the file's metadata (got ${imageParts})`,
+  );
+  assert(
+    flags.length === 2 && flags[0] === "-fps_mode" && flags[1] === "-vsync",
+    `-fps_mode must be tried first and -vsync exactly once after it (got ${JSON.stringify(flags)})`,
   );
 });
 

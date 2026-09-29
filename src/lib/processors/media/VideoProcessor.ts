@@ -1214,6 +1214,39 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     timestamps: number[],
     intervalSec: number,
   ): Promise<number[]> {
+    try {
+      return await this.runFfmpegFrameExtractionAttempt(
+        videoPath,
+        outputDir,
+        timestamps,
+        intervalSec,
+        "-fps_mode",
+      );
+    } catch (error) {
+      // `-vsync` was removed in ffmpeg 9 and `-fps_mode` only exists from 5.1,
+      // so neither flag works on every ffmpeg. Retry only when this ffmpeg
+      // says it does not know `-fps_mode`; any other failure would repeat.
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/Unrecognized option ['"]?fps_mode\b/i.test(message)) {
+        throw error;
+      }
+      return this.runFfmpegFrameExtractionAttempt(
+        videoPath,
+        outputDir,
+        timestamps,
+        intervalSec,
+        "-vsync",
+      );
+    }
+  }
+
+  private async runFfmpegFrameExtractionAttempt(
+    videoPath: string,
+    outputDir: string,
+    timestamps: number[],
+    intervalSec: number,
+    vfrFlag: "-fps_mode" | "-vsync",
+  ): Promise<number[]> {
     const ff = await loadFluentFfmpeg();
     return new Promise((resolve, reject) => {
       // Improved select expression to pick exactly one frame per interval
@@ -1234,7 +1267,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         .outputOptions([
           "-vf",
           `select='${selectExpr}',showinfo,scale='min(${VIDEO_CONFIG.FRAME_MAX_DIMENSION}\\,iw):-2'`,
-          "-vsync",
+          vfrFlag,
           "vfr",
           "-q:v",
           "3",
