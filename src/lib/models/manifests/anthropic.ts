@@ -39,6 +39,20 @@ export const anthropicManifest: ProviderModelManifest = {
       jsonMode: true,
       samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /opus[-_.]?5(?![0-9])/i
     },
+    "claude-sonnet-5-5": {
+      aliases: ["sonnet-5.5"],
+      displayName: "Claude Sonnet 5.5",
+      contextWindow: 1_000_000,
+      maxOutputTokens: 128_000,
+      // No pricingPerMTok DELIBERATELY: PRICING.anthropic already carries
+      // real rates for this id (input 2.0/output 10.0 per MTok) — see the
+      // claude-sonnet-5 comment below for why this defers to that table.
+      vision: true,
+      functionCalling: true,
+      reasoning: true,
+      jsonMode: true,
+      samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /sonnet[-_.]?5(?![0-9])/i
+    },
     "claude-fable-5-1": {
       aliases: ["fable-5.1"],
       displayName: "Claude Fable 5.1",

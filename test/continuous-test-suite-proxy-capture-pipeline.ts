@@ -1026,11 +1026,13 @@ await test("every model the proxy routes carries an exact price, not an inferred
     const routed: ReadonlyArray<readonly [string, string]> = [
       ["anthropic", "claude-opus-5-5"],
       ["anthropic", "claude-opus-5"],
+      ["anthropic", "claude-sonnet-5-5"],
       ["anthropic", "claude-sonnet-5"],
       ["anthropic", "claude-fable-5-1"],
       ["anthropic", "claude-mythos-5-1"],
       ["vertex", "claude-opus-5-5"],
       ["vertex", "claude-opus-5"],
+      ["vertex", "claude-sonnet-5-5"],
       ["vertex", "claude-sonnet-5"],
       ["vertex", "claude-opus-4-6"],
       ["openai", "gpt-5.6-sol"],

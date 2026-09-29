@@ -133,6 +133,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     // Claude 5.5 / 5.1 (Sep 2026) — 1M context window, confirmed on
     // platform.claude.com/docs/en/about-claude/models/overview
     "claude-opus-5-5": 1_000_000,
+    "claude-sonnet-5-5": 1_000_000,
     "claude-fable-5-1": 1_000_000,
     // Claude 5 (mid 2026) — 1M context window
     "claude-sonnet-5": 1_000_000,
@@ -231,6 +232,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     _default: 1_048_576,
     // Claude on Vertex
     "claude-opus-5-5": 1_000_000,
+    "claude-sonnet-5-5": 1_000_000,
     "claude-fable-5-1": 1_000_000,
     "claude-sonnet-5": 1_000_000,
     "claude-opus-4-6": 1_000_000,
@@ -270,6 +272,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     _default: 200_000,
     // Claude 5.5 / 5.1 (Sep 2026)
     "anthropic.claude-opus-5-5": 1_000_000,
+    "anthropic.claude-sonnet-5-5": 1_000_000,
     "anthropic.claude-fable-5-1": 1_000_000,
     // Claude 4.6
     "anthropic.claude-opus-4-6-v1": 1_000_000,

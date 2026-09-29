@@ -583,6 +583,7 @@ export enum AnthropicModels {
   // Claude 5.5 / 5.1 Series (September 2026) — confirmed on
   // platform.claude.com/docs/en/about-claude/models/overview
   CLAUDE_OPUS_5_5 = "claude-opus-5-5",
+  CLAUDE_SONNET_5_5 = "claude-sonnet-5-5",
   CLAUDE_FABLE_5_1 = "claude-fable-5-1",
 
   // Claude 4.7 / 4.8 Series

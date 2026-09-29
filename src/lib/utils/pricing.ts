@@ -135,6 +135,13 @@ const PRICING: Record<
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 5.0 / 1_000_000,
     },
+    // Sonnet 5.5 bills exactly as Sonnet 5 does, cache rates included.
+    "claude-sonnet-5-5": {
+      input: 2.0 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 2.5 / 1_000_000,
+    },
     "claude-fable-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
@@ -315,6 +322,13 @@ const PRICING: Record<
       output: 20.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 5.0 / 1_000_000,
+    },
+    // Sonnet 5.5 bills exactly as Sonnet 5 does, cache rates included.
+    "claude-sonnet-5-5": {
+      input: 2.0 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 2.5 / 1_000_000,
     },
     "claude-opus-5": {
       input: 5.0 / 1_000_000,

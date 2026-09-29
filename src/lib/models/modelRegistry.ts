@@ -1233,6 +1233,49 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
     category: "general",
   },
 
+  // "claude-sonnet-latest" stays on CLAUDE_SONNET_5 until someone decides to
+  // move it; this entry sits after that one so resolver ties still go to it.
+  [AnthropicModels.CLAUDE_SONNET_5_5]: {
+    id: AnthropicModels.CLAUDE_SONNET_5_5,
+    name: "Claude Sonnet 5.5",
+    provider: AIProviderName.ANTHROPIC,
+    description: "The best combination of speed and intelligence",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.002,
+      outputCostPer1K: 0.01,
+      currency: "USD",
+    },
+    performance: { speed: "fast", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 9,
+      creative: 9,
+      analysis: 9,
+      conversation: 9,
+      reasoning: 9,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["sonnet-5.5"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-09-28",
+    category: "general",
+  },
+
   [AnthropicModels.CLAUDE_FABLE_5]: {
     id: AnthropicModels.CLAUDE_FABLE_5,
     name: "Claude Fable 5",
