@@ -1,0 +1,87 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "bytez",
+  "displayName": "Bytez",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.bytez.com/models/v2/openai/v1"
+  },
+  "models": {
+    "default": "Qwen/Qwen3-4B",
+    "fallbacks": ["Qwen/Qwen3-1.7B"],
+    "defaultContextWindow": 8192,
+    "defaultMaxOutputTokens": 1024,
+    "catalog": {
+      "Qwen/Qwen3-4B": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The model named in the \"Basic usage (Open Source)\" and \"Streaming (Open Source)\" examples of the vendor's OpenAI-compliant Chat Completions page (https://docs.bytez.com/http-reference/examples/openai-compliant/chatCompletionsExample.md, retrieved 2026-09-29), whose curl examples send it to POST https://api.bytez.com/models/v2/openai/v1/chat/completions, and the model in the Basic usage example of the chat Get started page (https://docs.bytez.com/model-api/docs/task/chat.md, retrieved 2026-09-29). Open models are billed per second of inference (How Credits Work table, https://docs.bytez.com/model-api/docs/billing.md). NeuroLink vision flag: false; the Chat Completions API reference (https://docs.bytez.com/http-reference/oaiCompliant/chatCompletions.md) types message content as string."
+      },
+      "Qwen/Qwen3-1.7B": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Named in the Chat Completions API reference (https://docs.bytez.com/http-reference/oaiCompliant/chatCompletions.md, retrieved 2026-09-29) in the model field description: \"The ID of the model to run (e.g., `Qwen/Qwen3-1.7B`, `openai/gpt-4`)\". NeuroLink vision flag: false; the same reference types message content as string."
+      }
+    },
+    "topModels": ["Qwen/Qwen3-4B", "Qwen/Qwen3-1.7B"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Bytez answered HTTP 401 (an unauthenticated GET to the API returned the error \"Unauthorized\" on 2026-09-29; the Models API reference https://docs.bytez.com/http-reference/list/models.md describes 401 as \"Auth error - check your api key and how you're sending it.\"). Check {apiKeyEnvVar}. Get a key: {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Bytez reported insufficient credits (HTTP 402). The Billing & Credits page https://docs.bytez.com/model-api/docs/billing.md shows this response for an account whose credits ran out with auto-reload disabled: \"Insufficient credits. Please add credits to continue.\""
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Bytez rate limit (HTTP 429). The Models API reference https://docs.bytez.com/http-reference/list/models.md documents 429 as \"Too Many Requests – You have hit the rate limit.\" and the Billing & Credits page https://docs.bytez.com/model-api/docs/billing.md says requests over the open model rate limits \"are rejected with a rate-limit error\"."
+    }
+  ],
+  "setup": {
+    "url": "https://bytez.com/api",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Open the API Dashboard at https://bytez.com/api; the Get started page (https://docs.bytez.com/model-api/docs/get-started.md) says \"Copy your key from the API Dashboard\"",
+      "2. Free plan (https://docs.bytez.com/model-api/docs/billing.md): \"$0 / month - Get $1 in free credits\", with \"Run open models up to 7B parameters\" and \"Credits refresh every 4 weeks\"; the Billing Cycle section lists Billing: None for the Free Plan",
+      "3. The same page lists a Pay-as-you-go plan with \"Run open models up to 120B parameters\" and \"Add credits anytime\"",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.bytez.com/models/v2/openai/v1/models needs a key (it answers HTTP 401 with the body {\"error\":\"Unauthorized\"} without one), so the two model ids come from the vendor's public docs (https://docs.bytez.com/http-reference/examples/openai-compliant/chatCompletionsExample.md and https://docs.bytez.com/http-reference/oaiCompliant/chatCompletions.md, retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.bytez.com/models/v2/openai/v1: the Chat Completions page's JavaScript and Python examples create an OpenAI client with that base URL and call chat.completions.create with a messages array, its curl examples POST to https://api.bytez.com/models/v2/openai/v1/chat/completions, and its streaming examples read event.choices[0].delta.content and finish_reason. The curl examples send the header Authorization: BYTEZ_KEY and the OpenAI client examples pass the key as apiKey; the Get started page (https://docs.bytez.com/model-api/docs/get-started.md) has the code comment # add an Authorization header, with value \"Key {BYTEZ_KEY}\" above a curl example that sends -H \"Authorization: BYTEZ_KEY\". The Chat Completions page examples send max_tokens, and the API reference lists max_completion_tokens (default 256). Closed-source provider models (for example openai/gpt-4) are addressed with a provider prefix and their curl examples add a provider-key header; this catalog has no field for an extra header, so none are listed. models.defaultContextWindow (8,192) and models.defaultMaxOutputTokens (1,024) are placeholders the vendor does not publish."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.bytez.com/models/v2/openai/v1/models answers 401 without a key, so model ids are taken from https://docs.bytez.com/http-reference/examples/openai-compliant/chatCompletionsExample.md and https://docs.bytez.com/http-reference/oaiCompliant/chatCompletions.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "Unauthorized",
+      "method": "unauthenticated GET https://api.bytez.com/models/v2/openai/v1/models and unauthenticated GET https://api.bytez.com/models/v2/openai/v1/chat/completions both answered 401 with the body {\"error\":\"Unauthorized\"}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.bytez.com/model-api/docs/billing.md — Free plan \"$0 / month - Get $1 in free credits\", Billing Cycle entry for the Free Plan lists Billing: None; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

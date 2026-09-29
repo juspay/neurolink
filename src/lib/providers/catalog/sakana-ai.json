@@ -1,0 +1,162 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "sakana-ai",
+  "displayName": "Sakana AI",
+  "aliases": ["sakana"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.sakana.ai/v1",
+    "apiKeyFallbackEnvVars": ["SAKANA_API_KEY"]
+  },
+  "models": {
+    "default": "fugu",
+    "fallbacks": ["fugu-ultra", "fugu-max", "sakana-namazu"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "fugu": {
+        "contextWindow": 1000000,
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"The default Fugu model.\" Fugu overview: \"Fugu balances strong performance with low latency, making it the ideal default for everyday work.\" The Get Started page (https://console.sakana.ai/get-started) uses this id in its Chat Completions curl example (\"model\":\"fugu\"). Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu with display_name \"Fugu\", context_window 1000000 and input_modalities [\"text\", \"image\"], hence contextWindow 1000000 and vision true. Pricing page (https://console.sakana.ai/pricing), Fugu table, 1 agent: \"You pay only the standard rate for the specific underlying model.\" Multiple agents: \"We never stack model fees. You are charged a single rate based on the top tier model involved.\" pricingPerMTok is left out."
+      },
+      "fugu-ultra": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 5,
+          "output": 30,
+          "cachedInput": 0.5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"The Fugu Ultra model, defaults to fugu-ultra-v2.0.\" Fugu Ultra overview: \"Fugu Ultra coordinates a deeper pool of expert agents to maximize answer quality on hard, high-stakes problems.\" Get Started page (https://console.sakana.ai/get-started): \"For complex tasks, especially when using fugu-ultra and fugu-cyber, you may need to increase client-side timeouts.\" Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-ultra with display_name \"Fugu Ultra v2.0\", context_window 1000000 and input_modalities [\"text\", \"image\"]; the Models page's Supported models table says fugu-ultra \"defaults to fugu-ultra-v2.0\", so the same contextWindow 1000000 and vision true are recorded here. pricingPerMTok is the fugu-ultra-v2.0 rate. Pricing page (https://console.sakana.ai/pricing): \"Fixed pricing for fugu-ultra-v2.0 per 1M tokens.\" Standard price column: Input $5, Output $30, Cached input $0.50; Context > 272K column: Input $10, Output $45, Cached input $1.00; pricingPerMTok records the Standard price column. The same page says the orchestration tokens \"will be counted in the final price of the request.\""
+      },
+      "fugu-ultra-v2.0": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 5,
+          "output": 30,
+          "cachedInput": 0.5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"V2.0 of Fugu Ultra.\" Pricing page (https://console.sakana.ai/pricing): \"Fixed pricing for fugu-ultra-v2.0 per 1M tokens.\" Standard price column: Input $5, Output $30, Cached input $0.50; Context > 272K column: Input $10, Output $45, Cached input $1.00; pricingPerMTok records the Standard price column. The same page says the orchestration tokens \"will be counted in the final price of the request.\" Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-ultra with display_name \"Fugu Ultra v2.0\", context_window 1000000 and input_modalities [\"text\", \"image\"]; the Models page's Supported models table says fugu-ultra \"defaults to fugu-ultra-v2.0\", so the same contextWindow 1000000 and vision true are recorded here."
+      },
+      "fugu-ultra-v1.1": {
+        "contextWindow": 1000000,
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"V1.1 of Fugu Ultra.\" The Get Started page (https://console.sakana.ai/get-started) lists the reasoning effort levels high, xhigh and max for model=\"fugu-ultra-v1.1\". Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-ultra-v1.1 with display_name \"Fugu Ultra v1.1\", context_window 1000000 and input_modalities [\"text\", \"image\"], hence contextWindow 1000000 and vision true."
+      },
+      "fugu-ultra-v1.0": {
+        "contextWindow": 1000000,
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"V1.0 of Fugu Ultra, also known as fugu-ultra-20260615.\" Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-ultra-v1.0 with display_name \"Fugu Ultra v1.0\", context_window 1000000 and input_modalities [\"text\", \"image\"], hence contextWindow 1000000 and vision true."
+      },
+      "fugu-max": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"The Fugu Max model, defaults to fugu-max-v1.0.\" Fugu Max overview: \"Fugu Max orchestrates our largest pool of models to push the cost–performance Pareto frontier.\" Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-max with display_name \"Fugu Max\", context_window 1000000 and input_modalities [\"text\", \"image\"]; the Models page's Supported models table says fugu-max \"defaults to fugu-max-v1.0\", so the same contextWindow 1000000 and vision true are recorded here. pricingPerMTok is the fugu-max-v1.0 rate. Pricing page (https://console.sakana.ai/pricing): \"Fixed pricing for fugu-max-v1.0 per 1M tokens, regardless of context length.\" Input $2, Output $6, Cached input $0.25; \"web_search and web_fetch are billed at $0.007 per call.\""
+      },
+      "fugu-max-v1.0": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"V1.0 of Fugu Max, optimized for cost-performance.\" Pricing page (https://console.sakana.ai/pricing): \"Fixed pricing for fugu-max-v1.0 per 1M tokens, regardless of context length.\" Input $2, Output $6, Cached input $0.25; \"web_search and web_fetch are billed at $0.007 per call.\" Context window and image input: the Get Started page's Codex model catalog snippet (https://console.sakana.ai/get-started) lists slug fugu-max with display_name \"Fugu Max\", context_window 1000000 and input_modalities [\"text\", \"image\"]; the Models page's Supported models table says fugu-max \"defaults to fugu-max-v1.0\", so the same contextWindow 1000000 and vision true are recorded here."
+      },
+      "sakana-namazu": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"Alias that points to the latest version (currently sakana-namazu-v1.0).\" Models page, Sakana Namazu tab (https://console.sakana.ai/models?model=sakana-namazu, retrieved 2026-09-29), property table: Model ID sakana-namazu-v1.0, Alias sakana-namazu, Context window \"256K tokens\" (stored as 256000), Streaming \"Supported\", Image input \"Supported (URL and base64)\", Structured output \"json_schema and json_object\"; the same tab says \"Thinking is enabled by default.\" The Get Started page (https://console.sakana.ai/get-started) says \"Sakana Namazu is not included in subscription plans\" and that it is \"billed purely on a pay-as-you-go (per-token) basis.\" pricingPerMTok is the sakana-namazu-v1.0 rate. Pricing page (https://console.sakana.ai/pricing): \"Token pricing for sakana-namazu-v1.0 per 1M tokens.\" Input $0.95, Output $4.00, Cached input $0.15; \"Thinking tokens are billed at the same rate as output tokens.\""
+      },
+      "sakana-namazu-v1.0": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://console.sakana.ai/models, retrieved 2026-09-29), Supported models table: \"V1.0 of the Sakana Namazu model. A Japanese-specialized LLM.\" Models page, Sakana Namazu tab (https://console.sakana.ai/models?model=sakana-namazu, retrieved 2026-09-29), property table: Model ID sakana-namazu-v1.0, Alias sakana-namazu, Context window \"256K tokens\" (stored as 256000), Streaming \"Supported\", Image input \"Supported (URL and base64)\", Structured output \"json_schema and json_object\"; the same tab says \"Thinking is enabled by default.\" The Get Started page (https://console.sakana.ai/get-started) says \"Sakana Namazu is not included in subscription plans\" and that it is \"billed purely on a pay-as-you-go (per-token) basis.\" Pricing page (https://console.sakana.ai/pricing): \"Token pricing for sakana-namazu-v1.0 per 1M tokens.\" Input $0.95, Output $4.00, Cached input $0.15; \"Thinking tokens are billed at the same rate as output tokens.\""
+      }
+    },
+    "topModels": [
+      "fugu",
+      "fugu-ultra",
+      "fugu-ultra-v2.0",
+      "fugu-ultra-v1.1",
+      "fugu-ultra-v1.0",
+      "fugu-max",
+      "fugu-max-v1.0",
+      "sakana-namazu",
+      "sakana-namazu-v1.0"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Sakana AI answered HTTP 401 (authentication_error). Check {apiKeyEnvVar}. Get a key at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://console.sakana.ai/overview",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://console.sakana.ai/overview and sign in - the page shows \"Login with Google\" and \"Send login link\"",
+      "2. Create an API key - the Get Started page (https://console.sakana.ai/get-started) says: \"Before using Fugu or Sakana Namazu, create an API key and copy the generated key. The key is shown only once, so store it somewhere secure before closing the dialog.\"",
+      "3. Billing as the vendor states it: the Pricing page (https://console.sakana.ai/pricing) lists Pay as you go rates per model and Subscription Plans (Standard $20/month, Pro $100/month, Max $200/month); the Get Started page says Sakana Namazu \"is billed purely on a pay-as-you-go (per-token) basis.\"",
+      "4. Set {apiKeyEnvVar} in your .env file (SAKANA_API_KEY, which the Get Started page's curl example reads, is accepted as a fallback; the Models page's Python example reads FUGU_API_KEY and FUGU_BASE_URL, which NeuroLink does not)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.sakana.ai/v1/models needs a key (it answers HTTP 401 without one), so the nine model ids come from the Supported models table on https://console.sakana.ai/models and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.sakana.ai/v1: the Get Started page (https://console.sakana.ai/get-started) shows the OpenAI Python SDK with base_url \"https://api.sakana.ai/v1\" and a curl POST to https://api.sakana.ai/v1/chat/completions with the header Authorization: Bearer $SAKANA_API_KEY, and the Models page (https://console.sakana.ai/models) says: \"Fugu currently supports the OpenAI-compatible Chat Completions, Responses, and Models APIs, as well as the Anthropic-compatible Messages API.\" An unauthenticated GET of https://api.sakana.ai/v1/models returned HTTP 401 with error.type authentication_error and error.message \"Missing API key\" (2026-09-29), so errorRules holds one rule, for status 401. models.defaultContextWindow (128,000) and models.defaultMaxOutputTokens (8,192) are conservative placeholders the vendor does not publish."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.sakana.ai/v1/models answers 401 without a key, so model ids are taken from https://console.sakana.ai/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "authentication_error",
+      "method": "unauthenticated GET https://api.sakana.ai/v1/models with no credentials — HTTP 401, JSON body {\"error\":{\"message\":\"Missing API key\",\"type\":\"authentication_error\",\"param\":null,\"code\":null}}; code records the body's error.type because error.code is null; the same day an unauthenticated GET https://api.sakana.ai/v1/chat/completions answered HTTP 405 with JSON body {\"error\":{\"message\":\"Method Not Allowed\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://console.sakana.ai/pricing (Pay as you go rates; Subscription Plans Standard $20/month, Pro $100/month, Max $200/month) and https://console.sakana.ai/get-started (Sakana Namazu \"is billed purely on a pay-as-you-go (per-token) basis\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

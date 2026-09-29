@@ -87,6 +87,15 @@ export type CatalogQuirks = {
    *  without it once tools are in play). ConfiguredOpenAICompatProvider
    *  turns on the replay; every other provider leaves the field off. */
   replayReasoningContent?: boolean;
+  /** Vendor's chat-completions endpoint authenticates with a vendor-specific
+   *  header instead of the OpenAI-standard `Authorization: Bearer <key>`.
+   *  "x-api-key": send `X-Api-Key: <key>` and omit Authorization entirely —
+   *  Reka's OpenAPI spec declares this as its one security scheme (the
+   *  OpenAI-SDK-style examples elsewhere in its docs pass the key through a
+   *  client that still emits this header under the hood). Normalized by
+   *  ConfiguredOpenAICompatProvider.getAuthHeaders(); omitted means the
+   *  inherited Bearer default. */
+  authHeaderStyle?: "x-api-key";
 };
 
 export type CatalogBillingPolicy =

@@ -1,0 +1,112 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "reka",
+  "displayName": "Reka AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.reka.ai/v1"
+  },
+  "models": {
+    "default": "reka-flash",
+    "fallbacks": ["reka-edge"],
+    "defaultContextWindow": 16384,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "reka-flash": {
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Listed as reka-flash in the baseline model table on https://docs.reka.ai/chat/models.md (intro: \"Our baseline models always available for public access are:\") and named as the model in the code examples on https://docs.reka.ai/chat/overview.md, https://docs.reka.ai/chat/function-calling.md and https://docs.reka.ai/chat/api-reference/create.md (retrieved 2026-09-29). https://docs.reka.ai/pricing.md has a row named \"Reka Flash\" described as \"Fast and cost-efficient model for most tasks\" with $0.80 under \"Input Tokens (per 1M)\" and $2.00 under \"Output Tokens (per 1M)\"; https://docs.reka.ai/chat/models.md ends with \"For full listing of models and pricing, see the Reka API Pricing page\". https://docs.reka.ai/chat/function-calling.md says \"Currently, only Reka Flash supports function calling.\" Vision is true: the first curl example on https://docs.reka.ai/overview.md sends an image_url content part to model \"reka-flash\", and the Quickstart's \"First request\" example (https://docs.reka.ai/quickstart.md) carries the comment '# or \"reka-flash\"' beside an image_url request. No context window or maximum output figure is set for this model; models.defaultContextWindow and models.defaultMaxOutputTokens apply."
+      },
+      "reka-edge": {
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Listed as \"reka-edge (or reka-edge-2603)\" in the baseline model table on https://docs.reka.ai/chat/models.md and on https://docs.reka.ai/quickstart.md (retrieved 2026-09-29). The Quickstart's \"First request\" example sends an image_url content part to model \"reka-edge\", and the example response on https://docs.reka.ai/chat/api-reference/get.md lists the id \"reka-edge\". https://docs.reka.ai/pricing.md has a row named \"Reka Edge\" described as \"Compact model ideal for on-device execution\" with $0.10 under \"Input Tokens (per 1M)\" and $0.10 under \"Output Tokens (per 1M)\". https://docs.reka.ai/chat/function-calling.md says \"Currently, only Reka Flash supports function calling.\" No context window or maximum output figure is set for this model; models.defaultContextWindow and models.defaultMaxOutputTokens apply."
+      },
+      "reka-edge-2603": {
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Named in the same table row as reka-edge, \"reka-edge (or reka-edge-2603)\", on https://docs.reka.ai/chat/models.md and https://docs.reka.ai/quickstart.md, and shown as {\"id\": \"reka-edge-2603\"} in the example output of GET https://api.reka.ai/v1/models on https://docs.reka.ai/chat/models.md, which says \"All of these model IDs can be used as values for the Chat API's model parameter\" (retrieved 2026-09-29). Vision and prices are those of the row's reka-edge example and its \"Reka Edge\" pricing row (https://docs.reka.ai/quickstart.md, https://docs.reka.ai/pricing.md). No context window or maximum output figure is set for this model; models.defaultContextWindow and models.defaultMaxOutputTokens apply."
+      }
+    },
+    "topModels": ["reka-flash", "reka-edge", "reka-edge-2603"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Reka rejected the API key (HTTP 401; https://docs.reka.ai/errors.md lists 401 as authentication_error with the client action \"Ensure that you're using a valid Reka API key\"). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Reka rate limit (HTTP 429; https://docs.reka.ai/errors.md lists 429 as rate_limit_error with the client action \"Wait until your rate limit is restored and retry, or upgrade your API tier for higher limits\")."
+    },
+    {
+      "pattern": "P001|Insufficient Balance",
+      "class": "provider",
+      "message": "Reka reported an insufficient balance (https://docs.reka.ai/resources/faqs.md: \"If your balance hits $0, you'll see P001: Insufficient Balance.\"). The same page says \"Add credits to your account before making requests.\""
+    },
+    {
+      "status": 500,
+      "class": "provider",
+      "message": "Reka returned HTTP 500 (https://docs.reka.ai/errors.md lists 500 as server_error with the client action \"Retry with backoff. If this persists, contact Reka at contact@reka.ai\")."
+    }
+  ],
+  "quirks": {
+    "authHeaderStyle": "x-api-key"
+  },
+  "setup": {
+    "url": "https://platform.reka.ai/sign-up",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://platform.reka.ai/sign-up (the \"Start for free\" and \"Get started\" links on https://platform.reka.ai/pricing point to /sign-up). The Quickstart (https://docs.reka.ai/quickstart.md) says \"Create a free account on the Reka Platform to access your API key.\" and the FAQ (https://docs.reka.ai/resources/faqs.md) answers \"How do I get an API key?\" with \"Go to Platform, > API Keys to generate or copy your key.\"",
+      "2. Billing as the vendor states it: https://docs.reka.ai/pricing.md says \"Get started with no upfront costs.\"; the FAQ (https://docs.reka.ai/resources/faqs.md) answers \"Do I need to pre-pay?\" with \"Yes. Add credits to your account before making requests.\" and says the balance error reads \"P001: Insufficient Balance\" when the balance hits $0",
+      "3. Authentication: the vendor's REST examples send the header X-Api-Key (https://docs.reka.ai/chat/overview.md) and the OpenAPI file https://docs.reka.ai/openapi/api-reference.yaml declares one security scheme, an apiKey in the header X-Api-Key; the OpenAI Python SDK examples pass api_key=\"YOUR_API_KEY\" to the client (https://docs.reka.ai/quickstart.md)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.reka.ai/v1/models needs a key (it answers HTTP 401 without one), so the three model ids come from https://docs.reka.ai/chat/models.md and the roster has not been checked; the entry is not yet live-verified. Endpoint https://api.reka.ai/v1: the Quickstart (https://docs.reka.ai/quickstart.md) says \"our API is fully OpenAI-compatible\" and shows the OpenAI Python SDK with base_url \"https://api.reka.ai/v1\"; https://docs.reka.ai/chat/overview.md shows POST https://api.reka.ai/v1/chat/completions with a messages array and reads the reply from response.choices[0].message.content. Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 with the JSON body {\"error\":{\"message\":\"Unauthorized\",\"type\":\"authentication_error\",\"code\":null,\"param\":null}}; /chat/completions answered HTTP 405 with header allow: POST and the body {\"detail\":\"Method Not Allowed\"}. No POST request was sent. errorRules carry the statuses https://docs.reka.ai/errors.md lists (401 authentication_error, 429 rate_limit_error, 500 server_error) plus a pattern rule on the FAQ's \"P001: Insufficient Balance\" text. capabilities.streaming is true because https://docs.reka.ai/chat/overview.md says \"The Chat API supports streaming\". capabilities.tools is model-dependent because https://docs.reka.ai/chat/function-calling.md documents the tools parameter and tool_calls and says \"Currently, only Reka Flash supports function calling.\" capabilities.structuredOutput is false: the ChatRequest on https://docs.reka.ai/chat/api-reference/create.md lists messages, model, frequency_penalty, max_tokens, presence_penalty, seed, stop, stream, temperature, tool_choice, tools, top_k and top_p. capabilities.toolsWithStreaming and capabilities.structuredOutputWithTools are false because no request combining them was sent. capabilities.embeddings and capabilities.thinking are false. models.defaultContextWindow (16384) and models.defaultMaxOutputTokens (4096) are placeholders the vendor does not publish; the Chat API reference describes max_tokens as \"limited by the model's context length. Defaults to 1024.\" Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. billingPolicy holds free-tier, one of the three values the catalog schema allows (free-tier, free-with-card, no-free-tier). The vendor wording behind it: on https://platform.reka.ai/pricing the Pay as you go tile has a \"Start for free\" link to /sign-up and the page carries the text \"Free credits used\"; https://docs.reka.ai/pricing.md says \"Get started with no upfront costs.\"; https://docs.reka.ai/resources/faqs.md answers \"Do I need to pre-pay?\" with \"Yes. Add credits to your account before making requests.\" apiKeyFormat is null, so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.reka.ai/v1/models answers 401 without a key, so model ids are taken from https://docs.reka.ai/chat/models.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "authentication_error",
+      "method": "unauthenticated GET https://api.reka.ai/v1/models with no credentials — HTTP 401, JSON body {\"error\":{\"message\":\"Unauthorized\",\"type\":\"authentication_error\",\"code\":null,\"param\":null}}; code records the body's error.type because error.code is null; the same day an unauthenticated GET https://api.reka.ai/v1/chat/completions answered HTTP 405 with header allow: POST and JSON body {\"detail\":\"Method Not Allowed\"}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.reka.ai/resources/faqs.md (\"Do I need to pre-pay?\" answered \"Yes. Add credits to your account before making requests.\"), https://docs.reka.ai/quickstart.md (\"Create a free account on the Reka Platform to access your API key.\"), https://docs.reka.ai/pricing.md (\"Get started with no upfront costs.\") and https://platform.reka.ai/pricing (a \"Start for free\" link and the text \"Free credits used\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

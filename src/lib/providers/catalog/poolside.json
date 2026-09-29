@@ -1,0 +1,79 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "poolside",
+  "displayName": "Poolside",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://inference.poolside.ai/v1"
+  },
+  "models": {
+    "default": "poolside/laguna-s-2.1",
+    "fallbacks": ["poolside/laguna-s-2.1"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 32768,
+    "catalog": {
+      "poolside/laguna-s-2.1": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Vendor statements about Laguna S 2.1 on https://docs.poolside.ai/get-started/supported-models.md (retrieved 2026-09-29): Parameters \"118B total, 8B active per token\"; Context window \"1M tokens\"; Model type \"Mixture of Experts\"; Modality \"Text-to-text\"; Reasoning \"Native reasoning with thinking on or off per request\". The same page says \"Model availability, provider-specific variants, and model IDs can vary by access method.\" https://docs.poolside.ai/release-notes/models.md (retrieved 2026-09-29) says Laguna S 2.1 is \"built for agentic coding and long-horizon work\" and \"is text-to-text and does not support vision inputs\", so vision is false. The id poolside/laguna-s-2.1 is the model id in the quickstart on https://docs.poolside.ai/api/overview.md and in the examples on https://docs.poolside.ai/api/openai-api-examples.md, which use base URL https://inference.poolside.ai/v1."
+      }
+    },
+    "topModels": ["poolside/laguna-s-2.1"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Poolside rejected the request's authentication (HTTP 401; an unauthenticated GET of /models answered the plain-text body \"No Authorization header provided\", and https://docs.poolside.ai/api/overview.md says \"Send it as a Bearer token in the Authorization header\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "Poolside returned HTTP 403 (https://docs.poolside.ai/cli/troubleshooting.md lists \"403 Forbidden: please check the api-key you provided\" under \"Fix API key or token errors\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    }
+  ],
+  "quirks": {
+    "replayReasoningContent": true
+  },
+  "setup": {
+    "url": "https://platform.poolside.ai/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://platform.poolside.ai/ — https://docs.poolside.ai/get-started/log-in.md says of the Poolside Platform option: \"sign in to Poolside Platform or create an account\"",
+      "2. Create an API key: https://docs.poolside.ai/api/overview.md says \"Sign in to Poolside Platform, open the API Keys tab, and click New key.\"",
+      "3. Billing as the vendor states it: https://docs.poolside.ai/get-started/log-in.md describes the Poolside Platform option as \"free developer access\" and says \"The API key created through Poolside Platform is for Poolside-hosted inference.\"",
+      "4. Authentication is HTTP Bearer: https://docs.poolside.ai/api/overview.md shows the header \"Authorization: Bearer <api-key>\" and exports the key as POOLSIDE_API_KEY, the name NeuroLink reads. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://inference.poolside.ai/v1/models needs a key (it answers HTTP 401 without one), so the model id comes from the Poolside API page (https://docs.poolside.ai/api/overview.md, retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://inference.poolside.ai/v1: the overview page opens with \"Call Poolside models through an OpenAI-compatible API.\", its Access methods table lists \"Poolside-hosted inference\" with base URL https://inference.poolside.ai/v1, its Available endpoints table lists GET /v1/models and POST /v1/chat/completions, and its quickstart shows the OpenAI Python SDK and the OpenAI TypeScript SDK with base URL \"https://inference.poolside.ai/v1\". Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 with content-type text/plain and the body \"No Authorization header provided\"; /chat/completions answered HTTP 405 with an empty body. No POST request was sent. errorRules: the 401 rule is built from the observed /models response (a plain-text body, so the rule matches the status code); the 403 rule is built from https://docs.poolside.ai/cli/troubleshooting.md, which lists \"403 Forbidden: please check the api-key you provided\" under \"Fix API key or token errors\". capabilities.streaming is true because https://docs.poolside.ai/api/openai-api-examples.md documents setting stream to true to receive \"a series of chunks returned as server-sent events\". capabilities.tools is true because that page's \"Extend models with tools\" section says \"You can extend a model's capabilities by providing tools that it can call during a conversation.\" and shows a tools array and a returned tool_calls array on poolside/laguna-s-2.1 against https://inference.poolside.ai/v1/chat/completions. capabilities.toolsWithStreaming and capabilities.structuredOutputWithTools are false because no request combining them was sent. capabilities.structuredOutput is false because no request using response_format was sent. capabilities.embeddings is false; the overview page's Available endpoints table lists two endpoints, GET /v1/models and POST /v1/chat/completions. capabilities.thinking is false because this entry sends no thinking request parameter; https://docs.poolside.ai/api/openai-api-examples.md documents setting chat_template_kwargs.enable_thinking to false to turn thinking off for a request. quirks.replayReasoningContent is set because https://docs.poolside.ai/api/openai-api-examples.md says \"For agentic workflows with Poolside models, preserve reasoning_content from assistant responses when you include those responses in follow-up requests.\" and \"Dropping previous reasoning content can prevent the model from reasoning in later steps.\"; no multi-turn request was sent. models.defaultContextWindow (128000) is a placeholder, not a vendor figure; it applies to poolside/laguna-s-2.1 because the catalog entry sets no contextWindow for it. models.defaultMaxOutputTokens (32768) equals the max_tokens default in the Control generation table on https://docs.poolside.ai/api/openai-api-examples.md; it is not a per-model limit. The model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. billingPolicy holds free-tier, one of the three values the catalog schema allows (free-tier, free-with-card, no-free-tier). Vendor wording, from https://docs.poolside.ai/get-started/log-in.md: the Poolside Platform option is for \"free developer access\", and \"The API key created through Poolside Platform is for Poolside-hosted inference.\" apiKeyFormat is null, so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://inference.poolside.ai/v1/models answers 401 without a key, so model ids are taken from https://docs.poolside.ai/api/overview.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://inference.poolside.ai/v1/models with no credentials — HTTP 401, content-type text/plain; charset=utf-8, plain-text body \"No Authorization header provided\"; the body is not JSON and has no code field, so no code is recorded; the same day an unauthenticated GET https://inference.poolside.ai/v1/chat/completions answered HTTP 405 with an empty body; credential-free, no key used, no POST request sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.poolside.ai/get-started/log-in.md (the Poolside Platform login option described as \"free developer access\"; \"The API key created through Poolside Platform is for Poolside-hosted inference.\"); https://platform.poolside.ai/ opened and shows the title Poolside Platform; credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "byteplus-modelark",
+  "displayName": "BytePlus ModelArk",
+  "aliases": ["byteplus", "modelark"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://ark.ap-southeast.bytepluses.com/api/v3"
+  },
+  "models": {
+    "default": "seed-2-0-pro-260328",
+    "fallbacks": [
+      "seed-2-0-lite-260228",
+      "seed-2-0-lite-260428",
+      "seed-2-0-mini-260428",
+      "dola-seed-2-1-turbo-260628",
+      "deepseek-v4-pro-ga-260813",
+      "deepseek-v4-flash-ga-260731"
+    ],
+    "fallbackModelName": "seed-2-0-lite-260228",
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "seed-2-0-pro-260328": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 3.0,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. The first card on the Model list page links to https://ai.byteplus.com/ark/region:ap-southeast-1/model/detail?Id=seed-2-0-pro and carries the caption \"Flagship general-purpose agentic model\". Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool Calling. Context length 256K, Max input 224K (the Visual understanding table on the same page shows Max input 256K), Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Structured output (beta) section of the same page lists these non-retired model ids: dola-seed-2-1-turbo-260628, seed-2-0-lite-260428, seed-2-0-mini-260428, seed-2-0-lite-260228, seed-2-0-mini-260215, deepseek-v4-1-flash-260910, deepseek-v4-pro-ga-260813, deepseek-v4-flash-ga-260731; seed-2-0-pro-260328 is not in that section. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-pro-260328 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.50, output 3.00, cache-hit input 0.10; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 1.00, output 6.00, cache-hit input 0.20) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "dola-seed-2-1-turbo-260628": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 2.5,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use; Structured output. Context length 256K, Max input 256K, Max output (incl. CoT) 256K (Default: 4K), Max CoT 256K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row dola-seed-2-1-turbo (USD per M tokens, non-audio input): tier \"Prompt length [0, 256]\" input 0.5, output 2.5, cache-hit input 0.1; stored as pricingPerMTok. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "seed-2-0-lite-260428": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 2.0,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use; Structured output (Recommended: json_schema mode). Context length 256K, Max input 256K, Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-lite-260428 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.25, output 2.00, cache-hit input 0.05; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 0.50, output 4.00, cache-hit input 0.10) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "seed-2-0-mini-260428": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.4,
+          "cachedInput": 0.02
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use; Structured output; (Recommended: json_schema mode). Context length 256K, Max input 256K, Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-mini-260428 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.10, output 0.40, cache-hit input 0.02; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 0.20, output 0.80, cache-hit input 0.04) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "seed-2-0-lite-260228": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 2.0,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback and models.fallbackModelName. This is the model id in the quickstart example of the vendor's Compatible with OpenAI API page (https://docs.byteplus.com/api/docs/ModelArk/1330626), in the Streaming output tool-call example of https://docs.byteplus.com/en/docs/ModelArk/function-calling and in the chat/completions curl of https://docs.byteplus.com/en/docs/ModelArk/base-url-and-authentication. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use; Structured output. Context length 256K, Max input 224K (the Visual understanding table on the same page shows Max input 256K), Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-lite-260228 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.25, output 2.00, cache-hit input 0.05; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 0.50, output 4.00, cache-hit input 0.10) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "seed-2-0-mini-260215": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.4,
+          "cachedInput": 0.02
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Catalog entry. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use; Structured output. Context length 256K, Max input 224K (the Visual understanding table on the same page shows Max input 256K), Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-mini-260215 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.10, output 0.40, cache-hit input 0.02; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 0.20, output 0.80, cache-hit input 0.04) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "seed-2-0-code-preview-260328": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 3.0,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "Catalog entry; status is preview because the model id contains the word preview. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use. Context length 256K, Max input 224K (the Visual understanding table on the same page shows Max input 256K), Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row seed-2-0-code-preview-260328 (USD per M tokens, non-audio input): tier \"Prompt length [0, 128]\" input 0.50, output 3.00, cache-hit input 0.10; stored as pricingPerMTok. Tier \"Prompt length (128, 256]\" (input 1.00, output 6.00, cache-hit input 0.20) is not stored. contextWindow stores 256K as 256000 (K read as 1,000)."
+      },
+      "glm-5-3-flash-260828": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Catalog entry. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Multi-modal understanding; Tool use. Context length 1024K, Max input 1024K, Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row glm-5-3-flash-260828 (USD per M tokens, non-audio input): no pricing tier; input 0.15, output 0.5, cache-hit input 0.03; stored as pricingPerMTok. contextWindow stores 1024K as 1024000 (K read as 1,000)."
+      },
+      "glm-5-2-260617": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Catalog entry. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Tool use. Context length 1024K, Max input 1024K, Max output (incl. CoT) 128K (Default: 4K), Max CoT 128K. vision is false as a schema placeholder for a boolean the catalog requires; it is not a vendor statement. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row glm-5-2-260617 (USD per M tokens, non-audio input): no pricing tier; input 1.4, output 4.4, cache-hit input 0.26; stored as pricingPerMTok. contextWindow stores 1024K as 1024000 (K read as 1,000)."
+      },
+      "deepseek-v4-1-flash-260910": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.006
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Catalog entry. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Visual understanding; Tool use; Structured output (json_object mode only). Context length 1024K, Max input 1024K, Max output (incl. CoT) 384K (Default: 4K), Max CoT 128K. The Visual understanding table on the same page lists this model, so vision is true. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row deepseek-v4-1-flash-260910 (USD per M tokens, non-audio input): tier \"Peak hours\" input 0.30, output 1.20, cache-hit input 0.006; stored as pricingPerMTok. Tier \"Off-peak hours\" (input 0.15, output 0.60, cache-hit input 0.003) is not stored. contextWindow stores 1024K as 1024000 (K read as 1,000)."
+      },
+      "deepseek-v4-pro-ga-260813": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 1.32,
+          "output": 3.96,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Tool use; Structured output. Context length 1024K, Max input 1024K, Max output (incl. CoT) 384K (Default: 4K), Max CoT 128K. vision is false as a schema placeholder for a boolean the catalog requires; it is not a vendor statement. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row deepseek-v4-pro-ga-260813 (USD per M tokens, non-audio input): no pricing tier; input 1.32, output 3.96, cache-hit input 0.044; stored as pricingPerMTok. contextWindow stores 1024K as 1024000 (K read as 1,000)."
+      },
+      "deepseek-v4-flash-ga-260731": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 0.44,
+          "output": 1.32,
+          "cachedInput": 0.014
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, retrieved 2026-09-29), Text generation table capabilities: Deep reasoning; Text generation; Tool use; Structured output. Context length 1024K, Max input 1024K, Max output (incl. CoT) 384K (Default: 4K), Max CoT 128K. vision is false as a schema placeholder for a boolean the catalog requires; it is not a vendor statement. Pricing page (https://docs.byteplus.com/en/docs/ModelArk/model-pricing, retrieved 2026-09-29), Online inference (standard) row deepseek-v4-flash-ga-260731 (USD per M tokens, non-audio input): no pricing tier; input 0.44, output 1.32, cache-hit input 0.014; stored as pricingPerMTok. contextWindow stores 1024K as 1024000 (K read as 1,000)."
+      }
+    },
+    "topModels": [
+      "seed-2-0-pro-260328",
+      "dola-seed-2-1-turbo-260628",
+      "seed-2-0-lite-260428",
+      "seed-2-0-mini-260428",
+      "seed-2-0-lite-260228",
+      "seed-2-0-mini-260215",
+      "seed-2-0-code-preview-260328",
+      "glm-5-3-flash-260828",
+      "glm-5-2-260617",
+      "deepseek-v4-1-flash-260910",
+      "deepseek-v4-pro-ga-260813",
+      "deepseek-v4-flash-ga-260731"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "ModelArk answered HTTP 401 (code AuthenticationError). The error-codes page (https://docs.byteplus.com/en/docs/ModelArk/error-codes) lists the message \"The API key or AK/SK in the request is missing or invalid.\" and the description \"Please check the authentication credentials or troubleshoot based on the API document.\" NeuroLink reads the key from {apiKeyEnvVar}. API key page: {setupUrl}"
+    },
+    {
+      "pattern": "has not activated the model",
+      "class": "invalid-model",
+      "message": "ModelArk reports this account has not activated model {model} (HTTP 404 ModelNotOpen). The error-codes page (https://docs.byteplus.com/en/docs/ModelArk/error-codes) says \"Please activate the model service in the Ark Console.\""
+    },
+    {
+      "pattern": "model or endpoint .* does not exist or you do not have access to it",
+      "class": "invalid-model",
+      "message": "ModelArk reports the model or endpoint {model} does not exist or you do not have access to it (HTTP 404 InvalidEndpointOrModel.NotFound)."
+    },
+    {
+      "pattern": "exhausted its free trial quota",
+      "class": "provider",
+      "message": "ModelArk reports this account has exhausted its free trial quota for model {model} (HTTP 429 QuotaExceeded). The error-codes page says to activate the corresponding model service on the Activation page: https://docs.byteplus.com/en/docs/ModelArk/error-codes"
+    },
+    {
+      "pattern": "reached the set inference limit",
+      "class": "provider",
+      "message": "ModelArk reports this account has reached the set inference limit for model {model} and the model service has been paused (HTTP 429 SetLimitExceeded). See https://docs.byteplus.com/en/docs/ModelArk/free-tokens-only-mode"
+    },
+    {
+      "pattern": "overdue balance",
+      "class": "provider",
+      "message": "ModelArk reports this account has an overdue balance (HTTP 403 AccountOverdueError). The error-codes page says to go to the BytePlus Billing Center to recharge: https://docs.byteplus.com/en/docs/ModelArk/error-codes"
+    }
+  ],
+  "setup": {
+    "url": "https://ai.byteplus.com/ark/region:ap-southeast-1/apiKey",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://console.byteplus.com/auth/signup and register as a BytePlus user — the Inference free trial page (https://docs.byteplus.com/en/docs/ModelArk/free-inference-quota) says \"Register and authenticate as a BytePlus user.\"",
+      "2. Activate the models you want to call on the Model activation page (https://ai.byteplus.com/ark/region:ap-southeast-1/openManagement) — the Quick start (https://docs.byteplus.com/en/docs/ModelArk/quick-start) says \"Go to the Model activation page to activate the models you need to use.\"",
+      "3. Create an API key at https://ai.byteplus.com/ark/region:ap-southeast-1/apiKey — the Quick start says to \"create or obtain a ModelArk API key\"; the API key page (https://docs.byteplus.com/en/docs/ModelArk/api-key) says \"API Key is isolated by region. Select the appropriate region before creating and using the API Key for authentication.\"",
+      "4. Free trial, as the vendor states it: \"ModelArk offers new users a free inference trial quota, allowing them to get started at no cost.\" (https://docs.byteplus.com/en/docs/ModelArk/free-inference-quota); the Free Tokens Only mode page (https://docs.byteplus.com/en/docs/ModelArk/free-tokens-only-mode) says \"In this mode, calls to the inference API consume only the 500k free tokens granted by the platform.\"",
+      "5. Set {apiKeyEnvVar} in your .env file (the vendor's examples read ARK_API_KEY)"
+    ],
+    "description": "Docs-verified only, not yet live-verified: the vendor's GET https://ark.ap-southeast.bytepluses.com/api/v3/models needs a key (it answers HTTP 401 without one), so the 12 model ids come from the Model list page (https://docs.byteplus.com/en/docs/ModelArk/model-list, Text generation table, retrieved 2026-09-29) and the roster has not been checked. OpenAI-compatible endpoint at https://ark.ap-southeast.bytepluses.com/api/v3: the vendor's Compatible with OpenAI API page (https://docs.byteplus.com/api/docs/ModelArk/1330626) says \"ModelArk model APIs are largely compatible with the OpenAI SDK.\" and sets base_url=\"https://ark.ap-southeast.bytepluses.com/api/v3\" in the OpenAI Python SDK; the Chat API page (https://docs.byteplus.com/en/docs/ModelArk/1494384) documents POST https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions. The Region availability page (https://docs.byteplus.com/en/docs/ModelArk/region-availability) lists a second base URL, https://ark.eu-west.bytepluses.com/api/v3; set BYTEPLUS_MODELARK_BASE_URL to use it. On that page, the section \"Models supported in the EU region\" has the sentence \"The EU region currently supports the following models:\" followed by a one-item list, seed-2-0-lite; separately, a tip on the Model list page says \"The seed-2-0 and seedream-5-0-lite models are also supported in the eu-west-1 region.\" The Region availability page says \"Platform-level resources, such as API keys and model activation status, are isolated by region.\" Unauthenticated GETs made 2026-09-29: /models and /chat/completions each answered HTTP 401 with a JSON body whose error.code is AuthenticationError and error.type is Unauthorized; no POST request was sent. errorRules: the 401 rule follows that observation and the AuthenticationError row of https://docs.byteplus.com/en/docs/ModelArk/error-codes, and the pattern rules follow the messages on https://docs.byteplus.com/en/docs/ModelArk/error-codes (ModelNotOpen, InvalidEndpointOrModel.NotFound, QuotaExceeded, AccountOverdueError) and https://docs.byteplus.com/en/docs/ModelArk/free-tokens-only-mode (SetLimitExceeded). models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (4096) apply to model ids outside the catalog and are placeholders the vendor does not publish for those ids; 4096 is the max_tokens default on the Chat API page. No per-model maxOutputTokens is set. Each model's status field holds production (preview for the model id containing the word preview), a placeholder for a value the catalog schema requires; it is not a vendor statement. Each model's vision field is true for a model that the Visual understanding table on the Model list page lists; for glm-5-2-260617, deepseek-v4-pro-ga-260813 and deepseek-v4-flash-ga-260731, vision is false as a schema placeholder for a boolean the catalog requires; it is not a vendor statement. capabilities.tools is model-dependent: the Function call page (https://docs.byteplus.com/en/docs/ModelArk/function-calling) documents tools and points to the Model list Tool use table for the models that support it. capabilities.toolsWithStreaming is true because that page has a Streaming output section whose example passes tools with stream=True. capabilities.structuredOutput is a boolean for the entry and is true because the Structured output (beta) page (https://docs.byteplus.com/en/docs/ModelArk/structured-output-beta) documents response_format with json_schema mode and the Chat API page lists response_format types text, json_schema and json_object. The Chat API page says of response_format \"For models that support this parameter, see documentation.\" and the Model list Structured output (beta) section lists these non-retired model ids: dola-seed-2-1-turbo-260628, seed-2-0-lite-260428, seed-2-0-mini-260428, seed-2-0-lite-260228, seed-2-0-mini-260215, deepseek-v4-1-flash-260910, deepseek-v4-pro-ga-260813, deepseek-v4-flash-ga-260731. The NeuroLink default seed-2-0-pro-260328 is not in that section, and its Text generation row lists Deep reasoning; Text generation; Multi-modal understanding; Tool Calling. capabilities.structuredOutputWithTools is false because no request combining them was sent. capabilities.thinking is false: the Deep reasoning page (https://docs.byteplus.com/en/docs/ModelArk/deep-thinking) documents the thinking request field, and the entry sets no thinking-level request parameter. capabilities.embeddings is false: the Model list has a separate Multimodal embedding section with its own API, and this entry lists chat models. billingPolicy holds the schema value free-tier because the Inference free trial page (https://docs.byteplus.com/en/docs/ModelArk/free-inference-quota) states a free inference trial quota for new users; apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://ark.ap-southeast.bytepluses.com/api/v3/models answers 401 without a key, so model ids are taken from https://docs.byteplus.com/en/docs/ModelArk/model-list (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "AuthenticationError",
+      "method": "unauthenticated GET https://ark.ap-southeast.bytepluses.com/api/v3/models — HTTP 401, header x-error-code AuthN_MissOrInvalidAuthorizationHeader, JSON body error.code \"AuthenticationError\", error.type \"Unauthorized\", error.message \"the API key or AK/SK in the request is missing or invalid.\" followed by a request id; the same day an unauthenticated GET https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions answered HTTP 401 with the same body shape; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.byteplus.com/en/docs/ModelArk/free-inference-quota (\"ModelArk offers new users a free inference trial quota, allowing them to get started at no cost.\") and https://docs.byteplus.com/en/docs/ModelArk/free-tokens-only-mode (\"In this mode, calls to the inference API consume only the 500k free tokens granted by the platform.\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

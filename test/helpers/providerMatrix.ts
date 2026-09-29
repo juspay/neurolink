@@ -72,8 +72,21 @@ export type ProviderEntry = Capabilities & {
    * defaultModel is text-only. If unset, the vision test uses defaultModel.
    */
   visionModel?: string;
-  /** Env vars required to consider this provider available. */
+  /**
+   * Env vars required to consider this provider available. `envVars[0]` is
+   * always the primary credential; any vars after it (e.g. a computed
+   * base-URL var) are independently required with no fallback.
+   */
   envVars: string[];
+  /**
+   * Alternative env vars that satisfy `envVars[0]` when the primary is
+   * unset (e.g. HF_TOKEN alongside HUGGINGFACE_API_KEY) — mirrors the
+   * catalog's `wire.apiKeyFallbackEnvVars`, which `validateApiKey()` itself
+   * already tries at runtime. Without this, `hasProviderEnv()` marked a row
+   * unavailable, and live-matrix.yml skipped it, even when the runtime
+   * would have authenticated fine off the fallback var alone.
+   */
+  apiKeyFallbackEnvVars?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -189,6 +202,9 @@ const CATALOG_PROVIDERS: Record<string, ProviderEntry> = Object.fromEntries(
         catalogEnvVar(entry, "apiKey"),
         ...(extraEnvVar ? [extraEnvVar] : []),
       ],
+      ...(entry.wire.apiKeyFallbackEnvVars
+        ? { apiKeyFallbackEnvVars: entry.wire.apiKeyFallbackEnvVars }
+        : {}),
       text: entry.capabilities.text,
       streaming: entry.capabilities.streaming,
       // "model-dependent" (HuggingFace: varies per served model) has no
@@ -829,13 +845,26 @@ for (const catalogId of CATALOG_PROVIDER_IDS) {
 
 export type ProviderName = keyof typeof PROVIDERS;
 
-/** True when every env var listed for a provider is set and non-empty. */
+/**
+ * True when the provider's primary env var (or one of its
+ * `apiKeyFallbackEnvVars` alternatives) is set, AND every remaining env var
+ * in `envVars` (e.g. a computed base-URL var, which has no fallback) is also
+ * set. Before this, a row with only its fallback var populated (e.g.
+ * HF_TOKEN with no HUGGINGFACE_API_KEY set) was marked unavailable even
+ * though the runtime provider authenticates fine off that same fallback.
+ */
 export function hasProviderEnv(providerName: string): boolean {
   const entry = PROVIDERS[providerName];
   if (!entry) {
     return false;
   }
-  return entry.envVars.every((v) => Boolean(process.env[v]));
+  const [primaryEnvVar, ...remainingEnvVars] = entry.envVars;
+  const primarySatisfied =
+    Boolean(process.env[primaryEnvVar]) ||
+    (entry.apiKeyFallbackEnvVars ?? []).some((v) => Boolean(process.env[v]));
+  return (
+    primarySatisfied && remainingEnvVars.every((v) => Boolean(process.env[v]))
+  );
 }
 
 /** Returns the list of providers whose env vars are populated. */

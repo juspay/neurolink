@@ -1,0 +1,109 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "vispark",
+  "displayName": "Vispark",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.lab.vispark.in/v1"
+  },
+  "models": {
+    "default": "vispark/vision-large",
+    "fallbacks": ["vispark/vision-medium", "vispark/vision-small"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "vispark/vision-large": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 7.37,
+          "output": 22.11
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Vendor text for this model: the roster description reads \"Vision Large: India's most advanced foundational intelligence. Delivers state-of-the-art reasoning, SOTA media processing, and complex tool usage. With 1M token context, it handles deep analysis and structured data with unmatched accuracy and cultural depth.\" and the site's size entry \"large\" reads \"Slowest processing but highest intelligence and accuracy\" with the price text \"₹70 input/₹210 output per 100k tokens. Minimum 600 input tokens charged.\" Unauthenticated GET https://api.lab.vispark.in/v1/models (2026-09-29, 3 models): context_length 1000000, max_output_length 65536, pricing.prompt \"0.00000737\" and pricing.completion \"0.00002211\" (pricingPerMTok is these two values times 1,000,000), input_modalities text, image, audio, video, file, output_modalities text, supported_features tools, json_mode, structured_outputs, reasoning. vision is true from the input_modalities entry image and the site text \"Supports images, audio, video, and PDFs (max 25MB each)\". The site's Limitations text for the Vision model reads \"Combined content: 980,000 tokens maximum\". The site text comes from https://lab.vispark.in/assets/index-WmfFPhvJ.js, the script https://lab.vispark.in/ loads (retrieved 2026-09-29)."
+      },
+      "vispark/vision-medium": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 4.21,
+          "output": 12.63
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Vendor text for this model: the roster description reads \"Vision Medium: A versatile foundational model built for the world on Indian infrastructure. Balances speed with robust reasoning and 1M token context. Excels at content creation, nuanced cultural interactions, and evolving personal assistance.\" and the site's size entry \"medium\" reads \"Balanced processing speed with good intelligence\" with the price text \"₹40 input/₹120 output per 100k tokens. Minimum 600 input tokens charged.\" Unauthenticated GET https://api.lab.vispark.in/v1/models (2026-09-29, 3 models): context_length 1000000, max_output_length 65536, pricing.prompt \"0.00000421\" and pricing.completion \"0.00001263\" (pricingPerMTok is these two values times 1,000,000), input_modalities text, image, audio, video, file, output_modalities text, supported_features tools, json_mode, structured_outputs, reasoning. vision is true from the input_modalities entry image and the site text \"Supports images, audio, video, and PDFs (max 25MB each)\". The site text comes from https://lab.vispark.in/assets/index-WmfFPhvJ.js, the script https://lab.vispark.in/ loads (retrieved 2026-09-29)."
+      },
+      "vispark/vision-small": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 1.05,
+          "output": 3.16
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Vendor text for this model: the roster description reads \"Vision Small: India's fast and efficient foundational AI. Trained from scratch with native multimodal understanding (text, audio, video) and deep cultural awareness. Features 1M token context for high-throughput, real-time interactions across 250+ languages.\" and the site's size entry \"small\" reads \"Fastest processing speed with basic intelligence\" with the price text \"₹10 input/₹30 output per 100k tokens. Minimum 600 input tokens charged.\" Unauthenticated GET https://api.lab.vispark.in/v1/models (2026-09-29, 3 models): context_length 1000000, max_output_length 65536, pricing.prompt \"0.00000105\" and pricing.completion \"0.00000316\" (pricingPerMTok is these two values times 1,000,000), input_modalities text, image, audio, video, file, output_modalities text, supported_features tools, json_mode, structured_outputs, reasoning. vision is true from the input_modalities entry image and the site text \"Supports images, audio, video, and PDFs (max 25MB each)\". The site text comes from https://lab.vispark.in/assets/index-WmfFPhvJ.js, the script https://lab.vispark.in/ loads (retrieved 2026-09-29)."
+      }
+    },
+    "topModels": [
+      "vispark/vision-large",
+      "vispark/vision-medium",
+      "vispark/vision-small"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Vispark returned HTTP 401. The site's Limitations text lists 401 in \"Check HTTP status codes (200, 400, 401, 402, 429)\" and says \"Validate API keys and sufficient units\"; the OpenAI Compatibility panel says \"Use your standard API Key as a Bearer Token.\" NeuroLink reads {apiKeyEnvVar}; create a key at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Vispark returned HTTP 402. The site's Limitations text lists 402 in \"Check HTTP status codes (200, 400, 401, 402, 429)\" and says \"Validate API keys and sufficient units\"; the site's script uses \"Insufficient units for this operation\" as the fallback message for this status."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Vispark returned HTTP 429. The site's Limitations text says \"API rate limit: 240 requests/minute\" and \"Handle rate limiting with exponential backoff\"."
+    }
+  ],
+  "setup": {
+    "url": "https://lab.vispark.in/profile",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://lab.vispark.in/profile and sign in — the playground text reads \"Sign in to run this model.\", and the site links the Vispark account system at https://account.vispark.in",
+      "2. Open API Keys in the profile sidebar (the panel is titled \"API Keys\" with the subtitle \"Manage your API keys\"), choose \"Add Key\" and complete the \"Create New API Key\" dialog",
+      "3. Authentication is HTTP Bearer: the OpenAI Compatibility panel says \"Use your standard API Key as a Bearer Token.\" and shows Authorization: Bearer <your_api_key>. The site's developer-guide text for the Vision model also lists \"Endpoint: /model/text/vision\" and \"Authentication: X-API-Key: your_api_key_here\", and the ephemeral-key panel \"Using on Model Endpoints\" shows an X-API-Key header and lists \"POST /chat/completions\" under \"Supported endpoints:\". Neither header scheme was exercised: no POST request was sent",
+      "4. Billing as the site shows it: the Account tab of the profile page has a \"Buy More Units\" panel with the strings \"₹1 (INR) = 1 unit\" and \"$1 (USD) = ~95 units\"",
+      "5. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.lab.vispark.in/v1. The Vision documentation's OpenAI Compatibility panel says \"This model is compatible with OpenAI-compatible clients.\" and gives the Base URL https://api.lab.vispark.in, Authorization: Bearer <your_api_key> and the model ids vispark/vision-small, vispark/vision-medium and vispark/vision-large; the ephemeral-key panel's Supported endpoints list includes \"POST /chat/completions\". Unauthenticated GETs made 2026-09-29: https://api.lab.vispark.in/v1/models and https://api.lab.vispark.in/models answered HTTP 200 with the same 3-model body; https://api.lab.vispark.in/v1/chat/completions and https://api.lab.vispark.in/chat/completions answered HTTP 405 with an HTML body titled 405 Method Not Allowed. No POST request was sent. The site text is read from the script https://lab.vispark.in/assets/index-WmfFPhvJ.js that https://lab.vispark.in/ loads (retrieved 2026-09-29). errorRules carry the status codes and sentences of the site's Limitations text. pricingPerMTok is the roster's pricing strings times 1,000,000; for vispark/vision-small the site's price text \"₹10 input/₹30 output per 100k tokens\" is ₹100 per 1M input tokens, which at \"$1 (USD) = ~95 units\" is about $1.05, the roster's figure. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (16384) are NeuroLink placeholders for model ids outside models.catalog, not vendor figures; the roster figures are quoted in the models.catalog descriptions. Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. billingPolicy no-free-tier is a schema placeholder (the schema has no unknown value), not a vendor statement. Verification level: docs- and roster-verified, not yet live-verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.lab.vispark.in/v1/models — 3 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public script https://lab.vispark.in/assets/index-WmfFPhvJ.js (retrieved 2026-09-29), Buy More Units panel strings \"₹1 (INR) = 1 unit\" and \"$1 (USD) = ~95 units\"; credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

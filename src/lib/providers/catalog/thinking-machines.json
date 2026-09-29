@@ -1,0 +1,212 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "thinking-machines",
+  "displayName": "Thinking Machines",
+  "aliases": ["tinker"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1",
+    "apiKeyFallbackEnvVars": ["TINKER_API_KEY"]
+  },
+  "models": {
+    "default": "moonshotai/Kimi-K2.6",
+    "fallbacks": ["Qwen/Qwen3.8-27B", "openai/gpt-oss-120b", "Qwen/Qwen3-8B"],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 2.205,
+          "output": 5.49,
+          "cachedInput": 0.441
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "NeuroLink default. The OpenCode tutorial (https://tinker-docs.thinkingmachines.ai/tutorials/deployment/opencode/, retrieved 2026-09-29), section \"Using a base model (no fine-tuning)\", says \"You can also point at a base model on Tinker's sampler:\" and shows a models entry keyed by this id with \"name\": \"Kimi K2.6\" and \"limit\": { \"context\": 32768, \"output\": 8192 }. The tutorial's Step 2 provider config sets options.baseURL to https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1. Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Kimi-K2.6: Context 32K, Size 1T, Active 32B, Arch MoE, Type \"Hybrid + Vision\", Tinker ID moonshotai/Kimi-K2.6, Prefill $2.205 ($0.441 cached), Sample $5.49 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Kimi-K2.5 and Kimi-K2-Thinking. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3.8-27B": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 1.86,
+          "output": 5.595,
+          "cachedInput": 0.372
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Fallback. Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3.8-27B: Context 64K, Size 27B, Active 27B, Arch Dense, Type \"Hybrid + Vision\", Tinker ID Qwen/Qwen3.8-27B, Prefill $1.86 ($0.372 cached), Sample $5.595 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Qwen3.6-27B. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3.6-35B-A3B": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 0.54,
+          "output": 1.335,
+          "cachedInput": 0.108
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3.6-35B-A3B: Context 64K, Size 35B, Active 3B, Arch MoE, Type \"Hybrid + Vision\", Tinker ID Qwen/Qwen3.6-35B-A3B, Prefill $0.54 ($0.108 cached), Sample $1.335 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Qwen3.5-35B-A3B and Qwen3-30B-A3B. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3.5-397B-A17B": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 7.5,
+          "cachedInput": 0.6
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3.5-397B-A17B: Context 64K, Size 397B, Active 17B, Arch MoE, Type \"Hybrid + Vision\", Tinker ID Qwen/Qwen3.5-397B-A17B, Prefill $3.00 ($0.60 cached), Sample $7.50 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Qwen3-235B-A22B-Instruct-2507 and Qwen3-VL-235B-A22B-Instruct. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3.5-9B": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 0.66,
+          "output": 1.995,
+          "cachedInput": 0.132
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3.5-9B: Context 64K, Size 9B, Active 9B, Arch Dense, Type \"Hybrid + Vision\", Tinker ID Qwen/Qwen3.5-9B, Prefill $0.66 ($0.132 cached), Sample $1.995 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Llama-3.1-8B-Instruct. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3.5-4B": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 0.33,
+          "output": 1.005,
+          "cachedInput": 0.066
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3.5-4B: Context 64K, Size 4B, Active 4B, Arch Dense, Type \"Hybrid + Vision\", Tinker ID Qwen/Qwen3.5-4B, Prefill $0.33 ($0.066 cached), Sample $1.005 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" It says Vision models are \"Vision-language models that accept images alongside text.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists it under \"Recommended replacement\" for Qwen3-4B-Instruct-2507. contextWindow is the Context label read with K = 1024. vision is false, meaning image input through /chat/completions is not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "Qwen/Qwen3-8B": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.195,
+          "output": 0.6,
+          "cachedInput": 0.039
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Fallback. Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Qwen3-8B: Context 32K, Size 8B, Active 8B, Arch Dense, Type \"Hybrid\", Tinker ID Qwen/Qwen3-8B, Prefill $0.195 ($0.039 cached), Sample $0.60 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" The Anthropic-Compatible API page (https://tinker-docs.thinkingmachines.ai/tinker/compatible-apis/anthropic/), which documents a separate endpoint, says \"another base model name (for example Qwen/Qwen3-8B)\". contextWindow is the Context label read with K = 1024. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.33,
+          "output": 0.84,
+          "cachedInput": 0.066
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Fallback. Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row GPT-OSS-120B: Context 32K, Size 117B, Active 5B, Arch MoE, Type \"Reasoning\", Tinker ID openai/gpt-oss-120b, Prefill $0.33 ($0.066 cached), Sample $0.84 per million tokens. The page's Model Types section says Reasoning models \"Always produce chain-of-thought before their answer.\" contextWindow is the Context label read with K = 1024. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "openai/gpt-oss-20b": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.18,
+          "output": 0.45,
+          "cachedInput": 0.036
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row GPT-OSS-20B: Context 32K, Size 21B, Active 3.6B, Arch MoE, Type \"Reasoning\", Tinker ID openai/gpt-oss-20b, Prefill $0.18 ($0.036 cached), Sample $0.45 per million tokens. The page's Model Types section says Reasoning models \"Always produce chain-of-thought before their answer.\" contextWindow is the Context label read with K = 1024. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "deepseek-ai/DeepSeek-V3.1": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 1.695,
+          "output": 4.215,
+          "cachedInput": 0.339
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row DeepSeek-V3.1: Context 32K, Size 671B, Active 37B, Arch MoE, Type \"Hybrid\", Tinker ID deepseek-ai/DeepSeek-V3.1, Prefill $1.695 ($0.339 cached), Sample $4.215 per million tokens. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" contextWindow is the Context label read with K = 1024. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "zai-org/GLM-5.3:peft:262144": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 4.86,
+          "output": 12.15,
+          "cachedInput": 0.972
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row GLM-5.3 (256K): Context 256K, Size 753B, Active 40B, Arch MoE, Type \"Reasoning\", Tinker ID zai-org/GLM-5.3:peft:262144, Prefill $4.86 ($0.972 cached), Sample $12.15 per million tokens. The page's Model Types section says Reasoning models \"Always produce chain-of-thought before their answer.\" contextWindow 262144 matches the 256K label and the :peft:262144 suffix in the id. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      },
+      "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16": {
+        "contextWindow": 65536,
+        "pricingPerMTok": {
+          "input": 0.57,
+          "output": 1.44,
+          "cachedInput": 0.114
+        },
+        "vision": false,
+        "status": "preview",
+        "description": "Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/, retrieved 2026-09-29), Training table row Nemotron-3-Super-120B-A12B: Context 64K, Size 120B, Active 12B, Arch MoE, Type \"Hybrid\", Tinker ID nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16, Prefill $0.57 ($0.114 cached), Sample $1.44 per million tokens. The row carries the note \"Limited-time 50% discount\"; the page shows Prefill $1.14 and Sample $2.88 struck through, and pricingPerMTok holds the current figures. The page's Model Types section says Hybrid models \"Run in both thinking and non-thinking modes.\" The Model Deprecations page (https://tinker-docs.thinkingmachines.ai/tinker/model-deprecations/) lists Nemotron-3-Super-120B-A12B among the \"Recommended replacement\" entries for Llama-3.3-70B-Instruct. contextWindow is the Context label read with K = 1024. vision is false, meaning not declared by this entry. status preview follows the OpenAI-compatible page title \"OpenAI API Compatible Inference (in beta)\"; the schema requires a value and it is not a per-model vendor statement."
+      }
+    },
+    "topModels": [
+      "moonshotai/Kimi-K2.6",
+      "Qwen/Qwen3.8-27B",
+      "Qwen/Qwen3.6-35B-A3B",
+      "Qwen/Qwen3.5-397B-A17B",
+      "Qwen/Qwen3.5-9B",
+      "Qwen/Qwen3.5-4B",
+      "Qwen/Qwen3-8B",
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "deepseek-ai/DeepSeek-V3.1",
+      "zai-org/GLM-5.3:peft:262144",
+      "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Thinking Machines answered HTTP 401. Check {apiKeyEnvVar}. Get a key at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://tinker.thinkingmachines.ai/keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://tinker.thinkingmachines.ai/keys — the Quickstart (https://tinker-docs.thinkingmachines.ai/tinker/quickstart/) says \"Or create an API key in the Tinker Console and set it as the TINKER_API_KEY environment variable.\"; an unauthenticated GET of that URL redirects to a page titled \"Sign in\" (sign-in was not attempted while building this entry)",
+      "2. Authentication as the vendor states it: the OpenAI-compatible page (https://tinker-docs.thinkingmachines.ai/tinker/compatible-apis/openai/) says \"Authenticate with your Tinker API key, by passing the same key used for Tinker as the API key to the OpenAI client.\"; its code example reads the key from TINKER_API_KEY",
+      "3. Billing as the vendor states it: the Quickstart (https://tinker-docs.thinkingmachines.ai/tinker/quickstart/) says \"Set up payment info in Billing, and see Models & Pricing for current training and sampling rates.\" (the Billing link goes to https://tinker.thinkingmachines.ai/billing/), and the Models & Pricing page (https://tinker-docs.thinkingmachines.ai/tinker/models/) says \"All prices are per million tokens.\"",
+      "4. Set {apiKeyEnvVar} in your .env file (the vendor's examples read TINKER_API_KEY, which NeuroLink accepts as a fallback)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1/models needs a key (an unauthenticated GET on 2026-09-29 answered HTTP 401 with the JSON body {\"detail\":\"X-Api-Key token is empty\"}), so the twelve model ids come from the Training table on https://tinker-docs.thinkingmachines.ai/tinker/models/ (retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1: the OpenAI-compatible page (https://tinker-docs.thinkingmachines.ai/tinker/compatible-apis/openai/, titled \"OpenAI API Compatible Inference (in beta)\") says \"The new interface exposes an OpenAI-compatible HTTP API.\", gives that base URL, says \"We support both /completions and /chat/completions endpoints.\" and says \"Currently, OpenAI-compatible inference is meant for testing and internal use with low internal traffic, rather than large, high-throughput, user-facing deployments.\" The same page says \"Use a Tinker sampler weight path as the model name.\" and shows a sampler weight path that begins with tinker://. moonshotai/Kimi-K2.6 is the catalog id that the OpenCode tutorial (https://tinker-docs.thinkingmachines.ai/tutorials/deployment/opencode/) shows as a models entry under the \"Using a base model (no fine-tuning)\" heading; the other eleven catalog ids are Tinker IDs from the Models & Pricing Training table. A tinker:// path passed as the model is an id outside the catalog. Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 (content-type application/json) with the body {\"detail\":\"X-Api-Key token is empty\"}; /chat/completions answered HTTP 405 with header allow: POST and the body {\"detail\":\"Method Not Allowed\"}; the base URL itself answered HTTP 404 with the body {\"detail\":\"Not Found\"}. No POST request was sent. errorRules holds one rule, for the 401 status observed on /models. pricingPerMTok input is the Prefill figure, output is the Sample figure and cachedInput is the cached Prefill figure of each Training-table row; the page's Pricing Terms define Prefill as \"Processing input/prompt tokens when sampling\" and Sample as \"Generating output tokens\". models.defaultContextWindow (32768) is the figure in the OpenCode tutorial's Config fields table (https://tinker-docs.thinkingmachines.ai/tutorials/deployment/opencode/): \"Max input tokens (32768 for most Tinker models)\"; models.defaultMaxOutputTokens (8192) is the \"output\" figure in both example configs of that tutorial, whose Config fields table describes limit.output as \"Max output tokens\"; the catalog rows do not set maxOutputTokens, so the default applies to them. capabilities.text is true because the page documents /chat/completions; capabilities.streaming is true because the page describes streaming on /chat/completions (\"In streaming mode, reasoning_content and content arrive on separate SSE events\"); capabilities.thinking is true because the page documents the separate_reasoning flag and the reasoning_effort parameter on /chat/completions (\"Not all models support this parameter.\"). capabilities.tools, toolsWithStreaming, structuredOutput and structuredOutputWithTools are false, meaning not declared by this entry: with tools false the provider's supportsTools() answers false and no tools array is sent, and no POST request exercising these was sent. capabilities.embeddings is false, not declared. billingPolicy no-free-tier is a schema placeholder (the schema has no unknown value), not a vendor statement. apiKeyFormat is null so NeuroLink's key-format check is not applied. Verification level: docs-verified, not yet live-verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1/models answers 401 without a key, so model ids are taken from https://tinker-docs.thinkingmachines.ai/tinker/models/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1/models with no credentials — HTTP 401, content-type application/json, JSON body {\"detail\":\"X-Api-Key token is empty\"}; the body has no code field, so no code is recorded; the same day an unauthenticated GET https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1/chat/completions answered HTTP 405 with header allow: POST and JSON body {\"detail\":\"Method Not Allowed\"}; credential-free, no key used, no POST request sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://tinker-docs.thinkingmachines.ai/tinker/quickstart/ — Billing section: \"Set up payment info in Billing, and see Models & Pricing for current training and sampling rates.\"; credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

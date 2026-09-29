@@ -275,3 +275,13 @@ See CatalogQuirks.responseFormatDowngrade — a vendor that rejects
 
 See CatalogQuirks.replayReasoningContent — a vendor that wants each
 assistant turn's `reasoning_content` sent back on later requests.
+
+---
+
+### authHeaderStyle?
+
+> `optional` **authHeaderStyle?**: `"x-api-key"`
+
+See CatalogQuirks.authHeaderStyle — a vendor whose chat-completions
+endpoint authenticates via `X-Api-Key` instead of the inherited
+`Authorization: Bearer` default.

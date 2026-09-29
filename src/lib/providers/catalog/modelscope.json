@@ -1,0 +1,146 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "modelscope",
+  "displayName": "ModelScope",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api-inference.modelscope.cn/v1"
+  },
+  "models": {
+    "default": "Qwen/Qwen3.5-35B-A3B",
+    "fallbacks": [
+      "Qwen/Qwen3.5-27B",
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "ZhipuAI/GLM-5.2"
+    ],
+    "fallbackModelName": "Qwen/Qwen3.5-27B",
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "Qwen/Qwen3.5-35B-A3B": {
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. The model id used in the intro page's OpenAI-compatible chat example (client.chat.completions.create with stream=True), in its Anthropic-compatible streaming and non-streaming examples, and in its Vision Models example, which sends a content part of type image_url (https://modelscope.cn/docs/model-service/API-Inference/intro); vision is true because that example calls this id with an image_url. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "Qwen/Qwen3.5-27B": {
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Named in the Responses API example of the Chinese-language intro page (client.responses.create with model=\"Qwen/Qwen3.5-27B\", read from https://resouces.modelscope.cn/document/docdata/2026-9-28_15-49-CN/dist/model-service/API-Inference/intro/intro_CN.md) and in the examples of the LangChain integration page (https://modelscope.cn/docs/ecosystem-integrations/api-usage/langchain, Chinese text read from the docs site's document file). The English intro page (https://resouces.modelscope.cn/document/docdata/2026-9-28_15-50-EN/dist/model-service/API-Inference/intro/intro_EN.md) says \"integrated models like Qwen3.5 that support vision\". ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/Qwen/Qwen3.5-27B, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "deepseek-ai/DeepSeek-V4-Pro-0813": {
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/deepseek-ai/DeepSeek-V4-Pro-0813, 2026-09-29) lists its task as text-generation. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "ZhipuAI/GLM-5.2": {
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/ZhipuAI/GLM-5.2, 2026-09-29) lists its task as text-generation. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "Qwen/Qwen3.5-397B-A17B": {
+        "vision": true,
+        "status": "production",
+        "description": "The English intro page (https://resouces.modelscope.cn/document/docdata/2026-9-28_15-50-EN/dist/model-service/API-Inference/intro/intro_EN.md) says \"integrated models like Qwen3.5 that support vision\". ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/Qwen/Qwen3.5-397B-A17B, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "Qwen/Qwen3.5-122B-A10B": {
+        "vision": true,
+        "status": "production",
+        "description": "The English intro page (https://resouces.modelscope.cn/document/docdata/2026-9-28_15-50-EN/dist/model-service/API-Inference/intro/intro_EN.md) says \"integrated models like Qwen3.5 that support vision\". ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/Qwen/Qwen3.5-122B-A10B, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "vision": false,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/deepseek-ai/DeepSeek-V4-Flash-0731, 2026-09-29) lists its task as text-generation. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "MiniMax/MiniMax-M3": {
+        "vision": true,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/MiniMax/MiniMax-M3, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "stepfun-ai/Step-3.7-Flash": {
+        "vision": true,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/stepfun-ai/Step-3.7-Flash, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "Qwen/Qwen3.8-27B": {
+        "vision": true,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/Qwen/Qwen3.8-27B, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "mistralai/Mistral-Large-Instruct-2407": {
+        "vision": false,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/mistralai/Mistral-Large-Instruct-2407, 2026-09-29) lists its task as text-generation. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      },
+      "Qwen/Qwen3.8-Flash-Next": {
+        "vision": true,
+        "status": "production",
+        "description": "ModelScope's public model API (unauthenticated GET https://www.modelscope.cn/api/v1/models/Qwen/Qwen3.8-Flash-Next, 2026-09-29) lists its task as image-text-to-text. The vision field is true on that basis. Listed on the unauthenticated GET https://api-inference.modelscope.cn/v1/models (2026-09-29, 35 models) roster."
+      }
+    },
+    "topModels": [
+      "Qwen/Qwen3.5-35B-A3B",
+      "Qwen/Qwen3.5-27B",
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "ZhipuAI/GLM-5.2",
+      "Qwen/Qwen3.5-397B-A17B",
+      "Qwen/Qwen3.5-122B-A10B",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "MiniMax/MiniMax-M3",
+      "stepfun-ai/Step-3.7-Flash",
+      "Qwen/Qwen3.8-27B",
+      "mistralai/Mistral-Large-Instruct-2407",
+      "Qwen/Qwen3.8-Flash-Next"
+    ],
+    "visionModel": "Qwen/Qwen3.5-35B-A3B"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or missing ModelScope access token (HTTP 401). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://modelscope.cn/my/myaccesstoken",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://modelscope.cn/home and register or log in with the \"Log in/Register\" button in the top right corner (https://modelscope.cn/docs/accounts/registration)",
+      "2. Bind an Alibaba Cloud account and complete real-name verification: \"After account registration, you must bind your Alibaba Cloud account and complete real-name verification before using API-Inference.\" (https://modelscope.cn/docs/model-service/API-Inference/intro; binding steps: https://modelscope.cn/docs/accounts/aliyun-binding-and-authorization)",
+      "3. Create an access token at https://modelscope.cn/my/myaccesstoken; the token guide (https://modelscope.cn/docs/accounts/token) has you specify a validity period, \"Long-term use\" or \"Short-term use\"",
+      "4. Free for registered users: \"API-Inference is provided free of charge to registered ModelScope users.\" (intro page); the limits page (https://modelscope.cn/docs/model-service/API-Inference/limits) states that API Inference \"implements certain limits on usage quotas and concurrency\"",
+      "5. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api-inference.modelscope.cn/v1. The intro page (https://modelscope.cn/docs/model-service/API-Inference/intro) says \"ModelScope's API-Inference currently provides OpenAI API-compatible interfaces for large language models.\" and its example sets base_url=\"https://api-inference.modelscope.cn/v1/\". The docs text was read on 2026-09-29 from the raw document files the docs site loads (English build 2026-9-28_15-50-EN, for example https://resouces.modelscope.cn/document/docdata/2026-9-28_15-50-EN/dist/model-service/API-Inference/intro/intro_EN.md; Chinese build 2026-9-28_15-49-CN where noted), because the rendered pages at modelscope.cn are a JavaScript shell. This entry is docs- and roster-verified, not yet live-verified: the model ids come from an unauthenticated GET of https://api-inference.modelscope.cn/v1/models (HTTP 200, 35 models, 2026-09-29) and no API key was used. Each model's task was read on 2026-09-29 from an unauthenticated GET of https://www.modelscope.cn/api/v1/models/<model id> (the Data.Tasks field). capabilities.thinking is true: ModelScope's Codewhale integration page (https://modelscope.cn/docs/ecosystem-integrations/api-usage/codewhale, English build file ecosystem-integrations/api-usage/codewhale/codewhale_EN.md) says \"Qwen and GLM series models support `reasoning_content` streaming output\". models.defaultContextWindow (32,768) and models.defaultMaxOutputTokens (4,096) are placeholders. errorRules holds one 401 rule taken from an unauthenticated GET of https://api-inference.modelscope.cn/v1/tasks/abc, which answered HTTP 401 with the JSON body {\"errors\":{\"message\":\"Authentication failed, please make sure that a valid ModelScope token is supplied.\"},\"request_id\":\"...\"}."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api-inference.modelscope.cn/v1/models — 35 models; credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api-inference.modelscope.cn/v1/tasks/abc (the AIGC task-polling route used in the intro page's example, not chat/completions) — JSON body {\"errors\":{\"message\":\"Authentication failed, please make sure that a valid ModelScope token is supplied.\"},\"request_id\":\"...\"}; an unauthenticated GET of https://api-inference.modelscope.cn/v1/chat/completions answered HTTP 404 with the plain-text body \"404 page not found\"; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public docs pages https://modelscope.cn/docs/model-service/API-Inference/intro (\"API-Inference is provided free of charge to registered ModelScope users.\") and https://modelscope.cn/docs/model-service/API-Inference/limits (\"free of charge\"), English text read from the docs site's document files; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

@@ -284,6 +284,11 @@
         "replayReasoningContent": {
           "type": "boolean",
           "description": "Vendor wants each assistant turn's reasoning_content sent back on every later request of the conversation (DeepSeek documents a 400 without it once tools are in play). Off for every other provider, since strict OpenAI-compatible backends reject the unknown field."
+        },
+        "authHeaderStyle": {
+          "type": "string",
+          "enum": ["x-api-key"],
+          "description": "Vendor's chat-completions endpoint authenticates with X-Api-Key instead of the inherited Authorization: Bearer default (Reka's OpenAPI spec declares exactly one security scheme, an apiKey in header X-Api-Key). Normalized by ConfiguredOpenAICompatProvider.getAuthHeaders()."
         }
       }
     },

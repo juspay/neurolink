@@ -124,6 +124,21 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
   }
 
   /**
+   * See CatalogQuirks.authHeaderStyle. The base class's default is
+   * `Authorization: Bearer <apiKey>`; "x-api-key" vendors (Reka's OpenAPI
+   * spec declares exactly one security scheme, an apiKey in header
+   * `X-Api-Key`) get that header instead, with no Authorization header sent
+   * at all — mirrors AzureOpenAIProvider's own getAuthHeaders() override for
+   * its `api-key` header.
+   */
+  protected override getAuthHeaders(): Record<string, string> {
+    if (this.entry.authHeaderStyle === "x-api-key") {
+      return { "X-Api-Key": this.config.apiKey };
+    }
+    return super.getAuthHeaders();
+  }
+
+  /**
    * The catalog's `capabilities.tools` is the vendor's own answer, probed on
    * the wire when the entry was written; the model registry (the base
    * default) knows nothing about Tier-2 models and answers "supported" for

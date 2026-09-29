@@ -1,0 +1,238 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "gradientai",
+  "displayName": "GradientAI (DigitalOcean)",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://inference.do-ai.run/v1"
+  },
+  "models": {
+    "default": "llama-4-maverick",
+    "fallbacks": [
+      "deepseek-v4.1-flash",
+      "deepseek-v4-flash-0731",
+      "glm-5.2",
+      "kimi-k2.6",
+      "gemma-4-31B-it"
+    ],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "llama-4-maverick": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 0.87
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"Llama 4 Maverick 17B 128E Instruct\": model ID llama-4-maverick, context window 128,000, max output tokens 16,384, usage note \"Chat Completions and Responses APIs for sending prompts for serverless inference\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.25; Output $0.87 per 1M tokens, Standard processing mode. The Chat Completions page (docs.digitalocean.com/products/inference/how-to/use-chat-completions-api) uses model=\"llama-4-maverick\" in its Python OpenAI SDK example."
+      },
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.006
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"DeepSeek V4.1 Flash\": model ID deepseek-v4.1-flash, context window 1,048,576, max output tokens 1,048,576; usage notes \"Input context window of up to 1M tokens\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\", \"Native vision (text and images)\". The Features page (docs.digitalocean.com/products/inference/details/features) lists DeepSeek V4.1 Flash in a Vision-Language Models row with \"Text and image inputs\". Pricing page: Input $0.30; Output $1.20; Cache read $0.006 per 1M tokens, Standard processing mode."
+      },
+      "deepseek-v4-pro-0813": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 1.32,
+          "output": 3.96,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"DeepSeek V4 Pro 0813\": model ID deepseek-v4-pro-0813, context window 1,048,576, max output tokens 1,048,576; usage notes \"Input context window of up to 1M tokens\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $1.32; Output $3.96; Cache read $0.044 per 1M tokens, Standard processing mode."
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"DeepSeek V4 Flash 0731\": model ID deepseek-v4-flash-0731, context window 1,048,576, max output tokens 1,048,576; usage notes \"Input context window of up to 1M tokens\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.14; Output $0.28; Cache read $0.028 per 1M tokens, Standard processing mode."
+      },
+      "deepseek-3.2": {
+        "contextWindow": 163840,
+        "maxOutputTokens": 163840,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 1.6,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"DeepSeek V3.2\": model ID deepseek-3.2, context window 163,840, max output tokens 163,840; usage notes \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.50; Output $1.60; Cache read $0.15 per 1M tokens, Standard processing mode."
+      },
+      "glm-5.2": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.21
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"GLM-5.2\": model ID glm-5.2, context window 262,144, max output tokens 262,144; usage notes \"Input context window of up to 1M tokens\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\", \"Text only\", \"Tool calling\", \"Structured outputs\", \"Reasoning\", \"Multilingual\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $1.40; Output $4.40; Cache read $0.21 per 1M tokens, Standard processing mode."
+      },
+      "kimi-k2.6": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.19
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"Kimi K2.6\": model ID kimi-k2.6, context window 262,144, max output tokens 262,144; usage notes \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\". The Models by Provider table on the same page says Kimi K3 and Kimi K2.6 are \"both with prompt caching and multimodal vision support\", and the Features page (docs.digitalocean.com/products/inference/details/features) lists Kimi K2.6 in a Vision-Language Models row with \"Text and image inputs\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.95; Output $4.00; Cache read $0.19 per 1M tokens, Standard processing mode."
+      },
+      "kimi-k3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"Kimi K3\": model ID kimi-k3, context window 1,048,576; usage notes \"Chat Completions API for sending prompts for serverless inference\", \"Prompt caching\", \"Native vision (text, images)\". The Features page (docs.digitalocean.com/products/inference/details/features) lists Kimi K3 in a Vision-Language Models row with \"Text and image inputs\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $3.00; Output $15.00; Cache read $0.30 per 1M tokens, Standard processing mode."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"GLM-5.3 Flash\": model ID glm-5.3-flash, context window 1,048,576, max output tokens 1,048,576; usage notes \"Input context window of up to 1M tokens\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\", \"Multimodal: text, image, and video inputs\", \"Tool calling\", \"Structured outputs\", \"Reasoning\", \"Multilingual\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.15; Output $0.50; Cache read $0.03 per 1M tokens, Standard processing mode."
+      },
+      "mimo-v2.5-pro": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 3,
+          "cachedInput": 0.16
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"MiMo V2.5 Pro\": model ID mimo-v2.5-pro, context window 262,144, max output tokens 262,144; usage notes \"Input context window of up to 1M tokens\", \"Text only\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\", \"Tool calling\", \"Structured outputs\", \"Reasoning\", \"Multilingual\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.80; Output $3.00; Cache read $0.16 per 1M tokens, Standard processing mode."
+      },
+      "nemotron-3-ultra-550b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.9,
+          "output": 1.7
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"Nemotron 3 Ultra\": model ID nemotron-3-ultra-550b, context window 131,072, max output tokens 131,072; usage notes \"Evaluations judge model\", \"Chat Completions and Responses APIs for sending prompts for serverless inference\". Pricing page (docs.digitalocean.com/products/inference/details/pricing): Input $0.90; Output $1.70 per 1M tokens, Standard processing mode."
+      },
+      "gemma-4-31B-it": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.18,
+          "output": 0.5,
+          "cachedInput": 0.036
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (docs.digitalocean.com/products/inference/details/models, retrieved 2026-09-29), row \"Gemma 4\": model ID gemma-4-31B-it, context window 256,000, max output tokens 8,192; usage notes \"Chat Completions and Responses APIs for sending prompts for serverless inference\", \"Prompt caching\". Pricing page (docs.digitalocean.com/products/inference/details/pricing), row \"Gemma 4\": Input $0.18; Output $0.50; Cache read $0.036 per 1M tokens, Standard processing mode."
+      }
+    },
+    "topModels": [
+      "llama-4-maverick",
+      "deepseek-v4.1-flash",
+      "deepseek-v4-pro-0813",
+      "deepseek-v4-flash-0731",
+      "deepseek-3.2",
+      "glm-5.2",
+      "kimi-k2.6",
+      "kimi-k3",
+      "glm-5.3-flash",
+      "mimo-v2.5-pro",
+      "nemotron-3-ultra-550b",
+      "gemma-4-31B-it"
+    ],
+    "visionModel": "deepseek-v4.1-flash"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "GradientAI rejected the credential (HTTP 401, \"Unable to authenticate you\"). Check {apiKeyEnvVar}. Model access keys are created at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "GradientAI API rate limit exceeded (HTTP 429; the Serverless Inference API reference documents the 429 body as \"API rate limit exceeded.\")"
+    },
+    {
+      "status": 404,
+      "pattern": "model not found",
+      "class": "invalid-model",
+      "message": "GradientAI returned 404 \"Model not found\" for '{model}'. The Model Support Policy page (docs.digitalocean.com/products/inference/details/model-support-policy) states that requests to deprecated model IDs return this error."
+    }
+  ],
+  "setup": {
+    "url": "https://cloud.digitalocean.com/model-studio/manage-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://cloud.digitalocean.com/model-studio/manage-keys (the Control Panel page that https://docs.digitalocean.com/products/inference/how-to/manage-model-access-keys/ names for creating and managing model access keys; it shows the DigitalOcean login when signed out) and sign in to a DigitalOcean account",
+      "2. Click Create model access key, enter a name, and copy the secret key when it is shown: the docs state \"Copy and store it securely before closing the window.\"",
+      "3. Prepaid balance: the docs state \"Serverless Inference requires a positive prepaid account balance before you can send inference requests.\" (https://docs.digitalocean.com/products/inference/how-to/manage-serverless-inference-prepayment/)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://inference.do-ai.run/v1 (the models page says the text models are \"served through OpenAI-compatible endpoints\", and the Chat Completions page's Python OpenAI SDK example sets base_url=\"https://inference.do-ai.run/v1\"). Docs-verified only: GET https://inference.do-ai.run/v1/models answers 401 without a key, so the 12 chat model ids come from the vendor's models page and the roster has not been checked. models.defaultContextWindow (32,768) and models.defaultMaxOutputTokens (4,096) are placeholders the vendor does not publish. The unauthenticated GET of /v1/models returned the body {\"id\": \"Unauthorized\", \"message\": \"Unable to authenticate you\" }; the API reference documents 401, 429 and 500 responses for chat completions, and errorRules covers 401, 429 and the 404 \"Model not found\" response described on the Model Support Policy page."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://inference.do-ai.run/v1/models answers 401 without a key, so model ids are taken from https://docs.digitalocean.com/products/inference/details/models/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "Unauthorized"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.digitalocean.com/products/inference/how-to/manage-serverless-inference-prepayment/ — \"Serverless Inference requires a positive prepaid account balance before you can send inference requests.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

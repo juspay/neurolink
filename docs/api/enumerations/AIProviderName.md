@@ -130,6 +130,12 @@ Supported AI Provider Names
 
 ---
 
+### ARCEE
+
+> **ARCEE**: `"arcee"`
+
+---
+
 ### ATLAS_CLOUD
 
 > **ATLAS_CLOUD**: `"atlas-cloud"`
@@ -142,6 +148,12 @@ Supported AI Provider Names
 
 ---
 
+### BAIDU_QIANFAN
+
+> **BAIDU_QIANFAN**: `"baidu-qianfan"`
+
+---
+
 ### BASETEN
 
 > **BASETEN**: `"baseten"`
@@ -151,6 +163,18 @@ Supported AI Provider Names
 ### BEE_HEOSSI
 
 > **BEE_HEOSSI**: `"bee-heossi"`
+
+---
+
+### BYTEPLUS_MODELARK
+
+> **BYTEPLUS_MODELARK**: `"byteplus-modelark"`
+
+---
+
+### BYTEZ
+
+> **BYTEZ**: `"bytez"`
 
 ---
 
@@ -181,6 +205,12 @@ Supported AI Provider Names
 ### CRUSOE
 
 > **CRUSOE**: `"crusoe"`
+
+---
+
+### DASHSCOPE
+
+> **DASHSCOPE**: `"dashscope"`
 
 ---
 
@@ -226,9 +256,21 @@ Supported AI Provider Names
 
 ---
 
+### GRADIENTAI
+
+> **GRADIENTAI**: `"gradientai"`
+
+---
+
 ### GROQ
 
 > **GROQ**: `"groq"`
+
+---
+
+### HETZNER_INFERENCE
+
+> **HETZNER_INFERENCE**: `"hetzner-inference"`
 
 ---
 
@@ -241,6 +283,12 @@ Supported AI Provider Names
 ### INCEPTION_LABS
 
 > **INCEPTION_LABS**: `"inception-labs"`
+
+---
+
+### INCEPTRON
+
+> **INCEPTRON**: `"inceptron"`
 
 ---
 
@@ -268,6 +316,12 @@ Supported AI Provider Names
 
 ---
 
+### LEMONFOX_AI
+
+> **LEMONFOX_AI**: `"lemonfox-ai"`
+
+---
+
 ### LILAC
 
 > **LILAC**: `"lilac"`
@@ -286,6 +340,12 @@ Supported AI Provider Names
 
 ---
 
+### META_MODEL_API
+
+> **META_MODEL_API**: `"meta-model-api"`
+
+---
+
 ### MINIMAX
 
 > **MINIMAX**: `"minimax"`
@@ -301,6 +361,12 @@ Supported AI Provider Names
 ### MOARK
 
 > **MOARK**: `"moark"`
+
+---
+
+### MODELSCOPE
+
+> **MODELSCOPE**: `"modelscope"`
 
 ---
 
@@ -340,6 +406,12 @@ Supported AI Provider Names
 
 ---
 
+### PARASAIL
+
+> **PARASAIL**: `"parasail"`
+
+---
+
 ### PARETO_INFERENCE
 
 > **PARETO_INFERENCE**: `"pareto-inference"`
@@ -352,9 +424,27 @@ Supported AI Provider Names
 
 ---
 
+### POOLSIDE
+
+> **POOLSIDE**: `"poolside"`
+
+---
+
 ### PRIME_INTELLECT
 
 > **PRIME_INTELLECT**: `"prime-intellect"`
+
+---
+
+### REKA
+
+> **REKA**: `"reka"`
+
+---
+
+### SAKANA_AI
+
+> **SAKANA_AI**: `"sakana-ai"`
 
 ---
 
@@ -382,6 +472,12 @@ Supported AI Provider Names
 
 ---
 
+### STACKIT
+
+> **STACKIT**: `"stackit"`
+
+---
+
 ### STEPFUN
 
 > **STEPFUN**: `"stepfun"`
@@ -397,6 +493,18 @@ Supported AI Provider Names
 ### SYNTHETIC
 
 > **SYNTHETIC**: `"synthetic"`
+
+---
+
+### TELNYX
+
+> **TELNYX**: `"telnyx"`
+
+---
+
+### THINKING_MACHINES
+
+> **THINKING_MACHINES**: `"thinking-machines"`
 
 ---
 
@@ -427,6 +535,12 @@ Supported AI Provider Names
 ### VENICE_AI
 
 > **VENICE_AI**: `"venice-ai"`
+
+---
+
+### VISPARK
+
+> **VISPARK**: `"vispark"`
 
 ---
 

@@ -1,0 +1,251 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "parasail",
+  "displayName": "Parasail",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.parasail.io/v1"
+  },
+  "models": {
+    "default": "parasail-llama-33-70b-fp8",
+    "fallbacks": [
+      "parasail-llama-4-maverick-instruct-fp8",
+      "parasail-gpt-oss-120b",
+      "parasail-gpt-oss-20b",
+      "parasail-deepseek-v4-flash",
+      "parasail-deepseek-v4-pro",
+      "parasail-kimi-k3",
+      "parasail-glm-52",
+      "parasail-qwen3p5-35b-a3b",
+      "parasail-qwen25-vl-72b-instruct",
+      "parasail-gemma3-27b-it",
+      "parasail-minimax-m3"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "parasail-llama-33-70b-fp8": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0.22,
+          "output": 0.5,
+          "cachedInput": 0.11
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Llama 3.3 70B (FP8)\": context window 131,072, max output 16,384, quantization FP8, $0.22 input / $0.50 output / $0.11 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice. Structured Output guide (https://docs.parasail.io/parasail-docs/guides/structured-output.md): table row with Y under Guided JSON / JSON Schema, Y under Regex and Y under Choice. The Chat Completions guide (https://docs.parasail.io/parasail-docs/guides/chat-completions.md) uses model=\"parasail-llama-33-70b-fp8\" in its example."
+      },
+      "parasail-llama-4-maverick-instruct-fp8": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.35,
+          "output": 1.0,
+          "cachedInput": 0.17
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Llama 4 Maverick (FP8)\": context window 524,288, max output 32,768, quantization FP8, $0.35 input / $1.00 output / $0.17 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice. Structured Output guide (https://docs.parasail.io/parasail-docs/guides/structured-output.md): table row with Y under Guided JSON / JSON Schema, Y under Regex and Y under Choice."
+      },
+      "parasail-gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.75,
+          "cachedInput": 0.055
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"gpt-oss-120b\": context window 131,072, max output 131,072, quantization FP4, $0.10 input / $0.75 output / $0.055 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice. The Model-specific Notes page (https://docs.parasail.io/parasail-docs/products/overview/model-specific-notes.md) has sections headed \"GPT-OSS reasoning control\" and \"Structured outputs with GPT-OSS\"."
+      },
+      "parasail-gpt-oss-20b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.03,
+          "output": 0.15,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"gpt-oss-20b\": context window 131,072, max output 131,072, quantization FP4, $0.03 input / $0.15 output / $0.02 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice. The Model-specific Notes page (https://docs.parasail.io/parasail-docs/products/overview/model-specific-notes.md) has sections headed \"GPT-OSS reasoning control\" and \"Structured outputs with GPT-OSS\"."
+      },
+      "parasail-deepseek-v4-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.07
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"DeepSeek V4 Flash\": context window 1,048,576, max output 1,048,576, quantization FP8, $0.14 input / $0.28 output / $0.07 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice."
+      },
+      "parasail-deepseek-v4-pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 1.74,
+          "output": 3.48,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"DeepSeek V4 Pro\": context window 1,048,576, max output 1,048,576, quantization FP8, $1.74 input / $3.48 output / $0.10 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice."
+      },
+      "parasail-kimi-k3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Kimi K3\": context window 1,048,576, max output 1,048,576, quantization FP4, $3.00 input / $15.00 output / $0.30 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice."
+      },
+      "parasail-glm-52": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"GLM-5.2\": context window 262,144, max output 262,144, quantization FP4, $1.40 input / $4.40 output / $0.26 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice."
+      },
+      "parasail-qwen3p5-35b-a3b": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 1.0,
+          "cachedInput": 0.05
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Qwen3.5 35B-A3B\": context window 262,144, max output 262,144, quantization FP8, $0.15 input / $1.00 output / $0.05 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice. The Chat Completions example in the Tool/Function Calling guide uses model=\"parasail-qwen3p5-35b-a3b\"."
+      },
+      "parasail-qwen25-vl-72b-instruct": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 1.0,
+          "cachedInput": 0.4
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Qwen2.5-VL 72B\": context window 128,000, max output 128,000, quantization FP8, $0.80 input / $1.00 output / $0.40 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). The Multi-Modal guide (https://docs.parasail.io/parasail-docs/guides/multi-modal.md) says \"Below is an example using Qwen2.5-VL 72 B model with Parasail's serverless API.\" and sends an image_url content part with model=\"parasail-qwen25-vl-72b-instruct\", hence vision is true. The Tool/Function Calling guide says it \"also emits tool calls, but only reliably with\" tool_choice=\"required\"."
+      },
+      "parasail-gemma3-27b-it": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.08,
+          "output": 0.45,
+          "cachedInput": 0.04
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"Gemma 3 27B\": context window 131,072, max output 131,072, quantization FP8, $0.08 input / $0.45 output / $0.04 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Structured Output guide (https://docs.parasail.io/parasail-docs/guides/structured-output.md): table row with Y under Guided JSON / JSON Schema, Y under Regex and Y under Choice. The Tool/Function Calling guide names it among models that \"don't support the tools parameter today\"."
+      },
+      "parasail-minimax-m3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 524288,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (https://docs.parasail.io/parasail-docs/products/overview/models.md, retrieved 2026-09-29), row \"MiniMax M3\": context window 1,048,576, max output 524,288, quantization FP8, $0.30 input / $1.20 output / $0.06 cached input per 1M tokens (the Pricing page, https://docs.parasail.io/parasail-docs/billing/pricing.md, shows the same three figures). Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md): table row with ✅ under Tools and ✅ under Tool Choice."
+      }
+    },
+    "topModels": [
+      "parasail-llama-33-70b-fp8",
+      "parasail-llama-4-maverick-instruct-fp8",
+      "parasail-gpt-oss-120b",
+      "parasail-gpt-oss-20b",
+      "parasail-deepseek-v4-flash",
+      "parasail-deepseek-v4-pro",
+      "parasail-kimi-k3",
+      "parasail-glm-52",
+      "parasail-qwen3p5-35b-a3b",
+      "parasail-qwen25-vl-72b-instruct",
+      "parasail-gemma3-27b-it",
+      "parasail-minimax-m3"
+    ],
+    "visionModel": "parasail-qwen25-vl-72b-instruct"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Parasail answered HTTP 401. Its Chat Completions reference (https://docs.parasail.io/parasail-docs/api-reference/chat-completions.md) lists 401 as \"Missing or invalid API key\". Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "Parasail answered HTTP 403 for model \"{model}\". Its Chat Completions reference (https://docs.parasail.io/parasail-docs/api-reference/chat-completions.md) lists 403 as \"API key lacks access to the requested model or resource\"."
+    },
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "Parasail answered HTTP 404 for model \"{model}\". Its Chat Completions reference (https://docs.parasail.io/parasail-docs/api-reference/chat-completions.md) lists 404 as \"Model or endpoint not found\"."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Parasail answered HTTP 429. Its Chat Completions reference (https://docs.parasail.io/parasail-docs/api-reference/chat-completions.md) lists 429 as \"Rate limit or quota exceeded—back off and retry\"."
+    }
+  ],
+  "setup": {
+    "url": "https://www.saas.parasail.io/keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://www.saas.parasail.io/keys — the link the Authentication page (https://docs.parasail.io/parasail-docs/api-reference/authentication.md) gives for getting an API key; sign-in was not attempted while building this entry",
+      "2. Create an API key and copy it when it is shown — the Authentication page steps read \"Click Create API Key.\" and \"Copy the key immediately—it's displayed only once.\"",
+      "3. Billing as the vendor states it: the Pricing page (https://docs.parasail.io/parasail-docs/billing/pricing.md) says \"To use models, create API keys, and access paid platform services, add a credit card. Without a card, you can still view the platform but can't use models or API keys.\"",
+      "4. Set {apiKeyEnvVar} in your .env file (the docs' examples use the environment variable PARASAIL_API_KEY)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.parasail.io/v1/models needs a key (an unauthenticated GET on 2026-09-29 answered HTTP 401), so the 12 model ids come from https://docs.parasail.io/parasail-docs/products/overview/models.md (retrieved 2026-09-29), which lists 33 rows and says \"This catalog is generated daily from the live models endpoint.\", and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.parasail.io/v1: the Authentication page (https://docs.parasail.io/parasail-docs/api-reference/authentication.md) says \"All Parasail API requests use bearer token authentication. The API is fully OpenAI-compatible.\" and the Chat Completions reference (https://docs.parasail.io/parasail-docs/api-reference/chat-completions.md) documents POST https://api.parasail.io/v1/chat/completions with a messages array in and choices[].message.content out. Unauthenticated GETs made 2026-09-29: /models, /chat/completions and the base URL /v1 each answered HTTP 401 with content-type application/json;charset=ISO-8859-1 and the body text \"Unauthorized. No bearer token provided.\". No POST request was sent. errorRules carry the four statuses 401, 403, 404 and 429 from the Error responses table of the Chat Completions reference. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (16384) are placeholders the vendor does not publish as general values; they apply to model ids outside models.catalog and equal the Context window cell of the Qwen2.5-VL 72B row and the Max output cell of the Llama 3.3 70B (FP8) row on the Models page. Each model's status field holds production, a value the catalog schema requires; it is not a vendor statement. Each model's vision field holds false except for parasail-qwen25-vl-72b-instruct, whose true comes from the Multi-Modal guide; the false values are placeholders for a boolean the schema requires, not vendor statements. capabilities.text is true because the Chat Completions reference documents POST /v1/chat/completions. capabilities.streaming is true because that reference has a Streaming section describing stream: true with server-sent events. capabilities.tools is model-dependent because the Tool/Function Calling guide (https://docs.parasail.io/parasail-docs/guides/tool-function-calling.md) lists serverless models that return structured tool calls in a table and names other models that \"don't support the tools parameter today\". capabilities.structuredOutput is true because the Structured Output guide (https://docs.parasail.io/parasail-docs/guides/structured-output.md) documents response_format with type json_schema and guided_json, and lists models in a table with a \"Guided JSON / JSON Schema\" column. These capabilities were not exercised: no key was available. capabilities.toolsWithStreaming and capabilities.structuredOutputWithTools are false because no request combining them was sent. capabilities.embeddings is false because NeuroLink's generic catalog provider does not implement embed(); the Chat Completions reference's endpoint table lists POST /v1/embeddings. capabilities.thinking is false because the entry sets no reasoning request parameter, although the Model-specific Notes page (https://docs.parasail.io/parasail-docs/products/overview/model-specific-notes.md) documents model-specific thinking and reasoning controls. billingPolicy holds the schema value no-free-tier because the catalog schema has no unknown value; it is not a vendor statement of signup terms. The Pricing page (https://docs.parasail.io/parasail-docs/billing/pricing.md) states a card requirement, quoted in instruction 3, and the rate-limit table on https://docs.parasail.io/parasail-docs/operate-in-production/limits-and-quotas.md has a product class \"Serverless - Free\" (RPM column \"5\"). apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.parasail.io/v1/models answers 401 without a key, so model ids are taken from https://docs.parasail.io/parasail-docs/products/overview/models.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api.parasail.io/v1/models with no credentials — HTTP 401, content-type application/json;charset=ISO-8859-1, body text \"Unauthorized. No bearer token provided.\" (plain text, no error code field); the same day unauthenticated GETs of https://api.parasail.io/v1/chat/completions and https://api.parasail.io/v1 answered HTTP 401 with the same body text; credential-free, no key used, no POST request sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.parasail.io/parasail-docs/billing/pricing.md (\"To use models, create API keys, and access paid platform services, add a credit card. Without a card, you can still view the platform but can't use models or API keys.\") and https://docs.parasail.io/parasail-docs/operate-in-production/limits-and-quotas.md (rate-limit table product class \"Serverless - Free\", RPM column \"5\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

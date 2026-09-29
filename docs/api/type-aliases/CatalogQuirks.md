@@ -53,3 +53,18 @@ Vendor wants each assistant turn's `reasoning_content` sent back on
 every later request of the conversation (DeepSeek documents a 400
 without it once tools are in play). ConfiguredOpenAICompatProvider
 turns on the replay; every other provider leaves the field off.
+
+---
+
+### authHeaderStyle?
+
+> `optional` **authHeaderStyle?**: `"x-api-key"`
+
+Vendor's chat-completions endpoint authenticates with a vendor-specific
+header instead of the OpenAI-standard `Authorization: Bearer <key>`.
+"x-api-key": send `X-Api-Key: <key>` and omit Authorization entirely —
+Reka's OpenAPI spec declares this as its one security scheme (the
+OpenAI-SDK-style examples elsewhere in its docs pass the key through a
+client that still emits this header under the hood). Normalized by
+ConfiguredOpenAICompatProvider.getAuthHeaders(); omitted means the
+inherited Bearer default.

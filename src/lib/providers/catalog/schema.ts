@@ -156,6 +156,7 @@ const catalogQuirksSchema = z.strictObject({
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),
   responseFormatDowngrade: z.literal("json-schema-to-json-object").optional(),
   replayReasoningContent: z.boolean().optional(),
+  authHeaderStyle: z.literal("x-api-key").optional(),
 });
 
 const catalogTimeoutsSchema = z.strictObject({

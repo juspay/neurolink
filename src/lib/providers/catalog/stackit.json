@@ -1,0 +1,126 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "stackit",
+  "displayName": "STACKIT",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1"
+  },
+  "models": {
+    "default": "Qwen/Qwen3-VL-235B-A22B-Instruct-FP8",
+    "fallbacks": [
+      "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3.8-27B",
+      "google/gemma-4-31B-it",
+      "openai/gpt-oss-20b"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "Qwen/Qwen3-VL-235B-A22B-Instruct-FP8": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 16384,
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Row \"Qwen3-VL 235B\" (heading \"Full Name: Qwen/Qwen3-VL-235B-A22B-Instruct-FP8\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Premium\", Modalities \"Input are text and image and Output is text.\", Features \"Tool calling enabled\", Maximum images per request \"10\", Context length \"200K Token\", Maximum Generation \"16384 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". The row's text reads \"Meet Qwen3-VL – the most powerful vision-language model in the Qwen series to date.\" Vision is true from the Modalities cell; context is recorded as 200000, reading K as thousands."
+      },
+      "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Row \"Llama 3.3 70B\" (heading \"Full Name: cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Plus\", Modalities \"Input and output are text.\", Features \"Tool calling enabled\", Context length \"128K Token\", Maximum Generation \"4096 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". This id is the \"model\" value in the curl example of https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/getting-started/getting-started-with-shared-models/, which says \"In this guide we use Llama 3.3 70B.\" The FAQ (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/faq/) lists this id under \"This behavior currently affects the following tool-calling enabled models:\" and says \"To avoid hallucinated tool calls, do not send the tools parameter with an empty list.\" Vision is false from the Modalities cell; context is recorded as 128000, reading K as thousands."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131000,
+        "maxOutputTokens": 8192,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Row \"GPT-OSS 120B\" (heading \"Full Name: openai/gpt-oss-120b\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Plus\", Modalities \"Input and output are text.\", Features \"Tool calling & Reasoning enabled\", Context length \"131K Token\", Maximum Generation \"8192 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". The vendor's release note of Dec 10, 2025 (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/release-notes/) says \"The model provides full chain-of-thought (CoT) and support Structured Outputs.\" Vision is false from the Modalities cell; context is recorded as 131000, reading K as thousands."
+      },
+      "Qwen/Qwen3.8-27B": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 16384,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Row \"Qwen3.8 27B\" (heading \"Full Name: Qwen/Qwen3.8-27B\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Plus\", Modalities \"Input are text and image and Output is text.\", Features \"Tool calling & Reasoning enabled\", Maximum images per request \"10\", Context length \"262K Token\", Maximum Generation \"16384 Token\", Thinking budget \"8192 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". The id also appears in the Sep 8, 2026 release note (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/release-notes/). Vision is true from the Modalities cell; context is recorded as 262000, reading K as thousands."
+      },
+      "google/gemma-4-31B-it": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Row \"Gemma 4 31B\" (heading \"Full Name: google/gemma-4-31B-it\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Plus\", Modalities \"Input are text and image and Output is text.\", Maximum images per request \"10\", Features \"Tool calling & Reasoning enabled\", Context length \"256K Token\", Maximum Generation \"4096 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". The id also appears in the Jul 14, 2026 release note (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/release-notes/). Vision is true from the Modalities cell; context is recorded as 256000, reading K as thousands."
+      },
+      "openai/gpt-oss-20b": {
+        "contextWindow": 131000,
+        "maxOutputTokens": 8192,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Row \"GPT-OSS 20B\" (heading \"Full Name: openai/gpt-oss-20b\") on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29) with these cell values: Type \"Chat\", Category \"LLM-Standard\", Modalities \"Input and output are text.\", Features \"Tool calling & Reasoning enabled\", Context length \"131K Token\", Maximum Generation \"8192 Token\", Specification \"OpenAI-compatible\", Status \"Supported\". The row's note reads \"We recommend configuring retries for tool calling to improve reliability. Alternatively, consider switching to one of our bigger models, that support this feature.\" Vision is false from the Modalities cell; context is recorded as 131000, reading K as thousands."
+      }
+    },
+    "topModels": [
+      "Qwen/Qwen3-VL-235B-A22B-Instruct-FP8",
+      "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3.8-27B",
+      "google/gemma-4-31B-it",
+      "openai/gpt-oss-20b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": false,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "STACKIT answered HTTP 404 for model \"{model}\". Its FAQ (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/faq/) says of a 404: \"Most likely this is due to an incorrect “model” parameter in the request body.\""
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "STACKIT answered HTTP 429. Its rate-limits page (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/how-tos/rate-limits-on-shared-models-_stackit-ai-model-serving/) says \"Once you hit a rate limit (RPM or TPM)\" the API responds with 429 Too Many Requests, and that \"Every response contains rate-limit specific headers\", including x-ratelimit-remaining-requests and x-ratelimit-remaining-tokens."
+    }
+  ],
+  "setup": {
+    "url": "https://portal.stackit.cloud",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://portal.stackit.cloud and log in to the customer portal — the Getting started page says \"To enable AI Model Serving login to the Customer portal and click at the sidebar on the left on AI Model Serving.\" and lists a STACKIT customer account, a STACKIT user account and a STACKIT project as prerequisites (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/getting-started/getting-started-with-shared-models/)",
+      "2. Enable AI Model Serving, click Create token, enter a token name and optionally a lifetime in days, and confirm with \"Order fee-based\" (\"To confirm click on Order fee-based.\"); the same page says \"You can not retrieve the token again after closing the pane\", so copy it when it is shown",
+      "3. Billing as the vendor states it: the May 6, 2025 release note says \"STACKIT AI Model Serving offers you easy pay-as-you-go access to proven GenAI models\" (https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/release-notes/); the product page (https://stackit.com/en/products/data-ai/stackit-ai-model-serving) offers \"Register for a free trial access\" — \"All registrations are manually checked by us. If you qualify, you will receive your personal token to use STACKIT AI Model Serving within 24 hours. The trial period ends automatically after 30 days.\" — and shows a price table in euro (€)",
+      "4. Set {apiKeyEnvVar} in your .env file (the docs' examples read STACKIT_MODEL_SERVING_AUTH_TOKEN and STACKIT_MODEL_SERVING_API_KEY, which NeuroLink does not read)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1/models needs a key (an unauthenticated GET on 2026-09-29 answered HTTP 403 with content-length 0 and no body), so the six chat model ids come from the \"Full Name:\" headings of https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29), and the roster has not been checked; the entry is not yet live-verified. No account was created and no API key was used to build this entry. OpenAI-compatible endpoint at https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1: the six chat model rows in this catalog show Specification \"OpenAI-compatible\" and Available Endpoints \"POST /chat/completions\", \"POST /completions\" and \"GET /models\", and https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/how-tos/use-the-models/ says \"STACKIT AI Model Serving provides an OpenAI-compatible API, making it easy to integrate with existing tools and libraries.\" Its curl example sends \"Authorization: Bearer [auth-token]\" and a JSON body with \"model\" and \"messages\" to https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1/chat/completions. The sample reply shown under the POST /v1/chat/completions curl request on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/getting-started/getting-started-with-shared-models/ reads \"object\":\"text_completion\" and \"choices\":[{\"index\":0,\"text\":. Unauthenticated GETs made 2026-09-29: /models, /chat/completions and the base URL /v1 each answered HTTP 403 with content-length 0 and no body. No POST request was sent. The Available Shared Models page also lists Status \"Deprecated\" for the rows \"Qwen3.6 27B\" and \"Gemma 3 27B\"; neither is in this catalog. errorRules carry only the two statuses the vendor's pages state, 404 (FAQ) and 429 (rate-limits page). models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (4096) are placeholders the vendor does not publish as general values; they apply to model ids outside the catalog and equal the Context length \"128K Token\" and Maximum Generation \"4096 Token\" cells of the Llama 3.3 70B row. Each model's context window is the page's \"K Token\" figure read as thousands. The status field of the six catalogued models holds production: the catalog schema requires a status (production, preview or retired) and the vendor's rows show Status \"Supported\". capabilities.text is true because the Getting started page documents a chat completions curl request; capabilities.tools is model-dependent: the Features cell reads \"Tool calling enabled\" on the Qwen3-VL 235B and Llama 3.3 70B rows and \"Tool calling & Reasoning enabled\" on the other four catalogued rows, and the LangChain example on https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/how-tos/integration-of-tool-calling/ prints tool_call_response.tool_calls; the other capability flags are false, meaning not declared by this entry, and no request exercising them was sent. billingPolicy holds no-free-tier because the schema takes one of three values and the token-creation step says \"To confirm click on Order fee-based.\"; the free trial the product page describes is in step 3. apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 403,
+      "method": "docs-only — unauthenticated GET https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1/models answers 403 without a key, so model ids are taken from https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/basics/available-shared-models/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 403,
+      "method": "unauthenticated GET https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1/models — HTTP 403, content-length 0, no response body, so no error code was observable; the same day unauthenticated GETs of .../v1/chat/completions and .../v1 answered HTTP 403 with content-length 0; credential-free, no key used, no POST sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/getting-started/getting-started-with-shared-models/ (token step \"To confirm click on Order fee-based.\"), https://docs.stackit.cloud/products/data-and-ai/ai-model-serving/release-notes/ (May 6, 2025: \"easy pay-as-you-go access\") and https://stackit.com/en/products/data-ai/stackit-ai-model-serving (\"Register for a free trial access\", \"The trial period ends automatically after 30 days.\", and a STACKIT AI Model Serving price table in euro); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

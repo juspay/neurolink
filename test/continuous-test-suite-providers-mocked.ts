@@ -135,8 +135,15 @@ type OpenAICompatSpec = {
   extraEnv?: Record<string, string>;
   /** Substring of the upstream URL the provider should hit. */
   urlMatch: string;
-  /** Expected auth scheme on the Authorization header. */
+  /** Expected auth scheme on the Authorization header. Unused when
+   *  rawAuthHeader is set. */
   authPrefix: string;
+  /** Mirrors the catalog's quirks.authHeaderStyle: when set, the provider
+   *  sends the raw credential (no "Bearer " prefix) under this header name
+   *  instead of Authorization, and must send no Authorization header at
+   *  all. Currently only Reka (see getAuthHeaders() in
+   *  configuredOpenAICompat.ts). */
+  rawAuthHeader?: string;
   /** Model name to pass through. */
   model: string;
   /** Friendly auth-error substring expected in the 401 case. */
@@ -180,6 +187,7 @@ type CatalogJsonEntry = {
     envOverrides?: CatalogWireEnvOverrides;
   };
   models: { default: string };
+  quirks?: { authHeaderStyle?: string };
 };
 
 function derivedCatalogEnvVar(
@@ -251,6 +259,9 @@ async function buildOpenAICompatProviders(): Promise<OpenAICompatSpec[]> {
       ...(extraEnv ? { extraEnv } : {}),
       urlMatch,
       authPrefix: "Bearer ",
+      ...(entry.quirks?.authHeaderStyle === "x-api-key"
+        ? { rawAuthHeader: "x-api-key" }
+        : {}),
       model: entry.models.default,
       authErrorMatch: new RegExp(`${entry.id}|401|unauthor|api key`, "i"),
       rateLimitErrorMatch: new RegExp(`${entry.id}|rate.?limit|429`, "i"),
@@ -314,12 +325,24 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
           `URL contains '${spec.urlMatch}' (got ${call.url})`,
         );
         expectEq(call.method, "POST", "request method");
-        expect(
-          (call.headers["authorization"] ?? "").startsWith(
-            `${spec.authPrefix}${fakeKey}`,
-          ),
-          `Authorization header starts with '${spec.authPrefix}${fakeKey.slice(0, 12)}...'`,
-        );
+        if (spec.rawAuthHeader) {
+          expectEq(
+            call.headers[spec.rawAuthHeader],
+            fakeKey,
+            `${spec.rawAuthHeader} header carries the configured credential`,
+          );
+          expect(
+            !("authorization" in call.headers),
+            "no Authorization header is sent when the provider's quirk-declared auth transport replaces it",
+          );
+        } else {
+          expect(
+            (call.headers["authorization"] ?? "").startsWith(
+              `${spec.authPrefix}${fakeKey}`,
+            ),
+            `Authorization header starts with '${spec.authPrefix}${fakeKey.slice(0, 12)}...'`,
+          );
+        }
         const body = call.bodyJson as { model: string; messages: unknown[] };
         expect(typeof body === "object", "body is JSON object");
         expectEq(body.model, spec.model, "body.model");

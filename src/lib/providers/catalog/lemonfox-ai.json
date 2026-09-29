@@ -1,0 +1,78 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "lemonfox-ai",
+  "displayName": "Lemonfox AI",
+  "aliases": ["lemonfox"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.lemonfox.ai/v1"
+  },
+  "models": {
+    "default": "deepseek-v4-flash",
+    "fallbacks": ["mimo-v2.5-pro"],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "deepseek-v4-flash": {
+        "contextWindow": 1000000,
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. On https://www.lemonfox.ai/apis/chat (retrieved 2026-09-29) the model parameter reads \"Specify the model ID to be used. Default: deepseek-v4-flash. Also supported: mimo-v2.5-pro.\", the introduction says \"We support state-of-the-art open-source AI models, including DeepSeek V4 Flash (default) and MiMo V2.5 Pro.\", and the model table row reads \"DeepSeek V4 Flash is our default model — fast, cost-effective, and suitable for most tasks. Supports a 1M token context window.\" with \"Price / 1M tokens\" $0.50. contextWindow 1000000 is NeuroLink's decimal reading of \"1M\". The page's JavaScript, Python and Curl examples name this id."
+      },
+      "mimo-v2.5-pro": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. On https://www.lemonfox.ai/apis/chat (retrieved 2026-09-29) the model parameter reads \"Specify the model ID to be used. Default: deepseek-v4-flash. Also supported: mimo-v2.5-pro.\", the introduction names \"MiMo V2.5 Pro\", and the model table row reads \"MiMo V2.5 Pro is a powerful model from Xiaomi, recommended for complex reasoning and coding tasks.\" with \"Price / 1M tokens\" $1.25. No contextWindow is set."
+      }
+    },
+    "topModels": ["deepseek-v4-flash", "mimo-v2.5-pro"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Lemonfox AI answered HTTP 401 (a request with no key gets: \"You didn't provide an API key.\"). Check {apiKeyEnvVar}. Keys: https://lemonfox.ai/apis/keys"
+    }
+  ],
+  "setup": {
+    "url": "https://lemonfox.ai/signup",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://lemonfox.ai/signup (the \"Get started\" and \"Start Your Free Trial\" links on https://www.lemonfox.ai/apis/chat both point to /signup); sign-up was not attempted while building this entry",
+      "2. Create an API key at https://lemonfox.ai/apis/keys — https://www.lemonfox.ai/apis/chat links \"create an API key\" to that page, and the API's 401 reply says \"You can obtain an API key from https://lemonfox.ai/apis/keys.\"",
+      "3. Billing as the vendor states it: https://www.lemonfox.ai/ shows \"Try our APIs for 1 month for free.\"; https://www.lemonfox.ai/apis/chat shows \"First month for free!\" and lists \"Price / 1M tokens\" of $0.50 for deepseek-v4-flash and $1.25 for mimo-v2.5-pro; https://www.lemonfox.ai/terms says Lemon Fox GmbH uses Paddle as its Merchant of Record and offers \"subscription-based pricing and usage-based pricing\"",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.lemonfox.ai/v1/models needs a key (it answers HTTP 401 without one), so the two model ids come from https://www.lemonfox.ai/apis/chat (retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.lemonfox.ai/v1: the page says \"Our OpenAI-compatible API takes a list of messages as input and provides an AI-generated (assistant) message as output.\", its JavaScript and Python examples pass baseURL/base_url \"https://api.lemonfox.ai/v1\" to the OpenAI client, its API Parameters section shows POST https://api.lemonfox.ai/v1/chat/completions, and its Curl example sends the header Authorization: Bearer YOUR_API_KEY. Unauthenticated GETs made 2026-09-29: /models, /chat/completions and the base URL /v1 each answered HTTP 401 with the JSON body {\"status\":401,\"error\":{\"message\":\"You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY). You can obtain an API key from https://lemonfox.ai/apis/keys.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}. No POST request was sent. errorRules holds one rule, for status 401. The page's model table lists deepseek-v4-flash and mimo-v2.5-pro; a second table under the heading \"Deprecated models\" lists llama-8b-chat and llama-70b-chat, each description starting \"Deprecated.\", and those two ids are not in this catalog. models.defaultContextWindow (32768) and models.defaultMaxOutputTokens (4096) are placeholders the vendor does not publish, for model ids outside models.catalog; the page's max_tokens parameter reads \"integer, optional, default: infinity\". deepseek-v4-flash's contextWindow (1000000) is NeuroLink's decimal reading of \"Supports a 1M token context window.\"; mimo-v2.5-pro has no contextWindow set. pricingPerMTok is unset on both models: the model table has one column, \"Price / 1M tokens\" ($0.50 and $1.25), and the catalog field takes separate input and output figures. Each model's vision field holds false, a placeholder for a boolean the catalog schema requires; it is not a vendor statement. Each model's status field holds production, a value the catalog schema requires; the page lists these two models in its main table. capabilities.text is true because the page's examples send a messages array and read choices[0].message.content. capabilities.streaming is true because the page's stream parameter reads \"incremental message updates are transmitted as server-sent events with data-only messages.\" capabilities.tools, toolsWithStreaming, structuredOutput, structuredOutputWithTools, embeddings and thinking are false, meaning not declared by this entry: the page's API Parameters section lists messages, model, max_tokens, stop, stream, frequency_penalty, presence_penalty, temperature and top_p, and no request exercising any capability was sent. billingPolicy holds free-with-card, the growth queue's classification, because the catalog schema has no unknown value and takes one of free-tier, free-with-card and no-free-tier; it is not a vendor statement of signup terms, and the vendor's own wording is in setup.instructions step 3 and evidence.billingProbe. apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.lemonfox.ai/v1/models answers 401 without a key, so model ids are taken from https://www.lemonfox.ai/apis/chat (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "invalid_request_error",
+      "method": "unauthenticated GET https://api.lemonfox.ai/v1/models with no credentials — HTTP 401, content-type application/json; charset=utf-8, JSON body {\"status\":401,\"error\":{\"message\":\"You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY). You can obtain an API key from https://lemonfox.ai/apis/keys.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}; code records the body's error.type because error.code is null; the same day unauthenticated GETs of https://api.lemonfox.ai/v1/chat/completions and https://api.lemonfox.ai/v1 answered HTTP 401 with a byte-identical body; credential-free, no key used, no POST request sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://www.lemonfox.ai/ (\"Try our APIs for 1 month for free.\"), https://www.lemonfox.ai/apis/chat (\"First month for free!\", \"Start Your Free Trial\") and https://www.lemonfox.ai/terms (Paddle as Merchant of Record; \"subscription-based pricing and usage-based pricing\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

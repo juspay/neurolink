@@ -1,0 +1,145 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "inceptron",
+  "displayName": "Inceptron",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.inceptron.io/v1"
+  },
+  "models": {
+    "default": "zai-org/GLM-5.3",
+    "fallbacks": [
+      "moonshotai/Kimi-K2.6",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "zai-org/GLM-5.2"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "zai-org/GLM-5.3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The model named in the code examples on the vendor's docs Get Started page (https://docs.inceptron.io), Introduction (https://docs.inceptron.io/introduction), Chat Completions API Reference (https://docs.inceptron.io/API%20Reference/chat-completions), Error Handling and Handling Streaming Responses pages, and in the Kilo Code and OpenCode config (\"model\": \"inceptron/zai-org/GLM-5.3\") on https://docs.inceptron.io/Guides/kilo-code, which states: \"GLM-5.3 supports a 1M-token context window (1,048,576 tokens)\". The config block on that page has \"limit\" set to context 1048576 and output 1048576. Models page https://www.inceptron.io/models (2026-09-29): tags text, code, tool-calling, reasoning; 1M context; quantization fp4; size 754B; input $1.40, output $4.40 and cache read $0.26 per 1M tokens. The docs Models API Reference (https://docs.inceptron.io/API%20Reference/models) lists it with Deployment Mode Serverless. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 1048576, max_output_length 1048576, input_modalities [\"text\"], supported_features chat, completion, tools, reasoning, json_mode, structured_outputs. vision is false because the roster input_modalities is [\"text\"]."
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.73,
+          "output": 3.5,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. The model named in the tool-calling examples on https://docs.inceptron.io/Guides/tool-calling and https://docs.inceptron.io/API%20Reference/chat-completions (request, response and streamed tool-call response examples). Models page https://www.inceptron.io/models (2026-09-29): tags multimodal, tool-calling, reasoning; 262K context; quantization Int4; size 1T; input $0.73, output $3.50 and cache read $0.25 per 1M tokens. The docs Models API Reference (https://docs.inceptron.io/API%20Reference/models) lists it with Deployment Mode Serverless. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 262144, max_output_length 262144, input_modalities [\"text\",\"image\"], supported_features chat, completion, tools, reasoning, logprobs, json_mode, structured_outputs. vision is true from the models page tag multimodal and the roster input_modalities; an image request was not exercised live."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.13,
+          "output": 0.28,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed among the currently supported Inceptron model IDs on https://docs.inceptron.io/Guides/kilo-code and with Deployment Mode Serverless on the docs Models API Reference (https://docs.inceptron.io/API%20Reference/models). Models page https://www.inceptron.io/models (2026-09-29): tags text, code, tool-calling, reasoning; 1M context; quantization fp4; size 284B; input $0.13, output $0.28 and cache read $0.03 per 1M tokens. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 1048576, max_output_length 1048576, input_modalities [\"text\"], supported_features chat, completion, tools, reasoning, logprobs, json_mode, structured_outputs. vision is false because the roster input_modalities is [\"text\"]."
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.2,
+          "output": 4.2,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed among the currently supported Inceptron model IDs on https://docs.inceptron.io/Guides/kilo-code and with Deployment Mode Serverless on the docs Models API Reference (https://docs.inceptron.io/API%20Reference/models). Models page https://www.inceptron.io/models (2026-09-29): tags text, code, tool-calling, reasoning; 1M context; quantization fp4; size 754B; input $1.20, output $4.20 and cache read $0.26 per 1M tokens. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 1048576, max_output_length 1048576, input_modalities [\"text\"], supported_features chat, completion, tools, reasoning, logprobs, json_mode, structured_outputs. vision is false because the roster input_modalities is [\"text\"]."
+      },
+      "moonshotai/Kimi-K2.7-Code": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 3.5,
+          "cachedInput": 0.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Listed among the currently supported Inceptron model IDs on https://docs.inceptron.io/Guides/kilo-code and with Deployment Mode Serverless on the docs Models API Reference (https://docs.inceptron.io/API%20Reference/models). Models page https://www.inceptron.io/models (2026-09-29): tags multimodal, tool-calling, reasoning; 262K context; quantization Int4; size 1T; input $0.75, output $3.50 and cache read $0.20 per 1M tokens. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 262144, max_output_length 262144, input_modalities [\"text\",\"image\"], supported_features chat, completion, tools, reasoning, logprobs, json_mode, structured_outputs. vision is true from the models page tag multimodal and the roster input_modalities; an image request was not exercised live."
+      },
+      "zai-org/GLM-5.3-Flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.07
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The vendor homepage (https://www.inceptron.io) shows the text \"Try GLM 5.3 Flash\". Models page https://www.inceptron.io/models (2026-09-29): tags text, code, tool-calling, reasoning; \"1.3M context\"; quantization fp8; size 753B; input $0.15, output $0.50 and cache read $0.07 per 1M tokens. Roster (unauthenticated GET https://api.inceptron.io/v1/models, 2026-09-29): context_length 1048576 (contextWindow uses this figure), max_output_length 1048576, input_modalities [\"text\"], supported_features chat, completion, tools, reasoning, json_mode, structured_outputs. vision is false because the roster input_modalities is [\"text\"]."
+      }
+    },
+    "topModels": [
+      "zai-org/GLM-5.3",
+      "moonshotai/Kimi-K2.6",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "zai-org/GLM-5.2",
+      "moonshotai/Kimi-K2.7-Code",
+      "zai-org/GLM-5.3-Flash"
+    ],
+    "visionModel": "moonshotai/Kimi-K2.6"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Inceptron returned HTTP 401 unauthorized. The vendor's Error Handling page (https://docs.inceptron.io/Guides/error-handling) describes 401 as: Your API key is missing, invalid, or disabled. NeuroLink reads {apiKeyEnvVar}; keys come from {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Inceptron returned HTTP 429. The vendor's Error Handling page (https://docs.inceptron.io/Guides/error-handling) describes 429 as: You have exceeded your rate limit."
+    }
+  ],
+  "setup": {
+    "url": "https://console.inceptron.io",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://console.inceptron.io and sign in or sign up — the sign-in page shows Continue with Google, Continue with GitHub and Sign in with email, and links to https://console.inceptron.io/auth/signup",
+      "2. Create an API key — the Introduction page says: \"After signing up, navigate to the account section of the dashboard to create an API key.\" (https://docs.inceptron.io/introduction)",
+      "3. Set {apiKeyEnvVar} in your .env file (the docs' examples read INCEPTRON_API_KEY)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.inceptron.io/v1 (https://docs.inceptron.io/API%20Reference/chat-completions: \"Our API is compliant with OpenAI's Chat Completions API\"), with the 6 models the unauthenticated GET /models roster listed on 2026-09-29 in models.catalog. An unauthenticated GET of https://api.inceptron.io/v1/chat/completions returned HTTP 401 with error.type invalid_request_error and error.code unauthorized (2026-09-29), so errorRules match status 401; the 429 rule uses the status the vendor's Error Handling page lists. pricingPerMTok is taken from the models page https://www.inceptron.io/models (2026-09-29); the pricing field in the roster response carries different values. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (16384) are NeuroLink placeholders for model ids outside models.catalog, not vendor figures; the roster max_output_length values are quoted in the models.catalog descriptions and no per-model maxOutputTokens is set. Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. billingPolicy no-free-tier is a schema placeholder (the schema has no unknown value), not a vendor statement. Verification level: docs- and roster-verified, not yet live-verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.inceptron.io/v1/models — 6 models; credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "unauthorized",
+      "method": "unauthenticated GET https://api.inceptron.io/v1/chat/completions — error.type invalid_request_error; credential-free, no key used"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

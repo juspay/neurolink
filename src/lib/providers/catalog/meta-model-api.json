@@ -1,0 +1,150 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "meta-model-api",
+  "displayName": "Meta Model API",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.meta.ai/v1"
+  },
+  "models": {
+    "default": "muse-spark-1.3",
+    "fallbacks": ["muse-spark-1.2", "muse-spark-1.1"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "muse-spark-1.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.25,
+          "output": 4.25,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29): \"muse-spark-1.3 is the default model in the code examples throughout these docs.\" The page describes it as \"the latest version, tuned for agentic workflows (multi-step tool, browser, and long-horizon tasks) with improved coding over 1.2.\" and says \"Recommended for new work.\" Standard tier; context window 1,048,576 tokens (\"Available Muse Spark models\" table on the Models page). Price per 1M tokens on https://dev.meta.ai/docs/pricing-rate-limits: input $1.25, output $4.25, cached input $0.15. maxOutputTokens 131072 is the output figure in the Coding agents guide (https://dev.meta.ai/docs/coding-agents) entry for this model id: \"Limits: context = 1048576, output = 131072\". vision is true: the \"Available Muse Spark models\" table on the Models page lists image among its input modalities, and the Image understanding page (https://dev.meta.ai/docs/image-understanding) says \"image understanding is fully supported\" on Chat Completions."
+      },
+      "muse-spark-1.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.25,
+          "output": 4.25,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29): \"the previous version.\" The home page (https://dev.meta.ai/) card for Muse Spark 1.2 says \"A coding-optimized model purpose-built for agentic workflows.\" Standard tier; context window 1,048,576 tokens (\"Available Muse Spark models\" table on the Models page). Price per 1M tokens on https://dev.meta.ai/docs/pricing-rate-limits: input $1.25, output $4.25, cached input $0.15. vision is true: the \"Available Muse Spark models\" table on the Models page lists image among its input modalities."
+      },
+      "muse-spark-1.1": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.25,
+          "output": 4.25,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29): \"the original version.\" The home page (https://dev.meta.ai/) card for Muse Spark 1.1 says \"Built for agentic workflows, coding, computer use & multimodal perception.\" Standard tier; context window 1,048,576 tokens (\"Available Muse Spark models\" table on the Models page). Price per 1M tokens on https://dev.meta.ai/docs/pricing-rate-limits: input $1.25, output $4.25, cached input $0.15. vision is true: the \"Available Muse Spark models\" table on the Models page lists image among its input modalities."
+      },
+      "muse-spark-1.3-contributor": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2,
+          "cachedInput": 0.002
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Contributor tier. Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29): the Contributor variant \"trades a lower price for permission to train on your prompts and completions\". The Pricing page (https://dev.meta.ai/docs/pricing-rate-limits) says \"Heavily discounted token pricing in exchange for permission to use your prompts and completions to train future Meta models.\" Context window 1,048,576 tokens (\"Available Muse Spark models\" table on the Models page). Price per 1M tokens on the Pricing page: input $0.10, output $0.20, cached input $0.002. vision is true: the \"Available Muse Spark models\" table on the Models page lists image among its input modalities. Not in models.fallbacks."
+      },
+      "muse-spark-1.2-contributor": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2,
+          "cachedInput": 0.002
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Contributor tier. Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29): the Contributor variant \"trades a lower price for permission to train on your prompts and completions\". The Pricing page (https://dev.meta.ai/docs/pricing-rate-limits) says \"Heavily discounted token pricing in exchange for permission to use your prompts and completions to train future Meta models.\" Context window 1,048,576 tokens (\"Available Muse Spark models\" table on the Models page). Price per 1M tokens on the Pricing page: input $0.10, output $0.20, cached input $0.002. vision is true: the \"Available Muse Spark models\" table on the Models page lists image among its input modalities. Not in models.fallbacks."
+      }
+    },
+    "topModels": [
+      "muse-spark-1.3",
+      "muse-spark-1.3-contributor",
+      "muse-spark-1.2",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.1"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Meta Model API rejected the request's authentication (HTTP 401; an unauthenticated GET of /models returned error.code \"invalid_api_key\" and error.type \"authentication_error\" on 2026-09-29, and the Error handling page lists 401 Unauthorized: \"The API key was missing, invalid, or revoked.\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Meta Model API returned HTTP 402 (the Error handling page lists 402 Payment Required: \"The request cannot be completed due to a billing issue.\", with an example body whose error.code is \"billing_not_configured\")."
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "Meta Model API returned HTTP 403 (the Error handling page lists 403 Forbidden: \"The API key does not have permission to access the requested resource.\")."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Meta Model API returned HTTP 429 (the Error handling page lists 429 Too Many Requests: \"Your team has exceeded the rate limit.\")."
+    },
+    {
+      "pattern": "model_not_found",
+      "class": "invalid-model",
+      "message": "Meta Model API reported model {model} as not found (the Error handling page says \"an unknown model returns model_not_found\")."
+    }
+  ],
+  "setup": {
+    "url": "https://dev.meta.ai/",
+    "apiKeyFormat": "^LLM\\|.+\\|.+$",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://dev.meta.ai/ — the page carries a \"Start building\" button whose link target is /api/auth/login",
+      "2. Create an API key: the Authentication page (https://dev.meta.ai/docs/authentication) lists the steps \"Log in and open the API keys tab.\", \"Click Create API key, give it a descriptive name, and click Create.\" and \"Copy the key right away. You only see it once.\"",
+      "3. Authentication is a Bearer token: the Authentication page says \"Pass the key as a Bearer token in the Authorization header:\", and the Error handling page (https://dev.meta.ai/docs/error-handling) lists \"Malformed API key (not in LLM|{id}|{secret} format)\" as a cause of HTTP 401",
+      "4. Billing as the vendor states it: the Pricing page (https://dev.meta.ai/docs/pricing-rate-limits) says \"You pay only for what you use.\" and the Authentication and billing page (https://dev.meta.ai/docs/muse-code/auth) says \"Meta Model API billing is usage-based: you're billed for the tokens your requests consume.\"",
+      "5. Set {apiKeyEnvVar} in your .env file (the vendor's examples read MODEL_API_KEY, which NeuroLink does not)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.meta.ai/v1/models needs a key (an unauthenticated GET on 2026-09-29 answered HTTP 401), so the five model ids come from the Models page (https://dev.meta.ai/docs/models, retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.meta.ai/v1: the Chat Completions page (https://dev.meta.ai/docs/protocols/chat-completions) says \"The endpoint is OpenAI-compatible\" and \"The response matches the OpenAI chat completions shape.\", and the Overview (https://dev.meta.ai/docs/overview) says \"Model API is drop-in compatible with the OpenAI SDK, the Anthropic SDK, and OpenAI-compatible agent CLIs.\" The catalog holds the five model ids of the \"Available Muse Spark models\" table on the Models page (Standard tier: muse-spark-1.3, muse-spark-1.2, muse-spark-1.1; Contributor tier: muse-spark-1.3-contributor, muse-spark-1.2-contributor); the Chat Completions page says \"Chat Completions serves the Muse Spark text models.\" The Models page lists muse-image-1.0, muse-voice-transcribe-1.0 and sam-3.1 in separate per-family tables; they are not in the catalog. models.fallbacks lists the Standard-tier ids; the Contributor-tier ids are in models.catalog and models.topModels. apiKeyFormat follows the Error handling page's \"LLM|{id}|{secret} format\". models.defaultContextWindow (1048576) is the context window the Overview and Models pages state for the Muse Spark models; models.defaultMaxOutputTokens (16384) is a NeuroLink placeholder the vendor does not publish. The status field of the five models holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. billingPolicy no-free-tier is a schema placeholder (the schema has no unknown value), not a vendor statement. Verification level: docs-verified, not yet live-verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.meta.ai/v1/models answers 401 without a key, so model ids are taken from https://dev.meta.ai/docs/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "invalid_api_key",
+      "method": "unauthenticated GET https://api.meta.ai/v1/models — HTTP 401, content-type application/json, JSON body {\"error\":{\"code\":\"invalid_api_key\",\"message\":\"Unauthorized\",\"param\":null,\"type\":\"authentication_error\"}}; the same day an unauthenticated GET https://api.meta.ai/v1/chat/completions answered HTTP 401 with the same body and the header allow: POST; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://dev.meta.ai/docs/pricing-rate-limits (\"You pay only for what you use.\"; in its Muse Voice Transcribe paragraph: \"ZDR is priced at parity with Standard, and platform free-tier credits apply.\") and https://dev.meta.ai/docs/muse-code/auth (\"Meta Model API billing is usage-based: you're billed for the tokens your requests consume.\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

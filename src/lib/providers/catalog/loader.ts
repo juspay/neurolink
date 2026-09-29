@@ -212,6 +212,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     if (entry.quirks?.replayReasoningContent) {
       base.replayReasoningContent = true;
     }
+    if (entry.quirks?.authHeaderStyle) {
+      base.authHeaderStyle = entry.quirks.authHeaderStyle;
+    }
     return base;
   });
 }

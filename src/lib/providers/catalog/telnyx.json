@@ -1,0 +1,181 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "telnyx",
+  "displayName": "Telnyx",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.telnyx.com/v2/ai/openai"
+  },
+  "models": {
+    "default": "zai-org/GLM-5.3-Flash",
+    "fallbacks": [
+      "zai-org/GLM-5.3",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "moonshotai/Kimi-K3",
+      "moonshotai/Kimi-K2.6",
+      "zai-org/GLM-5.2",
+      "MiniMaxAI/MiniMax-M3-MXFP8",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "Qwen/Qwen3.8-27B"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "zai-org/GLM-5.3-Flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.135,
+          "output": 0.45,
+          "cachedInput": 0.027
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 320B, Context Length 1M and Best For \"Efficient multimodal coding and agentic workflows\", tagged \"(Recommended)\". The Inference API Quickstart (https://developers.telnyx.com/docs/inference/getting-started) uses it in its first chat-completions example with base_url https://api.telnyx.com/v2/ai/openai; the OpenAI Migration, Function Calling, Streaming and Parallel Calls and JSON Mode pages use it in their examples, and the Function Calling page (https://developers.telnyx.com/docs/inference/functions) says it \"is especially good at calling functions\". The Quickstart's note says reasoning models such as this one return their chain-of-thought in a separate reasoning_content field. contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"GLM-5.3 Flash — Fast, efficient inference\" on https://telnyx.com/pricing/inference-api: $0.135 input, $0.027 cached input, $0.45 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "zai-org/GLM-5.3": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 1.25,
+          "output": 4,
+          "cachedInput": 0.24
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 753.9B, Context Length 1M and Best For \"Complex coding and long-horizon agent tasks\". contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"GLM-5.3 — Flagship frontier intelligence\" on https://telnyx.com/pricing/inference-api: $1.25 input, $0.24 cached input, $4 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "deepseek-ai/DeepSeek-V4.1-Flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.006
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 552B backbone, Context Length 1M and Best For \"Low-latency multimodal inference\". The Service tiers page (https://developers.telnyx.com/docs/inference/service-tiers) uses this id in its Flex request example. contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"DeepSeek V4.1 Flash — Low-latency multimodal inference\" on https://telnyx.com/pricing/inference-api: $0.30 input, $0.006 cached input, $1.20 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "moonshotai/Kimi-K3": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2.7,
+          "output": 13.5,
+          "cachedInput": 0.27
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 2.8T, Context Length 1M and Best For \"State-of-the-art open-weight intelligence for coding, reasoning, and multimodal work\". contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"Kimi K3 — Multimodal intelligence, 1M context\" on https://telnyx.com/pricing/inference-api: $2.70 input, $0.27 cached input, $13.50 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.665,
+          "output": 4,
+          "cachedInput": 0.08
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 1.0T, Context Length 256K, Best For \"Voice AI\" and, in its Voice AI column, \"Verified — default\". The Get available models reference (https://developers.telnyx.com/api-reference/openai-chat/get-available-models-openai-compatible) uses this id as its example. contextWindow 256,000 is NeuroLink's decimal reading of the label 256K. Pricing row \"Kimi K2.6 — Highest intelligence, voice AI\" on https://telnyx.com/pricing/inference-api: $0.665 input, $0.08 cached input, $4 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 4,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 753.9B, Context Length 1M, Best For \"Coding, reasoning, 1M context window\" and, in its Voice AI column, \"Verified\". contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"GLM-5.2 — Next-gen efficient reasoning\" on https://telnyx.com/pricing/inference-api: $1 input, $0.20 cached input, $4 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "MiniMaxAI/MiniMax-M3-MXFP8": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.27,
+          "output": 1.1,
+          "cachedInput": 0.08
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 428B, Context Length 1M and Best For \"Cheapest while maintaining high intelligence\". contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. Pricing row \"MiniMax-M3 — Cheapest while maintaining high intelligence\" on https://telnyx.com/pricing/inference-api (named without the -MXFP8 suffix; its text is the same as this id's Best For cell): $0.27 input, $0.08 cached input, $1.10 output per 1M tokens. vision is a placeholder (see setup.description)."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 1000000,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 304B, Context Length 1M and Best For \"Advanced coding, tool use, and long-horizon agentic workflows\". contextWindow 1,000,000 is NeuroLink's decimal reading of the label 1M. pricingPerMTok is not set. vision is a placeholder (see setup.description)."
+      },
+      "Qwen/Qwen3.8-27B": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 3,
+          "cachedInput": 0.05
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) lists this id with Parameters 27B, Context Length 256K, Best For \"Multimodal coding and visual understanding across documents, diagrams, and video\" and, in its Voice AI column, \"Not supported\". contextWindow 256,000 is NeuroLink's decimal reading of the label 256K. Pricing row \"Qwen 3.8 27B — Lightweight open-weight reasoning\" on https://telnyx.com/pricing/inference-api: $0.40 input, $0.05 cached input, $3 output per 1M tokens. vision is a placeholder (see setup.description)."
+      }
+    },
+    "topModels": [
+      "zai-org/GLM-5.3-Flash",
+      "zai-org/GLM-5.3",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "moonshotai/Kimi-K3",
+      "moonshotai/Kimi-K2.6",
+      "zai-org/GLM-5.2",
+      "MiniMaxAI/MiniMax-M3-MXFP8",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "Qwen/Qwen3.8-27B"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Telnyx returned HTTP 401. Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://portal.telnyx.com/#/app/auth/v2",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://telnyx.com/sign-up and create a Telnyx account — the Inference API Quickstart (https://developers.telnyx.com/docs/inference/getting-started) lists a \"Telnyx account\" and an \"API Key\" under Prerequisites",
+      "2. Create an API key at https://portal.telnyx.com/#/app/auth/v2, the link the Quickstart gives for the API Key",
+      "3. Authentication is HTTP Bearer: the Service tiers page (https://developers.telnyx.com/docs/inference/service-tiers) shows a curl request to https://api.telnyx.com/v2/ai/openai/models with the header Authorization: Bearer $TELNYX_API_KEY",
+      "4. Billing as the vendor states it: the Inference pricing page (https://telnyx.com/pricing/inference-api) shows a plan named PAY AS YOU GO described as \"Standard rates. Card on file. Automatic tier discounts as usage crosses thresholds, no contract needed.\", and the docs pricing page (https://developers.telnyx.com/docs/inference/models/pricing) says \"Pay-per-token. No minimums, no commitments.\"",
+      "5. Set {apiKeyEnvVar} in your .env file (the docs' examples read TELNYX_API_KEY)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.telnyx.com/v2/ai/openai/models needs a key (it answers HTTP 401 without one), so the nine model ids come from the models page (https://developers.telnyx.com/docs/inference/models, retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.telnyx.com/v2/ai/openai: the Quickstart (https://developers.telnyx.com/docs/inference/getting-started) says \"The Inference API is OpenAI-compatible.\" and shows the OpenAI Python SDK with base_url \"https://api.telnyx.com/v2/ai/openai\"; the Chat Completions reference (https://developers.telnyx.com/api-reference/openai-chat/create-a-chat-completion-openai-compatible) documents POST /ai/openai/chat/completions under the server https://api.telnyx.com/v2. Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 with header www-authenticate: Bearer resource_metadata=\"https://api.telnyx.com/.well-known/oauth-protected-resource\" and a JSON body whose first errors entry has code \"10009\", title \"Authentication failed\" and detail \"Could not find any usable credentials in the request.\"; /chat/completions answered HTTP 404 with code \"10005\" and title \"Resource not found\". No POST request was sent. errorRules holds one rule, for status 401. pricingPerMTok is read from the second of the three chat-completions tables on https://telnyx.com/pricing/inference-api (the page's selector lists Flex, Default and Priority in that order; the docs pricing page, https://developers.telnyx.com/docs/inference/models/pricing, says omitting service_tier uses default). The pricing rows are named by display name, and NeuroLink matched each row to a models-page id; the row \"DeepSeek V4 Flash — Ultra-fast, cost-efficient inference\" is not matched to a models-page id, so deepseek-ai/DeepSeek-V4-Flash-0731 has no pricingPerMTok. Each model's contextWindow is NeuroLink's decimal reading of the models page's Context Length label (1M or 256K). models.defaultContextWindow (128000) is a placeholder the vendor does not publish, for model ids outside models.catalog. models.defaultMaxOutputTokens (8192) equals the max_tokens default the Chat Completions reference states; it is a placeholder, not a per-model limit. Each model's vision field holds false, a placeholder for a boolean the catalog schema requires; it is not a vendor statement. Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. capabilities.tools is true because the Function Calling page (https://developers.telnyx.com/docs/inference/functions) says \"While we recommend you start with this model, every model in our API supports the tools interface.\" capabilities.toolsWithStreaming is true because the Streaming and Parallel Calls page (https://developers.telnyx.com/docs/inference/streaming-functions) shows a chat completion with tools and stream=True on zai-org/GLM-5.3-Flash. capabilities.structuredOutput is true because the JSON Mode page (https://developers.telnyx.com/docs/inference/json-mode) documents response_format with type json_schema and type json_object and the Chat Completions reference lists json_object and json_schema. These capabilities were not exercised: no key was available. capabilities.structuredOutputWithTools is false because no request combining tools and a schema was sent. capabilities.embeddings is false because NeuroLink's generic catalog provider does not implement embed(); the models page lists three embedding models on POST /v2/ai/openai/embeddings. capabilities.thinking is false because the entry sets no reasoning request parameter, although the Chat Completions reference documents reasoning_effort. billingPolicy holds the schema value no-free-tier because the catalog schema has no unknown value; it is not a vendor statement of signup terms. apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.telnyx.com/v2/ai/openai/models answers 401 without a key, so model ids are taken from https://developers.telnyx.com/docs/inference/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "10009",
+      "method": "unauthenticated GET https://api.telnyx.com/v2/ai/openai/models with no credentials — HTTP 401, header www-authenticate: Bearer resource_metadata=\"https://api.telnyx.com/.well-known/oauth-protected-resource\", JSON body errors[0] code \"10009\", title \"Authentication failed\", detail \"Could not find any usable credentials in the request.\"; the same day an unauthenticated GET https://api.telnyx.com/v2/ai/openai/chat/completions answered HTTP 404 with JSON body errors[0] code \"10005\", title \"Resource not found\"; credential-free, no key used, no POST request sent"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://telnyx.com/pricing/inference-api (PAY AS YOU GO plan: \"Standard rates. Card on file. Automatic tier discounts as usage crosses thresholds, no contract needed.\") and https://developers.telnyx.com/docs/inference/models/pricing (\"Pay-per-token. No minimums, no commitments.\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

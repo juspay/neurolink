@@ -1,0 +1,165 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "dashscope",
+  "displayName": "Alibaba Cloud Model Studio (DashScope)",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+  },
+  "models": {
+    "default": "qwen3.8-max",
+    "fallbacks": [
+      "qwen3.8-flash",
+      "qwen3.7-plus",
+      "qwen3.8-max-0902",
+      "qwen3.7-flash",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "kimi-k3"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "qwen3.8-max": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Named under Text generation on https://www.alibabacloud.com/help/en/model-studio/models (retrieved 2026-09-29) and used as the model in the OpenAI-compatible examples on https://www.alibabacloud.com/help/en/model-studio/first-api-call-to-qwen. https://www.alibabacloud.com/help/en/model-studio/text-generation-model says \"For the strongest reasoning, choose qwen3.8-max.\" and its Recommended models table lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Supported, Structured output Supported. https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $2 and output $6 per 1 million tokens for 0<Token≤1M, free quota 1 million tokens. Listed under Image & video, Understanding on the Models page; the vision page (https://www.alibabacloud.com/help/en/model-studio/vision) passes an image_url message to it and its image-quantity limit reads \"Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images\"."
+      },
+      "qwen3.8-flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.47
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Named under Text generation on https://www.alibabacloud.com/help/en/model-studio/models (retrieved 2026-09-29). The Recommended models table on https://www.alibabacloud.com/help/en/model-studio/text-generation-model lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Supported, Structured output Supported. https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $0.15 and output $0.47 per 1 million tokens for 0<Token≤1M. The vision page (https://www.alibabacloud.com/help/en/model-studio/vision) image-quantity limit reads \"Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images\"."
+      },
+      "qwen3.7-plus": {
+        "contextWindow": 1000000,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. https://www.alibabacloud.com/help/en/model-studio/text-generation-model (retrieved 2026-09-29) says \"We recommend qwen3.7-plus for balanced performance and cost, with full tool calling and a 1M-token context window for large codebases.\" and its Recommended models table lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Supported, Structured output Supported. Named under Text generation and under Image & video, Understanding on https://www.alibabacloud.com/help/en/model-studio/models; the vision page (https://www.alibabacloud.com/help/en/model-studio/vision) image-quantity limit reads \"Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images\"."
+      },
+      "qwen3.8-max-0902": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. The Recommended models table on https://www.alibabacloud.com/help/en/model-studio/text-generation-model (retrieved 2026-09-29) lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Supported, Structured output Supported. https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $2 and output $6 per 1 million tokens for 0<Token≤1M. The Visual understanding page (https://www.alibabacloud.com/help/en/model-studio/vision-model, retrieved 2026-09-29) names it in its Video support list (\"Up to 2 hours / 2 GB\") and its Recommended models row lists Max pixels/image 16M, Max images 2048 and Max videos 64."
+      },
+      "qwen3.7-flash": {
+        "contextWindow": 1000000,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. The Recommended models table on https://www.alibabacloud.com/help/en/model-studio/text-generation-model (retrieved 2026-09-29) lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Supported, Structured output Supported. The vision page (https://www.alibabacloud.com/help/en/model-studio/vision) image-quantity limit reads \"Qwen3.7-Flash, Qwen3.6-Plus, Qwen3.6-Flash, Qwen3.5-Plus, Qwen3.5-Flash, Qwen3-VL, Qwen-VL, QVQ series: Up to 256 images\"."
+      },
+      "deepseek-v4-pro": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 2.4,
+          "output": 4.8
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The Recommended models table on https://www.alibabacloud.com/help/en/model-studio/text-generation-model (retrieved 2026-09-29) lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Unsupported, Structured output Supported. https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $2.400 and output $4.800 per 1 million tokens. vision is false: https://www.alibabacloud.com/help/en/model-studio/error-code (retrieved 2026-09-29) refers to \"plain-text models like qwen3-max, qwen-plus, or deepseek-v4-pro\"."
+      },
+      "deepseek-v4-flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.4
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The Recommended models table on https://www.alibabacloud.com/help/en/model-studio/text-generation-model (retrieved 2026-09-29) lists Context 1M, Thinking mode Supported, Function Calling Supported, Built-in tools Unsupported, Structured output Supported. https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $0.200 and output $0.400 per 1 million tokens. vision is false as a placeholder because the schema requires a boolean."
+      },
+      "kimi-k3": {
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Named under Text generation and under Image & video, Understanding on https://www.alibabacloud.com/help/en/model-studio/models (retrieved 2026-09-29). https://www.alibabacloud.com/help/en/model-studio/model-pricing, Singapore tab, International deployment scope: input $3 and output $15 per 1 million tokens."
+      }
+    },
+    "topModels": [
+      "qwen3.8-max",
+      "qwen3.8-flash",
+      "qwen3.7-plus",
+      "qwen3.8-max-0902",
+      "qwen3.7-flash",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "kimi-k3"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "DashScope returned HTTP 401. Check {apiKeyEnvVar}. Get a key at {setupUrl}. The vendor's error-code page (https://www.alibabacloud.com/help/en/model-studio/error-code) lists an API key and base URL from different regions as a cause."
+    },
+    {
+      "pattern": "FreeTierOnly|free tier of the model has been exhausted",
+      "class": "provider",
+      "message": "DashScope reports the free tier of the model has been exhausted (HTTP 403, code AllocationQuota.FreeTierOnly). The vendor's error-code page says the free quota exhaustion stop switch can be disabled to continue on a paid basis (https://www.alibabacloud.com/help/en/model-studio/error-code)."
+    },
+    {
+      "pattern": "Arrearage|account is in good standing",
+      "class": "provider",
+      "message": "DashScope denied access (HTTP 400, code Arrearage). The vendor's error-code page gives the cause as an overdue payment on the Alibaba Cloud account associated with the API key (https://www.alibabacloud.com/help/en/model-studio/error-code)."
+    }
+  ],
+  "setup": {
+    "url": "https://modelstudio.console.alibabacloud.com/ap-southeast-1/settings/api-key",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://account.alibabacloud.com/register/intl_register.htm and create an Alibaba Cloud account (linked from https://www.alibabacloud.com/help/en/model-studio/first-api-call-to-qwen)",
+      "2. Complete your account information, then open https://modelstudio.console.alibabacloud.com/ap-southeast-1 and agree to the service agreement to activate Model Studio (Singapore region); https://www.alibabacloud.com/help/en/model-studio/new-free-quota says the system then grants a free quota automatically",
+      "3. Create an API key at https://modelstudio.console.alibabacloud.com/ap-southeast-1/settings/api-key with the region set to Singapore; https://www.alibabacloud.com/help/en/model-studio/get-api-key states that each region has its own endpoint, API keys, and model list, and that they cannot be used across regions. Copy the key when it is shown",
+      "4. Free quota, per https://www.alibabacloud.com/help/en/model-studio/new-free-quota: valid for 90 days, typically 1,000,000 tokens for each model, and \"After the free quota is exhausted, you are automatically billed on a pay-as-you-go basis.\"",
+      "5. Set {apiKeyEnvVar} in your .env file (the vendor's examples use the same variable name)"
+    ],
+    "description": "Alibaba Cloud Model Studio (DashScope), Singapore region, International deployment scope (https://www.alibabacloud.com/help/en/model-studio/regions: the China (Beijing) and Singapore regions each support one service deployment scope, Chinese mainland and International respectively). OpenAI-compatible endpoint at https://dashscope-intl.aliyuncs.com/compatible-mode/v1, which the regions page lists as the Singapore DashScope domain and labels the existing domain; https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions says \"The existing domain remains fully functional.\" The vendor also documents a workspace-dedicated domain, https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1, labelled recommended on the regions page; set DASHSCOPE_BASE_URL to use it. Per-model contextWindow values are the decimal forms of the 1M labels on the text-generation page, since https://www.alibabacloud.com/help/en/model-studio/model-pricing states \"K means 1,000 and M means 1,000,000\". models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (8192) are conservative placeholders; the vendor does not publish a general default. They apply wherever the catalog sets no value, which includes model ids outside the catalog, the contextWindow of kimi-k3 and the maxOutputTokens of each catalog id. vision: false on deepseek-v4-flash is a placeholder because the schema requires a boolean. capabilities.thinking is false because NeuroLink's thinkingLevel option has not been exercised against this provider (no credentials were used); the text-generation page lists Thinking mode Supported for the ids in its Recommended models table, and the Chat page (https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions) documents enable_thinking and reasoning_effort. errorRules: HTTP 401 was observed on an unauthenticated GET of /models; the FreeTierOnly and Arrearage rules follow https://www.alibabacloud.com/help/en/model-studio/error-code."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models answers 401 without a key, so model ids are taken from https://www.alibabacloud.com/help/en/model-studio/text-generation-model and https://www.alibabacloud.com/help/en/model-studio/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models — JSON body with error.message \"You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY).\", error.type \"invalid_request_error\", error.param null, error.code null and a top-level request_id; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://www.alibabacloud.com/help/en/model-studio/new-free-quota — \"the platform automatically grants you a free quota for various models\"; \"After the free quota is exhausted, you are automatically billed on a pay-as-you-go basis.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

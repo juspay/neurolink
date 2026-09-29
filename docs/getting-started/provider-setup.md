@@ -84,6 +84,25 @@ Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each ha
 - **[Scaleway](providers/scaleway.md)** - default `mistral-small-3.2-24b-instruct-2506` (`SCALEWAY_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
 - **[Crusoe](providers/crusoe.md)** - default `deepseek-ai/DeepSeek-V4-Flash` (`CRUSOE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
 - **[W&B Inference](providers/wandb-inference.md)** - default `openai/gpt-oss-120b` (`WANDB_INFERENCE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Inceptron](providers/inceptron.md)** - default `zai-org/GLM-5.3` (`INCEPTRON_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[BytePlus ModelArk](providers/byteplus-modelark.md)** - default `seed-2-0-pro-260328` (`BYTEPLUS_MODELARK_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[GradientAI (DigitalOcean)](providers/gradientai.md)** - default `llama-4-maverick` (`GRADIENTAI_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Parasail](providers/parasail.md)** - default `parasail-llama-33-70b-fp8` (`PARASAIL_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Baidu Qianfan](providers/baidu-qianfan.md)** - default `ernie-5.1` (`BAIDU_QIANFAN_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Arcee](providers/arcee.md)** - default `trinity-large-thinking` (`ARCEE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Telnyx](providers/telnyx.md)** - default `zai-org/GLM-5.3-Flash` (`TELNYX_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Reka AI](providers/reka.md)** - default `reka-flash` (`REKA_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Thinking Machines](providers/thinking-machines.md)** - default `moonshotai/Kimi-K2.6` (`THINKING_MACHINES_API_KEY`); **no tool calling**; docs-verified only (the roster needs a key), not yet live-verified
+- **[Alibaba Cloud Model Studio (DashScope)](providers/dashscope.md)** - default `qwen3.8-max` (`DASHSCOPE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Vispark](providers/vispark.md)** - default `vispark/vision-large` (`VISPARK_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Sakana AI](providers/sakana-ai.md)** - default `fugu` (`SAKANA_AI_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Poolside](providers/poolside.md)** - default `poolside/laguna-s-2.1` (`POOLSIDE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Lemonfox AI](providers/lemonfox-ai.md)** - default `deepseek-v4-flash` (`LEMONFOX_AI_API_KEY`); **no tool calling**; docs-verified only (the roster needs a key), not yet live-verified
+- **[ModelScope](providers/modelscope.md)** - default `Qwen/Qwen3.5-35B-A3B` (`MODELSCOPE_API_KEY`); **no tool calling**; docs- and roster-verified, not yet live-verified
+- **[Hetzner Inference](providers/hetzner-inference.md)** - default `Qwen/Qwen3.6-35B-A3B-FP8` (`HETZNER_INFERENCE_API_KEY`); **no tool calling**; docs-verified only (the roster needs a key), not yet live-verified
+- **[Meta Model API](providers/meta-model-api.md)** - default `muse-spark-1.3` (`META_MODEL_API_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[STACKIT](providers/stackit.md)** - default `Qwen/Qwen3-VL-235B-A22B-Instruct-FP8` (`STACKIT_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Bytez](providers/bytez.md)** - default `Qwen/Qwen3-4B` (`BYTEZ_API_KEY`); **no tool calling**; docs-verified only (the roster needs a key), not yet live-verified
 
 Embedding, media-generation, and decision-only providers — not part of `generate()`/`stream()` provider selection in the same way, but each has a setup guide:
 

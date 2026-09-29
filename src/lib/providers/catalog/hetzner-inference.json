@@ -1,0 +1,83 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "hetzner-inference",
+  "displayName": "Hetzner Inference",
+  "aliases": ["hetzner"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://inference.hetzner.com/api/v1"
+  },
+  "models": {
+    "default": "Qwen/Qwen3.6-35B-A3B-FP8",
+    "fallbacks": ["Qwen3.8-27B"],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "Qwen/Qwen3.6-35B-A3B-FP8": {
+        "contextWindow": 262144,
+        "vision": true,
+        "status": "preview",
+        "description": "NeuroLink default. Listed in the Available Models table of https://docs.hetzner.com/general/company-and-policy/experiments/inference/ (retrieved 2026-09-29) with these cell values: Model \"Qwen/Qwen3.6-35B-A3B-FP8\", Type \"Causal LM + Vision (MoE, 35B total / 3B active)\", Context Length \"262,144 tokens\", Modalities \"Text, Image\". The same page names this id in its four code examples: Python chat completion, Python image processing, curl chat completion and curl image processing. Its Python Image Processing section says \"Send an image URL alongside your prompt to use the models vision capabilities.\" and that example uses this id, so vision is true."
+      },
+      "Qwen3.8-27B": {
+        "contextWindow": 262144,
+        "vision": true,
+        "status": "preview",
+        "description": "Fallback. Listed in the Available Models table of https://docs.hetzner.com/general/company-and-policy/experiments/inference/ (retrieved 2026-09-29) with these cell values: Model \"Qwen3.8-27B\", Type \"Dense\", Context Length \"262,144 tokens\", Modalities \"Text, Image\", so vision is true. The page's Open-Source Model Licenses table has a row \"Qwen3.8-27B\" with Developer \"Alibaba Cloud (Qwen Team)\" and License \"Apache 2.0\"."
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": false,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Hetzner Inference answered HTTP 401. Check {apiKeyEnvVar}. Create a token: {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Hetzner Inference answered HTTP 429. Its docs FAQ says \"If you exceed any of the rate limits, the API will respond with HTTP Status Code 429.\" and lists Timeframe \"60s\" with Input Tokens \"4M\" and Output Tokens \"100k\", and Timeframe \"60s\" with Requests \"10\" (https://docs.hetzner.com/general/company-and-policy/experiments/inference/)."
+    }
+  ],
+  "setup": {
+    "url": "https://experiments.hetzner.com/inference",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://experiments.hetzner.com/inference — the page is client-rendered; its public JavaScript bundle labels the token area \"Tokens\" and the button \"Create API Token\" (sign-in was not attempted while building this entry)",
+      "2. Create an API token and copy it. The docs' curl examples (https://docs.hetzner.com/general/company-and-policy/experiments/inference/) use the header \"Authorization: Bearer <YOUR_TOKEN>\"",
+      "3. Billing as the vendor states it: \"As long as the Inference API remains in experimental status, it is free of charge.\" (FAQ, same docs page)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://inference.hetzner.com/api/v1/models needs a key (an unauthenticated GET on 2026-09-29 answered HTTP 401 with the JSON body {\"error\":\"unauthorized\"}), so the two model ids come from the Available Models table of https://docs.hetzner.com/general/company-and-policy/experiments/inference/ (retrieved 2026-09-29), and the roster has not been checked; the entry is not yet live-verified. The same page says \"The response of the models endpoint is definitive.\" and \"Only a selected list of models is available. This selection will change during the experimental phase.\" OpenAI-compatible endpoint at https://inference.hetzner.com/api/v1: the page says \"The Inference API provides access to open-source large language models via an OpenAI-compatible REST API.\" and \"Base URL: https://inference.hetzner.com/api/v1\", and its curl example sends a JSON body with a \"model\" and a \"messages\" array to https://inference.hetzner.com/api/v1/chat/completions. The page's note reads \"This service is provided for experimental purposes only and is offered \"as is\".\" and \"Performance and availability are not guaranteed, especially during periods of high demand.\" Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 (content-type application/json; charset=utf-8) with the body {\"error\":\"unauthorized\"}; /chat/completions answered HTTP 404 (content-type text/plain; charset=utf-8) with the body \"404 page not found\". No POST request was sent. errorRules carry the 401 status observed on /models and the 429 status the FAQ states for exceeded rate limits. models.defaultContextWindow (32768) and models.defaultMaxOutputTokens (4096) are placeholders the vendor does not publish; they apply to model ids outside the catalog, and defaultMaxOutputTokens applies to both catalog rows, which carry no maxOutputTokens. capabilities.text is true because the page documents chat completions with Python and curl examples; the other capability flags are false, meaning not declared by this entry, and no request exercising them was sent. Each model's status field holds preview, a value the catalog schema requires; it is not a per-model vendor statement. billingPolicy holds free-tier per the FAQ answer \"As long as the Inference API remains in experimental status, it is free of charge.\" apiKeyFormat is null so NeuroLink's key-format check is not applied."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://inference.hetzner.com/api/v1/models answers 401 without a key, so model ids are taken from https://docs.hetzner.com/general/company-and-policy/experiments/inference/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "unauthorized",
+      "method": "unauthenticated GET https://inference.hetzner.com/api/v1/models — HTTP 401, content-type application/json; charset=utf-8, JSON body {\"error\":\"unauthorized\"} (the body's single field is error, and its value is recorded as the code); the same day an unauthenticated GET https://inference.hetzner.com/api/v1/chat/completions answered HTTP 404, content-type text/plain; charset=utf-8, body \"404 page not found\"; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.hetzner.com/general/company-and-policy/experiments/inference/ FAQ — \"As long as the Inference API remains in experimental status, it is free of charge. Should this status change, we will notify you in advance via email with detailed information.\"; credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

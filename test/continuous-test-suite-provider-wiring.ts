@@ -183,6 +183,49 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
   );
 });
 
+await test("providerMatrix's row-selection treats a catalog key fallback as an alternative, not a second requirement", async () => {
+  // test/helpers/providerMatrix.ts drives live-matrix.yml's row selection
+  // (hasProviderEnv) and is test infrastructure, not a shipped SDK surface
+  // — importing it directly (rather than only via ../dist) is the
+  // established pattern here (the sibling matrix suites do the same).
+  const { hasProviderEnv } = await import("./helpers/providerMatrix.js");
+
+  // huggingface declares HF_TOKEN as a fallback for HUGGINGFACE_API_KEY
+  // (src/lib/providers/catalog/huggingface.json's wire.apiKeyFallbackEnvVars)
+  // — the same pair the previous test confirms reaches the descriptor.
+  const touched = ["HUGGINGFACE_API_KEY", "HF_TOKEN"];
+  const saved = new Map(touched.map((name) => [name, process.env[name]]));
+  try {
+    touched.forEach((name) => delete process.env[name]);
+    assert(
+      hasProviderEnv("huggingface") === false,
+      "expected huggingface to read as unavailable with neither credential env var set",
+    );
+
+    process.env.HF_TOKEN = "hf_wiring_suite_fallback_only_000000000";
+    assert(
+      hasProviderEnv("huggingface") === true,
+      "expected the fallback credential alone to satisfy row-selection — a row should not need its primary env var once a declared fallback is set",
+    );
+
+    delete process.env.HF_TOKEN;
+    process.env.HUGGINGFACE_API_KEY = "hf_wiring_suite_primary_only_0000000";
+    assert(
+      hasProviderEnv("huggingface") === true,
+      "expected the primary credential alone to still satisfy row-selection, unchanged from before this fix",
+    );
+  } finally {
+    for (const name of touched) {
+      const prior = saved.get(name);
+      if (prior === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = prior;
+      }
+    }
+  }
+});
+
 await test("catalog key fallbacks reach the descriptor that routing and availability read", async () => {
   const { CATALOG_JSON_ENTRIES } =
     await import("../dist/providers/catalog/index.generated.js");

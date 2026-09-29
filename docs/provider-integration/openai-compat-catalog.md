@@ -1,6 +1,6 @@
 # OpenAI-Compatible Provider Catalog
 
-Every OpenAI-compatible provider in the catalog (61 as of 2026-09-29; the
+Every OpenAI-compatible provider in the catalog (80 as of 2026-09-29; the
 directory is the list) is registered from **one JSON file each**, under
 `src/lib/providers/catalog/<id>.json`, and served by one generic class,
 `ConfiguredOpenAICompatProvider`

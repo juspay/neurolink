@@ -1,0 +1,170 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "baidu-qianfan",
+  "displayName": "Baidu Qianfan",
+  "aliases": ["qianfan", "baidu"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://qianfan.baidubce.com/v2"
+  },
+  "models": {
+    "default": "ernie-5.1",
+    "fallbacks": ["deepseek-v4-pro", "glm-5.1", "qwen3.5-397b-a17b"],
+    "defaultContextWindow": 32000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "ernie-5.1": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 65536,
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"ERNIE 5.1\" with model parameter \"ernie-5.1\" under the \"ERNIE系列-旗舰模型\" heading of the text-generation section, context \"128k\", max input \"119k\", max output \"[1，65536]\". It is one column of the \"推荐模型\" table whose first header cell reads \"旗舰模型\"; that column's use-case cell begins \"ERNIE 5.1是文心系列最新模型\" (translation: ERNIE 5.1 is the latest model of the ERNIE series). The function-calling page (https://cloud.baidu.com/doc/qianfan-docs/s/xm95lyys5, updated 2026-07-09) lists ernie-5.1 in its 支持模型范围 (supported models) section. contextWindow 128000 is NeuroLink's numeric entry for the page's \"128k\" (k = 1,000); maxOutputTokens 65536 is the top of the stated range."
+      },
+      "ernie-5.0": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 65536,
+        "vision": true,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"ERNIE 5.0\" with model parameter \"ernie-5.0\" under the \"ERNIE系列-旗舰模型\" heading of the text-generation section, again in the ERNIE table of the 视觉理解 (vision understanding) section, hence vision: true, and in the 深度思考 (deep thinking) section; context \"128k\", max input \"119k\", max output \"[1，65536]\". Its cell in the \"推荐模型\" table begins \"文心新一代模型文心5.0是原生全模态大模型\" (translation: Wenxin next-generation model; Wenxin 5.0 is a native all-modality large model). The function-calling page (https://cloud.baidu.com/doc/qianfan-docs/s/xm95lyys5, updated 2026-07-09) lists ernie-5.0. The model-retirement page (https://cloud.baidu.com/doc/qianfan/s/zmh4stou3, updated 2026-09-24, retrieved 2026-09-29) has a row with 登记日期 \"2026-09-24\", 退役模型版本 \"ERNIE-5.0\" and 模型退役日期 \"2026-10-29\". contextWindow 128000 is NeuroLink's numeric entry for the page's \"128k\" (k = 1,000)."
+      },
+      "ernie-4.5-turbo-128k": {
+        "contextWindow": 128000,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"ERNIE 4.5 Turbo\" with model parameter \"ernie-4.5-turbo-128k\" under the \"ERNIE系列-旗舰模型\" heading of the text-generation section, context \"128k\", max input \"123k\", max output \"[2，12288]\". Its column in the \"推荐模型\" table states max output \"16k\" and its use-case cell begins \"核心定位：更好的满足多轮长历史对话处理、长文档理解问答任务。\" (translation: core positioning: better serving multi-turn long-history dialogue and long-document understanding Q&A tasks). The two max-output figures differ, so maxOutputTokens is left unset. The new-user free-quota page (https://cloud.baidu.com/doc/qianfan/s/Imi2rpirg, updated 2025-11-17) lists ERNIE-4.5-Turbo-128K with 100万 tokens and 3个月 validity. The model-retirement page (https://cloud.baidu.com/doc/qianfan/s/zmh4stou3, updated 2026-09-24, retrieved 2026-09-29) has a row with 登记日期 \"2026-09-24\", 退役模型版本 \"ERNIE-4.5-Turbo-128K\" and 模型退役日期 \"2026-10-29\". contextWindow 128000 is NeuroLink's numeric entry for the page's \"128k\" (k = 1,000)."
+      },
+      "ernie-4.5-turbo-32k": {
+        "contextWindow": 32000,
+        "maxOutputTokens": 12288,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"ERNIE 4.5 Turbo\" with model parameter \"ernie-4.5-turbo-32k\" under the \"ERNIE系列-旗舰模型\" heading of the text-generation section, context \"32k\", max input \"27k\", max output \"[2，12288]\". The new-user free-quota page (https://cloud.baidu.com/doc/qianfan/s/Imi2rpirg, updated 2025-11-17) lists ERNIE-4.5-Turbo-32K with 100万 tokens and 3个月 validity. The model-retirement page (https://cloud.baidu.com/doc/qianfan/s/zmh4stou3, updated 2026-09-24, retrieved 2026-09-29) has a row with 登记日期 \"2026-09-24\", 退役模型版本 \"ERNIE-4.5-Turbo-32K\" and 模型退役日期 \"2026-10-29\". contextWindow 32000 is NeuroLink's numeric entry for the page's \"32k\" (k = 1,000); maxOutputTokens 12288 is the top of the stated range."
+      },
+      "ernie-4.5-turbo-vl": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 16384,
+        "vision": true,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"ERNIE 4.5 Turbo VL\" with model parameter \"ernie-4.5-turbo-vl\" in the text-generation section and in the ERNIE table of the 视觉理解 (vision understanding) section, hence vision: true; context \"128k\", max input \"123k\", max output \"[2，16384]\". The vision-understanding page (https://cloud.baidu.com/doc/qianfan-docs/s/fm8r1ndsm, updated 2026-01-08) documents image input as OpenAI-style image_url content parts (an image URL or a base64 data URL), with examples that name deepseek-vl2. The model-retirement page (https://cloud.baidu.com/doc/qianfan/s/zmh4stou3, updated 2026-09-24, retrieved 2026-09-29) has a row with 登记日期 \"2026-09-24\", 退役模型版本 \"ERNIE-4.5-Turbo-VL-128K\" and 模型退役日期 \"2026-10-29\", and a row with 登记日期 \"2026-09-24\", 退役模型版本 \"ERNIE-4.5-Turbo-VL-32K\" and 模型退役日期 \"2026-10-29\". contextWindow 128000 is NeuroLink's numeric entry for the page's \"128k\" (k = 1,000); maxOutputTokens 16384 is the top of the stated range."
+      },
+      "deepseek-v4-pro": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"DeepSeek-V4-Pro\" with model parameter \"deepseek-v4-pro\" in the DeepSeek tables of the text-generation and deep-thinking sections, context \"1M\", max input \"1M\", max output \"[1,393216]\". It is one column of the \"推荐模型\" table whose first header cell reads \"旗舰模型\"; that column's use-case cell begins \"核心定位：超强通用旗舰大模型，Agent能力大幅提高。\" (translation: core positioning: super-strong general-purpose flagship large model, Agent capability greatly improved). The structured-outputs page (https://cloud.baidu.com/doc/qianfan-docs/s/6m8r1x5hz, updated 2026-05-27) lists DeepSeek-V4-Pro in its 支持模型范围 section, and the deep-thinking page (https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv, updated 2026-05-27) lists deepseek-v4-pro in the 支持清单 of its thinking parameter. contextWindow 1000000 is NeuroLink's numeric entry for the page's \"1M\" (M = 1,000,000)."
+      },
+      "deepseek-v4-pro-0813": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row with version \"DeepSeek-V4-Pro-0813\" and model parameter \"deepseek-v4-pro-0813\" in the DeepSeek tables of the text-generation and deep-thinking sections, context \"1M\", max input \"1M\", max output \"[1,393216]\", chain-of-thought length \"32k\" in the deep-thinking section. contextWindow 1000000 is NeuroLink's numeric entry for the page's \"1M\" (M = 1,000,000)."
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row with version \"DeepSeek-V4-Flash-0731\" and model parameter \"deepseek-v4-flash-0731\" in the DeepSeek tables of the text-generation and deep-thinking sections, context \"1M\", max input \"1M\", max output \"[1,393216]\", chain-of-thought length \"32k\" in the deep-thinking section. contextWindow 1000000 is NeuroLink's numeric entry for the page's \"1M\" (M = 1,000,000)."
+      },
+      "glm-5.3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"GLM-5.3\" with model parameter \"glm-5.3\" under the \"其他\" heading of the 深度思考 (deep thinking) section, context \"1M\", max input \"1M\", max output \"[1，131072]\". That section's note says \"以下最大输出长度为包含思维链输出的总长度\" (translation: the max output lengths below are the total including chain-of-thought output). contextWindow 1000000 is NeuroLink's numeric entry for the page's \"1M\" (M = 1,000,000)."
+      },
+      "glm-5.2": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"GLM-5.2\" with model parameter \"glm-5.2\" under the \"其他\" heading of the 深度思考 (deep thinking) section, context \"1M\", max input \"1M\", max output \"[1，131072]\". That section's note says \"以下最大输出长度为包含思维链输出的总长度\" (translation: the max output lengths below are the total including chain-of-thought output). contextWindow 1000000 is NeuroLink's numeric entry for the page's \"1M\" (M = 1,000,000)."
+      },
+      "glm-5.1": {
+        "contextWindow": 198000,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row \"GLM-5.1\" with model parameter \"glm-5.1\" under the \"其他\" heading of the 深度思考 (deep thinking) section, context \"198k\", max input \"198k\", max output \"[1，131072]\". The structured-outputs page (https://cloud.baidu.com/doc/qianfan-docs/s/6m8r1x5hz, updated 2026-05-27) lists GLM-5.1 in its 支持模型范围 section, and the deep-thinking page (https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv, updated 2026-05-27) lists glm-5.1 in the 支持清单 of its thinking parameter. contextWindow 198000 is NeuroLink's numeric entry for the page's \"198k\" (k = 1,000)."
+      },
+      "qwen3.5-397b-a17b": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 65536,
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29): row with version \"Qwen3.5-397B-A17B\" and model parameter \"qwen3.5-397b-a17b\" under the \"Qwen系列\" heading of the 深度思考 (deep thinking) section, context \"256k\", max input \"252k\", max output \"[1，65536]\", chain-of-thought length \"80k\". That section's note says \"以下最大输出长度为包含思维链输出的总长度\" (translation: the max output lengths below are the total including chain-of-thought output). contextWindow 256000 is NeuroLink's numeric entry for the page's \"256k\" (k = 1,000)."
+      }
+    },
+    "topModels": [
+      "ernie-5.1",
+      "ernie-5.0",
+      "ernie-4.5-turbo-128k",
+      "ernie-4.5-turbo-32k",
+      "ernie-4.5-turbo-vl",
+      "deepseek-v4-pro",
+      "deepseek-v4-pro-0813",
+      "deepseek-v4-flash-0731",
+      "glm-5.3",
+      "glm-5.2",
+      "glm-5.1",
+      "qwen3.5-397b-a17b"
+    ],
+    "visionModel": "ernie-4.5-turbo-vl"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "invalid_iam_token",
+      "class": "authentication",
+      "message": "Baidu Qianfan IAM authentication failed (HTTP 401, invalid_iam_token). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Baidu Qianfan rate limit reached (HTTP 429, rate_limit_exceeded)."
+    }
+  ],
+  "setup": {
+    "url": "https://console.bce.baidu.com/qianfan/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://console.bce.baidu.com/qianfan/ (an unauthenticated GET on 2026-09-29 answered HTTP 200 with the page title 百度智能云千帆大模型平台; sign-in was not attempted while building this entry)",
+      "2. Create an API key: the API KEY page (https://cloud.baidu.com/doc/qianfan/s/wmh8l6tnf, updated 2026-04-14) says to log in to the 百度千帆 platform, click 系统管理 in the left navigation, open API Key, then click 创建 API Key and enter a name; the quickstart (https://cloud.baidu.com/doc/qianfan/s/rmh4stn9m) links 控制台-安全认证-API Key to https://console.bce.baidu.com/iam/#/iam/apikey/list",
+      "3. Authentication is HTTP Bearer: the quickstart (https://cloud.baidu.com/doc/qianfan/s/rmh4stn9m) says the Authorization request header must carry the API key with Bearer in front of it; NeuroLink does not validate the key format",
+      "4. Billing as the vendor states it: the new-user free-quota page (https://cloud.baidu.com/doc/qianfan/s/Imi2rpirg, updated 2025-11-17) says that after you visit the platform and agree to the user agreement the system activates it automatically and issues a new-user free token quota; its table has 17 rows under 服务名称, 赠送Tokens量 and 有效期, and the page says the quota applies to online inference calls of preset model services, not batch inference. The billing page (https://cloud.baidu.com/doc/qianfan/s/wmh4sv6ya, updated 2026-09-24) lists text-generation prices under \"按量后付费\" in 元/千tokens, for example \"ERNIE 5.1\" (版本名称 \"ERNIE-5.1\") with 在线推理 \"0.004\" for 子项 \"输入（输入<=32k）\" and \"0.018\" for 子项 \"输出（输入<=32k）\"",
+      "5. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://qianfan.baidubce.com/v2. The quickstart (https://cloud.baidu.com/doc/qianfan/s/rmh4stn9m) says \"千帆ModelBuilder提供了与OpenAI兼容的使用方式，用户只需调整api_key、base_url、model等参数，就可以通过OpenAI SDK调用千帆ModelBuilder推理服务。\" and the Inference API V2 page (https://cloud.baidu.com/doc/qianfan/s/qmh4sv5vi, updated 2026-01-27) says the V2 model-service API is \"完全兼容OpenAI标准（包含身份认证、接口协议）\". Docs-verified only: an unauthenticated GET https://qianfan.baidubce.com/v2/models on 2026-09-29 answered HTTP 403 with a JSON body whose code is \"AccessDenied\" and message is \"Access denied.\", so the 12 chat model ids come from the model-list page (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j, updated 2026-09-16, retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. An unauthenticated GET https://qianfan.baidubce.com/v2/chat/completions on 2026-09-29 answered HTTP 401 with error.code \"invalid_iam_token\", and the error-code page (https://cloud.baidu.com/doc/qianfan/s/Qmh4su56e, updated 2026-04-22) lists 错误码 \"invalid_iam_token\" as HTTP 401 with 错误信息 \"IAM Certification failed\" and rows of 类型 \"rate_limit_exceeded\" as HTTP 429, so errorRules use those codes. The model-retirement page (https://cloud.baidu.com/doc/qianfan/s/zmh4stou3, updated 2026-09-24, retrieved 2026-09-29) has rows with 模型退役日期 \"2026-10-29\" for ERNIE-5.0, ERNIE-4.5-Turbo-128K, ERNIE-4.5-Turbo-32K, ERNIE-4.5-Turbo-VL-128K and ERNIE-4.5-Turbo-VL-32K. models.defaultContextWindow (32,000) and models.defaultMaxOutputTokens (4,096) are placeholders the vendor does not publish; each per-model contextWindow is a placeholder too: NeuroLink converts the page's \"128k\", \"1M\" style strings with k = 1,000 and M = 1,000,000. The vendor states prices in 元/千tokens, so the entry carries no pricingPerMTok."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 403,
+      "method": "docs-only — unauthenticated GET https://qianfan.baidubce.com/v2/models answered HTTP 403 with code \"AccessDenied\" on 2026-09-29, so model ids are taken from https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "invalid_iam_token",
+      "method": "unauthenticated GET https://qianfan.baidubce.com/v2/chat/completions — HTTP 401, JSON body error.code invalid_iam_token; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://cloud.baidu.com/doc/qianfan/s/Imi2rpirg (updated 2025-11-17) — states a new-user free token quota issued automatically after agreeing to the user agreement; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}

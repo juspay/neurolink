@@ -1,0 +1,212 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "arcee",
+  "displayName": "Arcee",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.arcee.ai/api/v1"
+  },
+  "models": {
+    "default": "trinity-large-thinking",
+    "fallbacks": [
+      "deepseek/deepseek-v4-flash-latest",
+      "zai-org/glm-5.3-flash",
+      "thinkingmachines/inkling-small",
+      "deepseek/deepseek-v4-pro-0813",
+      "deepseek/deepseek-v4-pro",
+      "zai-org/glm-5.2",
+      "zai-org/glm-5.3",
+      "moonshotai/kimi-k3",
+      "deepseek/deepseek-v4.1-flash"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "trinity-large-thinking": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 0.8,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The Arcee Model Overview (https://docs.arcee.ai/arcee-language-models/arcee-model-overview.md, retrieved 2026-09-29) lists API Model Name \"trinity-large-thinking\" for Trinity-Large-Thinking (400B), says \"Trinity-Large-Thinking is the only Arcee model available via api.\", gives the Strength cell \"Robust generalist model with strong performance across reasoning, coding, math, and complex task decomposition.\" and the Context Window cell \"512k tokens (hosted at 128k)\". The Trinity-Large-Thinking page (https://docs.arcee.ai/arcee-language-models/trinity-large-thinking.md, retrieved 2026-09-29) calls it \"a reasoning-optimized variant of Arcee AI's Trinity-Large family\" and lists \"Purpose-built for tool calling, multi-step planning, and agent workflows\" under Key Features. On https://www.arcee.ai/trinity (retrieved 2026-09-29) the card titled \"Trinity Large Thinking (400B, 13B active)\" gives \"Arcee API — served at 256K context at BF16\" after its \"Deploy on:\" label. The two vendor pages give different hosted context figures; contextWindow is 128000, the Model Overview figure, the page that lists the API Model Name. The pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) lists it under \"Text Models\" at $0.25 input, $0.80 output and $0.06 cached input per 1M tokens."
+      },
+      "deepseek/deepseek-v4-flash-latest": {
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $0.14 input, $0.28 output and $0.028 cached input per 1M tokens."
+      },
+      "zai-org/glm-5.3-flash": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $0.15 input, $0.50 output and $0.03 cached input per 1M tokens."
+      },
+      "thinkingmachines/inkling-small": {
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 1.2,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $0.50 input, $1.20 output and $0.10 cached input per 1M tokens."
+      },
+      "deepseek/deepseek-v4-pro-0813": {
+        "pricingPerMTok": {
+          "input": 1.32,
+          "output": 3.96,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $1.32 input, $3.96 output and $0.044 cached input per 1M tokens."
+      },
+      "deepseek/deepseek-v4-pro": {
+        "pricingPerMTok": {
+          "input": 1.74,
+          "output": 3.48,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $1.74 input, $3.48 output and $0.20 cached input per 1M tokens."
+      },
+      "zai-org/glm-5.2": {
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $1.40 input, $4.40 output and $0.26 cached input per 1M tokens."
+      },
+      "zai-org/glm-5.3": {
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $1.40 input, $4.40 output and $0.26 cached input per 1M tokens."
+      },
+      "moonshotai/kimi-k3": {
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $3.00 input, $15.00 output and $0.30 cached input per 1M tokens."
+      },
+      "deepseek/deepseek-v4.1-flash": {
+        "pricingPerMTok": {
+          "input": 0.22,
+          "output": 0.66,
+          "cachedInput": 0.007
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Listed under \"Text Models\" on the pricing page (https://docs.arcee.ai/get-started/pricing.md, retrieved 2026-09-29) at $0.22 input, $0.66 output and $0.007 cached input per 1M tokens."
+      }
+    },
+    "topModels": [
+      "trinity-large-thinking",
+      "deepseek/deepseek-v4-flash-latest",
+      "zai-org/glm-5.3-flash",
+      "thinkingmachines/inkling-small",
+      "deepseek/deepseek-v4-pro-0813",
+      "deepseek/deepseek-v4-pro",
+      "zai-org/glm-5.2",
+      "zai-org/glm-5.3",
+      "moonshotai/kimi-k3",
+      "deepseek/deepseek-v4.1-flash"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Arcee rejected the request's authentication (HTTP 401; an unauthenticated GET of /models returned the detail \"Missing or invalid Authorization header. Expected: Bearer <api_key>\", and the Chat Completion reference lists 401 as \"Authentication Fails\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Arcee returned HTTP 402 (the Chat Completion reference lists 402 as \"Insufficient Balance\"). The Quick Start says to open the Wallet (https://platform.arcee.ai/api/wallet) \"to top up if needed\"."
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "Arcee returned HTTP 403 (the Chat Completion reference lists 403 as \"Permission Denied\")."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Arcee returned HTTP 429 (the Chat Completion reference lists 429 as \"Rate Limit Reached\")."
+    },
+    {
+      "status": 503,
+      "class": "provider",
+      "message": "Arcee returned HTTP 503 (the Chat Completion reference lists 503 as \"Server Overloaded\")."
+    }
+  ],
+  "quirks": {
+    "responseFormatDowngrade": "json-schema-to-json-object",
+    "replayReasoningContent": true
+  },
+  "setup": {
+    "url": "https://platform.arcee.ai/api/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://platform.arcee.ai/api/api-keys — the Quick Start (https://docs.arcee.ai/get-started/quick-start.md) says to access the Arcee Platform (https://platform.arcee.ai/), \"Register or Login.\", then to \"Create an API Key in the API Keys management page.\" and \"Copy your API Key for use and store in a secure location.\"",
+      "2. Authentication is HTTP Bearer: the Quick Start's curl example sends the header Authorization: Bearer YOUR_API_KEY, and the Chat Completion reference (https://docs.arcee.ai/api-reference/chat-completion.md) gives the key format as \"Arcee API key (prefixed with `rcai-`)\"",
+      "3. Billing as the vendor states it: the Quick Start says to open the Wallet (https://platform.arcee.ai/api/wallet) \"to top up if needed\"; the Chat Completion reference lists HTTP 402 as \"Insufficient Balance\"",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.arcee.ai/api/v1/models needs a key (it answers HTTP 401 without one), so the ten model ids come from the pricing page (https://docs.arcee.ai/get-started/pricing.md), which says \"This page provides pricing information for all models on Arcee Platform.\", and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.arcee.ai/api/v1: the Your First API Call page (https://docs.arcee.ai/api-reference/your-first-api-call.md) says \"The Arcee Platform API is OpenAI compatible.\", the Quick Start (https://docs.arcee.ai/get-started/quick-start.md) shows the OpenAI Python SDK with base_url \"https://api.arcee.ai/api/v1\", the OpenAI JavaScript SDK with baseURL 'https://api.arcee.ai/api/v1' and a curl POST to https://api.arcee.ai/api/v1/chat/completions, and the Your First API Call table lists base_url as https://api.arcee.ai/api/v1/chat/completions. wire.baseURL is the value the SDK examples set. Unauthenticated GETs made 2026-09-29: /models answered HTTP 401 with header www-authenticate: Bearer and the JSON body detail \"Missing or invalid Authorization header. Expected: Bearer <api_key>\"; /chat/completions answered HTTP 405 with header allow: POST and a JSON body whose error.message is \"Method Not Allowed\" and error.code is \"request.rejected\". No POST request was sent. errorRules carry the statuses the Chat Completion reference lists: 401 \"Authentication Fails\", 402 \"Insufficient Balance\", 403 \"Permission Denied\", 429 \"Rate Limit Reached\" and 503 \"Server Overloaded\"; its Error schema has one property, detail (\"Human-readable error message.\"), the property the 401 body has. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (8192) apply to model ids outside the catalog and to catalog rows without their own contextWindow or maxOutputTokens (nine rows have no contextWindow; ten rows have no maxOutputTokens). They are placeholders the vendor does not publish for those model ids; 128000 is the same number as the \"hosted at 128k\" figure the Arcee Model Overview gives for trinity-large-thinking. Each model's vision field holds false, a placeholder for a boolean the catalog schema requires; it is not a vendor statement. capabilities.tools is model-dependent: the Function Calling page (https://docs.arcee.ai/capabilities/function-calling.md) documents the tools parameter and the tool_calls output with a MODEL_NAME placeholder, and the Trinity-Large-Thinking page lists \"Purpose-built for tool calling, multi-step planning, and agent workflows\". capabilities.structuredOutput is true because the Structured Outputs page (https://docs.arcee.ai/capabilities/structured-outputs.md) documents the response_format value {'type': 'json_object'}, so quirks.responseFormatDowngrade is set to send json_object for schema requests. Under \"To enable JSON Output, users should:\" the page lists \"Include the word \"json\" in the system or user prompt, and provide an example of the desired JSON format to guide the model in outputting valid JSON.\" and \"Set the `max_tokens` parameter reasonably to prevent the JSON string from being truncated midway.\"; no request with json_schema was sent. quirks.replayReasoningContent is set because the Trinity-Large-Thinking page says \"thinking tokens must be kept in context for multi-turn conversations and agentic loops to function correctly\" and the Reasoning Traces page (https://docs.arcee.ai/capabilities/reasoning-traces.md) says \"use `reasoning_content` when constructing assistant messages for input\"; no multi-turn request was sent. capabilities.thinking is false: the Reasoning Traces page documents the reasoning_content response field for Trinity-Large-Thinking, and the entry sets no thinking-level request parameter. capabilities.toolsWithStreaming and capabilities.structuredOutputWithTools are false because no request combining them was sent. billingPolicy holds the schema value no-free-tier because the catalog schema has no unknown value; it is not a vendor statement of signup terms. Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement. apiKeyFormat is null so NeuroLink's key-format check is not applied; no key was available to test the stated rcai- prefix."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.arcee.ai/api/v1/models answers 401 without a key, so model ids are taken from https://docs.arcee.ai/get-started/pricing.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api.arcee.ai/api/v1/models with no credentials — HTTP 401, header www-authenticate: Bearer, JSON body {\"detail\":\"Missing or invalid Authorization header. Expected: Bearer <api_key>\"}; the body has no code field, so no code is recorded; the same day an unauthenticated GET https://api.arcee.ai/api/v1/chat/completions answered HTTP 405 with header allow: POST and JSON body {\"error\":{\"message\":\"Method Not Allowed\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"request.rejected\"}}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.arcee.ai/get-started/quick-start.md (\"Access Wallet to top up if needed.\") and https://docs.arcee.ai/api-reference/chat-completion.md (HTTP 402 \"Insufficient Balance\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1862"
+  }
+}
