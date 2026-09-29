@@ -682,7 +682,7 @@
       "ajv@>=8.0.0 <8.18.0": ">=8.18.0",
       "@grpc/grpc-js@<1.14.4": ">=1.14.4",
       "@protobufjs/utf8@<1.1.1": ">=1.1.1",
-      "fast-uri@<3.1.6": ">=3.1.6 <4",
+      "fast-uri@<3.1.7": ">=3.1.7 <4",
       "ip-address@<10.1.1": ">=10.1.1",
       "basic-ftp@<5.2.2": ">=5.2.2",
       "fast-xml-builder@<1.1.7": ">=1.1.7",
@@ -697,7 +697,7 @@
       "@opentelemetry/core@>=2.0.0 <2.8.0": ">=2.8.0",
       "qs": "6.16.0",
       "fastify": "5.12.1",
-      "fast-uri": "3.1.6",
+      "fast-uri": "3.1.7",
       "@xmldom/xmldom": "0.9.12"
     },
     "patchedDependencies": {
