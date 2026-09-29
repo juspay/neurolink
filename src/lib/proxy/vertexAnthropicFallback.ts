@@ -15,6 +15,10 @@
 
 import type { GoogleAuth } from "google-auth-library";
 import { logger } from "../utils/logger.js";
+import {
+  claudeDisabledThinkingReplacement,
+  modelSupportsForcedToolChoice,
+} from "../models/modelRegistry.js";
 import { isTransientNetworkError } from "./proxyFetch.js";
 import type {
   VertexAccessTokenProvider,
@@ -396,8 +400,56 @@ function stripBillingBlock(system: unknown): unknown {
  * share a prefix. Vertex holds its own cache, apart from the first-party one,
  * so nothing here can disturb first-party hits.
  */
+/**
+ * The client addressed its own model; the fallback target may be a Claude
+ * 5.5 / 5.1 model, which answers a forced `tool_choice` and
+ * `thinking: {type: "disabled"}` with a 400. Reshape both into what the target
+ * accepts rather than fail the turn the fallback exists to rescue.
+ */
+function fitRequestToTarget(
+  payload: Record<string, unknown>,
+  targetModel: string,
+): void {
+  const choice = payload.tool_choice;
+  if (
+    record(choice) &&
+    (choice.type === "any" || choice.type === "tool") &&
+    !modelSupportsForcedToolChoice(targetModel)
+  ) {
+    payload.tool_choice = {
+      type: "auto",
+      ...(choice.disable_parallel_tool_use !== undefined
+        ? { disable_parallel_tool_use: choice.disable_parallel_tool_use }
+        : {}),
+    };
+    logger.warn(
+      `[vertex-anthropic] ${targetModel} rejects tool_choice "${choice.type}"; sending "auto" instead`,
+    );
+  }
+  const thinking = payload.thinking;
+  if (record(thinking) && thinking.type === "disabled") {
+    const outputConfig = payload.output_config;
+    const effort =
+      record(outputConfig) && typeof outputConfig.effort === "string"
+        ? outputConfig.effort
+        : undefined;
+    const replacement = claudeDisabledThinkingReplacement(targetModel, effort);
+    if (replacement === "between_tools") {
+      payload.thinking = { type: "between_tools" };
+    } else if (replacement === "omit") {
+      delete payload.thinking;
+    }
+    if (replacement !== "keep") {
+      logger.debug(
+        `[vertex-anthropic] ${targetModel} rejects thinking "disabled"; ${replacement === "omit" ? "omitting thinking" : "sending between_tools"}`,
+      );
+    }
+  }
+}
+
 export function buildVertexAnthropicPayload(
   body: Readonly<Record<string, unknown>>,
+  targetModel?: string,
 ): Record<string, unknown> {
   const dropped = new Set<string>(UNSUPPORTED_FIELDS);
   const payload = Object.fromEntries(
@@ -425,6 +477,9 @@ export function buildVertexAnthropicPayload(
     } else {
       payload.system = system;
     }
+  }
+  if (targetModel !== undefined) {
+    fitRequestToTarget(payload, targetModel);
   }
   return { ...payload, anthropic_version: VERTEX_ANTHROPIC_VERSION };
 }
@@ -599,7 +654,9 @@ export async function dispatchVertexAnthropicPassthrough(
       "content-type": "application/json",
       accept: stream ? "text/event-stream" : "application/json",
     },
-    body: JSON.stringify(buildVertexAnthropicPayload(request.body)),
+    body: JSON.stringify(
+      buildVertexAnthropicPayload(request.body, request.model),
+    ),
     ...(request.signal ? { signal: request.signal } : {}),
   });
 }

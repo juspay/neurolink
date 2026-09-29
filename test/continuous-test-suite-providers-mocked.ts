@@ -4936,6 +4936,121 @@ async function runAnthropicSection(): Promise<void> {
       err instanceof Error ? err.message : String(err),
     );
   }
+
+  // ── Claude 5.5 / 5.1 answer a forced tool_choice with a 400 (probed live
+  // on Vertex 2026-09-29), so a caller's "required" and the schema path's
+  // pinned json tool go out as auto for them, and unchanged for Sonnet 5. ──
+  const { z } = await import("zod");
+  const lookupTools = {
+    lookup: {
+      description: "Look a value up",
+      inputSchema: jsonSchema<{ q: string }>({
+        type: "object",
+        properties: { q: { type: "string" } },
+        required: ["q"],
+      }),
+      execute: async () => ({ value: "x" }),
+    },
+  };
+  for (const [shapeModel, expected] of [
+    ["claude-sonnet-5-5", "auto"],
+    ["claude-sonnet-5", "any"],
+  ] as const) {
+    const name = `${section}: toolChoice "required" goes out as ${expected} for ${shapeModel}`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.anthropic.com/v1/messages",
+            respond: {
+              status: 200,
+              json: anthropicMessageResponse("done", shapeModel),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          await nl.generate({
+            provider: "anthropic",
+            model: shapeModel,
+            input: { text: "ping" },
+            toolChoice: "required",
+            maxSteps: 1,
+            tools: lookupTools,
+          });
+          const body = calls[0]?.bodyJson as
+            | { tool_choice?: { type?: string } }
+            | undefined;
+          record(
+            results,
+            name,
+            calls.length > 0 && body?.tool_choice?.type === expected,
+            `first request carried tool_choice ${body?.tool_choice?.type ?? "none"}`,
+          );
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+  for (const [shapeModel, forced] of [
+    ["claude-sonnet-5-5", false],
+    ["claude-sonnet-5", true],
+  ] as const) {
+    const name = `${section}: a schema call ${forced ? "pins" : "does not pin"} its json tool for ${shapeModel}`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.anthropic.com/v1/messages",
+            respond: {
+              status: 200,
+              json: anthropicMessageResponse('{"answer":"x"}', shapeModel),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          await nl.generate({
+            provider: "anthropic",
+            model: shapeModel,
+            input: { text: "ping" },
+            schema: z.object({ answer: z.string() }),
+            disableTools: true,
+          });
+          const body = calls[0]?.bodyJson as
+            | { tool_choice?: { type?: string }; system?: unknown }
+            | undefined;
+          const instructed = JSON.stringify(body?.system ?? "").includes(
+            "IMPORTANT: You MUST call the",
+          );
+          const ok = forced
+            ? body?.tool_choice?.type === "tool"
+            : calls.length > 0 && body?.tool_choice === undefined && instructed;
+          record(
+            results,
+            name,
+            ok,
+            `tool_choice ${body?.tool_choice?.type ?? "none"}, instruction ${instructed ? "present" : "absent"}`,
+          );
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import {
   OllamaModels,
 } from "../constants/enums.js";
 import type {
+  ClaudeDisabledThinkingReplacement,
   JsonValue,
   ModelCapabilities,
   ModelInfo,
@@ -1226,15 +1227,15 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       translation: 9,
       summarization: 9,
     },
-    aliases: ["sonnet-5", "claude-sonnet-latest"],
+    aliases: ["sonnet-5"],
     deprecated: false,
     isLocal: false,
     releaseDate: "2026-06-30",
     category: "general",
   },
 
-  // "claude-sonnet-latest" stays on CLAUDE_SONNET_5 until someone decides to
-  // move it; this entry sits after that one so resolver ties still go to it.
+  // Owns "claude-sonnet-latest", but sits after CLAUDE_SONNET_5 so resolver
+  // score ties still go to Sonnet 5.
   [AnthropicModels.CLAUDE_SONNET_5_5]: {
     id: AnthropicModels.CLAUDE_SONNET_5_5,
     name: "Claude Sonnet 5.5",
@@ -1269,7 +1270,7 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       translation: 9,
       summarization: 9,
     },
-    aliases: ["sonnet-5.5"],
+    aliases: ["sonnet-5.5", "claude-sonnet-latest"],
     deprecated: false,
     isLocal: false,
     releaseDate: "2026-09-28",
@@ -1438,7 +1439,7 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       translation: 8,
       summarization: 8,
     },
-    // "claude-sonnet-latest" now belongs to CLAUDE_SONNET_5 — see the note
+    // "claude-sonnet-latest" now belongs to CLAUDE_SONNET_5_5 — see the note
     // on CLAUDE_OPUS_4_5's aliases.
     aliases: ["claude-4.5-sonnet", "sonnet-4.5"],
     deprecated: false,
@@ -2996,6 +2997,75 @@ export function resolveSamplingParams(
     );
   }
   return {};
+}
+
+/**
+ * Claude models that answer a forced `tool_choice` (`any` or `tool`) with a
+ * 400: "tool_choice: type "tool" and "any" are not supported for this model."
+ * Sonnet 5.5 and Opus 5.5 were probed live on Vertex; the Fable 5.1 docs state
+ * the same, and Mythos 5.1 shares Fable 5.1's capabilities. The same families
+ * also refuse `thinking: {type: "disabled"}`.
+ */
+const FORCED_TOOL_CHOICE_REJECTING_FAMILIES: RegExp[] = [
+  /sonnet[-_.]?5[-_.]5(?![0-9])/i,
+  /opus[-_.]?5[-_.]5(?![0-9])/i,
+  /(?:fable|mythos)[-_.]?5[-_.]1(?![0-9])/i,
+];
+
+/**
+ * Of those, the ones that accept `thinking: {type: "between_tools"}` as their
+ * lowest setting. The rest think adaptively, always on, and take no
+ * `thinking` field in its place.
+ */
+const BETWEEN_TOOLS_THINKING_FAMILIES: RegExp[] = [
+  /sonnet[-_.]?5[-_.]5(?![0-9])/i,
+];
+
+function matchesClaudeFamily(
+  families: RegExp[],
+  model: string | undefined,
+): boolean {
+  const normalizedModel = (model ?? "").toLowerCase();
+  if (!normalizedModel) {
+    return false;
+  }
+  const modelId = MODEL_ALIASES[normalizedModel] ?? normalizedModel;
+  return families.some(
+    (family) => family.test(modelId) || family.test(normalizedModel),
+  );
+}
+
+/**
+ * Whether a Claude model accepts a forced `tool_choice` (`any` or a named
+ * `tool`). Unknown models default to accepting it.
+ */
+export function modelSupportsForcedToolChoice(
+  model: string | undefined,
+): boolean {
+  return !matchesClaudeFamily(FORCED_TOOL_CHOICE_REJECTING_FAMILIES, model);
+}
+
+/**
+ * What to send instead of `thinking: {type: "disabled"}` to a Claude model.
+ * `between_tools` is refused at `xhigh` and `max` effort, so those fall back
+ * to adaptive thinking (`omit`).
+ */
+export function claudeDisabledThinkingReplacement(
+  model: string | undefined,
+  effort: string | undefined,
+): ClaudeDisabledThinkingReplacement {
+  if (!matchesClaudeFamily(FORCED_TOOL_CHOICE_REJECTING_FAMILIES, model)) {
+    return "keep";
+  }
+  const level = effort?.toLowerCase();
+  if (
+    matchesClaudeFamily(BETWEEN_TOOLS_THINKING_FAMILIES, model) &&
+    level !== "xhigh" &&
+    level !== "max"
+  ) {
+    return "between_tools";
+  }
+  return "omit";
 }
 
 /**

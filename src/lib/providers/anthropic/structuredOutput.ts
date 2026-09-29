@@ -25,9 +25,15 @@ export const FINAL_RESULT_TOOL_NAME = "final_result";
 const FINAL_RESULT_TOOL_DESCRIPTION =
   "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.";
 
+/** The system-prompt instruction to answer through the named tool. */
+export function toolAnswerInstruction(toolName: string): string {
+  return `\n\nIMPORTANT: You MUST call the '${toolName}' tool to return your response in the required structured format. Do not respond with plain text - always use the ${toolName} tool.`;
+}
+
 /** Appended to the system prompt whenever the final_result tool is in play. */
-export const FINAL_RESULT_INSTRUCTION =
-  "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
+export const FINAL_RESULT_INSTRUCTION = toolAnswerInstruction(
+  FINAL_RESULT_TOOL_NAME,
+);
 
 /**
  * Build the `final_result` tool definition from a JSON Schema.
@@ -90,16 +96,24 @@ export function appendFinalResultTool(
  * existing one: rewriting a block that carries a `cache_control` marker would
  * change the cached prefix and invalidate the prompt cache on every turn.
  */
+export function appendToolAnswerInstruction(
+  system: string | Anthropic.Messages.TextBlockParam[] | undefined,
+  toolName: string,
+): string | Anthropic.Messages.TextBlockParam[] {
+  const instruction = toolAnswerInstruction(toolName);
+  if (system === undefined) {
+    return instruction.trim();
+  }
+  if (typeof system === "string") {
+    return system + instruction;
+  }
+  return [...system, { type: "text", text: instruction.trim() }];
+}
+
 export function appendFinalResultInstruction(
   system: string | Anthropic.Messages.TextBlockParam[] | undefined,
 ): string | Anthropic.Messages.TextBlockParam[] {
-  if (system === undefined) {
-    return FINAL_RESULT_INSTRUCTION.trim();
-  }
-  if (typeof system === "string") {
-    return system + FINAL_RESULT_INSTRUCTION;
-  }
-  return [...system, { type: "text", text: FINAL_RESULT_INSTRUCTION.trim() }];
+  return appendToolAnswerInstruction(system, FINAL_RESULT_TOOL_NAME);
 }
 
 /**

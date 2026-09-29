@@ -136,7 +136,10 @@ import {
   toAnthropicImageBlock,
   fileToAnthropicBlock,
 } from "../anthropicImageBlocks.js";
-import { resolveSamplingParams } from "../../models/modelRegistry.js";
+import {
+  modelSupportsForcedToolChoice,
+  resolveSamplingParams,
+} from "../../models/modelRegistry.js";
 import {
   createDeferredAnalytics,
   stringifyToolInput,
@@ -150,6 +153,7 @@ import { createNativeGenerateGuard } from "../../context/nativeGenerateGuard.js"
 import {
   appendFinalResultInstruction,
   appendFinalResultTool,
+  appendToolAnswerInstruction,
   FINAL_RESULT_TOOL_NAME,
 } from "./structuredOutput.js";
 
@@ -610,6 +614,31 @@ const toolChoiceToAnthropic = (
     }
   }
   return undefined;
+};
+
+/**
+ * Claude 5.5 / 5.1 models answer a forced choice with a 400, so for them it
+ * becomes `auto`: the tool stays declared and the model still picks it.
+ */
+const relaxForcedToolChoice = (
+  modelId: string,
+  choice: Anthropic.Messages.MessageCreateParams["tool_choice"],
+): Anthropic.Messages.MessageCreateParams["tool_choice"] => {
+  if (
+    (choice?.type !== "any" && choice?.type !== "tool") ||
+    modelSupportsForcedToolChoice(modelId)
+  ) {
+    return choice;
+  }
+  logger.warn(
+    `[anthropic] ${modelId} rejects tool_choice "${choice.type}"; sending "auto" instead`,
+  );
+  return {
+    type: "auto",
+    ...(choice.disable_parallel_tool_use !== undefined
+      ? { disable_parallel_tool_use: choice.disable_parallel_tool_use }
+      : {}),
+  };
 };
 
 /** Map Anthropic stop_reason onto the V3 unified finish reason. */
@@ -1446,8 +1475,14 @@ export class AnthropicProvider extends BaseProvider {
               input_schema: schema,
             },
           ];
-          toolChoice = { type: "tool", name: jsonTool };
+          if (modelSupportsForcedToolChoice(modelId)) {
+            toolChoice = { type: "tool", name: jsonTool };
+          } else {
+            toolChoice = undefined;
+            system = appendToolAnswerInstruction(system, jsonTool);
+          }
         }
+        toolChoice = relaxForcedToolChoice(modelId, toolChoice);
 
         // Additive structured output: when the caller wants a schema AND real
         // tools, the forced-json path above cannot be used (it replaces the
@@ -2196,8 +2231,11 @@ export class AnthropicProvider extends BaseProvider {
     const modelId = this.modelName || getDefaultAnthropicModel();
     const anthropicToolChoice =
       shouldUseTools && anthropicTools && anthropicTools.length > 0
-        ? toolChoiceToAnthropic(
-            resolveToolChoice(options, toolsRecord, shouldUseTools),
+        ? relaxForcedToolChoice(
+            modelId,
+            toolChoiceToAnthropic(
+              resolveToolChoice(options, toolsRecord, shouldUseTools),
+            ),
           )
         : undefined;
 

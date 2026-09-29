@@ -158,7 +158,10 @@ import {
 import { calculateCost } from "../../utils/pricing.js";
 import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
-import { resolveSamplingParams } from "../../models/modelRegistry.js";
+import {
+  modelSupportsForcedToolChoice,
+  resolveSamplingParams,
+} from "../../models/modelRegistry.js";
 import { sanitizeAnthropicMessagesForTrace } from "../../utils/anthropicTraceSanitizer.js";
 import { extractToolFailureText } from "../../utils/mcpErrorText.js";
 import type {
@@ -981,6 +984,25 @@ async function collectVertexStreamChunks(
     ...(stepCacheReadTokens ? { cacheReadTokens: stepCacheReadTokens } : {}),
     ...(stepReasoningTokens ? { reasoningTokens: stepReasoningTokens } : {}),
   };
+}
+
+/**
+ * The answer text of an unforced finalization reply. Text that leads into a
+ * further tool call is preamble, not an answer, so a reply still asking for a
+ * tool yields none.
+ */
+function finalizationAnswerText(
+  content: VertexAnthropicContentBlock[],
+): string {
+  if (content.some((block) => block.type === "tool_use")) {
+    return "";
+  }
+  return content
+    .filter(
+      (block): block is { type: "text"; text: string } => block.type === "text",
+    )
+    .map((b) => b.text)
+    .join("");
 }
 
 export class GoogleVertexProvider extends BaseProvider {
@@ -3882,9 +3904,9 @@ export class GoogleVertexProvider extends BaseProvider {
    * clamped below the ceiling rather than passed through — an over-large
    * budget is a 400 from the API.
    *
-   * `useFinalResultTool` (schema / structured-output mode) always pairs with
-   * a forced `tool_choice:{type:"any"}` in the request built right after this
-   * call — Anthropic hard-rejects `thinking` combined with a `tool_choice`
+   * `forcesToolChoice` (schema mode on a model that accepts a forced choice)
+   * pairs with a forced `tool_choice:{type:"any"}` in the request built right
+   * after this call — Anthropic hard-rejects `thinking` combined with a `tool_choice`
    * that forces tool use: a live 400, "Thinking may not be enabled when
    * tool_choice forces tool use." So `thinking` is omitted entirely in that
    * mode, preserving the prior (pre-thinking-fix) behaviour of silently
@@ -3903,9 +3925,9 @@ export class GoogleVertexProvider extends BaseProvider {
     // StreamOptions, and only these two fields are read.
     options: { thinkingConfig?: { enabled?: boolean; budgetTokens?: number } },
     maxTokens: number,
-    useFinalResultTool: boolean,
+    forcesToolChoice: boolean,
   ): { type: "enabled"; budget_tokens: number } | undefined {
-    if (useFinalResultTool) {
+    if (forcesToolChoice) {
       if (options.thinkingConfig?.enabled) {
         logger.debug(
           "[GoogleVertex] Omitting thinking: schema mode forces tool_choice:any, which Anthropic rejects alongside thinking",
@@ -4232,10 +4254,14 @@ export class GoogleVertexProvider extends BaseProvider {
       modelName,
       options.maxTokens,
     );
+    // Claude 5.5 / 5.1 400 on a forced tool_choice; schema mode leaves them on
+    // auto, steered by the final_result instruction already in the prompt.
+    const forceFinalResult =
+      useFinalResultTool && modelSupportsForcedToolChoice(modelName);
     const streamThinking = this.buildClaudeThinkingParam(
       options,
       streamMaxTokens,
-      useFinalResultTool,
+      forceFinalResult,
     );
 
     const requestParams: Parameters<typeof client.messages.stream>[0] = {
@@ -4250,7 +4276,7 @@ export class GoogleVertexProvider extends BaseProvider {
         typeof client.messages.stream
       >[0]["messages"],
       ...(tools && tools.length > 0 && { tools }),
-      ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
+      ...(forceFinalResult && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
       ...(streamSampling.temperature !== undefined && {
         temperature: streamSampling.temperature,
@@ -5051,10 +5077,19 @@ export class GoogleVertexProvider extends BaseProvider {
               const finalizationStream = await client.messages.stream({
                 ...requestParams,
                 max_tokens: terminalMaxTokens,
-                tool_choice: {
-                  type: "tool" as const,
-                  name: "final_result",
-                },
+                // Resized, not inherited: terminalMaxTokens can sit below the
+                // budget requestParams' thinking was sized for.
+                thinking: this.buildClaudeThinkingParam(
+                  options,
+                  terminalMaxTokens,
+                  forceFinalResult,
+                ),
+                ...(forceFinalResult && {
+                  tool_choice: {
+                    type: "tool" as const,
+                    name: "final_result",
+                  },
+                }),
                 ...(cachedFinal.system !== undefined && {
                   system: cachedFinal.system as Parameters<
                     typeof client.messages.stream
@@ -5117,11 +5152,24 @@ export class GoogleVertexProvider extends BaseProvider {
                   { keys: Object.keys(forcedFinalResult.input) },
                 );
               } else {
-                const capMessage = hitContextLimit
-                  ? buildContextCapMessage(externalToolCallCount)
-                  : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
-                channel.push({ content: capMessage });
-                aggregatedTurnText += capMessage;
+                // Unforced (the model refuses a forced choice), the call may
+                // answer in text instead; keep that answer over a cap notice.
+                const finalizationText = forceFinalResult
+                  ? ""
+                  : finalizationAnswerText(
+                      response.content as VertexAnthropicContentBlock[],
+                    );
+                if (finalizationText) {
+                  synthesizedFinalAnswer = true;
+                  channel.push({ content: finalizationText });
+                  aggregatedTurnText += finalizationText;
+                } else {
+                  const capMessage = hitContextLimit
+                    ? buildContextCapMessage(externalToolCallCount)
+                    : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+                  channel.push({ content: capMessage });
+                  aggregatedTurnText += capMessage;
+                }
               }
             } catch (error) {
               activeStream = undefined;
@@ -5836,10 +5884,14 @@ export class GoogleVertexProvider extends BaseProvider {
       modelName,
       options.maxTokens,
     );
+    // Claude 5.5 / 5.1 400 on a forced tool_choice; schema mode leaves them on
+    // auto, steered by the final_result instruction already in the prompt.
+    const forceFinalResult =
+      useFinalResultTool && modelSupportsForcedToolChoice(modelName);
     const generateThinking = this.buildClaudeThinkingParam(
       options,
       generateMaxTokens,
-      useFinalResultTool,
+      forceFinalResult,
     );
 
     const requestParams = {
@@ -5849,7 +5901,7 @@ export class GoogleVertexProvider extends BaseProvider {
       ...(generateThinking && { thinking: generateThinking }),
       messages,
       ...(tools && tools.length > 0 && { tools }),
-      ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
+      ...(forceFinalResult && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
       ...(generateSampling.temperature !== undefined && {
         temperature: generateSampling.temperature,
@@ -6348,10 +6400,19 @@ export class GoogleVertexProvider extends BaseProvider {
               {
                 ...requestParams,
                 max_tokens: terminalMaxTokens,
-                tool_choice: {
-                  type: "tool" as const,
-                  name: "final_result",
-                },
+                // Resized, not inherited: terminalMaxTokens can sit below the
+                // budget requestParams' thinking was sized for.
+                thinking: this.buildClaudeThinkingParam(
+                  options,
+                  terminalMaxTokens,
+                  forceFinalResult,
+                ),
+                ...(forceFinalResult && {
+                  tool_choice: {
+                    type: "tool" as const,
+                    name: "final_result",
+                  },
+                }),
                 ...(cachedFinal.system !== undefined && {
                   system: cachedFinal.system as Parameters<
                     typeof client.messages.create
@@ -6399,9 +6460,21 @@ export class GoogleVertexProvider extends BaseProvider {
               { keys: Object.keys(structuredOutput) },
             );
           } else {
-            finalText = hitContextLimit
-              ? buildContextCapMessage(externalToolCallCount)
-              : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+            // Unforced (the model refuses a forced choice), the call may
+            // answer in text instead; keep that answer over a cap notice.
+            const finalizationText = forceFinalResult
+              ? ""
+              : finalizationAnswerText(
+                  response.content as VertexAnthropicContentBlock[],
+                );
+            if (finalizationText) {
+              finalText = finalizationText;
+              synthesizedFinalAnswer = true;
+            } else {
+              finalText = hitContextLimit
+                ? buildContextCapMessage(externalToolCallCount)
+                : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+            }
           }
         } catch (error) {
           // An aborted finalization is a cancellation (caller abort or a

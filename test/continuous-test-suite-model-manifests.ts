@@ -72,7 +72,12 @@ const {
 const { getContextWindowSize } =
   await import("../dist/constants/contextWindows.js");
 const { calculateCost } = await import("../dist/index.js");
-const { MODEL_REGISTRY } = await import("../dist/models/modelRegistry.js");
+const {
+  MODEL_REGISTRY,
+  MODEL_ALIASES,
+  modelSupportsForcedToolChoice,
+  claudeDisabledThinkingReplacement,
+} = await import("../dist/models/modelRegistry.js");
 const { ProviderImageAdapter } =
   await import("../dist/adapters/providerImageAdapter.js");
 const { PROVIDER_MAX_TOKENS } = await import("../dist/core/constants.js");
@@ -146,6 +151,79 @@ await test("Alias resolution also works via resolveManifestEntryExact", async ()
   assert(
     viaAlias.contextWindow === 1_000_000,
     "exact-path alias resolution did not reach the canonical entry",
+  );
+});
+
+await test("The generic Sonnet aliases point at Claude Sonnet 5.5", async () => {
+  const viaManifest = resolveManifestEntryExact("anthropic", "claude-sonnet");
+  assertNotNull(viaManifest, "claude-sonnet manifest alias returned nothing");
+  assert(
+    viaManifest.displayName === "Claude Sonnet 5.5",
+    "claude-sonnet manifest alias did not resolve to Sonnet 5.5",
+  );
+  assert(
+    MODEL_ALIASES["claude-sonnet-latest"] === "claude-sonnet-5-5",
+    "claude-sonnet-latest registry alias did not resolve to Sonnet 5.5",
+  );
+  assert(
+    MODEL_ALIASES["sonnet-5"] === "claude-sonnet-5",
+    "sonnet-5 registry alias no longer resolves to Sonnet 5",
+  );
+});
+
+await test("Claude 5.5 / 5.1 ids refuse forced tool choice; their predecessors accept it", async () => {
+  // Probed live on Vertex 2026-09-29 (Sonnet 5.5, Opus 5.5) and stated in the
+  // Fable 5.1 docs. Gateway-shaped ids must match too.
+  const refusing = [
+    "claude-sonnet-5-5",
+    "vertex_ai/claude-sonnet-5-5@20260928",
+    "anthropic.claude-sonnet-5-5",
+    "sonnet-5.5",
+    "claude-sonnet-latest",
+    "claude-opus-5-5",
+    "claude-fable-5-1",
+    "claude-mythos-5-1",
+  ];
+  const accepting = [
+    "claude-sonnet-5",
+    "claude-opus-5",
+    "claude-fable-5",
+    "claude-sonnet-5-20260101",
+    "claude-opus-4-5-20251101",
+    "claude-sonnet-4-5",
+  ];
+  refusing.forEach((id, index) =>
+    assert(
+      !modelSupportsForcedToolChoice(id),
+      `refusing id #${index} was treated as accepting a forced choice`,
+    ),
+  );
+  accepting.forEach((id, index) =>
+    assert(
+      modelSupportsForcedToolChoice(id),
+      `accepting id #${index} was treated as refusing a forced choice`,
+    ),
+  );
+});
+
+await test("Disabled thinking maps to what each Claude model accepts", async () => {
+  const cases: ReadonlyArray<
+    readonly [string, string | undefined, "keep" | "between_tools" | "omit"]
+  > = [
+    ["claude-sonnet-5-5", undefined, "between_tools"],
+    ["claude-sonnet-5-5", "high", "between_tools"],
+    ["claude-sonnet-5-5", "xhigh", "omit"],
+    ["claude-sonnet-5-5", "max", "omit"],
+    ["claude-opus-5-5", "low", "omit"],
+    ["claude-fable-5-1", undefined, "omit"],
+    ["claude-sonnet-5", undefined, "keep"],
+    ["claude-opus-5", "max", "keep"],
+  ];
+  cases.forEach(([model, effort, expected], index) =>
+    assert(
+      claudeDisabledThinkingReplacement(model, effort) === expected,
+      `case #${index} did not map to ${expected}`,
+    ),
   );
 });
 

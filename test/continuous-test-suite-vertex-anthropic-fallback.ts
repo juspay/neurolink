@@ -151,6 +151,78 @@ test("carries an agentic turn through untouched", () => {
   assert.deepEqual(out.tool_choice, { type: "any" });
 });
 
+// Probed live on Vertex 2026-09-29: claude-sonnet-5-5 and claude-opus-5-5 both
+// answer a forced tool_choice with a 400, and both refuse thinking "disabled"
+// (Sonnet 5.5 wants between_tools, Opus 5.5 adaptive). The client addressed a
+// different model, so the fallback reshapes its request for the target.
+test("a forced tool_choice becomes auto for a target that refuses it", () => {
+  const out = buildVertexAnthropicPayload(
+    {
+      model: "claude-opus-5-5",
+      messages: [{ role: "user", content: "hi" }],
+      tool_choice: { type: "any", disable_parallel_tool_use: true },
+    },
+    "claude-sonnet-5-5",
+  );
+  assert.deepEqual(out.tool_choice, {
+    type: "auto",
+    disable_parallel_tool_use: true,
+  });
+  const named = buildVertexAnthropicPayload(
+    {
+      messages: [{ role: "user", content: "hi" }],
+      tool_choice: { type: "tool", name: "Bash" },
+    },
+    "claude-opus-5-5",
+  );
+  assert.deepEqual(named.tool_choice, { type: "auto" });
+});
+
+test("thinking disabled becomes between_tools on Sonnet 5.5 below xhigh effort", () => {
+  const body = {
+    messages: [{ role: "user", content: "hi" }],
+    thinking: { type: "disabled" },
+    output_config: { effort: "high" },
+  };
+  const out = buildVertexAnthropicPayload(body, "claude-sonnet-5-5");
+  assert.deepEqual(out.thinking, { type: "between_tools" });
+  // xhigh maps to max, where between_tools is itself a 400: adaptive instead.
+  const xhigh = buildVertexAnthropicPayload(
+    { ...body, output_config: { effort: "xhigh" } },
+    "claude-sonnet-5-5",
+  );
+  assert.equal("thinking" in xhigh, false);
+});
+
+test("thinking disabled is dropped for an always-on-thinking target", () => {
+  const out = buildVertexAnthropicPayload(
+    {
+      messages: [{ role: "user", content: "hi" }],
+      thinking: { type: "disabled" },
+    },
+    "claude-opus-5-5",
+  );
+  assert.equal("thinking" in out, false);
+});
+
+test("a target that accepts both shapes gets the body unchanged", () => {
+  const body = {
+    model: "claude-opus-5-5",
+    messages: [{ role: "user", content: "hi" }],
+    tool_choice: { type: "tool", name: "Bash" },
+    thinking: { type: "disabled" },
+    output_config: { effort: "high" },
+  };
+  assert.deepEqual(
+    buildVertexAnthropicPayload(body, "claude-sonnet-5"),
+    buildVertexAnthropicPayload(body),
+  );
+  assert.deepEqual(buildVertexAnthropicPayload(body).tool_choice, {
+    type: "tool",
+    name: "Bash",
+  });
+});
+
 test("regional endpoint prefixes the host with the region", () => {
   assert.equal(
     buildVertexAnthropicUrl({

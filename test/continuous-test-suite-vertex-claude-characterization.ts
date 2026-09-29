@@ -753,6 +753,239 @@ await test("a structured turn that never calls final_result is forced to", async
   );
 });
 
+// Claude 5.5 / 5.1 answer a forced tool_choice with a 400 (probed live on
+// Vertex 2026-09-29), so for them schema mode stays on auto, steered by the
+// final_result instruction, and keeps the caller's thinking, which was only
+// dropped because a forced choice cannot be combined with it.
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} schema turn on Sonnet 5.5 never forces tool_choice`, async () => {
+    const server = await startStandIn(() => toolTurn("lookup", { q: "x" }));
+    const restore = withVertexEnv();
+    const counter = { calls: 0 };
+    let nl: InstanceType<typeof NeuroLink> | undefined;
+    try {
+      nl = new NeuroLink();
+      const options = {
+        input: { text: "answer with structure" },
+        provider: "vertex",
+        model: "claude-sonnet-5-5",
+        maxTokens: 8192,
+        maxSteps: 2,
+        disableTools: false,
+        disableInternalFallback: true,
+        schema: z.object({ answer: z.string() }),
+        tools: customTool(counter),
+        thinkingConfig: { enabled: true, budgetTokens: 2048 },
+        credentials: credentialsFor(server.port),
+      };
+      if (path === "stream") {
+        const result = await nl.stream(options);
+        for await (const chunk of result.stream) {
+          void chunk;
+        }
+      } else {
+        await nl.generate(options);
+      }
+    } catch {
+      // The stand-in never answers final_result; only the requests matter.
+    } finally {
+      await nl?.shutdown();
+      restore();
+      await server.close();
+    }
+    const forced = server.calls.filter((call) => {
+      const choice = call.body?.tool_choice as { type?: string } | undefined;
+      return choice?.type === "any" || choice?.type === "tool";
+    });
+    assert(
+      server.calls.length > 1,
+      `precondition failed: only ${server.calls.length} requests reached the stand-in`,
+    );
+    assert(
+      forced.length === 0,
+      `${forced.length} of ${server.calls.length} requests forced tool_choice`,
+    );
+    assert(
+      server.calls[0]?.body?.thinking !== undefined,
+      "the caller's thinking was dropped from the first request",
+    );
+  });
+}
+
+// Unforced, the reserved finalization step can come back as text rather than
+// a final_result call. That text is the model's answer and must reach the
+// caller, not be replaced with the step-cap notice.
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} Sonnet 5.5 finalization that answers in text keeps that text`, async () => {
+    const marker = "finalization-text-answer";
+    const server = await startStandIn((callIndex) =>
+      callIndex === 0 ? toolTurn("lookup", { q: "x" }) : textTurn(marker),
+    );
+    const restore = withVertexEnv();
+    const counter = { calls: 0 };
+    let nl: InstanceType<typeof NeuroLink> | undefined;
+    let answer = "";
+    try {
+      nl = new NeuroLink();
+      const options = {
+        input: { text: "answer with structure" },
+        provider: "vertex",
+        model: "claude-sonnet-5-5",
+        maxTokens: 64,
+        maxSteps: 2,
+        disableTools: false,
+        disableInternalFallback: true,
+        schema: z.object({ answer: z.string() }),
+        tools: customTool(counter),
+        credentials: credentialsFor(server.port),
+      };
+      if (path === "stream") {
+        const result = await nl.stream(options);
+        for await (const chunk of result.stream) {
+          if ("content" in chunk && typeof chunk.content === "string") {
+            answer += chunk.content;
+          }
+        }
+      } else {
+        const result = await nl.generate(options);
+        answer = result.content ?? "";
+      }
+    } finally {
+      await nl?.shutdown();
+      restore();
+      await server.close();
+    }
+    assert(
+      server.calls.length === 2,
+      `precondition failed: expected a loop step and a finalization, saw ${server.calls.length} requests`,
+    );
+    assert(
+      answer.includes(marker),
+      "the finalization's text answer was replaced by another message",
+    );
+  });
+}
+
+// Text that leads into another tool call is preamble, not an answer, so an
+// unforced finalization that still asks for a tool must not end the turn
+// with that text.
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} Sonnet 5.5 finalization that still calls a tool is not taken as the answer`, async () => {
+    const marker = "finalization-preamble";
+    const server = await startStandIn((callIndex) =>
+      callIndex === 0
+        ? toolTurn("lookup", { q: "x" })
+        : toolTurn("lookup", { q: "y" }, "toolu_2", marker),
+    );
+    const restore = withVertexEnv();
+    let nl: InstanceType<typeof NeuroLink> | undefined;
+    let answer = "";
+    try {
+      nl = new NeuroLink();
+      const options = {
+        input: { text: "answer with structure" },
+        provider: "vertex",
+        model: "claude-sonnet-5-5",
+        maxTokens: 64,
+        maxSteps: 2,
+        disableTools: false,
+        disableInternalFallback: true,
+        schema: z.object({ answer: z.string() }),
+        tools: customTool({ calls: 0 }),
+        credentials: credentialsFor(server.port),
+      };
+      if (path === "stream") {
+        const result = await nl.stream(options);
+        for await (const chunk of result.stream) {
+          if ("content" in chunk && typeof chunk.content === "string") {
+            answer += chunk.content;
+          }
+        }
+      } else {
+        const result = await nl.generate(options);
+        answer = result.content ?? "";
+      }
+    } finally {
+      await nl?.shutdown();
+      restore();
+      await server.close();
+    }
+    assert(
+      server.calls.length === 2,
+      `precondition failed: expected a loop step and a finalization, saw ${server.calls.length} requests`,
+    );
+    assert(
+      !answer.includes(marker),
+      "preamble before a pending tool call was reported as the answer",
+    );
+  });
+}
+
+// The finalization step's max_tokens shrinks when the context is nearly
+// full. A thinking budget sized for the original limit would then meet or
+// exceed it, which Anthropic rejects, so the step resizes its own budget.
+// Generate only: the stand-in cannot steer the stream loop into a
+// context-guard finalization (it ends on the reply's text first), and both
+// paths resize through the same buildClaudeThinkingParam call.
+await test("a generate Sonnet 5.5 finalization sizes thinking for its own max_tokens", async () => {
+  const nearlyFull = (frames: string[]) =>
+    frames.map((frame) =>
+      frame
+        .replace('"input_tokens":5', '"input_tokens":998000')
+        .replace(
+          '"usage":{"output_tokens":6}',
+          '"usage":{"input_tokens":998000,"output_tokens":6}',
+        ),
+    );
+  const server = await startStandIn((callIndex) =>
+    callIndex === 0
+      ? nearlyFull(toolTurn("lookup", { q: "x" }))
+      : textTurn("done"),
+  );
+  const restore = withVertexEnv();
+  let nl: InstanceType<typeof NeuroLink> | undefined;
+  try {
+    nl = new NeuroLink();
+    const options = {
+      input: { text: "answer with structure" },
+      provider: "vertex",
+      model: "claude-sonnet-5-5",
+      maxTokens: 8192,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      schema: z.object({ answer: z.string() }),
+      tools: customTool({ calls: 0 }),
+      thinkingConfig: { enabled: true, budgetTokens: 2048 },
+      credentials: credentialsFor(server.port),
+    };
+    await nl.generate(options);
+  } catch {
+    // Only the outgoing requests matter here.
+  } finally {
+    await nl?.shutdown();
+    restore();
+    await server.close();
+  }
+  const first = server.calls[0]?.body;
+  const last = server.calls[server.calls.length - 1]?.body;
+  const lastMax = Number(last?.max_tokens);
+  assert(
+    server.calls.length >= 2 && first?.thinking !== undefined,
+    `precondition failed: ${server.calls.length} requests, first thinking ${first?.thinking === undefined ? "absent" : "present"}`,
+  );
+  assert(
+    lastMax < 8192,
+    `precondition failed: the finalization kept max_tokens ${lastMax}`,
+  );
+  const budget = (last?.thinking as { budget_tokens?: number } | undefined)
+    ?.budget_tokens;
+  assert(
+    budget === undefined || budget < lastMax,
+    `the finalization's thinking budget ${budget} does not fit under max_tokens ${lastMax}`,
+  );
+});
+
 section("generate path");
 
 await test("the generate path declares and executes a caller's tools", async () => {

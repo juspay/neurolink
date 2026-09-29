@@ -111,6 +111,16 @@ export type DynamicModelConfig = z.infer<typeof ModelConfigSchema>;
 export type ModelRegistry = z.infer<typeof ModelRegistrySchema>;
 
 /**
+ * What a request should carry in place of `thinking: {type: "disabled"}` for a
+ * Claude model: the original (`keep`), `between_tools`, or no `thinking` field
+ * at all (`omit`, i.e. adaptive).
+ */
+export type ClaudeDisabledThinkingReplacement =
+  | "keep"
+  | "between_tools"
+  | "omit";
+
+/**
  * Model capabilities interface
  */
 export type ModelCapabilities = {

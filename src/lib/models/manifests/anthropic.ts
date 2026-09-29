@@ -40,7 +40,7 @@ export const anthropicManifest: ProviderModelManifest = {
       samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /opus[-_.]?5(?![0-9])/i
     },
     "claude-sonnet-5-5": {
-      aliases: ["sonnet-5.5"],
+      aliases: ["sonnet-5.5", "claude-sonnet"],
       displayName: "Claude Sonnet 5.5",
       contextWindow: 1_000_000,
       maxOutputTokens: 128_000,
@@ -68,7 +68,7 @@ export const anthropicManifest: ProviderModelManifest = {
       samplingParams: false, // matches SAMPLING_PARAM_REJECTING_FAMILIES /fable/i
     },
     "claude-sonnet-5": {
-      aliases: ["sonnet-5", "claude-sonnet"],
+      aliases: ["sonnet-5"],
       displayName: "Claude Sonnet 5",
       contextWindow: 1_000_000,
       // Was 64_000; corrected to 128_000 to match the official spec

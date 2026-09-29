@@ -1737,6 +1737,7 @@ console.log(result.content);
 - [ProviderConfiguration](type-aliases/ProviderConfiguration.md)
 - [DynamicModelConfig](type-aliases/DynamicModelConfig.md)
 - [ModelRegistry](type-aliases/ModelRegistry.md)
+- [ClaudeDisabledThinkingReplacement](type-aliases/ClaudeDisabledThinkingReplacement.md)
 - [ModelCapabilities](type-aliases/ModelCapabilities.md)
 - [ModelPricingInfo](type-aliases/ModelPricingInfo.md)
 - [ModelPerformance](type-aliases/ModelPerformance.md)
