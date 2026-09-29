@@ -536,6 +536,22 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
           }
 
           if (!metadata) {
+            // ffmpeg-static ships ffmpeg only, so a host that relies on it has
+            // no ffprobe. Without a duration no frame timestamps can be chosen.
+            const ffmpegProbe = await this.probeVideoWithFfmpeg(tempVideoPath);
+            if (ffmpegProbe.success && ffmpegProbe.data) {
+              metadata = { ...ffmpegProbe.data, fileSize: buffer.length };
+            } else {
+              // Nothing downstream reports this: an empty duration selects no
+              // frames, the request still succeeds, and the model is simply
+              // told nothing about the video.
+              logger.warn(
+                `[NEUROLINK] No metadata could be read for ${filename} (mediabunny, ffprobe and ffmpeg all failed), so no keyframes will be extracted: ${ffmpegProbe.error}`,
+              );
+            }
+          }
+
+          if (!metadata) {
             metadata = {
               duration: 0,
               durationFormatted: "unknown",
@@ -780,6 +796,136 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     } finally {
       input?.dispose();
     }
+  }
+
+  /**
+   * Read metadata from the ffmpeg binary itself, for hosts that have ffmpeg
+   * but no ffprobe (mediabunny cannot read AVI, FLV or WMV, and ffprobe was the
+   * only other reader).
+   *
+   * ffmpeg prints the input's streams to stderr before it opens the output, so
+   * a zero-length run to the null muxer is enough to read them.
+   */
+  private async probeVideoWithFfmpeg(filePath: string): Promise<{
+    success: boolean;
+    data?: ProcessedVideo["metadata"];
+    error?: string;
+  }> {
+    let report: string;
+    try {
+      const { stderr } = await runFfmpeg(
+        ["-hide_banner", "-i", filePath, "-t", "0", "-f", "null", "-"],
+        { timeoutMs: VIDEO_CONFIG.FFPROBE_TIMEOUT_MS },
+      );
+      report = stderr;
+    } catch (error) {
+      // A non-zero exit still carries the stream report when the failure came
+      // after the input was opened.
+      const stderr = (error as { stderr?: unknown }).stderr;
+      if (typeof stderr !== "string") {
+        return {
+          success: false,
+          error: `ffmpeg probe failed: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+      report = stderr;
+    }
+
+    const data = this.parseFfmpegInputReport(report);
+    return data
+      ? { success: true, data }
+      : { success: false, error: "ffmpeg reported no duration" };
+  }
+
+  /**
+   * Parse the input section of an ffmpeg banner: `Duration:`, `bitrate:` and
+   * one `Stream #…: Video|Audio|Subtitle:` line per stream. Returns undefined
+   * when there is no positive duration, since frames cannot be timed without it.
+   */
+  private parseFfmpegInputReport(
+    report: string,
+  ): ProcessedVideo["metadata"] | undefined {
+    const lines = report.split(/\r?\n/);
+    const outputStart = lines.findIndex((line) => line.startsWith("Output #"));
+    const inputLines = outputStart === -1 ? lines : lines.slice(0, outputStart);
+    const inputText = inputLines.join("\n");
+
+    const durationMatch = /Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(
+      inputText,
+    );
+    if (!durationMatch) {
+      return undefined;
+    }
+    const duration =
+      Number(durationMatch[1]) * 3600 +
+      Number(durationMatch[2]) * 60 +
+      Number(durationMatch[3]);
+    if (!(duration > 0)) {
+      return undefined;
+    }
+
+    const streams = inputLines.flatMap((line) => {
+      const match =
+        /^\s*Stream #\d+:\d+(?:\[[^\]]*\])?(?:\([^)]*\))?:\s*(Video|Audio|Subtitle):\s*(.*)$/.exec(
+          line,
+        );
+      return match ? [{ kind: match[1], details: match[2] }] : [];
+    });
+    const video = streams.find(
+      (stream) =>
+        stream.kind === "Video" && !stream.details.includes("attached pic"),
+    );
+    const audio = streams.find((stream) => stream.kind === "Audio");
+
+    const size = video
+      ? /(?:^|[\s,])(\d{2,5})x(\d{2,5})(?=[\s,[]|$)/.exec(video.details)
+      : null;
+    const frameRate = video
+      ? /,\s*(\d+(?:\.\d+)?)\s*(?:fps|tbr)/.exec(video.details)
+      : null;
+    const bitrate = /bitrate:\s*(\d+)\s*kb\/s/.exec(inputText);
+    const sampleRate = audio ? /(\d+)\s*Hz/.exec(audio.details) : null;
+    const layout = audio ? /Hz,\s*([^,]+)/.exec(audio.details) : null;
+
+    return {
+      duration,
+      durationFormatted: this.formatDuration(duration),
+      width: size ? Number(size[1]) : 0,
+      height: size ? Number(size[2]) : 0,
+      codec: video
+        ? (/^([^\s,(]+)/.exec(video.details)?.[1] ?? "unknown")
+        : "unknown",
+      fps: frameRate ? Number(frameRate[1]) : 0,
+      bitrate: bitrate ? Number(bitrate[1]) * 1000 : 0,
+      audioCodec: audio ? /^([^\s,(]+)/.exec(audio.details)?.[1] : undefined,
+      audioChannels: layout
+        ? this.channelCountFromLayout(layout[1])
+        : undefined,
+      audioSampleRate: sampleRate ? Number(sampleRate[1]) : undefined,
+      subtitleTracks: streams.filter((stream) => stream.kind === "Subtitle")
+        .length,
+      fileSize: 0,
+    };
+  }
+
+  /** ffmpeg names a layout ("mono", "stereo", "5.1(side)") or counts ("6 channels"). */
+  private channelCountFromLayout(layout: string): number | undefined {
+    const named = new Map([
+      ["mono", 1],
+      ["stereo", 2],
+      ["quad", 4],
+    ]);
+    const trimmed = layout.trim();
+    const namedCount = named.get(trimmed);
+    if (namedCount !== undefined) {
+      return namedCount;
+    }
+    const counted = /^(\d+) channels?/.exec(trimmed);
+    if (counted) {
+      return Number(counted[1]);
+    }
+    const dotted = /^(\d+)\.(\d)/.exec(trimmed);
+    return dotted ? Number(dotted[1]) + Number(dotted[2]) : undefined;
   }
 
   /**
