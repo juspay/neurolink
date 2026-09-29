@@ -119,9 +119,20 @@ export type DecisionUsage = {
   outputTokens: number;
 };
 
+/** An image or video as the caller supplies it: raw bytes, a file path, or a data URL. */
+export type DecisionMediaSource = Buffer | string;
+
 export type DecisionRequest = {
   state: DecisionState;
   questions: DecisionQuestionMap;
+  /**
+   * Images the model reads alongside `state`. Each is a Buffer, a local file
+   * path or a `data:image/…;base64,` URL; an http(s) URL is refused. Only a
+   * provider whose descriptor declares `decisionLimits.media` accepts them.
+   */
+  images?: readonly DecisionMediaSource[];
+  /** One video, in the same forms. Sending images as well is allowed. */
+  video?: DecisionMediaSource;
   /** Overrides the provider's configured model for this call only. */
   model?: string;
   signal?: AbortSignal;
@@ -141,6 +152,8 @@ export type DecisionResult = {
   latencyMs: number;
   /** Server-side time behind the edge; isolates model time from network. */
   upstreamMs?: number;
+  /** Encoded size of the images and video sent. Absent for a text-only request. */
+  mediaBytes?: number;
 };
 
 /**
@@ -158,7 +171,8 @@ export type DecisionLimits = {
    * name — so it should be the tightest window the provider has.
    */
   maxStateTokens: number;
-  maxQuestions: number;
+  /** Absent when the provider has no cap on questions per request. */
+  maxQuestions?: number;
   /**
    * Tokens charged per non-ASCII character. The default estimate assumes ~4
    * characters per token, which holds for English and is several times too
@@ -170,7 +184,47 @@ export type DecisionLimits = {
   models?: Readonly<
     Record<string, { maxStateTokens: number; nonAsciiTokensPerChar?: number }>
   >;
+  /** What the provider accepts besides text. Absent means text only. */
+  media?: DecisionMediaLimits;
 };
+
+export type DecisionMediaLimits = {
+  /** Most images one request may carry. */
+  maxImages: number;
+  /** Whether a video is accepted (at most one). */
+  video: boolean;
+  /** Ceiling on the encoded request body, in bytes. */
+  maxRequestBytes: number;
+};
+
+/** Media after preparation: everything is a `data:` URL, ready for the wire. */
+export type DecisionPreparedMedia = {
+  images: string[];
+  video?: string;
+  /** Encoded size of every URL above. */
+  bytes: number;
+};
+
+/**
+ * Discriminated by a string literal, not a boolean: the package is also
+ * compiled without strictNullChecks, where a boolean discriminant does not
+ * narrow.
+ */
+export type DecisionMediaResult =
+  | { status: "prepared"; media: DecisionPreparedMedia | undefined }
+  | { status: "refused"; message: string };
+
+export type DecisionMediaKind = "image" | "video";
+
+/** One image or video turned into a data URL, or the reason it could not be. Same literal-discriminant rule as above. */
+export type DecisionMediaConversion =
+  | { status: "ok"; dataUrl: string }
+  | { status: "error"; message: string };
+
+/** A media file read from disk, or the reason it could not be. */
+export type DecisionMediaFileRead =
+  | { status: "ok"; buffer: Buffer }
+  | { status: "error"; message: string };
 
 /**
  * Why a decision call failed, normalised across vendors. TypeSafe alone

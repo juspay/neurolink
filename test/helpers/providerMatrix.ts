@@ -752,6 +752,30 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       decide: true,
     },
   ],
+  [
+    "xor",
+    {
+      name: "xor",
+      defaultModel: "xor-1.1",
+      // No built-in endpoint: the base URL is as required as the key.
+      envVars: ["XOR_API_KEY", "XOR_BASE_URL"],
+      // XOR serves only `decide`, like typesafe: every generation capability
+      // is false because it emits no text at all.
+      text: false,
+      streaming: false,
+      tools: false,
+      toolsWithStreaming: false,
+      structuredOutput: false,
+      structuredOutputWithTools: false,
+      vision: false,
+      embeddings: false,
+      thinking: false,
+      imageGeneration: false,
+      videoGeneration: false,
+      tts: false,
+      decide: true,
+    },
+  ],
 ];
 
 export const PROVIDERS: Record<string, ProviderEntry> =

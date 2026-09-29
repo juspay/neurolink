@@ -110,6 +110,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Ollama            | `ollama`           | `baseURL`                                                                                          |
 | TypeSafe (Jev)    | `typesafe`         | `apiKey`, `baseURL`, `transport`, `gatewayApiKey`, `gatewayURL`                                    |
 | Laya              | `laya`             | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                      |
+| XOR               | `xor`              | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/systemone`)          |
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.
 

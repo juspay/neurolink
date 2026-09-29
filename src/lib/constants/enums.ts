@@ -54,6 +54,8 @@ export enum AIProviderName {
   TYPESAFE = "typesafe",
   /** Laya (Convai, open weights) — serves the `decide` inference type only. */
   LAYA = "laya",
+  /** XOR (Juspay, open weights) — serves the `decide` inference type only. */
+  XOR = "xor",
   AUTO = "auto",
 }
 
@@ -1495,4 +1497,12 @@ export enum LayaModels {
   ENGLISH = "english",
   MULTILINGUAL = "multilingual",
   AUTO = "auto",
+}
+
+/**
+ * XOR decision models. Hand-written: XOR is a Tier-3 provider, so it is not in
+ * the provider catalog and codegen never touches this.
+ */
+export enum XorModels {
+  XOR_1_1 = "xor-1.1",
 }

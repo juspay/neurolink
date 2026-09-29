@@ -33,8 +33,9 @@ export type ClassifierDifficulty =
  * - `jev` — TypeSafe's System One model; one ~400ms round trip that returns a
  *   *calibrated* confidence rather than a self-reported one.
  * - `auto` — `jev` when a decision provider is configured, in the environment
- *   or in SDK credentials (`TYPESAFE_API_KEY`, or `LAYA_API_KEY` with
- *   `LAYA_BASE_URL`), otherwise `heuristic`.
+ *   or in SDK credentials (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with
+ *   `LAYA_BASE_URL`, or `XOR_API_KEY` with `XOR_BASE_URL`), otherwise
+ *   `heuristic`.
  */
 export type ClassifierStrategyKind = "heuristic" | "llm" | "jev" | "auto";
 
@@ -205,8 +206,8 @@ export type ClassifierRouterConfig = {
   /**
    * Classification strategy. Default: "auto" — which resolves to "jev" when a
    * decision provider is configured, in the environment or in SDK credentials
-   * (`TYPESAFE_API_KEY`, or `LAYA_API_KEY` with `LAYA_BASE_URL`) and
-   * "heuristic" otherwise, so configuring one
+   * (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with `LAYA_BASE_URL`, or
+   * `XOR_API_KEY` with `XOR_BASE_URL`) and "heuristic" otherwise, so configuring one
    * upgrades routing without any code change. Behaviour for callers with no
    * key is unchanged.
    */

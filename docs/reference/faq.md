@@ -32,7 +32,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **Groq, Cerebras, SambaNova, Together AI, Fireworks AI, Perplexity, Cloudflare Workers AI, xAI, Baseten, GMI Cloud, Inception Labs, io.net Intelligence, Mancer, Upstage, API Route** (zero-quirk OpenAI-wire-compatible catalog providers)
 - **Cohere** (chat, plus `embed()` and reranking)
 - **Voyage AI**, **Jina AI** (embedding and/or reranking only — no chat completions)
-- **TypeSafe Jev**, **Laya** (decision-only — serve `decide()`, not `generate()`/`stream()`; TypeSafe first when both are configured)
+- **TypeSafe Jev**, **Laya**, **XOR** (decision-only — serve `decide()`, not `generate()`/`stream()`; TypeSafe first, then Laya, then XOR, when several are configured)
 
 See [Provider Setup](../getting-started/provider-setup.md) for the complete roster with setup guides.
 

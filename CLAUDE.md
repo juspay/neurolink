@@ -110,19 +110,21 @@ default, exactly as `embed()` does. Public surface is `neurolink.decide()` and
 failure and is what every internal consumer uses — plus the CLI's
 `neurolink decide [state]`, a thin wrapper over `decide()` (`src/cli/commands/decide.ts`).
 
-**Two decision providers; descriptor order is precedence.** TypeSafe (Jev,
-hosted) and Laya (open weights, at a configured base URL — there is no default) both
-extend `SystemOneDecisionProvider` in `src/lib/providers/systemOneDecision.ts`,
+**Decision providers; descriptor order is precedence.** TypeSafe (Jev,
+hosted), Laya (open weights, at a configured base URL — there is no default) and
+XOR (open weights that also reads images and video, likewise at a configured base
+URL) all extend `SystemOneDecisionProvider` in `src/lib/providers/systemOneDecision.ts`,
 which owns the request loop, retries, the auth circuit breaker and answer
 parsing; each provider supplies only its endpoint, headers, body and error
 parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
 entry with a key set, in descriptor order, so TypeSafe's entry sitting before
-Laya's is what makes TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`,
-`AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY`. Reordering them
+Laya's, and Laya's before XOR's, is what makes TypeSafe win whenever either of its
+keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY` or
+`XOR_API_KEY`. Reordering them
 changes which model every built-in consumer uses.
 
 **`decisionLimits` refuses what a model cannot read.** A descriptor may declare
-`decisionLimits: { maxStateTokens, maxQuestions, models }`; the base refuses an
+`decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an
 over-limit request with `max_tokens_exceeded` before any network call, and every
 internal consumer then fails open as usual. Laya declares 768 state tokens on
 `typed-decisions` and `multilingual`, 320 on `english`, `auto` and any unlisted
@@ -131,7 +133,10 @@ first 1,024 tokens without saying so. Non-ASCII characters are charged at a
 measured per-checkpoint rate (`nonAsciiTokensPerChar`: 1.5, or 0.6 on
 `multilingual`), since the ~4-characters-per-token estimate is several times
 too generous for non-Latin scripts. TypeSafe declares none and relies on its
-server.
+server. XOR declares a conservative 200,000-token state window, no question cap, and
+is the only provider with `media` (up to 8 images and one video per request, prepared
+by `src/lib/utils/decisionMedia.ts`); every other provider refuses media before any
+request.
 
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20

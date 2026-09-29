@@ -12,27 +12,9 @@ import { getProviderModel } from "../utils/providerConfig.js";
 import {
   describeValidationErrors,
   isRecord,
+  redactCredentials,
   SystemOneDecisionProvider,
 } from "./systemOneDecision.js";
-
-/**
- * LiteLLM echoes credentials back in its error texts, in more than one
- * wording: a masked key plus its hash on a rejected key, the whole key when it
- * does not look like a LiteLLM key, a key hash on a rate limit. None of it
- * belongs in an error message or a log, whatever the wording, so the
- * configured key, anything shaped like a LiteLLM key and any long hex run are
- * all removed.
- */
-function redactCredentials(message: string, apiKey: string): string {
-  const withoutKey = apiKey
-    ? message.split(apiKey).join("[redacted]")
-    : message;
-  return withoutKey
-    .replace(/\.?\s*Received API Key\s*=[\s\S]*$/, "")
-    .replace(/\bsk-[A-Za-z0-9._-]+/g, "[redacted]")
-    .replace(/\b[0-9a-f]{32,}\b/gi, "[redacted]")
-    .trim();
-}
 
 /**
  * Normalise the two envelopes a Laya failure can arrive in.

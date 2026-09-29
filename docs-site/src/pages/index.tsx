@@ -28,6 +28,7 @@ const PROVIDERS = [
   "OpenAI TTS",
   "TypeSafe",
   "Laya",
+  "XOR",
 ];
 
 const QUICK_LINKS = [
@@ -119,7 +120,7 @@ const FAQ_ITEMS = [
   {
     question: "What is NeuroLink?",
     answer:
-      "NeuroLink is an enterprise AI development platform that provides unified access to AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice providers like ElevenLabs, Deepgram, and more) through a single TypeScript SDK and professional CLI — most of them for generate()/stream(), plus TypeSafe and Laya for calibrated decide() judgements. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
+      "NeuroLink is an enterprise AI development platform that provides unified access to AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice providers like ElevenLabs, Deepgram, and more) through a single TypeScript SDK and professional CLI — most of them for generate()/stream(), plus TypeSafe, Laya and XOR for calibrated decide() judgements. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
   },
   {
     question: "How is NeuroLink different from LangChain or Vercel AI SDK?",
@@ -134,7 +135,7 @@ const FAQ_ITEMS = [
   {
     question: "What AI providers does NeuroLink support?",
     answer:
-      "Most NeuroLink providers serve generate()/stream(): OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), any OpenAI-compatible endpoint, and voice providers — OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. Two serve decide() only — calibrated typed judgements, no text: TypeSafe, and Laya, a self-hosted open-weights model (LAYA_API_KEY + LAYA_BASE_URL). Switching generate/stream providers requires changing a single parameter.",
+      "Most NeuroLink providers serve generate()/stream(): OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), any OpenAI-compatible endpoint, and voice providers — OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. Some serve decide() only — calibrated typed judgements, no text: TypeSafe; Laya, a self-hosted open-weights model (LAYA_API_KEY + LAYA_BASE_URL); and XOR, Juspay's open-weights model (XOR_API_KEY + XOR_BASE_URL). Switching generate/stream providers requires changing a single parameter.",
   },
   {
     question: "Does NeuroLink support MCP (Model Context Protocol)?",
@@ -149,7 +150,7 @@ const FAQ_ITEMS = [
   {
     question: "What is the `decide` inference type?",
     answer:
-      "decide() is a third inference type alongside generate() and stream() — a separate modality, not a mode of the other two, so a text-only provider is never reachable from it and a decide-only provider is never reachable from generation fallback. A decision model takes one state plus a set of named, typed questions and returns one typed, calibrated answer per question in a single parallel pass — no text, nothing to parse out of prose. Because the confidence is calibrated rather than self-reported, it can gate action directly: NeuroLink's classifier router uses asymmetric thresholds (0.3 confidence to route a request up to a pricier model, 0.6 to route it down) since routing too cheap and routing too expensive don't cost the same. Six consumers build on it today — model routing, a registry-derived model catalogue (64 models across 7 providers, 132 aliases, added on top of a host's own declared pool rather than replacing it), context budget sizing, compaction quality gating, calibrated MCP/tool-server routing, and RAG retrieval planning — and every one fails open: with no TYPESAFE_API_KEY configured, behavior is byte-for-byte what it was before. Decisions get their own model.decision observability span with independent cost attribution, kept separate from generation metrics, across all 9 supported exporters. TypeSafe's Jev is the first decision provider, and Laya — an open-weights model you can run yourself — is a second; enabling either is one environment variable (two for Laya, which also needs a base URL).",
+      "decide() is a third inference type alongside generate() and stream() — a separate modality, not a mode of the other two, so a text-only provider is never reachable from it and a decide-only provider is never reachable from generation fallback. A decision model takes one state plus a set of named, typed questions and returns one typed, calibrated answer per question in a single parallel pass — no text, nothing to parse out of prose. Because the confidence is calibrated rather than self-reported, it can gate action directly: NeuroLink's classifier router uses asymmetric thresholds (0.3 confidence to route a request up to a pricier model, 0.6 to route it down) since routing too cheap and routing too expensive don't cost the same. Six consumers build on it today — model routing, a registry-derived model catalogue (64 models across 7 providers, 132 aliases, added on top of a host's own declared pool rather than replacing it), context budget sizing, compaction quality gating, calibrated MCP/tool-server routing, and RAG retrieval planning — and every one fails open: with no TYPESAFE_API_KEY configured, behavior is byte-for-byte what it was before. Decisions get their own model.decision observability span with independent cost attribution, kept separate from generation metrics, across all 9 supported exporters. TypeSafe's Jev, Laya — an open-weights model you can run yourself — and XOR — Juspay's open-weights decision model — are the decision providers; enabling TypeSafe is one environment variable, and Laya or XOR each also need a base URL.",
   },
 ];
 

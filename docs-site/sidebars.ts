@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/index",
             "getting-started/providers/typesafe",
             "getting-started/providers/laya",
+            "getting-started/providers/xor",
             "getting-started/providers/openai",
             "getting-started/providers/anthropic",
             "getting-started/providers/google-ai",

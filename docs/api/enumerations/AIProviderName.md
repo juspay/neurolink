@@ -278,6 +278,14 @@ Laya (Convai, open weights) — serves the `decide` inference type only.
 
 ---
 
+### XOR
+
+> **XOR**: `"xor"`
+
+XOR (Juspay, open weights) — serves the `decide` inference type only.
+
+---
+
 ### AUTO
 
 > **AUTO**: `"auto"`

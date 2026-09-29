@@ -2,7 +2,7 @@
 
 Inventory taken at `origin/release` @ `2cefa3ae4115f817f75a415b6bc70fc3ecaed2d3`. TypeSafe was added afterwards (#1761) and is included below; the 25-entry count matched `origin/release` @ `f536fd091`.
 
-`mistral`, `huggingface` and `deepseek` have since migrated to the JSON catalog and been removed from `HAND_DESCRIPTORS` (#1781) — see [Migrated](#migrated-3) below — and `laya` (decision-only, like TypeSafe) was added as a hand descriptor afterwards. Net effect: 25 minus the 3 migrated plus 1 (`laya`) leaves **23 entries currently in `HAND_DESCRIPTORS`** (`src/lib/factories/providerDescriptors.ts`). The category counts below (Shared adapter needed / Must remain class / Must remain core class) cover exactly those 23; the 3 migrated providers are recorded separately as done and no longer count toward "what remains."
+`mistral`, `huggingface` and `deepseek` have since migrated to the JSON catalog and been removed from `HAND_DESCRIPTORS` (#1781) — see [Migrated](#migrated-3) below — and `laya` and `xor` (decision-only, like TypeSafe) were added as hand descriptors afterwards. Net effect: 25 minus the 3 migrated plus 2 (`laya`, `xor`) leaves **24 entries currently in `HAND_DESCRIPTORS`** (`src/lib/factories/providerDescriptors.ts`). The category counts below (Shared adapter needed / Must remain class / Must remain core class) cover exactly those 24; the 3 migrated providers are recorded separately as done and no longer count toward "what remains."
 
 This ledger records, per provider, why it is (or isn't) a JSON-catalog migration candidate, so "add a provider" work doesn't re-litigate the same analysis per PR.
 
@@ -28,7 +28,7 @@ Three adapter families, not nine one-off migrations:
 
 **Image-generation adapter** (`stability`, `ideogram`, `recraft`) — one image-generation adapter family: explicit multipart vs JSON request profile, base64-vs-URL response profile, custom auth-header support, model-path mapping as data. SSRF and bounded-read policy remain shared mandatory behavior, not per-vendor opt-outs.
 
-## Must remain class (13)
+## Must remain class (14)
 
 | Provider     | Why                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,6 +45,7 @@ Three adapter families, not nine one-off migrations:
 | `google-ai`  | Native Gemini + media + embedding pipelines aren't declaratively OpenAI-compatible — but flagged as the best early proof-of-concept for class-backed JSON _metadata_, since its auth is simpler than the cloud-IAM providers.                                                                                                                                              |
 | `typesafe`   | Decision-only (`inferenceKinds: ["decide"]`, no `generate`/`stream`): a dual-transport (direct + Vercel AI Gateway) wire protocol with its own question vocabulary (`noul` for boolean) and token-budget quirks — nothing here is OpenAI-compatible chat shape, so it isn't catalog-JSON candidate material by a different route than the generate/stream providers above. |
 | `laya`       | Decision-only (`inferenceKinds: ["decide"]`), like TypeSafe. Custom short-context wire protocol (rejects state over ~768 tokens, 320 for `english`) with no built-in endpoint — it only runs self-hosted or behind a LiteLLM route named by `LAYA_BASE_URL` — so it has no OpenAI-compatible chat shape to hang a catalog entry on.                                        |
+| `xor`        | Decision-only (`inferenceKinds: ["decide"]`), like TypeSafe and Laya. Wire-compatible with TypeSafe's direct route, but with its own error envelopes, limits and image and video input, and no built-in endpoint — it runs at a deployment or behind a LiteLLM route named by `XOR_BASE_URL` — so it has no OpenAI-compatible chat shape to hang a catalog entry on.       |
 
 ## Must remain core class (1)
 
@@ -59,4 +60,4 @@ The former steps 1–2 below (`mistral`; `huggingface`, `deepseek`) are complete
 1. **Three shared adapters** (local-runtime, embedding-only, image-generation) — each unlocks 3 providers at once; build once, migrate three.
 2. **`google-ai`** descriptor-only JSON metadata — proof of concept for moving static descriptor data out of a "must remain class" provider without touching its execution.
 3. Direct-vendor "must remain class" providers (`bedrock`, `openai`, `vertex`, `anthropic`, `azure`, `sagemaker`, `nvidia-nim`) get descriptor-only JSON metadata migrations, execution untouched — lower priority, cosmetic consolidation only.
-4. Aggregators (`litellm`, `openrouter`), the core adapter (`openai-compatible`), and the decision-only providers (`typesafe`, `laya`) are excluded from the first-class-count migration priority entirely — the first three add no direct-vendor coverage however they're implemented, and `typesafe`/`laya` are `decide`-only providers with no `generate`/`stream` surface to migrate at all.
+4. Aggregators (`litellm`, `openrouter`), the core adapter (`openai-compatible`), and the decision-only providers (`typesafe`, `laya`, `xor`) are excluded from the first-class-count migration priority entirely — the first three add no direct-vendor coverage however they're implemented, and `typesafe`/`laya`/`xor` are `decide`-only providers with no `generate`/`stream` surface to migrate at all.

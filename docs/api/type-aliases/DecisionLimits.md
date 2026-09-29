@@ -27,9 +27,11 @@ name — so it should be the tightest window the provider has.
 
 ---
 
-### maxQuestions
+### maxQuestions?
 
-> **maxQuestions**: `number`
+> `optional` **maxQuestions?**: `number`
+
+Absent when the provider has no cap on questions per request.
 
 ---
 
@@ -49,3 +51,11 @@ estimate for every character.
 > `optional` **models?**: `Readonly`\<`Record`\<`string`, \{ `maxStateTokens`: `number`; `nonAsciiTokensPerChar?`: `number`; \}\>\>
 
 Per-model limits, keyed by model id; each field overrides the one above.
+
+---
+
+### media?
+
+> `optional` **media?**: [`DecisionMediaLimits`](DecisionMediaLimits.md)
+
+What the provider accepts besides text. Absent means text only.

@@ -12,6 +12,7 @@ import {
   VoyageModels,
   TypeSafeModels,
   LayaModels,
+  XorModels,
   JinaModels,
   StabilityModels,
   IdeogramModels,
@@ -479,11 +480,12 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { decideMs: 5000 },
     setupUrl: "https://console.typesafe.ai/keys",
   },
-  // Laya MUST stay after TypeSafe. resolveDefaultDecisionProvider() returns
-  // the first configured DECISION_PROVIDERS entry, in this order, so a host
-  // configured for both keeps Jev for every built-in consumer and reaches
-  // Laya only by naming it. Reordering these two silently changes which model
-  // routes, compacts and plans for every such host.
+  // Laya MUST stay after TypeSafe, and XOR after Laya.
+  // resolveDefaultDecisionProvider() returns the first configured
+  // DECISION_PROVIDERS entry, in this order, so a host configured for several
+  // keeps Jev for every built-in consumer and reaches the others only by
+  // naming them. Reordering these silently changes which model routes,
+  // compacts and plans for every such host.
   {
     name: AIProviderName.LAYA,
     aliases: [],
@@ -528,6 +530,47 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
       },
     },
     setupUrl: "https://github.com/NandhaKishorM/laya",
+  },
+  {
+    name: AIProviderName.XOR,
+    aliases: [],
+    credentialsKey: "xor",
+    envVars: {
+      apiKey: "XOR_API_KEY",
+      baseURL: "XOR_BASE_URL",
+      // XOR has no built-in endpoint (it is reached at a deployment or behind a
+      // proxy), so a key is useless without a base URL. Both are required for
+      // it to count as configured, from the environment or credentials.xor.
+      extraRequired: ["XOR_BASE_URL"],
+      model: "XOR_MODEL",
+    },
+    defaultModel: XorModels.XOR_1_1,
+    // Serves only `decide`, like TypeSafe and Laya — the one declaration that
+    // keeps it out of every generation code path.
+    inferenceKinds: ["decide"],
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    // Deliberately NO autoSelectPriority / autoSelectPreference /
+    // defaultHealthSweepPriority, for the same reason as TypeSafe above.
+    timeouts: { decideMs: 5000 },
+    // The deployment's prefill is 250,000 tokens, shared by the state, the
+    // questions and any media. 200,000 leaves 20% for those, and a state
+    // between this and the server's 4 MB would otherwise pass validation and
+    // fail inside the engine as a 500, which the base class would retry. There
+    // is no question cap (the server only limits a choice to 2..255 options).
+    // Non-ASCII text is charged per character because the four-characters-
+    // per-token estimate is several times too generous for CJK on this
+    // tokenizer. One token per character is a deliberate upper bound, to be
+    // replaced by a live measurement.
+    decisionLimits: {
+      maxStateTokens: 200_000,
+      nonAsciiTokensPerChar: 1,
+      // The server takes 1..8 images and one video, and refuses a body over
+      // 8 MB.
+      media: { maxImages: 8, video: true, maxRequestBytes: 8 * 1024 * 1024 },
+    },
+    setupUrl: "https://huggingface.co/juspay/xor",
   },
 ];
 
@@ -705,6 +748,13 @@ export function resolveDefaultDecisionProvider(
   return DECISION_PROVIDERS.find((descriptor) =>
     isDecisionProviderConfigured(descriptor, credentials),
   )?.name;
+}
+
+/** Names of the decision providers that accept images or video. */
+export function listMediaDecisionProviders(): string[] {
+  return DECISION_PROVIDERS.filter(
+    (descriptor) => descriptor.decisionLimits?.media !== undefined,
+  ).map((descriptor) => descriptor.name);
 }
 
 /**

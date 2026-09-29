@@ -9,8 +9,8 @@
  * for the full vocabulary.
  *
  * Credentials are env-only here, exactly as every other CLI command: the
- * decision provider reads its own settings (TYPESAFE_API_KEY, or LAYA_API_KEY
- * and LAYA_BASE_URL) itself.
+ * decision provider reads its own settings (TYPESAFE_API_KEY, LAYA_API_KEY and
+ * LAYA_BASE_URL, or XOR_API_KEY and XOR_BASE_URL) itself.
  */
 
 import chalk from "chalk";
@@ -228,6 +228,18 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         type: "string",
         describe: "Overrides the provider's configured model for this call",
       })
+      .option("image", {
+        type: "string",
+        array: true,
+        nargs: 1,
+        describe:
+          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR takes up to 8)",
+      })
+      .option("video", {
+        type: "string",
+        nargs: 1,
+        describe: "One video for the model to read: a file path or a data: URL",
+      })
       .option("timeout", {
         type: "number",
         describe: "Timeout in milliseconds",
@@ -253,6 +265,10 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       .example(
         "$0 decide --state-file ticket.json --questions-file questions.json --format json",
         "Read state and questions from files, emit raw JSON",
+      )
+      .example(
+        '$0 decide "What color is this?" --provider xor --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
+        "Ask about an image (XOR only)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {
@@ -301,6 +317,12 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       process.exit(1);
     }
 
+    const videos = ([] as string[]).concat(argv.video ?? []);
+    if (videos.length > 1) {
+      logger.error(chalk.red("Error: pass at most one --video."));
+      process.exit(1);
+    }
+
     if (!isDecisionQuestionMap(parsedQuestions)) {
       logger.error(
         chalk.red(
@@ -342,6 +364,8 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         provider: argv.provider,
         model: argv.model,
         timeoutMs: argv.timeout,
+        ...(argv.image && argv.image.length > 0 ? { images: argv.image } : {}),
+        ...(videos.length === 1 ? { video: videos[0] } : {}),
       });
 
       spinner?.succeed("Decision complete");

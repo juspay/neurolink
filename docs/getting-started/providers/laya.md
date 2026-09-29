@@ -6,9 +6,9 @@ keywords: laya, decide, decision model, open weights, litellm, calibrated confid
 
 # Laya Provider Guide
 
-**The second provider of `decide`** — the same typed `boolean` / `choice` /
-`score` answers as [TypeSafe's Jev](typesafe.md), from an open-weights model
-you can run yourself. It emits no text at all.
+**A provider of `decide`** — the same typed `boolean` / `choice` / `score`
+answers as [TypeSafe's Jev](typesafe.md), from an open-weights model you can
+run yourself. It emits no text at all.
 
 ---
 
@@ -106,18 +106,20 @@ neurolink decide "We were billed twice for March." --provider laya \
 Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured — in the environment or in
-the `credentials` passed to the SDK — and TypeSafe comes first. TypeSafe has two
-keys, `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` (its Vercel AI Gateway
-route), and either one counts. Laya counts only with both its key and its base
-URL. So:
+the `credentials` passed to the SDK — in the order TypeSafe, Laya,
+[XOR](xor.md). TypeSafe has two keys, `TYPESAFE_API_KEY` and
+`AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and either one counts. Laya
+counts only with both its key and its base URL, and so does XOR. So:
 
 - **A TypeSafe key, plus Laya's key and base URL:** built-in features use
   TypeSafe; Laya runs only where a caller asks for `provider: "laya"`.
 - **Only Laya's key and base URL:** built-in features use Laya.
+- **Laya's key and base URL, plus XOR's:** built-in features use Laya; XOR runs
+  only where a caller asks for `provider: "xor"`.
 - **A Laya key with no base URL:** Laya is not configured. Built-in features
   ignore it, and `provider: "laya"` fails with `Laya requires a base URL`.
-- **None of them:** everything behaves exactly as it did without a decision
-  model.
+- **None of TypeSafe, Laya or XOR:** everything behaves exactly as it did
+  without a decision model.
 
 ---
 
@@ -201,4 +203,5 @@ export LAYA_BASE_URL=http://127.0.0.1:8000
 
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
+- [XOR Provider Guide](xor.md)
 - [Laya on GitHub](https://github.com/NandhaKishorM/laya)

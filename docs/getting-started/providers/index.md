@@ -454,8 +454,9 @@ Access multiple providers through unified interfaces:
 
 ## 🧠 Decision-Only Providers {#decision-only-providers}
 
-The two providers that serve `decide` rather than `generate`/`stream`. Each
-returns typed, calibrated judgments and emits no text, so neither appears in
+The providers that serve `decide` rather than `generate`/`stream`:
+[TypeSafe](typesafe.md), [Laya](laya.md) and [XOR](xor.md). Each returns typed
+`boolean`/`choice`/`score` answers and emits no text, so none appears in
 generation fallback chains or the health sweep.
 
 ### [TypeSafe (Jev)](typesafe.md)
@@ -482,6 +483,19 @@ generation fallback chains or the health sweep.
 - 🔑 `LAYA_API_KEY` is the key that endpoint accepts; on LiteLLM, the route must be in the key's Allowed Routes
 
 [Setup Guide →](laya.md)
+
+### [XOR](xor.md)
+
+**Open-weights decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from `xor-1.1`, Juspay's Apache-2.0 model, at a deployment or LiteLLM proxy route you configure
+
+- 🧭 Serves `decide` only; built-in features use it when its key and base URL are set and no TypeSafe key, no `AI_GATEWAY_API_KEY` and no Laya key and base URL is
+- 🖼️ Takes up to 8 images or one video with a decision, as a Buffer, a local file path or a `data:` URL; TypeSafe and Laya refuse media before any request
+- 📏 Refuses more than about 200,000 estimated tokens of state before any network call
+- 🔌 No built-in endpoint: `XOR_BASE_URL` (or `credentials.xor.baseURL`) is the origin of a deployment or of a LiteLLM route to one; requests go to `<base URL>/v1/systemone`
+- 🔑 `XOR_API_KEY` is the key that endpoint accepts; on LiteLLM, the key's team must allow `xor-1.1`
+- 📦 Weights and setup: [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor)
+
+[Setup Guide →](xor.md)
 
 ## 🧩 Additional Catalog Providers
 

@@ -6,10 +6,10 @@ keywords: typesafe, jev, decide, decision model, calibrated confidence, routing,
 
 # TypeSafe (Jev) Provider Guide
 
-**One of two providers that serve `decide` rather than `generate`/`stream`** —
-it returns typed, calibrated judgments and emits no text at all. The other is
-[Laya](laya.md), an open-weights model you run yourself; TypeSafe runs first
-when both are configured.
+**One of the providers that serve `decide` rather than `generate`/`stream`** —
+it returns typed, calibrated judgments and emits no text at all. The others are
+[Laya](laya.md) and [XOR](xor.md), open-weights models served from an endpoint
+you configure; TypeSafe runs first when more than one is configured.
 
 ---
 
@@ -34,8 +34,9 @@ unreachable in normal use.
 ### Key Facts
 
 - **Provider id**: `typesafe` (aliases: `jev`, `typesafe-ai`)
-- **Inference kinds**: `decide` only — one of two providers that do
-  (the other is [Laya](laya.md)); TypeSafe runs first when both are configured
+- **Inference kinds**: `decide` only — one of the providers that do (the others
+  are [Laya](laya.md) and [XOR](xor.md)); TypeSafe runs first when more than one
+  is configured
 - **Tool calling**: none (`toolSupport: "none"`) — a decision model calls nothing
 - **Health check**: `env-only`; it is never probed with a live generation
 - **Default decide timeout**: 5000 ms (`timeouts.decideMs`)
@@ -208,4 +209,5 @@ not a substitute for the reported confidence, is in
 
 - [The `decide` inference type](/docs/features/decide-inference-type) — the full reference
 - [Model routing with a decision model](/docs/features/classifier-router-jev-strategy)
+- [XOR Provider Guide](xor.md)
 - [Provider setup overview](/docs/getting-started/provider-setup)

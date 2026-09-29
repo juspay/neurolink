@@ -81,6 +81,7 @@ const KNOWN_CREDENTIAL_KEYS = {
   recraft: undefined,
   typesafe: undefined,
   laya: undefined,
+  xor: undefined,
 } satisfies Record<
   Exclude<keyof NeurolinkCredentials, CatalogCredentialKey>,
   undefined
@@ -472,10 +473,10 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
   // hand-registered non-catalog providers (openai, anthropic, google-ai,
   // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
   // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-  // voyage, jina, stability, ideogram, recraft, typesafe, laya). Onboarding a
-  // new catalog provider grows CATALOG_PROVIDER_IDS and needs no change here;
-  // onboarding a new hand-written provider bumps this literal.
-  const NON_CATALOG_PROVIDER_COUNT = 23;
+  // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor).
+  // Onboarding a new catalog provider grows CATALOG_PROVIDER_IDS and needs no
+  // change here; onboarding a new hand-written provider bumps this literal.
+  const NON_CATALOG_PROVIDER_COUNT = 24;
   const totalProviderCount =
     CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
   assert(

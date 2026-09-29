@@ -24,6 +24,7 @@ import {
   RecraftModels,
   TypeSafeModels,
   LayaModels,
+  XorModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
@@ -425,6 +426,13 @@ const TOP_MODELS_CONFIG: Record<
       description: "Let Laya pick a checkpoint by language",
     },
   ],
+  [AIProviderName.XOR]: [
+    {
+      model: XorModels.XOR_1_1,
+      description:
+        "Recommended - XOR 1.1, decision model that also reads images and video",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -469,6 +477,7 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.RECRAFT]: RecraftModels.RECRAFT_V3,
   [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
   [AIProviderName.LAYA]: LayaModels.TYPED_DECISIONS,
+  [AIProviderName.XOR]: XorModels.XOR_1_1,
 };
 
 /**
@@ -506,6 +515,7 @@ const MODEL_ENUMS: Record<
   [AIProviderName.RECRAFT]: RecraftModels,
   [AIProviderName.TYPESAFE]: TypeSafeModels,
   [AIProviderName.LAYA]: LayaModels,
+  [AIProviderName.XOR]: XorModels,
   [AIProviderName.AUTO]: null,
 };
 

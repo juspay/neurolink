@@ -27,6 +27,7 @@ import {
   RecraftModels,
   TypeSafeModels,
   LayaModels,
+  XorModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
@@ -653,6 +654,27 @@ export class ProviderRegistry {
         process.env.LAYA_MODEL || LayaModels.TYPED_DECISIONS,
         [],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LAYA),
+      );
+
+      // Register XOR — the third `decide` provider, reached at whatever base
+      // URL its config names. Its descriptor declares inferenceKinds:
+      // ["decide"], so nothing in the generation fallback chain can reach it.
+      ProviderFactory.registerProvider(
+        AIProviderName.XOR,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: NeuroLink,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const xorCreds = credentials as NeurolinkCredentials["xor"];
+          const { XorProvider } = await import("../providers/xor.js");
+          return new XorProvider(modelName, sdk, undefined, xorCreds);
+        },
+        process.env.XOR_MODEL || XorModels.XOR_1_1,
+        [],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR),
       );
 
       logger.debug("All AI providers registered successfully");

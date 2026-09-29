@@ -15,8 +15,9 @@ NeuroLink recognises three inference types. Two of them produce text:
 A **decision model** takes one `state` plus a map of named, typed questions and
 returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
-of prose. TypeSafe's **Jev** was the first such model; Convai Innovations' open-weights
-**Laya** is the second.
+of prose. The decide providers are TypeSafe's **Jev**, Convai Innovations'
+open-weights **Laya** and Juspay's open-weights **XOR**, which also reads images
+and video.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -37,7 +38,7 @@ All three mix freely in one call.
 **Vocabulary note.** TypeSafe calls the yes/no primitive a `noul` and answers
 it in a field of the same name. The Vercel AI SDK and Pydantic AI both renamed
 that to `boolean`/`probability` when exposing it, and NeuroLink follows them —
-the vendor's spelling is translated inside `TypeSafeProvider`, so a second
+the vendor's spelling is translated inside `TypeSafeProvider`, so another
 decision provider slots in without changing any call site.
 
 ### Confidence is not probability
@@ -87,6 +88,29 @@ alongside Laya, TypeSafe is the default; Laya runs where a caller names it
 configured only with both its key and its base URL. See the
 [Laya provider guide](../getting-started/providers/laya.md).
 
+### XOR, at a deployment or a LiteLLM proxy route
+
+```bash
+export XOR_BASE_URL=https://your-proxy.example.com  # required: a deployment, or a proxy route to one
+export XOR_API_KEY=sk-...                           # the key that endpoint accepts
+export XOR_MODEL=xor-1.1                            # optional
+```
+
+XOR, Juspay's open-weights decision model, has no built-in endpoint either.
+NeuroLink calls `<base URL>/v1/systemone`, and a trailing `/v1` on the base URL
+is accepted. The base URL and key can equally come from the config passed to the
+SDK, `new NeuroLink({ credentials: { xor: { baseURL, apiKey } } })`, or per
+call; config set there counts when NeuroLink picks the default decision
+provider, exactly as the environment does. On a LiteLLM proxy the key's team
+must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
+
+Built-in features use the first configured decision provider in the order
+TypeSafe, Laya, XOR. XOR counts as configured only with both its key and its
+base URL, and runs where a caller names it (`provider: "xor"`) or when neither
+of the others is configured. It is the one that reads images and video; see
+[Images and video](#images-and-video) and the
+[XOR provider guide](../getting-started/providers/xor.md).
+
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider has its key set, and `tryDecide()` returns
 `null` on any failure. There is no configuration in which a missing, invalid,
@@ -94,7 +118,9 @@ slow or unreachable decision model changes NeuroLink's observable behaviour —
 it only ever falls back to what it did before.
 
 A credential the service does not accept disables that provider instance rather
-than paying a round trip on every later call to be told so again.
+than paying a round trip on every later call to be told so again. An XOR 403 or
+402 is not that case: on a LiteLLM proxy it means the key's team lacks the model
+or the budget, which an admin can fix, so the instance is not disabled.
 
 ---
 
@@ -222,14 +248,86 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
   --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'
 ```
 
+To ask about an image or a video, add `--image <path>` (repeatable) or
+`--video <path>`; only XOR reads media:
+
+```bash
+npx @juspay/neurolink decide "A product photo from a listing." --provider xor \
+  --image ./front.png --image ./back.jpg \
+  --questions '{"color":{"type":"choice","instructions":"What color is the product?","criteria":{"red":"Mostly red","blue":"Mostly blue"}}}'
+```
+
 See the [CLI command reference](../cli/commands.md#decide) for the full flag
-list, including `--state-file`, `--questions-file` and `--format json`.
+list, including `--state-file`, `--questions-file`, `--image`, `--video` and
+`--format json`.
 
 ### A choice answer is also a ranking
 
 `readDecisionChoice` returns `ranked` — every option sorted by probability,
 highest first. One `choice` question over N options therefore ranks all N in a
 single request. This is the basis for picking from a large catalogue.
+
+---
+
+## Images and video
+
+A decision provider whose descriptor declares media limits reads images and one
+video alongside `state`. XOR does; TypeSafe and Laya do not. Two optional fields
+on the request carry them, for `decide()` and `tryDecide()` alike:
+
+- `images` — up to 8 images, the limit XOR declares.
+- `video` — one video.
+
+Each image and the video takes the same three input forms:
+
+- a `Buffer`;
+- a local file path;
+- a `data:image/…;base64,` or `data:video/…;base64,` URL.
+
+```ts
+const result = await neurolink.decide({
+  provider: "xor",
+  state: "A product photo from a listing.",
+  images: ["./front.png", "./back.jpg"],
+  questions: {
+    color: {
+      type: "choice",
+      instructions: "What color is the product?",
+      criteria: { red: "Mostly red", blue: "Mostly blue" },
+    },
+  },
+});
+console.log(result.mediaBytes); // encoded size of the images sent
+```
+
+NeuroLink identifies a Buffer or a file from its bytes, not its extension — PNG,
+JPEG, WebP and GIF images, and MP4, MOV and WebM video —
+and sends it as a `data:` URL. A `data:` URL you pass yourself must hold base64
+image or video content, and is sent as given.
+
+**What is refused.** Everything NeuroLink can check is refused before any
+request, as a non-retryable `invalid_request`:
+
+- an `http(s)` URL — media is not fetched for you, so pass a Buffer, a file path
+  or a `data:` URL;
+- a string that is not a file path or a `data:` URL, such as bare base64 or a
+  URL with another scheme;
+- a missing file, a directory, or an empty Buffer or file;
+- something that is not an image or a video;
+- more than 8 images;
+- a request body over 8 MB. The limit applies to the encoded body, so the base64
+  form counts. A file over it is refused from its size, before it is read;
+- any media sent to a provider that declares no media capability (TypeSafe,
+  Laya). The message names the providers that accept media.
+
+**Images and a video can be sent together** (up to 8 images and one video), but
+the model does not reliably tell the two apart.
+
+The result carries `mediaBytes`, the encoded size of the media sent. The
+`decide` spans carry `decision.images.count` and `decision.media.bytes`, and
+never any base64. A deployment started without `OPENJEV_IMAGES=1` answers 200
+and silently ignores images, which NeuroLink cannot detect; see the
+[XOR provider guide](../getting-started/providers/xor.md#troubleshooting).
 
 ---
 
@@ -375,6 +473,18 @@ measured per checkpoint — and refuses anything over the limit locally with
 `max_tokens_exceeded`, before any network call. The estimate errs toward
 refusing.
 
+**XOR shares one prefill between the state, the questions and any media.**
+NeuroLink allows about 200,000 estimated tokens of state (about four characters
+per token for ASCII, one token per character for other scripts) and refuses more
+locally with `max_tokens_exceeded`. That figure is a conservative default under
+the deployment's 250,000-token prefill, which the questions and any images or
+video also draw on; it has not been measured against a live deployment. A
+request that passes the local check can therefore still be refused by the
+server as too long. That arrives as `max_tokens_exceeded` (not retried) when
+the status is 413 or the message says the context was too long, and otherwise as
+`server`, retried once. XOR has no question cap in NeuroLink, and its server takes 2 to 255
+options on a `choice` or `score`.
+
 **Two separate size ceilings**, both enforced:
 
 - `state` + the **single longest** question ≤ **~33 000 tokens** (measured
@@ -447,7 +557,7 @@ is an alias and can move under you, invalidating a tuned threshold silently.
 
 ## Adding another decision provider
 
-The `decide` inference type is provider-neutral by construction. A second
+The `decide` inference type is provider-neutral by construction. Another
 decision model needs:
 
 1. An `AIProviderName` member and a `<Name>Models` enum
@@ -458,7 +568,9 @@ decision model needs:
 3. A descriptor with **`inferenceKinds: ["decide"]`**, no auto-select ranks, and
    `healthCheck: "env-only"`. That one field is what keeps a text-less model out
    of every generation fallback chain; nothing else needs to know the provider
-   by name.
+   by name. A provider that reads images or video also declares
+   `decisionLimits.media`; without it, a request that carries media is refused
+   before any network call.
 4. A registration block, a credentials slice, a manifest, and the usual Tier-3
    onboarding artifacts — `pnpm run verify:provider-onboarding` enumerates them.
 

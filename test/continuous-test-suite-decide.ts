@@ -94,6 +94,14 @@ const HAS_LAYA_KEY =
 const REAL_LAYA_BASE_URL = process.env.LAYA_BASE_URL;
 const HAS_LAYA_BASE_URL =
   typeof REAL_LAYA_BASE_URL === "string" && REAL_LAYA_BASE_URL.trim() !== "";
+// XOR is a fourth key that configures a decision provider, and like Laya it has
+// no built-in endpoint, so its live tests also need XOR_BASE_URL.
+const REAL_XOR_KEY = process.env.XOR_API_KEY;
+const HAS_XOR_KEY =
+  typeof REAL_XOR_KEY === "string" && REAL_XOR_KEY.trim() !== "";
+const REAL_XOR_BASE_URL = process.env.XOR_BASE_URL;
+const HAS_XOR_BASE_URL =
+  typeof REAL_XOR_BASE_URL === "string" && REAL_XOR_BASE_URL.trim() !== "";
 
 function restoreEnv(): void {
   if (HAS_KEY) {
@@ -116,6 +124,16 @@ function restoreEnv(): void {
   } else {
     delete process.env.LAYA_BASE_URL;
   }
+  if (REAL_XOR_KEY !== undefined) {
+    process.env.XOR_API_KEY = REAL_XOR_KEY;
+  } else {
+    delete process.env.XOR_API_KEY;
+  }
+  if (REAL_XOR_BASE_URL !== undefined) {
+    process.env.XOR_BASE_URL = REAL_XOR_BASE_URL;
+  } else {
+    delete process.env.XOR_BASE_URL;
+  }
 }
 
 /**
@@ -127,6 +145,8 @@ function clearDecisionKeys(): void {
   delete process.env.AI_GATEWAY_API_KEY;
   delete process.env.LAYA_API_KEY;
   delete process.env.LAYA_BASE_URL;
+  delete process.env.XOR_API_KEY;
+  delete process.env.XOR_BASE_URL;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -138,6 +158,15 @@ function assert(condition: boolean, message: string): asserts condition {
 function requireKey(): void {
   if (!HAS_KEY) {
     throw new Error("SKIP: TYPESAFE_API_KEY not set");
+  }
+}
+
+function requireXorKey(): void {
+  if (!HAS_XOR_KEY) {
+    throw new Error("SKIP: XOR_API_KEY not set");
+  }
+  if (!HAS_XOR_BASE_URL) {
+    throw new Error("SKIP: XOR_BASE_URL not set");
   }
 }
 
@@ -1957,6 +1986,8 @@ const NO_PROVIDER_ENV = {
   AI_GATEWAY_API_KEY: "",
   LAYA_API_KEY: "",
   LAYA_BASE_URL: "",
+  XOR_API_KEY: "",
+  XOR_BASE_URL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -1977,7 +2008,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2385,6 +2416,8 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         AI_GATEWAY_API_KEY: "",
         LAYA_API_KEY: REAL_LAYA_KEY ?? "",
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+        XOR_API_KEY: "",
+        XOR_BASE_URL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2422,6 +2455,8 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         AI_GATEWAY_API_KEY: "",
         LAYA_API_KEY: "sk-definitely-not-valid",
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+        XOR_API_KEY: "",
+        XOR_BASE_URL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2461,6 +2496,8 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         AI_GATEWAY_API_KEY: "",
         LAYA_API_KEY: REAL_LAYA_KEY ?? "",
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
+        XOR_API_KEY: "",
+        XOR_BASE_URL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2482,4 +2519,488 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
 });
 
 restoreEnv();
+logSection("17. XOR — the third decision provider");
+
+await test("17.1 — xor declares decide and only decide, and no generation rank", async () => {
+  const xor = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR);
+  assert(xor !== undefined, "xor has no registered descriptor");
+  assert(servesInferenceKind(xor!, "decide"), "xor must declare decide");
+  assert(
+    !servesInferenceKind(xor!, "generate") &&
+      !servesInferenceKind(xor!, "stream"),
+    "a model that emits no text must not declare generate or stream",
+  );
+  assert(
+    xor!.autoSelectPriority === undefined &&
+      xor!.autoSelectPreference === undefined &&
+      xor!.defaultHealthSweepPriority === undefined,
+    "a decision provider must stay out of every generation fallback chain",
+  );
+});
+
+await test("17.2 — precedence: typesafe, then laya, then xor when alone", async () => {
+  try {
+    clearDecisionKeys();
+    process.env.TYPESAFE_API_KEY = "apikey_placeholder_for_resolution";
+    process.env.LAYA_API_KEY = "sk-placeholder-for-resolution";
+    process.env.LAYA_BASE_URL = "https://laya.placeholder.invalid";
+    process.env.XOR_API_KEY = "sk-placeholder-for-resolution";
+    process.env.XOR_BASE_URL = "https://xor.placeholder.invalid";
+    const all = resolveDefaultDecisionProvider();
+    delete process.env.TYPESAFE_API_KEY;
+    const withoutTypeSafe = resolveDefaultDecisionProvider();
+    delete process.env.LAYA_API_KEY;
+    const xorAlone = resolveDefaultDecisionProvider();
+    delete process.env.XOR_BASE_URL;
+    const keyOnly = resolveDefaultDecisionProvider();
+    process.env.XOR_BASE_URL = "https://xor.placeholder.invalid";
+    process.env.XOR_API_KEY = "   ";
+    const blank = resolveDefaultDecisionProvider();
+    assert(
+      all === "typesafe",
+      "with all three configured, typesafe must stay the default",
+    );
+    assert(
+      withoutTypeSafe === "laya",
+      "without typesafe, laya must stay ahead of xor",
+    );
+    assert(
+      xorAlone === "xor",
+      "with only xor configured, xor must become the default",
+    );
+    assert(
+      keyOnly === undefined,
+      "an xor key without XOR_BASE_URL must not count as configured",
+    );
+    assert(
+      blank === undefined,
+      "a whitespace-only xor credential must not count as configured",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("17.3 — descriptor order is the precedence: typesafe, laya, xor", async () => {
+  const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
+  assert(
+    names.indexOf("typesafe") !== -1 &&
+      names.indexOf("typesafe") < names.indexOf("laya") &&
+      names.indexOf("laya") < names.indexOf("xor"),
+    "the derived decision-provider list must read typesafe, laya, xor",
+  );
+});
+
+await test("17.4 — an ambient xor credential cannot leak into a keyless test", async () => {
+  try {
+    process.env.XOR_API_KEY = "sk-ambient-placeholder";
+    process.env.XOR_BASE_URL = "https://xor.ambient.invalid";
+    clearDecisionKeys();
+    assert(
+      resolveDefaultDecisionProvider() === undefined,
+      "clearDecisionKeys must clear the xor credential too",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("17.5 — the SDK's nothing-configured error names xor's variables too", async () => {
+  clearDecisionKeys();
+  let message = "";
+  try {
+    await new NeuroLink().decide({
+      state: "x",
+      questions: { q: { type: "boolean", instructions: "?" } },
+    });
+  } catch (error) {
+    message = error instanceof Error ? error.message : "";
+  }
+  restoreEnv();
+  assert(
+    message.includes("XOR_") &&
+      message.includes("LAYA_") &&
+      message.includes("TYPESAFE_"),
+    "the error must name the variable for each decision provider",
+  );
+});
+
+await test("17.6 — decide --provider xor with no credential ⇒ one clean line", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "Refund request for a damaged item",
+      "--provider",
+      "xor",
+      "--questions",
+      JSON.stringify({
+        urgent: { type: "boolean", instructions: "Is this urgent?" },
+      }),
+    ],
+    { env: NO_PROVIDER_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "decide must fail without an xor credential");
+  assert(
+    result.stderr.includes("XOR_"),
+    "the failure line must say which variable to set",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace instead of a clean message",
+  );
+});
+
+// The CLI media tests use a dead local address, so a request that escaped to
+// the network would surface as a connection error instead of the refusal.
+const XOR_FIXTURE_DIR = new URL("./fixtures/decide/xor/", import.meta.url)
+  .pathname;
+const XOR_CLI_ENV = {
+  ...NO_PROVIDER_ENV,
+  XOR_API_KEY: "sk-placeholder-for-cli",
+  XOR_BASE_URL: "http://127.0.0.1:9/xor",
+  TYPESAFE_API_KEY: "apikey_placeholder_for_cli",
+  TYPESAFE_BASE_URL: "http://127.0.0.1:9/typesafe",
+};
+await test("17.7 — decide --help lists --image and --video", async () => {
+  const result = await runCLI(["decide", "--help"], { timeoutMs: 30_000 });
+  assert(
+    result.stdout.includes("--image") && result.stdout.includes("--video"),
+    "the help must list both flags",
+  );
+});
+
+await test("17.8 — a positional state after --image is still the state", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "--image",
+      `${XOR_FIXTURE_DIR}red.png`,
+      "The state text",
+      "--provider",
+      "typesafe",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "typesafe must refuse an image");
+  assert(
+    result.stderr.includes("does not accept images"),
+    "the image must reach the provider",
+  );
+  assert(
+    !result.stderr.includes("provide state"),
+    "the state must not be swallowed by --image",
+  );
+});
+
+await test("17.9 — nine --image flags ⇒ refused locally, one clean line", async () => {
+  const args = [
+    "decide",
+    "The state text",
+    "--provider",
+    "xor",
+    "--questions",
+    ONE_QUESTION,
+  ];
+  for (let i = 0; i < 9; i++) {
+    args.push("--image", `${XOR_FIXTURE_DIR}red.png`);
+  }
+  const result = await runCLI(args, { env: XOR_CLI_ENV, timeoutMs: 30_000 });
+  assert(result.exitCode !== 0, "nine images must be refused");
+  assert(result.stderr.includes("at most 8"), "the refusal must say the limit");
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the refusal printed a stack trace",
+  );
+});
+
+await test("17.10 — a missing --image file ⇒ one clean line naming the image", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "xor",
+      "--image",
+      `${XOR_FIXTURE_DIR}no-such-file.png`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "a missing image must fail");
+  assert(
+    result.stderr.includes("Could not read Image 1"),
+    "the failure must name the image",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace",
+  );
+});
+
+await test("17.11 — --video on a provider that takes none ⇒ refused before any request", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "laya",
+      "--video",
+      `${XOR_FIXTURE_DIR}red.mp4`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    {
+      env: {
+        ...XOR_CLI_ENV,
+        LAYA_API_KEY: "sk-placeholder",
+        LAYA_BASE_URL: "http://127.0.0.1:9/laya",
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  assert(result.exitCode !== 0, "laya must refuse a video");
+  assert(
+    result.stderr.includes("does not accept images or video"),
+    "the refusal must say why",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+});
+
+/** A busy or unreachable XOR is a skip, not a failure: the contract is what is under test. */
+function isTransientXorFailure(error: unknown): boolean {
+  const cause =
+    error instanceof Error
+      ? (error as Error & { cause?: { kind?: string } }).cause
+      : undefined;
+  return ["rate_limit", "overloaded", "timeout", "network"].includes(
+    cause?.kind ?? "",
+  );
+}
+
+/** The CLI prints no status, so a transient failure is told apart by its text; a 200 with no answers is not transient. */
+function isTransientXorCliFailure(stderr: string): boolean {
+  return (
+    [
+      "timed out",
+      "rate-limiting",
+      "overloaded",
+      "network error",
+      "server error",
+    ].some((phrase) => stderr.includes(phrase)) &&
+    !stderr.includes("answers map")
+  );
+}
+
+const XOR_COLOR_QUESTION = {
+  color: {
+    type: "choice" as const,
+    instructions: "What color is the attached image?",
+    criteria: { red: "red", blue: "blue", green: "green", yellow: "yellow" },
+  },
+};
+
+await test("17.12 — live: xor answers boolean, choice and score", async () => {
+  requireXorKey();
+  restoreEnv();
+  const result = await new NeuroLink()
+    .decide({ provider: "xor", state: SUPPORT_TICKET, questions: ALL_THREE })
+    .catch((error: unknown) => {
+      throw isTransientXorFailure(error)
+        ? new Error("SKIP: xor returned a transient reply")
+        : error;
+    });
+  assert(result.provider === "xor", "the result must come from xor");
+  assert(
+    result.answers.urgent?.type === "boolean",
+    "urgent must be a boolean answer",
+  );
+  assert(
+    result.answers.team?.type === "choice",
+    "team must be a choice answer",
+  );
+  assert(
+    result.answers.frustration?.type === "score",
+    "frustration must be a score answer",
+  );
+  assert(
+    result.model.startsWith("xor"),
+    "the reported model must be an xor model",
+  );
+  assert(result.usage.inputTokens > 0, "usage must be reported");
+  assert(result.latencyMs > 0, "latency must be measured");
+});
+
+async function xorColour(
+  media: { images?: string[]; video?: string },
+  state: string,
+): Promise<string> {
+  const result = await new NeuroLink()
+    .decide({
+      provider: "xor",
+      state,
+      questions: XOR_COLOR_QUESTION,
+      ...media,
+    })
+    .catch((error: unknown) => {
+      throw isTransientXorFailure(error)
+        ? new Error("SKIP: xor returned a transient reply")
+        : error;
+    });
+  const answer = result.answers.color;
+  assert(answer?.type === "choice", "color must be a choice answer");
+  return answer.type === "choice" ? answer.choice : "";
+}
+
+await test("17.13 — live: red and blue images are told apart (images are really read)", async () => {
+  requireXorKey();
+  restoreEnv();
+  const red = await xorColour(
+    { images: [`${XOR_FIXTURE_DIR}red.png`] },
+    "Look at the attached image.",
+  );
+  const blue = await xorColour(
+    { images: [`${XOR_FIXTURE_DIR}blue.png`] },
+    "Look at the attached image.",
+  );
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+await test("17.14 — live: red and blue videos are told apart", async () => {
+  requireXorKey();
+  restoreEnv();
+  const red = await xorColour(
+    { video: `${XOR_FIXTURE_DIR}red.mp4` },
+    "Look at the attached video.",
+  );
+  const blue = await xorColour(
+    { video: `${XOR_FIXTURE_DIR}blue.mp4` },
+    "Look at the attached video.",
+  );
+  assert(red === "red", "the red video must answer red");
+  assert(blue === "blue", "the blue video must answer blue");
+});
+
+await test("17.15 — live: decide --provider xor --image --format json is clean JSON", async () => {
+  requireXorKey();
+  const result = await runCLI(
+    [
+      "decide",
+      "Look at the attached image.",
+      "--provider",
+      "xor",
+      "--image",
+      `${XOR_FIXTURE_DIR}red.png`,
+      "--format",
+      "json",
+      "--questions",
+      JSON.stringify(XOR_COLOR_QUESTION),
+    ],
+    { timeoutMs: 60_000 },
+  );
+  if (result.exitCode !== 0 && isTransientXorCliFailure(result.stderr)) {
+    throw new Error("SKIP: xor returned a transient reply");
+  }
+  assert(result.exitCode === 0, "the live CLI call must succeed");
+  const parsed: unknown = JSON.parse(result.stdout);
+  assert(
+    isRecordLike(parsed) && parsed.provider === "xor",
+    "stdout must be the raw JSON result",
+  );
+  assert(
+    !looksLikeStackTrace(result.stderr),
+    "stderr must not hold a stack trace",
+  );
+});
+
+await test('17.16 — --video "" ⇒ one clean line, never silently dropped', async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "xor",
+      "--video",
+      "",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "an empty --video must fail");
+  assert(
+    result.stderr.includes("empty string"),
+    "the failure must say the video is empty",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the failure must happen before any request",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace",
+  );
+});
+
+await test("17.17 — two --video flags ⇒ refused, one clean line", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "xor",
+      "--video",
+      `${XOR_FIXTURE_DIR}red.mp4`,
+      "--video",
+      `${XOR_FIXTURE_DIR}blue.mp4`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "two videos must be refused");
+  assert(
+    result.stderr.includes("at most one --video"),
+    "the refusal must say only one video is allowed",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+});
+
+await test("17.18 — a bare --video with no value ⇒ refused, never dropped", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "xor",
+      "--questions",
+      ONE_QUESTION,
+      "--video",
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "a bare --video must fail");
+  assert(
+    /video/i.test(result.stderr),
+    "the failure must name the flag it is about",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the failure must happen before any request",
+  );
+});
+
 await runSuite();

@@ -36,6 +36,22 @@ Arguments for `neurolink decide` — the third inference type's CLI surface.
 
 ---
 
+### image?
+
+> `optional` **image?**: `string`[]
+
+Image files (or data: URLs) for a provider that reads images.
+
+---
+
+### video?
+
+> `optional` **video?**: `string`
+
+One video file (or data: URL) for a provider that reads video.
+
+---
+
 ### provider?
 
 > `optional` **provider?**: `string`

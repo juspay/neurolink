@@ -22,6 +22,24 @@
 
 ---
 
+### images?
+
+> `optional` **images?**: readonly [`DecisionMediaSource`](DecisionMediaSource.md)[]
+
+Images the model reads alongside `state`. Each is a Buffer, a local file
+path or a `data:image/…;base64,` URL; an http(s) URL is refused. Only a
+provider whose descriptor declares `decisionLimits.media` accepts them.
+
+---
+
+### video?
+
+> `optional` **video?**: [`DecisionMediaSource`](DecisionMediaSource.md)
+
+One video, in the same forms. Sending images as well is allowed.
+
+---
+
 ### model?
 
 > `optional` **model?**: `string`

@@ -17681,6 +17681,7 @@ Current user's request: ${currentInput}`;
           "gen_ai.operation.name": "decide",
           "ai.provider": providerName,
           "decision.question_count": questionCount,
+          "decision.images.count": options.images?.length ?? 0,
         },
       },
       async (otelSpan) => {
@@ -17693,6 +17694,7 @@ Current user's request: ${currentInput}`;
             "ai.provider": providerName,
             "ai.model": options.model ?? "",
             "decision.question_count": questionCount,
+            "decision.images.count": options.images?.length ?? 0,
           },
           parentSpanId,
           traceId,
@@ -17718,6 +17720,8 @@ Current user's request: ${currentInput}`;
           const result = await provider.decide({
             state: options.state,
             questions: options.questions,
+            images: options.images,
+            video: options.video,
             model: options.model,
             signal: options.signal,
             timeoutMs: options.timeoutMs,
@@ -17740,6 +17744,7 @@ Current user's request: ${currentInput}`;
             result.usage.outputTokens,
           );
           otelSpan.setAttribute("decision.answer_count", answerCount);
+          otelSpan.setAttribute("decision.media.bytes", result.mediaBytes ?? 0);
           otelSpan.setAttribute("ai.cost.total", cost);
           if (result.upstreamMs !== undefined) {
             otelSpan.setAttribute("decision.upstream_ms", result.upstreamMs);
@@ -17761,6 +17766,7 @@ Current user's request: ${currentInput}`;
             "ai.cost.output": 0,
             "ai.cost.total": cost,
             "decision.answer_count": answerCount,
+            "decision.media.bytes": result.mediaBytes ?? 0,
             "decision.latency_ms": result.latencyMs,
             ...(result.upstreamMs !== undefined
               ? { "decision.upstream_ms": result.upstreamMs }

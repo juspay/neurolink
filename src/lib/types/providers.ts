@@ -296,6 +296,13 @@ export type NeurolinkCredentials = {
    * Laya server or a proxy route to one; requests go to `<baseURL>/predict`.
    */
   laya?: { apiKey?: string; baseURL?: string };
+  /**
+   * XOR (Juspay, open weights) — the `decide` inference type. There is no
+   * built-in endpoint: `baseURL` (or XOR_BASE_URL) is required, pointing at the
+   * origin of an XOR deployment or a proxy route to one; requests go to
+   * `<baseURL>/v1/systemone`.
+   */
+  xor?: { apiKey?: string; baseURL?: string };
 };
 
 /**

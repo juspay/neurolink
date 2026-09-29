@@ -1,0 +1,26 @@
+{
+  "provider": "xor",
+  "tier": 3,
+  "addedInPR": "pending",
+  "addedDate": "2026-09-29",
+  "mockedContractSection": "DECIDE xor",
+  "notes": "Third provider of the `decide` inference type: Juspay's open-weights XOR, reached at a configured base URL (an XOR deployment or a LiteLLM pass-through route); it has no built-in endpoint, so XOR_BASE_URL or credentials.xor.baseURL is required. Tier 3 for the same reasons as typesafe and laya (the catalog schema has no decide vocabulary and requires output-token fields). Extends SystemOneDecisionProvider. Declares inferenceKinds [\"decide\"] and decisionLimits, and sits after laya in HAND_DESCRIPTORS so typesafe and laya stay the default whenever their keys are set. Also accepts images and one video through DecisionRequest.",
+  "filesTouched": [
+    "src/lib/constants/enums.ts",
+    "src/lib/providers/xor.ts",
+    "src/lib/providers/systemOneDecision.ts",
+    "src/lib/factories/providerDescriptors.ts",
+    "src/lib/factories/providerRegistry.ts",
+    "src/lib/types/providers.ts",
+    "src/lib/types/decision.ts",
+    "src/lib/utils/decisionMedia.ts",
+    "src/lib/utils/providerConfig.ts",
+    "src/lib/models/manifests/xor.ts",
+    "src/lib/models/manifestRegistry.ts",
+    "src/lib/utils/modelChoices.ts",
+    "src/cli/commands/setup.ts",
+    "src/cli/commands/decide.ts",
+    "test/continuous-test-suite-providers-mocked.ts",
+    "test/helpers/providerMatrix.ts"
+  ]
+}

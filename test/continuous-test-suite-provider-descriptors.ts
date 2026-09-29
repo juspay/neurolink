@@ -51,10 +51,10 @@ await runSuite(async () => {
     // hand-registered non-catalog providers (openai, anthropic, google-ai,
     // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
     // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-    // voyage, jina, stability, ideogram, recraft, typesafe, laya).
+    // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const NON_CATALOG_PROVIDER_COUNT = 24;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -358,7 +358,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const NON_CATALOG_PROVIDER_COUNT = 24;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -815,6 +815,8 @@ await runSuite(async () => {
       "typesafe",
       // laya is the second decide-only provider: no tools for the same reason.
       "laya",
+      // xor is the third decide-only provider: no tools for the same reason.
+      "xor",
     ]);
     // A catalog entry with capabilities.tools: false derives toolSupport
     // "none" (buildCatalogDescriptor), which the runtime treats exactly like

@@ -3,6 +3,7 @@ import "dotenv/config";
 import { jsonSchema } from "../dist/index.js";
 import type {
   DecisionQuestionMap,
+  DecisionRequest,
   DecisionState,
   NeurolinkCredentials,
 } from "../dist/index.js";
@@ -12,6 +13,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Mocked Contract Test Suite for New Providers
@@ -3176,6 +3178,8 @@ async function runLayaDecide(): Promise<void> {
     "AI_GATEWAY_API_KEY",
     "LAYA_API_KEY",
     "LAYA_BASE_URL",
+    "XOR_API_KEY",
+    "XOR_BASE_URL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -3917,10 +3921,1297 @@ async function runLayaDecide(): Promise<void> {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: XOR (decide-only)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * XOR answers on the same System One wire as TypeSafe's direct API, so the
+ * `boolean`↔`noul` translation is shared. What this section pins is XOR's own:
+ * the route (`<XOR_BASE_URL>/v1/systemone`, no built-in endpoint), the `model`
+ * field that is always sent, the request id headers, the error envelopes, the
+ * limits and the image and video input.
+ */
+// XOR has no built-in endpoint: the base URL always comes from config, so the
+// section sets XOR_BASE_URL itself.
+const XOR_DECIDE_SPEC = {
+  provider: "xor",
+  envVar: "XOR_API_KEY",
+  baseURL: "https://xor.test.example/proxy",
+  urlMatch: "xor.test.example/proxy/v1/systemone",
+  endpoint: "https://xor.test.example/proxy/v1/systemone",
+  model: "xor-1.1",
+};
+
+const XOR_QUESTIONS = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+  team: {
+    type: "choice",
+    instructions: "Which team?",
+    criteria: { billing: "money", technical: "bugs", sales: "pricing" },
+  },
+  mood: {
+    type: "score",
+    instructions: "How angry?",
+    criteria: ["calm", "annoyed", "angry"],
+  },
+} satisfies DecisionQuestionMap;
+
+/** A success body in the shape XOR's own server returns. */
+function xorSuccessBody(model: string = XOR_DECIDE_SPEC.model): unknown {
+  return {
+    model,
+    answers: {
+      urgent: { type: "noul", noul: 0.91 },
+      team: {
+        type: "choice",
+        choice: "billing",
+        probabilities: { billing: 0.84, technical: 0.1, sales: 0.06 },
+        confidence: 0.79,
+      },
+      mood: {
+        type: "score",
+        score: 1.7,
+        legend: { "0": "calm", "1": "annoyed", "2": "angry" },
+        probabilities: { "0": 0.1, "1": 0.1, "2": 0.8 },
+        confidence: 0.7,
+      },
+    },
+    // XOR reports one output token per question.
+    usage: { input_tokens: 96, output_tokens: 3 },
+  };
+}
+
+const xorOkRoute = {
+  method: "POST",
+  url: XOR_DECIDE_SPEC.urlMatch,
+  respond: { status: 200, json: xorSuccessBody() },
+};
+
+async function createXor(model?: string) {
+  const { ProviderFactory } =
+    await import("../dist/factories/providerFactory.js");
+  return ProviderFactory.createProvider(XOR_DECIDE_SPEC.provider, model);
+}
+
+async function xorCase(name: string, body: () => Promise<void>): Promise<void> {
+  try {
+    await body();
+    record(results, name, true);
+  } catch (err) {
+    record(
+      results,
+      name,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/** One decision on a single question, for tests that only care what was sent. */
+async function decideOne(
+  provider: Awaited<ReturnType<typeof createXor>>,
+  overrides: Partial<DecisionRequest> = {},
+) {
+  return provider.decide!({
+    state: "short",
+    questions: { urgent: XOR_QUESTIONS.urgent },
+    ...overrides,
+  });
+}
+
+/** Run one decision against a canned reply; report how it was classified. */
+async function xorFailure(
+  respond:
+    | { status: number; json: unknown }
+    | (() => { status: number; json: unknown }),
+) {
+  return withMocks(
+    [{ method: "POST", url: XOR_DECIDE_SPEC.urlMatch, respond }],
+    async ({ calls }) => {
+      const failure = await captureDecisionFailure(async () =>
+        decideOne(await createXor()),
+      );
+      return { ...failure, calls: calls.length };
+    },
+  );
+}
+
+async function runXorDecide(): Promise<void> {
+  setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+
+  // ── X0: no key — refused as authentication, and nothing is sent ──
+  await xorCase("DECIDE xor: no key, no request", async () => {
+    setEnv(XOR_DECIDE_SPEC.envVar, undefined);
+    await withMocks([xorOkRoute], async ({ calls }) => {
+      const provider = await createXor();
+      const failure = await captureDecisionFailure(() => decideOne(provider));
+      expectEq(failure.kind, "authentication", "missing key classified");
+      expect(
+        failure.message.includes("XOR_API_KEY"),
+        "names the variable to set",
+      );
+      expectEq(calls.length, 0, "no network call without a key");
+    });
+  });
+
+  setEnv(XOR_DECIDE_SPEC.envVar, "test-fake-xor-credential");
+
+  // ── X1: happy path — route, bearer, body, answers, model, usage, request id ──
+  await xorCase("DECIDE xor: wire, answers and model", async () => {
+    await withMocks(
+      [
+        {
+          ...xorOkRoute,
+          respond: {
+            status: 200,
+            json: xorSuccessBody(),
+            headers: { "x-request-id": "req-xor-1" },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const provider = await createXor();
+        const result = await provider.decide!({
+          state: "payouts have failed for three days",
+          questions: XOR_QUESTIONS,
+        });
+        expectEq(calls.length, 1, "single POST");
+        expectEq(calls[0].url, XOR_DECIDE_SPEC.endpoint, "route from config");
+        const headers = calls[0].headers as Record<string, string>;
+        expectEq(
+          headers.Authorization ?? headers.authorization,
+          "Bearer test-fake-xor-credential",
+          "bearer credential",
+        );
+        const body = calls[0].bodyJson as {
+          model?: string;
+          questions: Record<string, { type: string }>;
+        };
+        expectEq(body.model, XOR_DECIDE_SPEC.model, "default model sent");
+        expectEq(body.questions.urgent.type, "noul", "boolean sent as noul");
+        const urgent = result.answers.urgent;
+        expectEq(
+          urgent.type === "boolean" ? urgent.probability : -1,
+          0.91,
+          "noul mapped to probability",
+        );
+        const team = result.answers.team;
+        expectEq(
+          team.type === "choice" ? team.choice : "",
+          "billing",
+          "choice",
+        );
+        const mood = result.answers.mood;
+        expectEq(mood.type === "score" ? mood.score : -1, 1.7, "score");
+        expectEq(result.model, XOR_DECIDE_SPEC.model, "model from response");
+        expectEq(result.provider, "xor", "provider name");
+        expectEq(result.usage.inputTokens, 96, "usage.input_tokens mapped");
+        expectEq(result.usage.outputTokens, 3, "usage.output_tokens mapped");
+        expectEq(result.requestId, "req-xor-1", "request id kept");
+      },
+    );
+  });
+
+  // ── X1b: whichever id header survives the proxy is the request id ──
+  await xorCase(
+    "DECIDE xor: request id from whichever header survives",
+    async () => {
+      const cases: Array<[Record<string, string>, string | undefined]> = [
+        [
+          {
+            "x-request-id": "req-1",
+            "x-typesafe-request-id": "ts-1",
+            "x-litellm-call-id": "ll-1",
+          },
+          "req-1",
+        ],
+        [
+          { "x-typesafe-request-id": "ts-2", "x-litellm-call-id": "ll-2" },
+          "ts-2",
+        ],
+        [{ "x-litellm-call-id": "ll-3" }, "ll-3"],
+        [{}, undefined],
+      ];
+      for (const [headers, expected] of cases) {
+        await withMocks(
+          [
+            {
+              ...xorOkRoute,
+              respond: { status: 200, json: xorSuccessBody(), headers },
+            },
+          ],
+          async () => {
+            const result = await decideOne(await createXor());
+            expectEq(
+              result.requestId,
+              expected,
+              "request id header precedence",
+            );
+          },
+        );
+      }
+    },
+  );
+
+  // ── X2: `model` is always sent: default, construction, per call ──
+  await xorCase("DECIDE xor: the model field is always sent", async () => {
+    await withMocks([xorOkRoute], async ({ calls }) => {
+      await decideOne(await createXor());
+      await decideOne(await createXor("xor-custom"));
+      await decideOne(await createXor("xor-custom"), {
+        model: "xor-per-call",
+      });
+      const sent = calls.map((c) => (c.bodyJson as { model?: string }).model);
+      expectEq(sent[0], "xor-1.1", "default model");
+      expectEq(sent[1], "xor-custom", "model pinned at construction");
+      expectEq(sent[2], "xor-per-call", "per-call model wins");
+    });
+  });
+
+  // ── X3: every spelling of the base URL reaches the same endpoint ──
+  await xorCase("DECIDE xor: base URL spellings", async () => {
+    try {
+      for (const base of [
+        "https://xor.test.example/proxy",
+        "https://xor.test.example/proxy/",
+        "https://xor.test.example/proxy/v1",
+        "https://xor.test.example/proxy/v1/",
+      ]) {
+        setEnv("XOR_BASE_URL", base);
+        await withMocks([xorOkRoute], async ({ calls }) => {
+          await decideOne(await createXor());
+          expectEq(calls[0]?.url, XOR_DECIDE_SPEC.endpoint, "one endpoint");
+        });
+      }
+    } finally {
+      setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+    }
+  });
+
+  // ── X4: no base URL — unset or blank — is refused before any request ──
+  await xorCase("DECIDE xor: no base URL, no request", async () => {
+    try {
+      for (const unset of [undefined, "   "]) {
+        setEnv("XOR_BASE_URL", unset);
+        await withMocks(
+          [{ ...xorOkRoute, url: "/v1/systemone" }],
+          async ({ calls }) => {
+            const failure = await captureDecisionFailure(async () =>
+              decideOne(await createXor()),
+            );
+            expectEq(
+              failure.kind,
+              "invalid_request",
+              "missing base URL classified",
+            );
+            expect(
+              failure.message.includes("XOR_BASE_URL") &&
+                failure.message.includes("credentials.xor.baseURL"),
+              "names both ways to set it",
+            );
+            expectEq(calls.length, 0, "no network call without a base URL");
+          },
+        );
+      }
+    } finally {
+      setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+    }
+  });
+
+  // ── X5: a base URL's credentials never reach the debug log ──
+  await xorCase(
+    "DECIDE xor: base URL credentials stay out of the debug log",
+    async () => {
+      const { logger } = await import("../dist/index.js");
+      const originalDebug = console.debug;
+      const priorDebugFlag = process.env.NEUROLINK_DEBUG;
+      // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+      const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+      const priorLogLevel =
+        loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+          ? loadLevel
+          : "info";
+      const lines: string[] = [];
+      try {
+        setEnv(
+          "XOR_BASE_URL",
+          "https://ops:hunter2-basic@xor.internal.test/proxy?token=hunter2-query",
+        );
+        setEnv("NEUROLINK_DEBUG", "true");
+        logger.setLogLevel("debug");
+        console.debug = (...args: unknown[]) => {
+          lines.push(
+            args
+              .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+              .join(" "),
+          );
+        };
+        await createXor();
+        const init = lines.filter((l) =>
+          l.includes("XOR Provider initialized"),
+        );
+        expect(init.length > 0, "the construction log line is captured");
+        expect(
+          !init.some((l) => l.includes("hunter2")),
+          "no credential from the base URL is logged",
+        );
+        expect(
+          init.some((l) => l.includes("xor.internal.test/proxy")),
+          "the host and path stay in the log for diagnostics",
+        );
+      } finally {
+        console.debug = originalDebug;
+        logger.setLogLevel(priorLogLevel);
+        setEnv("NEUROLINK_DEBUG", priorDebugFlag);
+        setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+      }
+    },
+  );
+
+  // The next three run with no decision provider in the environment at all,
+  // so anything they reach came from the config passed to the SDK.
+  const decisionEnv = [
+    "TYPESAFE_API_KEY",
+    "AI_GATEWAY_API_KEY",
+    "LAYA_API_KEY",
+    "LAYA_BASE_URL",
+    "XOR_API_KEY",
+    "XOR_BASE_URL",
+  ];
+  const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
+  const clearDecisionEnv = () => {
+    for (const v of decisionEnv) {
+      setEnv(v, undefined);
+    }
+  };
+  const restoreDecisionEnv = () => {
+    decisionEnv.forEach((v, i) => setEnv(v, priorDecisionEnv[i]));
+  };
+  const configuredXor = {
+    xor: {
+      apiKey: "test-fake-config-credential",
+      baseURL: "https://xor.config.example/proxy/",
+    },
+  };
+
+  // ── X6a: SDK credentials alone reach the configured server ──
+  await xorCase(
+    "DECIDE xor: SDK credentials alone set the key and endpoint",
+    async () => {
+      try {
+        clearDecisionEnv();
+        await withMocks(
+          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/systemone" }],
+          async ({ calls }) => {
+            const { NeuroLink } = await import("../dist/index.js");
+            const nl = new NeuroLink({ credentials: configuredXor });
+            await nl.decide({
+              provider: "xor",
+              state: "short",
+              questions: { urgent: XOR_QUESTIONS.urgent },
+            });
+            // A NeuroLink instance may also fetch its model config in the
+            // background; only the decision is a POST.
+            const post = calls.find((c) => c.method === "POST");
+            expectEq(
+              post?.url,
+              "https://xor.config.example/proxy/v1/systemone",
+              "endpoint from credentials.xor.baseURL",
+            );
+            const headers = (post?.headers ?? {}) as Record<string, string>;
+            expectEq(
+              headers.Authorization ?? headers.authorization,
+              "Bearer test-fake-config-credential",
+              "key from credentials.xor.apiKey",
+            );
+          },
+        );
+      } finally {
+        restoreDecisionEnv();
+      }
+    },
+  );
+
+  // ── X6b: SDK credentials alone make xor the default decision provider ──
+  await xorCase(
+    "DECIDE xor: SDK credentials alone make xor the default",
+    async () => {
+      try {
+        clearDecisionEnv();
+        await withMocks(
+          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/systemone" }],
+          async ({ calls }) => {
+            const { NeuroLink } = await import("../dist/index.js");
+            const nl = new NeuroLink({ credentials: configuredXor });
+            const result = await nl.tryDecide({
+              state: "short",
+              questions: { urgent: XOR_QUESTIONS.urgent },
+            });
+            expectEq(result?.provider, "xor", "xor chosen from SDK config");
+            expectEq(
+              calls.filter((c) => c.method === "POST").length,
+              1,
+              "one decision request, to the configured server",
+            );
+          },
+        );
+      } finally {
+        restoreDecisionEnv();
+      }
+    },
+  );
+
+  // ── X6c: a key without a base URL does not count as configured ──
+  await xorCase(
+    "DECIDE xor: a key without a base URL is not configured",
+    async () => {
+      try {
+        const { resolveDefaultDecisionProvider } =
+          await import("../dist/index.js");
+        clearDecisionEnv();
+        setEnv("XOR_API_KEY", "test-fake-xor-credential");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "key alone selects nothing",
+        );
+        setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "xor",
+          "key with base URL selects xor",
+        );
+        clearDecisionEnv();
+        expectEq(
+          resolveDefaultDecisionProvider({
+            xor: { apiKey: "test-fake-config-credential" },
+          }),
+          undefined,
+          "credentials.xor.apiKey alone selects nothing",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider(configuredXor),
+          "xor",
+          "credentials.xor with both fields selects xor",
+        );
+      } finally {
+        restoreDecisionEnv();
+      }
+    },
+  );
+
+  // ── X7: each envelope is flattened, classified, and retried only when it should be ──
+  await xorCase(
+    "DECIDE xor: envelopes are flattened and classified",
+    async () => {
+      const table: Array<{
+        label: string;
+        status: number;
+        json: unknown;
+        kind: string;
+        calls: number;
+        includes?: string;
+      }> = [
+        {
+          label: "LiteLLM 403 team_model_access_denied",
+          status: 403,
+          json: {
+            error: {
+              message: "team not allowed to access model=xor-1.1",
+              type: "team_model_access_denied",
+              code: "403",
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "team not allowed",
+        },
+        {
+          label: "LiteLLM 402 budget_exceeded",
+          status: 402,
+          json: {
+            error: {
+              message: "Budget has been exceeded",
+              type: "budget_exceeded",
+              code: "402",
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "Budget has been exceeded",
+        },
+        {
+          label: "XOR 422 flat string",
+          status: 422,
+          json: { error: "q: 2..255 options, got 1" },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "2..255 options",
+        },
+        {
+          label: "XOR 404 flat string",
+          status: 404,
+          json: { error: "not found" },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "not found",
+        },
+        {
+          label: "413 body too large",
+          status: 413,
+          json: { error: "request body exceeds 8MB" },
+          kind: "max_tokens_exceeded",
+          calls: 1,
+        },
+        {
+          label: "XOR 500 flat string",
+          status: 500,
+          json: { error: "engine failure" },
+          kind: "server",
+          calls: 2,
+          includes: "engine failure",
+        },
+        {
+          label: "503 overloaded",
+          status: 503,
+          json: { error: { message: "overloaded", type: "x", code: "503" } },
+          kind: "overloaded",
+          calls: 2,
+        },
+        {
+          label: "non-JSON 502",
+          status: 502,
+          json: null,
+          kind: "server",
+          calls: 2,
+          includes: "HTTP 502",
+        },
+        {
+          label: "FastAPI detail string",
+          status: 422,
+          json: { detail: "questions must be a non-empty map" },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "non-empty map",
+        },
+      ];
+      for (const row of table) {
+        const outcome = await xorFailure({
+          status: row.status,
+          json: row.json,
+        });
+        expectEq(outcome.kind, row.kind, `${row.label}: kind`);
+        expectEq(outcome.calls, row.calls, `${row.label}: attempts`);
+        if (row.includes) {
+          expect(
+            outcome.message.includes(row.includes),
+            `${row.label}: message`,
+          );
+        }
+      }
+    },
+  );
+
+  // ── X7b: a 429 is retried, and the key hash LiteLLM echoes is dropped ──
+  await xorCase(
+    "DECIDE xor: rate limit retried, key hash dropped",
+    async () => {
+      const hash =
+        "9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566";
+      const outcome = await xorFailure({
+        status: 429,
+        json: {
+          error: {
+            message: `Rate limit reached for key hash ${hash}`,
+            type: "throttling_error",
+            code: "429",
+          },
+        },
+      });
+      expectEq(outcome.kind, "rate_limit", "429 classified");
+      expectEq(outcome.calls, 2, "retried once");
+      expect(!outcome.message.includes(hash), "hash removed");
+      expect(
+        outcome.message.includes("Rate limit reached"),
+        "the proxy's own text is kept, so the redaction ran on it",
+      );
+    },
+  );
+
+  // ── X7c: a 500 that says the context was exceeded is not retried ──
+  // The wording is a stand-in: the real text is unknown until a live probe
+  // returns one, so this pins the classification, not XOR's phrasing.
+  await xorCase(
+    "DECIDE xor: a context-length 500 is not retried (wording unverified live)",
+    async () => {
+      const outcome = await xorFailure({
+        status: 500,
+        json: {
+          error: "Input length exceeds the maximum context length of the model",
+        },
+      });
+      expectEq(
+        outcome.kind,
+        "max_tokens_exceeded",
+        "context-length 500 classified",
+      );
+      expectEq(outcome.calls, 1, "the oversized body is not sent twice");
+    },
+  );
+
+  // ── X8: a LiteLLM 401 — classified, redacted, and the breaker trips ──
+  await xorCase(
+    "DECIDE xor: proxy 401 trips the breaker, key echo dropped",
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: XOR_DECIDE_SPEC.urlMatch,
+            respond: {
+              status: 401,
+              json: {
+                error: {
+                  message:
+                    "Authentication Error, Invalid proxy server token passed. Received API Key = sk-...cred, Key Hash (Token) =9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566. The key test-fake-xor-credential was not found",
+                  type: "token_not_found_in_db",
+                  code: "401",
+                },
+              },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const provider = await createXor();
+          const first = await captureDecisionFailure(() => decideOne(provider));
+          expectEq(first.kind, "authentication", "401 classified");
+          expect(
+            !/sk-|test-fake-xor-credential|[0-9a-f]{32}/i.test(first.message),
+            "key echo removed",
+          );
+          expect(
+            first.message.includes("Authentication Error"),
+            "the proxy's own text is kept, so the redaction ran on it",
+          );
+          const second = await captureDecisionFailure(() =>
+            decideOne(provider),
+          );
+          expectEq(
+            second.kind,
+            "authentication",
+            "breaker keeps the classification",
+          );
+          expect(
+            second.message.includes("rejected this API key earlier"),
+            "breaker message",
+          );
+          expectEq(calls.length, 1, "no second request after a rejected key");
+        },
+      );
+    },
+  );
+
+  // ── X9: a 403 is a fixable access gap — the SAME instance works once it is fixed ──
+  await xorCase("DECIDE xor: a 403 does not trip the breaker", async () => {
+    let sent = 0;
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: XOR_DECIDE_SPEC.urlMatch,
+          respond: () =>
+            sent++ === 0
+              ? {
+                  status: 403,
+                  json: {
+                    error: {
+                      message: "team not allowed to access model=xor-1.1",
+                      type: "team_model_access_denied",
+                      code: "403",
+                    },
+                  },
+                }
+              : { status: 200, json: xorSuccessBody() },
+        },
+      ],
+      async ({ calls }) => {
+        const provider = await createXor();
+        const first = await captureDecisionFailure(() => decideOne(provider));
+        expectEq(
+          first.kind,
+          "invalid_request",
+          "a 403 is a fixable access gap",
+        );
+        const second = await decideOne(provider);
+        expectEq(
+          second.provider,
+          "xor",
+          "the same instance works once access is granted",
+        );
+        expectEq(calls.length, 2, "the second request was really sent");
+      },
+    );
+  });
+
+  // ── X10: the state window — refused locally past it, sent within it ──
+  await xorCase(
+    "DECIDE xor: a state past the window is refused locally",
+    async () => {
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        const provider = await createXor();
+        const failure = await captureDecisionFailure(() =>
+          decideOne(provider, { state: "a".repeat(2_000_000) }),
+        );
+        expectEq(
+          failure.kind,
+          "max_tokens_exceeded",
+          "over-window state classified",
+        );
+        expect(failure.message.includes("xor-1.1"), "names the model");
+        expectEq(calls.length, 0, "refused before any request");
+      });
+    },
+  );
+
+  await xorCase(
+    "DECIDE xor: a state well inside the window still goes out",
+    async () => {
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        await decideOne(await createXor(), { state: "a".repeat(100_000) });
+        expectEq(calls.length, 1, "25k tokens is not refused");
+      });
+    },
+  );
+
+  // ── X10b: other scripts are charged per character, not at four per token ──
+  await xorCase(
+    "DECIDE xor: non-ASCII text is charged at its own rate",
+    async () => {
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        const failure = await captureDecisionFailure(async () =>
+          decideOne(await createXor(), { state: "你好".repeat(300_000) }),
+        );
+        expectEq(
+          failure.kind,
+          "max_tokens_exceeded",
+          "600k Chinese characters refused",
+        );
+        expectEq(calls.length, 0, "refused before any request");
+      });
+    },
+  );
+
+  // ── X10c: XOR has no question cap, so a large batch goes out ──
+  await xorCase("DECIDE xor: no question cap", async () => {
+    const questions = Object.fromEntries(
+      Array.from({ length: 300 }, (_, i) => [
+        `q${i}`,
+        {
+          type: "boolean" as const,
+          instructions: `Is statement ${i} true?`,
+        },
+      ]),
+    );
+    await withMocks([xorOkRoute], async ({ calls }) => {
+      await decideOne(await createXor(), { questions });
+      expectEq(calls.length, 1, "300 questions in one request");
+    });
+  });
+
+  const XOR_FIXTURES = fileURLToPath(
+    new URL("./fixtures/decide/xor/", import.meta.url),
+  );
+  const fixturePath = (name: string): string => join(XOR_FIXTURES, name);
+  const fixtureBytes = (name: string): Buffer =>
+    readFileSync(fixturePath(name));
+  const asDataUrl = (mime: string, bytes: Buffer): string =>
+    `data:${mime};base64,${bytes.toString("base64")}`;
+  type XorSentBody = { model?: string; images?: string[]; video?: string };
+
+  // ── X11: images go out as data URLs, whichever form they came in ──
+  await xorCase(
+    "DECIDE xor: images from a Buffer, a path and a data URL",
+    async () => {
+      const png = fixtureBytes("red.png");
+      const expected = asDataUrl("image/png", png);
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        const result = await decideOne(await createXor(), {
+          images: [png, fixturePath("red.png"), expected],
+        });
+        const body = calls[0].bodyJson as XorSentBody;
+        expectEq(body.images?.length, 3, "three images sent");
+        expect(
+          body.images?.every((url) => url === expected) === true,
+          "every form encodes identically",
+        );
+        expect(!("video" in body), "no video field when none was given");
+        expectEq(
+          result.mediaBytes,
+          expected.length * 3,
+          "media bytes reported",
+        );
+      });
+    },
+  );
+
+  await xorCase("DECIDE xor: a video from a Buffer and a path", async () => {
+    const mp4 = fixtureBytes("red.mp4");
+    const expected = asDataUrl("video/mp4", mp4);
+    for (const video of [mp4, fixturePath("red.mp4")]) {
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        await decideOne(await createXor(), { video });
+        const body = calls[0].bodyJson as XorSentBody;
+        expectEq(body.video, expected, "video sent as a data URL");
+        expect(!("images" in body), "no images field when none was given");
+      });
+    }
+  });
+
+  await xorCase(
+    "DECIDE xor: images and a video together are sent unchanged",
+    async () => {
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        await decideOne(await createXor(), {
+          images: [fixtureBytes("red.png")],
+          video: fixtureBytes("blue.mp4"),
+        });
+        const body = calls[0].bodyJson as XorSentBody;
+        expectEq(body.images?.length, 1, "the image is sent");
+        expect(typeof body.video === "string", "the video is sent");
+      });
+    },
+  );
+
+  // ── X12: hostile inputs are refused before any request ──
+  await xorCase(
+    "DECIDE xor: unusable media is refused, with no request",
+    async () => {
+      const png = fixtureBytes("red.png");
+      const dir = mkdtempSync(join(tmpdir(), "xor-media-"));
+      const big = join(dir, "big.png");
+      writeFileSync(
+        big,
+        Buffer.concat([png.subarray(0, 8), Buffer.alloc(9 * 1024 * 1024)]),
+      );
+      const rows: Array<{
+        label: string;
+        request: Partial<DecisionRequest>;
+        includes: string;
+      }> = [
+        {
+          label: "nine images",
+          request: { images: Array.from({ length: 9 }, () => png) },
+          includes: "at most 8",
+        },
+        {
+          label: "a remote URL in any case",
+          request: { images: ["HTTPS://example.test/a.png"] },
+          includes: "remote URL",
+        },
+        {
+          label: "a text data URL",
+          request: { images: ["data:text/plain;base64,AAAA"] },
+          includes: "not base64 image",
+        },
+        {
+          label: "non-image bytes",
+          request: { images: [Buffer.from("not an image at all")] },
+          includes: "not a recognised image",
+        },
+        {
+          label: "image bytes as a video",
+          request: { video: png },
+          includes: "not a recognised video",
+        },
+        {
+          label: "an empty Buffer",
+          request: { images: [Buffer.alloc(0)] },
+          includes: "empty Buffer",
+        },
+        {
+          label: "an empty string",
+          request: { images: [""] },
+          includes: "empty string",
+        },
+        {
+          label: "a missing file",
+          request: { images: [join(dir, "no-such-file.png")] },
+          includes: "Could not read Image 1",
+        },
+        {
+          label: "a directory",
+          request: { images: [dir] },
+          includes: "not a file",
+        },
+        {
+          label: "a file over the body limit",
+          request: { images: [big] },
+          includes: "at most 8388608",
+        },
+        {
+          label: "a body over the limit",
+          request: {
+            images: [`data:image/png;base64,${"A".repeat(9 * 1024 * 1024)}`],
+          },
+          includes: "The request is",
+        },
+      ];
+      for (const row of rows) {
+        await withMocks([xorOkRoute], async ({ calls }) => {
+          const failure = await captureDecisionFailure(async () =>
+            decideOne(await createXor(), row.request),
+          );
+          expectEq(failure.kind, "invalid_request", `${row.label}: kind`);
+          expect(
+            failure.message.includes(row.includes),
+            `${row.label}: message`,
+          );
+          expectEq(calls.length, 0, `${row.label}: no request`);
+        });
+      }
+    },
+  );
+
+  // ── X13: providers that declare no media capability refuse it, and name the fix ──
+  await xorCase(
+    "DECIDE xor: typesafe and laya refuse media before any request",
+    async () => {
+      setEnv(TYPESAFE_DECIDE_SPEC.envVar, "test-fake-typesafe-credential");
+      setEnv("LAYA_API_KEY", "test-fake-laya-credential");
+      setEnv("LAYA_BASE_URL", LAYA_DECIDE_SPEC.baseURL);
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TYPESAFE_DECIDE_SPEC.urlMatch,
+            respond: { status: 200, json: {} },
+          },
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 200, json: {} },
+          },
+        ],
+        async ({ calls }) => {
+          for (const name of ["typesafe", "laya"]) {
+            const provider = await ProviderFactory.createProvider(name);
+            const failure = await captureDecisionFailure(() =>
+              provider.decide!({
+                state: "short",
+                questions: { q: XOR_QUESTIONS.urgent },
+                images: [fixtureBytes("red.png")],
+              }),
+            );
+            expectEq(failure.kind, "invalid_request", `${name}: kind`);
+            expect(
+              failure.message.includes("does not accept images or video") &&
+                failure.message.includes("xor"),
+              `${name}: names the fix`,
+            );
+          }
+          expectEq(calls.length, 0, "no request from either");
+        },
+      );
+    },
+  );
+
+  // ── X14: no base64 in logs, spans or errors; spans carry counts and sizes ──
+  await xorCase(
+    "DECIDE xor: media stays out of logs, spans and errors",
+    async () => {
+      const png = fixtureBytes("red.png");
+      const marker = png.toString("base64").slice(40, 120);
+      const seen: string[] = [];
+      const originals = {
+        debug: console.debug,
+        info: console.info,
+        log: console.log,
+        warn: console.warn,
+        error: console.error,
+      };
+      const capture = (...args: unknown[]) => {
+        seen.push(
+          args
+            .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+            .join(" "),
+        );
+      };
+      const { NeuroLink, logger } = await import("../dist/index.js");
+      try {
+        setEnv("NEUROLINK_DEBUG", "true");
+        logger.setLogLevel("debug");
+        Object.assign(console, {
+          debug: capture,
+          info: capture,
+          log: capture,
+          warn: capture,
+          error: capture,
+        });
+        await withMocks(
+          [
+            xorOkRoute,
+            // A proxy that echoes the data URL back inside an error message.
+            {
+              method: "POST",
+              url: "xor.echo.example/v1/systemone",
+              respond: {
+                status: 422,
+                json: {
+                  error: `bad image data:image/png;base64,${png.toString("base64")}`,
+                },
+              },
+            },
+          ],
+          async () => {
+            const nl = new NeuroLink({
+              credentials: {
+                xor: {
+                  apiKey: "test-fake-xor-credential",
+                  baseURL: XOR_DECIDE_SPEC.baseURL,
+                },
+              },
+            });
+            await nl.decide({
+              provider: "xor",
+              state: "short",
+              questions: { urgent: XOR_QUESTIONS.urgent },
+              images: [png, png],
+            });
+            const span = nl.getSpans().find((s) => s.type === "model.decision");
+            const attrs = (span?.attributes ?? {}) as Record<string, unknown>;
+            expectEq(
+              attrs["decision.images.count"],
+              2,
+              "image count on the span",
+            );
+            expectEq(
+              attrs["decision.media.bytes"],
+              asDataUrl("image/png", png).length * 2,
+              "media bytes on the span",
+            );
+            expect(
+              !JSON.stringify(nl.getSpans()).includes(marker),
+              "no base64 in spans",
+            );
+
+            const echo = new NeuroLink({
+              credentials: {
+                xor: {
+                  apiKey: "test-fake-xor-credential",
+                  baseURL: "https://xor.echo.example",
+                },
+              },
+            });
+            const failure = await captureDecisionFailure(() =>
+              echo.decide({
+                provider: "xor",
+                state: "short",
+                questions: { urgent: XOR_QUESTIONS.urgent },
+                images: [png],
+              }),
+            );
+            expect(
+              !failure.message.includes(marker),
+              "no base64 in an echoed error",
+            );
+          },
+        );
+        expect(
+          !seen.some((line) => line.includes(marker)),
+          "no base64 in any log line",
+        );
+      } finally {
+        Object.assign(console, originals);
+        logger.setLogLevel("info");
+        setEnv("NEUROLINK_DEBUG", undefined);
+      }
+    },
+  );
+
+  // ── X12b: a string that is neither a path, a URL nor a data: URL is refused, never echoed ──
+  await xorCase(
+    "DECIDE xor: a stray string is refused without being echoed",
+    async () => {
+      const bareBase64 = fixtureBytes("red.png").toString("base64");
+      const marker = bareBase64.slice(40, 120);
+      const rows: Array<{ label: string; value: string; includes: string }> = [
+        {
+          label: "bare base64",
+          value: bareBase64,
+          includes: `${bareBase64.length}-character string`,
+        },
+        {
+          label: "a very long string",
+          value: "A".repeat(100_000),
+          includes: "100000-character string",
+        },
+        {
+          label: "another URL scheme",
+          value: "s3://bucket/key.png",
+          includes: "unsupported URL scheme",
+        },
+        {
+          label: "a file: URL",
+          value: "file:///tmp/xor-no-such-file.png",
+          includes: "unsupported URL scheme",
+        },
+      ];
+      for (const row of rows) {
+        await withMocks([xorOkRoute], async ({ calls }) => {
+          const failure = await captureDecisionFailure(async () =>
+            decideOne(await createXor(), { images: [row.value] }),
+          );
+          expectEq(failure.kind, "invalid_request", `${row.label}: kind`);
+          expect(
+            failure.message.includes(row.includes),
+            `${row.label}: message`,
+          );
+          expect(
+            !failure.message.includes(row.value.slice(0, 60)) &&
+              !failure.message.includes(marker),
+            `${row.label}: the value is not echoed`,
+          );
+          expect(
+            failure.message.length < 600,
+            `${row.label}: message is short`,
+          );
+          expectEq(calls.length, 0, `${row.label}: no request`);
+        });
+      }
+    },
+  );
+
+  // ── X15: a base URL that cannot work, or carries a credential, is refused and never echoed ──
+  await xorCase(
+    "DECIDE xor: a base URL that carries credentials is refused, never echoed",
+    async () => {
+      try {
+        for (const [label, base] of [
+          ["userinfo", "https://ops:hunter2-basic@xor.internal.test/proxy"],
+          [
+            "query token",
+            "https://xor.internal.test/proxy?token=hunter2-query",
+          ],
+          ["fragment", "https://xor.internal.test/proxy#hunter2-fragment"],
+          ["not a URL", "not a url hunter2-raw"],
+          ["no scheme", "xor.internal:8080 hunter2-noscheme"],
+          ["scheme-less userinfo", "user:hunter2-basic@host.example:8080"],
+          ["file scheme", "file:///tmp/hunter2-file"],
+          ["ftp scheme", "ftp://host.example/hunter2-ftp"],
+        ]) {
+          setEnv("XOR_BASE_URL", base);
+          await withMocks(
+            [{ ...xorOkRoute, url: "/v1/systemone" }],
+            async ({ calls }) => {
+              const failure = await captureDecisionFailure(async () =>
+                decideOne(await createXor()),
+              );
+              expectEq(failure.kind, "invalid_request", `${label}: kind`);
+              expect(
+                failure.message.includes("XOR_BASE_URL") &&
+                  failure.message.includes("credentials.xor.baseURL"),
+                `${label}: names both ways to set it`,
+              );
+              expect(
+                !failure.message.includes("hunter2"),
+                `${label}: nothing from the value is echoed`,
+              );
+              expectEq(calls.length, 0, `${label}: no request`);
+            },
+          );
+        }
+      } finally {
+        setEnv("XOR_BASE_URL", XOR_DECIDE_SPEC.baseURL);
+      }
+    },
+  );
+
+  // ── X16: a transport error that names a URL with credentials is redacted ──
+  await xorCase(
+    "DECIDE xor: a network error naming a URL with credentials is redacted",
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: XOR_DECIDE_SPEC.urlMatch,
+            respond: () => {
+              throw new TypeError(
+                "Request cannot be constructed from a URL that includes credentials: https://ops:hunter2-basic@xor.internal.test/proxy/v1/systemone?token=hunter2-query",
+              );
+            },
+          },
+        ],
+        async () => {
+          const failure = await captureDecisionFailure(async () =>
+            decideOne(await createXor()),
+          );
+          expectEq(
+            failure.kind,
+            "network",
+            "a transport failure is a network error",
+          );
+          expect(
+            !failure.message.includes("hunter2"),
+            "no credential from the URL reaches the message",
+          );
+          expect(
+            failure.message.includes("xor.internal.test"),
+            "the host stays for diagnostics",
+          );
+        },
+      );
+    },
+  );
+
+  // ── X16b: a network error that repeats the configured key or a key-shaped token is scrubbed ──
+  await xorCase(
+    "DECIDE xor: a network error repeating the key is scrubbed",
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: XOR_DECIDE_SPEC.urlMatch,
+            respond: () => {
+              throw new TypeError(
+                "upstream refused test-fake-xor-credential and sk-ambient1234567890abcdef at https://xor.internal.test/proxy",
+              );
+            },
+          },
+        ],
+        async () => {
+          const failure = await captureDecisionFailure(async () =>
+            decideOne(await createXor()),
+          );
+          expectEq(
+            failure.kind,
+            "network",
+            "a transport failure is a network error",
+          );
+          expect(
+            !failure.message.includes("test-fake-xor-credential") &&
+              !failure.message.includes("sk-ambient"),
+            "neither the configured key nor a key-shaped token reaches the message",
+          );
+          expect(
+            failure.message.includes("xor.internal.test"),
+            "the host stays for diagnostics",
+          );
+        },
+      );
+    },
+  );
+}
+
 async function runDecideSection(): Promise<void> {
-  console.log("\n=== Decision providers (TypeSafe, Laya) ===");
+  console.log("\n=== Decision providers (TypeSafe, Laya, XOR) ===");
   await runTypeSafeDecide();
   await runLayaDecide();
+  await runXorDecide();
 }
 
 async function runImageGenSection(): Promise<void> {
@@ -6749,6 +8040,9 @@ async function main(): Promise<void> {
   // it needs itself.
   setEnv("LAYA_MODEL", undefined);
   setEnv("LAYA_BASE_URL", undefined);
+  setEnv("XOR_MODEL", undefined);
+  setEnv("XOR_API_KEY", undefined);
+  setEnv("XOR_BASE_URL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

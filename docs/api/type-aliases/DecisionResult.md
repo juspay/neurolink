@@ -57,3 +57,11 @@ Wall-clock round trip measured client-side.
 > `optional` **upstreamMs?**: `number`
 
 Server-side time behind the edge; isolates model time from network.
+
+---
+
+### mediaBytes?
+
+> `optional` **mediaBytes?**: `number`
+
+Encoded size of the images and video sent. Absent for a text-only request.

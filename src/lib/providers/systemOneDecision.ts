@@ -1,6 +1,9 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
-import { PROVIDER_DESCRIPTORS_BY_NAME } from "../factories/providerDescriptors.js";
+import {
+  listMediaDecisionProviders,
+  PROVIDER_DESCRIPTORS_BY_NAME,
+} from "../factories/providerDescriptors.js";
 import { isNeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { ProviderError } from "../types/index.js";
@@ -10,13 +13,16 @@ import type {
   DecisionQuestion,
   DecisionRequest,
   DecisionResult,
+  DecisionPreparedMedia,
   DecisionState,
   LanguageModel,
   StreamOptions,
   StreamResult,
   ValidationSchema,
 } from "../types/index.js";
+import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlsInText } from "../utils/logSanitize.js";
 import {
   estimateTokens,
   serializeForEstimate,
@@ -160,6 +166,26 @@ export function describeValidationErrors(detail: readonly unknown[]): string {
   return fields.join("; ") || "unspecified field";
 }
 
+/**
+ * A LiteLLM proxy echoes credentials back in its error texts, in more than one
+ * wording: a masked key plus its hash on a rejected key, the whole key when it
+ * does not look like a LiteLLM key, a key hash on a rate limit. None of it
+ * belongs in an error message or a log, whatever the wording, so the
+ * configured key, anything shaped like a LiteLLM key, any long hex run and any
+ * embedded `data:` URL are all removed.
+ */
+export function redactCredentials(message: string, apiKey: string): string {
+  const withoutKey = apiKey
+    ? message.split(apiKey).join("[redacted]")
+    : message;
+  return withoutKey
+    .replace(/\.?\s*Received API Key\s*=[\s\S]*$/, "")
+    .replace(/\bsk-[A-Za-z0-9._-]+/g, "[redacted]")
+    .replace(/\b[0-9a-f]{32,}\b/gi, "[redacted]")
+    .replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, "[media]")
+    .trim();
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -239,6 +265,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     state: DecisionState,
     questions: Record<string, Record<string, unknown>>,
     model: string,
+    media?: DecisionPreparedMedia,
   ): Record<string, unknown>;
   protected abstract parseDecisionError(
     status: number,
@@ -387,9 +414,16 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         this.encodeQuestion(question),
       ]),
     );
+    const media = await this.prepareMedia(request);
     const body = JSON.stringify(
-      this.buildDecisionBody(request.state, wireQuestions, resolvedModel),
+      this.buildDecisionBody(
+        request.state,
+        wireQuestions,
+        resolvedModel,
+        media,
+      ),
     );
+    this.assertWithinRequestBytes(body);
 
     const timeoutMs =
       request.timeoutMs ??
@@ -496,6 +530,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           requestId,
           latencyMs,
           upstreamMs,
+          ...(media ? { mediaBytes: media.bytes } : {}),
         };
       } catch (error) {
         if (error instanceof ProviderError) {
@@ -508,7 +543,12 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           error instanceof Error && error.name === "TimeoutError";
         lastError = {
           kind: aborted ? "network" : isTimeout ? "timeout" : "network",
-          message: error instanceof Error ? error.message : String(error),
+          message: redactCredentials(
+            redactUrlsInText(
+              error instanceof Error ? error.message : String(error),
+            ),
+            this.decisionApiKey(),
+          ),
           retryable: !aborted,
         };
         if (aborted || attempt === this.maxRetries) {
@@ -528,6 +568,52 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   }
 
   /**
+   * Turn the request's images and video into data URLs, or refuse it. Refused
+   * as a non-retryable `invalid_request`: resending the same media cannot help.
+   */
+  private async prepareMedia(
+    request: DecisionRequest,
+  ): Promise<DecisionPreparedMedia | undefined> {
+    const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
+      this.providerName,
+    )?.decisionLimits;
+    const prepared = await prepareDecisionMedia(
+      request,
+      limits?.media,
+      this.vendorLabel(),
+      listMediaDecisionProviders(),
+    );
+    if (prepared.status === "refused") {
+      throw this.decisionError({
+        kind: "invalid_request",
+        message: prepared.message,
+        retryable: false,
+      });
+    }
+    return prepared.media;
+  }
+
+  /**
+   * The encoded body, not just the media, is what the server's size limit
+   * applies to.
+   */
+  private assertWithinRequestBytes(body: string): void {
+    const limit = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)
+      ?.decisionLimits?.media?.maxRequestBytes;
+    if (limit === undefined) {
+      return;
+    }
+    const bytes = Buffer.byteLength(body);
+    if (bytes > limit) {
+      throw this.decisionError({
+        kind: "invalid_request",
+        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images, or a shorter video.`,
+        retryable: false,
+      });
+    }
+  }
+
+  /**
    * Refuse a request the model cannot read in full. An encoder cuts the state
    * off past its window without saying so, so without this a decision would
    * be made on input the model never saw — and reported as if it had.
@@ -544,7 +630,10 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       return;
     }
     const label = this.vendorLabel();
-    if (questionCount > limits.maxQuestions) {
+    if (
+      limits.maxQuestions !== undefined &&
+      questionCount > limits.maxQuestions
+    ) {
       throw this.decisionError({
         kind: "max_tokens_exceeded",
         message: `${label} accepts at most ${limits.maxQuestions} questions per request; this one has ${questionCount}. Ask fewer, or use a decision provider without this cap.`,

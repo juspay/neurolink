@@ -67,7 +67,7 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   "anthropicImageBlocks",
   "openaiChatCompletionsBase",
   "openaiChatCompletionsClient",
-  // The abstract base the decision providers (typesafe, laya) extend. Like
+  // The abstract base the decision providers (typesafe, laya, xor) extend. Like
   // openaiChatCompletionsBase, it is imported by providers and never itself
   // registered.
   "systemOneDecision",

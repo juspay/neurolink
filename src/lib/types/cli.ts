@@ -1564,6 +1564,10 @@ export type CliDecideArgs = {
   stateFile?: string;
   questions?: string;
   questionsFile?: string;
+  /** Image files (or data: URLs) for a provider that reads images. */
+  image?: string[];
+  /** One video file (or data: URL) for a provider that reads video. */
+  video?: string;
   provider?: string;
   model?: string;
   timeout?: number;
@@ -2073,8 +2077,8 @@ export type CliClassifierRouterFlags = {
   /**
    * Strategy: "auto" (default), "heuristic", "llm" or "jev"
    * (--classifier-strategy). "auto" resolves to "jev" when a decision
-   * provider is configured (TYPESAFE_API_KEY, or LAYA_API_KEY with
-   * LAYA_BASE_URL) and "heuristic" otherwise.
+   * provider is configured (TYPESAFE_API_KEY, LAYA_API_KEY with
+   * LAYA_BASE_URL, or XOR_API_KEY with XOR_BASE_URL) and "heuristic" otherwise.
    */
   classifierStrategy?: string;
   /**

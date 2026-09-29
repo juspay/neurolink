@@ -42,10 +42,10 @@ Typical use cases:
 Each request flows through two stages:
 
 1. **Classify** — produce a difficulty bucket (`trivial | simple | moderate | hard | expert`) plus optional `requiredCapabilities` and tool hints. Four strategies:
-   - `auto` (default): resolves to `jev` when `TYPESAFE_API_KEY` is set, and `heuristic` otherwise. Setting a key therefore upgrades routing with no code change; without one, behaviour is exactly as it was.
+   - `auto` (default): resolves to `jev` when a decision provider is configured (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with `LAYA_BASE_URL`, or `XOR_API_KEY` with `XOR_BASE_URL`), and `heuristic` otherwise. Setting a key therefore upgrades routing with no code change; without one, behaviour is exactly as it was.
    - `heuristic`: zero-cost keyword/length scoring of the prompt text. No LLM call, fully deterministic, provider-agnostic.
    - `llm`: a cheap "classifier model" reads the prompt and returns a difficulty — and, when given your pool, **picks a model directly** by id.
-   - `jev`: [a decision model](/docs/features/decide-inference-type) (TypeSafe's Jev) answers difficulty, required capabilities **and** the model pick in one ~400 ms request, with a _calibrated_ confidence. Verdicts that miss the applicable confidence bar (`minUpgradeConfidence` 0.3 to route up, `minDowngradeConfidence` 0.6 to route down) fall through to the heuristic rather than acting on a guess. See [the `decide` inference type](/docs/features/decide-inference-type).
+   - `jev`: [a decision model](/docs/features/decide-inference-type) (the configured decision provider — TypeSafe's Jev by default) answers difficulty, required capabilities **and** the model pick in one ~400 ms request, with a _calibrated_ confidence. Verdicts that miss the applicable confidence bar (`minUpgradeConfidence` 0.3 to route up, `minDowngradeConfidence` 0.6 to route down) fall through to the heuristic rather than acting on a guess. See [the `decide` inference type](/docs/features/decide-inference-type).
 2. **Select** — turn that into a concrete `{ provider, model, region }` from your `pool`, optionally narrowing `tools`.
 
 The router runs **before** the provider/model is constructed (it reuses the same pre-call seam as `requestRouter`). It is skipped when the caller pinned both `provider` and `model`, or when a [`modelPool`](/docs/features/provider-orchestration) is configured (the pool owns selection).
