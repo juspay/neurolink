@@ -66,6 +66,12 @@ Mutable accumulator the SSE interceptor uses internally.
 
 ---
 
+### cacheCreation1hInputTokens?
+
+> `optional` **cacheCreation1hInputTokens?**: `number`
+
+---
+
 ### cacheReadInputTokens
 
 > **cacheReadInputTokens**: `number`

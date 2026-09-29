@@ -406,6 +406,10 @@ import {
   getProxyTokenBudgetSessionKey,
 } from "../../proxy/proxyTokenBudget.js";
 import { observeAnthropicBudgetResponse } from "../../proxy/anthropicBudgetResponse.js";
+import {
+  readCacheCreation1hTokens,
+  oneHourCacheWriteFields,
+} from "../../proxy/proxyTokenUsage.js";
 
 function prepareAnthropicWire(
   ctx: ServerContext,
@@ -4020,6 +4024,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           });
           capturedTracer.logStreamEvents(data.events);
@@ -4039,6 +4044,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
           if (!isNaN(rateLimit5h)) {
@@ -4074,6 +4080,7 @@ async function handleClaudePassthroughStreamResponse(args: {
               inputTokens: data.usage.inputTokens,
               outputTokens: data.usage.outputTokens,
               cacheCreationTokens: data.usage.cacheCreationInputTokens,
+              ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
               cacheReadTokens: data.usage.cacheReadInputTokens,
             },
           );
@@ -4160,6 +4167,7 @@ async function handleClaudePassthroughStreamResponse(args: {
               inputTokens: data.usage.inputTokens,
               outputTokens: data.usage.outputTokens,
               cacheCreationTokens: data.usage.cacheCreationInputTokens,
+              ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
               cacheReadTokens: data.usage.cacheReadInputTokens,
             },
           );
@@ -4291,6 +4299,7 @@ async function handleClaudePassthroughJsonResponse(args: {
         inputTokens: usage.input_tokens ?? 0,
         outputTokens: usage.output_tokens ?? 0,
         cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
         cacheReadTokens: usage.cache_read_input_tokens ?? 0,
       });
 
@@ -4307,6 +4316,7 @@ async function handleClaudePassthroughJsonResponse(args: {
           inputTokens: usage.input_tokens ?? 0,
           outputTokens: usage.output_tokens ?? 0,
           cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+          ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
           cacheReadTokens: usage.cache_read_input_tokens ?? 0,
         };
         if (!isNaN(rateLimit5h)) {
@@ -4335,6 +4345,7 @@ async function handleClaudePassthroughJsonResponse(args: {
         inputTokens: usage?.input_tokens,
         outputTokens: usage?.output_tokens,
         cacheCreationTokens: usage?.cache_creation_input_tokens,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
         cacheReadTokens: usage?.cache_read_input_tokens,
       },
     );
@@ -7500,6 +7511,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           });
           // Bill the borrowing grant from the same totals. A stream's usage is
@@ -7532,6 +7544,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
           if (!isNaN(rateLimit5h)) {
@@ -7556,6 +7569,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
           if (failure) {
@@ -7683,6 +7697,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            ...oneHourCacheWriteFields(data.usage.cacheCreation1hInputTokens),
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
           // Settled on the untraced path too: whether telemetry is exported has
@@ -7904,6 +7919,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
         inputTokens: usage.input_tokens ?? 0,
         outputTokens: usage.output_tokens ?? 0,
         cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
         cacheReadTokens: usage.cache_read_input_tokens ?? 0,
       });
 
@@ -7920,6 +7936,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
           inputTokens: usage.input_tokens ?? 0,
           outputTokens: usage.output_tokens ?? 0,
           cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+          ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
           cacheReadTokens: usage.cache_read_input_tokens ?? 0,
         };
         if (!isNaN(rateLimit5h)) {
@@ -7947,6 +7964,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
         inputTokens: usage?.input_tokens,
         outputTokens: usage?.output_tokens,
         cacheCreationTokens: usage?.cache_creation_input_tokens,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(usage)),
         cacheReadTokens: usage?.cache_read_input_tokens,
       },
     );
@@ -7968,6 +7986,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
         inputTokens: noTracerUsage?.input_tokens,
         outputTokens: noTracerUsage?.output_tokens,
         cacheCreationTokens: noTracerUsage?.cache_creation_input_tokens,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(noTracerUsage)),
         cacheReadTokens: noTracerUsage?.cache_read_input_tokens,
       },
     );
@@ -8101,6 +8120,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
         inputTokens: retryUsage.input_tokens ?? 0,
         outputTokens: retryUsage.output_tokens ?? 0,
         cacheCreationTokens: retryUsage.cache_creation_input_tokens ?? 0,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(retryUsage)),
         cacheReadTokens: retryUsage.cache_read_input_tokens ?? 0,
       });
     }
@@ -8120,6 +8140,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
         inputTokens: retryUsage?.input_tokens,
         outputTokens: retryUsage?.output_tokens,
         cacheCreationTokens: retryUsage?.cache_creation_input_tokens,
+        ...oneHourCacheWriteFields(readCacheCreation1hTokens(retryUsage)),
         cacheReadTokens: retryUsage?.cache_read_input_tokens,
       },
     );
@@ -9572,6 +9593,9 @@ function createClaudeRequestRuntimeContext(args: {
       ...(extra?.cacheCreationTokens !== undefined
         ? { cacheCreationTokens: extra.cacheCreationTokens }
         : {}),
+      ...(extra?.cacheCreation1hTokens !== undefined
+        ? { cacheCreation1hTokens: extra.cacheCreation1hTokens }
+        : {}),
       ...(extra?.cacheReadTokens !== undefined
         ? { cacheReadTokens: extra.cacheReadTokens }
         : {}),
@@ -9698,6 +9722,9 @@ function createAnthropicAttemptLogger(args: {
         : {}),
       ...(extra?.cacheCreationTokens !== undefined
         ? { cacheCreationTokens: extra.cacheCreationTokens }
+        : {}),
+      ...(extra?.cacheCreation1hTokens !== undefined
+        ? { cacheCreation1hTokens: extra.cacheCreation1hTokens }
         : {}),
       ...(extra?.cacheReadTokens !== undefined
         ? { cacheReadTokens: extra.cacheReadTokens }
@@ -10278,9 +10305,52 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     setRoutingDecision,
   } = args;
   const parsedRequest = parseClaudeRequest(body);
+  // Loop prevention for the Codex-outbound-fallback leg (stage-c-trigger.md
+  // §3): a request that reached this handler AS a Codex-outbound fallback
+  // loopback call must never be offered a fallback chain that routes back
+  // into Codex, or Codex(exhausted) -> Anthropic -> Codex could cycle.
+  //
+  // The `x-neurolink-internal-origin` header alone is NOT the security
+  // boundary — any external client can send an arbitrary header. The real
+  // boundary is `consumeInternalProxyRequest`: it looks the caller-supplied
+  // `x-neurolink-internal-request` token up in a server-only, in-memory map
+  // keyed by a `crypto.randomUUID()` this same process minted (in
+  // `registerInternalProxyRequest`, codexProxyRoutes.ts) immediately before
+  // issuing its own loopback fetch, and returns a value only when that
+  // exact token is present. An external client cannot guess or observe
+  // that token — it never appears in any response the proxy sends a
+  // client — so it cannot forge a match.
+  //
+  // That call is single-use (deleted on read) and already made exactly
+  // once per request, earlier, by this worker's request-tracking
+  // middleware (`registerProxyRequestTracking` in proxy.ts) — which needs
+  // the same answer to set `RuntimeRequestMetadata.accountingScope` before
+  // any route handler runs. Calling `consumeInternalProxyRequest` a SECOND
+  // time here, with the same token, always finds it already deleted and
+  // returns `undefined` — silently leaving this filter permanently
+  // disengaged regardless of whether the request was genuinely internal.
+  // Read the middleware's already-authoritative result instead, via
+  // `getProxyRequestAccounting(ctx.requestId)` — the same lookup this file
+  // already uses elsewhere (~9322, ~9510) to distinguish an internal leg
+  // from a client request, and which is populated only when the
+  // middleware's own `consumeInternalProxyRequest` call found a genuine
+  // token match. This preserves the same unforgeable boundary without
+  // consuming the token twice.
+  const isCodexOutboundFallbackLeg =
+    ctx.headers["x-neurolink-internal-origin"] === "codex-outbound-fallback" &&
+    getProxyRequestAccounting(ctx.requestId)?.accountingScope === "internal";
+  // The loopback leg owns the turn's usage metrics (its Codex parent records
+  // none), so the fallback origin label has to be stamped here.
+  if (isCodexOutboundFallbackLeg) {
+    tracer?.setRequestOrigin("codex-fallback");
+  }
   const configuredFallbackPlan = buildProxyTranslationPlan(
     { provider: "anthropic", model: body.model },
-    modelRouter?.getFallbackChain() ?? [],
+    isCodexOutboundFallbackLeg
+      ? (modelRouter?.getFallbackChain() ?? []).filter(
+          (entry) => entry.provider !== "codex",
+        )
+      : (modelRouter?.getFallbackChain() ?? []),
     body.model,
     parsedRequest,
   );

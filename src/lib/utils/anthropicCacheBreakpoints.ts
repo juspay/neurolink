@@ -1,4 +1,5 @@
 import type {
+  ClaudeCacheBreakpointOptions,
   ClaudeCacheControl,
   ClaudeMessage,
   ClaudeRequest,
@@ -216,6 +217,7 @@ function markLastContentBlock(
  */
 export function applyClaudeRequestCacheBreakpoints(
   request: ClaudeRequest,
+  options?: ClaudeCacheBreakpointOptions,
 ): ClaudeRequest {
   const existing = countAnthropicCacheMarkers({
     system: request.system,
@@ -237,6 +239,7 @@ export function applyClaudeRequestCacheBreakpoints(
   }
 
   const out: ClaudeRequest = { ...request };
+  const breakpointOneMarker = ephemeral(options?.ttl);
 
   // One marker on the stable head. The last system block is the better anchor
   // than the last tool, because system renders after tools and so a single
@@ -245,7 +248,7 @@ export function applyClaudeRequestCacheBreakpoints(
     const system = out.system.map((b) => ({ ...b }));
     system[system.length - 1] = {
       ...system[system.length - 1],
-      cache_control: CLAUDE_EPHEMERAL,
+      cache_control: breakpointOneMarker,
     };
     out.system = system;
     budget--;
@@ -258,7 +261,7 @@ export function applyClaudeRequestCacheBreakpoints(
     const tools = out.tools.map((t) => ({ ...t }));
     tools[tools.length - 1] = {
       ...tools[tools.length - 1],
-      cache_control: CLAUDE_EPHEMERAL,
+      cache_control: breakpointOneMarker,
     };
     out.tools = tools;
     budget--;
@@ -271,6 +274,17 @@ export function applyClaudeRequestCacheBreakpoints(
 }
 
 const CLAUDE_EPHEMERAL: ClaudeCacheControl = { type: "ephemeral" };
+
+/**
+ * Builds the breakpoint-1 marker, honoring a caller-supplied TTL override.
+ * Breakpoints 2-4 (`applyClaudeHistoryBreakpoints`) always use the bare
+ * `CLAUDE_EPHEMERAL` constant instead of this — they roll forward every turn
+ * or two, so paying the 1-hour (2x) rate on a marker about to be superseded
+ * is pure waste; only the stable head benefits from the longer window.
+ */
+function ephemeral(ttl?: "5m" | "1h"): ClaudeCacheControl {
+  return ttl ? { type: "ephemeral", ttl } : CLAUDE_EPHEMERAL;
+}
 
 /**
  * Roll `budget` markers backwards along the history, marking the last content

@@ -20,6 +20,7 @@ import {
   modelSupportsForcedToolChoice,
 } from "../models/modelRegistry.js";
 import { isTransientNetworkError } from "./proxyFetch.js";
+import { readCacheCreation1hTokens } from "./proxyTokenUsage.js";
 import type {
   VertexAccessTokenProvider,
   UsageContext,
@@ -782,6 +783,14 @@ function readUsageEvent(
     into.inputTokens = num(usage.input_tokens);
     into.cacheCreationTokens = num(usage.cache_creation_input_tokens);
     into.cacheReadTokens = num(usage.cache_read_input_tokens);
+    // The 1h-TTL share of the cache-write total, reported by Anthropic as
+    // `cache_creation.ephemeral_1h_input_tokens`. Set only when the breakdown
+    // holds a valid count, so any other reply leaves the field unset and
+    // prices exactly as it did before.
+    const oneHour = readCacheCreation1hTokens(usage);
+    if (oneHour !== undefined) {
+      into.cacheCreation1hTokens = oneHour;
+    }
   }
   // Every message_delta restates the running total, so the last one wins.
   const output = num(usage.output_tokens);

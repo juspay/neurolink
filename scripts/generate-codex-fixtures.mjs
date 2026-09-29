@@ -2,8 +2,11 @@
 // Generates synthetic-but-structurally-faithful Codex CLI wire-capture fixtures.
 //
 // Shape is modeled on a real redacted codex_exec/0.155.1 capture
-// (~/.neurolink/reference/codex-cli-wire-sample.json), which is NOT available
-// in this environment, so these are hand-built to match its documented shape:
+// (~/.neurolink/reference/codex-cli-wire-sample.json — present on this
+// machine; not vendored into the repo or read programmatically by this
+// script, since it is machine-local and may carry account-specific values
+// beyond what a plain redaction catches), so these are hand-built to match
+// its documented shape:
 //   - no top-level `instructions` field; role:"developer" messages carry the
 //     system prompt instead (split across several turns)
 //   - tools do NOT appear as a top-level `tools` array; they ride inside an
@@ -291,6 +294,30 @@ const fixtures = [
       userTexts: [
         "List the files in the current directory and summarize the layout.",
         "<environment_context>cwd=/workspace/repo approval_policy=never sandbox=workspace-write</environment_context>",
+      ],
+    }),
+  },
+  {
+    // Turn 2 of the same conversation as codex-request-interactive-mode.json:
+    // identical additional_tools + 4 developer messages (cache §5's
+    // determinism test asserts these two fixtures' tools/system serialize
+    // byte-identically), carrying the same session/thread id as a resumed
+    // session would, with a different environment_context and a fresh user
+    // turn — the part expected to vary between turns.
+    file: "codex-request-turn2-same-session.json",
+    data: buildFixture({
+      fixtureMeta: {
+        variation:
+          "second turn of the same conversation as codex-request-interactive-mode.json: same tools + developer-message prefix, same session/thread id, different environment_context and a new user turn",
+      },
+      mode: "interactive",
+      betaCompaction: false,
+      betaResponsesLite: false,
+      sessionId: "sess_synthetic_00000000000000000001",
+      threadId: "thread_synthetic_00000000000000000001",
+      userTexts: [
+        "Now add a unit test for the validation you just wrote.",
+        "<environment_context>cwd=/workspace/repo approval_policy=on-request sandbox=workspace-write turn=2</environment_context>",
       ],
     }),
   },

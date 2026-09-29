@@ -18,6 +18,16 @@
  * `__testHooks` is a test-only export in `src/` and should shrink as this logic
  * gains a real surface.
  *
+ * The Codex-outbound cache-preservation tests near the end of this file are
+ * under the same exception for a narrower reason: they drive
+ * `translateCodexRequestToClaude` and `applyClaudeRequestCacheBreakpoints` —
+ * pure translation/annotation functions — against fixed fixture bodies.
+ * Anthropic's prompt-cache byte-identity requirement needs two translations
+ * of the *same* conversation prefix to come out byte-for-byte equal; no live
+ * call can be made to hold a Codex CLI's request shape still across two
+ * turns on demand, and the two-turn fixture pair here exists specifically to
+ * exercise that determinism.
+ *
  * The last two cases are *not* under the exception: they drive
  * `node dist/cli/index.js` so the suite also proves the built package wires
  * Codex up at all. Without them every case above could pass while the shipped
@@ -69,16 +79,46 @@ import {
   parseCodexFallbackSSE,
 } from "../src/lib/proxy/codexFallback.js";
 import { runWithShareContext } from "../src/lib/proxy/shareContext.js";
-import { loadProxyConfig } from "../src/lib/proxy/proxyConfig.js";
+import {
+  loadProxyConfig,
+  parseRoutingConfig,
+  validateProxyConfig,
+} from "../src/lib/proxy/proxyConfig.js";
 import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
+import { logger } from "../src/lib/utils/logger.js";
 import { TokenStore, tokenStore } from "../src/lib/auth/tokenStore.js";
 import { setVertexAccessTokenProviderForTests } from "../src/lib/proxy/vertexAnthropicFallback.js";
 import {
   __testHooks as claudeProxyTestHooks,
   createClaudeProxyRoutes,
 } from "../src/lib/server/routes/claudeProxyRoutes.js";
-import { __testHooks } from "../src/lib/server/routes/codexProxyRoutes.js";
+import {
+  __testHooks,
+  createCodexProxyRoutes,
+} from "../src/lib/server/routes/codexProxyRoutes.js";
+import {
+  classifyCodexOutboundFailure,
+  MAX_ENGINE_CROSSINGS,
+  parseCodexErrorCode,
+  parseCodexNativeRequest,
+  translateCodexRequestToClaude,
+} from "../src/lib/proxy/codexOutboundFallback.js";
+import {
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  applyClaudeRequestCacheBreakpoints,
+  countAnthropicCacheMarkers,
+} from "../src/lib/utils/anthropicCacheBreakpoints.js";
+import {
+  ClaudeSystemPrefixShapeError,
+  assertClaudeMessagesAlternate,
+  assertClaudeSystemPrefixShape,
+  codexAnthropicAffinityKey,
+} from "../src/lib/proxy/codexOutboundCache.js";
 import type {
+  ClaudeMessage,
+  ClaudeRequest,
+  ClaudeTextBlock,
+  CodexNativeRequest,
   CodexRuntimeAccount,
   CodexResponsesRequest,
   ProxyShareRequestContext,
@@ -4173,6 +4213,983 @@ await test("a failed Codex leg leaves nothing behind for the Vertex leg that ser
     }
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Codex-outbound fallback: cache-preservation (stage-a-cache spec, §5/§Tests)
+// ---------------------------------------------------------------------------
+//
+// Uses the real shipped translation entry point, `translateCodexRequestToClaude`
+// (`src/lib/proxy/codexOutboundFallback.ts`) — its signature takes a `target`
+// and returns a `{ ok, value | error }` discriminated union, not the
+// `convertCodexRequestToClaudeRequest(native): ClaudeRequest` placeholder name
+// the design draft assumed before PRs 1-4 shipped.
+
+const CODEX_CACHE_TARGET = {
+  provider: "anthropic" as const,
+  model: "claude-sonnet-5",
+};
+
+function loadCodexFixture(name: string): CodexNativeRequest {
+  const raw = readFileSync(
+    new URL(`./fixtures/${name}`, import.meta.url),
+    "utf8",
+  );
+  const body = (JSON.parse(raw) as { body: unknown }).body;
+  const parsed = parseCodexNativeRequest(body);
+  if (!parsed.ok) {
+    throw new Error(
+      `fixture ${name} failed to parse: ${parsed.error.code} ${parsed.error.message}`,
+    );
+  }
+  return parsed.value;
+}
+
+function translateCodexFixtureToClaude(
+  native: CodexNativeRequest,
+): ClaudeRequest {
+  const translated = translateCodexRequestToClaude(native, CODEX_CACHE_TARGET);
+  if (!translated.ok) {
+    throw new Error(
+      `translate failed: ${translated.error.code} ${translated.error.message}`,
+    );
+  }
+  return translated.value;
+}
+
+// Test 1 (spec §5): byte-stability + placement determinism.
+await test("codex outbound fallback: translated Anthropic prefix is byte-stable, and breakpoint 1 lands on the stable element, across two turns with unchanged tools/instructions", () => {
+  const turn1 = loadCodexFixture("codex-request-interactive-mode.json");
+  const turn2 = loadCodexFixture("codex-request-turn2-same-session.json");
+  const c1 = applyClaudeRequestCacheBreakpoints(
+    translateCodexFixtureToClaude(turn1),
+    { ttl: "1h" },
+  );
+  const c2 = applyClaudeRequestCacheBreakpoints(
+    translateCodexFixtureToClaude(turn2),
+    { ttl: "1h" },
+  );
+  const s1 = c1.system as ClaudeTextBlock[];
+  const s2 = c2.system as ClaudeTextBlock[];
+
+  // slice(0,4) alone would pass even if the marker silently landed on a
+  // 5th, volatile element — assert the length invariant AND which index
+  // carries the marker, not just prefix equality.
+  assertEqual(s1.length, 4, "system must be exactly the 4 developer blocks");
+  assertEqual(s2.length, 4, "system must be exactly the 4 developer blocks");
+  assertEqual(
+    JSON.stringify(c1.tools),
+    JSON.stringify(c2.tools),
+    "tool array drifted across turns with no tool change — breakpoint 1 will miss every turn",
+  );
+  assertEqual(
+    JSON.stringify(s1),
+    JSON.stringify(s2),
+    "developer-message prefix drifted across turns — breakpoint 1 will miss every turn",
+  );
+  assert(
+    s1[3].cache_control?.ttl === "1h" && s2[3].cache_control?.ttl === "1h",
+    "breakpoint 1 must carry ttl:'1h' on the stable 4th (last) developer block specifically",
+  );
+});
+
+// Test 2 (spec Tests #2): TTL selection — 1h on breakpoint 1 only.
+await test("applyClaudeRequestCacheBreakpoints: ttl:'1h' applies only to breakpoint 1, never to the rolling history breakpoints", () => {
+  const native = loadCodexFixture("codex-request-interactive-mode.json");
+  const claudeRequest = translateCodexFixtureToClaude(native);
+  const result = applyClaudeRequestCacheBreakpoints(claudeRequest, {
+    ttl: "1h",
+  });
+  const system = result.system as ClaudeTextBlock[];
+  assertEqual(
+    system[system.length - 1].cache_control?.ttl,
+    "1h",
+    "breakpoint 1 (last system block) must carry the requested 1h ttl",
+  );
+
+  let historyMarkersSeen = 0;
+  for (const message of result.messages) {
+    const content: unknown = message.content;
+    if (!Array.isArray(content) || content.length === 0) {
+      continue;
+    }
+    const last = content[content.length - 1] as {
+      cache_control?: { ttl?: string };
+    };
+    if (!last.cache_control) {
+      continue;
+    }
+    historyMarkersSeen++;
+    assertEqual(
+      last.cache_control.ttl,
+      undefined,
+      "rolling history breakpoints must keep the 5-minute default (no ttl), never inherit breakpoint 1's ttl",
+    );
+  }
+  assert(
+    historyMarkersSeen > 0,
+    "expected at least one rolling history breakpoint on a multi-message request",
+  );
+});
+
+// Test 3 (spec Tests #3): budget ceiling — never exceeds 4 markers even when
+// the translated request already carries one in its message history.
+await test("applyClaudeRequestCacheBreakpoints never exceeds the 4-marker Anthropic ceiling on an already-marked Codex-shaped request", () => {
+  const native = loadCodexFixture("codex-request-tool-result-turn.json");
+  const claudeRequest = translateCodexFixtureToClaude(native);
+  assert(
+    claudeRequest.messages.length > 0,
+    "fixture must translate to at least one message to pre-mark",
+  );
+
+  const messages: ClaudeMessage[] = claudeRequest.messages.map((m) => ({
+    ...m,
+  }));
+  const lastIndex = messages.length - 1;
+  const lastContent: unknown = messages[lastIndex].content;
+  assert(
+    Array.isArray(lastContent) && lastContent.length > 0,
+    "last message must have block-array content to pre-mark",
+  );
+  const blocks = (lastContent as Record<string, unknown>[]).map((b) => ({
+    ...b,
+  }));
+  blocks[blocks.length - 1] = {
+    ...blocks[blocks.length - 1],
+    cache_control: { type: "ephemeral" },
+  };
+  messages[lastIndex] = {
+    ...messages[lastIndex],
+    content: blocks as ClaudeMessage["content"],
+  };
+
+  const preMarked: ClaudeRequest = { ...claudeRequest, messages };
+  const result = applyClaudeRequestCacheBreakpoints(preMarked, {
+    ttl: "1h",
+  });
+  const count = countAnthropicCacheMarkers({
+    system: result.system,
+    tools: result.tools,
+    messages: result.messages as unknown as Parameters<
+      typeof countAnthropicCacheMarkers
+    >[0]["messages"],
+  });
+  assert(
+    count <= ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+    `expected at most ${ANTHROPIC_MAX_CACHE_BREAKPOINTS} cache_control markers, got ${count}`,
+  );
+});
+
+// Test 4 (spec Tests #4): system-shape guard.
+await test("assertClaudeSystemPrefixShape: throws when system gains a 5th (e.g. environment_context-leaked) block, passes silently at the exact expected length", () => {
+  const fourBlocks: ClaudeTextBlock[] = [
+    { type: "text", text: "a" },
+    { type: "text", text: "b" },
+    { type: "text", text: "c" },
+    { type: "text", text: "d" },
+  ];
+  const fiveBlocks: ClaudeTextBlock[] = [
+    ...fourBlocks,
+    { type: "text", text: "environment_context leaked into system" },
+  ];
+
+  let threw: unknown;
+  try {
+    assertClaudeSystemPrefixShape(fiveBlocks, 4);
+  } catch (error) {
+    threw = error;
+  }
+  assert(
+    threw instanceof ClaudeSystemPrefixShapeError,
+    "expected ClaudeSystemPrefixShapeError on a system array longer than the fixed developer-block prefix",
+  );
+
+  // Passes silently (no throw) at the exact expected length.
+  assertClaudeSystemPrefixShape(fourBlocks, 4);
+});
+
+// Test 5 (spec Tests #5): role-alternation guard.
+await test("assertClaudeMessagesAlternate: throws naming the offending index on back-to-back same-role messages, passes on a well-formed alternating array", () => {
+  const backToBackUser: ClaudeMessage[] = [
+    { role: "user", content: [{ type: "text", text: "notice" }] },
+    { role: "user", content: [{ type: "text", text: "say OK" }] },
+  ];
+  let threw: unknown;
+  try {
+    assertClaudeMessagesAlternate(backToBackUser);
+  } catch (error) {
+    threw = error;
+  }
+  assert(
+    threw instanceof ClaudeSystemPrefixShapeError,
+    "expected ClaudeSystemPrefixShapeError on two consecutive user-role messages",
+  );
+  assert(
+    threw instanceof Error && threw.message.includes("messages[1]"),
+    "error must name the offending index",
+  );
+
+  const alternating: ClaudeMessage[] = [
+    { role: "user", content: [{ type: "text", text: "hi" }] },
+    { role: "assistant", content: [{ type: "text", text: "hello" }] },
+  ];
+  assertClaudeMessagesAlternate(alternating);
+});
+
+// Test 6 (spec Tests #6): affinity-key derivation.
+await test("codexAnthropicAffinityKey: prefers prompt_cache_key, then client_metadata.thread_id, then client_metadata.session_id, then a prefix digest shared by two identity-free requests with the same stable prefix", () => {
+  // codex-request-interactive-mode.json carries neither prompt_cache_key
+  // nor client_metadata (only codex-request-resumed-session.json does),
+  // so it is already identity-free as loaded.
+  const base = loadCodexFixture("codex-request-interactive-mode.json");
+  assert(
+    base.prompt_cache_key === undefined && base.client_metadata === undefined,
+    "fixture assumption: codex-request-interactive-mode.json must carry no identity fields",
+  );
+
+  const withPromptCacheKey: CodexNativeRequest = {
+    ...base,
+    prompt_cache_key: "pck_synthetic_0001",
+    client_metadata: {
+      thread_id: "thread_should_lose",
+      session_id: "session_should_lose",
+    },
+  };
+  assertEqual(
+    codexAnthropicAffinityKey(withPromptCacheKey),
+    "codex-thread:pck_synthetic_0001",
+    "prompt_cache_key must win over client_metadata",
+  );
+
+  const withThreadIdOnly: CodexNativeRequest = {
+    ...base,
+    client_metadata: { thread_id: "thread_synthetic_only" },
+  };
+  assertEqual(
+    codexAnthropicAffinityKey(withThreadIdOnly),
+    "codex-thread:thread_synthetic_only",
+    "client_metadata.thread_id must be used when prompt_cache_key is absent",
+  );
+
+  const withSessionIdOnly: CodexNativeRequest = {
+    ...base,
+    client_metadata: { session_id: "session_synthetic_only" },
+  };
+  assertEqual(
+    codexAnthropicAffinityKey(withSessionIdOnly),
+    "codex-session:session_synthetic_only",
+    "client_metadata.session_id must be used when neither prompt_cache_key nor thread_id is present",
+  );
+
+  // Two identity-free requests sharing the same tools + developer-message
+  // prefix (turn1/turn2 share that prefix by construction — asserted in
+  // the determinism test above) but different environment_context/user
+  // turns must degrade to the SAME prefix-derived key, proving it is
+  // prefix-derived rather than full-body-derived.
+  const turn2Raw = loadCodexFixture("codex-request-turn2-same-session.json");
+  const { client_metadata: _turn2ClientMetadata, ...turn2WithoutIdentity } =
+    turn2Raw;
+  const turn2Identity: CodexNativeRequest = { ...turn2WithoutIdentity };
+
+  const key1 = codexAnthropicAffinityKey(base);
+  const key2 = codexAnthropicAffinityKey(turn2Identity);
+  assert(
+    typeof key1 === "string" && key1.startsWith("codex-prefix:"),
+    "an identity-free request must degrade to a codex-prefix: key",
+  );
+  assertEqual(
+    key1,
+    key2,
+    "two identity-free requests sharing the same stable tools+developer-message prefix must produce the same prefix-derived affinity key",
+  );
+
+  // No identity signal AND no derivable prefix (empty input) -> undefined.
+  const empty: CodexNativeRequest = {
+    model: "gpt-5-codex",
+    stream: true,
+    store: false,
+    input: [],
+  };
+  assertEqual(
+    codexAnthropicAffinityKey(empty),
+    undefined,
+    "a request with no identity signal and no derivable prefix must return undefined",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Codex outbound-fallback config: keys, kill switch, runtime plumbing
+// (stage-b-config.md §A-§E). This stage is a no-op — nothing branches on
+// these values yet — so these tests cover parsing/validation/threading only.
+// ---------------------------------------------------------------------------
+
+await test("validateProxyConfig accepts valid codex-outbound-fallback-* values", async () => {
+  for (const enabledValue of [true, false, "true", "false", "TRUE", "False"]) {
+    const errors = validateProxyConfig({
+      routing: { "codex-outbound-fallback-enabled": enabledValue },
+    });
+    assertEqual(
+      errors.length,
+      0,
+      `codex-outbound-fallback-enabled: ${JSON.stringify(enabledValue)} should be accepted`,
+    );
+  }
+
+  const validTargets = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-targets": [
+        { provider: "anthropic", model: "claude-opus-4-6" },
+        { provider: "vertex", model: "claude-opus-4-6" },
+      ],
+    },
+  });
+  assertEqual(
+    validTargets.length,
+    0,
+    "a well-formed codex-outbound-fallback-targets array should be accepted",
+  );
+
+  const validMappings = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-model-mappings": [
+        { from: "gpt-6-astra", to: "claude-opus-4-6", provider: "anthropic" },
+        { from: "gpt-6-astra", to: "claude-opus-4-6" },
+      ],
+    },
+  });
+  assertEqual(
+    validMappings.length,
+    0,
+    "a well-formed codex-outbound-fallback-model-mappings array should be accepted",
+  );
+
+  // camelCase spelling must be accepted identically to kebab-case.
+  const camelCase = validateProxyConfig({
+    routing: {
+      codexOutboundFallbackEnabled: true,
+      codexOutboundFallbackTargets: [
+        { provider: "anthropic", model: "claude-opus-4-6" },
+      ],
+    },
+  });
+  assertEqual(
+    camelCase.length,
+    0,
+    "camelCase codex-outbound-fallback-* keys should be accepted identically to kebab-case",
+  );
+});
+
+await test("validateProxyConfig rejects malformed codex-outbound-fallback-* values", async () => {
+  const badEnabled = validateProxyConfig({
+    routing: { "codex-outbound-fallback-enabled": 1 },
+  });
+  assert(
+    badEnabled.some((e) => e.includes("codex-outbound-fallback-enabled")),
+    "a non-boolean, non-true/false-string codex-outbound-fallback-enabled must be rejected",
+  );
+
+  const explicitNullEnabled = validateProxyConfig({
+    routing: { "codex-outbound-fallback-enabled": null },
+  });
+  assert(
+    explicitNullEnabled.some((e) =>
+      e.includes("codex-outbound-fallback-enabled"),
+    ),
+    "an explicit null codex-outbound-fallback-enabled must be rejected, not treated as unset",
+  );
+
+  const badProvider = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-targets": [
+        { provider: "openai", model: "gpt-6-astra" },
+      ],
+    },
+  });
+  assert(
+    badProvider.some((e) => e.includes("provider must be anthropic or vertex")),
+    "a target with provider: openai must be rejected (only anthropic/vertex are outbound targets)",
+  );
+
+  const emptyModel = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-targets": [{ provider: "anthropic", model: "" }],
+    },
+  });
+  assert(
+    emptyModel.some((e) => e.includes("model must be a non-empty string")),
+    "a target with an empty model must be rejected",
+  );
+
+  const tooManyTargets = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-targets": Array.from({ length: 9 }, () => ({
+        provider: "anthropic",
+        model: "claude-opus-4-6",
+      })),
+    },
+  });
+  assert(
+    tooManyTargets.some((e) => e.includes("at most 8 entries")),
+    "a 9-entry codex-outbound-fallback-targets array must exceed the cap and be rejected",
+  );
+
+  const explicitNullTargets = validateProxyConfig({
+    routing: { "codex-outbound-fallback-targets": null },
+  });
+  assert(
+    explicitNullTargets.some((e) =>
+      e.includes("codex-outbound-fallback-targets"),
+    ),
+    "an explicit null codex-outbound-fallback-targets must be rejected, not treated as unset",
+  );
+
+  const badMapping = validateProxyConfig({
+    routing: {
+      "codex-outbound-fallback-model-mappings": [{ from: "", to: "" }],
+    },
+  });
+  assert(
+    badMapping.some((e) => e.includes("from must be a non-empty string")) &&
+      badMapping.some((e) => e.includes("to must be a non-empty string")),
+    "a model-mapping entry missing from/to must be rejected",
+  );
+});
+
+await test("parseRoutingConfig drops a malformed codex-outbound-fallback-targets entry without discarding valid siblings", async () => {
+  const result = parseRoutingConfig({
+    "codex-outbound-fallback-targets": [
+      { provider: "anthropic", model: "claude-opus-4-6" },
+      { provider: "openai", model: "gpt-6-astra" }, // invalid provider, dropped
+      { provider: "vertex", model: "claude-opus-4-6" },
+    ],
+  });
+  assertEqual(
+    result?.codexOutboundFallbackTargets?.length,
+    2,
+    "exactly one malformed entry should be dropped, leaving the two valid ones",
+  );
+  assertEqual(
+    result?.codexOutboundFallbackTargets?.map((t) => t.provider).join(","),
+    "anthropic,vertex",
+    "the surviving entries must be the two structurally valid ones, in order",
+  );
+});
+
+await test("parseRoutingConfig drops a malformed codex-outbound-fallback-model-mappings entry without discarding valid siblings", async () => {
+  const result = parseRoutingConfig({
+    "codex-outbound-fallback-model-mappings": [
+      { from: "gpt-6-astra", to: "claude-opus-4-6" },
+      { from: "", to: "claude-opus-4-6" }, // empty from, dropped
+      { from: "gpt-6-sky", to: "claude-sonnet-4-6" },
+    ],
+  });
+  assertEqual(
+    result?.codexOutboundFallbackModelMappings?.length,
+    2,
+    "exactly one malformed entry should be dropped, leaving the two valid ones",
+  );
+});
+
+await test("createCodexProxyRoutes() without a runtimeConfigProvider argument behaves identically to the pre-existing single-argument call", async () => {
+  const withoutProvider = createCodexProxyRoutes("");
+  const withUndefinedProvider = createCodexProxyRoutes("", undefined);
+
+  assertEqual(
+    withoutProvider.prefix,
+    withUndefinedProvider.prefix,
+    "route group prefix must be unaffected by the new optional argument",
+  );
+  assertEqual(
+    withoutProvider.routes.length,
+    2,
+    "the Codex route group must still expose exactly its two routes (responses, models)",
+  );
+  assertEqual(
+    withoutProvider.routes.map((r) => `${r.method} ${r.path}`).join("|"),
+    withUndefinedProvider.routes.map((r) => `${r.method} ${r.path}`).join("|"),
+    "route method/path pairs must be identical whether or not the second argument is passed",
+  );
+  assertEqual(
+    withoutProvider.prefix,
+    "/backend-api/codex",
+    "route prefix must remain unchanged from before this stage's signature extension",
+  );
+});
+
+await test("configHash changes when codex-outbound-fallback-enabled flips", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "codex-outbound-fallback-hash-"));
+  const configPath = join(dir, "proxy.json");
+  const writeConfig = (enabled: boolean) =>
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: { "codex-outbound-fallback-enabled": enabled },
+      }),
+    );
+  try {
+    writeConfig(false);
+    const runtime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    const before = runtime.getSnapshot();
+    assertEqual(
+      before.codexOutboundFallbackEnabled,
+      false,
+      "unset/false config must resolve codexOutboundFallbackEnabled to false",
+    );
+
+    writeConfig(true);
+    await runtime.reload("manual");
+    const after = runtime.getSnapshot();
+    assertEqual(
+      after.codexOutboundFallbackEnabled,
+      true,
+      "the reloaded snapshot must reflect the new enabled value",
+    );
+    assert(
+      after.configHash !== before.configHash,
+      "flipping codex-outbound-fallback-enabled must change the config hash",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK=off overrides a config-enabled codex-outbound-fallback", async () => {
+  const dir = mkdtempSync(
+    join(tmpdir(), "codex-outbound-fallback-killswitch-"),
+  );
+  const configPath = join(dir, "proxy.json");
+  writeFileSync(
+    configPath,
+    JSON.stringify({
+      routing: { "codex-outbound-fallback-enabled": true },
+    }),
+  );
+  try {
+    const runtimeWithoutOverride = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    assertEqual(
+      runtimeWithoutOverride.getSnapshot().codexOutboundFallbackEnabled,
+      true,
+      "with no env override, a config-enabled flag must resolve to enabled",
+    );
+
+    const runtimeWithOverride = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: { NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK: "off" },
+      passthrough: false,
+    });
+    assertEqual(
+      runtimeWithOverride.getSnapshot().codexOutboundFallbackEnabled,
+      false,
+      "the env kill switch must override a config value of true",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Item 6 (fix-pass brief): an empty or whitespace-only env value (e.g. `FOO=`
+// left over in a .env file) must mean "unset", i.e. defer to the config
+// value -- not be read as a present-but-falsy override that always resolves
+// to disabled regardless of what the config says.
+await test("NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK='' (empty/whitespace) means unset, deferring to config, on both a true and a false config", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "codex-outbound-fallback-empty-env-"));
+  const enabledConfigPath = join(dir, "proxy-enabled.json");
+  const disabledConfigPath = join(dir, "proxy-disabled.json");
+  writeFileSync(
+    enabledConfigPath,
+    JSON.stringify({ routing: { "codex-outbound-fallback-enabled": true } }),
+  );
+  writeFileSync(
+    disabledConfigPath,
+    JSON.stringify({ routing: { "codex-outbound-fallback-enabled": false } }),
+  );
+  try {
+    for (const emptyValue of ["", "   "]) {
+      const runtimeOnTrue = await ProxyRuntimeConfigStore.create({
+        configPath: enabledConfigPath,
+        configRequired: true,
+        baseEnv: { NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK: emptyValue },
+        passthrough: false,
+      });
+      assertEqual(
+        runtimeOnTrue.getSnapshot().codexOutboundFallbackEnabled,
+        true,
+        `an empty/whitespace env value (${JSON.stringify(emptyValue)}) must not override a config value of true to false`,
+      );
+
+      const runtimeOnFalse = await ProxyRuntimeConfigStore.create({
+        configPath: disabledConfigPath,
+        configRequired: true,
+        baseEnv: { NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK: emptyValue },
+        passthrough: false,
+      });
+      assertEqual(
+        runtimeOnFalse.getSnapshot().codexOutboundFallbackEnabled,
+        false,
+        `an empty/whitespace env value (${JSON.stringify(emptyValue)}) must not force-enable over a config value of false`,
+      );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Item 7 (fix-pass brief): createAllRoutes/registerAllRoutes (the generic SDK
+// route surface) has no option that threads loopbackPort/internalDispatch
+// through to createCodexProxyRoutes, so a consumer enabling the feature with
+// an anthropic target there would otherwise fail every such request silently,
+// with nothing at startup explaining why. warnIfAnthropicOutboundFallbackUnreachable
+// logs one clear warning at route-creation time instead -- this proves that
+// warning fires exactly when it should (enabled + anthropic target + no
+// loopback seam) and stays silent otherwise (vertex-only, feature off, or a
+// seam actually provided).
+await test("createCodexProxyRoutes warns once when an anthropic target is enabled but no loopbackPort/internalDispatch was provided", async () => {
+  const dir = mkdtempSync(
+    join(tmpdir(), "codex-outbound-fallback-route-warn-"),
+  );
+  const configPath = join(dir, "proxy.json");
+  const originalWarn = logger.warn.bind(logger);
+  const warnings: string[] = [];
+  logger.warn = (...args: unknown[]): void => {
+    warnings.push(args.map((a) => String(a)).join(" "));
+  };
+  try {
+    // Case 1: enabled, anthropic target, no loopback seam -- must warn.
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          "codex-outbound-fallback-enabled": true,
+          "codex-outbound-fallback-targets": [
+            { provider: "anthropic", model: "claude-opus-4-6" },
+          ],
+        },
+      }),
+    );
+    const anthropicRuntime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    warnings.length = 0;
+    createCodexProxyRoutes(
+      "",
+      () => anthropicRuntime.getSnapshot(),
+      undefined,
+      undefined,
+    );
+    assertEqual(
+      warnings.filter((w) => w.includes("loopbackPort or internalDispatch"))
+        .length,
+      1,
+      "an anthropic target enabled with no loopback seam must log exactly one clear warning at route-creation time",
+    );
+
+    // Case 2: enabled, anthropic target, loopbackPort IS provided -- silent.
+    warnings.length = 0;
+    createCodexProxyRoutes(
+      "",
+      () => anthropicRuntime.getSnapshot(),
+      4123,
+      undefined,
+    );
+    assertEqual(
+      warnings.filter((w) => w.includes("loopbackPort or internalDispatch"))
+        .length,
+      0,
+      "providing loopbackPort must silence the warning -- the seam exists",
+    );
+
+    // Case 3: enabled, vertex-only target, no loopback seam -- silent (vertex
+    // never reads loopbackPort).
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          "codex-outbound-fallback-enabled": true,
+          "codex-outbound-fallback-targets": [
+            { provider: "vertex", model: "claude-opus-4-6" },
+          ],
+        },
+      }),
+    );
+    const vertexRuntime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    warnings.length = 0;
+    createCodexProxyRoutes(
+      "",
+      () => vertexRuntime.getSnapshot(),
+      undefined,
+      undefined,
+    );
+    assertEqual(
+      warnings.filter((w) => w.includes("loopbackPort or internalDispatch"))
+        .length,
+      0,
+      "a vertex-only target must never warn about the anthropic loopback seam",
+    );
+
+    // Case 4: feature disabled entirely -- silent.
+    writeFileSync(
+      configPath,
+      JSON.stringify({ routing: { "codex-outbound-fallback-enabled": false } }),
+    );
+    const disabledRuntime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    warnings.length = 0;
+    createCodexProxyRoutes(
+      "",
+      () => disabledRuntime.getSnapshot(),
+      undefined,
+      undefined,
+    );
+    assertEqual(
+      warnings.filter((w) => w.includes("loopbackPort or internalDispatch"))
+        .length,
+      0,
+      "the feature must be silent at route-creation time when disabled",
+    );
+  } finally {
+    logger.warn = originalWarn;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Stage C trigger policy (stage-c-trigger.md §1): classifyCodexOutboundFailure
+// / parseCodexErrorCode are pure functions with no dispatch, HTTP or account
+// state, driven directly under this file's existing determinism exception
+// (see header) for the same reason translateCodexRequestToClaude is above.
+// ---------------------------------------------------------------------------
+
+await test("classifyCodexOutboundFailure: no_accounts is eligible for outbound fallback", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "no_accounts",
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "no configured Codex accounts must be eligible to fall outbound",
+  );
+  assert(
+    decision.reason.length > 0,
+    "the decision must carry a non-empty human-readable reason",
+  );
+});
+
+await test("classifyCodexOutboundFailure: pool_exhausted is eligible for outbound fallback", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "pool_exhausted",
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "every Codex account cooling down must be eligible to fall outbound",
+  );
+});
+
+await test("classifyCodexOutboundFailure: loop_fallthrough is eligible for outbound fallback", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "loop_fallthrough",
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "an exhausted account-retry loop must be eligible to fall outbound",
+  );
+});
+
+await test("classifyCodexOutboundFailure: loop_fallthrough with a bare 401/403 stays eligible (Codex credential failure)", async () => {
+  for (const lastStatus of [401, 403]) {
+    const decision = classifyCodexOutboundFailure({
+      failureClass: "loop_fallthrough",
+      lastStatus,
+    });
+    assertEqual(
+      decision.eligible,
+      true,
+      `a ${lastStatus} with no content-policy code is a credential failure on Codex's own pool and must stay eligible`,
+    );
+  }
+});
+
+await test("classifyCodexOutboundFailure: loop_fallthrough with a content-policy or invalid-request code is NOT eligible", async () => {
+  for (const [lastStatus, lastErrorCode] of [
+    [403, "content_policy_violation"],
+    [403, "cyber_policy"],
+    [400, "invalid_request_error"],
+  ] as const) {
+    const decision = classifyCodexOutboundFailure({
+      failureClass: "loop_fallthrough",
+      lastStatus,
+      lastErrorCode,
+    });
+    assertEqual(
+      decision.eligible,
+      false,
+      `${lastStatus} ${lastErrorCode} rejects the request itself and must not fall outbound`,
+    );
+  }
+});
+
+await test("classifyCodexOutboundFailure: loop_fallthrough with any other 4xx except 429 is NOT eligible", async () => {
+  for (const lastStatus of [400, 404, 422]) {
+    const decision = classifyCodexOutboundFailure({
+      failureClass: "loop_fallthrough",
+      lastStatus,
+      lastErrorCode: "some_unrecognized_code",
+    });
+    assertEqual(
+      decision.eligible,
+      false,
+      `a ${lastStatus} rejects the request itself and must not fall outbound`,
+    );
+  }
+  const rateLimited = classifyCodexOutboundFailure({
+    failureClass: "loop_fallthrough",
+    lastStatus: 429,
+    lastErrorCode: "usage_limit_reached",
+  });
+  assertEqual(
+    rateLimited.eligible,
+    true,
+    "a 429 exhausting every account is a pool failure and must stay eligible",
+  );
+});
+
+await test("classifyCodexOutboundFailure: loop_fallthrough with a 5xx lastStatus stays eligible", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "loop_fallthrough",
+    lastStatus: 500,
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "a 500 on the last exhausted account attempt is a pool-health failure, not a content-policy rejection, so it must remain eligible for outbound fallback",
+  );
+});
+
+await test("classifyCodexOutboundFailure: non_retryable_transport is eligible for a socket-level code", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "non_retryable_transport",
+    transportErrorCode: "ECONNRESET",
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "a non-retryable socket failure says nothing about the request and must be eligible to fall outbound",
+  );
+});
+
+await test("classifyCodexOutboundFailure: non_retryable_transport is NOT eligible for a content-policy-shaped code", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "non_retryable_transport",
+    transportErrorCode: "content_policy_violation",
+  });
+  assertEqual(
+    decision.eligible,
+    false,
+    "a content-policy rejection must not be treated as a Codex pool failure eligible for outbound fallback",
+  );
+});
+
+await test("classifyCodexOutboundFailure: non_retryable_transport is NOT eligible for an invalid-request code", async () => {
+  for (const transportErrorCode of [
+    "invalid_request_error",
+    "context_length_exceeded",
+    "max_output_tokens",
+  ]) {
+    const decision = classifyCodexOutboundFailure({
+      failureClass: "non_retryable_transport",
+      transportErrorCode,
+    });
+    assertEqual(
+      decision.eligible,
+      false,
+      `${transportErrorCode} rejects the request itself and must not fall outbound`,
+    );
+  }
+});
+
+await test("classifyCodexOutboundFailure: non_retryable_transport with no transport code still resolves (defaults to eligible)", async () => {
+  const decision = classifyCodexOutboundFailure({
+    failureClass: "non_retryable_transport",
+  });
+  assertEqual(
+    decision.eligible,
+    true,
+    "an unclassified/absent transport code must not be mistaken for a content-policy rejection",
+  );
+});
+
+await test("parseCodexErrorCode: reads a direct .code", async () => {
+  const code = parseCodexErrorCode({ code: "content_policy_violation" });
+  assertEqual(
+    code,
+    "content_policy_violation",
+    "a direct .code field must be returned as-is",
+  );
+});
+
+await test("parseCodexErrorCode: falls back to .cause.code when .code is absent", async () => {
+  const code = parseCodexErrorCode({
+    cause: { code: "context_length_exceeded" },
+  });
+  assertEqual(
+    code,
+    "context_length_exceeded",
+    "a nested .cause.code must be read when the top-level .code is absent",
+  );
+});
+
+await test("parseCodexErrorCode: returns undefined for a code-less error", async () => {
+  const code = parseCodexErrorCode(new Error("boom"));
+  assertEqual(
+    code,
+    undefined,
+    "an error carrying neither .code nor .cause.code must resolve to undefined",
+  );
+});
+
+await test("parseCodexErrorCode: returns undefined for a non-object input", async () => {
+  assertEqual(
+    parseCodexErrorCode("not-an-error"),
+    undefined,
+    "a non-object value must not be mistaken for a code-bearing error",
+  );
+  assertEqual(
+    parseCodexErrorCode(undefined),
+    undefined,
+    "undefined must resolve to undefined, not throw",
+  );
+});
+
+await test("MAX_ENGINE_CROSSINGS bounds a single engine crossing per turn", async () => {
+  assertEqual(
+    MAX_ENGINE_CROSSINGS,
+    1,
+    "the trigger policy must cap engine crossings at 1 per turn (Codex->Anthropic, never a further hop back)",
+  );
 });
 
 await runSuite();

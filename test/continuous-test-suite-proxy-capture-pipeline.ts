@@ -1104,6 +1104,313 @@ await test("every model the proxy routes carries an exact price, not an inferred
     }
   });
 });
+await test("cacheCreation1hTokens splits a cache write between the 1h and 5m rates, and is a no-op where no 1h rate exists", async () => {
+  await withCollector(200, async (batches) => {
+    initRequestLogger(true);
+    // Same shape (1,000,000 input incl. cache, 100,000 output, 200,000 cache
+    // read, 300,000 cache creation) reused across all four rows so only the
+    // model and the presence/value of `cacheCreation1hTokens` vary.
+    const base: RequestLogEntry = {
+      timestamp: new Date().toISOString(),
+      requestId: "cache1h",
+      method: "POST",
+      path: "/v1/messages",
+      model: "unset",
+      provider: "anthropic",
+      stream: false,
+      toolCount: 0,
+      account: "fixture",
+      accountType: "oauth",
+      responseStatus: 200,
+      responseTimeMs: 10,
+      inputTokens: 1_000_000,
+      outputTokens: 100_000,
+      cacheReadTokens: 200_000,
+      cacheCreationTokens: 300_000,
+      inputIncludesCachedTokens: true,
+    };
+    try {
+      // claude-sonnet-5 has a cacheCreation1h rate (4.0/MTok, vs 2.5/MTok for
+      // the plain 5-minute write). 100,000 of the 300,000 cache-creation
+      // tokens are tagged 1h, so cost = input(500k*2.0) + output(100k*10.0) +
+      // cacheRead(200k*0.2) + fiveMin(200k*2.5) + oneHour(100k*4.0), each per
+      // million: 1.0 + 1.0 + 0.04 + 0.5 + 0.4 = 2.94.
+      await logRequest({
+        ...base,
+        requestId: "cache1h-split",
+        model: "claude-sonnet-5",
+        cacheCreation1hTokens: 100_000,
+      });
+      // Same model and totals, no 1h tag at all — every cache-creation token
+      // prices at the plain 2.5/MTok rate: 1.0 + 1.0 + 0.04 + (300k*2.5) =
+      // 1.0 + 1.0 + 0.04 + 0.75 = 2.79. Proves the split genuinely changes
+      // the bill rather than the test fixture being insensitive to it.
+      await logRequest({
+        ...base,
+        requestId: "cache1h-unsplit",
+        model: "claude-sonnet-5",
+      });
+      // Every Claude model prices a 1h write at 2x input: claude-opus-5's is
+      // 10.0/MTok against 6.25 for 5 minutes. Tagged: 2.5 + 2.5 + 0.1 +
+      // fiveMin(200k*6.25 = 1.25) + oneHour(100k*10.0 = 1.0) = 7.35;
+      // untagged: 2.5 + 2.5 + 0.1 + 300k*6.25 (1.875) = 6.975.
+      await logRequest({
+        ...base,
+        requestId: "cache1h-opus5-tagged",
+        model: "claude-opus-5",
+        cacheCreation1hTokens: 100_000,
+      });
+      await logRequest({
+        ...base,
+        requestId: "cache1h-opus5-untagged",
+        model: "claude-opus-5",
+      });
+      // gpt-5.6-sol has a cache-write rate but NO cacheCreation1h rate, so
+      // `calculateCost` falls the 1h share back through `cacheCreation1h ??
+      // cacheCreation ?? input` and the split changes nothing: 2.5 + 3.0 +
+      // 0.1 + 300k*6.25 (1.875) = 7.475 either way.
+      await logRequest({
+        ...base,
+        requestId: "cache1h-no-rate-tagged",
+        provider: "openai",
+        model: "gpt-5.6-sol",
+        cacheCreation1hTokens: 100_000,
+      });
+      await logRequest({
+        ...base,
+        requestId: "cache1h-no-rate-untagged",
+        provider: "openai",
+        model: "gpt-5.6-sol",
+      });
+      // A negative or oversized 1h count is not a price: the entry is marked
+      // incomplete instead of subtracting cost or billing phantom tokens.
+      await logRequest({
+        ...base,
+        requestId: "cache1h-negative",
+        model: "claude-sonnet-5",
+        cacheCreation1hTokens: -100_000,
+      });
+      await logRequest({
+        ...base,
+        requestId: "cache1h-oversized",
+        model: "claude-sonnet-5",
+        cacheCreation1hTokens: 400_000,
+      });
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+      const byId = new Map(
+        batches
+          .flat()
+          .map((row) => {
+            const body = row.body as { stringValue: string };
+            return JSON.parse(body.stringValue) as RequestLogEntry;
+          })
+          .filter((row) => row.requestId?.startsWith("cache1h-"))
+          .map((row) => [row.requestId, row]),
+      );
+      const split = byId.get("cache1h-split");
+      const unsplit = byId.get("cache1h-unsplit");
+      const opus5Tagged = byId.get("cache1h-opus5-tagged");
+      const opus5Untagged = byId.get("cache1h-opus5-untagged");
+      const noRateTagged = byId.get("cache1h-no-rate-tagged");
+      const noRateUntagged = byId.get("cache1h-no-rate-untagged");
+      assertEqual(split?.pricingStatus, "exact");
+      assertEqual(split?.apiEquivalentCostUsd, 2.94);
+      assertEqual(unsplit?.pricingStatus, "exact");
+      assertEqual(unsplit?.apiEquivalentCostUsd, 2.79);
+      assert(
+        split?.apiEquivalentCostUsd !== unsplit?.apiEquivalentCostUsd,
+        "tagging 100,000 tokens as 1h-TTL must change the bill on a model with a cacheCreation1h rate",
+      );
+      assertEqual(opus5Tagged?.pricingStatus, "exact");
+      assertEqual(opus5Tagged?.apiEquivalentCostUsd, 7.35);
+      assertEqual(opus5Untagged?.apiEquivalentCostUsd, 6.975);
+      assertEqual(noRateTagged?.pricingStatus, "exact");
+      assertEqual(noRateUntagged?.pricingStatus, "exact");
+      assertEqual(
+        noRateTagged?.apiEquivalentCostUsd,
+        noRateUntagged?.apiEquivalentCostUsd,
+        "a model without a cacheCreation1h rate must price identically whether or not cacheCreation1hTokens is set",
+      );
+      assertEqual(noRateTagged?.apiEquivalentCostUsd, 7.475);
+      for (const id of ["cache1h-negative", "cache1h-oversized"]) {
+        assertEqual(byId.get(id)?.pricingStatus, "usage_incomplete");
+        assertEqual(byId.get(id)?.apiEquivalentCostUsd, null);
+      }
+    } finally {
+      initRequestLogger(false);
+    }
+  });
+});
+await test("every manifest-priced Claude model and alias bills a 1h cache write at 2x input", async () => {
+  // Manifest pricing takes precedence over the table in findRates, and the
+  // manifest has no 1-hour rate, so this covers the models that bypass the
+  // table's cacheCreation1h.
+  const { calculateCost } = await import("../src/lib/utils/pricing.js");
+  const { getManifestForProvider } =
+    await import("../src/lib/models/manifestRegistry.js");
+  const priced = Object.entries(
+    getManifestForProvider("anthropic")?.models ?? {},
+  ).filter(([id, entry]) => id !== "_default" && entry.pricingPerMTok);
+  assert(
+    priced.length > 0,
+    "fixture: the anthropic manifest must price at least one model",
+  );
+  const names = priced.flatMap(([id, entry]) => [id, ...entry.aliases]);
+  for (const id of names) {
+    const input = calculateCost("anthropic", id, {
+      input: 100_000,
+      output: 0,
+      total: 100_000,
+    });
+    const oneHour = calculateCost("anthropic", id, {
+      input: 0,
+      output: 0,
+      total: 100_000,
+      cacheCreationTokens: 100_000,
+      cacheCreation1hTokens: 100_000,
+    });
+    assertEqual(
+      oneHour,
+      Math.round(input * 2 * 1_000_000) / 1_000_000,
+      `${id}: a 1h cache write must bill at 2x input`,
+    );
+  }
+});
+await test("calculateCost clamps the 1h cache-write share to [0, total]", async () => {
+  const { calculateCost } = await import("../src/lib/utils/pricing.js");
+  const writes = {
+    input: 0,
+    output: 0,
+    total: 300_000,
+    cacheCreationTokens: 300_000,
+  };
+  const untagged = calculateCost("anthropic", "claude-sonnet-5", writes);
+  assertEqual(untagged, 0.75);
+  assertEqual(
+    calculateCost("anthropic", "claude-sonnet-5", {
+      ...writes,
+      cacheCreation1hTokens: -100_000,
+    }),
+    untagged,
+    "a negative 1h count must not subtract cost",
+  );
+  assertEqual(
+    calculateCost("anthropic", "claude-sonnet-5", {
+      ...writes,
+      cacheCreation1hTokens: 400_000,
+    }),
+    1.2,
+    "an oversized 1h count must bill at most the tokens written (300k at 4.0/MTok)",
+  );
+});
+await test("the SSE interceptor captures the 1h share of a streamed cache write, and omits the key when the breakdown is absent", async () => {
+  const { createSSEInterceptor } =
+    await import("../src/lib/proxy/sseInterceptor.js");
+  const run = async (usage: Record<string, unknown>) => {
+    const frame = (event: string, data: unknown): string =>
+      `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    const body =
+      frame("message_start", {
+        type: "message_start",
+        message: {
+          id: "msg_1h",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-5",
+          content: [],
+          usage,
+        },
+      }) + frame("message_stop", { type: "message_stop" });
+    const { stream, telemetry } = createSSEInterceptor();
+    const drained = new Response(
+      new Response(body).body?.pipeThrough(stream),
+    ).arrayBuffer();
+    const data = await telemetry;
+    await drained;
+    return data.usage;
+  };
+  const tagged = await run({
+    input_tokens: 10,
+    output_tokens: 1,
+    cache_creation_input_tokens: 300,
+    cache_creation: {
+      ephemeral_1h_input_tokens: 200,
+      ephemeral_5m_input_tokens: 100,
+    },
+  });
+  assertEqual(tagged.cacheCreationInputTokens, 300);
+  assertEqual(
+    tagged.cacheCreation1hInputTokens,
+    200,
+    "the streamed 1h cache-write share must reach the telemetry usage",
+  );
+  const untagged = await run({
+    input_tokens: 10,
+    output_tokens: 1,
+    cache_creation_input_tokens: 300,
+  });
+  assertEqual(untagged.cacheCreationInputTokens, 300);
+  assert.ok(
+    !("cacheCreation1hInputTokens" in untagged),
+    "without a cache_creation breakdown the 1h key must be absent, not zero",
+  );
+});
+await test("the Vertex passthrough captures the 1h share of a cache write on both the streaming and the non-streaming reply", async () => {
+  const { observeVertexUsage, readJsonUsage } =
+    await import("../src/lib/proxy/vertexAnthropicFallback.js");
+  const breakdownUsage = {
+    input_tokens: 10,
+    output_tokens: 1,
+    cache_creation_input_tokens: 300,
+    cache_creation: {
+      ephemeral_1h_input_tokens: 200,
+      ephemeral_5m_input_tokens: 100,
+    },
+  };
+  const plainUsage = {
+    input_tokens: 10,
+    output_tokens: 1,
+    cache_creation_input_tokens: 300,
+  };
+  const streamed = async (usage: Record<string, unknown>) => {
+    const text = `event: message_start\ndata: ${JSON.stringify({
+      type: "message_start",
+      message: { id: "m", usage },
+    })}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`;
+    let captured: { cacheCreation1hTokens?: number } | undefined;
+    const observed = observeVertexUsage(
+      new Response(text).body as ReadableStream<Uint8Array>,
+      (terminal) => {
+        captured = terminal.usage;
+      },
+    );
+    await new Response(observed).arrayBuffer();
+    assert.ok(captured, "the passthrough observer must report a terminal");
+    return captured;
+  };
+  const whole = (usage: Record<string, unknown>) =>
+    readJsonUsage(JSON.stringify({ type: "message", usage }));
+
+  assertEqual(
+    (await streamed(breakdownUsage)).cacheCreation1hTokens,
+    200,
+    "the streamed Vertex 1h cache-write share must be captured",
+  );
+  assertEqual(
+    whole(breakdownUsage).cacheCreation1hTokens,
+    200,
+    "the non-streaming Vertex 1h cache-write share must be captured",
+  );
+  assert.ok(
+    !("cacheCreation1hTokens" in (await streamed(plainUsage))),
+    "a streamed reply without a breakdown must leave the 1h field unset",
+  );
+  assert.ok(
+    !("cacheCreation1hTokens" in whole(plainUsage)),
+    "a non-streaming reply without a breakdown must leave the 1h field unset",
+  );
+});
 await test("a Vertex turn after a failed Codex leg bills as Vertex, not Codex", async () => {
   await withCollector(200, async (batches) => {
     initRequestLogger(true);

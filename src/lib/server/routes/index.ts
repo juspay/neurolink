@@ -36,6 +36,14 @@ export { createToolRoutes } from "./toolRoutes.js";
 /**
  * Create all standard routes
  * Convenience method that combines all route groups
+ *
+ * NOTE on the Codex outbound fallback's `anthropic` target: this function
+ * does not thread `loopbackPort`/`internalDispatch` into
+ * `createCodexProxyRoutes`, so that target cannot dispatch when the feature
+ * is enabled through `options.runtimeConfigProvider` here — only the CLI
+ * proxy command wires the in-process loopback directly. Route creation logs
+ * one warning when this gap applies; see `CreateRoutesOptions.runtimeConfigProvider`
+ * and docs/features/codex-proxy-support.md.
  */
 export function createAllRoutes(
   basePath: string = "/api",
@@ -72,7 +80,9 @@ export function createAllRoutes(
   }
 
   if (enableCodexProxy) {
-    routes.push(createCodexProxyRoutes(basePath));
+    routes.push(
+      createCodexProxyRoutes(basePath, options?.runtimeConfigProvider),
+    );
   }
 
   if (enableGeminiProxy) {

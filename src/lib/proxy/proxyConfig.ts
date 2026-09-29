@@ -21,6 +21,7 @@ import {
 import { logger } from "../utils/logger.js";
 import type {
   CloakingConfig,
+  CodexFallbackTarget,
   CodexReasoningEffort,
   FallbackEntry,
   LoadProxyConfigOptions,
@@ -275,6 +276,10 @@ const MIN_SESSION_AFFINITY_IDLE_TTL_MS = 60_000;
 const MAX_SESSION_AFFINITY_IDLE_TTL_MS = 86_400_000;
 const MIN_SPILL_INFLIGHT = 0;
 const MAX_SPILL_INFLIGHT = 100;
+/** Prior design left this uncapped and flagged it as an open risk (unbounded
+ *  chain degrades worst-case exhausted-turn latency linearly). 8 is deliberate
+ *  headroom (2 providers x up to 4 models each). */
+const MAX_CODEX_OUTBOUND_FALLBACK_TARGETS = 8;
 
 function kebabToCamelRoutingKey(kebabKey: string): string {
   return kebabKey.replace(/-([a-z])/g, (_match, letter: string) =>
@@ -576,6 +581,88 @@ export function validateProxyConfig(config: unknown): string[] {
       errors.push(
         "routing.spill-inflight must be an integer between 0 and 100",
       );
+    }
+
+    const rawCodexOutboundEnabled = readRoutingPolicyKey(
+      routing,
+      "codex-outbound-fallback-enabled",
+    );
+    const normalizedCodexOutboundEnabled =
+      typeof rawCodexOutboundEnabled === "string"
+        ? rawCodexOutboundEnabled.trim().toLowerCase()
+        : undefined;
+    if (
+      rawCodexOutboundEnabled !== undefined &&
+      typeof rawCodexOutboundEnabled !== "boolean" &&
+      normalizedCodexOutboundEnabled !== "true" &&
+      normalizedCodexOutboundEnabled !== "false"
+    ) {
+      errors.push("routing.codex-outbound-fallback-enabled must be a boolean");
+    }
+
+    const rawCodexOutboundTargets = readRoutingPolicyKey(
+      routing,
+      "codex-outbound-fallback-targets",
+    );
+    if (rawCodexOutboundTargets !== undefined) {
+      if (!Array.isArray(rawCodexOutboundTargets)) {
+        errors.push("routing.codex-outbound-fallback-targets must be an array");
+      } else if (
+        rawCodexOutboundTargets.length > MAX_CODEX_OUTBOUND_FALLBACK_TARGETS
+      ) {
+        errors.push(
+          `routing.codex-outbound-fallback-targets must have at most ${MAX_CODEX_OUTBOUND_FALLBACK_TARGETS} entries`,
+        );
+      } else {
+        rawCodexOutboundTargets.forEach((entry, index) => {
+          const field = `routing.codex-outbound-fallback-targets[${index}]`;
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            errors.push(`${field} must be an object`);
+            return;
+          }
+          const target = entry as Record<string, unknown>;
+          if (target.provider !== "anthropic" && target.provider !== "vertex") {
+            errors.push(`${field}.provider must be anthropic or vertex`);
+          }
+          if (typeof target.model !== "string" || target.model.trim() === "") {
+            errors.push(`${field}.model must be a non-empty string`);
+          }
+        });
+      }
+    }
+
+    const rawCodexOutboundModelMappings = readRoutingPolicyKey(
+      routing,
+      "codex-outbound-fallback-model-mappings",
+    );
+    if (rawCodexOutboundModelMappings !== undefined) {
+      if (!Array.isArray(rawCodexOutboundModelMappings)) {
+        errors.push(
+          "routing.codex-outbound-fallback-model-mappings must be an array",
+        );
+      } else {
+        rawCodexOutboundModelMappings.forEach((entry, index) => {
+          const field = `routing.codex-outbound-fallback-model-mappings[${index}]`;
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            errors.push(`${field} must be an object`);
+            return;
+          }
+          const mapping = entry as Record<string, unknown>;
+          if (typeof mapping.from !== "string" || mapping.from.trim() === "") {
+            errors.push(`${field}.from must be a non-empty string`);
+          }
+          if (typeof mapping.to !== "string" || mapping.to.trim() === "") {
+            errors.push(`${field}.to must be a non-empty string`);
+          }
+          if (
+            mapping.provider !== undefined &&
+            (typeof mapping.provider !== "string" ||
+              mapping.provider.trim() === "")
+          ) {
+            errors.push(`${field}.provider must be a non-empty string`);
+          }
+        });
+      }
     }
   }
 
@@ -1019,6 +1106,86 @@ export function parseRoutingConfig(
         `[proxy-config] Ignoring routing.spillInflight: expected integer between 0 and 100, got ${String(rawSpillInflight)}`,
       );
     }
+  }
+
+  const rawCodexOutboundEnabled = readRoutingPolicyKey(
+    raw,
+    "codex-outbound-fallback-enabled",
+  );
+  if (rawCodexOutboundEnabled !== undefined) {
+    if (typeof rawCodexOutboundEnabled === "boolean") {
+      result.codexOutboundFallbackEnabled = rawCodexOutboundEnabled;
+    } else if (
+      typeof rawCodexOutboundEnabled === "string" &&
+      ["true", "false"].includes(rawCodexOutboundEnabled.trim().toLowerCase())
+    ) {
+      result.codexOutboundFallbackEnabled =
+        rawCodexOutboundEnabled.trim().toLowerCase() === "true";
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.codexOutboundFallbackEnabled: expected boolean, got ${typeof rawCodexOutboundEnabled}`,
+      );
+    }
+  }
+
+  const rawCodexOutboundTargets = readRoutingPolicyKey(
+    raw,
+    "codex-outbound-fallback-targets",
+  );
+  if (Array.isArray(rawCodexOutboundTargets)) {
+    result.codexOutboundFallbackTargets = rawCodexOutboundTargets
+      .filter(
+        (t): t is Record<string, unknown> =>
+          t !== null && typeof t === "object",
+      )
+      .map((t) => {
+        const provider =
+          t.provider === "anthropic" || t.provider === "vertex"
+            ? t.provider
+            : undefined;
+        const model = String(t.model ?? "").trim();
+        if (!provider || !model) {
+          logger.warn(
+            `[proxy-config] Skipping codex-outbound-fallback-targets entry with invalid provider/model: ${JSON.stringify(t)}`,
+          );
+          return null;
+        }
+        return { provider, model } satisfies CodexFallbackTarget;
+      })
+      .filter((t): t is CodexFallbackTarget => t !== null)
+      .slice(0, MAX_CODEX_OUTBOUND_FALLBACK_TARGETS);
+  }
+
+  // codex-outbound-fallback-model-mappings: identical shape to the existing
+  // model-mappings block above — same from/to/provider extraction and drop rule.
+  const rawCodexOutboundModelMappings = readRoutingPolicyKey(
+    raw,
+    "codex-outbound-fallback-model-mappings",
+  );
+  if (Array.isArray(rawCodexOutboundModelMappings)) {
+    result.codexOutboundFallbackModelMappings = rawCodexOutboundModelMappings
+      .filter(
+        (m): m is Record<string, unknown> =>
+          m !== null && typeof m === "object",
+      )
+      .map((m) => {
+        const from = String(m.from ?? "").trim();
+        const to = String(m.to ?? "").trim();
+        const provider =
+          String(m.provider ?? "anthropic").trim() || "anthropic";
+        if (!from || !to) {
+          logger.warn(
+            `[proxy-config] Skipping codex-outbound-fallback-model-mappings entry with empty "from" or "to": ${JSON.stringify(m)}`,
+          );
+          return null;
+        }
+        return {
+          from,
+          to,
+          provider,
+        } satisfies ModelMapping;
+      })
+      .filter((m): m is ModelMapping => m !== null);
   }
 
   return result;

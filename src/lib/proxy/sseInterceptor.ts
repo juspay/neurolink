@@ -17,6 +17,7 @@
  */
 
 import { hasUsefulClaudeContent } from "./claudeOutputObservation.js";
+import { readCacheCreation1hTokens } from "./proxyTokenUsage.js";
 import type {
   SSEContentBlock,
   SSEInterceptorOptions,
@@ -223,6 +224,9 @@ function finalize(acc: TelemetryAccumulator): SSETelemetry {
       inputTokens: acc.inputTokens,
       outputTokens: acc.outputTokens,
       cacheCreationInputTokens: acc.cacheCreationInputTokens,
+      ...(acc.cacheCreation1hInputTokens !== undefined
+        ? { cacheCreation1hInputTokens: acc.cacheCreation1hInputTokens }
+        : {}),
       cacheReadInputTokens: acc.cacheReadInputTokens,
       totalTokens,
     },
@@ -261,6 +265,11 @@ function processMessageStart(acc: TelemetryAccumulator, parsed: any): void {
     acc.inputTokens += usage.input_tokens ?? 0;
     acc.outputTokens += usage.output_tokens ?? 0;
     acc.cacheCreationInputTokens += usage.cache_creation_input_tokens ?? 0;
+    const oneHour = readCacheCreation1hTokens(usage);
+    if (oneHour !== undefined) {
+      acc.cacheCreation1hInputTokens =
+        (acc.cacheCreation1hInputTokens ?? 0) + oneHour;
+    }
     acc.cacheReadInputTokens += usage.cache_read_input_tokens ?? 0;
   }
 }

@@ -1,8 +1,18 @@
 # Codex Outbound Fallback — Design
 
-> Status: design complete; implementation under way in build order. PR 1 (the IR
-> types) merged as #1826; PR 2 (the request codec) is #1836; PRs 3 to 8 have not
-> started, and nothing is wired into a route yet. Produced by 22 parallel agents
+> Status: design complete; implementation shipped on `feat/codex-outbound-fallback-rollout`
+> in four staged local commits (build order PRs 1-8, landed as one branch rather than eight
+> separate PRs — see the branch's own commit history for the stage-by-stage breakdown: cache
+> and request/response codecs, config + kill switch, trigger policy + route wiring + loop
+> prevention + accounting, then this stage's test-matrix closure and docs). The feature ships
+> **OFF by default**, gated end-to-end by `routing.codex-outbound-fallback-enabled` /
+> `NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK`; turning it on for the live proxy is a separate,
+> operator-approved config change, not part of this work. All three items previously flagged
+> "needs product sign-off" below (grammar/custom-tool wrapping, the `{input: raw}` history
+> fallback, and the reasoning-effort-to-thinking-budget table) were signed off 2026-09-28 and
+> are shipped as designed. Live validation against real Codex traffic is blocked on account
+> quota until 2026-10-03 and is tracked separately (see the "Live validation" checklist in
+> `docs/features/codex-proxy-support.md`). Produced by 22 parallel agents
 > (6 grounding, 8 design, 8 adversarial review) plus 8 resolution passes; every design
 > claim below was checked against the code by a reviewer whose brief was to refute it.
 
@@ -409,6 +419,8 @@ export function assertProxyIRRequestMappable(
 - Tier 2 (per-field, non-fatal, explicit sentinel): unparsed tool-call arguments and any `ProxyIRUnmappedPart` — raw wire bytes are always kept, marked via `UNPARSED_TOOL_ARGUMENTS_KEY`, following the repo's own `xObserved` boolean convention (`UsageContext.cacheReadTokensObserved` etc., confirmed at `proxy.ts:2268-2269`) rather than inventing a new idiom. A tool-call IR part with non-JSON-parseable `argumentsRaw` (verified real case: `"ls -la"` in `tool-result-turn`'s `function_call`) renders into `ClaudeToolUseBlock.input` as `{[UNPARSED_TOOL_ARGUMENTS_KEY]: argumentsRaw}`, never a bare empty object — this directly fixes `codexFallback.ts`'s current hard throw on the same input class, though the fix lands only in the new codec, not in `codexFallback.ts` itself this PR.
 - Tier 3 (verified-uncertain, honestly held back): Anthropic thinking content served to a Codex client — no live-captured native Codex Responses SSE sample exists here to confirm the real reasoning output-item wire shape. `renderResponseEvent` on `codex-responses` never folds a `thinking_delta` into a plain text delta (would leak reasoning as the answer) and never silently drops it — withhold and log once, pending a live sample. Stated open gap, not resolved.
 
+**Superseded by the 2026-09-28 sign-off (ruling 7):** no Tier-1 grammar guard ships. Every custom/grammar tool is wrapped as a single `{input: string}` parameter, with `custom_tool_call` on the way back, whatever its grammar. A Codex custom tool always takes one raw string, so the wrapping keeps its interface; only grammar enforcement is lost, and the grammar text goes into the tool description. The redacted real Codex CLI capture (`test/fixtures/codex-cli-wire-sample-redacted.json`) also shows why the narrow check above cannot ship: its `exec` grammar is `start: pragma_source | plain_source` with `PRAGMA_LINE`/`NEWLINE`/`SOURCE` productions, not the single `WORD (" " ARG)*` production of the synthetic fixtures, so the guard would reject the real `exec` tool, which every captured Codex request carries.
+
 ### Developer/system-role hoisting (major finding — adopted in full)
 
 **Resolved**: confirmed by reading `codexFallback.ts:134-148` (`buildSystemInstructions` joins all system/developer text with `"\n\n"`, discarding position — the review correctly ties this to the repo's own prior ~41% caching-hit-rate regression) and by the fixture read (4 separate contiguous `developer`-role items in every fixture). Adopted rule for `codexNativeRequestCodec.parseRequest` → `ProxyIRRequest.messages`, and for `anthropicMessagesIRCodec.buildRequest`'s IR→`ClaudeRequest.system` step:
@@ -477,10 +489,10 @@ All assertions below live in one new file, `test/continuous-test-suite-proxy-ir-
 ### Risks (kept, one added)
 
 - Native Codex requests may not always place `additional_tools` as the single first input item — 4 synthetic, not live-captured, fixtures only.
-- Reasoning-effort-to-thinking-budget mapping has no existing precedent here; any bucketing table is new policy needing owner sign-off, not decided here.
+- Reasoning-effort-to-thinking-budget mapping has no existing precedent here; any bucketing table was new policy needing owner sign-off. **Settled 2026-09-28**: low→4096, medium→8192, high→16384, xhigh→24576, max→32768, clamped to `[1024, max_tokens-1024]`; thinking is left off on a forced `tool_choice` or when the last assistant turn called a tool. Shipped in `mapCodexReasoningToThinking` (`src/lib/proxy/codexOutboundFallback.ts`).
 - Leaving `codexFallback.ts` unrefactored means two independently maintained `tool_choice`/reasoning bijections exist until the named follow-up PR.
 - Tier-3 thinking-to-Codex rendering has no verified real wire target; shipping a guess risks an SSE frame no real Codex CLI understands — worse than withholding, so withholding stays the default.
-- **Added**: the `collaboration`-bucket/`grammar`-field distinction (this section's own code-check finding) is grounded in only 4 fixtures with only 2 collaboration tools (`exec`, `request_review`); a third collaboration tool with a different shape (`parameters` AND `grammar` both present, or a multi-token grammar) is unverified and needs `isDegradableSingleArgGrammar` to handle it explicitly rather than silently misclassifying it as a plain function.
+- **Added**: the `collaboration`-bucket/`grammar`-field distinction (this section's own code-check finding) is grounded in only 4 fixtures with only 2 collaboration tools (`exec`, `request_review`); a third collaboration tool with a different shape (`parameters` AND `grammar` both present) is unverified. **Settled 2026-09-28 (ruling 7)**: tools are classified by their own `type`, never by bucket (`mapCodexToolDeclarationToClaude`), and every `type:"custom"` tool, whatever its grammar, is wrapped as a single `{input: string}` parameter; no `isDegradableSingleArgGrammar` guard ships (see the superseded note under "Blocker resolved" above).
 
 ---
 
@@ -769,8 +781,8 @@ function mapCodexCustomToolToClaude(
   tool: CodexNativeCustomToolDeclaration,
 ): ClaudeTool {
   // Lossy, explicitly flagged: no JSON Schema exists for a Lark/regex grammar.
-  // The model is no longer grammar-constrained after this mapping — needs
-  // product sign-off before shipping (§10).
+  // The model is no longer grammar-constrained after this mapping. SIGNED OFF
+  // 2026-09-28 (§10, ruling 7): shipped as designed, not a placeholder.
   return {
     name: tool.name,
     description: [
@@ -1076,7 +1088,7 @@ All in `test/continuous-test-suite-codex-outbound-translation.ts` (new; `#!/usr/
 2. UNRESOLVED: whether a resumed-session request's `input` is genuinely full-history or incremental — the one check that would settle it: capture one real resumed-session Codex Responses request (the referenced `~/.neurolink/reference/codex-cli-wire-sample.json` is not available in this environment) and compare its `input.length` against the same session's prior turn.
 3. UNRESOLVED: whether `tool_choice` or `reasoning` ever appear on genuine inbound requests at all (absent from all 4 fixtures) — the one check that would settle it: grep captured production Codex traffic logs (once available) for either key.
 4. UNRESOLVED: whether more than one `additional_tools` item can appear in one request — the one check that would settle it: same real-traffic capture as (1).
-5. Product sign-off still needed on the lossy grammar→single-string-parameter mapping in §3.4 (behavior-changing, not just encoding) and on the `{input: raw}` non-JSON fallback's downstream effect on tool execution (owned by the tool-fidelity section).
+5. **SIGNED OFF 2026-09-28** on the lossy grammar→single-string-parameter mapping in §3.4 (behavior-changing, not just encoding) and on the `{input: raw}` non-JSON fallback's downstream effect on tool execution (owned by the tool-fidelity section). Both ship as designed; see ruling 7 in the stage rulings record.
 
 ### 11. Files this section touches
 

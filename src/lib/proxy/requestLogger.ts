@@ -326,6 +326,7 @@ function annotateRequestPricing(entry: RequestLogEntry): void {
   const output = entry.outputTokens;
   const cacheRead = entry.cacheReadTokens ?? 0;
   const cacheCreation = entry.cacheCreationTokens ?? 0;
+  const cacheCreation1h = entry.cacheCreation1hTokens;
   if (
     input === undefined ||
     output === undefined ||
@@ -337,6 +338,11 @@ function annotateRequestPricing(entry: RequestLogEntry): void {
     cacheRead < 0 ||
     !Number.isFinite(cacheCreation) ||
     cacheCreation < 0 ||
+    // The 1h count is a subset of the cache-write total.
+    (cacheCreation1h !== undefined &&
+      (!Number.isFinite(cacheCreation1h) ||
+        cacheCreation1h < 0 ||
+        cacheCreation1h > cacheCreation)) ||
     (entry.inputIncludesCachedTokens === true &&
       cacheRead + cacheCreation > input) ||
     // When input includes the cached portion but the provider never reported
@@ -364,6 +370,9 @@ function annotateRequestPricing(entry: RequestLogEntry): void {
     cacheReadTokens: cacheRead,
     cacheCreationTokens: cacheCreation,
     inputIncludesCachedTokens: entry.inputIncludesCachedTokens,
+    ...(entry.cacheCreation1hTokens !== undefined
+      ? { cacheCreation1hTokens: entry.cacheCreation1hTokens }
+      : {}),
   });
   entry.pricingStatus = "exact";
   entry.apiEquivalentCostUsd = calculateCost(

@@ -64,6 +64,12 @@ Aggregated telemetry resolved when an SSE stream completes.
 
 > **cacheCreationInputTokens**: `number`
 
+#### cacheCreation1hInputTokens?
+
+> `optional` **cacheCreation1hInputTokens?**: `number`
+
+1h-TTL share of `cacheCreationInputTokens`; absent when not reported.
+
 #### cacheReadInputTokens
 
 > **cacheReadInputTokens**: `number`

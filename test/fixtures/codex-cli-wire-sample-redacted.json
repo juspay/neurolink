@@ -1,0 +1,372 @@
+{
+  "note": "Redacted derivative of a real Codex CLI 0.155.1 /responses request, captured 2026-09-21, used only to characterize the namespace/kind translation shape (PR 4 gap #26). Every id, token, path and email has been replaced; developer/user message text and tool descriptions have been replaced with short placeholders. See scripts/redact-codex-capture.py provenance note in the PR body.",
+  "method": "POST",
+  "url": "/responses",
+  "headers": {
+    "x-codex-beta-features": "remote_compaction_v2",
+    "x-codex-window-id": "00000000-0000-0000-0000-000000000000:0",
+    "x-codex-turn-metadata": "{\"installation_id\": \"00000000-0000-0000-0000-000000000000\", \"session_id\": \"00000000-0000-0000-0000-000000000000\", \"thread_id\": \"00000000-0000-0000-0000-000000000000\", \"agent_name\": \"/root\", \"turn_id\": \"00000000-0000-0000-0000-000000000000\", \"window_id\": \"00000000-0000-0000-0000-000000000000:0\", \"window_number\": 0, \"context_window_id\": \"00000000-0000-0000-0000-000000000000\", \"request_kind\": \"turn\", \"root_turn_id\": \"00000000-0000-0000-0000-000000000000\", \"thread_source\": \"user\", \"sandbox\": \"seatbelt\", \"sandbox_mode\": \"workspace-write\", \"auto_review_enabled\": false, \"node_repl_auto_review_required\": false, \"node_repl_disabled\": false, \"workspaces\": {}, \"turn_started_at_unix_ms\": 0}",
+    "x-openai-internal-codex-responses-lite": "true",
+    "x-client-request-id": "00000000-0000-0000-0000-000000000000",
+    "session-id": "00000000-0000-0000-0000-000000000000",
+    "thread-id": "00000000-0000-0000-0000-000000000000",
+    "accept": "text/event-stream",
+    "content-type": "application/json",
+    "authorization": "<redacted>",
+    "chatgpt-account-id": "00000000-0000-0000-0000-000000000000",
+    "originator": "codex_exec",
+    "user-agent": "codex_exec/0.0.0 (redacted)",
+    "host": "127.0.0.1:0",
+    "content-length": "75769"
+  },
+  "body": {
+    "model": "gpt-5.6-sol",
+    "input": [
+      {
+        "type": "additional_tools",
+        "id": "at_redacted_0000",
+        "role": "developer",
+        "tools": [
+          {
+            "type": "namespace",
+            "name": "functions",
+            "description": "",
+            "tools": [
+              {
+                "type": "custom",
+                "name": "exec",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "format": {
+                  "type": "grammar",
+                  "syntax": "lark",
+                  "definition": "\nstart: pragma_source | plain_source\npragma_source: PRAGMA_LINE NEWLINE SOURCE\nplain_source: SOURCE\n\nPRAGMA_LINE: /[ \\t]*\\/\\/ @exec:[^\\r\\n]*/\nNEWLINE: /\\r?\\n/\nSOURCE: /[\\s\\S]+/\n"
+                }
+              },
+              {
+                "type": "function",
+                "name": "wait",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "cell_id": {
+                      "type": "string",
+                      "description": "Identifier of the running exec cell."
+                    },
+                    "max_tokens": {
+                      "type": "number",
+                      "description": "Output token budget for this wait call. Defaults to 10000 tokens."
+                    },
+                    "terminate": {
+                      "type": "boolean",
+                      "description": "True stops the running exec cell; false or omitted waits for output."
+                    },
+                    "yield_time_ms": {
+                      "type": "number",
+                      "description": "Wait before yielding more output. Defaults to 10000 ms."
+                    }
+                  },
+                  "required": ["cell_id"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "request_user_input",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "questions": {
+                      "type": "array",
+                      "description": "Questions to show the user. Prefer 1 and do not exceed 3",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "header": {
+                            "type": "string",
+                            "description": "Short header label shown in the UI (12 or fewer chars)."
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Stable identifier for mapping answers (snake_case)."
+                          },
+                          "options": {
+                            "type": "array",
+                            "description": "Provide 2-3 mutually exclusive choices. Put the recommended option first and suffix its label with \"(Recommended)\". Do not include an \"Other\" option in this list; the client will add a free-form \"Other\" option automatically.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "description": {
+                                  "type": "string",
+                                  "description": "One short sentence explaining impact/tradeoff if selected."
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "description": "User-facing label (1-5 words)."
+                                }
+                              },
+                              "required": ["label", "description"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "question": {
+                            "type": "string",
+                            "description": "Single-sentence prompt shown to the user."
+                          }
+                        },
+                        "required": ["id", "header", "question", "options"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["questions"],
+                  "additionalProperties": false
+                }
+              }
+            ]
+          },
+          {
+            "type": "namespace",
+            "name": "collaboration",
+            "description": "Tools for spawning and managing sub-agents.",
+            "tools": [
+              {
+                "type": "function",
+                "name": "followup_task",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Message text to send to the target agent.",
+                      "encrypted": true
+                    },
+                    "target": {
+                      "type": "string",
+                      "description": "Agent id or canonical task name to send a follow-up task to (from spawn_agent)."
+                    }
+                  },
+                  "required": ["target", "message"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "interrupt_agent",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "target": {
+                      "type": "string",
+                      "description": "Agent id or canonical task name to interrupt (from spawn_agent)."
+                    }
+                  },
+                  "required": ["target"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "list_agents",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path_prefix": {
+                      "type": "string",
+                      "description": "Task-path prefix filter without a trailing slash. Omit to list all live agents."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "send_message",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Message text to queue on the target agent.",
+                      "encrypted": true
+                    },
+                    "target": {
+                      "type": "string",
+                      "description": "Relative or canonical task name to message (from spawn_agent)."
+                    }
+                  },
+                  "required": ["target", "message"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "spawn_agent",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "fork_turns": {
+                      "type": "string",
+                      "description": "Optional number of turns to fork. Defaults to `all`. Use `none`, `all`, or a positive integer string such as `3` to fork only the most recent turns."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Initial plain-text task for the new agent.",
+                      "encrypted": true
+                    },
+                    "model": {
+                      "type": "string",
+                      "description": "Model override for the new agent. Omit unless an explicit override is needed."
+                    },
+                    "reasoning_effort": {
+                      "type": "string",
+                      "description": "Reasoning effort override for the new agent. Omit to inherit the parent effort."
+                    },
+                    "task_name": {
+                      "type": "string",
+                      "description": "Task name for the new agent. Use lowercase letters, digits, and underscores."
+                    }
+                  },
+                  "required": ["task_name", "message"],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "function",
+                "name": "wait_agent",
+                "description": "Redacted tool description (original text removed; not needed to characterize namespace/kind translation).",
+                "strict": false,
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "timeout_ms": {
+                      "type": "number",
+                      "description": "Timeout in milliseconds. Defaults to 30000, min 10000, max 3600000."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0001",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0002",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          },
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          },
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          },
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0003",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0004",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted developer/system instructions (original: agent persona, memory, skills, permissions and apps guidance). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0005",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted user-turn text (original: environment context and user prompt). Structure preserved for translation-shape testing only; content is not the real capture."
+          },
+          {
+            "type": "input_text",
+            "text": "Redacted user-turn text (original: environment context and user prompt). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_redacted_0006",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Redacted user-turn text (original: environment context and user prompt). Structure preserved for translation-shape testing only; content is not the real capture."
+          }
+        ]
+      }
+    ],
+    "tool_choice": "auto",
+    "parallel_tool_calls": false,
+    "reasoning": {
+      "effort": "xhigh",
+      "context": "all_turns"
+    },
+    "store": false,
+    "stream": true,
+    "include": ["reasoning.encrypted_content"],
+    "prompt_cache_key": "00000000-0000-0000-0000-000000000000",
+    "text": {
+      "verbosity": "low"
+    },
+    "client_metadata": {
+      "thread_id": "00000000-0000-0000-0000-000000000000",
+      "x-codex-installation-id": "00000000-0000-0000-0000-000000000000",
+      "turn_id": "00000000-0000-0000-0000-000000000000",
+      "root_turn_id": "00000000-0000-0000-0000-000000000000",
+      "x-codex-window-id": "00000000-0000-0000-0000-000000000000:0",
+      "x-codex-turn-metadata": "redacted"
+    }
+  }
+}

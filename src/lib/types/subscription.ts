@@ -1197,6 +1197,15 @@ export type FallbackEntry = {
   reasoningEffort?: CodexReasoningEffort;
 };
 
+/** One outbound-fallback hop for a native Codex request whose own account pool
+ *  is exhausted. No `reasoningEffort` (unlike FallbackEntry): that knob configures
+ *  a Codex *inbound* leg and has no meaning once the request has left Codex's
+ *  Responses format and become an Anthropic Messages request. */
+export type CodexFallbackTarget = {
+  provider: "anthropic" | "vertex";
+  model: string;
+};
+
 /** Full proxy routing config */
 export type ProxyRoutingConfig = {
   strategy: "round-robin" | "fill-first";
@@ -1253,6 +1262,20 @@ export type ProxyRoutingConfig = {
   sessionAffinityIdleTtlMs?: number;
   /** For a request without a binding: spill off an account already at N in-flight. 0-100, 0 = off. */
   spillInflight?: number;
+  /** Master flag for native-Codex-request outbound fallback. Independent of
+   *  codexOutboundFallbackTargets so the list can be staged ahead of turning the
+   *  feature on. Default false — the only new key whose absence must reproduce
+   *  byte-identical current behavior. */
+  codexOutboundFallbackEnabled?: boolean;
+  /** Ordered targets tried after Codex's own account pool is exhausted.
+   *  Try-order = array order. Empty/absent with enabled:true is a no-op. */
+  codexOutboundFallbackTargets?: CodexFallbackTarget[];
+  /** Per-incoming-Codex-model override, layered on codexOutboundFallbackTargets.
+   *  Reuses ModelMapping's {from,to,provider}: from = requested Codex model,
+   *  provider = which target this overrides, to = model to send instead of that
+   *  target's plain `model`. Absent for a (from,provider) pair = use the target's
+   *  plain model. */
+  codexOutboundFallbackModelMappings?: ModelMapping[];
 };
 
 /** Cloaking plugin config */

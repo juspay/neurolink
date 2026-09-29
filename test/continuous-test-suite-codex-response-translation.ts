@@ -222,6 +222,123 @@ await test("message_start populates cache usage", async () => {
   });
 });
 
+// Fix pass 2 item 2: the 1-hour cache-write subset (`usage.cache_creation.
+// ephemeral_1h_input_tokens`) must be captured at BOTH codec sites, each with
+// an absent-breakdown control that keeps today's exact usage shape.
+const ONE_HOUR_BREAKDOWN = {
+  ephemeral_1h_input_tokens: 60,
+  ephemeral_5m_input_tokens: 40,
+};
+
+const nonStreamingBody = (usage: Record<string, unknown>): Response =>
+  new Response(
+    JSON.stringify({
+      id: "msg_cache_1h",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-5",
+      content: [{ type: "text", text: "ok" }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+
+await test("streaming message_start carries the 1-hour cache-write breakdown", async () => {
+  const transcript = (
+    usage: ClaudeUsage & { cache_creation?: typeof ONE_HOUR_BREAKDOWN },
+  ): string =>
+    messageStartFrame(usage) +
+    sseFrame("content_block_start", {
+      type: "content_block_start",
+      index: 0,
+      content_block: { type: "text", text: "" },
+    }) +
+    sseFrame("content_block_delta", {
+      type: "content_block_delta",
+      index: 0,
+      delta: { type: "text_delta", text: "hi" },
+    }) +
+    sseFrame("content_block_stop", { type: "content_block_stop", index: 0 }) +
+    messageStopFrames(5);
+
+  const withBreakdown = await drive(
+    singleChunkResponse(
+      transcript({
+        input_tokens: 500,
+        output_tokens: 0,
+        cache_creation_input_tokens: 100,
+        cache_creation: ONE_HOUR_BREAKDOWN,
+      }),
+    ),
+  );
+  assert.deepEqual(withBreakdown.result.usage?.input_tokens_details, {
+    cache_write_tokens: 100,
+    cache_write_1h_tokens: 60,
+  });
+
+  const control = await drive(
+    singleChunkResponse(
+      transcript({
+        input_tokens: 500,
+        output_tokens: 0,
+        cache_creation_input_tokens: 100,
+      }),
+    ),
+  );
+  assert.deepEqual(
+    control.result.usage?.input_tokens_details,
+    { cache_write_tokens: 100 },
+    "control: an absent breakdown must leave the usage details exactly as before",
+  );
+});
+
+await test("non-streaming response carries the 1-hour cache-write breakdown", async () => {
+  const withBreakdown = await consumeAnthropicFallbackResponse(
+    nonStreamingBody({
+      input_tokens: 500,
+      output_tokens: 5,
+      cache_creation_input_tokens: 100,
+      cache_creation: ONE_HOUR_BREAKDOWN,
+    }),
+    MODEL,
+  );
+  assert.deepEqual(withBreakdown.usage?.input_tokens_details, {
+    cache_write_tokens: 100,
+    cache_write_1h_tokens: 60,
+  });
+
+  const control = await consumeAnthropicFallbackResponse(
+    nonStreamingBody({
+      input_tokens: 500,
+      output_tokens: 5,
+      cache_creation_input_tokens: 100,
+    }),
+    MODEL,
+  );
+  assert.deepEqual(
+    control.usage?.input_tokens_details,
+    { cache_write_tokens: 100 },
+    "control: an absent breakdown must leave the usage details exactly as before",
+  );
+
+  const malformed = await consumeAnthropicFallbackResponse(
+    nonStreamingBody({
+      input_tokens: 500,
+      output_tokens: 5,
+      cache_creation_input_tokens: 100,
+      cache_creation: { ephemeral_1h_input_tokens: -3 },
+    }),
+    MODEL,
+  );
+  assert.deepEqual(
+    malformed.usage?.input_tokens_details,
+    { cache_write_tokens: 100 },
+    "a malformed breakdown is dropped, never trusted",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // 3. Tool-call arguments forward incrementally, not buffered
 // ---------------------------------------------------------------------------

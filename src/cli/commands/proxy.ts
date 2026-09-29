@@ -2232,7 +2232,15 @@ export async function createProxyStartApp(params: {
     // across supervisor generation switches; never re-enter the public listener.
     (request) => app.fetch(request),
   );
-  const codexRouteGroup = createCodexProxyRoutes("");
+  const codexRouteGroup = createCodexProxyRoutes(
+    "",
+    runtimeConfigProvider,
+    params.port,
+    // Same in-process loopback discipline as the OpenAI->Anthropic bridge:
+    // stay in this worker across supervisor generation switches, never
+    // re-enter the public listener.
+    (request) => app.fetch(request),
+  );
   const geminiRouteGroup = createGeminiProxyRoutes(
     params.modelRouter,
     "",

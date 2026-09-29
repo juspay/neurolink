@@ -102,3 +102,21 @@ spent. Only "never" can override the provider's own signal.
 ### spillInflight
 
 > **spillInflight**: `number`
+
+---
+
+### codexOutboundFallbackEnabled
+
+> **codexOutboundFallbackEnabled**: `boolean`
+
+---
+
+### codexOutboundFallbackTargets
+
+> **codexOutboundFallbackTargets**: [`CodexFallbackTarget`](CodexFallbackTarget.md)[]
+
+---
+
+### codexOutboundFallbackModelMappings
+
+> **codexOutboundFallbackModelMappings**: [`ModelMapping`](ModelMapping.md)[]

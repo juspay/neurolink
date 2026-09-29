@@ -34,7 +34,7 @@ Wire usage block inside a synthesized response.completed / non-stream response.
 
 > `optional` **input_tokens_details?**: `object`
 
-Omitted entirely when neither cache field was observed on the Anthropic side.
+Omitted entirely when no cache field was observed on the Anthropic side.
 
 #### cached_tokens?
 
@@ -43,6 +43,13 @@ Omitted entirely when neither cache field was observed on the Anthropic side.
 #### cache_write_tokens?
 
 > `optional` **cache_write_tokens?**: `number`
+
+#### cache_write_1h_tokens?
+
+> `optional` **cache_write_1h_tokens?**: `number`
+
+The 1-hour-TTL share of `cache_write_tokens` (a subset, not additive);
+sourced from `ClaudeUsage.cacheCreation1hTokens`. Omitted when not observed.
 
 ---
 

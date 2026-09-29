@@ -1,4 +1,4 @@
-import type { TokenUsage } from "../types/index.js";
+import type { ModelPricingRates, TokenUsage } from "../types/index.js";
 import {
   getManifestForProvider,
   resolveManifestEntryExact,
@@ -37,6 +37,15 @@ const CATALOG_PRICING: Record<
       output: number;
       cacheRead?: number;
       cacheCreation?: number;
+      /**
+       * 1-hour TTL cache-write rate (Anthropic's 2x-of-input multiplier),
+       * distinct from `cacheCreation`'s 5-minute (1.25x) rate. Optional and
+       * populated only where a caller actually writes 1h-TTL breakpoints
+       * today (see `cacheCreation1h` on the hand-written `PRICING` table) —
+       * the catalog-derived entries have no such caller yet, so this field
+       * stays undefined here.
+       */
+      cacheCreation1h?: number;
     }
   >
 > = Object.fromEntries(
@@ -98,22 +107,12 @@ const CATALOG_PRICING: Record<
  * Note: Not all supported providers have pricing data. Missing providers
  * (Bedrock, Azure, Mistral, etc.) will return 0 from calculateCost().
  */
-const PRICING: Record<
-  string,
-  Record<
-    string,
-    {
-      input: number;
-      output: number;
-      cacheRead?: number;
-      cacheCreation?: number;
-    }
-  >
-> = {
+const PRICING: Record<string, Record<string, ModelPricingRates>> = {
   // Anthropic (direct API) — updated March 2026
   anthropic: {
     // Claude 5 family. Rates from platform.claude.com/docs/en/about-claude/pricing
-    // (checked 2026-09-23). A 5-minute cache write is 1.25x base input. The cache
+    // (checked 2026-09-23). A 5-minute cache write is 1.25x base input and a
+    // 1-hour one 2x, on every Claude model below. The cache
     // hit multiplier is 0.1x for most models but 0.05x on Opus 5.5 and 0.025x on
     // Fable/Mythos 5.1, so those three are listed in full rather than left to the
     // longest-prefix fallback — which would silently quote the 5.0 family's rates.
@@ -122,18 +121,22 @@ const PRICING: Record<
       output: 50.0 / 1_000_000,
       cacheRead: 0.25 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-mythos-5-1": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 0.25 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-opus-5-5": {
       input: 4.0 / 1_000_000,
       output: 20.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 5.0 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing, read 2026-09-29).
+      cacheCreation1h: 8.0 / 1_000_000,
     },
     // Sonnet 5.5 bills exactly as Sonnet 5 does, cache rates included.
     "claude-sonnet-5-5": {
@@ -141,36 +144,43 @@ const PRICING: Record<
       output: 10.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 2.5 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing, read 2026-09-29).
+      cacheCreation1h: 4.0 / 1_000_000,
     },
     "claude-fable-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 1.0 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-mythos-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 1.0 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-opus-5": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-opus-4-8": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-opus-4-7": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     // Sonnet 5's $2/$10 launch pricing became the standard price; the
     // previously scheduled 2026-09-01 rise to $3/$15 was cancelled.
@@ -179,6 +189,8 @@ const PRICING: Record<
       output: 10.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 2.5 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing).
+      cacheCreation1h: 4.0 / 1_000_000,
     },
     // Claude 4.6 family
     "claude-opus-4-6": {
@@ -186,12 +198,14 @@ const PRICING: Record<
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-sonnet-4-6": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     // Claude 4.5 family
     "claude-sonnet-4-5-20250929": {
@@ -199,6 +213,7 @@ const PRICING: Record<
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     // Undated aliases for the same models. Clients report the bare name far
     // more often than the dated one, and without these the longest-prefix
@@ -210,24 +225,28 @@ const PRICING: Record<
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-opus-4-5": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-haiku-4-5-20251001": {
       input: 1.0 / 1_000_000,
       output: 5.0 / 1_000_000,
       cacheRead: 0.1 / 1_000_000,
       cacheCreation: 1.25 / 1_000_000,
+      cacheCreation1h: 2.0 / 1_000_000,
     },
     "claude-haiku-4-5": {
       input: 1.0 / 1_000_000,
       output: 5.0 / 1_000_000,
       cacheRead: 0.1 / 1_000_000,
       cacheCreation: 1.25 / 1_000_000,
+      cacheCreation1h: 2.0 / 1_000_000,
     },
     // Claude 4.0/4.1 family
     "claude-opus-4-1": {
@@ -235,18 +254,21 @@ const PRICING: Record<
       output: 75.0 / 1_000_000,
       cacheRead: 1.5 / 1_000_000,
       cacheCreation: 18.75 / 1_000_000,
+      cacheCreation1h: 30.0 / 1_000_000,
     },
     "claude-opus-4": {
       input: 15.0 / 1_000_000,
       output: 75.0 / 1_000_000,
       cacheRead: 1.5 / 1_000_000,
       cacheCreation: 18.75 / 1_000_000,
+      cacheCreation1h: 30.0 / 1_000_000,
     },
     "claude-sonnet-4": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     // Claude 3.x family
     "claude-3-7-sonnet": {
@@ -254,40 +276,47 @@ const PRICING: Record<
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-3-5-sonnet": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-3-5-haiku": {
       input: 0.8 / 1_000_000,
       output: 4.0 / 1_000_000,
       cacheRead: 0.08 / 1_000_000,
       cacheCreation: 1.0 / 1_000_000,
+      cacheCreation1h: 1.6 / 1_000_000,
     },
     "claude-3-opus": {
       input: 15.0 / 1_000_000,
       output: 75.0 / 1_000_000,
       cacheRead: 1.5 / 1_000_000,
       cacheCreation: 18.75 / 1_000_000,
+      cacheCreation1h: 30.0 / 1_000_000,
     },
     "claude-3-sonnet": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-3-haiku": {
       input: 0.25 / 1_000_000,
       output: 1.25 / 1_000_000,
       cacheRead: 0.025 / 1_000_000,
       cacheCreation: 0.3125 / 1_000_000,
+      cacheCreation1h: 0.5 / 1_000_000,
     },
   },
   // Google Vertex AI — Claude models on Vertex (same pricing, @ date suffix)
   vertex: {
+    // A 1-hour cache write is 2x base input, as on the direct API.
     // Claude 5 family. Absent here until now, so a Vertex leg serving any of
     // them resolved to no rate at all and booked the turn at $0 — on the one
     // provider in the chain that bills in real currency.
@@ -298,30 +327,36 @@ const PRICING: Record<
       output: 50.0 / 1_000_000,
       cacheRead: 0.25 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-mythos-5-1": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 0.25 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-fable-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 1.0 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-mythos-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
       cacheRead: 1.0 / 1_000_000,
       cacheCreation: 12.5 / 1_000_000,
+      cacheCreation1h: 20.0 / 1_000_000,
     },
     "claude-opus-5-5": {
       input: 4.0 / 1_000_000,
       output: 20.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 5.0 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing, read 2026-09-29).
+      cacheCreation1h: 8.0 / 1_000_000,
     },
     // Sonnet 5.5 bills exactly as Sonnet 5 does, cache rates included.
     "claude-sonnet-5-5": {
@@ -329,60 +364,72 @@ const PRICING: Record<
       output: 10.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 2.5 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing, read 2026-09-29).
+      cacheCreation1h: 4.0 / 1_000_000,
     },
     "claude-opus-5": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-sonnet-5": {
       input: 2.0 / 1_000_000,
       output: 10.0 / 1_000_000,
       cacheRead: 0.2 / 1_000_000,
       cacheCreation: 2.5 / 1_000_000,
+      // 1h TTL = 2x base input (platform.claude.com/docs/en/about-claude/pricing).
+      cacheCreation1h: 4.0 / 1_000_000,
     },
     "claude-sonnet-4-6": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-opus-4-6": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-sonnet-4-5": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
     "claude-opus-4-5": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
       cacheRead: 0.5 / 1_000_000,
       cacheCreation: 6.25 / 1_000_000,
+      cacheCreation1h: 10.0 / 1_000_000,
     },
     "claude-haiku-4-5": {
       input: 1.0 / 1_000_000,
       output: 5.0 / 1_000_000,
       cacheRead: 0.1 / 1_000_000,
       cacheCreation: 1.25 / 1_000_000,
+      cacheCreation1h: 2.0 / 1_000_000,
     },
     "claude-3-5-haiku": {
       input: 0.8 / 1_000_000,
       output: 4.0 / 1_000_000,
       cacheRead: 0.08 / 1_000_000,
       cacheCreation: 1.0 / 1_000_000,
+      cacheCreation1h: 1.6 / 1_000_000,
     },
     "claude-3-5-sonnet": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
     },
   },
   // OpenAI — updated March 2026
@@ -869,22 +916,46 @@ function isVersionOnlySuffix(model: string, key: string): boolean {
 }
 
 /**
- * Whether `model` matches a provider manifest by the manifest's own
- * canonical id or by one of its declared aliases — deliberately excludes
+ * The manifest's canonical id for `model` when the manifest names it by that
+ * id or by one of its declared aliases — deliberately excludes
  * resolveManifestEntryExact's longest-prefix fallback. See the call site in
  * findRates for why the prefix path is unsafe to use for pricing precedence.
  */
-function isManifestNamedMatch(provider: string, model: string): boolean {
+function manifestCanonicalId(
+  provider: string,
+  model: string,
+): string | undefined {
   const manifest = getManifestForProvider(provider);
   if (!manifest) {
-    return false;
+    return undefined;
   }
   if (Object.prototype.hasOwnProperty.call(manifest.models, model)) {
-    return true;
+    return model;
   }
-  return Object.values(manifest.models).some((entry) =>
+  return Object.entries(manifest.models).find(([, entry]) =>
     entry.aliases.includes(model),
-  );
+  )?.[0];
+}
+
+/**
+ * A provider table's entry for `modelKey`: the exact key, else the longest
+ * key `modelKey` starts with (never the synthetic "_default"). `exact` is
+ * true for a literal key or a version-only suffix of one.
+ */
+function findTableEntry(
+  providerPricing: Record<string, ModelPricingRates>,
+  modelKey: string,
+): { rates: ModelPricingRates; exact: boolean } | undefined {
+  if (providerPricing[modelKey]) {
+    return { rates: providerPricing[modelKey], exact: true };
+  }
+  const sortedKeys = Object.keys(providerPricing)
+    .filter((k) => k !== "_default")
+    .sort((a, b) => b.length - a.length);
+  const key = sortedKeys.find((k) => modelKey.startsWith(k));
+  return key
+    ? { rates: providerPricing[key], exact: isVersionOnlySuffix(modelKey, key) }
+    : undefined;
 }
 
 function findRates(
@@ -897,14 +968,7 @@ function findRates(
    * and mislabelled every Bedrock and Vertex-Gemini hit.
    */
   matchKind?: { exact: boolean },
-):
-  | {
-      input: number;
-      output: number;
-      cacheRead?: number;
-      cacheCreation?: number;
-    }
-  | undefined {
+): ModelPricingRates | undefined {
   const stripped = provider.toLowerCase().replace(/[^a-z]/g, "");
   const normalizedProvider = PROVIDER_ALIASES[stripped] ?? stripped;
 
@@ -970,7 +1034,8 @@ function findRates(
   // claude-sonnet-5 — falls straight through to PRICING's unchanged
   // exact+prefix match below, which is exactly "legacy PRICING as the
   // fallback for entries the manifest lacks."
-  if (isManifestNamedMatch(normalizedProvider, modelKey)) {
+  const canonicalId = manifestCanonicalId(normalizedProvider, modelKey);
+  if (canonicalId !== undefined) {
     const manifestEntry = resolveManifestEntryExact(
       normalizedProvider,
       modelKey,
@@ -979,6 +1044,12 @@ function findRates(
       if (matchKind) {
         matchKind.exact = true;
       }
+      // The manifest carries no 1-hour cache-write rate; the table entry for
+      // the same model does. Without it a 1h write bills at the 5m rate.
+      const cacheCreation1h = (
+        findTableEntry(providerPricing, modelKey) ??
+        findTableEntry(providerPricing, canonicalId)
+      )?.rates.cacheCreation1h;
       return {
         input: manifestEntry.pricingPerMTok.input / 1_000_000,
         output: manifestEntry.pricingPerMTok.output / 1_000_000,
@@ -990,28 +1061,18 @@ function findRates(
           manifestEntry.pricingPerMTok.cacheWrite !== undefined
             ? manifestEntry.pricingPerMTok.cacheWrite / 1_000_000
             : undefined,
+        ...(cacheCreation1h !== undefined ? { cacheCreation1h } : {}),
       };
     }
   }
 
-  // Exact match
-  if (providerPricing[modelKey]) {
-    if (matchKind) {
+  // Exact match, else longest-prefix match
+  const tableEntry = findTableEntry(providerPricing, modelKey);
+  if (tableEntry) {
+    if (matchKind && tableEntry.exact) {
       matchKind.exact = true;
     }
-    return providerPricing[modelKey];
-  }
-
-  // Longest-prefix match (skip the synthetic "_default" sentinel below)
-  const sortedKeys = Object.keys(providerPricing)
-    .filter((k) => k !== "_default")
-    .sort((a, b) => b.length - a.length);
-  const key = sortedKeys.find((k) => modelKey.startsWith(k));
-  if (key) {
-    if (matchKind && isVersionOnlySuffix(modelKey, key)) {
-      matchKind.exact = true;
-    }
-    return providerPricing[key];
+    return tableEntry.rates;
   }
 
   // Fallback: Vertex hosts both Claude and Gemini models.
@@ -1078,9 +1139,27 @@ export function calculateCost(
     cost += usage.cacheReadTokens * (rates.cacheRead ?? rates.input);
   }
   if (usage.cacheCreationTokens) {
+    // `cacheCreation1hTokens` is a subset of `cacheCreationTokens` (the 1h-TTL
+    // share of the total cache-write count), not additive with it — Anthropic
+    // reports the 1h breakdown inside the same total
+    // (`cache_creation.ephemeral_1h_input_tokens` within
+    // `cache_creation_input_tokens`). Clamp to [0, total] so an inconsistent
+    // or negative count can never bill more tokens than were written, or
+    // subtract cost.
+    const oneHourTokens = Math.max(
+      0,
+      Math.min(usage.cacheCreation1hTokens ?? 0, usage.cacheCreationTokens),
+    );
+    const fiveMinTokens = usage.cacheCreationTokens - oneHourTokens;
     // Like cache reads, disjoint cache writes must not silently become free
     // when a model has no separate creation rate. Preserve explicit zero rates.
-    cost += usage.cacheCreationTokens * (rates.cacheCreation ?? rates.input);
+    cost += fiveMinTokens * (rates.cacheCreation ?? rates.input);
+    // A model without a `cacheCreation1h` rate keeps today's pricing exactly:
+    // it falls back through the 5-minute rate to the input rate, the same
+    // chain the 5-minute share already uses, rather than going unpriced.
+    cost +=
+      oneHourTokens *
+      (rates.cacheCreation1h ?? rates.cacheCreation ?? rates.input);
   }
 
   return Math.round(cost * 1_000_000) / 1_000_000; // Round to 6 decimal places

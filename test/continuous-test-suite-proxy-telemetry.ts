@@ -7,7 +7,14 @@
  * provider response is recorded; the installed proxy is never a test target.
  */
 import "./helpers/proxyTestIsolation.js";
-import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { assert, assertEqual, defineSuite, runCLI } from "./helpers/harness.js";
@@ -95,6 +102,90 @@ async function lines(
     .filter(Boolean)
     .map((line) => JSON.parse(line));
 }
+
+await test("offline analysis and the account ledger price 1-hour cache writes at the 1h rate", async () => {
+  const { calculateCost } = await import("../src/lib/utils/pricing.js");
+  const { analyzeProxyLogs } =
+    await import("../src/lib/proxy/proxyAnalysis.js");
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  const date = "2026-01-15";
+  const row = (requestId: string, oneHour?: number) => ({
+    timestamp: `${date}T00:00:05.000Z`,
+    requestId,
+    method: "POST",
+    path: "/v1/messages",
+    model: "claude-sonnet-4-6",
+    provider: "anthropic",
+    account: "one-hour@fixture",
+    accountType: "oauth",
+    responseStatus: 200,
+    responseTimeMs: 10,
+    inputTokens: 1_000,
+    outputTokens: 100,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 300_000,
+    inputIncludesCachedTokens: false,
+    ...(oneHour === undefined ? {} : { cacheCreation1hTokens: oneHour }),
+  });
+  const usage = {
+    input: 1_000,
+    output: 100,
+    total: 301_100,
+    cacheCreationTokens: 300_000,
+  };
+  // claude-sonnet-4-6 is priced from its manifest entry, the path that used
+  // to drop the 1h rate: 100k of the 300k writes at 6.0/MTok, not 3.75.
+  const split = calculateCost("anthropic", "claude-sonnet-4-6", {
+    ...usage,
+    cacheCreation1hTokens: 100_000,
+  });
+  const unsplit = calculateCost("anthropic", "claude-sonnet-4-6", usage);
+  assert(split > unsplit, "fixture: the 1h share must change the price");
+
+  const root = await mkdtemp(join(tmpdir(), "neurolink-1h-cost-"));
+  const prevHome = process.env.HOME;
+  try {
+    const logsDir = join(root, ".neurolink", "logs");
+    await mkdir(logsDir, { recursive: true });
+    await writeFile(
+      join(logsDir, `proxy-${date}.jsonl`),
+      [row("one-hour-split", 100_000)]
+        .map((entry) => JSON.stringify(entry))
+        .join("\n") + "\n",
+    );
+    const report = await analyzeProxyLogs({
+      logsDir,
+      since: `${date}T00:00:00Z`,
+      until: `${date}T00:01:00Z`,
+    });
+    assertEqual(
+      report.cache.estimatedCostUsd,
+      Number(split.toFixed(6)),
+      "offline analysis must price the 1h share at the 1h rate",
+    );
+
+    process.env.HOME = root;
+    resetAccountLedgerCache();
+    const totals = (await readAccountUsage(date)).get(
+      "anthropic:one-hour@fixture",
+    );
+    assert(totals !== undefined, "the ledger must report the fixture account");
+    const ledgerCost = totals?.costUsd ?? Number.NaN;
+    assert(
+      Math.abs(ledgerCost - split) < 1e-9,
+      `the ledger must price the 1h share at the 1h rate (got ${ledgerCost}, want ${split})`,
+    );
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    resetAccountLedgerCache();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 await test("an unreported cache breakdown is not counted as a cache miss", async () => {
   // A turn whose provider reported no cache breakdown is unknown, not a miss.

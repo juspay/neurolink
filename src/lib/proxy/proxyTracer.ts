@@ -47,6 +47,7 @@ import type {
   AccountSelectionContext,
   ProxyMetrics,
   ProxyRequestContext,
+  ProxyRequestOrigin,
   ResponseInfoContext,
   UpstreamAttemptContext,
   UsageContext,
@@ -298,6 +299,8 @@ class ProxyTracer {
   private accountEmail?: string;
   private usage?: UsageContext;
   private mode: "full" | "passthrough" | "passthrough-cli" = "full";
+  /** Where the Claude-shaped request originated, for cache/cost attribution. */
+  private requestOrigin: ProxyRequestOrigin = "native";
 
   private constructor(
     rootSpan: Span,
@@ -521,6 +524,16 @@ class ProxyTracer {
       "proxy.account.served": account,
       "proxy.account.served_type": accountType,
     });
+  }
+
+  /**
+   * Record where the Claude-shaped request this span covers originated, so
+   * the token/cost counters below can be broken down by origin (e.g. to
+   * measure Codex-fallback cache-hit rate separately from native traffic).
+   */
+  setRequestOrigin(origin: ProxyRequestOrigin): void {
+    this.requestOrigin = origin;
+    this.rootSpan.setAttribute("proxy.request_origin", origin);
   }
 
   /** Record token usage and cost on the root span. */
@@ -904,10 +917,19 @@ class ProxyTracer {
 
     // Token metrics (only if usage was captured)
     if (this.recordUsageMetrics && this.usage) {
-      const tokenLabels = {
-        model: this.model,
-        account: this.accountEmail ?? "unknown",
-      };
+      // `origin` is added to the label set only when it is not the default
+      // "native" value, so every pre-existing series keeps its exact old
+      // label set {model, account} when the Codex-outbound-fallback flag is
+      // off (or simply unused) — Ruling 1's byte-for-byte requirement — and
+      // no metric series is restarted for traffic this PR does not touch.
+      const tokenLabels =
+        this.requestOrigin === "native"
+          ? { model: this.model, account: this.accountEmail ?? "unknown" }
+          : {
+              model: this.model,
+              account: this.accountEmail ?? "unknown",
+              origin: this.requestOrigin,
+            };
 
       m.tokensInput.add(proxyTokenUsage(this.usage).input, tokenLabels);
       m.tokensOutput.add(this.usage.outputTokens, tokenLabels);
@@ -1101,12 +1123,21 @@ export function recordFallbackAttempt(attrs: {
   status: "success" | "failure";
   errorMessage?: string;
   durationMs: number;
+  /** Namespaces the leg-health key for a fallback direction other than the
+   *  existing Claude-engine chain (e.g. `"codex-outbound"`), so a dead-leg
+   *  alert for `anthropic/claude-...` reached via Codex-outbound fallback
+   *  never merges its failure streak with the same provider/model reached
+   *  through the Claude engine's own configured chain. Omitted entirely by
+   *  every existing call site, which keeps their leg key exactly as before. */
+  direction?: string;
 }): void {
   // Leg health is tracked outside the metrics try/catch: a telemetry failure
   // must not be the reason an operator never hears that a leg is dead.
   try {
     trackFallbackLegHealth(
-      `${attrs.provider}/${attrs.model}`,
+      attrs.direction
+        ? `${attrs.direction}:${attrs.provider}/${attrs.model}`
+        : `${attrs.provider}/${attrs.model}`,
       attrs.status,
       attrs.errorMessage,
     );

@@ -650,6 +650,9 @@ function summarizeFinalRequests(
         outputTokens: request.outputTokens ?? 0,
         cacheCreationTokens: request.cacheCreationTokens ?? 0,
         cacheReadTokens: request.cacheReadTokens ?? 0,
+        ...(request.cacheCreation1hTokens !== null
+          ? { cacheCreation1hTokens: request.cacheCreation1hTokens }
+          : {}),
       });
       requestsWithUsage += 1;
       inputTokens += billingUsage.input;
@@ -1341,6 +1344,7 @@ export async function analyzeProxyLogs(
           outputTokens: finiteNumber(record.outputTokens),
           cacheReadTokens: finiteNumber(record.cacheReadTokens),
           cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
+          cacheCreation1hTokens: finiteNumber(record.cacheCreation1hTokens),
           // Read as a boolean only. An absent flag means observed, which keeps
           // every record written before the flag existed counting as it did.
           // The merge below drops undefined from the later record, so a

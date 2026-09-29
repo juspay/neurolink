@@ -44,10 +44,28 @@ import {
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
+import { getProxyUpstreamFailure } from "../../proxy/proxyFailureDetails.js";
 import {
   registerProxyResponseObserver,
   isProxyRequestFinalized,
+  registerInternalProxyRequest,
+  getProxyBridgeResult,
+  releaseProxyRequestAccounting,
 } from "../../proxy/proxyActivity.js";
+import {
+  parseCodexNativeRequest,
+  translateCodexRequestToClaude,
+  classifyCodexOutboundFailure,
+  buildSystemBlocksFromDeveloperMessages,
+} from "../../proxy/codexOutboundFallback.js";
+import { createAnthropicFallbackStream } from "../../proxy/codexToAnthropicFallback.js";
+import { executeVertexAnthropicFallback } from "../../proxy/vertexAnthropicFallback.js";
+import {
+  assertClaudeSystemPrefixShape,
+  assertClaudeMessagesAlternate,
+  codexAnthropicAffinityKey,
+} from "../../proxy/codexOutboundCache.js";
+import { applyClaudeRequestCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
 import {
   prepareProxyRequestContext,
   ProxyContextPreflightError,
@@ -72,9 +90,12 @@ import {
   isProxyBodyCaptureEnabled,
 } from "../../proxy/requestLogger.js";
 import { createRawStreamCapture } from "../../proxy/rawStreamCapture.js";
-import { resolveProxyLogTraceContext } from "../../proxy/proxyTraceContext.js";
+import {
+  resolveProxyLogTraceContext,
+  getProxyRequestTraceContext,
+} from "../../proxy/proxyTraceContext.js";
 import { isBorrowedRequest } from "../../proxy/shareContext.js";
-import { ProxyTracer } from "../../proxy/proxyTracer.js";
+import { ProxyTracer, recordFallbackAttempt } from "../../proxy/proxyTracer.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import {
   recordAttempt,
@@ -84,10 +105,17 @@ import {
 } from "../../proxy/usageStats.js";
 import type {
   AccountQuota,
+  ClaudeRequest,
   CodexAttemptLogExtra,
   CodexFinalLogExtra,
+  CodexOutboundServedAttribution,
+  CodexOutboundFailureInput,
+  CodexOutboundFallbackOutcome,
   CodexQuotaError,
   CodexRefreshTokenStore,
+  CodexResponseEnvelope,
+  CodexResponseStream,
+  CodexResponseUsage,
   CodexRuntimeAccount,
   CodexTokenRefresher,
   RateLimitCoolingReason,
@@ -95,8 +123,11 @@ import type {
   ServerContext,
   ProxyContextEvidence,
   ProxyPreparedContext,
+  ProxyRuntimeConfigProvider,
   ProxyTokenBudgetLease,
+  UsageContext,
 } from "../../types/index.js";
+import { raceWithAbort } from "../../utils/async/withTimeout.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
 
@@ -535,9 +566,724 @@ function publishCodexHeaders(
   }
 }
 
+// =============================================================================
+// CODEX-OUTBOUND FALLBACK DISPATCH (stage-c-trigger.md). When the native
+// Codex pool itself fails (no accounts, all cooling, a non-retryable
+// transport error, or the account-retry loop exhausts without a terminal
+// response), and runtime config has opted in, translate the inbound native
+// Codex request to Anthropic wire format and serve it from the Anthropic
+// OAuth pool (in-process loopback to this same proxy's `/v1/messages`
+// handler) or Vertex's Claude passthrough, then translate the response back
+// to Codex wire format so the native Codex CLI client never sees the
+// difference.
+//
+// Owns dispatch/HTTP only. Classification lives in codexOutboundFallback.ts's
+// `classifyCodexOutboundFailure` (that file's own header disclaims dispatch
+// ownership); translation and the response codec live in
+// codexOutboundFallback.ts and codexToAnthropicFallback.ts respectively.
+// =============================================================================
+
+/** Set once a real dispatch attempt begins (after every gate has passed,
+ *  before any network call). A single flag — not a per-target counter —
+ *  because MAX_ENGINE_CROSSINGS caps the whole request to one crossing
+ *  regardless of which of the four call sites in `dispatch()` reaches this
+ *  function, and insertion point 3 sits inside a loop that can call it more
+ *  than once before insertion point 4 is ever reached. */
+const CODEX_OUTBOUND_FALLBACK_ATTEMPTED_KEY =
+  "neurolink.codexOutboundFallbackAttempted";
+
+/** Bounds the Anthropic loopback until its response headers arrive. It is
+ *  cleared once they do, so a long turn can stream past it. */
+const CODEX_OUTBOUND_FALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+let codexOutboundFallbackTimeoutOverrideMs: number | null = null;
+
+/** `CodexResponseUsage` -> the shared `UsageContext` shape `tracer.setUsage`
+ *  takes. `cacheReadTokensObserved`/`cacheCreationTokensObserved` are false
+ *  only when the field is genuinely absent (never conflated with an
+ *  observed zero). `inputIncludesCachedTokens` is always true because
+ *  `synthesizeCodexUsage` folds cache reads and cache writes into the Codex
+ *  `input_tokens`, the same OpenAI-style total the native Codex path logs. */
+function toUsageContext(
+  usage: CodexResponseUsage | undefined,
+): UsageContext | undefined {
+  if (!usage) {
+    return undefined;
+  }
+  const cacheRead = usage.input_tokens_details?.cached_tokens;
+  const cacheCreate = usage.input_tokens_details?.cache_write_tokens;
+  const cacheCreate1h = usage.input_tokens_details?.cache_write_1h_tokens;
+  return {
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheReadTokens: cacheRead ?? 0,
+    cacheCreationTokens: cacheCreate ?? 0,
+    ...(cacheCreate1h === undefined
+      ? {}
+      : { cacheCreation1hTokens: cacheCreate1h }),
+    cacheReadTokensObserved: cacheRead !== undefined,
+    cacheCreationTokensObserved: cacheCreate !== undefined,
+    inputIncludesCachedTokens: true,
+  };
+}
+
+/** Preserve absent cache fields in the persisted log while the tracer uses
+ * zero defaults for arithmetic. */
+function outboundFallbackUsageLogFields(
+  usage: UsageContext,
+): CodexFinalLogExtra {
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cacheReadTokensObserved: usage.cacheReadTokensObserved === true,
+    cacheCreationTokensObserved: usage.cacheCreationTokensObserved === true,
+    ...(usage.cacheReadTokensObserved === true
+      ? { cacheReadTokens: usage.cacheReadTokens }
+      : {}),
+    ...(usage.cacheCreationTokensObserved === true
+      ? {
+          cacheCreationTokens: usage.cacheCreationTokens,
+          ...(usage.cacheCreation1hTokens !== undefined
+            ? { cacheCreation1hTokens: usage.cacheCreation1hTokens }
+            : {}),
+        }
+      : {}),
+  };
+}
+
+/**
+ * Drive a `CodexResponseStream`'s `frames` generator into a `Response` body,
+ * calling `onSettled` exactly once with the outcome: the terminal envelope on
+ * a normal finish, the thrown error on the (never expected, still handled)
+ * post-commit failure, or `cancelled` when the consumer cancels the
+ * `ReadableStream` first (client disconnect, or an upstream timeout/abort).
+ *
+ * `createAnthropicFallbackStream`'s generator never throws once past its own
+ * internal preflight (codexToAnthropicFallback.ts:220-517) — every
+ * post-commit failure is instead serialized as a `response.failed` frame and
+ * the generator completes normally — so the `catch` branch here is a
+ * defensive backstop, not the documented failure path.
+ */
+function wrapCodexOutboundResponseStream(
+  codecStream: CodexResponseStream,
+  headers: Record<string, string>,
+  onSettled: (
+    result:
+      | { kind: "completed"; envelope: CodexResponseEnvelope }
+      | { kind: "error"; error: unknown }
+      | { kind: "cancelled" },
+  ) => void,
+): Response {
+  let settled = false;
+  const settleOnce = (
+    result:
+      | { kind: "completed"; envelope: CodexResponseEnvelope }
+      | { kind: "error"; error: unknown }
+      | { kind: "cancelled" },
+  ): void => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    onSettled(result);
+  };
+  const encoder = new TextEncoder();
+  // One frame per pull(), so a slow client holds the upstream back instead of
+  // buffering the whole turn. `cancelled` is set before the codec is
+  // cancelled: a read that settles after a disconnect must not be recorded
+  // as a stream error.
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const next = await codecStream.frames.next();
+        if (cancelled) {
+          return;
+        }
+        if (next.done === true) {
+          controller.close();
+          settleOnce({ kind: "completed", envelope: next.value });
+          return;
+        }
+        controller.enqueue(encoder.encode(next.value));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        try {
+          controller.error(error);
+        } catch {
+          // Already closed or errored.
+        }
+        settleOnce({ kind: "error", error });
+      }
+    },
+    cancel(reason) {
+      cancelled = true;
+      return codecStream.cancel(reason).finally(() => {
+        settleOnce({ kind: "cancelled" });
+      });
+    },
+  });
+  return new Response(body, { status: 200, headers });
+}
+
+/** Set the response headers for a served-outbound-fallback turn. Mirrors
+ *  `publishCodexHeaders`'s use of `ctx.responseHeaders`, direction-prefixed
+ *  so it is never confused with a native Codex-pool response. */
+function buildCodexOutboundFallbackResponseHeaders(
+  ctx: ServerContext,
+  provider: "anthropic" | "vertex",
+): Record<string, string> {
+  if (!ctx.responseHeaders) {
+    ctx.responseHeaders = {};
+  }
+  ctx.responseHeaders["x-neurolink-served-by"] =
+    `codex-outbound-fallback:${provider}`;
+  return {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+    ...ctx.responseHeaders,
+  };
+}
+
+/** Forward headers for the loopback `/v1/messages` call — the same allow-list
+ *  `openaiProxyRoutes.ts`'s `buildBridgeHeaders` uses — plus the unforgeable
+ *  internal-origin marker `claudeProxyRoutes.ts` cross-checks against a
+ *  server-set accounting scope that no inbound request header can forge. */
+function buildCodexOutboundLoopbackHeaders(
+  ctx: ServerContext,
+  token: string,
+  affinityKey?: string,
+): Record<string, string> {
+  const forwardHeaders: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "text/event-stream",
+    "x-neurolink-internal-request": token,
+    "x-neurolink-internal-origin": "codex-outbound-fallback",
+    // Ruling 3: derive the Codex-side session-affinity key and forward it as
+    // the same header claudeProxyRoutes.ts already reads for a native Claude
+    // client's session id, so the existing (config-gated, off-by-default on
+    // the live proxy) session-affinity machinery can bind consecutive turns
+    // of the same Codex conversation to the same Anthropic account.
+    ...(affinityKey ? { "x-claude-code-session-id": affinityKey } : {}),
+  };
+  const traceContext = getProxyRequestTraceContext(ctx.requestId);
+  if (traceContext) {
+    forwardHeaders.traceparent = `00-${traceContext.traceId}-${traceContext.spanId}-${traceContext.traceFlags.toString(16).padStart(2, "0")}`;
+  }
+  for (const [k, v] of Object.entries(ctx.headers)) {
+    if (typeof v !== "string") {
+      continue;
+    }
+    const lower = k.toLowerCase();
+    if (
+      ["user-agent", "tracestate", "baggage"].includes(lower) ||
+      (lower === "traceparent" && !forwardHeaders.traceparent)
+    ) {
+      forwardHeaders[lower] = v;
+    }
+  }
+  return forwardHeaders;
+}
+
+/**
+ * One target attempt: dispatch a translated `ClaudeRequest` to either the
+ * in-process Anthropic-pool loopback or Vertex's Claude passthrough, and
+ * hand back an Anthropic-shaped `Response` (never a Codex-shape one). Both
+ * legs are unified through the same `createAnthropicFallbackStream` call one
+ * level up, so this function's only job per target is "get the Response
+ * plus a way to attribute it afterward" — Vertex's own `onTerminal` usage
+ * path is deliberately unused, since usage is read from the shared terminal
+ * envelope instead (a scope-bounding ruling, not an oversight).
+ *
+ * `finalizeAttribution`/`releaseInternal` are split from the dispatch itself
+ * because, for the anthropic target, the loopback's own account/model
+ * attribution is only known once its lifecycle completes — which, like the
+ * OpenAI->Anthropic bridge's `writeLifecycle`, is no earlier than this
+ * caller's own read of the response body. The caller invokes
+ * `finalizeAttribution` then `releaseInternal`, in that order, exactly once.
+ */
+async function dispatchCodexOutboundTarget(args: {
+  ctx: ServerContext;
+  target: { provider: "anthropic" | "vertex"; model: string };
+  claudeRequest: ClaudeRequest;
+  loopbackPort?: number;
+  internalDispatch?: (request: Request) => Response | Promise<Response>;
+  affinityKey?: string;
+}): Promise<
+  | {
+      ok: true;
+      response: Response;
+      finalizeAttribution: () => CodexOutboundServedAttribution;
+      releaseInternal: () => void;
+      /** Set only for the anthropic target: the internal loopback's own
+       *  requestId, which its `/v1/messages` final log entry carries as its
+       *  own `requestId`. The caller names this as `usageOwnerRequestId` on
+       *  the OUTER Codex entry so the aggregate billing pass counts the
+       *  upstream call once (via the inner entry) instead of twice. */
+      childRequestId?: string;
+    }
+  | { ok: false; error: unknown }
+> {
+  const {
+    ctx,
+    target,
+    claudeRequest,
+    loopbackPort,
+    internalDispatch,
+    affinityKey,
+  } = args;
+
+  if (target.provider === "vertex") {
+    try {
+      const vertexBody: Record<string, unknown> = {
+        ...claudeRequest,
+        stream: true,
+      };
+      const response = await executeVertexAnthropicFallback({
+        body: vertexBody,
+        model: target.model,
+        ...(ctx.abortSignal ? { signal: ctx.abortSignal } : {}),
+      });
+      return {
+        ok: true,
+        response,
+        // Vertex has no OAuth-pool "account" concept, but it does have a
+        // model, so it uses the same `vertex/${model}` / "vertex" labeling
+        // convention as the existing Claude->Vertex fallback leg
+        // (claudeProxyRoutes.ts's setServedAccount(`vertex/${vertexModel}`,
+        // "vertex")), keeping per-model cost attribution intact instead of
+        // collapsing every Codex-outbound-to-Vertex model into one sentinel.
+        finalizeAttribution: () => ({
+          account: `vertex/${target.model}`,
+          accountKey: `vertex/${target.model}`,
+          accountType: "vertex",
+          provider: "vertex",
+          model: target.model,
+        }),
+        releaseInternal: () => {
+          /* Vertex holds no internal-request capability to release. */
+        },
+      };
+    } catch (error) {
+      return { ok: false, error };
+    }
+  }
+
+  // provider === "anthropic": in-process loopback to this same proxy's own
+  // /v1/messages handler. SECURITY: the target is always 127.0.0.1 on the
+  // listener's own port, never derived from a client-controlled Host header.
+  if (!loopbackPort) {
+    return {
+      ok: false,
+      error: new Error(
+        "codex-outbound-fallback: no loopback port configured for the anthropic target",
+      ),
+    };
+  }
+  // Registration throws at the internal-dispatch capacity limit. That is a
+  // failed target like any other: the caller moves on to the next target or
+  // returns the native Codex error, instead of the throw escaping as a 502.
+  let internal: ReturnType<typeof registerInternalProxyRequest>;
+  try {
+    internal = registerInternalProxyRequest(ctx.requestId);
+  } catch (error) {
+    return { ok: false, error };
+  }
+  const cancellation = new AbortController();
+  const headersTimeout = setTimeout(
+    () =>
+      cancellation.abort(
+        new DOMException("Codex outbound fallback timed out", "TimeoutError"),
+      ),
+    codexOutboundFallbackTimeoutOverrideMs ??
+      CODEX_OUTBOUND_FALLBACK_TIMEOUT_MS,
+  );
+  const signal = AbortSignal.any([
+    cancellation.signal,
+    ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+  ]);
+  const internalUrl = `http://127.0.0.1:${loopbackPort}/v1/messages`;
+  let disposed = false;
+  const finalizeAttribution = (): CodexOutboundServedAttribution => {
+    if (!disposed) {
+      disposed = true;
+      internal.dispose();
+    }
+    const child = getProxyBridgeResult(ctx.requestId);
+    return {
+      account: child?.account ?? "anthropic-outbound",
+      ...(child?.accountKey ? { accountKey: child.accountKey } : {}),
+      accountType: child?.accountType ?? "anthropic-oauth",
+      provider: child?.provider ?? "anthropic",
+      model: child?.model ?? target.model,
+    };
+  };
+  const releaseInternal = (): void => {
+    if (!disposed) {
+      disposed = true;
+      internal.dispose();
+    }
+    releaseProxyRequestAccounting(ctx.requestId);
+  };
+  try {
+    const forwardHeaders = buildCodexOutboundLoopbackHeaders(
+      ctx,
+      internal.token,
+      affinityKey,
+    );
+    const requestOptions = {
+      method: "POST",
+      headers: forwardHeaders,
+      body: JSON.stringify({ ...claudeRequest, stream: true }),
+      signal,
+    };
+    const response = await raceWithAbort(
+      Promise.resolve(
+        internalDispatch
+          ? internalDispatch(new Request(internalUrl, requestOptions))
+          : fetch(internalUrl, requestOptions),
+      ),
+      signal,
+    );
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      clearTimeout(headersTimeout);
+      releaseInternal();
+      return {
+        ok: false,
+        error: new Error(
+          `codex-outbound-fallback: anthropic loopback responded ${response.status}: ${detail.slice(0, 300)}`,
+        ),
+      };
+    }
+    clearTimeout(headersTimeout);
+    return {
+      ok: true,
+      response,
+      finalizeAttribution,
+      releaseInternal,
+      childRequestId: internal.requestId,
+    };
+  } catch (error) {
+    clearTimeout(headersTimeout);
+    releaseInternal();
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Attempt the Codex-outbound fallback for one native-Codex-route failure.
+ * Called from each of `executeCodexResponsesRequest`'s four insertion points
+ * with a `CodexOutboundFailureInput` describing what that call site observed.
+ *
+ * Gating order: already-a-fallback-request -> already-attempted-this-request
+ * -> classifier eligibility -> runtime-config enabled+targets -> the inbound
+ * body parses as a native Codex request. Any gate failing returns
+ * `not_attempted`, and the caller's existing code at that insertion point
+ * runs completely unchanged — this is what makes the flag-off path byte-
+ * identical to before this feature existed.
+ */
+async function attemptCodexOutboundFallback(args: {
+  ctx: ServerContext;
+  body: Record<string, unknown>;
+  model: string;
+  isFallbackRequest: boolean;
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider;
+  loopbackPort?: number;
+  internalDispatch?: (request: Request) => Response | Promise<Response>;
+  tracer?: ProxyTracer;
+  recordFinalOutcome: (
+    account: CodexRuntimeAccount | undefined,
+    responseStatus: number,
+    extra?: CodexFinalLogExtra,
+  ) => Promise<void>;
+  failureInput: CodexOutboundFailureInput;
+}): Promise<CodexOutboundFallbackOutcome> {
+  const {
+    ctx,
+    body,
+    model,
+    isFallbackRequest,
+    runtimeConfigProvider,
+    loopbackPort,
+    internalDispatch,
+    tracer,
+    recordFinalOutcome,
+    failureInput,
+  } = args;
+
+  // A request that itself arrived as an inner fallback leg (the existing
+  // Claude->Codex direction's own Codex call) must never be offered a
+  // further outbound fallback — that would be a second engine crossing in
+  // the same turn, exactly what MAX_ENGINE_CROSSINGS bounds against.
+  if (isFallbackRequest) {
+    return { kind: "not_attempted" };
+  }
+  if (ctx.metadata?.[CODEX_OUTBOUND_FALLBACK_ATTEMPTED_KEY] === true) {
+    return { kind: "not_attempted" };
+  }
+  if (!runtimeConfigProvider) {
+    return { kind: "not_attempted" };
+  }
+  const decision = classifyCodexOutboundFailure(failureInput);
+  if (!decision.eligible) {
+    return { kind: "not_attempted" };
+  }
+  let snapshot: ReturnType<ProxyRuntimeConfigProvider>;
+  try {
+    snapshot = runtimeConfigProvider();
+  } catch {
+    return { kind: "not_attempted" };
+  }
+  if (!snapshot.codexOutboundFallbackEnabled) {
+    return { kind: "not_attempted" };
+  }
+  const targets = snapshot.codexOutboundFallbackTargets;
+  if (!targets || targets.length === 0) {
+    return { kind: "not_attempted" };
+  }
+  const parsed = parseCodexNativeRequest(body);
+  if (!parsed.ok) {
+    return { kind: "not_attempted" };
+  }
+
+  // Every gate has passed and at least one target will be tried below: this
+  // is the one dispatch attempt MAX_ENGINE_CROSSINGS allows for this whole
+  // request, so no later insertion-point call may try again even if every
+  // target below ultimately fails.
+  ctx.metadata[CODEX_OUTBOUND_FALLBACK_ATTEMPTED_KEY] = true;
+
+  for (const target of targets) {
+    const mapping = snapshot.codexOutboundFallbackModelMappings.find(
+      (m) => m.from === parsed.value.model && m.provider === target.provider,
+    );
+    const resolvedModel = mapping ? mapping.to : target.model;
+    const translated = translateCodexRequestToClaude(parsed.value, {
+      provider: target.provider,
+      model: resolvedModel,
+    });
+    if (translated.ok === false) {
+      if (translated.error.code === "REQUEST_TOO_LARGE") {
+        // Target-independent: every other configured target would fail the
+        // exact same way, so this short-circuits the whole loop.
+        return {
+          kind: "request_too_large",
+          message: translated.error.message,
+        };
+      }
+      recordFallbackAttempt({
+        provider: target.provider,
+        model: resolvedModel,
+        status: "failure",
+        errorMessage: translated.error.message,
+        durationMs: 0,
+        direction: "codex-outbound",
+      });
+      continue;
+    }
+
+    // Cache preservation (spec cache section; Ruling #3): guard the
+    // translated request's shape, then mark cache breakpoints with a 1h TTL
+    // before dispatch. The fallback exists to rescue the turn, so a
+    // cache-shape problem must never fail it — a thrown guard is logged
+    // (never with payload content) and the unmodified translated request is
+    // dispatched without the added breakpoints instead.
+    let claudeRequest = translated.value;
+    try {
+      assertClaudeSystemPrefixShape(
+        translated.value.system,
+        buildSystemBlocksFromDeveloperMessages(parsed.value.input).length,
+      );
+      assertClaudeMessagesAlternate(translated.value.messages);
+      claudeRequest = applyClaudeRequestCacheBreakpoints(translated.value, {
+        ttl: "1h",
+      });
+    } catch (error) {
+      logger.warn(
+        `[codex-outbound-fallback] cache-preservation guard rejected the translated request shape (${target.provider}/${resolvedModel}); dispatching without added cache breakpoints: ${
+          error instanceof Error ? error.name : "unknown error"
+        }`,
+      );
+    }
+
+    // Ruling #3: derive the Codex-side session-affinity key so consecutive
+    // turns of the same Codex conversation can route to the same Anthropic
+    // account. Only the anthropic target has a session-affinity seam to feed;
+    // Vertex has none.
+    const affinityKey =
+      target.provider === "anthropic"
+        ? codexAnthropicAffinityKey(parsed.value)
+        : undefined;
+
+    const attemptStartedAt = Date.now();
+    const dispatched = await dispatchCodexOutboundTarget({
+      ctx,
+      target: { provider: target.provider, model: resolvedModel },
+      claudeRequest,
+      loopbackPort,
+      internalDispatch,
+      affinityKey,
+    });
+    if (dispatched.ok === false) {
+      recordFallbackAttempt({
+        provider: target.provider,
+        model: resolvedModel,
+        status: "failure",
+        errorMessage:
+          dispatched.error instanceof Error
+            ? dispatched.error.message
+            : String(dispatched.error),
+        durationMs: Date.now() - attemptStartedAt,
+        direction: "codex-outbound",
+      });
+      continue;
+    }
+
+    let codecStream: CodexResponseStream;
+    try {
+      codecStream = await createAnthropicFallbackStream(
+        dispatched.response,
+        resolvedModel,
+        translated.toolKindByName,
+      );
+    } catch (error) {
+      // Pre-commit failure (createAnthropicFallbackStream's own preflight,
+      // codexToAnthropicFallback.ts:220-517): safe to try the next target.
+      recordFallbackAttempt({
+        provider: target.provider,
+        model: resolvedModel,
+        status: "failure",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - attemptStartedAt,
+        direction: "codex-outbound",
+      });
+      dispatched.releaseInternal();
+      continue;
+    }
+
+    // COMMIT POINT: createAnthropicFallbackStream resolved, so this leg
+    // never throws again past this point — every later failure is
+    // serialized into the stream itself. The leg-health record fires now,
+    // and this function unconditionally returns success from here on,
+    // never falling back to try a different target.
+    //
+    // Spec: "Call tracer.setRequestOrigin('codex-fallback') at the point the
+    // new outbound path enters the Anthropic dispatch." Set only here, once a
+    // target has actually been dispatched and will serve the turn, so a
+    // request that exhausts every target and ends as a native Codex error
+    // keeps its root span's origin at "native" rather than being mutated on
+    // an attempt that was later abandoned.
+    tracer?.setRequestOrigin("codex-fallback");
+    recordFallbackAttempt({
+      provider: target.provider,
+      model: resolvedModel,
+      status: "success",
+      durationMs: Date.now() - attemptStartedAt,
+      direction: "codex-outbound",
+    });
+
+    const responseHeaders = buildCodexOutboundFallbackResponseHeaders(
+      ctx,
+      target.provider,
+    );
+    const response = wrapCodexOutboundResponseStream(
+      codecStream,
+      responseHeaders,
+      (result) => {
+        const served = dispatched.finalizeAttribution();
+        const { account, accountType } = served;
+        // Read the child's requestId BEFORE releasing: this mirrors
+        // openaiProxyRoutes.ts's own internal loopback exactly. The anthropic
+        // target's /v1/messages call logs its own final entry, carrying real
+        // usage, under `dispatched.childRequestId` as ITS `requestId`. Naming
+        // it here as this (outer) entry's `usageOwnerRequestId` is what makes
+        // `proxyAnalysis.ts`'s billing pass skip the outer entry and count the
+        // upstream call exactly once, via the inner entry — set unconditionally
+        // (every outcome), since a cancelled/errored outer turn does not
+        // un-happen the inner call the loopback already made.
+        // `requestedModel` stays the Codex model writeFinalLog sets; these
+        // override the Codex-pool defaults so a Vertex-served turn is priced
+        // as the Claude model on Vertex, not as an OpenAI model.
+        const accountingExtra: CodexFinalLogExtra = {
+          ...served,
+          ...(dispatched.childRequestId
+            ? {
+                accountingScope: "client",
+                usageOwnerRequestId: dispatched.childRequestId,
+              }
+            : {}),
+        };
+        dispatched.releaseInternal();
+        try {
+          if (result.kind === "completed") {
+            tracer?.setModelSubstitution(model, resolvedModel, target.provider);
+            tracer?.setServedAccount(account, accountType);
+            const usage = toUsageContext(result.envelope.usage);
+            // A loopback child records this call's tokens and cost itself, so
+            // this outer entry carries neither, as the OpenAI bridge's does.
+            const delegated = dispatched.childRequestId !== undefined;
+            if (usage) {
+              tracer?.setUsage(
+                usage,
+                delegated ? { recordMetrics: false } : undefined,
+              );
+            }
+            // A failed stream is a failed turn (502), as on the native path.
+            const failed = result.envelope.status === "failed";
+            void recordFinalOutcome(undefined, failed ? 502 : 200, {
+              ...accountingExtra,
+              terminalOutcome: failed ? "stream_error" : "completed",
+              ...(failed
+                ? {
+                    errorType: "outbound_fallback_stream_failed",
+                    errorMessage:
+                      result.envelope.error?.message ??
+                      "codex-outbound fallback stream ended in failure",
+                  }
+                : {}),
+              ...(usage && !delegated
+                ? outboundFallbackUsageLogFields(usage)
+                : {}),
+            });
+          } else if (result.kind === "cancelled") {
+            tracer?.setServedAccount(account, accountType);
+            void recordFinalOutcome(undefined, 499, {
+              ...accountingExtra,
+              errorType: "client_cancelled",
+              errorMessage: "Client cancelled Codex request",
+              terminalOutcome: "client_cancelled",
+            });
+          } else {
+            tracer?.setServedAccount(account, accountType);
+            void recordFinalOutcome(undefined, 502, {
+              ...accountingExtra,
+              errorType: "outbound_fallback_stream_error",
+              errorMessage:
+                result.error instanceof Error
+                  ? result.error.message
+                  : String(result.error),
+              terminalOutcome: "stream_error",
+            });
+          }
+        } catch {
+          // Accounting must never throw across the response boundary.
+        }
+      },
+    );
+    return { kind: "success", response };
+  }
+
+  return { kind: "not_attempted" };
+}
+
 /** Core pooled handler for POST /backend-api/codex/responses. */
 export async function handleCodexResponsesRequest(
   ctx: ServerContext,
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider,
+  loopbackPort?: number,
+  internalDispatch?: (request: Request) => Response | Promise<Response>,
 ): Promise<Response> {
   if (ctx.metadata?.[CODEX_FALLBACK_METADATA_KEY] !== true) {
     void logBodyCapture({
@@ -552,7 +1298,12 @@ export async function handleCodexResponsesRequest(
       ...resolveProxyLogTraceContext({ requestId: ctx.requestId }),
     });
   }
-  const response = await executeCodexResponsesRequest(ctx);
+  const response = await executeCodexResponsesRequest(
+    ctx,
+    runtimeConfigProvider,
+    loopbackPort,
+    internalDispatch,
+  );
   return ctx.metadata?.[CODEX_FALLBACK_METADATA_KEY] === true
     ? response
     : captureCodexResponse(ctx, response, "client_response");
@@ -622,6 +1373,15 @@ function captureCodexResponse(
  */
 async function executeCodexResponsesRequest(
   ctx: ServerContext,
+  // Read by the outbound-fallback insertion points below (stage-c-trigger.md)
+  // to gate/target a Codex-outbound fallback attempt when the native Codex
+  // pool itself fails.
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider,
+  // Threaded through from `createCodexProxyRoutes` to the anthropic-target
+  // loopback leg of the outbound-fallback dispatcher (mirrors the
+  // OpenAI->Anthropic bridge's `loopbackPort`/`internalDispatch`).
+  loopbackPort?: number,
+  internalDispatch?: (request: Request) => Response | Promise<Response>,
 ): Promise<Response> {
   const requestStartTime = Date.now();
   let body = (ctx.body ?? {}) as Record<string, unknown>;
@@ -877,6 +1637,39 @@ async function executeCodexResponsesRequest(
       return cancelRequest();
     }
     if (accounts.length === 0) {
+      const outbound = await attemptCodexOutboundFallback({
+        ctx,
+        body,
+        model,
+        isFallbackRequest,
+        runtimeConfigProvider,
+        loopbackPort,
+        internalDispatch,
+        tracer,
+        recordFinalOutcome,
+        failureInput: { failureClass: "no_accounts" },
+      });
+      if (outbound.kind === "success") {
+        // No Codex account was ever selected on this path, so budgetLease is
+        // always undefined here — settleBudget() is a defensive no-op. Kept
+        // for consistency with the other three insertion points below.
+        await settleBudget();
+        budgetLease = undefined;
+        budgetDispatched = false;
+        return outbound.response;
+      }
+      if (outbound.kind === "request_too_large") {
+        await recordFinalOutcome(undefined, 413, {
+          errorType: "request_too_large",
+          errorMessage: outbound.message,
+          terminalOutcome: "handler_error",
+        });
+        return buildCodexErrorResponse(
+          413,
+          outbound.message,
+          "request_too_large",
+        );
+      }
       await recordFinalOutcome(undefined, 401, {
         errorType: "no_accounts",
         errorMessage: "No Codex accounts",
@@ -906,6 +1699,39 @@ async function executeCodexResponsesRequest(
       const retryAfterSec = soonest
         ? Math.max(1, Math.ceil((soonest - now) / 1000))
         : 60;
+      const outbound = await attemptCodexOutboundFallback({
+        ctx,
+        body,
+        model,
+        isFallbackRequest,
+        runtimeConfigProvider,
+        loopbackPort,
+        internalDispatch,
+        tracer,
+        recordFinalOutcome,
+        failureInput: { failureClass: "pool_exhausted" },
+      });
+      if (outbound.kind === "success") {
+        // No Codex account was ever selected on this path, so budgetLease is
+        // always undefined here — settleBudget() is a defensive no-op. Kept
+        // for consistency with the other three insertion points below.
+        await settleBudget();
+        budgetLease = undefined;
+        budgetDispatched = false;
+        return outbound.response;
+      }
+      if (outbound.kind === "request_too_large") {
+        await recordFinalOutcome(undefined, 413, {
+          errorType: "request_too_large",
+          errorMessage: outbound.message,
+          terminalOutcome: "handler_error",
+        });
+        return buildCodexErrorResponse(
+          413,
+          outbound.message,
+          "request_too_large",
+        );
+      }
       await recordFinalOutcome(undefined, 429, {
         errorType: "all_accounts_cooling",
         errorMessage: "All Codex accounts are rate-limited",
@@ -922,6 +1748,9 @@ async function executeCodexResponsesRequest(
     let attempt = 0;
     let lastErrorMessage = "All Codex accounts failed";
     let lastErrorStatus = 502;
+    // Set with every lastErrorStatus so the outbound-fallback classifier sees
+    // the code of the same attempt, never a stale one from an earlier account.
+    let lastErrorCode: string | undefined;
     let lastFailure: CodexFinalLogExtra = { errorType: "all_accounts_failed" };
     let lastAttemptedAccount: CodexRuntimeAccount | undefined;
 
@@ -1067,6 +1896,44 @@ async function executeCodexResponsesRequest(
               "EAI_AGAIN",
             ].includes(errorCode ?? "")
           ) {
+            const outbound = await attemptCodexOutboundFallback({
+              ctx,
+              body,
+              model,
+              isFallbackRequest,
+              runtimeConfigProvider,
+              loopbackPort,
+              internalDispatch,
+              tracer,
+              recordFinalOutcome,
+              failureInput: {
+                failureClass: "non_retryable_transport",
+                transportErrorCode: errorCode,
+              },
+            });
+            if (outbound.kind === "success") {
+              // This Codex account's budget lease (reserved for the attempt
+              // that just failed transport-level) belongs to a request this
+              // turn is no longer serving via Codex at all — hold it open no
+              // longer than necessary rather than leaving it pending for the
+              // unrelated fallback stream's full duration.
+              await settleBudget();
+              budgetLease = undefined;
+              budgetDispatched = false;
+              return outbound.response;
+            }
+            if (outbound.kind === "request_too_large") {
+              await recordFinalOutcome(account, 413, {
+                errorType: "request_too_large",
+                errorMessage: outbound.message,
+                terminalOutcome: "handler_error",
+              });
+              return buildCodexErrorResponse(
+                413,
+                outbound.message,
+                "request_too_large",
+              );
+            }
             await recordFinalOutcome(account, 502, {
               ...lastFailure,
               errorMessage,
@@ -1078,6 +1945,7 @@ async function executeCodexResponsesRequest(
           }
           lastErrorMessage = "Codex upstream request failed";
           lastErrorStatus = 502;
+          lastErrorCode = lastFailure.errorCode;
           break; // rotate to next account
         }
 
@@ -1347,6 +2215,7 @@ async function executeCodexResponsesRequest(
                 errorCode: "refresh_invalid",
               };
               lastErrorStatus = 401;
+              lastErrorCode = lastFailure.errorCode;
               lastErrorMessage =
                 "Codex token refresh failed; re-login required";
               break;
@@ -1366,6 +2235,7 @@ async function executeCodexResponsesRequest(
               errorCode: getCodexTransportErrorCode(error),
             };
             lastErrorStatus = 503;
+            lastErrorCode = lastFailure.errorCode;
             lastErrorMessage = "Codex token refresh temporarily unavailable";
             break;
           }
@@ -1419,6 +2289,7 @@ async function executeCodexResponsesRequest(
             errorCode: bodyQuota?.errorCode,
           };
           lastErrorStatus = 429;
+          lastErrorCode = lastFailure.errorCode;
           lastErrorMessage = "Codex account rate-limited";
           break; // rotate
         }
@@ -1450,11 +2321,51 @@ async function executeCodexResponsesRequest(
         });
         lastFailure = { errorType };
         lastErrorStatus = upstream.status >= 500 ? 502 : upstream.status;
+        lastErrorCode = getProxyUpstreamFailure({
+          responseBody: errText,
+        })?.code;
         lastErrorMessage = errorMessage;
         break; // rotate
       }
     }
 
+    const outbound = await attemptCodexOutboundFallback({
+      ctx,
+      body,
+      model,
+      isFallbackRequest,
+      runtimeConfigProvider,
+      loopbackPort,
+      internalDispatch,
+      tracer,
+      recordFinalOutcome,
+      failureInput: {
+        failureClass: "loop_fallthrough",
+        lastStatus: lastErrorStatus,
+        lastErrorCode,
+      },
+    });
+    if (outbound.kind === "success") {
+      // Same reasoning as the transport-catch insertion point above: settle
+      // the exhausted Codex account's budget lease immediately rather than
+      // holding it open for the unrelated fallback stream's duration.
+      await settleBudget();
+      budgetLease = undefined;
+      budgetDispatched = false;
+      return outbound.response;
+    }
+    if (outbound.kind === "request_too_large") {
+      await recordFinalOutcome(lastAttemptedAccount, 413, {
+        errorType: "request_too_large",
+        errorMessage: outbound.message,
+        terminalOutcome: "handler_error",
+      });
+      return buildCodexErrorResponse(
+        413,
+        outbound.message,
+        "request_too_large",
+      );
+    }
     await recordFinalOutcome(lastAttemptedAccount, lastErrorStatus, {
       ...lastFailure,
       errorMessage: lastFailure.errorMessage ?? lastErrorMessage,
@@ -1658,12 +2569,90 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
 }
 
 /**
+ * Route-creation-time-only check: the Codex-outbound-fallback dispatcher's
+ * `anthropic` target needs the in-process loopback (`loopbackPort` and/or
+ * `internalDispatch`) to reach the Anthropic pool, and `createAllRoutes` /
+ * `registerAllRoutes` (`src/lib/server/routes/index.ts`) has no option that
+ * threads either through — only the CLI proxy command
+ * (`cli/commands/proxy.ts`) passes them directly to this function today. A
+ * consumer that enables the feature with an `anthropic` target through the
+ * generic SDK route surface would otherwise fail every such request silently
+ * behind `attemptCodexOutboundFallback`'s "no loopback port configured"
+ * warning, one per request, with nothing at startup explaining why. This
+ * logs ONE clear warning here instead, at the point the routes are built,
+ * rather than adding a new public option (ruling: don't grow
+ * `CreateRoutesOptions` for this — document the limitation and warn).
+ * A `vertex`-only configuration never reads `loopbackPort`, so it is exempt.
+ */
+function warnIfAnthropicOutboundFallbackUnreachable(
+  runtimeConfigProvider: ProxyRuntimeConfigProvider | undefined,
+  loopbackPort: number | undefined,
+  internalDispatch:
+    | ((request: Request) => Response | Promise<Response>)
+    | undefined,
+): void {
+  if (
+    !runtimeConfigProvider ||
+    loopbackPort !== undefined ||
+    internalDispatch
+  ) {
+    return;
+  }
+  let snapshot: ReturnType<ProxyRuntimeConfigProvider>;
+  try {
+    snapshot = runtimeConfigProvider();
+  } catch {
+    // Same fail-open contract as the request-time reader below: a provider
+    // that throws at creation time is not this check's problem to surface.
+    return;
+  }
+  if (!snapshot.codexOutboundFallbackEnabled) {
+    return;
+  }
+  const hasAnthropicTarget = (snapshot.codexOutboundFallbackTargets ?? []).some(
+    (target) => target.provider === "anthropic",
+  );
+  if (!hasAnthropicTarget) {
+    return;
+  }
+  logger.warn(
+    "[codex-outbound-fallback] enabled with an anthropic target, but createCodexProxyRoutes " +
+      "was called without loopbackPort or internalDispatch — the anthropic leg cannot dispatch " +
+      "and every such request will fail at attempt time. This SDK route surface " +
+      "(createAllRoutes/registerAllRoutes) does not thread the in-process loopback through; " +
+      "only the CLI proxy command wires it. See docs/features/codex-proxy-support.md.",
+  );
+}
+
+/**
  * Create Codex proxy routes.
  *
  * @param basePath - Base path prefix (default "").
+ * @param runtimeConfigProvider - Optional runtime config snapshot reader.
+ *   Gates the Codex-outbound fallback dispatcher at all four insertion
+ *   points in `dispatch()`: omitting it (or a snapshot with the feature
+ *   disabled / no targets configured) reproduces today's behavior exactly.
+ * @param loopbackPort - The in-process HTTP port the outbound-fallback leg's
+ *   Anthropic-pool loopback request targets (mirrors `createOpenAIProxyRoutes`'s
+ *   bridge). Required only for an `anthropic` target; the `vertex` target
+ *   dispatches via `executeVertexAnthropicFallback` and never reads it.
+ * @param internalDispatch - Optional in-process fetch (`(request) =>
+ *   app.fetch(request)`), so the outbound-fallback loopback never re-enters
+ *   the public listener. Falls back to a real `fetch` against
+ *   `loopbackPort` when omitted.
  * @returns RouteGroup with the Codex backend Responses endpoint.
  */
-export function createCodexProxyRoutes(basePath: string = ""): RouteGroup {
+export function createCodexProxyRoutes(
+  basePath: string = "",
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider,
+  loopbackPort?: number,
+  internalDispatch?: (request: Request) => Response | Promise<Response>,
+): RouteGroup {
+  warnIfAnthropicOutboundFallbackUnreachable(
+    runtimeConfigProvider,
+    loopbackPort,
+    internalDispatch,
+  );
   return {
     prefix: `${basePath}/backend-api/codex`,
     routes: [
@@ -1671,7 +2660,13 @@ export function createCodexProxyRoutes(basePath: string = ""): RouteGroup {
         method: "POST",
         path: `${basePath}/backend-api/codex/responses`,
         description: "Codex ChatGPT-backend Responses API (account pool)",
-        handler: (ctx: ServerContext) => handleCodexResponsesRequest(ctx),
+        handler: (ctx: ServerContext) =>
+          handleCodexResponsesRequest(
+            ctx,
+            runtimeConfigProvider,
+            loopbackPort,
+            internalDispatch,
+          ),
       },
       {
         method: "GET",
@@ -1691,4 +2686,8 @@ export const __testHooks = {
   refreshCodexTokenOnce,
   refreshCodexTokenOnceWithDependencies,
   codexRefreshInFlightSize: (): number => codexRefreshInFlight.size,
+  setOutboundFallbackTimeoutMsForTests: (ms: number | null): void => {
+    codexOutboundFallbackTimeoutOverrideMs = ms;
+  },
+  wrapCodexOutboundResponseStream,
 };

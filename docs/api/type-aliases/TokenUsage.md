@@ -36,6 +36,18 @@ Token usage information (consolidated from multiple sources)
 
 ---
 
+### cacheCreation1hTokens?
+
+> `optional` **cacheCreation1hTokens?**: `number`
+
+The 1-hour-TTL share of `cacheCreationTokens` (a subset, not additive —
+Anthropic's `cache_creation.ephemeral_1h_input_tokens` is reported inside
+the same `cache_creation_input_tokens` total). Undefined/0 keeps today's
+pricing exactly, since `calculateCost` treats every write as 5-minute-TTL
+unless told otherwise.
+
+---
+
 ### cacheReadTokens?
 
 > `optional` **cacheReadTokens?**: `number`

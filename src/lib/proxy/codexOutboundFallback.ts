@@ -36,6 +36,8 @@ import type {
   CodexNativeToolDeclaration,
   CodexNativeToolKind,
   CodexNativeToolNamespace,
+  CodexOutboundFailureInput,
+  CodexOutboundFallbackDecision,
   CodexOutboundMessageGroup,
   CodexOutboundToolMappingResult,
   CodexReasoningEffort,
@@ -43,7 +45,12 @@ import type {
 } from "../types/index.js";
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import { inlineJsonSchema } from "../utils/schemaConversion.js";
+import {
+  modelSupportsForcedToolChoice,
+  claudeDisabledThinkingReplacement,
+} from "../models/modelRegistry.js";
 import { parseToolArguments } from "./argumentParsing.js";
+import { classifyProxyFailureCode } from "./proxyFailureDetails.js";
 import {
   recordCodexOutboundSchemaDegraded,
   recordCodexOutboundUnsupportedField,
@@ -227,12 +234,30 @@ export function parseCodexNativeRequest(
 // output to attach to, regardless of whether the source request bothered to
 // say "auto" out loud. `parallel_tool_calls: false` is inert on `"none"` —
 // there is nothing running in parallel to disable.
+//
+// `targetModel` gates a second degradation: some Claude families (Sonnet
+// 5.5, Opus 5.5, Fable/Mythos 5.1 — see modelSupportsForcedToolChoice) answer
+// a forced tool_choice (`any`/named `tool`) with an HTTP 400. For those
+// targets only, a forced choice is downgraded to `{type:"auto"}` (keeping
+// `disable_parallel_tool_use` when the source asked for it) instead of going
+// out as a request the target is guaranteed to reject. Every other target
+// model is unaffected — this is a per-request, per-target decision, not a
+// global behavior change.
 function mapCodexToolChoiceToClaude(
   choice: CodexNativeToolChoice | undefined,
   parallelToolCalls: boolean | undefined,
+  targetModel: string,
 ): NonNullable<ClaudeRequest["tool_choice"]> {
   const disable = parallelToolCalls === false;
   if (choice === undefined || choice === "auto") {
+    return disable
+      ? { type: "auto", disable_parallel_tool_use: true }
+      : { type: "auto" };
+  }
+  if (choice === "none") {
+    return { type: "none" };
+  }
+  if (!modelSupportsForcedToolChoice(targetModel)) {
     return disable
       ? { type: "auto", disable_parallel_tool_use: true }
       : { type: "auto" };
@@ -241,9 +266,6 @@ function mapCodexToolChoiceToClaude(
     return disable
       ? { type: "any", disable_parallel_tool_use: true }
       : { type: "any" };
-  }
-  if (choice === "none") {
-    return { type: "none" };
   }
   return disable
     ? { type: "tool", name: choice.name, disable_parallel_tool_use: true }
@@ -320,8 +342,10 @@ function mapCodexCustomToolToClaude(
   tool: CodexNativeCustomToolDeclaration,
 ): CodexOutboundToolMappingResult {
   // Lossy, explicitly flagged: no JSON Schema exists for a Lark/regex grammar.
-  // The model is no longer grammar-constrained after this mapping — needs
-  // product sign-off before shipping (§10 of the design).
+  // The model is no longer grammar-constrained after this mapping. SIGNED OFF
+  // 2026-09-28 (design doc §10, ruling 7): grammar/custom tools wrapped as a
+  // single `{input: string}` parameter, with `custom_tool_call` on the way
+  // back, is the shipped behavior — not a placeholder awaiting approval.
   return {
     tool: {
       name: tool.name,
@@ -397,16 +421,32 @@ const REASONING_BUDGET: Record<
   max: 32768,
 };
 
+// Codex "no reasoning" never goes out as an explicit `thinking:{type:"disabled"}`
+// — some Claude 5.5/5.1 families reject that shape with a 400 (probed on
+// Vertex, 2026-09-29) because they think adaptively and always on. What
+// "thinking off" means for those targets is decided by
+// claudeDisabledThinkingReplacement: `between_tools` (Sonnet 5.5's lowest
+// setting) when available, otherwise `omit` (nothing sent — the model cannot
+// be turned off, and the field is dropped rather than asking for a rejected
+// state). For every target outside that family the function returns "keep",
+// which here means the historical, unaffected behavior: omit the field.
 function mapCodexReasoningToThinking(
   reasoning: { effort: CodexReasoningEffort } | undefined,
   resolvedMaxTokens: number,
+  targetModel: string,
 ): ClaudeRequest["thinking"] | undefined {
   if (
     !reasoning ||
     reasoning.effort === "none" ||
     reasoning.effort === "minimal"
   ) {
-    return undefined;
+    const replacement = claudeDisabledThinkingReplacement(
+      targetModel,
+      reasoning?.effort,
+    );
+    return replacement === "between_tools"
+      ? { type: "between_tools" }
+      : undefined;
   }
   const table = REASONING_BUDGET[reasoning.effort];
   // Explicit floor: makes the ">= 1024" invariant correct by construction
@@ -555,7 +595,12 @@ function coalesceCodexInputToClaudeMessages(
   }));
 }
 
-function buildSystemBlocksFromDeveloperMessages(
+// Exported so callers (codexProxyRoutes.ts's cache-preservation wiring) can
+// independently recompute the expected system-prefix length from the same
+// native request `translateCodexRequestToClaude` translated, for
+// `assertClaudeSystemPrefixShape`'s guard against a future translation
+// regression that leaks extra content into `system`.
+export function buildSystemBlocksFromDeveloperMessages(
   items: readonly CodexNativeInputItem[],
 ): ClaudeTextBlock[] {
   return items
@@ -783,6 +828,7 @@ export function translateCodexRequestToClaude(
   const toolChoice = mapCodexToolChoiceToClaude(
     request.tool_choice,
     request.parallel_tool_calls,
+    target.model,
   );
   const forcesTool = toolChoice.type === "any" || toolChoice.type === "tool";
   if (forcesTool && !tools) {
@@ -837,7 +883,7 @@ export function translateCodexRequestToClaude(
   const thinking =
     forcesTool || lastAssistantMessageUsesTool(messages)
       ? undefined
-      : mapCodexReasoningToThinking(request.reasoning, maxTokens);
+      : mapCodexReasoningToThinking(request.reasoning, maxTokens, target.model);
 
   const claudeRequest: ClaudeRequest = {
     model: target.model,
@@ -873,4 +919,117 @@ export function translateCodexRequestToClaude(
   }
 
   return { ok: true, value: claudeRequest, toolKindByName };
+}
+
+// ---------------------------------------------------------------------------
+// §1 Trigger policy (stage-c-trigger.md). Pure classification of a native-
+// Codex-route failure into an outbound-fallback eligibility decision. Owns no
+// dispatch, no HTTP, no account state — `codexProxyRoutes.ts`'s four insertion
+// points call this and still apply their own config/loop-prevention/depth
+// gates on top of a `true` verdict.
+// ---------------------------------------------------------------------------
+
+/** Caps how many times one request may cross between engines (Codex->Anthropic
+ *  or Anthropic->Codex) in a single turn. A crossing is an engine change, never
+ *  a same-engine account rotation, so this bounds `Codex -> Anthropic ->
+ *  Codex -> ...` cycles without limiting ordinary in-pool retries. */
+export const MAX_ENGINE_CROSSINGS = 1;
+
+/** Read a transport error code the same way `codexProxyRoutes.ts`'s own
+ *  (unexported) `getCodexTransportErrorCode` does: a direct `.code`, falling
+ *  back to `.cause.code`. Kept here, independently, as a pure utility the
+ *  trigger-policy classifier can be exercised against without importing a
+ *  route-handler module. */
+export function parseCodexErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const directCode = (error as { code?: unknown }).code;
+  if (typeof directCode === "string") {
+    return directCode;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (!cause || typeof cause !== "object") {
+    return undefined;
+  }
+  const causeCode = (cause as { code?: unknown }).code;
+  return typeof causeCode === "string" ? causeCode : undefined;
+}
+
+/**
+ * Classify one `codexProxyRoutes.ts` `dispatch()` failure into an
+ * outbound-fallback eligibility decision. A total function over
+ * `CodexOutboundFailureClass` (exhaustive switch, no `default:`): a missing
+ * case fails to compile under `noImplicitReturns`, never falls through to a
+ * silent `undefined`.
+ *
+ * `context_preflight` / `token_budget` errors are never modeled here: both
+ * are self-contained terminal returns inside `dispatch()`'s own outer `try`,
+ * before any of the four insertion points this classifier serves, so they
+ * never reach it.
+ */
+export function classifyCodexOutboundFailure(
+  input: CodexOutboundFailureInput,
+): CodexOutboundFallbackDecision {
+  switch (input.failureClass) {
+    case "no_accounts":
+      return {
+        eligible: true,
+        reason: "no Codex accounts are configured for this request",
+      };
+    case "pool_exhausted":
+      return {
+        eligible: true,
+        reason:
+          "every configured Codex account is cooling down or otherwise unhealthy",
+      };
+    case "loop_fallthrough": {
+      // A bare 401/403 is a credential failure on Codex's own OAuth pool,
+      // which says nothing about the fallback target; only the error code can
+      // tell a content-policy 403 from an auth one.
+      if (classifyProxyFailureCode(input.lastErrorCode).retryable === false) {
+        return {
+          eligible: false,
+          reason: `the last exhausted account attempt ended in ${input.lastErrorCode ?? "unknown"}, a rejection of the request itself rather than a Codex pool failure`,
+        };
+      }
+      const status = input.lastStatus;
+      if (
+        status !== undefined &&
+        status >= 400 &&
+        status < 500 &&
+        status !== 401 &&
+        status !== 403 &&
+        status !== 429
+      ) {
+        return {
+          eligible: false,
+          reason: `the last exhausted account attempt ended in a ${status}, a rejection of the request itself rather than a Codex pool failure`,
+        };
+      }
+      return {
+        eligible: true,
+        reason:
+          "the account-retry loop exhausted every eligible Codex account without a terminal response",
+      };
+    }
+    case "non_retryable_transport": {
+      // Reuses the same classifier the Claude engine's own failure handling
+      // relies on, as loop_fallthrough does: a content-policy or
+      // invalid-request code is not a pool problem, and not something a
+      // different upstream is likely to answer differently.
+      if (
+        classifyProxyFailureCode(input.transportErrorCode).retryable === false
+      ) {
+        return {
+          eligible: false,
+          reason: `transport error ${input.transportErrorCode ?? "unknown"} rejects the request itself, not a Codex pool failure`,
+        };
+      }
+      return {
+        eligible: true,
+        reason: `non-retryable transport error ${input.transportErrorCode ?? "unknown"} exhausted this Codex account attempt`,
+      };
+    }
+  }
 }

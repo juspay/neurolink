@@ -76,3 +76,11 @@ Derived calling CLI; see CliAccountUsageTotals.byClient.
 ### cacheCreationTokens
 
 > **cacheCreationTokens**: `number`
+
+---
+
+### cacheCreation1hTokens
+
+> **cacheCreation1hTokens**: `number`
+
+1h-TTL share of `cacheCreationTokens` (subset); 0 when not reported.

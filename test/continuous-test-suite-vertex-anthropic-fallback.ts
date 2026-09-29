@@ -387,6 +387,32 @@ test("reads usage from a non-streaming reply", () => {
   assert.equal(usage.cacheCreationTokens, 5);
 });
 
+test("keeps a valid 1-hour cache-write count and drops a negative one", () => {
+  const read = (oneHour: unknown) =>
+    readJsonUsage(
+      JSON.stringify({
+        type: "message",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 1,
+          cache_creation_input_tokens: 100,
+          cache_creation: { ephemeral_1h_input_tokens: oneHour },
+        },
+      }),
+    );
+  assert.equal(read(60).cacheCreation1hTokens, 60);
+  assert.equal(
+    read(-40).cacheCreation1hTokens,
+    undefined,
+    "a negative 1h count must not reach pricing",
+  );
+  assert.equal(
+    "cacheCreation1hTokens" in read(undefined),
+    false,
+    "an absent breakdown must keep the old usage shape",
+  );
+});
+
 test("an unreadable non-streaming body reports zero rather than a guess", () => {
   const usage = readJsonUsage("<html>gateway error</html>");
   assert.deepEqual(usage, {

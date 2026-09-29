@@ -14,9 +14,35 @@ export type TokenUsage = {
   output: number;
   total: number;
   cacheCreationTokens?: number;
+  /**
+   * The 1-hour-TTL share of `cacheCreationTokens` (a subset, not additive —
+   * Anthropic's `cache_creation.ephemeral_1h_input_tokens` is reported inside
+   * the same `cache_creation_input_tokens` total). Undefined/0 keeps today's
+   * pricing exactly, since `calculateCost` treats every write as 5-minute-TTL
+   * unless told otherwise.
+   */
+  cacheCreation1hTokens?: number;
   cacheReadTokens?: number;
   reasoning?: number;
   cacheSavingsPercent?: number;
+};
+
+/** Per-token dollar rates for one model in the pricing table. */
+export type ModelPricingRates = {
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheCreation?: number;
+  /**
+   * 1-hour TTL cache-write rate (Anthropic's 2x-of-input multiplier),
+   * separate from `cacheCreation`'s 5-minute (1.25x) rate so a 1h-TTL
+   * write is never silently priced at the 5m rate. `calculateCost()`
+   * applies it to `TokenUsage.cacheCreation1hTokens`, the 1h share of the
+   * cache-write total that the Claude route, the Vertex passthrough and
+   * the Codex outbound fallback capture. Set on every Claude model; a
+   * model without it prices that share at `cacheCreation`.
+   */
+  cacheCreation1h?: number;
 };
 
 /**

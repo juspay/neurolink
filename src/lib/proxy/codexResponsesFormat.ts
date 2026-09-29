@@ -113,16 +113,22 @@ function mapClaudeStopReasonToCodex(stopReason: string | null): {
 export function synthesizeCodexUsage(usage: ClaudeUsage): CodexResponseUsage {
   const cacheRead = usage.cache_read_input_tokens;
   const cacheCreation = usage.cache_creation_input_tokens;
+  const cacheCreation1h = usage.cacheCreation1hTokens;
   const inputTokens =
     usage.input_tokens + (cacheRead ?? 0) + (cacheCreation ?? 0);
   const details =
-    cacheRead === undefined && cacheCreation === undefined
+    cacheRead === undefined &&
+    cacheCreation === undefined &&
+    cacheCreation1h === undefined
       ? undefined
       : {
           ...(cacheRead === undefined ? {} : { cached_tokens: cacheRead }),
           ...(cacheCreation === undefined
             ? {}
             : { cache_write_tokens: cacheCreation }),
+          ...(cacheCreation1h === undefined
+            ? {}
+            : { cache_write_1h_tokens: cacheCreation1h }),
         };
   return {
     input_tokens: inputTokens,

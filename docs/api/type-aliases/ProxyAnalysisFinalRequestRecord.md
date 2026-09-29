@@ -108,6 +108,14 @@ Final request fields retained while joining offline proxy log records.
 
 ---
 
+### cacheCreation1hTokens
+
+> **cacheCreation1hTokens**: `number` \| `null`
+
+1h-TTL share of `cacheCreationTokens` (subset); null when not reported.
+
+---
+
 ### cacheReadTokensObserved?
 
 > `optional` **cacheReadTokensObserved?**: `boolean`

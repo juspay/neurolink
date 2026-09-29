@@ -70,6 +70,21 @@ function resolveQuotaRoutingEnabled(
   return normalized !== "off" && normalized !== "false" && normalized !== "0";
 }
 
+function resolveCodexOutboundFallbackEnabled(
+  envValue: string | undefined,
+  configured: boolean | undefined,
+): boolean {
+  if (envValue === undefined || envValue.trim() === "") {
+    // Unlike resolveQuotaRoutingEnabled's `configured ?? true`, this defaults
+    // false — required so today's behavior is byte-identical when unconfigured.
+    // An empty/whitespace-only value (e.g. `FOO=` in a .env file) is treated
+    // the same as unset, not as an explicit opt-in.
+    return configured ?? false;
+  }
+  const normalized = envValue.trim().toLowerCase();
+  return normalized !== "off" && normalized !== "false" && normalized !== "0";
+}
+
 function resolveSessionSoftLimit(
   envValue: string | undefined,
   configured: number | undefined,
@@ -356,6 +371,14 @@ async function buildCandidate(
   const sessionAffinityIdleTtlMs =
     routing?.sessionAffinityIdleTtlMs ?? 3_600_000;
   const spillInflight = routing?.spillInflight ?? 0;
+  const codexOutboundFallbackEnabled = resolveCodexOutboundFallbackEnabled(
+    effectiveEnv.NEUROLINK_PROXY_CODEX_OUTBOUND_FALLBACK,
+    routing?.codexOutboundFallbackEnabled,
+  );
+  const codexOutboundFallbackTargets =
+    routing?.codexOutboundFallbackTargets ?? [];
+  const codexOutboundFallbackModelMappings =
+    routing?.codexOutboundFallbackModelMappings ?? [];
   const fingerprintSource = JSON.stringify({
     strategy,
     passthrough: options.passthrough,
@@ -371,6 +394,9 @@ async function buildCandidate(
     sessionAffinity,
     sessionAffinityIdleTtlMs,
     spillInflight,
+    codexOutboundFallbackEnabled,
+    codexOutboundFallbackTargets,
+    codexOutboundFallbackModelMappings,
   });
   const configHash = createHash("sha256")
     .update(fingerprintSource)
@@ -397,6 +423,9 @@ async function buildCandidate(
       sessionAffinity,
       sessionAffinityIdleTtlMs,
       spillInflight,
+      codexOutboundFallbackEnabled,
+      codexOutboundFallbackTargets,
+      codexOutboundFallbackModelMappings,
     }),
     configFilePresent,
     envFilePresent,

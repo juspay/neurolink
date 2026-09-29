@@ -38,6 +38,7 @@ import type {
   PROXY_ACCOUNT_ROUTING_STRATEGIES,
 } from "../proxy/routingEvidence.js";
 import type {
+  CodexFallbackTarget,
   FallbackEntry,
   ModelMapping,
   ProxyRoutingConfig,
@@ -80,6 +81,20 @@ export type ClaudeCacheControl = {
    */
   ttl?: "5m" | "1h";
 };
+
+/** TTL override for applyClaudeRequestCacheBreakpoints's breakpoint 1 only. */
+export type ClaudeCacheBreakpointOptions = {
+  ttl?: "5m" | "1h";
+};
+
+/** Where a Claude-shaped request originated, for cache/cost attribution. */
+export type ProxyRequestOrigin = "native" | "codex-fallback";
+
+/** Session-affinity routing key for Codex-origin fallback requests. */
+export type CodexAnthropicAffinityKey =
+  | `codex-thread:${string}`
+  | `codex-session:${string}`
+  | `codex-prefix:${string}`;
 
 /** A single text block in a Claude content array. */
 export type ClaudeTextBlock = {
@@ -180,6 +195,12 @@ export type ClaudeUsage = {
   output_tokens: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  /** The 1-hour-TTL share of `cache_creation_input_tokens` (a subset, not
+   *  additive), read from Anthropic's `usage.cache_creation.ephemeral_1h_input_tokens`.
+   *  Omitted means "none known to be 1h", matching `UsageContext.cacheCreation1hTokens`'s
+   *  own contract — every path that does not observe the breakdown prices exactly
+   *  as before. */
+  cacheCreation1hTokens?: number;
 };
 
 /** Non-streaming response matching the Claude Messages API. */
@@ -825,6 +846,8 @@ export type RequestLogEntry = {
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
+  /** 1h-TTL share of `cacheCreationTokens` (subset); unset when not reported. */
+  cacheCreation1hTokens?: number;
   cacheReadTokens?: number;
   /**
    * Whether the provider reported each cache count. Omitted means observed,
@@ -1187,14 +1210,32 @@ export type CodexFinalLogExtra = Partial<
     | "outputTokens"
     | "cacheReadTokens"
     | "cacheCreationTokens"
+    | "cacheCreation1hTokens"
+    | "cacheReadTokensObserved"
+    | "cacheCreationTokensObserved"
     | "reasoningTokens"
     | "terminalOutcome"
     | "firstUsefulOutputMs"
     | "firstUsefulOutputStatus"
     | "firstUsefulOutputEvent"
     | "retryable"
+    | "accountingScope"
+    | "usageOwnerRequestId"
+    | "model"
+    | "provider"
+    | "account"
+    | "accountKey"
+    | "accountType"
   >
 >;
+
+/** Who served a Codex turn the outbound fallback handed to a Claude target.
+ *  The outer Codex entry records it, as the OpenAI bridge's does, so the
+ *  final log names the served engine instead of the Codex pool. */
+export type CodexOutboundServedAttribution = Required<
+  Pick<RequestLogEntry, "account" | "accountType" | "provider" | "model">
+> &
+  Pick<RequestLogEntry, "accountKey">;
 
 /** Additional fields recorded for each upstream Codex account attempt. */
 export type CodexAttemptLogExtra = Partial<
@@ -1259,6 +1300,8 @@ export type ClaudeFinalRequestLogger = (
     inputTokens?: number;
     outputTokens?: number;
     cacheCreationTokens?: number;
+    /** 1h-TTL share of `cacheCreationTokens` (subset); unset when not reported. */
+    cacheCreation1hTokens?: number;
     cacheReadTokens?: number;
     /** False when the provider reported no cache breakdown; see RequestLogEntry. */
     cacheReadTokensObserved?: boolean;
@@ -1304,6 +1347,8 @@ export type AnthropicAttemptLogger = (
     inputTokens?: number;
     outputTokens?: number;
     cacheCreationTokens?: number;
+    /** 1h-TTL share of `cacheCreationTokens` (subset); unset when not reported. */
+    cacheCreation1hTokens?: number;
     cacheReadTokens?: number;
     retryable?: boolean;
     /** The transport failure happened before any request byte was sent. */
@@ -2265,6 +2310,12 @@ export type UsageContext = {
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
+  /**
+   * The 1-hour-TTL share of `cacheCreationTokens` (a subset, not additive).
+   * Omitted means "none known to be 1h", so every path that does not read the
+   * upstream `cache_creation` breakdown prices exactly as it did before.
+   */
+  cacheCreation1hTokens?: number;
   cacheReadTokens: number;
   /**
    * Whether the provider actually reported each cache count. Omitted means
@@ -2738,6 +2789,8 @@ export type ProxyAnalysisFinalRequestRecord = {
   outputTokens: number | null;
   cacheReadTokens: number | null;
   cacheCreationTokens: number | null;
+  /** 1h-TTL share of `cacheCreationTokens` (subset); null when not reported. */
+  cacheCreation1hTokens: number | null;
   /**
    * False when the provider reported no cache breakdown. Such a turn is not a
    * cache miss, so it is excluded from the hit-rate denominator rather than
@@ -3095,6 +3148,8 @@ export type SSETelemetry = {
     inputTokens: number;
     outputTokens: number;
     cacheCreationInputTokens: number;
+    /** 1h-TTL share of `cacheCreationInputTokens`; absent when not reported. */
+    cacheCreation1hInputTokens?: number;
     cacheReadInputTokens: number;
     totalTokens: number;
   };
@@ -3136,6 +3191,7 @@ export type TelemetryAccumulator = {
   inputTokens: number;
   outputTokens: number;
   cacheCreationInputTokens: number;
+  cacheCreation1hInputTokens?: number;
   cacheReadInputTokens: number;
   contentBlocks: SSEContentBlock[];
   blockByteCounts: Map<number, number>;
@@ -3767,6 +3823,9 @@ export type ProxyRequestRoutingSnapshot = {
   sessionAffinity: boolean;
   sessionAffinityIdleTtlMs: number;
   spillInflight: number;
+  codexOutboundFallbackEnabled: boolean;
+  codexOutboundFallbackTargets: CodexFallbackTarget[];
+  codexOutboundFallbackModelMappings: ModelMapping[];
 };
 
 /** Operator policy for paid extra usage. */

@@ -505,6 +505,97 @@ await test("a circular $ref schema is flattened and reported as degraded", () =>
   assert.equal(tool!.input_schema.type, "object");
 });
 
+// PR 4 gap #24 (carry-ins): a plain, resolvable $ref/$defs schema (no cycle)
+// must actually be dereferenced into an inline schema by inlineJsonSchema —
+// not left as an unresolved pointer the Messages API would reject — and must
+// NOT be counted under the circular_ref_flattened reason, which exists only
+// for the genuinely-cyclic case exercised by the test above.
+await test("a plain (non-circular) $ref/$defs schema is flattened into an inline schema, and is not counted as a circular-ref degrade", async () => {
+  const request = minimalRequest({
+    input: [
+      {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "hi" }],
+      },
+      {
+        type: "additional_tools",
+        role: "developer",
+        tools: [
+          {
+            type: "namespace",
+            name: "functions",
+            description: "test tools",
+            tools: [
+              {
+                type: "function",
+                name: "read_file",
+                strict: false,
+                parameters: {
+                  type: "object",
+                  properties: {
+                    target: { $ref: "#/$defs/fileRef" },
+                  },
+                  $defs: {
+                    fileRef: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                        encoding: { type: "string" },
+                      },
+                      required: ["path"],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const before = await schemaDegradedCount(
+    "circular_ref_flattened",
+    "read_file",
+  );
+  const translated = assertOkTranslate(request);
+  const tool = translated.value.tools?.find((t) => t.name === "read_file");
+  assert.ok(tool, "read_file tool must be present");
+  assert.deepEqual(
+    tool!.input_schema,
+    {
+      type: "object",
+      properties: {
+        target: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            encoding: { type: "string" },
+          },
+          required: ["path"],
+        },
+      },
+    },
+    "the $ref target must be inlined verbatim in place of the pointer",
+  );
+  const schemaText = JSON.stringify(tool!.input_schema);
+  assert.equal(
+    schemaText.includes("$ref"),
+    false,
+    "no $ref may survive flattening",
+  );
+  assert.equal(
+    schemaText.includes("$defs"),
+    false,
+    "no $defs container may survive flattening",
+  );
+  assert.equal(
+    (await schemaDegradedCount("circular_ref_flattened", "read_file")) - before,
+    0,
+    "a plain, resolvable $ref must not be counted as a circular-ref degrade",
+  );
+});
+
 await test("strict_mode_flag_dropped_and_logged: strict:true is dropped and counted under its exact reason", async () => {
   const request = minimalRequest({
     input: [

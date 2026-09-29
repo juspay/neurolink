@@ -157,3 +157,35 @@ Idle TTL, in ms, before a session-affinity binding is dropped. 60000-86400000.
 > `optional` **spillInflight?**: `number`
 
 For a request without a binding: spill off an account already at N in-flight. 0-100, 0 = off.
+
+---
+
+### codexOutboundFallbackEnabled?
+
+> `optional` **codexOutboundFallbackEnabled?**: `boolean`
+
+Master flag for native-Codex-request outbound fallback. Independent of
+codexOutboundFallbackTargets so the list can be staged ahead of turning the
+feature on. Default false — the only new key whose absence must reproduce
+byte-identical current behavior.
+
+---
+
+### codexOutboundFallbackTargets?
+
+> `optional` **codexOutboundFallbackTargets?**: [`CodexFallbackTarget`](CodexFallbackTarget.md)[]
+
+Ordered targets tried after Codex's own account pool is exhausted.
+Try-order = array order. Empty/absent with enabled:true is a no-op.
+
+---
+
+### codexOutboundFallbackModelMappings?
+
+> `optional` **codexOutboundFallbackModelMappings?**: [`ModelMapping`](ModelMapping.md)[]
+
+Per-incoming-Codex-model override, layered on codexOutboundFallbackTargets.
+Reuses ModelMapping's {from,to,provider}: from = requested Codex model,
+provider = which target this overrides, to = model to send instead of that
+target's plain `model`. Absent for a (from,provider) pair = use the target's
+plain model.

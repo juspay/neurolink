@@ -24,6 +24,7 @@ const checks = [
     "http-disconnect",
     "route-accounting",
     "fallback-parent",
+    "codex-outbound-fallback",
     "update-staging",
     "pressure-recovery",
     "token-budget",

@@ -192,6 +192,7 @@ async function advanceCursor(
       outputTokens: finiteNumber(record.outputTokens),
       cacheReadTokens: finiteNumber(record.cacheReadTokens),
       cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
+      cacheCreation1hTokens: finiteNumber(record.cacheCreation1hTokens),
       clientApp: resolveClientApp(record),
     };
     // A later record for the same request enriches the earlier one — it must
@@ -231,6 +232,10 @@ async function advanceCursor(
             cacheCreationTokens: Math.max(
               previous.cacheCreationTokens,
               next.cacheCreationTokens,
+            ),
+            cacheCreation1hTokens: Math.max(
+              previous.cacheCreation1hTokens,
+              next.cacheCreation1hTokens,
             ),
             // Likewise keep a real model name over a placeholder.
             model:
@@ -397,6 +402,7 @@ export async function readAccountUsage(
           total: entry.inputTokens + entry.outputTokens,
           cacheReadTokens: entry.cacheReadTokens,
           cacheCreationTokens: entry.cacheCreationTokens,
+          cacheCreation1hTokens: entry.cacheCreation1hTokens,
         });
         row.costUsd += cost;
         client.costUsd += cost;

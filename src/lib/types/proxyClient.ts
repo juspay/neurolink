@@ -287,6 +287,8 @@ export type ProxyLedgerEntry = {
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
+  /** 1h-TTL share of `cacheCreationTokens` (subset); 0 when not reported. */
+  cacheCreation1hTokens: number;
 };
 
 /** Incremental read position and accumulated entries for one request-log file. */

@@ -412,6 +412,17 @@ export default [
             "test/continuous-test-suite-proxy-telemetry-reconciliation.ts",
             "test/continuous-test-suite-proxy-fallback-errors.ts",
             "test/continuous-test-suite-proxy-fallback-parent.ts",
+            // Codex-outbound fallback (native Codex request -> Anthropic-pool
+            // loopback / Vertex): exact target selection, model-mapping
+            // overrides, the REQUEST_TOO_LARGE -> 413 mapping, and the
+            // reverse-direction loop-prevention filter are facts about
+            // config-gated dispatch order that no live Codex/Anthropic/Vertex
+            // call can deterministically reproduce (real Codex traffic is
+            // also quota-rejected in this environment). Drives the shipped
+            // `createProxyStartApp`-built app in process via `app.request()`
+            // with `globalThis.fetch` stubbed per upstream host, exactly as
+            // its sibling `continuous-test-suite-proxy-fallback-parent.ts`.
+            "test/continuous-test-suite-proxy-codex-outbound-fallback.ts",
             // Pure IR shape and exhaustiveness invariants. The guarantee under
             // test is that an unhandled union variant fails `tsc --noEmit`, which
             // is a property of the type declarations and their shipped consumers,

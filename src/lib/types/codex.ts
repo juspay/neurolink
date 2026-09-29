@@ -425,10 +425,13 @@ export type CodexResponseUsage = {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
-  /** Omitted entirely when neither cache field was observed on the Anthropic side. */
+  /** Omitted entirely when no cache field was observed on the Anthropic side. */
   input_tokens_details?: {
     cached_tokens?: number;
     cache_write_tokens?: number;
+    /** The 1-hour-TTL share of `cache_write_tokens` (a subset, not additive);
+     *  sourced from `ClaudeUsage.cacheCreation1hTokens`. Omitted when not observed. */
+    cache_write_1h_tokens?: number;
   };
   /** Always omitted — ClaudeUsage carries no reasoning-token count to source it from. */
   output_tokens_details?: { reasoning_tokens?: number };
@@ -529,3 +532,54 @@ export type CodexResponseOpenItemKind =
   | "function_call"
   | "custom_tool_call"
   | null;
+
+// =============================================================================
+// OUTBOUND-FALLBACK TRIGGER POLICY (stage-c-trigger.md §1). Classifies a
+// native-Codex-route failure into a decision on whether it is eligible to
+// fall outbound to the Anthropic OAuth pool / Vertex. Pure data in, pure
+// decision out — no dispatch, no HTTP, no account state.
+// =============================================================================
+
+/** The four call sites in `codexProxyRoutes.ts`'s `dispatch()` that can trigger
+ *  an outbound fallback attempt (stage-c-trigger.md §0's corrected line map). */
+export type CodexOutboundFailureClass =
+  | "no_accounts"
+  | "pool_exhausted"
+  | "non_retryable_transport"
+  | "loop_fallthrough";
+
+/** What a single insertion point in `codexProxyRoutes.ts` observed. */
+export type CodexOutboundFailureInput = {
+  failureClass: CodexOutboundFailureClass;
+  /** Present only for `non_retryable_transport`: the transport error code
+   *  (e.g. `ECONNREFUSED`) that was NOT in the retryable allow-list. */
+  transportErrorCode?: string;
+  /** Present only for `loop_fallthrough`: the raw HTTP status the last
+   *  exhausted account attempt ended on (`lastErrorStatus` at the account-loop
+   *  call site). A 401/403 there is a Codex credential failure and stays
+   *  eligible; any other 4xx except 429 rejects the request itself. */
+  lastStatus?: number;
+  /** Present only for `loop_fallthrough`: the error code the last exhausted
+   *  account attempt reported, when it reported one. A code
+   *  `classifyProxyFailureCode` marks non-retryable (content policy, invalid
+   *  request) makes the failure ineligible whatever the status. */
+  lastErrorCode?: string;
+};
+
+/** `classifyCodexOutboundFailure`'s verdict: whether this failure is eligible
+ *  to attempt an outbound fallback, and why (for tracing/logging only — the
+ *  caller still applies its own config/loop-prevention/depth gates). */
+export type CodexOutboundFallbackDecision = {
+  eligible: boolean;
+  reason: string;
+};
+
+/** Outcome of one `attemptCodexOutboundFallback` call. `not_attempted` covers
+ *  every gate failure and every target exhausting without success — the
+ *  caller falls through to its own existing (unchanged) error response in
+ *  every one of those cases, so the flag-off / all-targets-failed paths stay
+ *  byte-identical to today. */
+export type CodexOutboundFallbackOutcome =
+  | { kind: "not_attempted" }
+  | { kind: "request_too_large"; message: string }
+  | { kind: "success"; response: Response };

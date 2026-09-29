@@ -23,6 +23,10 @@
 import { preflightAnthropicStream } from "./streamOutcome.js";
 import { extractSSEEvents } from "./sseInterceptor.js";
 import {
+  readCacheCreation1hTokens,
+  oneHourCacheWriteFields,
+} from "./proxyTokenUsage.js";
+import {
   CodexResponsesStreamSerializer,
   serializeCodexResponse,
 } from "./codexResponsesFormat.js";
@@ -195,6 +199,7 @@ export async function consumeAnthropicFallbackResponse(
   const usage = parsed.usage;
   const cacheCreate = optionalNumber(usage.cache_creation_input_tokens);
   const cacheRead = optionalNumber(usage.cache_read_input_tokens);
+  const cacheCreate1h = readCacheCreation1hTokens(usage);
   const result: ClaudeResponse = {
     ...(parsed as ClaudeResponse),
     usage: {
@@ -206,6 +211,7 @@ export async function consumeAnthropicFallbackResponse(
       ...(cacheRead === undefined
         ? {}
         : { cache_read_input_tokens: cacheRead }),
+      ...oneHourCacheWriteFields(cacheCreate1h),
     },
   };
   return serializeCodexResponse(result, model, toolKindByName);
@@ -273,7 +279,6 @@ export async function createAnthropicFallbackStream(
   }
 
   const serializer = new CodexResponsesStreamSerializer(model, toolKindByName);
-
   async function* frames(): AsyncGenerator<string, CodexResponseEnvelope> {
     yield* serializer.start();
     const decoder = new TextDecoder();
@@ -282,6 +287,7 @@ export async function createAnthropicFallbackStream(
     let capturedOutput = 0;
     let capturedCacheCreate: number | undefined;
     let capturedCacheRead: number | undefined;
+    let capturedCacheCreate1h: number | undefined;
     let capturedStopReason: string | null = null;
     // input_json_delta also streams for server_tool_use blocks, which have no
     // Codex function_call to feed; only a tool_use block's fragments count.
@@ -304,6 +310,7 @@ export async function createAnthropicFallbackStream(
               usage.cache_creation_input_tokens,
             );
             capturedCacheRead = optionalNumber(usage.cache_read_input_tokens);
+            capturedCacheCreate1h = readCacheCreation1hTokens(usage);
           }
           return undefined;
         }
@@ -392,6 +399,7 @@ export async function createAnthropicFallbackStream(
             ...(capturedCacheRead === undefined
               ? {}
               : { cache_read_input_tokens: capturedCacheRead }),
+            ...oneHourCacheWriteFields(capturedCacheCreate1h),
           } satisfies ClaudeUsage);
         case "error": {
           // A mid-stream upstream error ends the turn: without this case it

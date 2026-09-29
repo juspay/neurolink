@@ -38,6 +38,16 @@ True when input includes the cache breakdown (native Codex wire usage).
 
 ---
 
+### cacheCreation1hTokens?
+
+> `optional` **cacheCreation1hTokens?**: `number`
+
+The 1-hour-TTL share of `cacheCreationTokens` (a subset, not additive).
+Omitted means "none known to be 1h", so every path that does not read the
+upstream `cache_creation` breakdown prices exactly as it did before.
+
+---
+
 ### cacheReadTokens
 
 > **cacheReadTokens**: `number`

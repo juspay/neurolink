@@ -44,6 +44,12 @@
 
 `number`
 
+#### cacheCreation1hTokens?
+
+`number`
+
+1h-TTL share of `cacheCreationTokens` (subset); unset when not reported.
+
 #### cacheReadTokens?
 
 `number`

@@ -653,6 +653,153 @@ test("tool_choice without tools: forcing or naming is malformed, auto is omitted
   }
 });
 
+test("a forced tool_choice degrades to auto for a target that rejects it (Sonnet 5.5, Opus 5.5), and is unaffected for other targets", () => {
+  const REJECTING_TARGETS = ["claude-sonnet-5-5", "claude-opus-5-5"] as const;
+  for (const model of REJECTING_TARGETS) {
+    const required = translateCodexRequestToClaude(
+      minimalRequest({
+        tool_choice: "required",
+        input: [additionalTools(["x"]), userMessage("hi")],
+      }),
+      { provider: "anthropic", model },
+    );
+    assert.equal(required.ok, true, `model=${model}`);
+    if (required.ok) {
+      assert.deepEqual(
+        required.value.tool_choice,
+        { type: "auto" },
+        `model=${model} tool_choice:"required" must degrade to auto`,
+      );
+    }
+
+    const named = translateCodexRequestToClaude(
+      minimalRequest({
+        tool_choice: { type: "function", name: "x" },
+        parallel_tool_calls: false,
+        input: [additionalTools(["x"]), userMessage("hi")],
+      }),
+      { provider: "anthropic", model },
+    );
+    assert.equal(named.ok, true, `model=${model}`);
+    if (named.ok) {
+      assert.deepEqual(
+        named.value.tool_choice,
+        { type: "auto", disable_parallel_tool_use: true },
+        `model=${model} named tool_choice must degrade to auto, keeping disable_parallel_tool_use`,
+      );
+    }
+  }
+
+  // Other targets (the suite's default TARGET, claude-sonnet-5) are
+  // unaffected — already proven by "tool_choice table produces the exact
+  // §3.3 shape for each case" above, which sends "required" straight
+  // through as {type:"any"} against TARGET.
+  const unaffected = translateCodexRequestToClaude(
+    minimalRequest({
+      tool_choice: "required",
+      input: [additionalTools(["x"]), userMessage("hi")],
+    }),
+    TARGET,
+  );
+  assert.equal(unaffected.ok, true);
+  if (unaffected.ok) {
+    assert.deepEqual(unaffected.value.tool_choice, { type: "any" });
+  }
+});
+
+test("thinking-off degrades per target for a Codex effort of none/minimal: between_tools for Sonnet 5.5, omitted for Opus 5.5, omitted (unchanged) for other targets", () => {
+  for (const effort of ["none", "minimal"] as const) {
+    const sonnet55 = translateCodexRequestToClaude(
+      minimalRequest({ reasoning: { effort } }),
+      { provider: "anthropic", model: "claude-sonnet-5-5" },
+    );
+    assert.equal(sonnet55.ok, true, `effort=${effort}`);
+    if (sonnet55.ok) {
+      assert.deepEqual(
+        sonnet55.value.thinking,
+        { type: "between_tools" },
+        `claude-sonnet-5-5 effort=${effort} must send thinking:{type:"between_tools"}, never {type:"disabled"}`,
+      );
+    }
+
+    const opus55 = translateCodexRequestToClaude(
+      minimalRequest({ reasoning: { effort } }),
+      { provider: "anthropic", model: "claude-opus-5-5" },
+    );
+    assert.equal(opus55.ok, true, `effort=${effort}`);
+    if (opus55.ok) {
+      assert.equal(
+        opus55.value.thinking,
+        undefined,
+        `claude-opus-5-5 effort=${effort} has no off-state to request; thinking must stay omitted, never {type:"disabled"}`,
+      );
+    }
+
+    const unaffected = translateCodexRequestToClaude(
+      minimalRequest({ reasoning: { effort } }),
+      TARGET,
+    );
+    assert.equal(unaffected.ok, true, `effort=${effort}`);
+    if (unaffected.ok) {
+      assert.equal(
+        unaffected.value.thinking,
+        undefined,
+        `${TARGET.model} effort=${effort} is an unaffected target and keeps its historical omitted thinking`,
+      );
+    }
+  }
+
+  // A named/forced tool_choice sent to Sonnet 5.5 degrades to {type:"auto"}
+  // (proven above), which is not one of the two shapes
+  // (forced/tool-using-last-turn) the Messages API rejects thinking on — so
+  // the between_tools degradation still applies on top of it.
+  const namedOnSonnet55 = translateCodexRequestToClaude(
+    minimalRequest({
+      reasoning: { effort: "none" },
+      tool_choice: { type: "function", name: "x" },
+      input: [additionalTools(["x"]), userMessage("hi")],
+    }),
+    { provider: "anthropic", model: "claude-sonnet-5-5" },
+  );
+  assert.equal(namedOnSonnet55.ok, true);
+  if (namedOnSonnet55.ok) {
+    assert.deepEqual(
+      namedOnSonnet55.value.tool_choice,
+      { type: "auto" },
+      "the named tool_choice degrades to auto for this target",
+    );
+    assert.deepEqual(
+      namedOnSonnet55.value.thinking,
+      { type: "between_tools" },
+      "auto is not a forced tool_choice, so the between_tools degradation still applies",
+    );
+  }
+
+  // A tool_choice this target DOES support forcing (none) still suppresses
+  // thinking entirely via the unrelated Messages-API-wide rule: the last
+  // assistant turn having called a tool. Prove the family-based degradation
+  // never overrides that unrelated suppression.
+  const parsedToolTurn = parseCodexNativeRequest({
+    ...(readFixtureBody("codex-request-tool-result-turn.json") as object),
+    reasoning: { effort: "none" },
+  });
+  assert.equal(parsedToolTurn.ok, true);
+  if (parsedToolTurn.ok) {
+    const toolTurnOnSonnet55 = translateCodexRequestToClaude(
+      parsedToolTurn.value,
+      { provider: "anthropic", model: "claude-sonnet-5-5" },
+    );
+    assert.equal(toolTurnOnSonnet55.ok, true);
+    if (toolTurnOnSonnet55.ok) {
+      assert.equal(
+        toolTurnOnSonnet55.value.thinking,
+        undefined,
+        "a tool-using last assistant turn suppresses thinking outright, regardless of target model family",
+      );
+    }
+  }
+});
+
 test("images the Messages API cannot take are untranslatable; image/jpg normalizes to image/jpeg", () => {
   const withImage = (image_url: string, role: "user" | "developer" = "user") =>
     minimalRequest({
@@ -767,6 +914,318 @@ test("a user message between a call and its output lands after the tool_result",
       ["tool_result", "text"],
     );
   }
+});
+
+// PR 4 gap #2 (carry-ins): tool-declaration order must survive flattening
+// across multiple namespaces — buildClaudeTools must map over the native
+// array directly (namespace order, then tool order within it), never stage
+// through a Record<string, Tool> that could reorder or dedupe by key.
+test("tool declaration order is preserved across multiple namespaces: namespace order, then tool order within each namespace", () => {
+  const request = minimalRequest({
+    input: [
+      {
+        type: "additional_tools",
+        role: "developer",
+        tools: [
+          {
+            type: "namespace",
+            name: "functions",
+            description: "test tools",
+            tools: [
+              {
+                type: "function",
+                name: "read_file",
+                strict: false,
+                parameters: { type: "object", properties: {} },
+              },
+              {
+                type: "custom",
+                name: "exec",
+                description: "run a shell command",
+                format: {
+                  type: "grammar",
+                  syntax: "lark",
+                  definition: "start: /.*/",
+                },
+              },
+            ],
+          },
+          {
+            type: "namespace",
+            name: "collaboration",
+            description: "test tools",
+            tools: [
+              {
+                type: "function",
+                name: "spawn_agent",
+                strict: false,
+                parameters: { type: "object", properties: {} },
+              },
+              {
+                type: "function",
+                name: "send_message",
+                strict: false,
+                parameters: { type: "object", properties: {} },
+              },
+            ],
+          },
+        ],
+      },
+      userMessage("hi"),
+    ],
+  });
+  const result = translateCodexRequestToClaude(request, TARGET);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(
+      (result.value.tools ?? []).map((tool) => tool.name),
+      ["read_file", "exec", "spawn_agent", "send_message"],
+      "tool order must exactly match the declared namespace-then-tool order, not be resorted or grouped by kind",
+    );
+  }
+});
+
+// PR 4 gap (carry-ins): a developer message landing between a tool call and
+// its result must neither break the call/result adjacency the Messages API
+// requires nor be dropped from the system text it feeds.
+test("a developer message between a tool call and its result reaches system text and does not break call/result pairing", () => {
+  const request = minimalRequest({
+    input: [
+      userMessage("run it"),
+      {
+        type: "function_call",
+        call_id: "call_1",
+        name: "read_file",
+        arguments: "{}",
+      },
+      {
+        type: "message",
+        role: "developer",
+        content: [{ type: "input_text", text: "mid-turn developer note" }],
+      },
+      {
+        type: "function_call_output",
+        call_id: "call_1",
+        output: "file contents",
+      },
+    ],
+  });
+  const result = translateCodexRequestToClaude(request, TARGET);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    const system = result.value.system ?? [];
+    const systemText =
+      typeof system === "string"
+        ? system
+        : system.map((block) => block.text).join("\n");
+    assert.ok(
+      systemText.includes("mid-turn developer note"),
+      "the interleaved developer message must still reach system text",
+    );
+
+    const roles = result.value.messages.map((m) => m.role);
+    assert.deepEqual(
+      roles,
+      ["user", "assistant", "user"],
+      "the developer message must not insert an extra turn or split the call from its result",
+    );
+    const assistantContent = result.value.messages[1]!.content;
+    assert.equal(Array.isArray(assistantContent), true);
+    assert.deepEqual(
+      (assistantContent as Array<{ type: string }>).map((b) => b.type),
+      ["tool_use"],
+      "the assistant turn must still carry exactly the tool_use block, undisturbed",
+    );
+    const resultContent = result.value.messages[2]!.content;
+    assert.deepEqual(
+      (resultContent as Array<{ type: string }>).map((b) => b.type),
+      ["tool_result"],
+      "the tool call must still be answered in the very next user turn",
+    );
+  }
+});
+
+// PR 4 gap #26 (carry-ins): a characterization test built from a REDACTED
+// copy of the real ~/.neurolink/reference/codex-cli-wire-sample.json capture
+// (see test/fixtures/codex-cli-wire-sample-redacted.json and its own `note`
+// field for provenance). Every id/token/path/email in the original was
+// stripped or replaced with a placeholder before this fixture was written;
+// see the redaction script referenced in the PR body. What survives, and
+// what this test exists to prove, is the real capture's structural shape:
+// `exec` (a type:"custom" grammar tool) lives inside the `functions`
+// namespace, not `collaboration` — disproving the assumption that namespace
+// name implies tool kind, which is why mapCodexToolDeclarationToClaude
+// switches on each declaration's own `type` field, never on which namespace
+// it was found in.
+test("live-capture characterization (redacted): a real capture's exec (custom/grammar) tool lives in the functions namespace, not collaboration, and still translates", () => {
+  const raw = readFileSync(
+    path.join(FIXTURES_DIR, "codex-cli-wire-sample-redacted.json"),
+    "utf8",
+  );
+  const capture = JSON.parse(raw) as { body: { input: unknown[] } };
+  const additionalToolsItem = capture.body.input[0] as {
+    type: string;
+    tools: Array<{ name: string; tools: Array<Record<string, unknown>> }>;
+  };
+  assert.equal(additionalToolsItem.type, "additional_tools");
+  const functionsNamespace = additionalToolsItem.tools.find(
+    (ns) => ns.name === "functions",
+  );
+  const collaborationNamespace = additionalToolsItem.tools.find(
+    (ns) => ns.name === "collaboration",
+  );
+  assert.ok(functionsNamespace, "capture must carry a functions namespace");
+  assert.ok(
+    collaborationNamespace,
+    "capture must carry a collaboration namespace",
+  );
+  assert.ok(
+    functionsNamespace!.tools.some(
+      (t) => t.name === "exec" && t.type === "custom",
+    ),
+    "exec must be declared type:custom inside the functions namespace in the real capture",
+  );
+  assert.equal(
+    collaborationNamespace!.tools.some((t) => t.name === "exec"),
+    false,
+    "exec must not also (or instead) appear in the collaboration namespace",
+  );
+
+  const claudeRequest = assertOkTranslate(capture.body);
+  const execTool = claudeRequest.tools?.find((t) => t.name === "exec");
+  assert.ok(execTool, "exec must still be translated into a Claude tool");
+  assert.deepEqual(
+    execTool!.input_schema,
+    {
+      type: "object",
+      properties: {
+        input: {
+          type: "string",
+          description:
+            "Raw command text, constrained by the grammar in this tool's description.",
+        },
+      },
+      required: ["input"],
+    },
+    "exec must use the single-input custom-tool fallback schema, exactly as the mapCodexCustomToolToClaude sign-off (ruling 7) settled",
+  );
+  // Every other real tool in the capture (function-kind, both namespaces)
+  // must also survive translation, proving the namespace flattening holds
+  // for the full real shape, not just the one custom tool.
+  const allDeclaredNames = [
+    ...functionsNamespace!.tools.map((t) => t.name as string),
+    ...collaborationNamespace!.tools.map((t) => t.name as string),
+  ];
+  const translatedNames = new Set(
+    (claudeRequest.tools ?? []).map((t) => t.name),
+  );
+  for (const name of allDeclaredNames) {
+    assert.ok(
+      translatedNames.has(name),
+      `${name} declared in the real capture must survive translation`,
+    );
+  }
+});
+
+// Fix pass 2 item 5: the live-capture fixture above claims to be redacted,
+// but nothing before this test automated that check — a human re-scan is not
+// a CI gate. This scans the fixture's raw bytes (never the real
+// ~/.neurolink/reference/codex-cli-wire-sample.json capture, which this file
+// must never read or copy) for the leak shapes a redaction script could miss:
+// email addresses, bearer tokens, sk- keys, JWTs, AWS access-key ids,
+// /Users/ or /home/ paths, and any UUID other than the all-zero placeholder
+// `00000000-0000-0000-0000-000000000000` this fixture uses throughout.
+const LEAK_PATTERNS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
+  {
+    label: "email address",
+    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+  },
+  { label: "bearer token", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi },
+  { label: "sk- key", pattern: /\bsk-[A-Za-z0-9_-]{12,}\b/g },
+  {
+    label: "JWT",
+    pattern:
+      /\bey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+  },
+  { label: "AWS access key id", pattern: /\bAKIA[0-9A-Z]{16}\b/g },
+  { label: "/Users/ or /home/ path", pattern: /\/(?:Users|home)\/[^\s"'\\]+/g },
+];
+
+const ALL_ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+const UUID_PATTERN =
+  /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
+
+/** Scan raw fixture text for the leak shapes above. Returns one description
+ *  per match found, empty when the text is clean. Exported at module scope
+ *  (not just inline) so the self-check below and the real-fixture check both
+ *  exercise the identical function. */
+function scanForLeaks(text: string): string[] {
+  const findings: string[] = [];
+  for (const { label, pattern } of LEAK_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(text)) {
+      findings.push(label);
+    }
+  }
+  UUID_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = UUID_PATTERN.exec(text)) !== null) {
+    if (match[0] !== ALL_ZERO_UUID) {
+      findings.push("non-placeholder UUID");
+    }
+  }
+  return findings;
+}
+
+test("leak scanner: self-check catches one planted value of every shape, and flags nothing on a clean control", () => {
+  // Synthetic, obviously-fake values constructed here — never read from any
+  // real capture or credential file — purely to prove the scanner's own
+  // regexes fire. This is the "prove it fails on a planted value" check for
+  // a scanner that has no source-code fix to revert; the fixture-scan test
+  // right below is what stays CI-gated against the real asset.
+  const planted = [
+    "contact: test.user+leak@example-corp.test",
+    "Authorization: Bearer sk_live_fake_planted_bearer_token_1234567890",
+    "sk-FAKE00000000000000000000PLANTED",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dGhpc2lzbm90YXJlYWxzaWc",
+    "AKIAFAKEPLANTED12345",
+    "/Users/plantedvictim/secret-notes.txt",
+    "session 11111111-2222-3333-4444-555555555555 started",
+  ].join("\n");
+  const found = scanForLeaks(planted);
+  for (const { label } of LEAK_PATTERNS) {
+    assert.ok(
+      found.includes(label),
+      `planted ${label} must be caught by the scanner`,
+    );
+  }
+  assert.ok(
+    found.some((f) => f.startsWith("non-placeholder UUID")),
+    "planted non-placeholder UUID must be caught by the scanner",
+  );
+
+  const clean = `every id here is the placeholder ${ALL_ZERO_UUID}, no secrets, no paths`;
+  assert.deepEqual(
+    scanForLeaks(clean),
+    [],
+    "a clean control string with only the placeholder UUID must report no findings",
+  );
+});
+
+test("live-capture fixture (redacted) has no leaked secrets, tokens, real paths or non-placeholder UUIDs", () => {
+  const raw = readFileSync(
+    path.join(FIXTURES_DIR, "codex-cli-wire-sample-redacted.json"),
+    "utf8",
+  );
+  const findings = scanForLeaks(raw);
+  assert.deepEqual(
+    findings,
+    [],
+    // No payload content in this message (only category labels, never the
+    // matched substrings) per this repo's "keep payloads out of assertion
+    // messages" rule.
+    `redacted fixture failed the automated leak scan (${findings.length} categories matched)`,
+  );
 });
 
 test("an image URL is untranslatable for Vertex and kept for Anthropic", () => {

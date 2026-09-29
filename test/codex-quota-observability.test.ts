@@ -40,6 +40,7 @@ import {
   handleCodexResponsesRequest,
   createCodexProxyRoutes,
 } from "../src/lib/server/routes/codexProxyRoutes.js";
+import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
 import {
   clearRuntimeContextWindows,
   clearRuntimeOutputCeilings,
@@ -486,6 +487,76 @@ describe.sequential("Codex quota observability", () => {
     expect(payload.response.error.message).toContain(
       new Date(coolingUntil).toISOString(),
     );
+  });
+
+  // stage-b-config.md §I regression: booting the routes with
+  // codex-outbound-fallback-enabled: true (and no configured targets) must
+  // be byte-identical to the case above with no runtimeConfigProvider at
+  // all — this stage threads the flag through but nothing branches on it
+  // yet, so the bare-429-becomes-SSE-failed behavior must not change.
+  it("still emits the unchanged terminal SSE error when every account is cooling and codex-outbound-fallback-enabled is true", async () => {
+    const account = await saveCodexAccount();
+    const coolingUntil = Date.now() + 5 * 60 * 1000;
+    await saveAccountCooldown(account.key, coolingUntil, "session");
+    globalThis.fetch = (async () => {
+      throw new Error("must not dispatch upstream while every account cools");
+    }) as typeof globalThis.fetch;
+
+    const configDir = await mkdtemp(
+      join(tmpdir(), "neurolink-codex-outbound-fallback-flag-"),
+    );
+    const configPath = join(configDir, "proxy.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        routing: { "codex-outbound-fallback-enabled": true },
+      }),
+    );
+    try {
+      const runtime = await ProxyRuntimeConfigStore.create({
+        configPath,
+        configRequired: true,
+        baseEnv: {},
+        passthrough: false,
+      });
+      expect(runtime.getSnapshot().codexOutboundFallbackEnabled).toBe(true);
+
+      const route = createCodexProxyRoutes("", () =>
+        runtime.getSnapshot(),
+      ).routes.find(
+        (entry) =>
+          entry.method === "POST" &&
+          entry.path === "/backend-api/codex/responses",
+      );
+      expect(route).toBeDefined();
+
+      // Route handlers are typed generically (RouteHandler<unknown>); this
+      // route's concrete implementation is handleCodexResponsesRequest,
+      // which returns Promise<Response> — asserted, not narrowed, since the
+      // union carries no discriminant here.
+      const response = (await route!.handler(
+        requestContext("codex-all-cooling-fallback-enabled"),
+      )) as Response;
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("text/event-stream");
+      expect(response.headers.get("retry-after")).toBeTruthy();
+
+      const body = await response.text();
+      expect(body).toContain("event: response.failed");
+      const dataLine = body
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+      expect(dataLine).toBeDefined();
+      const payload = JSON.parse(dataLine!.slice("data: ".length));
+      expect(payload.type).toBe("response.failed");
+      expect(payload.response.error.message).toMatch(/quota exhausted/i);
+      expect(payload.response.error.message).toContain(
+        new Date(coolingUntil).toISOString(),
+      );
+    } finally {
+      await rm(configDir, { recursive: true, force: true });
+    }
   });
 
   it("delays a direct Codex final result until the stream completes and retains usage", async () => {
