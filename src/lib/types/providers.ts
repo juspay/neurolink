@@ -231,15 +231,20 @@ export type NeurolinkCredentials = {
   llamacpp?: { apiKey?: string; baseURL?: string };
   // ── BEGIN GENERATED(credentials): provider catalog (pnpm run codegen:catalog) ──
   aboveDev?: { apiKey?: string; baseURL?: string };
+  ai21?: { apiKey?: string; baseURL?: string };
   aiand?: { apiKey?: string; baseURL?: string };
+  aionlabs?: { apiKey?: string; baseURL?: string };
   ambient?: { apiKey?: string; baseURL?: string };
   apiRoute?: { apiKey?: string; baseURL?: string };
+  atlasCloud?: { apiKey?: string; baseURL?: string };
+  avianIo?: { apiKey?: string; baseURL?: string };
   baseten?: { apiKey?: string; baseURL?: string };
   beeHeossi?: { apiKey?: string; baseURL?: string };
   cerebras?: { apiKey?: string; baseURL?: string };
   charmHyper?: { apiKey?: string; baseURL?: string };
   chutes?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
+  crusoe?: { apiKey?: string; baseURL?: string };
   deepinfra?: { apiKey?: string; baseURL?: string };
   deepseek?: { apiKey?: string; baseURL?: string };
   empiriolabs?: { apiKey?: string; baseURL?: string };
@@ -257,20 +262,35 @@ export type NeurolinkCredentials = {
   lilac?: { apiKey?: string; baseURL?: string };
   llmtech?: { apiKey?: string; baseURL?: string };
   mancer?: { apiKey?: string; baseURL?: string };
+  minimax?: { apiKey?: string; baseURL?: string };
   mistral?: { apiKey?: string; baseURL?: string };
   moark?: { apiKey?: string; baseURL?: string };
+  moonshotAi?: { apiKey?: string; baseURL?: string };
   morph?: { apiKey?: string; baseURL?: string };
+  nebius?: { apiKey?: string; baseURL?: string };
   neuralwatt?: { apiKey?: string; baseURL?: string };
   novita?: { apiKey?: string; baseURL?: string };
   ovhcloud?: { apiKey?: string; baseURL?: string };
   paretoInference?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
+  primeIntellect?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
   sarvam?: { apiKey?: string; baseURL?: string };
+  scaleway?: { apiKey?: string; baseURL?: string };
+  siliconflow?: { apiKey?: string; baseURL?: string };
+  stepfun?: { apiKey?: string; baseURL?: string };
+  subconscious?: { apiKey?: string; baseURL?: string };
   synthetic?: { apiKey?: string; baseURL?: string };
+  tinfoil?: { apiKey?: string; baseURL?: string };
   together?: { apiKey?: string; baseURL?: string };
+  umansAi?: { apiKey?: string; baseURL?: string };
   upstage?: { apiKey?: string; baseURL?: string };
+  veniceAi?: { apiKey?: string; baseURL?: string };
+  vultrInference?: { apiKey?: string; baseURL?: string };
+  wafer?: { apiKey?: string; baseURL?: string };
+  wandbInference?: { apiKey?: string; baseURL?: string };
   xai?: { apiKey?: string; baseURL?: string };
+  zAi?: { apiKey?: string; baseURL?: string };
   // ── END GENERATED(credentials) ──
   cohere?: { apiKey?: string; baseURL?: string };
   replicate?: {

@@ -1,0 +1,203 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "atlas-cloud",
+  "displayName": "Atlas Cloud",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.atlascloud.ai/v1",
+    "apiKeyFallbackEnvVars": ["ATLASCLOUD_API_KEY"]
+  },
+  "models": {
+    "default": "deepseek-ai/deepseek-v3.2",
+    "fallbacks": [
+      "deepseek-ai/deepseek-v4-flash",
+      "zai-org/glm-5.3",
+      "Qwen/Qwen3-235B-A22B-Instruct-2507"
+    ],
+    "defaultContextWindow": 163840,
+    "defaultMaxOutputTokens": 163840,
+    "catalog": {
+      "deepseek-ai/deepseek-v3.2": {
+        "contextWindow": 163840,
+        "pricingPerMTok": {
+          "input": 0.26,
+          "output": 0.38,
+          "cachedInput": 0.13
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Chosen as default because Atlas Cloud is an aggregator with no single house model, and this is the model its own LLM API Protocols page (https://www.atlascloud.ai/docs/llm-protocols, retrieved 2026-09-29) uses in its chat-completions curl and OpenAI-SDK snippets, its Anthropic Messages example and its Responses example (the Gemini and Images examples on that page use a MODEL_ID placeholder instead, and the quick start, API Keys and LLM / Chat pages use a shorter deepseek-v3 that is not a roster id); its LLM / Chat page (https://www.atlascloud.ai/docs/models/llm) lists DeepSeek V3 first among Featured Models. Live on the unauthenticated GET https://api.atlascloud.ai/v1/models roster (2026-09-29, 120 models): context_length 163840, max_output_length 163840 (equal to the context window, so not recorded as a distinct output ceiling), FP8, input_modalities text only, supported_features json_mode, structured_outputs, tools, reasoning. Pricing from the same roster: $0.26 / $0.38 per MTok input/output, $0.13 per MTok cached-input read. Context-window conflict, unresolved by the vendor: the marketing copy and spec table on the model page (https://www.atlascloud.ai/models/deepseek-ai/deepseek-v3.2, retrieved 2026-09-29) say '128K token context length support' and 'Context Length 128K tokens', while the roster field and the same page's machine-readable reference (https://www.atlascloud.ai/models/deepseek-ai/deepseek-v3.2/llms.txt, retrieved 2026-09-29: 'Context length: 163,840 tokens', 'Max output tokens: 163,840') both say 163,840. The catalog records 163840 (here and in models.defaultContextWindow and models.defaultMaxOutputTokens) because the two API-facing sources agree on it; no request longer than 128K tokens was sent, so the range between 128K and 163,840 is declared by the vendor, not tested. Roster-verified only; not capability-probed without a key."
+      },
+      "deepseek-ai/deepseek-v4-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash — first fallback. Live roster GET (https://api.atlascloud.ai/v1/models, 2026-09-29): context_length 1048576, max_output_length 393216, FP4, text-only input, supported_features json_mode, tools, structured_outputs. Roster pricing: $0.14 / $0.28 per MTok input/output, $0.028 per MTok cached-input read. Roster-verified only; not named in a docs example."
+      },
+      "zai-org/glm-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.3 — fallback from a second model family (the LLM / Chat page, https://www.atlascloud.ai/docs/models/llm, lists GLM as a featured family). Live roster GET (2026-09-29): context_length 1048576, max_output_length 131072, FP8, text-only input, supported_features json_mode, tools, reasoning, structured_outputs. Roster pricing: $1.40 / $4.40 per MTok input/output, $0.26 per MTok cached-input read. Roster-verified only."
+      },
+      "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.88,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Alibaba Qwen3 235B A22B Instruct (2507) — fallback from a third model family (Qwen is a featured family on https://www.atlascloud.ai/docs/models/llm). Live roster GET (2026-09-29): context_length 131072, max_output_length 131072 (equal to context, not recorded separately), FP8, text-only input, supported_features json_mode, structured_outputs, tools. Roster pricing: $0.20 / $0.88 per MTok input/output, $0.20 per MTok cached-input read. Roster-verified only."
+      },
+      "deepseek-ai/deepseek-v4-pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 1.68,
+          "output": 3.38,
+          "cachedInput": 0.13
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro. Live roster GET (2026-09-29): context_length 1048576, max_output_length 393216, FP4, text-only input, supported_features json_mode, tools, structured_outputs. Roster pricing: $1.68 / $3.38 per MTok input/output, $0.13 per MTok cached-input read. Roster-verified only."
+      },
+      "zai-org/glm-5.1": {
+        "contextWindow": 202752,
+        "pricingPerMTok": {
+          "input": 1.26,
+          "output": 3.96,
+          "cachedInput": 0.234
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM 5.1. Live roster GET (2026-09-29): context_length 202752, max_output_length 202752 (equal to context, not recorded separately), FP8, text-only input, supported_features json_mode, tools, reasoning, structured_outputs. Roster pricing: $1.26 / $3.96 per MTok input/output, $0.234 per MTok cached-input read. Roster-verified only."
+      },
+      "minimaxai/minimax-m2.7": {
+        "contextWindow": 196608,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.7 (MiniMax is a featured family on https://www.atlascloud.ai/docs/models/llm). Live roster GET (2026-09-29): context_length 196608, max_output_length 196608 (equal to context, not recorded separately), FP8, text-only input, supported_features json_mode, tools, structured_outputs, reasoning. Roster pricing: $0.30 / $1.20 per MTok input/output, $0.06 per MTok cached-input read. Roster-verified only."
+      },
+      "moonshotai/kimi-k2.6": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Moonshot Kimi K2.6 (Kimi is a featured family on https://www.atlascloud.ai/docs/models/llm). Live roster GET (2026-09-29): context_length 262144, max_output_length 262144 (equal to context, not recorded separately), INT4, input_modalities text, image and video, hence vision: true here (an image content part is the documented OpenAI-style image_url shape on https://www.atlascloud.ai/docs/llm-protocols; not independently probed with a real image), supported_features json_mode, structured_outputs, tools, reasoning. Roster pricing: $0.95 / $4.00 per MTok input/output, $0.16 per MTok cached-input read. Roster-verified only; models.visionModel."
+      },
+      "qwen/qwen3.5-397b-a17b": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.55,
+          "output": 3.5,
+          "cachedInput": 0.55
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.5 397B A17B. Live roster GET (2026-09-29): context_length 262144, max_output_length 65536, FP8, input_modalities text, image and video, hence vision: true here (not independently probed with a real image), supported_features json_mode, structured_outputs, tools, reasoning. Roster pricing: $0.55 / $3.50 per MTok input/output, $0.55 per MTok cached-input read. Roster-verified only."
+      },
+      "qwen/qwen3.5-27b": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.27,
+          "output": 2.16,
+          "cachedInput": 0.27
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Alibaba Qwen3.5 27B. Live roster GET (2026-09-29): context_length 262144, max_output_length 65536, FP8, input_modalities text, image and video, hence vision: true here (not independently probed with a real image), supported_features json_mode, structured_outputs, tools, reasoning. Roster pricing: $0.27 / $2.16 per MTok input/output, $0.27 per MTok cached-input read. Roster-verified only."
+      }
+    },
+    "topModels": [
+      "deepseek-ai/deepseek-v3.2",
+      "deepseek-ai/deepseek-v4-flash",
+      "zai-org/glm-5.3",
+      "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "deepseek-ai/deepseek-v4-pro",
+      "zai-org/glm-5.1",
+      "minimaxai/minimax-m2.7",
+      "moonshotai/kimi-k2.6",
+      "qwen/qwen3.5-397b-a17b",
+      "qwen/qwen3.5-27b"
+    ],
+    "visionModel": "moonshotai/kimi-k2.6"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Atlas Cloud rejected the request with HTTP 401. Check {apiKeyEnvVar} (create a key at {setupUrl}); Atlas Cloud also answers 401 for a mistyped endpoint path, so confirm the base URL ends in /v1"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Atlas Cloud reports an insufficient balance (HTTP 402). Add funds at https://www.atlascloud.ai/console/billing and retry"
+    },
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "Atlas Cloud model '{model}' was not found or is not available to your account (HTTP 404). Pick a current id from https://api.atlascloud.ai/v1/models"
+    }
+  ],
+  "setup": {
+    "url": "https://www.atlascloud.ai/console/api-keys",
+    "apiKeyFormat": "^apikey-.+$",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://www.atlascloud.ai/login and sign up or sign in (Google, GitHub, or email and password — one page handles both, see https://www.atlascloud.ai/docs/account/sign-in)",
+      "2. Open https://www.atlascloud.ai/console/api-keys, choose Create API Key and copy it immediately — it is shown only once (https://www.atlascloud.ai/docs/api-keys), and Atlas Cloud API keys begin with apikey- (https://www.atlascloud.ai/docs/llm-protocols)",
+      "3. Billing is pay-as-you-go from a prepaid balance: the quick start's Step 3 is Add Funds with a $25 minimum top-up (https://www.atlascloud.ai/docs/get-started), and requests are rejected with 402 while the balance is insufficient (https://www.atlascloud.ai/docs/errors). The homepage FAQ also says 'No credit card required to start', but no free-tier terms are documented, so check your balance at https://www.atlascloud.ai/console/billing before relying on it",
+      "4. Set {apiKeyEnvVar} in your .env file (ATLASCLOUD_API_KEY, the name used in Atlas Cloud's own docs, is also read)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.atlascloud.ai/v1 (https://www.atlascloud.ai/docs/llm-protocols: POST /v1/chat/completions, Bearer auth, 'Point an existing SDK at Atlas Cloud and it generally works unchanged'); the same base URL also accepts Anthropic Messages, Responses and Gemini formats, which NeuroLink does not use. The roster (unauthenticated GET /v1/models, 200, 120 models, 2026-09-29) comes back in a custom {code, msg, data} envelope rather than OpenAI's {object: 'list'} wrapper; data is still an array of {id, ...} entries. The is_ready field on that roster was false on 73 of the 120 entries (by id prefix: anthropic/ 29, openai/ 18, google/ 11, qwen/ 8, xai/ 4, moonshotai/ 2, zai-org/ 1) and absent on the other 47; the models in this catalog are entries where it is absent. Per the LLM API Protocols page, response_format (json_object and json_schema) is documented for models that advertise json_mode or structured_outputs and tools for models that advertise tools, /v1/embeddings does not exist, the gateway inserts 'You are a helpful assistant.' when no system prompt is sent, and 429 responses carry no Retry-After header (back off client-side). Error body per https://www.atlascloud.ai/docs/errors: {\"code\":401,\"msg\":\"unauthorized\",\"request_id\":\"...\",\"data\":null}; a wrong path also returns 401, 402 means insufficient balance, and a 404 covers models not available to the account. Billing status is unresolved: the docs and the API describe a funded balance, while the homepage FAQ says 'No credit card required to start' (the phrase 'free credits' appears only in the homepage blurbs for the GPT Image 2 and Nano Banana 2 models, with no terms) — no page states what a brand-new account can call, so no-free-tier is the conservative schema value, not a verified fact."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.atlascloud.ai/v1/models — 120 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://www.atlascloud.ai/docs/billing, /docs/billing/topup, /docs/billing/credits, /docs/get-started and the https://www.atlascloud.ai homepage — pay-as-you-go prepaid balance, $25 minimum top-up, 402 on insufficient balance; homepage FAQ separately says 'No credit card required to start'; the pages do not reconcile; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

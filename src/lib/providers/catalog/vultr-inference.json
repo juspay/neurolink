@@ -1,0 +1,220 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "vultr-inference",
+  "displayName": "Vultr Inference",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.vultrinference.com/v1"
+  },
+  "models": {
+    "default": "glm-5.2",
+    "fallbacks": [
+      "deepseek-v4.1-flash",
+      "qwen3.8-flash-next",
+      "mimo-v2.6-flash-rl"
+    ],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 32768,
+    "catalog": {
+      "glm-5.2": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Roster entry named \"GLM 5.2\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"GLM-5.2 is Z.ai's flagship model for long-horizon tasks, sustaining agentic work across a solid 1M-token context.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.75 and completion price $3 per MTok (cost_usd 0.00000075 and 0.000003 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "deepseek-v4.1-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Roster entry named \"DeepSeek V4.1 Flash\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"DeepSeek V4.1 Flash is a mixture-of-experts model with 552B backbone parameters, a one-million-token context window, and support for reasoning and tool calling.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.15 and completion price $0.6 per MTok (cost_usd 0.00000015 and 0.0000006 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "qwen3.8-flash-next": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Roster entry named \"Qwen 3.8 Flash Next\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Qwen3.8 Flash Next with NVFP4 weights, a 262,144-token context window, reasoning, and tool calling.\" Roster fields: text input max_context_length 262,144 tokens; output max_length 262,144 tokens; prompt price $0.1 and completion price $0.2 per MTok (cost_usd 0.0000001 and 0.0000002 per token); streaming true; tools listed among the supported parameters; input modalities text, image, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "mimo-v2.6-flash-rl": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Roster entry named \"MiMo V2.6 Flash RL\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"MiMo V2.6 Flash RL is Xiaomi's efficiency-balanced mixture-of-experts model with 309B total and 15B active parameters, hybrid sliding-window attention, and a 1M-token context.\" \"Supports reasoning and tool calling, served at FP8.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.1 and completion price $0.25 per MTok (cost_usd 0.0000001 and 0.00000025 per token); streaming true; tools listed among the supported parameters; input modalities text, image, audio, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"DeepSeek V4 Flash 0731\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"DeepSeek's official V4 Flash release with substantially enhanced agentic capabilities and a built-in speculative decoding module.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.1 and completion price $0.25 per MTok (cost_usd 0.0000001 and 0.00000025 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "glm-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"GLM 5.3\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Served at NVFP4 across a 1M-token context.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.75 and completion price $3 per MTok (cost_usd 0.00000075 and 0.000003 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.35
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"GLM 5.3 Flash\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Z.ai's first natively multimodal GLM-5 model: a 320B-parameter MoE with ~18B active per token, combining sparse and linear attention for cheap long-context serving across a 1M-token window.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.1 and completion price $0.35 per MTok (cost_usd 0.0000001 and 0.00000035 per token); streaming true; tools listed among the supported parameters; input modalities text, image, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "glm-5.x-menthol": {
+        "contextWindow": 202752,
+        "maxOutputTokens": 202752,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 1.75
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"GLM 5\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Z.ai's GLM-5, a 744B-parameter MoE flagship for agentic reasoning and coding, served in FP8.\" Roster fields: text input max_context_length 202,752 tokens; output max_length 202,752 tokens; prompt price $0.4 and completion price $1.75 per MTok (cost_usd 0.0000004 and 0.00000175 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "laguna-s-2.1": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.09,
+          "output": 0.18
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"Laguna S 2.1\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Laguna S 2.1 is a 118B total parameter Mixture-of-Experts model with 8B activated parameters per token, designed for agentic coding and long-horizon work.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.09 and completion price $0.18 per MTok (cost_usd 0.00000009 and 0.00000018 per token); streaming true; tools listed among the supported parameters; input modalities text, image. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "mimo-v2.6-pro-rl": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 0.8
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"MiMo V2.6 Pro RL\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"MiMo V2.6 Pro RL is Xiaomi's mixture-of-experts model with 1.02T total and 42B active parameters, hybrid sliding-window attention, and a 1M-token context.\" \"Supports reasoning and tool calling, served at FP8.\" Roster fields: text input max_context_length 1,048,576 tokens; output max_length 1,048,576 tokens; prompt price $0.4 and completion price $0.8 per MTok (cost_usd 0.0000004 and 0.0000008 per token); streaming true; tools listed among the supported parameters; input modalities text, image, audio, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      },
+      "minimax-m3": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 524288,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.9
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"MiniMax M3\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"MiniMax M3 is a natively multimodal MoE model (~428B parameters, ~23B active) with a 1M-token context.\" Roster fields: text input max_context_length 524,288 tokens; output max_length 524,288 tokens; prompt price $0.2 and completion price $0.9 per MTok (cost_usd 0.0000002 and 0.0000009 per token); streaming true; tools listed among the supported parameters; input modalities text, image, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent. The roster description text says a 1M-token context while the max_context_length field says 524,288; contextWindow uses the field."
+      },
+      "muse-glimmer-30b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Roster entry named \"Muse Glimmer 30B\" on the unauthenticated GET https://api.vultrinference.com/v1/models (2026-09-29, 24 entries). Roster description: \"Muse Glimmer 30B is a dense multimodal model for reasoning, coding, and tool use, with a 131072-token context.\" Roster fields: text input max_context_length 131,072 tokens; output max_length 131,072 tokens; prompt price $0.25 and completion price $1 per MTok (cost_usd 0.00000025 and 0.000001 per token); streaming true; tools listed among the supported parameters; input modalities text, image, video. Vision is true because the roster lists an image input modality (sources url and base64; formats image/png, image/jpeg, image/webp, image/gif); no image request was sent."
+      }
+    },
+    "topModels": [
+      "glm-5.2",
+      "deepseek-v4.1-flash",
+      "qwen3.8-flash-next",
+      "mimo-v2.6-flash-rl",
+      "deepseek-v4-flash-0731",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.x-menthol",
+      "laguna-s-2.1",
+      "mimo-v2.6-pro-rl",
+      "minimax-m3",
+      "muse-glimmer-30b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Vultr Inference rejected the request with HTTP 401 (Unauthorized). Check {apiKeyEnvVar}; the steps to retrieve a key are at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Vultr Inference reports HTTP 429 (Rate limit exceeded)."
+    }
+  ],
+  "setup": {
+    "url": "https://docs.vultr.com/products/compute/serverless-inference/provisioning",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://docs.vultr.com/products/compute/serverless-inference/provisioning and follow the Vultr Console steps: Products, Serverless, Inference, Add Serverless Inference, then provide a Label, \"acknowledge the list of supported models and the charges note\", and click Add Serverless Inference",
+      "2. Open the new subscription's management page and copy the API key from its overview page (https://docs.vultr.com/products/compute/serverless-inference/management/connection: \"API key is necessary to send any request to the inference endpoints\")",
+      "3. Charges: the provisioning page above lists the charges note among the items to acknowledge, and the FAQ (https://docs.vultr.com/products/compute/serverless-inference/faq) says the subscription's Usage tab shows \"details on your current token usage, overage, and any associated costs\"",
+      "4. Set {apiKeyEnvVar} in your .env file (the authentication example on https://api.vultrinference.com/ writes ${VULTR_API_KEY}, which NeuroLink does not read)"
+    ],
+    "description": "Chat completions endpoint at https://api.vultrinference.com/v1 (https://api.vultrinference.com/ documents POST /chat/completions with bearer-token authentication and says \"Responses follow OpenRouter's chat completion shape whichever engine serves the model\"; the FAQ at https://docs.vultr.com/products/compute/serverless-inference/faq says to \"replace your current inference API URL (such as OpenAI's base API URL) with Vultr’s API URL\"). The chat-completions request message schema at https://api.vultrinference.com/ lists role (system, assistant, user, tool, developer) and content (type string, \"The contents of the message.\"); the tool call id description says \"Send it back unchanged as the `tool_call_id` of the tool result.\" The roster route is public (\"Most API routes require a bearer token. The public `/v1/models` route does not.\") and lists 24 entries, 15 with a text output; the catalog holds 12 chat models. billingPolicy no-free-tier is the schema's closest value (the schema has no unknown value) and is not a Vultr statement. Each model's status production is a value the schema requires and is not a Vultr statement. models.defaultContextWindow (131,072) and models.defaultMaxOutputTokens (32,768) are placeholders for ids outside the catalog that the vendor does not publish: 131,072 is the context the roster lists for muse-glimmer-30b and 32,768 is the default the chat-completions page shows for max_completion_tokens. errorRules match the documented statuses 401 and 429; the 401 body was observed on unauthenticated GETs of /v1/models/all, /v1/usage and /v1/models/glm-5.2 ({\"message\":\"No API key provided\"}); no POST to /chat/completions was sent."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.vultrinference.com/v1/models — 24 models; credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api.vultrinference.com/v1/models/all with no credentials — 401 {\"message\":\"No API key provided\"} (the same body on GET /v1/usage and GET /v1/models/glm-5.2); the body carries no error code; GET https://api.vultrinference.com/v1/chat/completions answered 404 (the documented method is POST and none was sent); credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.vultr.com/products/compute/serverless-inference/provisioning (Console steps: \"acknowledge the list of supported models and the charges note\") and https://docs.vultr.com/products/compute/serverless-inference/faq (Usage tab: \"details on your current token usage, overage, and any associated costs\"); no free-tier statement read; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

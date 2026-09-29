@@ -1,0 +1,227 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "avian-io",
+  "displayName": "Avian",
+  "aliases": ["avian"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.avian.io/v1"
+  },
+  "models": {
+    "default": "deepseek/deepseek-v4-pro-0813",
+    "fallbacks": [
+      "deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v3.2",
+      "z-ai/glm-5.2"
+    ],
+    "defaultContextWindow": 163840,
+    "defaultMaxOutputTokens": 65536,
+    "catalog": {
+      "deepseek/deepseek-v4-pro-0813": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.594,
+          "output": 1.782,
+          "cachedInput": 0.0198
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended default - the model Avian itself promotes: every avian.io page opened on 2026-09-29 (home, docs, models, pricing, about) carries the banner \"DeepSeek V4 Pro 0813 is now live on Avian. Try it today\". Not itself used in the docs code examples, which all name the legacy deepseek/deepseek-v3.2. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,000,000, max_output 393,216, $0.594/$1.782 per MTok input/output, $0.0198 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "deepseek/deepseek-v4-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.0805,
+          "output": 0.161,
+          "cachedInput": 0.0165
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback - the lowest input and output price on the roster, and the first model listed. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,000,000, max_output 393,216, $0.0805/$0.161 per MTok input/output, $0.0165 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "deepseek/deepseek-v3.2": {
+        "contextWindow": 163840,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.23,
+          "output": 0.33,
+          "cachedInput": 0.012
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback - the model named in every code example on https://avian.io/docs/, including its Function Calling and Streaming examples (the only model with a documented tool-call example); the vendor labels it (Legacy), so it may be retired. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 163,840, max_output 65,536, $0.23/$0.33 per MTok input/output, $0.012 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "z-ai/glm-5.2": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.495,
+          "output": 1.733,
+          "cachedInput": 0.124
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback - the highest-numbered GLM on the roster, 1M context. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,048,576, max_output 131,072, $0.495/$1.733 per MTok input/output, $0.124 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "deepseek/deepseek-v4-pro": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 1.305,
+          "output": 2.61,
+          "cachedInput": 0.10875
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro (the undated build), roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,000,000, max_output 393,216, $1.305/$2.61 per MTok input/output, $0.10875 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "minimax/minimax-m2.5": {
+        "contextWindow": 196608,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.27,
+          "output": 1.08,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.5, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 196,608, max_output 131,072, $0.27/$1.08 per MTok input/output, $0.15 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "z-ai/glm-5": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.516,
+          "output": 2.322,
+          "cachedInput": 0.129
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 204,800, max_output 131,072, $0.516/$2.322 per MTok input/output, $0.129 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "z-ai/glm-5.1": {
+        "contextWindow": 202752,
+        "maxOutputTokens": 202752,
+        "pricingPerMTok": {
+          "input": 0.743,
+          "output": 2.971,
+          "cachedInput": 0.186
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.1, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 202,752, max_output 202,752, $0.743/$2.971 per MTok input/output, $0.186 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "moonshotai/kimi-k2.5": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 2.2,
+          "cachedInput": 0.225
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Moonshot Kimi K2.5, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 262,144, max_output 262,144, $0.45/$2.2 per MTok input/output, $0.225 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "moonshotai/kimi-k2.6": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.16
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Moonshot Kimi K2.6, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 262,144, max_output 262,144, $0.95/$4 per MTok input/output, $0.16 cache-read, reasoning flag false. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "xiaomi/mimo-v2.6-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.4,
+          "cachedInput": 0.05
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Xiaomi MiMo-V2.6 Flash, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,048,576, max_output 131,072, $0.2/$0.4 per MTok input/output, $0.05 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      },
+      "xiaomi/mimo-v2.6-pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.435,
+          "output": 0.87,
+          "cachedInput": 0.0036
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Xiaomi MiMo-V2.6 Pro, roster-listed only. Unauthenticated GET https://api.avian.io/v1/models roster (2026-09-29, 13 models): context_length 1,048,576, max_output 131,072, $0.435/$0.87 per MTok input/output, $0.0036 cache-read, reasoning flag true. The same prices, and the rounded context and max-output figures, are stated on https://avian.io/models/ and https://avian.io/pricing/. No vendor page says this model accepts image input, so vision is false."
+      }
+    },
+    "topModels": [
+      "deepseek/deepseek-v4-pro-0813",
+      "deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v3.2",
+      "z-ai/glm-5.2",
+      "deepseek/deepseek-v4-pro",
+      "minimax/minimax-m2.5",
+      "z-ai/glm-5",
+      "z-ai/glm-5.1",
+      "moonshotai/kimi-k2.5",
+      "moonshotai/kimi-k2.6",
+      "xiaomi/mimo-v2.6-flash",
+      "xiaomi/mimo-v2.6-pro"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or missing Avian API key (HTTP 401). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Avian account has an insufficient credit balance (HTTP 402). Add prepaid credits — see https://avian.io/pricing/"
+    }
+  ],
+  "setup": {
+    "url": "https://avian.io/accounts/signup/",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://avian.io/accounts/signup/ and sign up with Google or a work email and password",
+      "2. Create an API key from your signed-in account — the public pages only say \"Get your API key in under a minute\" (https://avian.io/pricing/) and do not name the key page; the docs examples show keys that start with avian-",
+      "3. Prepaid credits only: add credits before calling the API (https://avian.io/pricing/ lists $50, $100, $150 and $250 packages); the sign-up buttons say \"Get Started Free\" but no free credits are stated anywhere, and the docs list HTTP 402 for an insufficient credit balance (https://avian.io/docs/)",
+      "4. Set {apiKeyEnvVar} in your .env file (the vendor's homepage example reads AVIAN_API_KEY, which NeuroLink does not)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.avian.io/v1 (https://avian.io/docs/: \"The Avian API is fully OpenAI-compatible\"), serving 13 open-weight chat models from DeepSeek, MiniMax, Zhipu, Moonshot and Xiaomi on prepaid credits. The docs list the error statuses 400, 401, 402, 429 and 500 but describe the body only as \"a JSON body with a descriptive message\", so errorRules match the status codes alone."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.avian.io/v1/models — 13 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://avian.io/pricing/ — \"Simple per-token pricing with prepaid credits. No subscriptions, no commitments\"; no free tier or free credits stated; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

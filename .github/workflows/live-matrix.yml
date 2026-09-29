@@ -167,6 +167,26 @@ jobs:
           MOARK_API_KEY: ${{ secrets.MOARK_API_KEY }}
           NEURALWATT_API_KEY: ${{ secrets.NEURALWATT_API_KEY }}
           PARETO_INFERENCE_API_KEY: ${{ secrets.PARETO_INFERENCE_API_KEY }}
+          AIONLABS_API_KEY: ${{ secrets.AIONLABS_API_KEY }}
+          ATLAS_CLOUD_API_KEY: ${{ secrets.ATLAS_CLOUD_API_KEY }}
+          AVIAN_IO_API_KEY: ${{ secrets.AVIAN_IO_API_KEY }}
+          PRIME_INTELLECT_API_KEY: ${{ secrets.PRIME_INTELLECT_API_KEY }}
+          SUBCONSCIOUS_API_KEY: ${{ secrets.SUBCONSCIOUS_API_KEY }}
+          TINFOIL_API_KEY: ${{ secrets.TINFOIL_API_KEY }}
+          UMANS_AI_API_KEY: ${{ secrets.UMANS_AI_API_KEY }}
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+          WAFER_API_KEY: ${{ secrets.WAFER_API_KEY }}
+          VENICE_AI_API_KEY: ${{ secrets.VENICE_AI_API_KEY }}
+          AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          MOONSHOT_AI_API_KEY: ${{ secrets.MOONSHOT_AI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          Z_AI_API_KEY: ${{ secrets.Z_AI_API_KEY }}
+          STEPFUN_API_KEY: ${{ secrets.STEPFUN_API_KEY }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+          SCALEWAY_API_KEY: ${{ secrets.SCALEWAY_API_KEY }}
+          CRUSOE_API_KEY: ${{ secrets.CRUSOE_API_KEY }}
+          WANDB_INFERENCE_API_KEY: ${{ secrets.WANDB_INFERENCE_API_KEY }}
           VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}

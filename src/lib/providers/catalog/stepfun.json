@@ -1,0 +1,155 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "stepfun",
+  "displayName": "StepFun",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.stepfun.ai/v1"
+  },
+  "models": {
+    "default": "step-5-preview",
+    "fallbacks": [
+      "step-3.7-flash",
+      "step-3.5-flash",
+      "step-3.5-flash-2603",
+      "step-1o-turbo-vision"
+    ],
+    "fallbackModelName": "step-3.7-flash",
+    "defaultContextWindow": 32000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "step-5-preview": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 1.0,
+          "output": 2.7,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "NeuroLink default. Model page https://platform.stepfun.ai/docs/en/guides/models/step-5-preview (retrieved 2026-09-29): \"Step 5 Preview is StepFun's flagship model for agentic work.\" The page's specification table gives Model ID step-5-preview, Context window \"1M tokens\", Input types \"Text, images, and video\", Output type \"Text\" and Maximum output \"64k tokens\"; its features table lists Streaming output, Tool calling, Structured output (\"JSON Mode and JSON Schema supported\"), Reasoning effort (low, medium, high) and Prompt caching. The Chat Completions page https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md states \"The examples below use step-5-preview by default.\" Prices per https://platform.stepfun.ai/docs/en/guides/pricing/details.md: $1.00 input (cache miss), $0.05 input (cache hit), $2.70 output per 1M tokens. contextWindow 1000000 and maxOutputTokens 64000 are the decimal forms of \"1M tokens\" and \"64k tokens\"; vision is true because the model page lists images and video as input types; status is preview because the vendor names the model \"Step 5 Preview\"."
+      },
+      "step-3.7-flash": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 1.15,
+          "cachedInput": 0.04
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Model page https://platform.stepfun.ai/docs/en/guides/models/step-3.7-flash (retrieved 2026-09-29): \"StepFun's flagship multimodal reasoning model. Powered by a 198B-parameter / 11B-activation sparse MoE architecture, with native support for image and video understanding.\" Its Key facts section states a context length of 256K tokens, and the page lists three reasoning effort levels (low, medium, high) set with reasoning_effort on the Chat Completions API. The Quickstart table (https://platform.stepfun.ai/docs/en/quickstart/overview.md) lists Input capabilities \"Text, images, and video\" for it; the Tool Call page (https://platform.stepfun.ai/docs/en/api-reference/tool-call.md) lists it among the models that support Toolcall requests, and the JSON Mode page (https://platform.stepfun.ai/docs/en/guides/developer/json-mode.md) says the json_schema approach applies to it. Prices per https://platform.stepfun.ai/docs/en/guides/pricing/details.md (the model page shows the same figures): $0.20 input (cache miss), $0.04 input (cache hit), $1.15 output per 1M tokens. contextWindow 256000 is the decimal form of \"256K tokens\"; vision is true because the Quickstart table lists images and video as input capabilities."
+      },
+      "step-3.5-flash": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.3,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Model page https://platform.stepfun.ai/docs/en/guides/models/step-3.5-flash (retrieved 2026-09-29): the model is \"StepFun's flagship language reasoning model\", \"Built on a 196B-parameter / 11B-activation sparse MoE architecture.\" Its Key facts section states a context length of 256K tokens. The Quickstart table (https://platform.stepfun.ai/docs/en/quickstart/overview.md) lists Input capabilities \"Text only\" for it and says \"Step 3.5 Flash does not support image input\". The Tool Call page (https://platform.stepfun.ai/docs/en/api-reference/tool-call.md) lists it among the models that support Toolcall requests, and the JSON Mode page (https://platform.stepfun.ai/docs/en/guides/developer/json-mode.md) says the json_schema approach applies to it. Prices per https://platform.stepfun.ai/docs/en/guides/pricing/details.md (the model page shows the same figures): $0.10 input (cache miss), $0.02 input (cache hit), $0.30 output per 1M tokens. contextWindow 256000 is the decimal form of \"256K tokens\"."
+      },
+      "step-3.5-flash-2603": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.3,
+          "cachedInput": 0.02
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The Model variants section of https://platform.stepfun.ai/docs/en/guides/models/step-3.5-flash (retrieved 2026-09-29) describes step-3.5-flash-2603 as \"Agent-optimized version: tuned from step-3.5-flash for high-frequency agent scenarios.\" and says it \"Supports the reasoning_effort field (low / high).\" The Chat Completions page (https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md) says step-3.5-flash-2603 accepts low and high for reasoning_effort. The welcome page model overview (https://platform.stepfun.ai/docs/en/welcome.md) has a card titled \"Step 3.5 Flash 2603\" with the category \"Reasoning / text\", the subtitle \"Optimized for agents\" and the metric \"Max context\" (value 256K). The Tool Call page (https://platform.stepfun.ai/docs/en/api-reference/tool-call.md) lists step-3.5-flash-2603 among the models that support Toolcall requests, and the JSON Mode page (https://platform.stepfun.ai/docs/en/guides/developer/json-mode.md) says the json_schema approach applies to it. Prices per https://platform.stepfun.ai/docs/en/guides/pricing/details.md: $0.10 input (cache miss), $0.02 input (cache hit), $0.30 output per 1M tokens. contextWindow 256000 is the decimal form of 256K; vision is false (the welcome card category is \"Reasoning / text\")."
+      },
+      "step-1o-turbo-vision": {
+        "contextWindow": 32000,
+        "pricingPerMTok": {
+          "input": 0.36,
+          "output": 1.15,
+          "cachedInput": 0.07
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Listed as step-1o-turbo-vision under \"Pricing for Vision Models\" on https://platform.stepfun.ai/docs/en/guides/pricing/details.md (retrieved 2026-09-29): $0.36 input (cache miss), $0.07 input (cache hit), $1.15 output per 1M tokens; the page adds \"Image input is counted and billed as tokens, just like text input.\" The Model Retirement and Migration page (https://platform.stepfun.ai/docs/en/guides/model-migration.md) lists it in the \"Recommended replacement\" column for step-1-8k, step-1-32k, step-1v-8k, step-1v-32k, step-2-mini, step-1o-vision-32k and step-2-16k. The welcome page model overview (https://platform.stepfun.ai/docs/en/welcome.md) has a card titled \"Step-1o Turbo Vision\" with the metric \"Max context\" (value 32K) and the text \"Designed for social content creation, AI assistants, and image and video understanding.\" contextWindow 32000 is the decimal form of 32K; vision is true because the pricing page groups the model under vision models and the card describes image and video understanding."
+      }
+    },
+    "topModels": [
+      "step-5-preview",
+      "step-3.7-flash",
+      "step-3.5-flash",
+      "step-3.5-flash-2603",
+      "step-1o-turbo-vision"
+    ],
+    "visionModel": "step-5-preview"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "StepFun rejected the API key (HTTP 401 invalid_api_key; the Error Codes page lists 401 as \"Invalid authentication\" with the resolution \"Make sure you are using the correct API key.\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "StepFun returned HTTP 402 (the Error Codes page lists 402 as \"Insufficient balance\" with the resolution \"Add funds to your account.\")."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "StepFun returned HTTP 429 (the Error Codes page lists 429 as \"Resource or rate limit exceeded, usually because requests are too frequent\" with the resolution \"Retry after a short delay.\")."
+    },
+    {
+      "status": 451,
+      "class": "provider",
+      "message": "StepFun returned HTTP 451 (the Error Codes page lists 451 as \"The request or response content failed review\" with the resolution \"Modify the request and try again.\")."
+    },
+    {
+      "status": 503,
+      "class": "provider",
+      "message": "StepFun returned HTTP 503 (the Error Codes page lists 503 as \"Server is currently overloaded\" with the resolution \"Retry after a short delay.\")."
+    }
+  ],
+  "setup": {
+    "url": "https://platform.stepfun.ai/interface-key",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://platform.stepfun.ai/interface-key and sign in - the Quickstart (https://platform.stepfun.ai/docs/en/quickstart/overview.md) says \"Sign in to the StepFun Open Platform and create and copy an API key on the Interface Keys page.\"",
+      "2. Billing as the vendor states it: the pricing overview (https://platform.stepfun.ai/docs/en/guides/pricing/intro.md) says fees are deducted \"drawing from free credit first, then paid balance\", and the Error Codes page (https://platform.stepfun.ai/docs/en/api-reference/error-codes.md) lists HTTP 402 as \"Insufficient balance\" with the resolution \"Add funds to your account.\"",
+      "3. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.stepfun.ai/v1/models needs a key (it answers HTTP 401 without one), so the five model ids come from the pricing page https://platform.stepfun.ai/docs/en/guides/pricing/details.md and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.stepfun.ai/v1: the Chat Completions page (https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md) documents POST https://api.stepfun.ai/v1/chat/completions with a required model and messages, and streaming as data: chunks ending in data: [DONE]; the migration page (https://platform.stepfun.ai/docs/en/guides/developer/openai.md) says \"Stepfun models are compatible with the OpenAI API spec.\" Unauthenticated GETs made 2026-09-29: /models and /chat/completions each answered HTTP 401 with the body {\"error\":{\"message\":\"Incorrect API key provided\",\"type\":\"invalid_api_key\"}}; errorRules carry that 401 and the 402, 429, 451 and 503 statuses listed on the Error Codes page. models.defaultContextWindow (32000) and models.defaultMaxOutputTokens (16384) are conservative placeholders for model ids outside the catalog; the vendor does not publish a general default. Per-model contextWindow and maxOutputTokens values are the decimal forms of the labels the vendor prints (\"1M tokens\", \"256K tokens\", 32K, \"64k tokens\"). billingPolicy holds the schema value no-free-tier because the catalog schema has no unknown value; it is not a vendor statement. The base URL is the standard Open Platform endpoint; the Step Plan overview (https://platform.stepfun.ai/docs/en/step-plan/overview.md) lists a separate OpenAI SDK base URL, https://api.stepfun.ai/step_plan/v1. No POST request was sent, so the request fields NeuroLink's chat-completions client can add (stream_options on streaming calls, tool_choice on calls with tools, and a json_schema response_format for schema output) have not been exercised against StepFun."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.stepfun.ai/v1/models answers 401 without a key, so model ids are taken from https://platform.stepfun.ai/docs/en/guides/pricing/details.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "invalid_api_key",
+      "method": "unauthenticated GET https://api.stepfun.ai/v1/models and GET https://api.stepfun.ai/v1/chat/completions, no Authorization header — each HTTP 401, JSON body {\"error\":{\"message\":\"Incorrect API key provided\",\"type\":\"invalid_api_key\"}}; the code recorded here is the body's error.type value (the body has no error.code field); credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://platform.stepfun.ai/docs/en/guides/pricing/intro.md (\"drawing from free credit first, then paid balance\"), https://platform.stepfun.ai/docs/en/guides/pricing/details.md (per-token prices and rate-limit tiers by cumulative top-up amount) and https://platform.stepfun.ai/docs/en/api-reference/error-codes.md (402 \"Insufficient balance\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

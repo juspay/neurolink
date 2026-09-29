@@ -100,9 +100,21 @@ Supported AI Provider Names
 
 ---
 
+### AI21
+
+> **AI21**: `"ai21"`
+
+---
+
 ### AIAND
 
 > **AIAND**: `"aiand"`
+
+---
+
+### AIONLABS
+
+> **AIONLABS**: `"aionlabs"`
 
 ---
 
@@ -115,6 +127,18 @@ Supported AI Provider Names
 ### API_ROUTE
 
 > **API_ROUTE**: `"api-route"`
+
+---
+
+### ATLAS_CLOUD
+
+> **ATLAS_CLOUD**: `"atlas-cloud"`
+
+---
+
+### AVIAN_IO
+
+> **AVIAN_IO**: `"avian-io"`
 
 ---
 
@@ -151,6 +175,12 @@ Supported AI Provider Names
 ### CLOUDFLARE
 
 > **CLOUDFLARE**: `"cloudflare"`
+
+---
+
+### CRUSOE
+
+> **CRUSOE**: `"crusoe"`
 
 ---
 
@@ -256,6 +286,12 @@ Supported AI Provider Names
 
 ---
 
+### MINIMAX
+
+> **MINIMAX**: `"minimax"`
+
+---
+
 ### MISTRAL
 
 > **MISTRAL**: `"mistral"`
@@ -268,9 +304,21 @@ Supported AI Provider Names
 
 ---
 
+### MOONSHOT_AI
+
+> **MOONSHOT_AI**: `"moonshot-ai"`
+
+---
+
 ### MORPH
 
 > **MORPH**: `"morph"`
+
+---
+
+### NEBIUS
+
+> **NEBIUS**: `"nebius"`
 
 ---
 
@@ -304,6 +352,12 @@ Supported AI Provider Names
 
 ---
 
+### PRIME_INTELLECT
+
+> **PRIME_INTELLECT**: `"prime-intellect"`
+
+---
+
 ### SAMBANOVA
 
 > **SAMBANOVA**: `"sambanova"`
@@ -316,9 +370,39 @@ Supported AI Provider Names
 
 ---
 
+### SCALEWAY
+
+> **SCALEWAY**: `"scaleway"`
+
+---
+
+### SILICONFLOW
+
+> **SILICONFLOW**: `"siliconflow"`
+
+---
+
+### STEPFUN
+
+> **STEPFUN**: `"stepfun"`
+
+---
+
+### SUBCONSCIOUS
+
+> **SUBCONSCIOUS**: `"subconscious"`
+
+---
+
 ### SYNTHETIC
 
 > **SYNTHETIC**: `"synthetic"`
+
+---
+
+### TINFOIL
+
+> **TINFOIL**: `"tinfoil"`
 
 ---
 
@@ -328,15 +412,51 @@ Supported AI Provider Names
 
 ---
 
+### UMANS_AI
+
+> **UMANS_AI**: `"umans-ai"`
+
+---
+
 ### UPSTAGE
 
 > **UPSTAGE**: `"upstage"`
 
 ---
 
+### VENICE_AI
+
+> **VENICE_AI**: `"venice-ai"`
+
+---
+
+### VULTR_INFERENCE
+
+> **VULTR_INFERENCE**: `"vultr-inference"`
+
+---
+
+### WAFER
+
+> **WAFER**: `"wafer"`
+
+---
+
+### WANDB_INFERENCE
+
+> **WANDB_INFERENCE**: `"wandb-inference"`
+
+---
+
 ### XAI
 
 > **XAI**: `"xai"`
+
+---
+
+### Z_AI
+
+> **Z_AI**: `"z-ai"`
 
 ---
 

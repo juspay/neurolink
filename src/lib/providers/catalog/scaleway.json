@@ -1,0 +1,177 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "scaleway",
+  "displayName": "Scaleway",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.scaleway.ai/v1"
+  },
+  "models": {
+    "default": "mistral-small-3.2-24b-instruct-2506",
+    "fallbacks": [
+      "llama-3.3-70b-instruct",
+      "qwen3-235b-a22b-instruct-2507",
+      "gemma-4-26b-a4b-it",
+      "qwen3.6-35b-a3b"
+    ],
+    "defaultContextWindow": 100000,
+    "defaultMaxOutputTokens": 16000,
+    "catalog": {
+      "mistral-small-3.2-24b-instruct-2506": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 32000,
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. The id appears in the Model field description of the Chat Completions API reference (https://www.scaleway.com/en/developers/api/generative-apis/chat-completions/: \"Unique identifier of the model, such as llama-3.3-70b-instruct or mistral-small-3.2-24b-instruct-2506.\") and in the /chat/completions curl example on the rate-limits page (https://www.scaleway.com/en/docs/generative-apis/reference-content/rate-limits/). From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text and Vision, maximum context window is 128k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported image formats are PNG, JPEG, WEBP, and non-animated GIFs. The pricing page lists it as Chat and Vision at 0.15 EUR per million input tokens and 0.35 EUR per million output tokens; pricingPerMTok is left out because the pricing page states euro prices and the schema has no currency field. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "llama-3.3-70b-instruct": {
+        "contextWindow": 100000,
+        "maxOutputTokens": 16000,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The id appears in the Model field description and the example request of the Chat Completions API reference (https://www.scaleway.com/en/developers/api/generative-apis/chat-completions/). From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modality is Text, context window is 100k (Serverless), maximum output (Serverless) is 16k; the attribute rows for structured output, function calling and parallel tool-calling are Yes. Vendor text: \"Released in December 2024, Llama 3.3 70b by Meta is a fine-tune of the Llama 3.1 70b model.\" and \"This model is text-only (text in/text out).\" The pricing page lists it as Chat at 0.90 EUR per million input tokens and 0.90 EUR per million output tokens. Vision is false because the modalities entry does not list Vision."
+      },
+      "qwen3-235b-a22b-instruct-2507": {
+        "contextWindow": 250000,
+        "maxOutputTokens": 16000,
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modality is Text, maximum context window is 250k, maximum output (Serverless) is 16k; the attribute rows for structured output, function calling and parallel tool-calling are Yes. Vendor text: \"Released in July 2025, Qwen 3 235B A22B is an open-weight model\". The pricing page lists it as Chat at 0.75 EUR per million input tokens and 2.25 EUR per million output tokens. Vision is false because the modalities entry does not list Vision."
+      },
+      "gemma-4-26b-a4b-it": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 32000,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text and Vision, maximum context window is 256k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, low, medium, high; supported image formats are PNG, JPEG, WEBP, and non-animated GIFs. Vendor text: \"Released in April 2026, Gemma-4-26b-a4b-it is a frontier small-sized model to perform agentic and reasoning tasks on many languages.\" The pricing page lists it as Chat, code, and Vision at 0.25 EUR per million input tokens and 0.50 EUR per million output tokens. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "qwen3.6-35b-a3b": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 32000,
+        "vision": true,
+        "status": "production",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text, Code and Vision, maximum context window is 256k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, low, medium, high; supported image formats are PNG, JPEG, GIF. Vendor text: \"Released in April 2026, Qwen3.6-35b-a3b is a state-of-the-art small-sized model optimized for agentic tasks and logical reasoning.\" The pricing page lists it as Chat, code, and Vision at 0.25 EUR per million input tokens and 1.50 EUR per million output tokens. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "qwen3.8-27b": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 32000,
+        "vision": true,
+        "status": "production",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text, Code and Vision, maximum context window is 256k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, low, medium, xhigh; supported image formats are PNG, JPEG, GIF. Vendor text: \"A state-of-the-art small-sized dense model as of August 2026, optimized for agentic tasks and logical reasoning.\" The pricing page lists it as Chat, code, and Vision at 0.60 EUR per million input tokens (0.12 EUR per million cached) and 3.30 EUR per million output tokens. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "qwen3.5-397b-a17b": {
+        "contextWindow": 250000,
+        "maxOutputTokens": 16000,
+        "vision": true,
+        "status": "production",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text, Code and Vision, maximum context window is 250k, maximum output (Serverless) is 16k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, low, medium, high; supported image formats are PNG, JPEG, WEBP, and non-animated GIFs. Vendor text: \"Qwen3.5-397b-a17b is a model developed by Qwen to perform text processing, agentic coding, image, and video analysis in several languages.\" The pricing page lists it as Chat, code, and Vision at 0.60 EUR per million input tokens and 3.60 EUR per million output tokens. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 32000,
+        "vision": false,
+        "status": "preview",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text and Code, maximum context window is 256k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, low, high, max. The context footnote on that page reads: \"GLM 5.2 and DeepSeek-V4-Flash support 1 million context. During the preview stage, the context is limited to 256k to ensure consistent token generation speed.\" Vendor text: \"Released in July 2026, DeepSeek-V4-Flash is the best cost-efficient model for long-horizon and coding tasks at the time of release.\" The pricing page lists it as Chat and code at 0.40 EUR per million input tokens (0.08 EUR per million cached) and 0.80 EUR per million output tokens. Vision is false because the modalities entry does not list Vision."
+      },
+      "glm-5.2": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 16000,
+        "vision": false,
+        "status": "preview",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text and Code, maximum context window is 256k, maximum output (Serverless) is 16k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, high, max. The context footnote on that page reads: \"GLM 5.2 and DeepSeek-V4-Flash support 1 million context. During the preview stage, the context is limited to 256k to ensure consistent token generation speed.\" Vendor text: \"Released in June 2026, GLM 5.2 is the best open-weight model for long-horizon and coding tasks at the time of release.\" The pricing page lists it as Chat and code at 1.80 EUR per million input tokens and 5.50 EUR per million output tokens. Vision is false because the modalities entry does not list Vision."
+      },
+      "mistral-medium-3.5-128b": {
+        "contextWindow": 180000,
+        "maxOutputTokens": 16000,
+        "vision": true,
+        "status": "preview",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modalities are Text and Vision, maximum context window is 180k, maximum output (Serverless) is 16k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are none, high; supported image formats are PNG, JPEG, WEBP, GIF. The context footnote on that page reads: \"Mistral Medium 3.5 supports 1 million context. During the preview stage, the context is limited to 180k to ensure consistent token generation speed.\" Vendor text: \"Mistral-medium-3.5 is a unified model from Mistral with strong performance for instruct, reasoning, and coding tasks.\" The pricing page lists it as Chat, code, and Vision at 1.50 EUR per million input tokens and 7.50 EUR per million output tokens. Vision is true because the modalities entry lists Vision (not probed with an image request)."
+      },
+      "gpt-oss-120b": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 32000,
+        "vision": false,
+        "status": "production",
+        "description": "From the supported-models page (https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/, retrieved 2026-09-29) and pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/, retrieved 2026-09-29, region Paris): Available in Serverless is Yes, modality is Text, maximum context window is 128k, maximum output (Serverless) is 32k; the attribute rows for structured output, function calling and parallel tool-calling are Yes; supported reasoning efforts are low, medium, high. Vendor text: \"Released in August 2025, GPT OSS 120B is an open-weight model providing significant throughput performance and reasoning capabilities.\" and \"Currently, this model should be used through the Responses API, because the Chat Completions API does not yet support tool-calling for this model.\" The pricing page lists it as Chat at 0.15 EUR per million input tokens and 0.60 EUR per million output tokens. Vision is false because the modalities entry does not list Vision."
+      }
+    },
+    "topModels": [
+      "mistral-small-3.2-24b-instruct-2506",
+      "llama-3.3-70b-instruct",
+      "qwen3-235b-a22b-instruct-2507",
+      "gemma-4-26b-a4b-it",
+      "qwen3.6-35b-a3b",
+      "qwen3.8-27b",
+      "qwen3.5-397b-a17b",
+      "deepseek-v4-flash-0731",
+      "glm-5.2",
+      "mistral-medium-3.5-128b",
+      "gpt-oss-120b"
+    ],
+    "visionModel": "mistral-small-3.2-24b-instruct-2506"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Scaleway rejected the request with HTTP 401 (the Understanding common errors page lists 401 as \"Unauthorized: The authorization header is missing.\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "Scaleway returned HTTP 403 (the Understanding common errors page lists 403 as \"Forbidden: Your API key does not exist or does not have the necessary permissions to access the requested resource.\"). The Using Generative APIs page lists the permission sets GenerativeApisModelAccess, GenerativeApisFullAccess and AllProductsFullAccess for querying models. Check {apiKeyEnvVar}."
+    },
+    {
+      "status": 422,
+      "class": "invalid-model",
+      "message": "Scaleway returned HTTP 422 for model '{model}' (the Understanding common errors page lists 422 as \"Model Not Found: The model key is present in the request payload, but the corresponding model is not found.\" and \"Missing Model: The model key is missing from the request payload.\"). Supported models: https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Scaleway returned HTTP 429 (the Understanding common errors page lists 429 as \"Too Many Requests: You are exceeding your current quota for the requested model, calculated in requests per minute.\" and \"Too Many Tokens: You are exceeding your current quota for the requested model, calculated in tokens per minute.\"). Rate limits: https://www.scaleway.com/en/docs/generative-apis/reference-content/rate-limits/"
+    }
+  ],
+  "setup": {
+    "url": "https://account.scaleway.com/register?service=console",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://account.scaleway.com/register?service=console and create a Scaleway account; the quickstart (https://www.scaleway.com/en/docs/generative-apis/quickstart/) lists \"A Scaleway account logged into the console\" and \"A valid API key\" as requirements",
+      "2. Create an API key (https://www.scaleway.com/en/docs/iam/credentials/create-api-keys/): click IAM & API keys on the top-right drop-down menu of the Scaleway console, open the API keys tab and click + Generate API key. The page says: \"A screen displays showing the access key and secret key for your new API key and reminding you that this is your only chance to securely save the secret key.\" The quickstart passes the secret key as the OpenAI client's api_key. Querying models requires one of the permission sets GenerativeApisModelAccess, GenerativeApisFullAccess or AllProductsFullAccess (https://www.scaleway.com/en/docs/generative-apis/api-cli/using-generative-apis/)",
+      "3. Billing as the vendor states it: the pricing page (https://www.scaleway.com/en/pricing/model-as-a-service/) says \"Try out new models with our free tier: 1 million tokens and 60 minutes of audio transcription.\"; the FAQ (https://www.scaleway.com/en/docs/generative-apis/faq/) says \"After reaching this limit, you will be charged per million tokens processed and per minutes of audio processed.\"; the create-account page (https://www.scaleway.com/en/docs/account/how-to/create-an-account/) says \"Ordering Scaleway resources requires a valid credit card.\"; the payment-method page (https://www.scaleway.com/en/docs/billing/how-to/add-payment-method/) says \"Before you can order Scaleway resources, you must add a payment method to your account.\"; the rate-limits page (https://www.scaleway.com/en/docs/generative-apis/reference-content/rate-limits/) says \"Base limits apply if you registered a valid payment method, and they are increased automatically if you also verify your identity.\"",
+      "4. Set {apiKeyEnvVar} in your .env file (the vendor's examples read SCW_SECRET_KEY, which NeuroLink does not)"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.scaleway.ai/v1/models needs a key (it answers HTTP 401 without one), so the eleven model ids come from the supported-models page https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/ (names checked against the pricing page https://www.scaleway.com/en/pricing/model-as-a-service/) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.scaleway.ai/v1: the compatibility page (https://www.scaleway.com/en/docs/generative-apis/reference-content/openai-compatibility/) says \"You can use any of the OpenAI official libraries, for example, the OpenAI Python client library to interact with Generative APIs.\", the quickstart (https://www.scaleway.com/en/docs/generative-apis/quickstart/) sets base_url to https://api.scaleway.ai/v1, and the Chat Completions reference (https://www.scaleway.com/en/developers/api/generative-apis/chat-completions/) documents POST /{project_id}/v1/chat/completions with a required model and messages. Unauthenticated GETs made 2026-09-29: /models and /chat/completions both answered HTTP 401 with the body {\"status\":401,\"error\":\"UNAUTHORIZED\",\"message\":\"missing 'Authorization' header\"}; errorRules carry that 401 and the 403, 422 and 429 statuses listed on the Understanding common errors page (https://www.scaleway.com/en/docs/generative-apis/api-cli/understanding-errors/). models.defaultContextWindow (100000) and models.defaultMaxOutputTokens (16000) are placeholders for model ids outside the catalog that the vendor does not publish; they equal the smallest Serverless context and maximum-output figures among the catalog models. Per-model contextWindow and maxOutputTokens values are the decimal forms of the labels the vendor prints (256k, 250k, 180k, 128k, 100k; 32k, 16k). The pricing page states euro prices, so pricingPerMTok is omitted rather than converted and the prices appear in the model descriptions. billingPolicy holds the schema value free-with-card: the pricing page and FAQ describe a Free Tier, and the create-account, payment-method and rate-limits pages carry the payment-method sentences quoted in setup.instructions step 3; the value is NeuroLink's classification, not a Scaleway statement. The status value production is a value the schema requires and is not a Scaleway statement; preview marks the three models whose context the supported-models page ties to the preview stage. No POST request was sent, so the request fields NeuroLink's chat-completions client can add (stream_options on streaming calls, tool_choice on calls with tools, and a json_schema response_format for schema output) have not been exercised against Scaleway."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.scaleway.ai/v1/models answers 401 without a key, so model ids are taken from https://www.scaleway.com/en/docs/generative-apis/reference-content/supported-models/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "UNAUTHORIZED",
+      "method": "unauthenticated GET https://api.scaleway.ai/v1/models and GET https://api.scaleway.ai/v1/chat/completions, no Authorization header — both HTTP 401, JSON body {\"status\":401,\"error\":\"UNAUTHORIZED\",\"message\":\"missing 'Authorization' header\"}; the code recorded here is the body's error value; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://www.scaleway.com/en/pricing/model-as-a-service/ (\"Try out new models with our free tier: 1 million tokens and 60 minutes of audio transcription.\"), https://www.scaleway.com/en/docs/generative-apis/faq/ (\"There is a Free Tier available for Serverless.\"), https://www.scaleway.com/en/docs/account/how-to/create-an-account/ (\"Ordering Scaleway resources requires a valid credit card.\"), https://www.scaleway.com/en/docs/billing/how-to/add-payment-method/ (\"Before you can order Scaleway resources, you must add a payment method to your account.\") and https://www.scaleway.com/en/docs/generative-apis/reference-content/rate-limits/ (\"Base limits apply if you registered a valid payment method, and they are increased automatically if you also verify your identity.\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

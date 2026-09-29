@@ -1,0 +1,229 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "crusoe",
+  "displayName": "Crusoe",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.inference.crusoecloud.com/v1"
+  },
+  "models": {
+    "default": "deepseek-ai/DeepSeek-V4-Flash",
+    "fallbacks": [
+      "deepseek-ai/DeepSeek-V4-Pro",
+      "openai/gpt-oss-120b",
+      "zai/GLM-5.3",
+      "moonshotai/Kimi-K2.6",
+      "google/gemma-4-31b-it",
+      "nvidia/Nemotron-3-Nano-30B-A3B",
+      "nvidia/Nemotron-3-Super-120B-A12B",
+      "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "qwen/Qwen3.8-27B",
+      "zai/GLM-5.3-Flash"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "deepseek-ai/DeepSeek-V4-Flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"deepseek-ai/DeepSeek-V4-Flash\", PROVIDER column \"DeepSeek\", TYPE column \"instruct\", CONTEXT LENGTH column \"1M\", recorded as 1,000,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"DeepSeek\" and \"V4 Flash\", $0.14 under Input tokens, $0.28 under Output tokens, $0.03 under Cached tokens."
+      },
+      "deepseek-ai/DeepSeek-V4-Pro": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 1.74,
+          "output": 3.48,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"deepseek-ai/DeepSeek-V4-Pro\", PROVIDER column \"DeepSeek\", TYPE column \"instruct\", CONTEXT LENGTH column \"1M\", recorded as 1,000,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"DeepSeek\" and \"V4 Pro\", $1.74 under Input tokens, $3.48 under Output tokens, $0.15 under Cached tokens."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.05,
+          "output": 0.2,
+          "cachedInput": 0.05
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"openai/gpt-oss-120b\", PROVIDER column \"OpenAI\", TYPE column \"instruct\", CONTEXT LENGTH column \"128k\", recorded as 128,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"GPT-OSS\" and \"120B\", $0.05 under Input tokens, $0.20 under Output tokens, $0.05 under Cached tokens. Crusoe's developer hub Zed README (https://github.com/crusoecloud/crusoe-developer-hub/blob/main/integrations/zed/README.md, retrieved 2026-09-29) sets \"tools\": true and \"images\": false in this model id's entry, and its Notes section says the model supports reasoning_effort values of low, medium, and high."
+      },
+      "zai/GLM-5.3": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"zai/GLM-5.3\", PROVIDER column \"Z.ai\", TYPE column \"instruct\", CONTEXT LENGTH column \"1M\", recorded as 1,000,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"GLM 5.3\", $1.40 under Input tokens, $4.40 under Output tokens, $0.26 under Cached tokens."
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.7,
+          "output": 3.5,
+          "cachedInput": 0.35
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"moonshotai/Kimi-K2.6\", PROVIDER column \"Moonshot\", TYPE column \"instruct\", CONTEXT LENGTH column \"256K\", recorded as 256,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Kimi K2.6\", $0.70 under Input tokens, $3.50 under Output tokens, $0.35 under Cached tokens. The vision field is true because a Crusoe blog post (https://www.crusoe.ai/resources/blog/430-tokens-per-second-optimizing-kimi-k2-6-and-k2-7-for-production, retrieved 2026-09-29) says \"Kimi K2.6 is a native multimodal agentic model built for long-horizon coding, autonomous execution, tool use, and complex workflows.\" and the model card linked from this id's row on the Available models page (https://huggingface.co/moonshotai/Kimi-K2.6, retrieved 2026-09-29) says \"K2.6 supports Image and Video input.\" No image request was sent to Crusoe's endpoint."
+      },
+      "google/gemma-4-31b-it": {
+        "contextWindow": 262000,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.4,
+          "cachedInput": 0.14
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"google/gemma-4-31b-it\", PROVIDER column \"Google\", TYPE column \"instruct\", CONTEXT LENGTH column \"262k\", recorded as 262,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Gemma 4\" and \"31B-it\", $0.14 under Input tokens, $0.40 under Output tokens, $0.14 under Cached tokens. The vision field is true because the model card linked from this id's row on the Available models page (https://huggingface.co/google/gemma-4-31B-it, retrieved 2026-09-29) says \"Gemma 4 models are multimodal, handling text and image input (with audio supported on E2B, E4B, and 12B) and generating text output.\" No image request was sent to Crusoe's endpoint."
+      },
+      "nvidia/Nemotron-3-Nano-30B-A3B": {
+        "contextWindow": 261144,
+        "pricingPerMTok": {
+          "input": 0.05,
+          "output": 0.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"nvidia/Nemotron-3-Nano-30B-A3B\", PROVIDER column \"NVIDIA\", TYPE column \"instruct\", CONTEXT LENGTH column \"262k\". Model hub page (https://www.crusoe.ai/cloud/managed-inference, retrieved 2026-09-29): heading \"Nemotron 3 Nano 30B A3B FP8\", Context value \"261,144\". contextWindow records 261,144, the hub page's figure. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Nemotron 3 Nano\" and \"30B-A3B-FP8\", $0.05 under Input tokens, $0.20 under Output tokens, $0.03 under Cached tokens."
+      },
+      "nvidia/Nemotron-3-Super-120B-A12B": {
+        "contextWindow": 261144,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 2.4,
+          "cachedInput": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"nvidia/Nemotron-3-Super-120B-A12B\", PROVIDER column \"NVIDIA\", TYPE column \"instruct\", CONTEXT LENGTH column \"262k\". Model hub page (https://www.crusoe.ai/cloud/managed-inference, retrieved 2026-09-29): heading \"Nemotron 3 Super 120B A12B FP8\", Context value \"261,144\". contextWindow records 261,144, the hub page's figure. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Nemotron 3 Super\" and \"120B-A12B-FP8\", $0.30 under Input tokens, $2.40 under Output tokens, $0.15 under Cached tokens."
+      },
+      "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B": {
+        "contextWindow": 256000,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.83,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B\", PROVIDER column \"NVIDIA\", TYPE column \"instruct\", CONTEXT LENGTH column \"262k\". Model hub page (https://www.crusoe.ai/cloud/managed-inference, retrieved 2026-09-29): heading \"Nemotron 3 Nano Omni 30B A3B Reasoning\", Context value \"256,000\". Crusoe blog post (https://www.crusoe.ai/resources/blog/nvidia-nemotron-3-nano-omni-now-available, retrieved 2026-09-29): \"a 256K-token context window\". contextWindow records 256,000, the figure the hub page and the blog post print. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Nemotron 3 Nano Omni 30B A3B Reasoning\" and \"(Text, Image, Video)\", $0.30 under Input tokens, $1.83 under Output tokens, $0.30 under Cached tokens. The vision field is true because the pricing table row headings for this model read \"Nemotron 3 Nano Omni 30B A3B Reasoning\" and \"(Text, Image, Video)\"; the price recorded is that row's."
+      },
+      "nvidia/nemotron-3.5-lightning-30b-a3b": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.05,
+          "output": 0.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"nvidia/nemotron-3.5-lightning-30b-a3b\", PROVIDER column \"NVIDIA\", TYPE column \"instruct\", CONTEXT LENGTH column \"1M\", recorded as 1,000,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"Nemotron 3.5\" and \"Lightning\", $0.05 under Input tokens, $0.20 under Output tokens, $0.03 under Cached tokens."
+      },
+      "qwen/Qwen3.8-27B": {
+        "contextWindow": 256000,
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"qwen/Qwen3.8-27B\", PROVIDER column \"Qwen\", TYPE column \"instruct\", CONTEXT LENGTH column \"256k\", recorded as 256,000. The vision field is true because the model card linked from this id's row on the Available models page (https://huggingface.co/Qwen/Qwen3.8-27B, retrieved 2026-09-29) says \"Native support for image and video understanding, from STEM diagrams and documents to hour-scale videos.\" No image request was sent to Crusoe's endpoint."
+      },
+      "zai/GLM-5.3-Flash": {
+        "contextWindow": 1000000,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Available models page (https://docs.crusoecloud.com/serverless-inference/available-models, retrieved 2026-09-29): MODEL column \"zai/GLM-5.3-Flash\", PROVIDER column \"Z.ai\", TYPE column \"instruct\", CONTEXT LENGTH column \"1M\", recorded as 1,000,000. Serverless Inference pricing table (https://www.crusoe.ai/cloud/pricing, retrieved 2026-09-29, header \"(Price per 1 million tokens)\"): row headings \"GLM 5.3 Flash\", $0.15 under Input tokens, $0.50 under Output tokens, $0.03 under Cached tokens. The vision field is true because the model card linked from this id's row on the Available models page (https://huggingface.co/zai-org/GLM-5.3-Flash, retrieved 2026-09-29) says \"the first natively multimodal model in the GLM-5 series\", and the Z.ai docs page for the model (https://docs.z.ai/guides/llm/glm-5.3-flash, retrieved 2026-09-29), linked from that card, shows the value \"Video / Image / Text / File\" under the card title \"Input Modality\". No image request was sent to Crusoe's endpoint."
+      }
+    },
+    "topModels": [
+      "deepseek-ai/DeepSeek-V4-Flash",
+      "deepseek-ai/DeepSeek-V4-Pro",
+      "openai/gpt-oss-120b",
+      "zai/GLM-5.3",
+      "moonshotai/Kimi-K2.6",
+      "google/gemma-4-31b-it",
+      "nvidia/Nemotron-3-Nano-30B-A3B",
+      "nvidia/Nemotron-3-Super-120B-A12B",
+      "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "qwen/Qwen3.8-27B",
+      "zai/GLM-5.3-Flash"
+    ],
+    "visionModel": "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Crusoe rejected the request with HTTP 401 (an unauthenticated GET of https://api.inference.crusoecloud.com/v1/models answers {\"errors\":[\"Authentication failed\"]}). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Crusoe returned HTTP 429 (the Serverless rate limits page, https://docs.crusoecloud.com/serverless-inference/rate-limits, describes it as \"Your project exceeded its TPM or RPM limit for the model.\" and says \"Both 429 and 503 responses are transient, so you can retry the request with exponential backoff rather than failing immediately.\")."
+    },
+    {
+      "status": 503,
+      "class": "provider",
+      "message": "Crusoe returned HTTP 503 (the Serverless rate limits page, https://docs.crusoecloud.com/serverless-inference/rate-limits, describes it as \"Your request is within your limits, but the shared endpoint is experiencing unusually high load and can't accept it right now.\" and says \"Both 429 and 503 responses are transient, so you can retry the request with exponential backoff rather than failing immediately.\")."
+    }
+  ],
+  "setup": {
+    "url": "https://console.crusoecloud.com/request-foundry",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://console.crusoecloud.com/request-foundry (the \"Create a Managed AI account →\" link on https://docs.crusoecloud.com/create-an-account, which says \"Use Google or Github for the quickest signup.\")",
+      "2. Create an API key: the Getting Started page (https://docs.crusoecloud.com/quickstart/getting-started-with-serverless-inference) says to visit the Intelligence Foundry on the console, select Inference from the left nav, click Create API Key, optionally provide an alias and expiration date, then click Create to view and save your API key",
+      "3. Billing as the vendor states it: the docs announcement bar (https://docs.crusoecloud.com/serverless-inference/overview) reads \"Use $5 in free credits to explore Serverless Inference and Serverless Fine-Tuning\"; the Create an account page says \"To provision resources or use the managed inference service, you must enable billing on your account. You will need a valid, non-prepaid credit card to proceed.\"; the Serverless rate limits page (https://docs.crusoecloud.com/serverless-inference/rate-limits) lists default limits for \"No payment method\" and \"Payment method added\" accounts",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.inference.crusoecloud.com/v1/models needs a key (it answers HTTP 401 without one), so the twelve chat model ids come from the Available models page https://docs.crusoecloud.com/serverless-inference/available-models (retrieved 2026-09-29) and the roster has not been checked; the entry is not yet live-verified. The page lists thirteen models; nvidia/Nemotron-3-VoiceChat has TYPE speech-to-speech and is not in this catalog. OpenAI-compatible endpoint at https://api.inference.crusoecloud.com/v1: the Available models page says \"You can use the OpenAI-API compatible endpoint at api.inference.crusoecloud.com\" and the Getting Started page (https://docs.crusoecloud.com/quickstart/getting-started-with-serverless-inference) says \"Crusoe's Serverless Inference Service provides OpenAI compatible endpoints\" and shows client.chat.completions.create with base_url=\"https://api.inference.crusoecloud.com/v1\". Unauthenticated GETs made 2026-09-29: /models and /chat/completions each answered HTTP 401 with the body {\"errors\":[\"Authentication failed\"]}; errorRules carry that 401 and the 429 and 503 statuses described on the Serverless rate limits page (https://docs.crusoecloud.com/serverless-inference/rate-limits). models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (8192) are conservative placeholders for model ids outside the catalog; the vendor does not publish a general default. Per-model contextWindow values are the decimal forms of the labels the Available models page prints (\"1M\", \"262k\", \"256K\", \"128k\", \"256k\"), except nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B, nvidia/Nemotron-3-Nano-30B-A3B and nvidia/Nemotron-3-Super-120B-A12B, whose descriptions give the figure from other Crusoe pages that is recorded instead; no maxOutputTokens is recorded. The vision field is a required boolean: true is recorded on the ids whose descriptions cite a source for image input, and false is a placeholder on the other ids except openai/gpt-oss-120b, where the Zed README sets \"images\": false; no image request was sent. billingPolicy holds free-with-card: the docs announcement bar (https://docs.crusoecloud.com/serverless-inference/overview) reads \"Use $5 in free credits to explore Serverless Inference and Serverless Fine-Tuning\" and the Create an account page (https://docs.crusoecloud.com/create-an-account) says \"you must enable billing on your account. You will need a valid, non-prepaid credit card to proceed.\" The Serverless rate limits page (https://docs.crusoecloud.com/serverless-inference/rate-limits) also lists default limits for \"No payment method\" accounts. billingPolicy is a required enum (free-tier, free-with-card, no-free-tier) with no value for that difference; free-with-card is recorded."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.inference.crusoecloud.com/v1/models answers 401 without a key, so model ids are taken from https://docs.crusoecloud.com/serverless-inference/available-models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api.inference.crusoecloud.com/v1/models and GET https://api.inference.crusoecloud.com/v1/chat/completions, no Authorization header — each HTTP 401, content-type application/json, body {\"errors\":[\"Authentication failed\"]}; the body has no code field, so none is recorded; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.crusoecloud.com/serverless-inference/overview (announcement bar \"Use $5 in free credits to explore Serverless Inference and Serverless Fine-Tuning\"), https://docs.crusoecloud.com/create-an-account (\"you must enable billing on your account. You will need a valid, non-prepaid credit card to proceed.\") and https://docs.crusoecloud.com/serverless-inference/rate-limits (default limits for \"No payment method\" and \"Payment method added\" accounts); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

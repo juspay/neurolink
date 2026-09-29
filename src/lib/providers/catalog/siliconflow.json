@@ -1,0 +1,242 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "siliconflow",
+  "displayName": "SiliconFlow",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.siliconflow.com/v1"
+  },
+  "models": {
+    "default": "deepseek-ai/DeepSeek-V4-Pro",
+    "fallbacks": [
+      "deepseek-ai/DeepSeek-V4-Flash",
+      "deepseek-ai/DeepSeek-V3.2",
+      "zai-org/GLM-5.1",
+      "moonshotai/Kimi-K2.6",
+      "Qwen/Qwen3-32B"
+    ],
+    "defaultContextWindow": 32768,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "deepseek-ai/DeepSeek-V4-Pro": {
+        "contextWindow": 1049000,
+        "maxOutputTokens": 393000,
+        "pricingPerMTok": {
+          "input": 1.50162,
+          "output": 3.135,
+          "cachedInput": 0.135
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The model page About text begins \"DeepSeek-V4-Pro is DeepSeek's flagship open-source MoE model\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/deepseek-v4-pro (retrieved 2026-09-29) shows the id deepseek-ai/DeepSeek-V4-Pro, context length \"1049K\", max tokens \"393K\", input price 1.50162, cache read 0.135, output price 3.135 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name DeepSeek-V4-Pro."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash": {
+        "contextWindow": 1049000,
+        "maxOutputTokens": 393000,
+        "pricingPerMTok": {
+          "input": 0.13,
+          "output": 0.28,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The model page About text begins \"DeepSeek-V4-Flash is DeepSeek's latest open-source MoE model\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/deepseek-v4-flash (retrieved 2026-09-29) shows the id deepseek-ai/DeepSeek-V4-Flash, context length \"1049K\", max tokens \"393K\", input price 0.13, cache read 0.028, output price 0.28 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\"."
+      },
+      "deepseek-ai/DeepSeek-V3.2": {
+        "contextWindow": 164000,
+        "maxOutputTokens": 164000,
+        "pricingPerMTok": {
+          "input": 0.27,
+          "output": 0.42,
+          "cachedInput": 0.135
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The model page About text begins \"DeepSeek-V3.2 is a model that harmonizes high computational efficiency with superior reasoning and agent performance\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/deepseek-v3-2 (retrieved 2026-09-29) shows the id deepseek-ai/DeepSeek-V3.2, context length \"164K\", max tokens \"164K\", input price 0.27, cache read 0.135, output price 0.42 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\"."
+      },
+      "zai-org/GLM-5.1": {
+        "contextWindow": 205000,
+        "maxOutputTokens": 131000,
+        "pricingPerMTok": {
+          "input": 1.19,
+          "output": 3.74,
+          "cachedInput": 0.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The model page About text begins \"GLM-5.1 is Z.ai's next-generation flagship model built for agentic engineering\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/glm-5-1 (retrieved 2026-09-29) shows the id zai-org/GLM-5.1, context length \"205K\", max tokens \"131K\", input price 1.19, cache read 0.6, output price 3.74 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Not supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name GLM-5.1."
+      },
+      "zai-org/GLM-5": {
+        "contextWindow": 205000,
+        "maxOutputTokens": 131000,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 2.55,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The model page About text begins \"GLM-5 is a next-generation open-source model for complex systems engineering and long-horizon agentic tasks\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/glm-5 (retrieved 2026-09-29) shows the id zai-org/GLM-5, context length \"205K\", max tokens \"131K\", input price 0.95, cache read 0.2, output price 2.55 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Not supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name GLM-5."
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.77,
+          "output": 3.4,
+          "cachedInput": 0.14
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Kimi K2.6 is an open-source, native multimodal agentic model by Moonshot AI\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/kimi-k2-6 (retrieved 2026-09-29) shows the id moonshotai/Kimi-K2.6, context length \"262K\", max tokens \"262K\", input price 0.77, cache read 0.14, output price 3.4 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name Kimi-K2.6."
+      },
+      "moonshotai/Kimi-K2.5": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.45,
+          "output": 2.25,
+          "cachedInput": 0.07
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Kimi K2.5 is an open-source, native multimodal agentic model\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/kimi-k2-5 (retrieved 2026-09-29) shows the id moonshotai/Kimi-K2.5, context length \"262K\", max tokens \"262K\", input price 0.45, cache read 0.07, output price 2.25 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name Kimi-K2.5."
+      },
+      "Qwen/Qwen3.6-27B": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 3.2
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Qwen3.6-27B is the first open-weight small-to-mid-sized dense model in the Qwen3.6 series\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/qwen3-6-27b (retrieved 2026-09-29) shows the id Qwen/Qwen3.6-27B, context length \"262K\", max tokens \"262K\", input price 0.3, output price 3.2 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name Qwen3.6-27B."
+      },
+      "Qwen/Qwen3.6-35B-A3B": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.24,
+          "output": 1.8,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Qwen3.6-35B-A3B is a large language model from Alibaba's Qwen3.6 series\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/qwen3-6-35b-a3b (retrieved 2026-09-29) shows the id Qwen/Qwen3.6-35B-A3B, context length \"262K\", max tokens \"262K\", input price 0.24, cache read 0.15, output price 1.8 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name Qwen3.6-35B-A3B."
+      },
+      "Qwen/Qwen3-32B": {
+        "contextWindow": 131000,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.57
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The model page About text begins \"Qwen3-32B is the latest large language model in the Qwen series with 32.8B parameters\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/qwen3-32b (retrieved 2026-09-29) shows the id Qwen/Qwen3-32B, context length \"131K\", max tokens \"131K\", input price 0.14, output price 0.57 ($ per M tokens), Support image input \"Not supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The Reasoning page (https://docs.siliconflow.com/en/userguide/capabilities/reasoning, retrieved 2026-09-29) lists the Qwen3 Series with Maximum Response Length 8192, Maximum Reasoning Chain Length 32768 and Maximum Context Length 131072. The two pages give different output figures, so maxOutputTokens is not set for this model."
+      },
+      "Qwen/Qwen3-VL-32B-Instruct": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Qwen3-VL is the vision-language model in the Qwen3 series\". Listed in the model enum of the VLM request schema in the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/qwen3-vl-32b-instruct (retrieved 2026-09-29) shows the id Qwen/Qwen3-VL-32B-Instruct, context length \"262K\", max tokens \"262K\", input price 0.2, output price 0.6 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\"."
+      },
+      "google/gemma-4-31B-it": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 1.0,
+          "cachedInput": 0.25
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The model page About text begins \"Gemma 4 31B is Google DeepMind's latest open-source model\". Listed in the model enum of the chat-completions API reference (https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions, retrieved 2026-09-29). The model page https://www.siliconflow.com/models/gemma-4-31b-it (retrieved 2026-09-29) shows the id google/gemma-4-31B-it, context length \"262K\", max tokens \"262K\", input price 0.75, cache read 0.25, output price 1.0 ($ per M tokens), Support image input \"Supported\", Tools \"Supported\", JSON Mode \"Supported\", Structured Outputs \"Not supported\". The pricing page (https://www.siliconflow.com/pricing, retrieved 2026-09-29) shows the same context length and prices under the name gemma-4-31B-it."
+      }
+    },
+    "topModels": [
+      "deepseek-ai/DeepSeek-V4-Pro",
+      "deepseek-ai/DeepSeek-V4-Flash",
+      "deepseek-ai/DeepSeek-V3.2",
+      "zai-org/GLM-5.1",
+      "zai-org/GLM-5",
+      "moonshotai/Kimi-K2.6",
+      "moonshotai/Kimi-K2.5",
+      "Qwen/Qwen3.6-27B",
+      "Qwen/Qwen3.6-35B-A3B",
+      "Qwen/Qwen3-32B",
+      "Qwen/Qwen3-VL-32B-Instruct",
+      "google/gemma-4-31B-it"
+    ],
+    "visionModel": "Qwen/Qwen3-VL-32B-Instruct"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "SiliconFlow rejected the request as unauthorized (HTTP 401; an unauthenticated GET https://api.siliconflow.com/v1/models returned code 30014 with the message \"Token is invalid.\"). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 403,
+      "class": "authentication",
+      "message": "SiliconFlow reports insufficient permissions (HTTP 403). Its error-handling page (https://docs.siliconflow.com/en/faqs/error-code) says: \"The most common reason is that the model requires real-name authentication.\""
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "SiliconFlow rate limit reached (HTTP 429). Its error-handling page (https://docs.siliconflow.com/en/faqs/error-code) says to refer to the error message to determine whether the limit is RPM / RPD / TPM / TPD / IPM / IPD."
+    },
+    {
+      "pattern": "Model does not exist",
+      "class": "invalid-model",
+      "message": "SiliconFlow model '{model}' was not found. Its error-handling page (https://docs.siliconflow.com/en/faqs/error-code) shows the HTTP 400 message \"Model does not exist. Please check it carefully.\" with code 20012."
+    }
+  ],
+  "setup": {
+    "url": "https://cloud.siliconflow.com/account/ak",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://cloud.siliconflow.com/ and create a SiliconFlow account (https://docs.siliconflow.com/en/userguide/quickstart)",
+      "2. Open the API Keys page at https://cloud.siliconflow.com/account/ak, click Create API Key and copy the key (https://docs.siliconflow.com/en/userguide/quickstart)",
+      "3. Billing as the vendor words it on https://www.siliconflow.com/pricing: \"Flexible token pricing, high usage limits, and postpaid billing—plus $1 in free credits to get you started!\"",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Endpoint https://api.siliconflow.com/v1 (the chat-completions API reference lists the server https://api.siliconflow.com/v1 and POST /chat/completions with bearer auth; the Text Generation page says \"You can make end-to-end API requests using the OpenAI SDK\" and the Quick Start says \"The platform currently supports most OpenAI-related parameters.\"). This entry is docs-verified only: an unauthenticated GET of https://api.siliconflow.com/v1/models answered HTTP 401 without a key, so the model ids come from the vendor's public docs and the roster has not been checked; it is not yet live-verified. That GET returned code 30014 with the message \"Token is invalid.\" (2026-09-29), so errorRules match status 401 and the statuses and messages on the vendor's error-handling page (https://docs.siliconflow.com/en/faqs/error-code). capabilities.structuredOutput is false because the model pages show Structured Outputs \"Not supported\" on the 12 catalog models; the JSON Mode page documents response_format={\"type\": \"json_object\"} and this entry sets no responseFormatDowngrade quirk. vision is true for moonshotai/Kimi-K2.6, moonshotai/Kimi-K2.5, Qwen/Qwen3.6-27B, Qwen/Qwen3.6-35B-A3B and google/gemma-4-31B-it from the model page value Support image input \"Supported\"; image input was not exercised. models.defaultContextWindow (32768) and models.defaultMaxOutputTokens (4096) are placeholders for ids outside the catalog that the vendor does not publish; the status values are ones the schema requires (production), not vendor statements. billingPolicy free-tier follows the pricing page's \"$1 in free credits\" statement."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.siliconflow.com/v1/models answers 401 without a key, so model ids are taken from https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions (retrieved 2026-09-29) and cross-checked against the ids shown on the model pages under https://www.siliconflow.com/models/ (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "30014",
+      "method": "unauthenticated GET https://api.siliconflow.com/v1/models — body {\"code\":30014,\"data\":null,\"message\":\"Token is invalid.\"} with header www-authenticate: Bearer realm=\"siliconflow\", error=\"invalid_token\", error_description=\"Token is invalid.\"; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://www.siliconflow.com/pricing — \"Flexible token pricing, high usage limits, and postpaid billing—plus $1 in free credits to get you started!\" and the FAQ answer \"No, there are no minimum commitments. You only pay for what you use, and you can start with $1 in free credits.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

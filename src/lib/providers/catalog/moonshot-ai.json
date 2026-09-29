@@ -1,0 +1,135 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "moonshot-ai",
+  "displayName": "Moonshot AI (Kimi)",
+  "aliases": ["moonshot", "kimi"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.moonshot.ai/v1",
+    "apiKeyFallbackEnvVars": ["MOONSHOT_API_KEY"]
+  },
+  "models": {
+    "default": "kimi-k3",
+    "fallbacks": ["kimi-k2.7-code", "kimi-k2.6", "kimi-k2.7-code-highspeed"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "kimi-k3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 15.0,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Model list https://platform.kimi.ai/docs/models (retrieved 2026-09-29): \"Kimi's most capable model to date, with 2.8 trillion parameters, native visual understanding, and a 1M-token context window, designed for frontier intelligence scenarios such as software engineering, knowledge work, and deep reasoning.\" The Kimi K3 page https://platform.kimi.ai/docs/guide/kimi-k3-quickstart calls it \"Kimi's most capable flagship model to date\", states \"K3 always has thinking mode enabled\" with the top-level reasoning_effort field (low, high, max; default max), and states max_completion_tokens \"defaults to 131072 and can be set up to 1048576\". Pricing page https://platform.kimi.ai/docs/pricing/chat (2026-09-29): context window 1,048,576 tokens; per 1M tokens input $3.00, cached input $0.30, output $15.00, cache write $3.00 (TTL 5min) or $6.00 (TTL 1h). The vision guide https://platform.kimi.ai/docs/guide/use-kimi-vision-model names kimi-k3 in its description of the Kimi Vision Model, hence vision true."
+      },
+      "kimi-k2.7-code": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4.0,
+          "cachedInput": 0.19
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback in NeuroLink's catalog order. Model list https://platform.kimi.ai/docs/models (retrieved 2026-09-29): \"Kimi's dedicated coding model.\" with \"Context 256k\". Pricing page https://platform.kimi.ai/docs/pricing/chat (2026-09-29): context window 262,144 tokens; per 1M tokens cache-hit input $0.19, cache-miss input $0.95, output $4.00. The Kimi K2.7 Code page https://platform.kimi.ai/docs/guide/kimi-k2-7-code-quickstart states \"Kimi K2.7 Code does not support non-thinking mode.\" The parameter reference https://platform.kimi.ai/docs/api/models-overview states that kimi-k2.6 and kimi-k2.7-code do not support tool_choice required and \"return an error if it is passed\". The vision guide https://platform.kimi.ai/docs/guide/use-kimi-vision-model names kimi-k2.7-code in its description of the Kimi Vision Model, hence vision true."
+      },
+      "kimi-k2.7-code-highspeed": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 1.9,
+          "output": 8.0,
+          "cachedInput": 0.38
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback in NeuroLink's catalog order. Model list https://platform.kimi.ai/docs/models (retrieved 2026-09-29): \"High-Speed version of Kimi K2.7 Code model, with output speed of approximately 180 Tokens/s and up to 260 Tokens/s in short context scenarios\". The Kimi K2.7 Code page https://platform.kimi.ai/docs/guide/kimi-k2-7-code-quickstart states it is \"the same model as Kimi K2.7 Code\" and ends that paragraph with \"(Currently, the resource is limited, and the experience of the high-speed model may be slightly fluctuate，we are gradually increasing the resource.)\". Pricing page https://platform.kimi.ai/docs/pricing/chat (2026-09-29): context window 262,144 tokens; per 1M tokens cache-hit input $0.38, cache-miss input $1.90, output $8.00. The vision guide https://platform.kimi.ai/docs/guide/use-kimi-vision-model names kimi-k2.7-code-highspeed in its description of the Kimi Vision Model, hence vision true."
+      },
+      "kimi-k2.6": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4.0,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback in NeuroLink's catalog order. Model list https://platform.kimi.ai/docs/models (retrieved 2026-09-29): \"Supports both visual and text input, thinking and non-thinking modes, and dialogue and Agent tasks.\" with \"Context 256k\". Pricing page https://platform.kimi.ai/docs/pricing/chat (2026-09-29): context window 262,144 tokens; per 1M tokens cache-hit input $0.16, cache-miss input $0.95, output $4.00. The Thinking Models page https://platform.kimi.ai/docs/guide/use-thinking-models states \"thinking is on by default, can be disabled\" for kimi-k2.6. The response_format guide https://platform.kimi.ai/docs/guide/response_format states \"kimi-k2.6 occasionally behaves unstably with complex schemas; for example, $ref may return a Markdown code block, oneOf may be ignored, and partial=true may output fields outside the schema.\" The vision guide https://platform.kimi.ai/docs/guide/use-kimi-vision-model names kimi-k2.6 in its description of the Kimi Vision Model, hence vision true."
+      }
+    },
+    "topModels": [
+      "kimi-k3",
+      "kimi-k2.7-code",
+      "kimi-k2.7-code-highspeed",
+      "kimi-k2.6"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "Account balance is insufficient|Token quota is insufficient|exceeded_current_quota_error",
+      "class": "provider",
+      "message": "Moonshot AI reports an insufficient account balance or token quota (HTTP 429, exceeded_current_quota_error). Its error list gives the messages \"Account balance is insufficient or the account has been disabled\" and \"Token quota is insufficient\" (https://platform.kimi.ai/docs/api/errors)"
+    },
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or missing Moonshot AI API key (HTTP 401, incorrect_api_key_error: \"The API key was not provided, or the key is incorrect\"). Check {apiKeyEnvVar}. Get one at {setupUrl}. Keys issued on platform.kimi.ai are independent from keys issued on other regional Kimi platforms (https://platform.kimi.ai/docs/api/errors)"
+    },
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "Model {model} was not found, or this account does not have permission to access it (HTTP 404, resource_not_found_error: \"Model not found, or this account does not have permission to access the model\"; https://platform.kimi.ai/docs/api/errors)"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Moonshot AI returned HTTP 429. Its error list gives engine_overloaded_error, exceeded_current_quota_error and rate_limit_reached_error for this status (https://platform.kimi.ai/docs/api/errors)"
+    }
+  ],
+  "quirks": {
+    "replayReasoningContent": true
+  },
+  "setup": {
+    "url": "https://platform.kimi.ai/console/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://platform.kimi.ai/console/api-keys and sign in, then create and copy an API key (https://platform.kimi.ai/docs/overview describes signing in to the Kimi API Platform and creating a key under API Keys)",
+      "2. Create the key on platform.kimi.ai: the errors page states that keys issued on platform.kimi.ai are independent from keys issued on other regional Kimi platforms, and that \"Mixing keys across platforms returns 401.\" (https://platform.kimi.ai/docs/api/errors)",
+      "3. Top up before use: \"To prevent abuse, you need to recharge at least $1 to start using, and when your cumulative recharge reaches $5, you will receive a $5 voucher.\" (https://platform.kimi.ai/docs/pricing/limits); the Kimi K3 page states \"Kimi K3 is a flagship model: it is unlocked after a successful top-up (minimum $1).\" (https://platform.kimi.ai/docs/guide/kimi-k3-quickstart)",
+      "4. Set {apiKeyEnvVar} in your .env file (MOONSHOT_API_KEY, the variable Kimi's own docs use, is also read)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.moonshot.ai/v1 (https://platform.kimi.ai/docs/overview: \"Kimi API lets you interact with Kimi models and is compatible with both the OpenAI and Anthropic API formats.\"). The docs and console live on platform.kimi.ai and call the product the Kimi API; the API host is api.moonshot.ai. This entry is docs-verified only: the vendor's GET /v1/models needs a key, so the four model ids come from its public docs and the roster has not been checked; it is not yet live-verified. models.defaultContextWindow (262144, the context window the pricing page lists for kimi-k2.7-code, kimi-k2.7-code-highspeed and kimi-k2.6) and models.defaultMaxOutputTokens (131072, the max_completion_tokens default the vendor states for kimi-k3) apply to model ids outside the catalog and are placeholders, since the vendor publishes no figure for such ids. errorRules follow the statuses and messages on https://platform.kimi.ai/docs/api/errors; the 401 status and incorrect_api_key_error type were also seen on an unauthenticated GET of /v1/models."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.moonshot.ai/v1/models answers 401 without a key, so model ids are taken from https://platform.kimi.ai/docs/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "incorrect_api_key_error",
+      "method": "unauthenticated GET https://api.moonshot.ai/v1/models with no credentials — HTTP 401, JSON body {\"error\":{\"message\":\"Incorrect API key provided\",\"type\":\"incorrect_api_key_error\"}}; the code recorded here is the body's error.type value (the body has no error.code field); credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://platform.kimi.ai/docs/pricing/limits — \"To prevent abuse, you need to recharge at least $1 to start using, and when your cumulative recharge reaches $5, you will receive a $5 voucher.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

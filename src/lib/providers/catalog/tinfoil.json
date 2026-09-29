@@ -1,0 +1,155 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "tinfoil",
+  "displayName": "Tinfoil",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://inference.tinfoil.sh/v1"
+  },
+  "models": {
+    "default": "kimi-k3",
+    "fallbacks": ["gpt-oss-120b", "gemma4-31b", "llama3-3-70b"],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "kimi-k3": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 4,
+          "output": 20,
+          "cachedInput": 0.8
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. Roster description: \"Moonshot's flagship multimodal MoE model with hybrid attention for long-context reasoning, coding, and agentic workflows\". https://docs.tinfoil.sh/guides/tool-calling (Best Practices): \"Among the models offered on Tinfoil API, Kimi K3 is recommended for function calling and agentic workflows\"; https://docs.tinfoil.sh/tutorials/coding-agents uses the model ID kimi-k3 in its setup examples. Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], context_window 262144 (https://docs.tinfoil.sh/models/chat gives the Context value as \"256K tokens\"), inputTokenPricePer1M 4, outputTokenPricePer1M 20, cachedInputTokenPricePer1M 0.8, multimodal true, tool_calling true, reasoning true. https://docs.tinfoil.sh/models/vision and https://docs.tinfoil.sh/guides/image-processing name Kimi K3 among the models that support image inputs, so vision is true. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values low, high and max for it. Status is production: this roster entry does not set `experimental`."
+      },
+      "gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Roster description: \"Open-weight model designed for powerful reasoning, agentic tasks, and versatile developer use cases\". The first inference example on https://docs.tinfoil.sh/quickstart uses this model ID; https://docs.tinfoil.sh/models/chat gives the Best for value as \"Production use cases requiring configurable reasoning and tool use\". Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], context_window 131072 (docs Context value \"131K tokens\"), inputTokenPricePer1M 0.15, outputTokenPricePer1M 0.6, multimodal false, tool_calling true, reasoning true. https://docs.tinfoil.sh/guides/image-processing: \"Other models (Llama, GPT-OSS) are text-only and cannot process images.\", so vision is false. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values low, medium and high for it. Status is production: this roster entry does not set `experimental`."
+      },
+      "gemma4-31b": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. https://docs.tinfoil.sh/models/chat gives the Strengths value as \"Built-in thinking mode, image understanding, native function calling, multilingual support for 35+ languages\". Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], context_window 262144 (docs Context value \"256K tokens\"), inputTokenPricePer1M 0.4, outputTokenPricePer1M 1, multimodal true, tool_calling true, reasoning true. https://docs.tinfoil.sh/models/vision and https://docs.tinfoil.sh/guides/image-processing name Gemma 4 31B among the models that support image inputs, so vision is true. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values none, minimal, low, medium, high, xhigh and max for it. Status is production: this roster entry does not set `experimental`."
+      },
+      "llama3-3-70b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 1.75,
+          "output": 2.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Roster description: \"High-performance multilingual language model optimized for dialogue\". https://docs.tinfoil.sh/models/chat gives the Strengths value as \"Multilingual, dialogue-optimized, function calling\". Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\"], context_window 131072 (docs Context value \"128K tokens\"), inputTokenPricePer1M 1.75, outputTokenPricePer1M 2.75, multimodal false, tool_calling true, reasoning false. https://docs.tinfoil.sh/guides/image-processing: \"Other models (Llama, GPT-OSS) are text-only and cannot process images.\", so vision is false. https://docs.tinfoil.sh/guides/reasoning states that llama3-3-70b is not a reasoning model. Status is production: this roster entry does not set `experimental`."
+      },
+      "glm-5-3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.8,
+          "output": 5.75,
+          "cachedInput": 0.45
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Catalog entry (not a NeuroLink default or fallback). Roster description: \"Z.ai's latest flagship for agentic coding and long-horizon tasks, with a 1M-token context window\". Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], context_window 1048576 (https://docs.tinfoil.sh/models/chat gives the Context value as \"1M tokens\"), inputTokenPricePer1M 1.8, outputTokenPricePer1M 5.75, cachedInputTokenPricePer1M 0.45, multimodal false, tool_calling true, reasoning true, so vision is false. https://docs.tinfoil.sh/models/chat states that reasoning tokens count toward max_tokens for this model and that structured outputs and strict tool calls at the default effort need a generous max_tokens (around 20K) or a lower effort. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values low, high and max for it. Status is production: this roster entry does not set `experimental`."
+      },
+      "glm-5-3-flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 1.25,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "Catalog entry (not a NeuroLink default or fallback). Roster description: \"Z.AI's fast multimodal MoE model with a 1M-token context window, image input, reasoning, and tool calling\". Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], experimental true (status is therefore preview), context_window 1048576 (https://docs.tinfoil.sh/models/chat gives the Context value as \"1M tokens\"), inputTokenPricePer1M 0.4, outputTokenPricePer1M 1.25, cachedInputTokenPricePer1M 0.1, multimodal true, tool_calling true, reasoning true. https://docs.tinfoil.sh/models/vision and https://docs.tinfoil.sh/guides/image-processing name GLM-5.3 Flash among the models that support image inputs, so vision is true. https://docs.tinfoil.sh/models/chat states that reasoning tokens count toward max_tokens for this model and that structured outputs and strict tool calls at the default effort need a generous max_tokens (around 20K) or a lower effort. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values low, high and max for it."
+      },
+      "deepseek-v4-1-flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.65,
+          "output": 1.45,
+          "cachedInput": 0.13
+        },
+        "vision": true,
+        "status": "preview",
+        "description": "Catalog entry (not a NeuroLink default or fallback). Roster description: \"DeepSeek's efficient MoE model with a 1M-token context window, image input, Engram memory, built-in speculative decoding, and tool calling\". https://docs.tinfoil.sh/models/chat shows a warning on this model: \"this model is not yet fully productionized. Capacity and performance may change while we finish rolling it out.\" (the roster field experimental is true), so status is preview. Unauthenticated GET https://inference.tinfoil.sh/v1/models roster (2026-09-29, 17 models): type chat, endpoints [\"/v1/chat/completions\",\"/v1/responses\"], context_window 1048576 (docs Context value \"1M tokens\"), inputTokenPricePer1M 0.65, outputTokenPricePer1M 1.45, cachedInputTokenPricePer1M 0.13, multimodal true, tool_calling true, reasoning true. https://docs.tinfoil.sh/models/vision and https://docs.tinfoil.sh/guides/image-processing name DeepSeek V4.1 Flash among the models that support image inputs, so vision is true. https://docs.tinfoil.sh/guides/reasoning lists the reasoning_effort values none, low, high, xhigh and max for it."
+      }
+    },
+    "topModels": [
+      "kimi-k3",
+      "gpt-oss-120b",
+      "gemma4-31b",
+      "llama3-3-70b",
+      "glm-5-3",
+      "glm-5-3-flash",
+      "deepseek-v4-1-flash"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "pattern": "invalid_api_key",
+      "class": "authentication",
+      "message": "Invalid Tinfoil API key (code invalid_api_key). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "pattern": "You exceeded your current quota",
+      "class": "provider",
+      "message": "Tinfoil reported HTTP 402 (insufficient_quota). https://docs.tinfoil.sh/sdk/error-handling lists 402 as the account or organization having no remaining balance or an inactive subscription; billing is managed under Billing in the Tinfoil dashboard (https://docs.tinfoil.sh/get-api-key)"
+    },
+    {
+      "pattern": "insufficient_quota|Spend limit reached for this API key|Input token limit reached for this API key|Output token limit reached for this API key",
+      "class": "provider",
+      "message": "Tinfoil reported a limit on this API key (insufficient_quota). https://docs.tinfoil.sh/sdk/error-handling describes a 429 from a per-key cap as not transient, so retrying will not help"
+    }
+  ],
+  "setup": {
+    "url": "https://dash.tinfoil.sh?tab=api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://dash.tinfoil.sh?tab=api-keys and sign in or sign up — https://docs.tinfoil.sh/get-api-key says \"Create an account with your email or one of the social connections.\"",
+      "2. On the dashboard Products page, click Activate on the Private Inference card. Per https://docs.tinfoil.sh/get-api-key, if no payment method is on file you are redirected to a checkout page to enter your card details, and \"You’re only charged based on usage.\"",
+      "3. The activation dialog creates a \"Default API key\" and, per the same page, \"adds $1 in API credits to your account\"; additional keys are created from API Keys in the sidebar",
+      "4. Set {apiKeyEnvVar} in your .env file (the examples on https://docs.tinfoil.sh/quickstart read TINFOIL_API_KEY)",
+      "5. NeuroLink sends requests straight to https://inference.tinfoil.sh/v1. https://docs.tinfoil.sh/sdk/direct-api-access says \"but this is not recommended in production\" and \"Direct access skips the automatic attestation verification our SDKs perform\". https://docs.tinfoil.sh/local-proxy/cli documents a local proxy that verifies enclave attestations and serves http://127.0.0.1:3301/v1 for OpenAI-compatible clients (not exercised with NeuroLink)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://inference.tinfoil.sh/v1 (https://tinfoil.sh: \"Our API is OpenAI-compatible, open-source, and fully verifiable.\"; https://docs.tinfoil.sh/models/chat: \"Chat models use the OpenAI chat completions API.\"), serving seven chat models. The unauthenticated GET https://inference.tinfoil.sh/v1/models on 2026-09-29 returned HTTP 200 with 17 entries; the ten entries whose roster type is not chat (safety, embedding, document, audio, tts, tool) are not in this catalog. An unauthenticated GET https://inference.tinfoil.sh/v1/chat/completions on 2026-09-29 returned HTTP 400 with {\"error\":{\"message\":\"Invalid request body: EOF.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_json\"}}, so no authentication-failure body was observed and errorRules use the codes and messages documented at https://docs.tinfoil.sh/sdk/error-handling (invalid_api_key, insufficient_quota). models.defaultContextWindow (131072) and models.defaultMaxOutputTokens (4096) are placeholders the vendor does not publish; per-model contextWindow values are the roster's context_window fields."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://inference.tinfoil.sh/v1/models — 17 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.tinfoil.sh/get-api-key — card details are entered at checkout when no payment method is on file, \"You’re only charged based on usage.\", and the activation dialog \"adds $1 in API credits to your account\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

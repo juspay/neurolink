@@ -1,0 +1,165 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "nebius",
+  "displayName": "Nebius Token Factory",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.tokenfactory.nebius.com/v1"
+  },
+  "models": {
+    "default": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "fallbacks": [
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "NousResearch/Hermes-4-405B"
+    ],
+    "defaultContextWindow": 32000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"Qwen3-235B-A22B-Instruct-2507\"; type text2text; status active; description \"Balanced Qwen3 flagship tuned for strong general reasoning, chat quality, and tool use.\"; tags \"262K context\", \"code\", \"math\", \"JSON mode\"; use_cases text, code, function_calling, context_and_rag, fine_tune, responses_api; context_window_k 262; max_model_len 262144; input_price_per_million_tokens 0.2; output_price_per_million_tokens 0.6. vision false: catalog type text2text."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 1024000,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"DeepSeek-V4-Flash-0731\"; type text2text; status active; description \"DeepSeek V4 Flash 0731 is a 1M-context reasoning model designed for coding and agentic workloads.\"; tags \"1M context\", \"reasoning\", \"JSON mode\", \"code\", \"math\"; use_cases text, reasoning, function_calling, code, context_and_rag, responses_api, fine_tune; context_window_k 1024; max_model_len 1024000; input_price_per_million_tokens 0.14; output_price_per_million_tokens 0.28. vision false: catalog type text2text. The August 2026 deprecation notice (https://docs.tokenfactory.nebius.com/august-2026-deprecation-notice) lists this id in its \"Recommended Replacement\" column."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"gpt-oss-120b\"; type text2text; status active; description \"Open-weight agentic model with configurable reasoning, full CoT visibility, strong tool use, and fine-tuning support.\"; tags \"131K context\", \"code\", \"JSON mode\", \"math\", \"reasoning\"; use_cases text, code, fine_tune, function_calling, reasoning; context_window_k 131; max_model_len 131072; input_price_per_million_tokens 0.15; output_price_per_million_tokens 0.6. vision false: catalog type text2text. The Structured output & JSON page (https://docs.tokenfactory.nebius.com/ai-models-inference/json) uses this id in its JavaScript example."
+      },
+      "Qwen/Qwen3-30B-A3B-Instruct-2507": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"Qwen3-30B-A3B-Instruct-2507\"; type text2text; status active; description \"Versatile 30B instruct model optimized for high-quality chat, reasoning, and coding.\"; tags \"262K context\", \"code\", \"math\", \"JSON mode\"; use_cases text, code, function_calling, context_and_rag, fine_tune, responses_api; context_window_k 262; max_model_len 262144; input_price_per_million_tokens 0.1; output_price_per_million_tokens 0.3. vision false: catalog type text2text."
+      },
+      "NousResearch/Hermes-4-405B": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"Hermes-4-405B\"; type text2text; status active; description \"Hybrid-reasoning model trained on verified CoT traces for strong math, coding, and step-by-step reliability.\"; tags \"128K context\", \"JSON mode\"; use_cases text, code, complex_writing, context_and_rag, function_calling, reasoning, summarization, responses_api; context_window_k 128; max_model_len 131072; input_price_per_million_tokens 1; output_price_per_million_tokens 3. vision false: catalog type text2text."
+      },
+      "nvidia/Nemotron-3_5-Lightning": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.06,
+          "output": 0.24
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"Nemotron-3.5-Lightning\"; type text2text; status active; description \"NVIDIA's 30B-parameter hybrid MoE model with 3B active parameters per token, designed for efficient agentic reasoning, tool use, coding, and long-context workflows.\"; tags \"1M context\", \"reasoning\", \"code\", \"function calling\", \"MTP\"; use_cases text, reasoning, function_calling, code, context_and_rag, responses_api; context_window_k 1024; max_model_len 1048576; input_price_per_million_tokens 0.06; output_price_per_million_tokens 0.24. vision false: catalog type text2text. The August 2026 deprecation notice (https://docs.tokenfactory.nebius.com/august-2026-deprecation-notice) lists this id in its \"Recommended Replacement\" column."
+      },
+      "openbmb/MiniCPM-V-4_5": {
+        "contextWindow": 32000,
+        "pricingPerMTok": {
+          "input": 0.658,
+          "output": 1.11
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29): name \"openbmb/MiniCPM-V-4_5\"; type image2text; status active; description \"MiniCPM-V-4.5 – Compact multimodal model for image, multi-image, high-FPS/long-video, OCR/PDF understanding, with switchable fast/deep thinking.\"; tags \"JSON mode\"; use_cases text, image, summarization, context_and_rag; context_window_k 32; max_model_len 32000; input_price_per_million_tokens 0.658; output_price_per_million_tokens 1.11. vision true: catalog type image2text with image in use_cases."
+      }
+    },
+    "topModels": [
+      "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "NousResearch/Hermes-4-405B",
+      "nvidia/Nemotron-3_5-Lightning",
+      "openbmb/MiniCPM-V-4_5"
+    ],
+    "visionModel": "openbmb/MiniCPM-V-4_5"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Nebius Token Factory returned HTTP 401. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Nebius Token Factory returned HTTP 402 (Payment Required): the account budget is exhausted. Billing details: https://docs.tokenfactory.nebius.com/other-capabilities/billing-new"
+    },
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "Nebius Token Factory returned HTTP 404: the model '{model}' does not exist. Model ids are listed at https://tokenfactory.nebius.com/model-catalog.md"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Nebius Token Factory returned HTTP 429 (rate limit exceeded). The Retry-After response header gives the time in seconds to wait before making another request (https://docs.tokenfactory.nebius.com/ai-models-inference/rate-limits)"
+    }
+  ],
+  "setup": {
+    "url": "https://tokenfactory.nebius.com/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://tokenfactory.nebius.com/ and create an account; the quickstart (https://docs.tokenfactory.nebius.com/quickstart) says: \"Log in using your Google or GitHub account\"",
+      "2. Create an API key (https://docs.tokenfactory.nebius.com/api-reference/introduction#authentication): go to the API keys section, click Create API key, enter the key name, click Create, and save the displayed key — \"Save the displayed API key. You cannot open it later in Nebius Token Factory.\"",
+      "3. Billing (https://docs.tokenfactory.nebius.com/other-capabilities/billing-new): \"Billing setup is mandatory—you cannot complete onboarding without it.\" \"Setting up a billing account requires a bank card.\" \"Upon first sign-up, you receive $1 in trial credit, valid for 30 days.\"",
+      "4. Set {apiKeyEnvVar} in your .env file (the vendor's docs read NEBIUS_API_KEY)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.tokenfactory.nebius.com/v1 (https://docs.tokenfactory.nebius.com/api-reference/introduction: \"Nebius Token Factory offers an OpenAI-compatible API for inference and fine-tuning.\"). Docs-verified, not live-verified: an unauthenticated GET of https://api.tokenfactory.nebius.com/v1/models answers HTTP 401 without a key, so the model ids come from the vendor's public model catalog (https://tokenfactory.nebius.com/api/public/models_info, retrieved 2026-09-29) and the roster has not been checked against the API. errorRules follow the statuses and example bodies in https://docs.tokenfactory.nebius.com/api-reference/inference/create-chat-completion (401, 402, 404, 429). models.defaultMaxOutputTokens (8192) is the value that reference gives for an omitted max_tokens (\"If omitted or set to null, defaults to 8192 tokens.\"); models.defaultContextWindow (32000) is a placeholder the vendor does not publish."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.tokenfactory.nebius.com/v1/models answers 401 without a key, so model ids are taken from https://tokenfactory.nebius.com/api/public/models_info (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "unauthenticated GET https://api.tokenfactory.nebius.com/v1/models — body {\"detail\":\"Couldn't authenticate. Reason: token is not present\"}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.tokenfactory.nebius.com/other-capabilities/billing-new — \"Setting up a billing account requires a bank card.\" and \"Upon first sign-up, you receive $1 in trial credit, valid for 30 days.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

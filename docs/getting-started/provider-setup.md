@@ -64,6 +64,26 @@ Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each ha
 - **[Moark](providers/moark.md)** - default `Qwen3-8B` (`MOARK_API_KEY`); docs- and roster-verified, not yet live-verified
 - **[Neuralwatt](providers/neuralwatt.md)** - default `glm-5.3` (`NEURALWATT_API_KEY`); docs- and roster-verified, not yet live-verified
 - **[Pareto Inference](providers/pareto-inference.md)** - default `z-ai/glm-5.3-flash` (`PARETO_INFERENCE_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Aion Labs](providers/aionlabs.md)** - default `aion-labs/aion-3.5` (`AIONLABS_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Atlas Cloud](providers/atlas-cloud.md)** - default `deepseek-ai/deepseek-v3.2` (`ATLAS_CLOUD_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Avian](providers/avian-io.md)** - default `deepseek/deepseek-v4-pro-0813` (`AVIAN_IO_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Prime Intellect](providers/prime-intellect.md)** - default `openai/gpt-4.1-mini` (`PRIME_INTELLECT_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Subconscious](providers/subconscious.md)** - default `subconscious/glm-5.3-marathon` (`SUBCONSCIOUS_API_KEY`); **no tool calling**; docs- and roster-verified, not yet live-verified
+- **[Tinfoil](providers/tinfoil.md)** - default `kimi-k3` (`TINFOIL_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Umans AI](providers/umans-ai.md)** - default `umans-coder` (`UMANS_AI_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Vultr Inference](providers/vultr-inference.md)** - default `glm-5.2` (`VULTR_INFERENCE_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Wafer](providers/wafer.md)** - default `GLM-5.3` (`WAFER_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[Venice AI](providers/venice-ai.md)** - default `zai-org-glm-5-2` (`VENICE_AI_API_KEY`); docs- and roster-verified, not yet live-verified
+- **[AI21 Labs](providers/ai21.md)** - default `jamba-large` (`AI21_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Nebius Token Factory](providers/nebius.md)** - default `Qwen/Qwen3-235B-A22B-Instruct-2507` (`NEBIUS_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Moonshot AI (Kimi)](providers/moonshot-ai.md)** - default `kimi-k3` (`MOONSHOT_AI_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[MiniMax](providers/minimax.md)** - default `MiniMax-M3` (`MINIMAX_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Z.AI](providers/z-ai.md)** - default `glm-5.3` (`Z_AI_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[StepFun](providers/stepfun.md)** - default `step-5-preview` (`STEPFUN_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[SiliconFlow](providers/siliconflow.md)** - default `deepseek-ai/DeepSeek-V4-Pro` (`SILICONFLOW_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Scaleway](providers/scaleway.md)** - default `mistral-small-3.2-24b-instruct-2506` (`SCALEWAY_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[Crusoe](providers/crusoe.md)** - default `deepseek-ai/DeepSeek-V4-Flash` (`CRUSOE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
+- **[W&B Inference](providers/wandb-inference.md)** - default `openai/gpt-oss-120b` (`WANDB_INFERENCE_API_KEY`); docs-verified only (the roster needs a key), not yet live-verified
 
 Embedding, media-generation, and decision-only providers — not part of `generate()`/`stream()` provider selection in the same way, but each has a setup guide:
 

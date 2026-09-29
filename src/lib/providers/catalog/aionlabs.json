@@ -1,0 +1,144 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "aionlabs",
+  "displayName": "Aion Labs",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.aionlabs.ai/v1"
+  },
+  "models": {
+    "default": "aion-labs/aion-3.5",
+    "fallbacks": [
+      "aion-labs/aion-3.5-mini",
+      "aion-labs/aion-3.0-mini",
+      "aion-labs/aion-2.0"
+    ],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 32768,
+    "catalog": {
+      "aion-labs/aion-3.5": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 6.0,
+          "cachedInput": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended default - the model every request example on Aion Labs' own quickstart page (https://www.aionlabs.ai/docs/quickstart/, retrieved 2026-09-29) uses, in JavaScript, Python and curl alike, and released 2026-09-23, the latest release date on the roster (shared with Aion 3.5 Mini). Vendor-described as a multi-model system built on the GLM family, described for stronger narrative structure, tension and conflict, and mature or darker themes (https://www.aionlabs.ai/docs/models/); the vendor homepage describes its API as for creative writing, roleplay, research and production workloads (https://www.aionlabs.ai/). Context 262,144 tokens, max completion 32,768 and modality text->text on the unauthenticated GET /v1/models roster (2026-09-29); $3.00 / $6.00 per MTok input/output, $0.75 cached-input read on the docs models page (https://www.aionlabs.ai/docs/models/, retrieved 2026-09-29). Reasoning cannot be disabled on this model: reasoning_effort accepts only low, high (default) or max, and reasoning tokens share the max_tokens budget (https://www.aionlabs.ai/docs/api-reference/)."
+      },
+      "aion-labs/aion-3.5-mini": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.7,
+          "output": 1.4,
+          "cachedInput": 0.18
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Aion 3.5 Mini, released the same day as Aion 3.5 (2026-09-23); vendor-described as a multi-model system built on the GLM family (https://www.aionlabs.ai/docs/models/, which gives it the same family description as Aion 3.5 and does not say how the two differ). Roster-listed only, not called. Context 262,144, max completion 32,768, text->text on the unauthenticated GET /v1/models roster (2026-09-29); $0.70 / $1.40 per MTok input/output, $0.18 cached-input read on https://www.aionlabs.ai/docs/models/ (retrieved 2026-09-29). Reasoning cannot be disabled (reasoning_effort accepts only low, high or max per https://www.aionlabs.ai/docs/api-reference/). Fallback."
+      },
+      "aion-labs/aion-3.0": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 3.0,
+          "output": 6.0,
+          "cachedInput": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Aion 3.0, released 2026-05-05; vendor-described as a multi-model system built on the GLM family. Roster-listed only, not called. Context 131,072 (shown as 128K on the docs page), max completion 32,768, text->text on the unauthenticated GET /v1/models roster (2026-09-29); $3.00 / $6.00 per MTok input/output, $0.75 cached-input read on https://www.aionlabs.ai/docs/models/ (retrieved 2026-09-29). reasoning_effort accepts none, low, medium (default), high or max per https://www.aionlabs.ai/docs/api-reference/."
+      },
+      "aion-labs/aion-3.0-mini": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.7,
+          "output": 1.4,
+          "cachedInput": 0.18
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Aion 3.0 Mini, released 2026-05-14; vendor-described as a multi-model system built on the DeepSeek family. Roster-listed only, not called. Context 131,072 (shown as 128K on the docs page), max completion 32,768, text->text on the unauthenticated GET /v1/models roster (2026-09-29); $0.70 / $1.40 per MTok input/output, $0.18 cached-input read on https://www.aionlabs.ai/docs/models/ (retrieved 2026-09-29). reasoning_effort accepts none, low, medium (default), high or max per https://www.aionlabs.ai/docs/api-reference/. Fallback."
+      },
+      "aion-labs/aion-2.0": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 1.6,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Vendor-described as a variant of DeepSeek V3.2 optimized for immersive roleplaying and storytelling (released 2025-12-21). Roster-listed only, not called. Context 131,072 (shown as 128K on the docs page), max completion 32,768, text->text on the unauthenticated GET /v1/models roster (2026-09-29); $0.80 / $1.60 per MTok input/output, $0.20 cached-input read on https://www.aionlabs.ai/docs/models/ (retrieved 2026-09-29). reasoning_effort accepts none, low, medium (default), high or max per https://www.aionlabs.ai/docs/api-reference/. Fallback."
+      },
+      "aion-labs/aion-rp-llama-3.1-8b": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 1.6
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Aion-RP 1.0 (8B), vendor-described as a variant of Llama 3.1 8B optimized for immersive roleplaying and storytelling (released 2024-11-30); the only non-reasoning model on the roster. Roster-listed only, not called. Context 32,768, max completion 32,768, text->text on the unauthenticated GET /v1/models roster (2026-09-29); $0.80 / $1.60 per MTok input/output, no cached-input price, on https://www.aionlabs.ai/docs/models/ (retrieved 2026-09-29). reasoning_effort is not supported on this model (https://www.aionlabs.ai/docs/api-reference/)."
+      }
+    },
+    "topModels": [
+      "aion-labs/aion-3.5",
+      "aion-labs/aion-3.5-mini",
+      "aion-labs/aion-3.0",
+      "aion-labs/aion-3.0-mini",
+      "aion-labs/aion-2.0",
+      "aion-labs/aion-rp-llama-3.1-8b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Aion Labs usage limit exceeded (429 rate_limit_error). Free-tier accounts are limited to 15 requests/min, 20,000 tokens/min and 20,000 tokens/day; limits rise with lifetime credit top-ups - see https://www.aionlabs.ai/docs/rate-limits/"
+    }
+  ],
+  "setup": {
+    "url": "https://www.aionlabs.ai/accounts/signup/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://www.aionlabs.ai/accounts/signup/ and sign up (GitHub, Google or email)",
+      "2. Create an API key from the dashboard's API keys page (https://www.aionlabs.ai/app/api-keys/, sign-in required) and copy it when it is shown",
+      "3. Free tier: the pricing page (https://www.aionlabs.ai/pricing/) offers a daily credit allowance with no card required; free-tier limits are 15 requests/min, 20,000 tokens/min and 20,000 tokens/day (https://www.aionlabs.ai/docs/rate-limits/)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.aionlabs.ai/v1 (https://www.aionlabs.ai/docs/), serving a six-model Aion roster; the vendor homepage describes the API as for creative writing, roleplay, research and production workloads (https://www.aionlabs.ai/). Documented errors share one envelope, {\"error\":{\"message\",\"type\"}}, with 400 invalid_request_error, 429 rate_limit_error and 502 server_error (https://www.aionlabs.ai/docs/api-reference/). The docs give no 401 body and none was probed without a credential, so the errorRules carry only the documented 429; auth failures use the default classifier. Non-streaming responses must finish within 125 seconds or the edge returns HTTP 524, so prefer streaming for long or reasoning-heavy requests."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.aionlabs.ai/v1/models — 6 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "public page https://www.aionlabs.ai/pricing/ — Free Tier $0, \"A daily credit allowance to try agent jobs, the API, and browser chat. No card required.\"; https://www.aionlabs.ai/docs/rate-limits/ lists Free as the default tier on signup; credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

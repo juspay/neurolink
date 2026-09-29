@@ -1,0 +1,93 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "subconscious",
+  "displayName": "Subconscious",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.subconscious.dev/v1"
+  },
+  "models": {
+    "default": "subconscious/glm-5.3-marathon",
+    "fallbacks": [
+      "subconscious/deepseek-v4.1-flash-marathon",
+      "subconscious/tim-qwen3.6-27b"
+    ],
+    "defaultContextWindow": 200000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "subconscious/glm-5.3-marathon": {
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The pricing page (https://www.subconscious.dev/pricing, retrieved 2026-09-29) lists the id subconscious/glm-5.3-marathon under the name 'GLM-5.3 Marathon', with the description 'Open-source frontier coding model', at $0.26 cached, $1.40 input and $4.40 output per 1M tokens. The API reference (https://docs.subconscious.dev/api-reference/openapi.json) lists this id as the model enum value. Present on the unauthenticated GET /v1/models roster (2026-09-29). vision is false as a schema-required placeholder the vendor does not publish for this id."
+      },
+      "subconscious/deepseek-v4.1-flash-marathon": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Present on the unauthenticated GET /v1/models roster (2026-09-29). The vendor homepage FAQ (https://www.subconscious.dev, retrieved 2026-09-29) says 'On our managed inference service, we serve GLM 5.3 Marathon and DeepSeek V4.1 Flash Marathon.' No pricing is attached: the pricing page (https://www.subconscious.dev/pricing, retrieved 2026-09-29) lists the id subconscious/deepseek-v4-flash-marathon, which differs from this roster id, with the description 'Multimodal & high-throughput DeepSeek V4'. vision is false as a schema-required placeholder the vendor does not publish for this roster id. Not probed with a key."
+      },
+      "subconscious/tim-qwen3.6-27b": {
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. Present on the unauthenticated GET /v1/models roster (2026-09-29). The vendor blog post 'Introducing TIM-Qwen3.6-27B' (https://www.subconscious.dev/blog/introducing-tim-qwen3-6-27b, May 21, 2026) says the model is 'available via the OpenAI chat completions and Anthropic messages API formats'. vision is false as a schema-required placeholder the vendor does not publish for this id. Not probed with a key."
+      }
+    },
+    "topModels": [
+      "subconscious/glm-5.3-marathon",
+      "subconscious/deepseek-v4.1-flash-marathon",
+      "subconscious/tim-qwen3.6-27b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or missing Subconscious API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Subconscious returned HTTP 429: rate limited due to too many requests or tokens per minute."
+    }
+  ],
+  "setup": {
+    "url": "https://subconscious.dev/platform/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit https://subconscious.dev/platform and sign up or sign in (the quickstart, https://docs.subconscious.dev/quickstart, describes signing up on the platform and generating an API key from the dashboard)",
+      "2. Create an API key at https://subconscious.dev/platform/api-keys and copy it (https://docs.subconscious.dev/ways-to-use/cloud-api says API keys are created and managed from the dashboard)",
+      "3. Pricing is at https://www.subconscious.dev/pricing (monthly token plans and usage-based per-token pricing); the cloud-API page says 'Usage is billed per token.' and 'Credits are added from your dashboard'",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible Chat Completions endpoint at https://api.subconscious.dev/v1. The vendor overview (https://docs.subconscious.dev/overview) says 'Our API is compatible with both the OpenAI Completions and Anthropic Messages APIs'; this entry uses the OpenAI-format /chat/completions route. Verification level: docs- and roster-verified, not live-verified (evidence.liveMatrix is null). Checks made on 2026-09-29 were unauthenticated GET requests to /v1/models (HTTP 200, 4 models) and /v1/chat/completions (HTTP 405, allow: POST); no key was used and no POST was sent. The OpenAPI spec (https://docs.subconscious.dev/api-reference/openapi.json) lists statuses 400, 401 ('Unauthorized because of a missing or invalid API key'), 429 ('Rate limited due to too many requests or tokens per minute') and 500, so errorRules match on status. The spec says of response_format: 'Currently unsupported. The request may accept this field, but it is ignored and does not constrain the model output to JSON or a schema.' tools, toolsWithStreaming, structuredOutput, structuredOutputWithTools and thinking are declared false and were not probed with a key. models.defaultContextWindow (200000), models.defaultMaxOutputTokens (4096) and the vision value (false) of the three catalog models are placeholders the vendor does not publish per model. billingPolicy no-free-tier is the schema's required field value, not a vendor statement."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "method": "unauthenticated GET https://api.subconscious.dev/v1/models — 4 models; credential-free, no key used",
+      "status": 200
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.subconscious.dev/ways-to-use/cloud-api and https://www.subconscious.dev/pricing read without an account. The vendor blog post https://www.subconscious.dev/blog/subconscious-glm-5-2-makes-compact-obsolete (June 22, 2026, about GLM-5.2) says 'You also get $50 credits to test the model performance'; no account was created, so that offer was not tried; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

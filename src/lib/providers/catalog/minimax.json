@@ -1,0 +1,200 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "minimax",
+  "displayName": "MiniMax",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.minimax.io/v1"
+  },
+  "models": {
+    "default": "MiniMax-M3",
+    "fallbacks": [
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-highspeed",
+      "MiniMax-M2.5",
+      "MiniMax-M2.5-highspeed",
+      "MiniMax-M2.1",
+      "MiniMax-M2.1-highspeed",
+      "MiniMax-M2"
+    ],
+    "fallbackModelName": "MiniMax-M2.7",
+    "defaultContextWindow": 204800,
+    "defaultMaxOutputTokens": 65536,
+    "catalog": {
+      "MiniMax-M3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 524288,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink default. OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Frontier multimodal coding model with 1M context window\", context window 1,000,000; the same page says \"Image and video inputs are supported by MiniMax-M3.1-Flash-Preview and MiniMax-M3 through OpenAI-compatible message content parts\", hence vision true. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): max_completion_tokens maximum 524288 for MiniMax-M3.1-Flash-Preview and MiniMax-M3. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo), Standard tab: \"≤ 512k input tokens\", $0.30 input, $1.20 output and $0.06 prompt caching read per M tokens (the page shows $0.60, $2.40 and $0.12 struck through beside them); \"> 512k input tokens\" $0.60 input, $2.40 output and $0.12 prompt caching read per M tokens (the page shows $1.20, $4.80 and $0.24 struck through beside them); both Standard rows carry the label \"Permanent 50% off\". The Priority tab says \"Pricing is 1.5x standard.\" The pricingPerMTok figures are the Standard tab, \"≤ 512k input tokens\" row. Chat Completions reference thinking parameter: \"adaptive thinking is on by default\" for MiniMax-M3. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 200, TPM 10,000,000. The Integrate via SDK page (https://platform.minimax.io/docs/guides/quickstart-sdk) calls model=\"MiniMax-M3\"."
+      },
+      "MiniMax-M3.1-Flash-Preview": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 524288,
+        "vision": true,
+        "status": "preview",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Frontier multimodal coding model with 1M context window and tunable thinking depth\", context window 1,000,000; the page notes \"MiniMax-M3.1-Flash-Preview is available only through Token Plan and MiniMax Code for now.\" and says image and video inputs are supported for this model, hence vision true. Token Plan overview (https://platform.minimax.io/docs/token-plan/intro): \"The Subscription Key is not interchangeable with pay-as-you-go API Keys.\" Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): max_completion_tokens maximum 524288, and the model \"always thinks\"."
+      },
+      "MiniMax-M2.7": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Beginning the journey of recursive self-improvement (output speed approximately 60 tps)\", context window 204,800. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo): $0.3 input, $1.2 output, $0.06 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2.7-highspeed": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"M2.7 Highspeed: Same performance, faster and more agile (output speed approximately 100 tps)\", context window 204,800. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo): $0.6 input, $2.4 output, $0.06 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2.5": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Peak Performance. Ultimate Value. Master the Complex (output speed approximately 60 tps)\", context window 204,800; listed under \"Legacy Models\" on https://platform.minimax.io/docs/guides/models-intro. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo, Legacy Models): $0.3 input, $1.2 output, $0.03 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2.5-highspeed": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"M2.5 highspeed: Same performance, faster and more agile (output speed approximately 100 tps)\", context window 204,800; listed under \"Legacy Models\" on https://platform.minimax.io/docs/guides/models-intro. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo, Legacy Models): $0.6 input, $2.4 output, $0.03 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2.1": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Powerful Multi-Language Programming Capabilities with Comprehensively Enhanced Programming Experience (output speed approximately 60 tps)\", context window 204,800; listed under \"Legacy Models\" on https://platform.minimax.io/docs/guides/models-intro. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo, Legacy Models): $0.3 input, $1.2 output, $0.03 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2.1-highspeed": {
+        "contextWindow": 204800,
+        "maxOutputTokens": 204800,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Faster and More Agile (output speed approximately 100 tps)\", context window 204,800; listed under \"Legacy Models\" on https://platform.minimax.io/docs/guides/models-intro. Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai): for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3, max_completion_tokens maximum 204800. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo, Legacy Models): $0.6 input, $2.4 output, $0.03 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false."
+      },
+      "MiniMax-M2": {
+        "contextWindow": 204800,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI SDK page (https://platform.minimax.io/docs/api-reference/text-openai-api, retrieved 2026-09-29): \"Agentic capabilities, Advanced reasoning\", context window 204,800; listed under \"Legacy Models\" on https://platform.minimax.io/docs/guides/models-intro. Pay-as-you-go pricing page (https://platform.minimax.io/docs/guides/pricing-paygo, Legacy Models): $0.3 input, $1.2 output, $0.03 prompt caching read and $0.375 prompt caching write per M tokens. Rate limits page (https://platform.minimax.io/docs/guides/rate-limits): RPM 500, TPM 20,000,000. Vision: the Anthropic API page (https://platform.minimax.io/docs/api-reference/text-anthropic-api, retrieved 2026-09-29), messages row, says \"The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input\"; vision false. Max output: the Models page (https://platform.minimax.io/docs/guides/models-intro), Legacy Models, lists \"Maximum Output: 128k tokens (including CoT)\" for MiniMax-M2; the Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai) says for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3 \"the maximum is 204800 (200K)\". The two pages give different figures, so maxOutputTokens is not set for this id."
+      }
+    },
+    "topModels": [
+      "MiniMax-M3",
+      "MiniMax-M3.1-Flash-Preview",
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-highspeed",
+      "MiniMax-M2.5",
+      "MiniMax-M2.5-highspeed",
+      "MiniMax-M2.1",
+      "MiniMax-M2.1-highspeed",
+      "MiniMax-M2"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid api key|not authorized",
+      "class": "authentication",
+      "message": "MiniMax rejected the API key (HTTP 401, authorized_error). Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "pattern": "insufficient balance",
+      "class": "provider",
+      "message": "MiniMax reports an insufficient balance (error 1008). The vendor's error-code table says: \"Please check your account balance.\" (https://platform.minimax.io/docs/api-reference/errorcode)"
+    },
+    {
+      "pattern": "rate limit",
+      "class": "rate-limit",
+      "message": "MiniMax reports a rate limit (error 1002). The vendor's error-code table says: \"Please retry your requests later.\" (https://platform.minimax.io/docs/api-reference/errorcode)"
+    }
+  ],
+  "setup": {
+    "url": "https://platform.minimax.io/user-center/basic-information/interface-key",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://platform.minimax.io/login?source=platform_docs and register or log in (https://platform.minimax.io/docs/guides/quickstart-preparation)",
+      "2. Pay-as-you-go: open API Keys > Create new secret key at https://platform.minimax.io/user-center/basic-information/interface-key and copy the API Key (https://platform.minimax.io/docs/guides/quickstart-preparation)",
+      "3. Token Plan: view your Subscription Key at https://platform.minimax.io/user-center/payment/token-plan. MiniMax-M3.1-Flash-Preview is stated as available only through Token Plan and MiniMax Code for now, and the Subscription Key is stated as not interchangeable with pay-as-you-go API Keys (https://platform.minimax.io/docs/api-reference/text-openai-api, https://platform.minimax.io/docs/token-plan/intro)",
+      "4. Billing as the vendor words it: \"Pay-as-you-go uses standard Open Platform API Keys and consumes your account balance by actual usage.\" (https://platform.minimax.io/docs/guides/pricing-paygo) and \"New users without subscription can try the free quota from Pay-as-you-go\" (https://platform.minimax.io/docs/solutions/eigent, a tutorial dated January 23, 2026)",
+      "5. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.minimax.io/v1 (https://platform.minimax.io/docs/api-reference/text-openai-api sets OPENAI_BASE_URL=https://api.minimax.io/v1 and calls client.chat.completions.create), with the nine model ids in that page's Supported Models table in models.catalog. This entry is docs-verified only: an unauthenticated GET of https://api.minimax.io/v1/models answered HTTP 401 without a key, so the model ids come from the vendor's public docs and the roster has not been checked; it is not yet live-verified. That GET returned error.type authorized_error with the message \"login fail: Please carry the API secret key in the 'Authorization' field of the request header (1004)\" (2026-09-29), so errorRules match status 401 and the messages in the vendor's error-code table (https://platform.minimax.io/docs/api-reference/errorcode). models.defaultContextWindow (204800) and models.defaultMaxOutputTokens (65536) apply to ids outside the catalog: 204,800 is the context window the OpenAI SDK page lists for the MiniMax-M2.x models and 65536 is the recommended max_completion_tokens the Chat Completions reference gives for models other than MiniMax-M3.1-Flash-Preview and MiniMax-M3. capabilities.thinking is false and the entry sets none of the thinking, reasoning_effort or reasoning_split request parameters; the Chat Completions reference (https://platform.minimax.io/docs/api-reference/text-chat-openai) says of MiniMax-M3 \"adaptive thinking is on by default\" and of MiniMax-M3.1-Flash-Preview \"always thinks\". billingPolicy free-tier is the schema's closest value (the schema has no unknown value) and is not a MiniMax statement of terms; each model's status is likewise a value the schema requires (production, or preview for the id the vendor names Preview)."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.minimax.io/v1/models answers 401 without a key, so model ids are taken from https://platform.minimax.io/docs/api-reference/text-openai-api (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "authorized_error",
+      "method": "unauthenticated GET https://api.minimax.io/v1/models — error.type authorized_error, error.http_code \"401\", message ending (1004); credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://platform.minimax.io/docs/guides/pricing-paygo (\"Pay-as-you-go uses standard Open Platform API Keys and consumes your account balance by actual usage.\") and https://platform.minimax.io/docs/solutions/eigent (\"New users without subscription can try the free quota from Pay-as-you-go\"); credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "ai21",
+  "displayName": "AI21 Labs",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.ai21.com/studio/v1"
+  },
+  "models": {
+    "default": "jamba-large",
+    "fallbacks": [
+      "jamba-mini",
+      "jamba-large-1.7-2025-07",
+      "jamba-mini-2-2026-01"
+    ],
+    "fallbackModelName": "jamba-mini",
+    "defaultContextWindow": 256000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "jamba-large": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 8
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29) describes Jamba Large as \"Our most powerful and advanced model, designed to handle complex tasks at enterprise scale with superior performance.\"; its Model Details row for Jamba Large lists Max Tokens 256K, Version 1.7, Snapshot 2025-07 and API Endpoint `jamba-large`, and its API Versioning list says `jamba-large` currently points to `jamba-large-1.7-2025-07`. https://docs.ai21.com/reference/jamba-1-6-api-ref (retrieved 2026-09-29) names `jamba-large` and `jamba-mini` as the model names that can be called without specifying a version, and its cURL example sends \"model\": \"jamba-large\". https://www.ai21.com/pricing (retrieved 2026-09-29) lists Jamba Large at $2 / 1M input tokens and $8 / 1M output tokens. The models page gives Input Modality: Text, so vision is false. contextWindow records the page's 256K as 256,000; maxOutputTokens is the Chat request page's statement \"For Jamba models, the maximum allowed value is 4096 tokens.\""
+      },
+      "jamba-mini": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.4
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29): the Model Details row for Jamba Mini lists Max Tokens 256K, Version 2, Snapshot 2026-01 and API Endpoint `jamba-mini`, and the API Versioning list says `jamba-mini` currently points to `jamba-mini-2-2026-01`. https://www.ai21.com/pricing (retrieved 2026-09-29) describes Jamba Mini as \"Efficient & lightweight model for a wide range of tasks\" at $0.2 / 1M input tokens and $0.4 / 1M output tokens. https://docs.ai21.com/docs/sdk (retrieved 2026-09-29) uses `jamba-mini` in its chat example. The models page gives Input Modality: Text, so vision is false. contextWindow records the page's 256K as 256,000; maxOutputTokens is the Chat request page's statement \"For Jamba models, the maximum allowed value is 4096 tokens.\""
+      },
+      "jamba-large-1.7-2025-07": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Dated snapshot of Jamba Large. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29) lists it in API Versioning (`jamba-large` currently points to `jamba-large-1.7-2025-07`; `jamba-large-1.7` points to `jamba-large-1.7-2025-07`), and the Model Details row for Jamba Large lists Version 1.7, Snapshot 2025-07 and Max Tokens 256K. The page states: \"We advise using dated versions of the Jamba API to avoid disruptions from model updates and breaking changes.\" Input Modality: Text, so vision is false. Context and output figures are recorded as for `jamba-large` (256K as 256,000; max_tokens 4096 per the Chat request page)."
+      },
+      "jamba-mini-2-2026-01": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Dated snapshot of Jamba Mini. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29) lists it in API Versioning (`jamba-mini` currently points to `jamba-mini-2-2026-01`; `jamba-mini-2` points to `jamba-mini-2-2026-01`), and the Model Details row for Jamba Mini lists Version 2, Snapshot 2026-01 and Max Tokens 256K. The page states: \"We advise using dated versions of the Jamba API to avoid disruptions from model updates and breaking changes.\" Input Modality: Text, so vision is false. Context and output figures are recorded as for `jamba-mini` (256K as 256,000; max_tokens 4096 per the Chat request page)."
+      },
+      "jamba-large-1.7": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Version name for Jamba Large. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29) API Versioning list: `jamba-large-1.7` points to `jamba-large-1.7-2025-07`; the Model Details row for Jamba Large lists Version 1.7, Snapshot 2025-07 and Max Tokens 256K. Input Modality: Text, so vision is false. Context and output figures are recorded as for `jamba-large` (256K as 256,000; max_tokens 4096 per the Chat request page)."
+      },
+      "jamba-mini-2": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Version name for Jamba Mini. https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29) API Versioning list: `jamba-mini-2` points to `jamba-mini-2-2026-01`; the Model Details row for Jamba Mini lists Version 2, Snapshot 2026-01 and Max Tokens 256K. Input Modality: Text, so vision is false. Context and output figures are recorded as for `jamba-mini` (256K as 256,000; max_tokens 4096 per the Chat request page)."
+      }
+    },
+    "topModels": [
+      "jamba-large",
+      "jamba-mini",
+      "jamba-large-1.7-2025-07",
+      "jamba-mini-2-2026-01",
+      "jamba-large-1.7",
+      "jamba-mini-2"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "AI21 rejected the API key (HTTP 401; the Chat response page documents 401 as \"Unauthorized (Incorrect API key provided/Invalid Authentication)\"). Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "pattern": "bad or missing authentication",
+      "class": "authentication",
+      "message": "AI21 reported bad or missing authentication. Check {apiKeyEnvVar}. Create a key: {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "AI21 rate limit (HTTP 429; the Chat response page documents 429 as \"Too Many Requests (You are sending requests too quickly.)\"). https://docs.ai21.com/reference/api-rate-limits lists 10 requests per second and 200 requests per minute for Jamba Large and Jamba Mini."
+    },
+    {
+      "status": 503,
+      "class": "provider",
+      "message": "AI21 returned HTTP 503 (the Chat response page documents 503 as \"Service Unavailable (The engine is currently overloaded, please try again later)\")."
+    }
+  ],
+  "setup": {
+    "url": "https://docs.ai21.com/docs/create-api-key",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://docs.ai21.com/docs/create-api-key and follow its steps: sign in to AI21 Studio (the page says \"You can sign in using your email address, Google account, GitHub account, or SSO.\"), click Settings in the bottom-left corner of the sidebar, open the API Keys tab, then click Create new key",
+      "2. Copy the key when it is shown; the page says \"you won’t be able to view it again\"",
+      "3. Free trial: https://docs.ai21.com/docs/usage-cost says \"New accounts are given a $10 credit good for three months on the AI21 platform.\" and, once the trial is exceeded or expires, \"you must provide valid billing information in your account to continue using the AI21 platform\". https://www.ai21.com/pricing shows \"$10 credits for 7 days.\" and \"No credit card needed\" under Free Trial",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: GET https://api.ai21.com/studio/v1/models answers 200 with an empty data array without a key, so the model ids come from https://docs.ai21.com/docs/jamba-foundation-models and the roster has not been checked; the entry is not yet live-verified. Chat completions are documented at POST https://api.ai21.com/studio/v1/chat/completions with Bearer authentication (https://docs.ai21.com/reference/jamba-1-6-api-ref, https://docs.ai21.com/reference/authentication); the request takes model and messages and the response carries a choices array, with streaming as server-sent events ending in data: [DONE] (https://docs.ai21.com/reference/jamba-api-response). Unauthenticated GETs made 2026-09-29: /models answered 200 {\"data\":[]}; /chat/completions answered 405 {\"detail\":\"Method Not Allowed\"} with header allow: POST; /library/files (a documented endpoint) answered 400 {\"detail\":\"Bad request: bad or missing authentication.\"}. The 401, 429 and 503 errorRules follow the status codes on the Chat response page; the pattern rule matches the /library/files body text. defaultContextWindow and the per-model contextWindow values hold 256000 as a numeric placeholder for the 256K label printed on the models page; no exact token count is taken from a vendor page. toolsWithStreaming is false because the stream parameter text on the Chat request page says \"Must be False if using tools.\" structuredOutput is true on the basis of the response_format value { \"type\": \"json_object\" } that the Chat request page describes as activating JSON mode. No POST request was sent, so the request fields that NeuroLink's chat-completions client can add (stream_options on streaming calls, tool_choice on calls with tools, and a json_schema response_format for schema output) have not been exercised against AI21."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "method": "docs-only, roster not verified — unauthenticated GET https://api.ai21.com/studio/v1/models answered HTTP 200 with body {\"data\":[]} and no key, so model ids are taken from https://docs.ai21.com/docs/jamba-foundation-models (retrieved 2026-09-29)"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 400,
+      "method": "unauthenticated GET https://api.ai21.com/studio/v1/library/files (a documented endpoint) — body {\"detail\":\"Bad request: bad or missing authentication.\"}; the same day GET /models answered 200 {\"data\":[]} and GET /chat/completions answered 405 {\"detail\":\"Method Not Allowed\"}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.ai21.com/docs/usage-cost (\"New accounts are given a $10 credit good for three months on the AI21 platform.\") and https://www.ai21.com/pricing (\"Start with a free trial, no credit card required, then pay based on usage.\"; Free Trial: \"$10 credits for 7 days.\" and \"No credit card needed\"); credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

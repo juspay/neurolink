@@ -1,0 +1,217 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "prime-intellect",
+  "displayName": "Prime Intellect",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.pinference.ai/api/v1",
+    "apiKeyFallbackEnvVars": ["PRIME_API_KEY"]
+  },
+  "models": {
+    "default": "openai/gpt-4.1-mini",
+    "fallbacks": [
+      "openai/gpt-4.1",
+      "anthropic/claude-sonnet-4.5",
+      "meta-llama/llama-3.3-70b-instruct"
+    ],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "openai/gpt-4.1-mini": {
+        "contextWindow": 1047576,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 1.6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Recommended default. Prime Intellect's own Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) lists this model as \"Fast, cost-effective (default)\" and uses it as the default model of its inference-backed evaluation command. No Prime-trained model appears on this roster (119 of 125 entries are gateway-routed and the other 6 are third-party models served on Prime infrastructure), so this is the model its docs designate as the default, not a Prime-trained flagship. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,047,576, max_output_tokens 32,768, $0.4/$1.6 per MTok input/output; input modalities image/text/file; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "openai/gpt-4.1": {
+        "contextWindow": 1047576,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 2,
+          "output": 8
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Listed in the Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) as \"Higher quality\" than the default. Fallback. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,047,576, max_output_tokens 32,768, $2/$8 per MTok input/output; input modalities image/text/file; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "anthropic/claude-sonnet-4.5": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Listed in the Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) as \"Strong reasoning\". Fallback. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,000,000, max_output_tokens 64,000, $3/$15 per MTok input/output; input modalities text/image/file; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "meta-llama/llama-3.3-70b-instruct": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 1.04,
+          "output": 2.253
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Listed in the Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) as \"Open-weight, balanced\". Fallback. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 131,072, max_output_tokens 16,384, $1.04/$2.253 per MTok input/output; input modalities text; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. No image input modality on the roster, so vision is false."
+      },
+      "google/gemini-2.5-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 65535,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 2.5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Listed in the Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) as \"Fast multimodal\". Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,048,576, max_output_tokens 65,535, $0.3/$2.5 per MTok input/output; input modalities file/image/text/audio/video; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 235929,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "The Evaluating Environments guide (docs.primeintellect.ai/tutorials-environments/evaluating) lists a lowercase id, qwen/qwen3-235b-a22b-instruct-2507, as \"Large MoE model\"; that lowercase id is not on today's roster, so the id here is copied character for character from the roster's differently cased entry. The roster's max_output_tokens figure is reported as served. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 262,144, max_output_tokens 235,929, $0.25/$1 per MTok input/output; input modalities text; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. No image input modality on the roster, so vision is false."
+      },
+      "z-ai/glm-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Serving \"hosted\" on today's roster — the vendor's OpenAPI spec (https://api.pinference.ai/openapi.json) defines that value as models served on Prime infrastructure. Roster display_name \"GLM 5.3\"; reasoning is marked mandatory with default effort \"max\". Its supported_parameters list tools and tool_choice but not response_format or structured_outputs. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,048,576, max_output_tokens 131,072, $1.4/$4.4 per MTok input/output ($0.26 cached-input read); input modalities text; supported_parameters include tools, tool_choice; serving hosted. No image input modality on the roster, so vision is false."
+      },
+      "openai/gpt-5.4-mini": {
+        "contextWindow": 400000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 4.5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Named in the Troubleshooting page's direct-API examples (docs.primeintellect.ai/inference/troubleshooting). Roster reasoning efforts: xhigh/high/medium/low/none, not mandatory. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 400,000, max_output_tokens 128,000, $0.75/$4.5 per MTok input/output; input modalities file/image/text; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.35,
+          "output": 0.75
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Roster-listed only. Reasoning is marked mandatory (default effort \"medium\"). Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 131,072, max_output_tokens 65,536, $0.35/$0.75 per MTok input/output; input modalities text; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. No image input modality on the roster, so vision is false."
+      },
+      "deepseek/deepseek-v4-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.44,
+          "output": 1.32
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Roster-listed only. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 1,048,576, max_output_tokens 131,072, $0.44/$1.32 per MTok input/output; input modalities text; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. No image input modality on the roster, so vision is false."
+      },
+      "anthropic/claude-haiku-4.5": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 5
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed only. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): context_window 200,000, max_output_tokens 64,000, $1/$5 per MTok input/output; input modalities text/image/file; supported_parameters include response_format, structured_outputs, tool_choice, tools; serving gateway. vision: true follows the roster's image input modality (no image request was sent)."
+      },
+      "Qwen/Qwen3.5-122B-A10B": {
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 0.9,
+          "cachedInput": 0.27
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Serving \"hosted\" (Prime infrastructure) on today's roster. The roster gives it no context_window, max_output_tokens, modalities or supported_parameters, so none are declared here; vision false is the schema's required default, not a vendor statement about image input. Roster-listed only. Figures from the unauthenticated GET https://api.pinference.ai/api/v1/models roster (2026-09-29): $0.3/$0.9 per MTok input/output ($0.27 cached-input read); serving hosted."
+      }
+    },
+    "topModels": [
+      "openai/gpt-4.1-mini",
+      "openai/gpt-4.1",
+      "anthropic/claude-sonnet-4.5",
+      "meta-llama/llama-3.3-70b-instruct",
+      "google/gemini-2.5-flash",
+      "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "z-ai/glm-5.3",
+      "openai/gpt-5.4-mini",
+      "openai/gpt-oss-120b",
+      "deepseek/deepseek-v4-flash",
+      "anthropic/claude-haiku-4.5",
+      "Qwen/Qwen3.5-122B-A10B"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Authorization header or x-api-key missing|invalid_api_key|Invalid API key",
+      "class": "authentication",
+      "message": "Invalid or missing Prime Intellect API key. Check {apiKeyEnvVar}. Create a key with the Inference permission enabled at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://app.primeintellect.ai/dashboard/tokens",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://app.primeintellect.ai/dashboard/tokens (Settings -> API Keys) and sign in",
+      "2. Click Generate New Key and enable the Inference permission — without it requests fail with authentication errors (https://docs.primeintellect.ai/inference/overview); the key is shown only once, so copy it straight away (https://docs.primeintellect.ai/api-reference/api-keys)",
+      "3. Billing is automatic deduction from your Prime Intellect account balance (https://docs.primeintellect.ai/inference/overview); no free tier or trial credit is documented on the pages read, so add funds at https://app.primeintellect.ai/dashboard/billing and confirm current terms before the first call",
+      "4. Set {apiKeyEnvVar} in your .env file (PRIME_API_KEY, the variable Prime's own docs use, is also read)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.pinference.ai/api/v1 (docs.primeintellect.ai/inference/overview), a gateway that routes to upstream model providers plus a few models served on Prime infrastructure. The inference host (pinference.ai) differs from the docs and dashboard host (primeintellect.ai); both are confirmed on the vendor's own pages. The catalog schema has no 'unknown' billing value, so no-free-tier here means no free tier is documented, not that the vendor confirmed there is none."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "method": "unauthenticated GET https://api.pinference.ai/api/v1/models — 125 models; credential-free, no key used",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "method": "unauthenticated GET https://api.pinference.ai/api/v1/models/openai/gpt-4.1-mini with no credentials — 401 {\"detail\":\"Authorization header or x-api-key missing\", ...}; only the missing-credential shape was observed, the invalid-key shape (error.code invalid_api_key) is from docs.primeintellect.ai/api-reference/inference-models and was not probed; credential-free, no key used",
+      "status": 401
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.primeintellect.ai/inference/overview — \"Automatic deduction from your Prime Intellect account balance\"; https://docs.primeintellect.ai/inference/troubleshooting documents an insufficient_funds error; no free tier stated; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

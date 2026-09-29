@@ -1,0 +1,174 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "umans-ai",
+  "displayName": "Umans AI",
+  "aliases": ["umans"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.code.umans.ai/v1"
+  },
+  "models": {
+    "default": "umans-coder",
+    "fallbacks": [
+      "umans-glm-5.3",
+      "umans-deepseek-v4-flash-0731",
+      "umans-kimi-k3"
+    ],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "umans-coder": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Default - the vendor's own default model: every curl example on https://app.umans.ai/offers/code/docs names it, the docs' Models table lists it as \"Default: we choose the best for you\", and the docs' CLI launches it by default. It is a routing alias, not a fixed model: the docs say it \"routes to our current pick, which changes as we evaluate models\" (GLM-5.3-Flash since September 9, 2026), and https://app.umans.ai/pricing says \"Umans Coder is an alias for this model today: same rates, routed automatically\" under GLM 5.3 Flash. Read on 2026-09-29: unauthenticated GET https://api.code.umans.ai/v1/models - context_length 1,048,576, pricing 0.15 input / 0.5 output; unauthenticated GET https://api.code.umans.ai/v1/models/info - base_model GLM-5.3-Flash, max_completion_tokens 131,072, supports_vision true, supports_tools true. The $0.03 cache-read rate is the GLM 5.3 Flash rate on the pricing page. Context, price and vision follow whatever model it routes to and can change without a new id."
+      },
+      "umans-glm-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback - Z.ai's GLM 5.3. https://app.umans.ai/offers/code/docs lists it as the GLM 5.2 successor on a 1M context at $1.40 / $4.40 per 1M tokens (input / output; $0.26 cached). It always thinks, at max effort by default; reasoning_effort low or high dials it and thinking cannot be turned off. Text-only: /v1/models/info says supports_vision false, and the docs' Cursor setup says \"the DeepSeek and GLM ids are text-only on this route\". Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 1,048,576, pricing 1.4 / 4.4; GET https://api.code.umans.ai/v1/models/info: max_completion_tokens 131,072, supports_tools true."
+      },
+      "umans-deepseek-v4-flash-0731": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.28,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback - DeepSeek V4 Flash, the 0731 release. https://app.umans.ai/offers/code/docs calls it \"The cheapest production model in the lineup ($0.14 / $0.28 per 1M tokens)\" and the default for new chats on app.umans.ai; it thinks at low effort by default and the docs say to select high or max on hard tasks. /v1/models/info describes 284B total and 13B active parameters and four reasoning modes: none, low (default), high, max. Text-only: /v1/models/info says supports_vision false. Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 1,048,576, pricing 0.14 / 0.28; GET https://api.code.umans.ai/v1/models/info: max_completion_tokens 393,216, supports_tools true. The $0.028 cache-read rate is stated on the docs and pricing pages."
+      },
+      "umans-kimi-k3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback - Moonshot's Kimi K3. https://app.umans.ai/offers/code/docs lists it with a 1M context, native vision and max-effort reasoning by default, and says it honors reasoning_effort none, low, high or max; its sampling fields (temperature, top_p) are fixed server-side and the gateway removes them rather than failing the request. Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 1,048,576, pricing 3.0 / 15.0; GET https://api.code.umans.ai/v1/models/info: base_model Kimi-K3, max_completion_tokens 131,072, supports_vision true, supports_tools true. The $0.30 cache-read rate is stated on https://app.umans.ai/pricing."
+      },
+      "umans-glm-5.3-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Vision model for tests - Z.ai's GLM-5.3-Flash. https://app.umans.ai/offers/code/docs describes \"a 320B mixture-of-experts (18B active per token) with native image and video understanding\" at $0.15 / $0.50 per 1M tokens; it always thinks at max effort by default, reasoning_effort low or high dials it and thinking cannot be turned off. The pricing page says umans-coder is an alias for it today. Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 1,048,576, pricing 0.15 / 0.5; GET https://api.code.umans.ai/v1/models/info: max_completion_tokens 131,072, supports_vision true, supports_tools true. The $0.03 cache-read rate is stated on https://app.umans.ai/pricing. It is models.visionModel so vision tests use a fixed id rather than the routed alias."
+      },
+      "umans-deepseek-v4.1-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 393216,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.028
+        },
+        "vision": true,
+        "status": "production",
+        "description": "DeepSeek V4.1 Flash, listed in the Models table of https://app.umans.ai/offers/code/docs, which describes \"a 552B MoE (8B active on prefill, 16B on decode) with native image understanding ($0.15 / $0.60 per 1M tokens)\", names it the DeepSeek V4 Pro successor, and lists four reasoning modes - non-think, think low, think high (the default), think max - with a numeric 1-100 budget also accepted. Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 1,048,576, pricing 0.15 / 0.6; GET https://api.code.umans.ai/v1/models/info: production_start_date 2026-09-18, max_completion_tokens 393,216, supports_vision true, supports_tools true. The $0.028 cache-read rate is stated on https://app.umans.ai/pricing."
+      },
+      "umans-flash": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 1,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen3.6-35B-A3B-FP8, a light model rather than a coder. https://app.umans.ai/offers/code/docs lists it in its Models table as \"High-interactivity light model; complement to umans-coder\" with a 256K context, says to use it for the roles around umans-coder \"not as a standalone coder\", targets 200+ tokens per second, and its Claude Code table lists Text, Vision, WebSearch. Unauthenticated GET https://api.code.umans.ai/v1/models (2026-09-29): context_length 262,144, pricing 0.15 / 1.0; GET https://api.code.umans.ai/v1/models/info: max_completion_tokens 262,144, supports_vision true, supports_tools true. The $0.05 cache-read rate is stated on https://app.umans.ai/offers/code/docs/orgs and the pricing page. The docs' Limits section counts it as half a request against the wallet tier's request window. The roster's umans-qwen3.6-35b-a3b id is described by /v1/models/info as a technical alias for this model and is not listed separately."
+      }
+    },
+    "topModels": [
+      "umans-coder",
+      "umans-glm-5.3",
+      "umans-deepseek-v4-flash-0731",
+      "umans-kimi-k3",
+      "umans-glm-5.3-flash",
+      "umans-deepseek-v4.1-flash",
+      "umans-flash"
+    ],
+    "visionModel": "umans-glm-5.3-flash"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Umans AI rejected the request with HTTP 401. Check {apiKeyEnvVar}; the docs say a 401 means the key may be expired or revoked. Create a new key at {setupUrl}"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Umans AI rate limit (HTTP 429): the wallet tier's burst limit was exceeded. The docs describe 429s as retryable - wait for the rolling five-hour window to free capacity, or top up to grow the tier (https://app.umans.ai/offers/code/docs)"
+    },
+    {
+      "pattern": "unknown model",
+      "class": "invalid-model",
+      "message": "Umans AI model '{model}' is not a valid id (HTTP 400 Unknown model). Ids start with umans-; the error body lists the valid ids, or pick one from https://api.code.umans.ai/v1/models"
+    }
+  ],
+  "setup": {
+    "url": "https://app.umans.ai/billing",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://app.umans.ai/register and create an account with Google or an email and password (already have one? sign in at https://app.umans.ai/login). Organizations are provisioned by Umans: email contact@umans.ai (https://app.umans.ai/offers/code/docs/orgs)",
+      "2. Open https://app.umans.ai/billing, go to Dashboard -> API Keys and generate a key; the docs say it is shown only once, so copy it immediately",
+      "3. Prepaid wallet, no free tier stated: top up before calling the API - the docs say a wallet with no credit (no paid top-up and no active promo grant) \"does not serve until it has some\", and promo credit serves only while it lasts (https://app.umans.ai/offers/code/docs)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.code.umans.ai/v1 (https://app.umans.ai/offers/code/docs: \"Umans Code also implements the OpenAI Chat Completions API\"), pay-per-token from a prepaid wallet, serving open-weight coding models from Z.ai, DeepSeek, Moonshot and Qwen. The gateway's 401 body was observed only on GET /v1/usage ({\"error\":{\"type\":\"authentication_error\",\"message\":\"Missing API key\"}}); GET /v1/chat/completions answers 405 and was never POSTed, so errorRules match the documented status codes (401, 429) and the documented \"Unknown model\" text rather than a probed chat-completions body. models.defaultContextWindow (262144) and models.defaultMaxOutputTokens (131072) are schema-required placeholders, not vendor-stated caps: they are the smallest context and max-output values among the seven catalog models, used only for an id outside the catalog, and no Umans page states a general cap. apiKeyFormat is null because the docs conflict: the Any BYOK Tool section says the key \"starts with sk-\" and the examples write sk-your-umans-api-key, while the wallet-summary example shows a key prefix of umans_7fKq and the homepage .env example shows umans_."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.code.umans.ai/v1/models — 10 models; credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "authentication_error",
+      "method": "unauthenticated GET https://api.code.umans.ai/v1/usage (a documented bearer-key route) — body {\"error\":{\"type\":\"authentication_error\",\"message\":\"Missing API key\"}}; the OpenAI route GET /v1/chat/completions returned 405 Method Not Allowed and no POST was sent; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://app.umans.ai/offers/code/docs (\"A wallet with no credit at all — no paid top-up, no active promo grant — does not serve until it has some\") and https://app.umans.ai/pricing (\"Pay per token. Top up, create a key, and go.\"); no free tier stated; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

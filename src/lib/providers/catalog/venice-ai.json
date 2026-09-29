@@ -1,0 +1,208 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "venice-ai",
+  "displayName": "Venice AI",
+  "aliases": ["venice"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.venice.ai/api/v1",
+    "apiKeyFallbackEnvVars": ["VENICE_API_KEY"]
+  },
+  "models": {
+    "default": "zai-org-glm-5-2",
+    "fallbacks": ["zai-org-glm-5", "zai-org-glm-5-1", "deepseek-v4-pro-0813"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "zai-org-glm-5-2": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) lists the traits \"default\" and \"function_calling_default\" on this model, and an unauthenticated GET https://api.venice.ai/api/v1/models/traits returned \"default\":\"zai-org-glm-5-2\" on the same day; https://docs.venice.ai/overview/deprecations lists the default trait as currently routing to this id. Roster description: \"GLM-5.2 is the next-generation large language model developed by Zhiyuan AI\". Roster figures: context_length 1,000,000, maxCompletionTokens 131,072, $1.4/$4.4 per MTok input/output, $0.26 cache read, supportsVision false, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Code\"."
+      },
+      "zai-org-glm-5": {
+        "contextWindow": 198000,
+        "maxOutputTokens": 32000,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 3.2,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The model in the request examples of https://docs.venice.ai/getting-started/quick-start, which lists it with the text \"Default model for most use cases\", and of https://docs.venice.ai/guides/features/function-calling. Roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) description: \"GLM-5 is the next-generation large language model developed by Zhiyuan AI\". Roster figures: context_length 198,000, maxCompletionTokens 32,000, $1/$3.2 per MTok input/output, $0.2 cache read, supportsVision false, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Code\"."
+      },
+      "zai-org-glm-5-1": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 80000,
+        "pricingPerMTok": {
+          "input": 1.54,
+          "output": 4.84,
+          "cachedInput": 0.286
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The model in the request examples of https://docs.venice.ai/guides/features/reasoning-models. Roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) description: \"GLM-5.1 is the next-generation large language model developed by Zhiyuan AI\". Roster figures: context_length 200,000, maxCompletionTokens 80,000, $1.54/$4.84 per MTok input/output, $0.286 cache read, supportsVision false, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning\". The pricing page shows the cache-read price rounded to two decimals."
+      },
+      "deepseek-v4-pro-0813": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 1.65,
+          "output": 4.95,
+          "cachedInput": 0.165
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. The roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) lists the trait \"default_code\" on this model, and https://docs.venice.ai/overview/deprecations lists the default_code trait as currently routing to this id. Roster description: \"DeepSeek V4 Pro is a 1.6T-parameter Mixture-of-Experts model with 49B active parameters and a 1M-token context window.\" Roster figures: context_length 1,000,000, maxCompletionTokens 32,768, $1.65/$4.95 per MTok input/output, $0.165 cache read, supportsVision false, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Code\". The pricing page shows the cache-read price rounded to two decimals."
+      },
+      "kimi-k3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 3.75,
+          "output": 18.75,
+          "cachedInput": 0.375
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) lists the trait \"default_reasoning\" on this model, and https://docs.venice.ai/overview/deprecations lists the default_reasoning trait as currently routing to this id. Roster description: \"Kimi K3 is an ultra-large-scale, open-weight multimodal reasoning model from Moonshot AI.\" Roster figures: context_length 1,000,000, maxCompletionTokens 131,072, $3.75/$18.75 per MTok input/output, $0.375 cache read, supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Vision, Code\". The pricing page shows the cache-read price rounded to two decimals."
+      },
+      "kimi-k2-6": {
+        "contextWindow": 256000,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 3.5,
+          "cachedInput": 0.16
+        },
+        "vision": true,
+        "status": "production",
+        "description": "https://docs.venice.ai/getting-started/quick-start lists this id with the text \"Strong reasoning for more complex tasks\". Roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) description: \"Kimi K2.6 is an open-source, native multimodal agentic model from Moonshot AI with 1T total parameters and 32B active parameters.\" Roster figures: context_length 256,000, maxCompletionTokens 65,536, $0.75/$3.5 per MTok input/output, $0.16 cache read, supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Vision, Code\"."
+      },
+      "qwen3-vl-235b-a22b": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 16384,
+        "pricingPerMTok": {
+          "input": 0.21,
+          "output": 1.9,
+          "cachedInput": 0.1
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink models.visionModel. The model in the request examples of https://docs.venice.ai/guides/features/vision. Roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) description: \"Qwen3-VL 235B vision-language model with MoE architecture.\" Roster figures: context_length 128,000, maxCompletionTokens 16,384, $0.21/$1.9 per MTok input/output, $0.1 cache read, supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning false. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Vision\"."
+      },
+      "venice-uncensored-1-2": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.9
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) lists the trait \"most_uncensored\" on this model, and https://docs.venice.ai/getting-started/quick-start lists this id with the text \"Venice's uncensored model\". Roster description: \"Venice Uncensored 1.2 is designed for maximum creative freedom and authentic interaction.\" Roster figures: context_length 128,000, maxCompletionTokens 8,192, $0.2/$0.9 per MTok input/output, supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning false. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Vision, Uncensored\"."
+      },
+      "grok-4-7": {
+        "contextWindow": 500000,
+        "maxOutputTokens": 200000,
+        "pricingPerMTok": {
+          "input": 2.27,
+          "output": 6.8,
+          "cachedInput": 0.57
+        },
+        "vision": true,
+        "status": "production",
+        "description": "The roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) lists the trait \"most_intelligent\" on this model, and https://docs.venice.ai/overview/deprecations lists the most_intelligent trait as currently routing to this id. Roster description: \"Grok 4.7 is xAI's multimodal chat and reasoning model with function calling, structured outputs, adjustable reasoning effort (low/medium/high/xhigh), and a 500K-token context window.\" Roster figures: context_length 500,000, maxCompletionTokens 200,000, $2.27/$6.8 per MTok input/output, $0.57 cache read, supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the pricing page has a further row labelled \"↳ >200K Context\" at $4.53 input and $13.60 output, which the flat prices here do not carry. https://docs.venice.ai/models/text lists the Capabilities \"Function calling, Reasoning, Vision, Code\"."
+      },
+      "claude-opus-4-8": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 6,
+          "output": 30,
+          "cachedInput": 0.6
+        },
+        "vision": true,
+        "status": "production",
+        "description": "https://docs.venice.ai/getting-started/quick-start lists this id with the text \"High-intelligence model for complex tasks\". Roster (unauthenticated GET https://api.venice.ai/api/v1/models, 2026-09-29, 126 text models) description: \"It features a 1M token context window, 128K max output tokens, adaptive thinking, and strong multimodal capabilities.\" Roster figures: context_length 1,000,000, maxCompletionTokens 128,000, $6/$30 per MTok input/output, $0.6 cache read, privacy \"anonymized\", supportsVision true, supportsFunctionCalling true, supportsResponseSchema true, supportsReasoning true. The input and output prices and the rounded context also appear on https://docs.venice.ai/overview/pricing and https://docs.venice.ai/models/text; the latter lists the Capabilities \"Function calling, Reasoning, Vision, Code\"."
+      }
+    },
+    "topModels": [
+      "zai-org-glm-5-2",
+      "zai-org-glm-5",
+      "zai-org-glm-5-1",
+      "deepseek-v4-pro-0813",
+      "kimi-k3",
+      "kimi-k2-6",
+      "qwen3-vl-235b-a22b",
+      "venice-uncensored-1-2",
+      "grok-4-7",
+      "claude-opus-4-8"
+    ],
+    "visionModel": "qwen3-vl-235b-a22b"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": true
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Venice AI authentication failed (HTTP 401). https://docs.venice.ai/api-reference/error-codes lists AUTHENTICATION_FAILED (\"Authentication failed\"), AUTHENTICATION_FAILED_INACTIVE_KEY, X402_INVALID_SIGN_IN and PRO_ONLY_MODEL under 401. NeuroLink reads the key from {apiKeyEnvVar}; keys are created at {setupUrl}"
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Venice AI reports a balance problem (HTTP 402). https://docs.venice.ai/api-reference/error-codes lists INSUFFICIENT_BALANCE (\"Insufficient USD or Diem balance to complete request.\", pointing to https://venice.ai/settings/api to add credits), API_KEY_USD_SPEND_LIMIT_EXCEEDED and API_KEY_DIEM_SPEND_LIMIT_EXCEEDED under 402"
+    },
+    {
+      "pattern": "Specified model not found|Invalid model specified",
+      "class": "invalid-model",
+      "message": "Venice AI did not accept model '{model}'. https://docs.venice.ai/api-reference/error-codes lists MODEL_NOT_FOUND (404, \"Specified model not found\") and INVALID_MODEL (400, \"Invalid model specified\"). Model ids are served by an unauthenticated GET https://api.venice.ai/api/v1/models"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Venice AI returned HTTP 429. https://docs.venice.ai/api-reference/error-codes lists RATE_LIMIT_EXCEEDED (\"Rate limit exceeded\") and MODEL_OVERLOADED (\"The model is currently overloaded. Please try again later.\") under 429, and https://docs.venice.ai/api-reference/rate-limiting says \"Failed requests (500, 503, 429) should be retried with exponential backoff.\""
+    }
+  ],
+  "setup": {
+    "url": "https://venice.ai/settings/api",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://venice.ai/settings/api and select Generate New API Key; the API key guide lists \"Sign in to your Venice account.\" under Before you start (https://docs.venice.ai/guides/getting-started/generating-api-key)",
+      "2. Copy the key when it is shown — the API key guide states \"Venice will show the full API key one time.\" (https://docs.venice.ai/guides/getting-started/generating-api-key) — and paste it without a Bearer prefix or quotes (https://docs.venice.ai/getting-started/quick-start)",
+      "3. Fund the account before calling models: the docs state \"model requests will not succeed until the account can consume DIEM, bundled credits, or USD\" (https://docs.venice.ai/guides/getting-started/generating-api-key); payment options are listed at https://docs.venice.ai/overview/pricing",
+      "4. Set {apiKeyEnvVar} in your .env file (VENICE_API_KEY, the variable Venice's own docs use, is also read)"
+    ],
+    "description": "Docs- and roster-verified, not yet live-verified. OpenAI-compatible endpoint at https://api.venice.ai/api/v1 (https://docs.venice.ai/api-reference/endpoint/chat/completions: \"This endpoint is OpenAI-compatible\"), serving 126 text models on the 2026-09-29 roster, 10 of which are catalogued here (the roster's e2ee- ids are not). models.defaultContextWindow (128,000) and models.defaultMaxOutputTokens (4,096) are placeholders the vendor does not publish: Venice publishes context and max-output figures per model on the roster, not as a general default. The error-codes page (https://docs.venice.ai/api-reference/error-codes) shows the error body format {\"error\": \"...\"}, so errorRules match its documented statuses and model-not-found messages."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://api.venice.ai/api/v1/models — 126 models; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages — https://docs.venice.ai/guides/getting-started/generating-api-key: \"model requests will not succeed until the account can consume DIEM, bundled credits, or USD\"; https://docs.venice.ai/overview/pricing: \"Buy Venice credits with credit card. Credits never expire.\"; https://venice.ai/pricing: the Free plan lists \"API Access (pay with credits)\"; https://venice.ai/venice-api shows the tag \"Free tier, no card\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

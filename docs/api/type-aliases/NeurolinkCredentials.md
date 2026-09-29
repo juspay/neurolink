@@ -283,9 +283,37 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### ai21?
+
+> `optional` **ai21?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### aiand?
 
 > `optional` **aiand?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### aionlabs?
+
+> `optional` **aionlabs?**: `object`
 
 #### apiKey?
 
@@ -314,6 +342,34 @@ Inline service-account fields (alternative to serviceAccountKey)
 ### apiRoute?
 
 > `optional` **apiRoute?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### atlasCloud?
+
+> `optional` **atlasCloud?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### avianIo?
+
+> `optional` **avianIo?**: `object`
 
 #### apiKey?
 
@@ -410,6 +466,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 #### accountId?
 
 > `optional` **accountId?**: `string`
+
+---
+
+### crusoe?
+
+> `optional` **crusoe?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
 
 ---
 
@@ -651,6 +721,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### minimax?
+
+> `optional` **minimax?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### mistral?
 
 > `optional` **mistral?**: `object`
@@ -679,9 +763,37 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### moonshotAi?
+
+> `optional` **moonshotAi?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### morph?
 
 > `optional` **morph?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### nebius?
+
+> `optional` **nebius?**: `object`
 
 #### apiKey?
 
@@ -763,6 +875,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### primeIntellect?
+
+> `optional` **primeIntellect?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### sambanova?
 
 > `optional` **sambanova?**: `object`
@@ -791,9 +917,79 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### scaleway?
+
+> `optional` **scaleway?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### siliconflow?
+
+> `optional` **siliconflow?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### stepfun?
+
+> `optional` **stepfun?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### subconscious?
+
+> `optional` **subconscious?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### synthetic?
 
 > `optional` **synthetic?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### tinfoil?
+
+> `optional` **tinfoil?**: `object`
 
 #### apiKey?
 
@@ -819,6 +1015,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### umansAi?
+
+> `optional` **umansAi?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### upstage?
 
 > `optional` **upstage?**: `object`
@@ -833,9 +1043,79 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### veniceAi?
+
+> `optional` **veniceAi?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### vultrInference?
+
+> `optional` **vultrInference?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### wafer?
+
+> `optional` **wafer?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### wandbInference?
+
+> `optional` **wandbInference?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### xai?
 
 > `optional` **xai?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### zAi?
+
+> `optional` **zAi?**: `object`
 
 #### apiKey?
 

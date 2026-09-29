@@ -1,0 +1,255 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "z-ai",
+  "displayName": "Z.AI",
+  "aliases": ["zai"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.z.ai/api/paas/v4"
+  },
+  "models": {
+    "default": "glm-5.3",
+    "fallbacks": [
+      "glm-5.2",
+      "glm-5.1",
+      "glm-5",
+      "glm-4.7",
+      "glm-4.6",
+      "glm-4.5",
+      "glm-4.5-air",
+      "glm-4.7-flashx",
+      "glm-4.7-flash",
+      "glm-5.3-flash",
+      "glm-5.3-flashx"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16000,
+    "catalog": {
+      "glm-5.3": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md, retrieved 2026-09-29) gives glm-5.3 as the default of its model parameter and uses it in its request examples, and says \"GLM-5.3, GLM-5.2, GLM-5.1 are the latest flagship model series, foundational models specifically designed for agent applications\". The GLM-5.3 page (https://docs.z.ai/guides/llm/glm-5.3.md) says \"Z.ai's latest flagship model\" and \"GLM-5.3 currently supports text-only inputs, with a 1M-token context window and a maximum output length of 128K tokens\", so vision is false; it also says \"GLM-5.3 always operates with reasoning enabled\". Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5.3, per 1M tokens: Input $1.4, Cached Input $0.26, Output $4.4."
+      },
+      "glm-5.3-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback and vision model. The GLM-5.3-Flash/FlashX page (https://docs.z.ai/guides/vlm/glm-5.3-flash.md) shows Input Modality \"Video / Image / Text / File\", Output Modality \"Text\", Context Length \"1M\" and Maximum Output Tokens \"128K\", lists the model code glm-5.3-flash, and documents image input as image_url content blocks in messages[].content[], so vision is true. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-5.3-flash in its vision-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5.3-Flash, per 1M tokens: Input $0.15, Cached Input $0.03, Output $0.50."
+      },
+      "glm-5.3-flashx": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.37,
+          "output": 1.25,
+          "cachedInput": 0.075
+        },
+        "vision": true,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-5.3-Flash/FlashX page (https://docs.z.ai/guides/vlm/glm-5.3-flash.md) shows Input Modality \"Video / Image / Text / File\", Output Modality \"Text\", Context Length \"1M\" and Maximum Output Tokens \"128K\", lists the model code glm-5.3-flashx, and states an inference speed of 200 tokens/s for GLM-5.3-FlashX, so vision is true. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-5.3-flashx in its vision-model enum and uses it in its Image Visual and Video Visual examples. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5.3-FlashX, per 1M tokens: Input $0.37, Cached Input $0.075, Output $1.25."
+      },
+      "glm-5.2": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-5.2 page (https://docs.z.ai/guides/llm/glm-5.2.md) shows Positioning \"Flagship Foundation Model\", Input Modalities \"Text\", Context Length \"1M\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-5.2 in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5.2, per 1M tokens: Input $1.4, Cached Input $0.26, Output $4.4."
+      },
+      "glm-5.1": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-5.1 page (https://docs.z.ai/guides/llm/glm-5.1.md) shows Positioning \"Flagship Foundation Model\", Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-5.1 in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5.1, per 1M tokens: Input $1.4, Cached Input $0.26, Output $4.4."
+      },
+      "glm-5": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 3.2,
+          "cachedInput": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-5 page (https://docs.z.ai/guides/llm/glm-5.md) shows Positioning \"Foundation Model\", Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-5 in its text-model enum, and the Structured Output page (https://docs.z.ai/guides/capabilities/struct-output.md) uses glm-5 in its examples. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-5, per 1M tokens: Input $1, Cached Input $0.2, Output $3.2."
+      },
+      "glm-4.7": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.2,
+          "cachedInput": 0.11
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.7 page (https://docs.z.ai/guides/llm/glm-4.7.md), tab GLM-4.7, shows Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.7 in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.7, per 1M tokens: Input $0.6, Cached Input $0.11, Output $2.2."
+      },
+      "glm-4.6": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.2,
+          "cachedInput": 0.11
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.6 page (https://docs.z.ai/guides/llm/glm-4.6.md) shows Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.6 in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.6, per 1M tokens: Input $0.6, Cached Input $0.11, Output $2.2."
+      },
+      "glm-4.5": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 96000,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.2,
+          "cachedInput": 0.11
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.5 page (https://docs.z.ai/guides/llm/glm-4.5.md), which covers GLM-4.5 and GLM-4.5-Air, shows Input Modalities \"Text\", Context Length \"128K\" and Maximum Output Tokens \"96K\", so vision is false, and says \"GLM-4.5 has a total parameter count of 355B with 32B active parameters per forward pass\". The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.5 in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.5, per 1M tokens: Input $0.6, Cached Input $0.11, Output $2.2."
+      },
+      "glm-4.5-air": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 96000,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 1.1,
+          "cachedInput": 0.03
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.5 page (https://docs.z.ai/guides/llm/glm-4.5.md), which covers GLM-4.5 and GLM-4.5-Air, shows Input Modalities \"Text\", Context Length \"128K\" and Maximum Output Tokens \"96K\", so vision is false, and describes GLM-4.5-Air as having \"106B total parameters and 12B active parameters\". The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.5-air in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.5-Air, per 1M tokens: Input $0.2, Cached Input $0.03, Output $1.1."
+      },
+      "glm-4.7-flashx": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0.07,
+          "output": 0.4,
+          "cachedInput": 0.01
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.7 page (https://docs.z.ai/guides/llm/glm-4.7.md), tab GLM-4.7-FlashX, shows Positioning \"Lightweight, High-Speed,and Affordable\", Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.7-flashx in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.7-FlashX, per 1M tokens: Input $0.07, Cached Input $0.01, Output $0.4."
+      },
+      "glm-4.7-flash": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 128000,
+        "pricingPerMTok": {
+          "input": 0,
+          "output": 0,
+          "cachedInput": 0
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink fallback. The GLM-4.7 page (https://docs.z.ai/guides/llm/glm-4.7.md), tab GLM-4.7-Flash, shows Positioning \"Lightweight, Completely Free\", Input Modalities \"Text\", Context Length \"200K\" and Maximum Output Tokens \"128K\", so vision is false. The Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) lists glm-4.7-flash in its text-model enum. Pricing page (https://docs.z.ai/guides/overview/pricing.md), row GLM-4.7-Flash: the Input, Cached Input, Cached Input Storage and Output cells each read \"Free\", recorded here as 0."
+      }
+    },
+    "topModels": [
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flashx",
+      "glm-5.2",
+      "glm-5.1",
+      "glm-5",
+      "glm-4.7",
+      "glm-4.6",
+      "glm-4.5",
+      "glm-4.5-air",
+      "glm-4.7-flashx",
+      "glm-4.7-flash"
+    ],
+    "visionModel": "glm-5.3-flash"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "insufficient balance or no resource package",
+      "class": "provider",
+      "message": "Z.AI reports an insufficient balance or no resource package (error.code 1113, HTTP 429). The Errors page says: \"Insufficient balance or no resource package. Please recharge.\" (https://docs.z.ai/api-reference/api-code.md)"
+    },
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Z.AI rejected the request's authentication (HTTP 401; an unauthenticated GET returned error.code 1001, \"Authentication parameter not received in Header, unable to authenticate\"). The Errors page (https://docs.z.ai/api-reference/api-code.md) lists error codes 1000, 1001, 1003 and 1005 for HTTP 401. Check {apiKeyEnvVar}. The Introduction page says an API key can be created or managed at {setupUrl}"
+    },
+    {
+      "pattern": "unknown model",
+      "class": "invalid-model",
+      "message": "Z.AI reports an unknown model for {model} (error.code 1211, HTTP 400). The Errors page says: \"Unknown Model, please check the model code.\" (https://docs.z.ai/api-reference/api-code.md)"
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Z.AI returned HTTP 429. The Errors page (https://docs.z.ai/api-reference/api-code.md) lists \"Rate limit reached for requests\" (error.code 1302) and \"The service may be temporarily overloaded, please try again later\" (error.code 1305) for this status."
+    }
+  ],
+  "quirks": {
+    "responseFormatDowngrade": "json-schema-to-json-object"
+  },
+  "setup": {
+    "url": "https://z.ai/manage-apikey/apikey-list",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://z.ai/manage-apikey/apikey-list — the Quick Start (https://docs.z.ai/guides/overview/quick-start.md) says to access the Z.AI Open Platform (https://z.ai/model-api) and \"Register or Login.\", then to \"Create an API Key\" in the API Keys management page and \"Copy your API Key for use.\"",
+      "2. Authentication is HTTP Bearer: the Introduction page (https://docs.z.ai/api-reference/introduction.md) shows the header Authorization: Bearer ZAI_API_KEY",
+      "3. Billing as the vendor states it: the Quick Start says to open the Billing Page (https://z.ai/manage-apikey/billing) \"to top up if needed\"; the pricing page (https://docs.z.ai/guides/overview/pricing.md) lists per-1M-token prices and reads \"Free\" for GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash; the Errors page (https://docs.z.ai/api-reference/api-code.md) lists error 1113 as \"Insufficient balance or no resource package. Please recharge.\"",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "Docs-verified only: the vendor's GET https://api.z.ai/api/paas/v4/models needs a key (it answers HTTP 401 without one), so the twelve model ids come from the Chat Completion reference (https://docs.z.ai/api-reference/llm/chat-completion.md) and the roster has not been checked; the entry is not yet live-verified. OpenAI-compatible endpoint at https://api.z.ai/api/paas/v4 (the Introduction page, https://docs.z.ai/api-reference/introduction.md, calls it \"Z.ai Platform's general API endpoint\" and shows POST https://api.z.ai/api/paas/v4/chat/completions with a messages array); the OpenAI Python SDK page (https://docs.z.ai/guides/develop/openai/python.md) says \"Z.AI provides interfaces compatible with OpenAI API, which means you can use existing OpenAI SDK code and seamlessly switch to Z.AI's model services by simply modifying the API key and base URL\" and adds \"In some scenarios, there are still differences between Z.AI and OpenAI interfaces, but this does not affect overall compatibility.\" The Introduction page's warning says GLM Coding Plan users follow the Coding Plan tutorial to configure a dedicated endpoint, and the Coding Plan Endpoint Guide (https://docs.z.ai/devpack/quick-start.md) lists https://api.z.ai/api/coding/paas/v4 for OpenAI Chat Completions; this entry uses the general endpoint. Unauthenticated GETs made 2026-09-29: /models and /chat/completions each answered HTTP 401 with the body {\"error\":{\"code\":\"1001\",\"message\":\"Authentication parameter not received in Header, unable to authenticate\"}}, matching the error shape on the Errors page (https://docs.z.ai/api-reference/api-code.md); errorRules carry the 401 status and the messages the Errors page gives for error codes 1113, 1211 and the 429 status. No POST request was sent. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (16000) apply to model ids outside the catalog and are placeholders the vendor does not publish: 128000 equals the Context Length label on the GLM-4.5 page and 16000 equals the maximum-output figure the Chat Completion reference gives for GLM-4-32B-0414-128K. Per-model contextWindow and maxOutputTokens values are the decimal forms of the labels the vendor prints (1M, 200K, 128K, 96K). The pricing page prints display names such as GLM-5.3; each price row is matched to the model id of the same name, and a cell that reads \"Free\" is recorded as 0. capabilities.tools is model-dependent because the Chat Completion reference states that for vision models tools are \"Only supported by `GLM-5.3-Flash` series, the GLM-4.6V series, and autoglm-phone-multilingual\". capabilities.toolsWithStreaming is true because the Thinking Mode page (https://docs.z.ai/guides/capabilities/thinking-mode.md) gives an Interleaved Thinking + Tool Calling example that sends tools with stream=True and reads tool_calls from the streamed deltas; the Tool Streaming Output page (https://docs.z.ai/guides/capabilities/stream-tool.md) documents a separate tool_stream parameter that this entry does not set. The Thinking Mode page also says \"thinking blocks should be explicitly preserved and returned together with the tool results.\", and its example appends an assistant message carrying reasoning_content and tool_calls before the tool message; this entry does not set quirks.replayReasoningContent. capabilities.structuredOutput is true because the Structured Output page (https://docs.z.ai/guides/capabilities/struct-output.md) documents response_format {\"type\": \"json_object\"}; the Chat Completion reference lists text and json_object as the response_format type values, so quirks.responseFormatDowngrade is set to send json_object for schema requests, and no request with json_schema was sent. The Chat Completion reference says of response_format \"Only text models support this field.\", and the GLM-5.3-Flash/FlashX page (https://docs.z.ai/guides/vlm/glm-5.3-flash.md) lists Structured Output among its Capabilities (\"Supports structured output formats such as JSON for seamless system integration.\"). capabilities.thinking is false and the entry sets none of the thinking or reasoning_effort request parameters; the Chat Completion reference documents both, and the GLM-5.3 page says \"GLM-5.3 always operates with reasoning enabled\". billingPolicy holds the schema value free-tier because the catalog schema has no unknown value; it is not a vendor statement of signup terms. Each model's status field holds production, a placeholder for a value the catalog schema requires; it is not a vendor statement."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.z.ai/api/paas/v4/models answers 401 without a key, so model ids are taken from https://docs.z.ai/api-reference/llm/chat-completion.md (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "1001",
+      "method": "unauthenticated GET https://api.z.ai/api/paas/v4/models and GET https://api.z.ai/api/paas/v4/chat/completions, no Authorization header — each HTTP 401, JSON body {\"error\":{\"code\":\"1001\",\"message\":\"Authentication parameter not received in Header, unable to authenticate\"}}; the code recorded here is the body's error.code string; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public pages https://docs.z.ai/guides/overview/quick-start.md (Billing Page \"to top up if needed\"), https://docs.z.ai/guides/overview/pricing.md (per-1M-token prices; \"Free\" for GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash) and https://docs.z.ai/api-reference/api-code.md (error 1113 \"Insufficient balance or no resource package. Please recharge.\"); credential-free, no signup performed"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

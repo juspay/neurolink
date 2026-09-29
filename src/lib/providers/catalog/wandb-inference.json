@@ -1,0 +1,249 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "wandb-inference",
+  "displayName": "W&B Inference",
+  "aliases": ["wandb"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.inference.wandb.ai/v1"
+  },
+  "models": {
+    "default": "openai/gpt-oss-120b",
+    "fallbacks": [
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "openai/gpt-oss-20b",
+      "meta-llama/Llama-3.1-8B-Instruct",
+      "zai-org/GLM-5.2",
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "google/gemma-4-26B-A4B-it",
+      "Qwen/Qwen3.8-27B",
+      "moonshotai/Kimi-K2.6",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "ibm-granite/granite-4.2-8b"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.03,
+          "output": 0.17
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": OpenAI GPT OSS 120B, Type \"Text\", context window \"131k\", described as \"Efficient Mixture-of-Experts model designed for high-reasoning, agentic and general-purpose use cases.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.03 input, $0.17 output, prices shown per 1 million tokens. contextWindow 131072 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models). The streaming page (docs.wandb.ai/inference/response-settings/streaming) uses this id in its example, and the reasoning page (docs.wandb.ai/inference/response-settings/reasoning) lists it as \"Always on\"."
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.13,
+          "output": 0.28,
+          "cachedInput": 0.07
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": DeepSeek V4-Flash-0731, Type \"Text\", context window \"262k\", described as \"DeepSeek V4-Flash-0731 is an MoE model great for coding, reasoning, and agentic workloads.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.13 input, $0.28 output, cache hit $0.07, prices shown per 1 million tokens. contextWindow 262144 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "meta-llama/Llama-3.3-70B-Instruct": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.71,
+          "output": 0.71
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Meta Llama 3.3 70B, Type \"Text\", context window \"128k\", described as \"Multilingual model excelling in conversational tasks, detailed instruction-following, and coding.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.71 input, $0.71 output, prices shown per 1 million tokens. contextWindow 128000 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "openai/gpt-oss-20b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.03,
+          "output": 0.13
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": OpenAI GPT OSS 20B, Type \"Text\", context window \"131k\", described as \"Lower latency Mixture-of-Experts model trained on OpenAI's Harmony response format with reasoning capabilities.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.03 input, $0.13 output, prices shown per 1 million tokens. contextWindow 131072 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models). The tool-calling, structured-output and JSON-mode pages (docs.wandb.ai/inference/response-settings/) use this id in their examples."
+      },
+      "meta-llama/Llama-3.1-8B-Instruct": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.22,
+          "output": 0.22
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Meta Llama 3.1 8B, Type \"Text\", context window \"131k\", described as \"Efficient conversational model optimized for responsive multilingual chatbot interactions.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.22 input, $0.22 output, prices shown per 1 million tokens. contextWindow 131072 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models). The quick-start example on docs.wandb.ai/inference uses this id."
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.76,
+          "output": 2.42,
+          "cachedInput": 0.14
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Z.AI GLM 5.2, Type \"Text\", context window \"1049k\", described as \"GLM-5.2 is a Mixture-of-Experts language model featuring 40 billion activated parameters and a total of 744 billion parameters.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.76 input, $2.42 output, cache hit $0.14, prices shown per 1 million tokens. contextWindow 1048576 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "deepseek-ai/DeepSeek-V4-Pro-0813": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 1.31,
+          "output": 3.96,
+          "cachedInput": 0.044
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": DeepSeek V4-Pro-0813, Type \"Text\", context window \"1049k\", described as \"DeepSeek V4-Pro-0813 is a 1.6T-parameter MoE model excelling at advanced reasoning, coding, and complex agentic workloads.\" Pricing page (wandb.ai/site/pricing/tokens/): $1.31 input, $3.96 output, cache hit $0.044, prices shown per 1 million tokens. contextWindow 1048576 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "google/gemma-4-26B-A4B-it": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.3,
+          "cachedInput": 0.05
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Google Gemma 4 26B A4B Instruct, Type \"Text, Vision\", context window \"262k\", described as \"Gemma 4 26B A4B is a multimodal MoE model with LoRA support and function calling for agentic workflows.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.10 input, $0.30 output, cache hit $0.05, prices shown per 1 million tokens. contextWindow 262144 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models). NeuroLink models.visionModel."
+      },
+      "Qwen/Qwen3.8-27B": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 3.0,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Qwen3.8 27B, Type \"Text, Vision\", context window \"262k\", described as \"Qwen3.8-27B is a dense multimodal model suited for coding, research, vision, and long-running agent tasks.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.40 input, $3.00 output, cache hit $0.15, prices shown per 1 million tokens. contextWindow 262144 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.65,
+          "output": 3.41,
+          "cachedInput": 0.15
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": Moonshot AI Kimi K2.6, Type \"Text, Vision\", context window \"262k\", described as \"Kimi K2.6 is a multimodal Mixture-of-Experts language model featuring 32 billion activated parameters and a total of 1 trillion parameters.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.65 input, $3.41 output, cache hit $0.15, prices shown per 1 million tokens. contextWindow 262144 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "deepseek-ai/DeepSeek-V4.1-Flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.65,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": DeepSeek V4.1-Flash, Type \"Text, Vision\", context window \"1049k\", described as \"DeepSeek V4.1 Flash is a multimodal MoE model for coding, reasoning, and agentic workloads with long contexts.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.20 input, $0.65 output, cache hit $0.03, prices shown per 1 million tokens. contextWindow 1048576 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      },
+      "ibm-granite/granite-4.2-8b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.15,
+          "cachedInput": 0.05
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Models page (docs.wandb.ai/inference/models, retrieved 2026-09-29), heading \"Generally available models\": IBM Granite 4.2 8B, Type \"Text\", context window \"131k\", described as \"Granite 4.2 8B is an instruct model capable of enhanced tool calling, instruction following, and chat capabilities.\" Pricing page (wandb.ai/site/pricing/tokens/): $0.10 input, $0.15 output, cache hit $0.05, prices shown per 1 million tokens. contextWindow 131072 is the contextWindow value the vendor's public catalog API returns for this id (GET trace.wandb.ai/inference/catalog/models)."
+      }
+    },
+    "topModels": [
+      "openai/gpt-oss-120b",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "openai/gpt-oss-20b",
+      "meta-llama/Llama-3.1-8B-Instruct",
+      "zai-org/GLM-5.2",
+      "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "google/gemma-4-26B-A4B-it",
+      "Qwen/Qwen3.8-27B",
+      "moonshotai/Kimi-K2.6",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "ibm-granite/granite-4.2-8b"
+    ],
+    "visionModel": "google/gemma-4-26B-A4B-it"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": "model-dependent",
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid_api_key",
+      "class": "authentication",
+      "message": "W&B Inference rejected the credentials (HTTP 401). Check {apiKeyEnvVar}. Create a key at {setupUrl}. The vendor's 401 article (https://docs.wandb.ai/support/inference/articles/api-error-code-401-authentication-failed) lists an invalid, expired or revoked API key and an incorrect W&B project entity or name as causes."
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "W&B Inference reports the quota is exceeded (HTTP 402). The vendor's 402 article (https://docs.wandb.ai/support/inference/articles/api-error-code-402-you-exceeded-your-cur) says this means no remaining credits or a reached monthly spending cap; see https://docs.wandb.ai/inference/usage-limits"
+    },
+    {
+      "pattern": "Country, region, or territory not supported",
+      "class": "provider",
+      "message": "W&B Inference returned \"Country, region, or territory not supported\" (HTTP 403). The vendor's article (https://docs.wandb.ai/support/inference/articles/api-error-code-403-country-region-or-ter) says the service determines location from the IP address of the request; see https://docs.wandb.ai/inference/usage-limits#geographic-restrictions"
+    },
+    {
+      "pattern": "inference gateway is not enabled for your organization",
+      "class": "authentication",
+      "message": "W&B Inference returned \"The inference gateway is not enabled for your organization\" (HTTP 403). The vendor's article (https://docs.wandb.ai/support/inference/articles/api-error-code-403-the-inference-gateway) says to ask your organization's W&B administrator to enable the inference gateway."
+    },
+    {
+      "status": 404,
+      "class": "invalid-model",
+      "message": "W&B Inference returned HTTP 404 for model '{model}'. The vendor's 404 article (https://docs.wandb.ai/support/inference/articles/api-error-code-404-model-not-found) says model IDs are case-sensitive; the ids are listed at https://docs.wandb.ai/inference/models"
+    },
+    {
+      "status": 429,
+      "pattern": "Concurrency limit reached for requests",
+      "class": "rate-limit",
+      "message": "W&B Inference rate-limit error. The vendor's 429 article (https://docs.wandb.ai/support/inference/articles/api-error-code-429-concurrency-limit-rea) covers a 429 with the message \"Concurrency limit reached for requests\" and lists reducing concurrent requests as one approach; limits are described at https://docs.wandb.ai/inference/usage-limits"
+    }
+  ],
+  "setup": {
+    "url": "https://wandb.ai/settings",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://app.wandb.ai/login?signup=true and sign up for a W&B account (https://docs.wandb.ai/inference/prerequisites)",
+      "2. Create an API key: click your user profile icon, then User Settings, then Create new API key, and copy it immediately because W&B shows the full key once (https://docs.wandb.ai/inference/prerequisites); the API reference also names https://wandb.ai/settings (https://docs.wandb.ai/inference/api-reference)",
+      "3. Project: the prerequisites page (https://docs.wandb.ai/inference/prerequisites) lists a W&B project among the items you must have: \"Create a project in your W&B account to track usage.\" The chat completions reference (https://docs.wandb.ai/inference/api-reference/chat-completions) lists \"Your W&B team and project: [YOUR-TEAM]/[YOUR-PROJECT] (optional).\"",
+      "4. Credits: \"Serverless Inference credits come with Free, Pro, and Academic plans for a limited time.\" Free accounts must activate pay-as-you-go inference on the Billing tab or upgrade to a paid plan when credits run out; the default cap for a Free account is $100/month (https://docs.wandb.ai/inference/usage-limits)",
+      "5. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.inference.wandb.ai/v1 (https://docs.wandb.ai/inference: \"Serverless Inference gives you access to leading open-source foundation models through W&B Weave and an OpenAI-compatible API.\"). Docs-verified only: GET https://api.inference.wandb.ai/v1/models answers HTTP 401 without a key, so the 12 model ids (from the 20 in the models page's \"Generally available models\" table) come from https://docs.wandb.ai/inference/models, retrieved 2026-09-29, and the roster has not been checked; the entry is not yet live-verified. Context windows are the contextWindow values returned by the vendor's public catalog API (GET https://trace.wandb.ai/inference/catalog/models, documented at https://docs.wandb.ai/weave/reference/service-api/inference/inference-catalog-models as \"This API is available without authentication.\"); prices come from https://wandb.ai/site/pricing/tokens/. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (8192) are placeholders: the vendor does not publish a general default or a maximum output figure. errorRules follow the statuses and messages on https://docs.wandb.ai/support/inference and the 401 body observed on 2026-09-29."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 401,
+      "method": "docs-only — unauthenticated GET https://api.inference.wandb.ai/v1/models answers 401 without a key, so model ids are taken from https://docs.wandb.ai/inference/models (retrieved 2026-09-29); roster not verified"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "invalid_api_key",
+      "method": "unauthenticated GET https://api.inference.wandb.ai/v1/models and unauthenticated GET https://api.inference.wandb.ai/v1/chat/completions, both HTTP 401 with body {\"error\":{\"code\":\"invalid_api_key\",\"message\":\"Missing bearer authentication in header\",\"type\":\"invalid_request_error\"}}; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.wandb.ai/inference/usage-limits — \"Serverless Inference credits come with Free, Pro, and Academic plans for a limited time.\"; Free default cap \"$100/month\"; \"W&B requires prepayment for paid Inference access.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}

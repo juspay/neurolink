@@ -1,0 +1,165 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "wafer",
+  "displayName": "Wafer",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://pass.wafer.ai/v1"
+  },
+  "models": {
+    "default": "GLM-5.3",
+    "fallbacks": ["DeepSeek-V4-Pro", "Kimi-K3", "GLM-5.2"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "GLM-5.3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.29,
+          "output": 4.4,
+          "cachedInput": 0.2359
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NeuroLink default. The model named in the curl request example on https://docs.wafer.ai/serverless and on https://docs.wafer.ai/serverless/zero-data-retention. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"GLM-5.3 — Z.ai's flagship GLM-5.3 MoE (391B, NVFP4), self-hosted on the Wafer fleet with a 1M-token context window and frontier coding/agentic performance. Available serverless.\" Roster values: context_length 1,048,576; input_cents_per_million 29, output_cents_per_million 440 ($0.29 / $4.40 per MTok input/output); cache_read_microcents_per_million 23,590,000 ($0.2359 per MTok cache-read); capabilities.vision false; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "DeepSeek-V4-Pro": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.4,
+          "output": 4.2,
+          "cachedInput": 0.32
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"DeepSeek-V4-Pro -- DeepSeek's V4 Pro MoE, self-hosted on the Wafer fleet with a 1M-token context window, reasoning-effort control and tool calling. Available serverless.\" Roster values: context_length 1,048,576; input_cents_per_million 40, output_cents_per_million 420 ($0.40 / $4.20 per MTok input/output); cache_read_microcents_per_million 32,000,000 ($0.32 per MTok cache-read); capabilities.vision false; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "Kimi-K3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.44,
+          "output": 9,
+          "cachedInput": 0.3
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Fallback. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"Kimi K3 sparse MoE model, self-hosted on the Wafer fleet. Available serverless with a 1M-token context window and strong coding/agentic performance.\" Roster values: context_length 1,048,576; max_output_tokens 131,072; input_cents_per_million 144, output_cents_per_million 900 ($1.44 / $9.00 per MTok input/output); cache_read_microcents_per_million 30,000,000 ($0.3 per MTok cache-read); capabilities.vision true and supports_vision true; not probed with an image request; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "GLM-5.2": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.32,
+          "output": 4.4,
+          "cachedInput": 0.2599
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Fallback. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"GLM-5.2 — Z.ai's GLM-5.2 MoE (NVFP4), self-hosted on the Wafer fleet with a 1M-token context window, strong coding and reasoning, and tool calling. Available serverless.\" Roster values: context_length 1,048,576; input_cents_per_million 32, output_cents_per_million 440 ($0.32 / $4.40 per MTok input/output); cache_read_microcents_per_million 25,990,000 ($0.2599 per MTok cache-read); capabilities.vision false; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "Qwen3.8-27B": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.04,
+          "output": 4.4,
+          "cachedInput": 0.0342
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"Qwen3.8-27B -- Alibaba's dense 27B vision-language model, self-hosted on the Wafer fleet with a 262K-token context window, image and video input, reasoning-effort control and tool calling. Available serverless.\" Roster values: context_length 262,144; input_cents_per_million 4, output_cents_per_million 440 ($0.04 / $4.40 per MTok input/output); cache_read_microcents_per_million 3,420,000 ($0.0342 per MTok cache-read); capabilities.vision true and supports_vision true; not probed with an image request; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "GLM-5.3-Flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.75,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"GLM-5.3-Flash — Z.ai's fast GLM-5.3 MoE variant, self-hosted on the Wafer fleet with a 1M-token context window and strong coding/agentic performance. Available serverless to gateway partners.\" Roster values: context_length 1,048,576; input_cents_per_million 75, output_cents_per_million 50 ($0.75 / $0.50 per MTok input/output); cache_read_microcents_per_million 3,000,000 ($0.03 per MTok cache-read); capabilities.vision true and supports_vision true; not probed with an image request; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "DeepSeek-V4.1-Flash": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.02,
+          "output": 0.7,
+          "cachedInput": 0.016
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Roster-listed. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"DeepSeek-V4.1-Flash — DeepSeek's V4.1 Flash MoE (552B total, 8B active for prefill / 16B for decode, 1M-token context), self-hosted on the Wafer fleet with reasoning-effort control and tool calling. Available serverless.\" Roster values: context_length 1,048,576; input_cents_per_million 2, output_cents_per_million 70 ($0.02 / $0.70 per MTok input/output); cache_read_microcents_per_million 1,600,000 ($0.016 per MTok cache-read); capabilities.vision true and supports_vision true; not probed with an image request; chat_completions supported, tools, streaming, json_object and json_schema true."
+      },
+      "DeepSeek-V4-Flash-0731-Fast": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.07,
+          "output": 0.35,
+          "cachedInput": 0.0531
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Roster-listed. Unauthenticated GET https://pass.wafer.ai/v1/models roster (2026-09-29, 8 models), wafer.description: \"The same model served for high TPS.\" Roster values: context_length 1,048,576; input_cents_per_million 7, output_cents_per_million 35 ($0.07 / $0.35 per MTok input/output); cache_read_microcents_per_million 5,310,000 ($0.0531 per MTok cache-read); capabilities.vision false; chat_completions supported, tools, streaming, json_object and json_schema true."
+      }
+    },
+    "topModels": [
+      "GLM-5.3",
+      "DeepSeek-V4-Pro",
+      "Kimi-K3",
+      "GLM-5.2",
+      "Qwen3.8-27B",
+      "GLM-5.3-Flash",
+      "DeepSeek-V4.1-Flash",
+      "DeepSeek-V4-Flash-0731-Fast"
+    ],
+    "visionModel": "Qwen3.8-27B"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Wafer returned HTTP 401 authentication_error. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://app.wafer.ai",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://app.wafer.ai and sign in — the docs say \"Sign in at app.wafer.ai to add credits and create an API key. Store your key securely.\" (https://docs.wafer.ai/serverless)",
+      "2. Add credits and create an API key — the docs say \"Add credits, create an API key, and pay per token.\" (https://docs.wafer.ai/serverless)",
+      "3. Set {apiKeyEnvVar} in your .env file (the docs' Authentication row shows the Authorization: Bearer header)"
+    ],
+    "description": "OpenAI-compatible endpoint at https://pass.wafer.ai/v1 (https://docs.wafer.ai/serverless: \"Access Wafer models through an OpenAI-compatible API.\"), with the 8 models the unauthenticated GET /models roster listed on 2026-09-29 in models.catalog. An unauthenticated GET of https://pass.wafer.ai/v1/chat/completions returned HTTP 401 with error.type authentication_error and error.code missing_api_key (2026-09-29), so errorRules match status 401. models.defaultContextWindow (128000) and models.defaultMaxOutputTokens (16384) are placeholders the vendor does not publish. billingPolicy is recorded as no-free-tier because the schema has no unknown value; the vendor's stated flow is \"Add credits, create an API key, and pay per token.\""
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "status": 200,
+      "method": "unauthenticated GET https://pass.wafer.ai/v1/models — 8 models; credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-09-29",
+      "status": 401,
+      "code": "missing_api_key",
+      "method": "unauthenticated GET https://pass.wafer.ai/v1/chat/completions — error.type authentication_error; credential-free, no key used"
+    },
+    "billingProbe": {
+      "date": "2026-09-29",
+      "method": "public page https://docs.wafer.ai/serverless — \"Add credits, create an API key, and pay per token.\"; credential-free"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1860"
+  }
+}
