@@ -2832,9 +2832,12 @@ await test("17.12 — live: xor answers boolean, choice and score", async () => 
     result.answers.frustration?.type === "score",
     "frustration must be a score answer",
   );
+  // A LiteLLM route can serve XOR under its own name, so the check is that the
+  // server reports the model that was asked for, not that the name says "xor".
+  const requestedModel = process.env.XOR_MODEL?.trim() || "xor-1.1";
   assert(
-    result.model.startsWith("xor"),
-    "the reported model must be an xor model",
+    result.model === requestedModel,
+    "the reported model must be the one that was asked for",
   );
   assert(result.usage.inputTokens > 0, "usage must be reported");
   assert(result.latencyMs > 0, "latency must be measured");

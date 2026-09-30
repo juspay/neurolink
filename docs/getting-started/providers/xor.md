@@ -28,7 +28,7 @@ There is no built-in endpoint. The weights and setup instructions are at
 |                       |                                                                      |
 | --------------------- | -------------------------------------------------------------------- |
 | Inference type        | `decide` only                                                        |
-| Model                 | `xor-1.1` by default; `XOR_MODEL` overrides it                       |
+| Model                 | `xor-1.1` by default; `XOR_MODEL` sets the name your proxy uses      |
 | Media                 | up to 8 images and one video; the whole request body at most 8 MB    |
 | Input window          | about 200,000 estimated tokens of state                              |
 | Questions per request | no cap in NeuroLink; a `choice` or `score` takes 2 to 255 options    |
@@ -46,7 +46,9 @@ Run a deployment of XOR (see
 LiteLLM proxy with a route to one. NeuroLink posts to `<base URL>/v1/systemone`.
 The base URL is the origin of the deployment or of the proxy route, and a
 trailing `/v1` is accepted. On a LiteLLM proxy the key's team must be allowed
-the `xor-1.1` model; otherwise the proxy answers 403 `team_model_access_denied`.
+the model you ask for (`xor-1.1` by default); otherwise the proxy answers 403
+`team_model_access_denied`, and its message lists the models the team can use. A
+proxy may serve XOR under a name of its own: set `XOR_MODEL` to that name.
 
 ### 2. Configure
 
@@ -216,12 +218,26 @@ tokens of state, and refuses more before any network call, with
 characters per token for ASCII text, and one token per character for other
 scripts, which errs toward refusing. The 200,000 figure is a conservative
 default under the deployment's 250,000-token prefill, and that prefill is shared
-by the state, the questions and any media. It has not been measured against a
-live deployment. A state near the limit, or a lot of media, can therefore still
-be refused by the server as too long. That arrives as `max_tokens_exceeded`
-(not retried) when the status is 413 or the message says the context was too
-long, and otherwise as `server` (retried once). Built-in consumers treat a
-refusal as "carry on as before".
+by the state, the questions and any media.
+
+On one live LiteLLM route, a state of about 215,000 tokens (1.2 million
+characters of English) was accepted, and one of about 430,000 tokens was refused
+with a 500 whose text says the input is longer than the model's 262,144-token
+context length. The estimate is not exact in either direction. English averaged
+about 5.6 characters per token there, so the estimate over-counts it. Dense JSON
+averaged about 1.8, so a large dense state can pass the local check and still be
+refused by the server. A structured (non-string) state of 100,000 Chinese
+characters also passed the local check and was refused by the server.
+
+A state near the limit, or a lot of media, can therefore still be refused by the
+server as too long. That arrives as `max_tokens_exceeded` (not retried) when the
+status is 413 or the message says the context was too long, and otherwise as
+`server` (retried once). Built-in consumers treat a refusal as "carry on as
+before".
+
+**A proxy may cap parallel requests.** On that route the key allowed 5 at a
+time. After a burst of rejected requests (403 and 422 replies), every request
+was answered 429 for about half an hour. NeuroLink retries a 429 once.
 
 **No question cap.** NeuroLink sets none. A `choice` or `score` takes 2 to 255
 options, which the server enforces.
@@ -247,7 +263,8 @@ with `--timeout` on the CLI.
 | no base URL configured (local)                               | `invalid_request`, with no network call                   | no        |
 
 A 403 or 402 is deliberately not `authentication`. On a LiteLLM proxy a 403
-means the key's team does not allow `xor-1.1` (`team_model_access_denied`), and
+means the key's team does not allow the model you asked for
+(`team_model_access_denied`), and
 a 402 means the team has no budget. An admin can fix either, so the provider
 instance keeps working once it is fixed and is not disabled. A 401 does disable
 the instance: it stops sending requests after the first rejection, because a bad
