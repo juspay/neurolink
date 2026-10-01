@@ -118,7 +118,7 @@ await neurolink.generate({
 | `hf:deepseek-ai/DeepSeek-V4.1-Flash`                | 512K    | 64K     | yes    | $0.60 / $1.20 / $0.03    | Same underlying model as `syn:large:text`, addressed by its full weights id.                                    |
 | `hf:moonshotai/Kimi-K3`                             | 512K    | 64K     | yes    | $3.00 / $15.00 / $0.45   | Same underlying model as `syn:large:vision`.                                                                    |
 | `hf:Qwen/Qwen3.8-27B`                               | 256K    | 64K     | yes    | $0.45 / $2.20 / $0.09    | Same underlying model as `syn:small:vision`.                                                                    |
-| `hf:zai-org/GLM-4.7-Flash`                          | 196K    | 64K     | no     | $0.10 / $0.50 / $0.02    | Same underlying model as `syn:small:text`.                                                                      |
+| `hf:zai-org/GLM-4.7-Flash`                          | 192K    | 64K     | no     | $0.10 / $0.50 / $0.02    | Same underlying model as `syn:small:text`.                                                                      |
 
 All 11 ids and their pricing/context/output figures come directly from the
 unauthenticated `GET /openai/v1/models` response (HTTP 200, 2026-09-28); the

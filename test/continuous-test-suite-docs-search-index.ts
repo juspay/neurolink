@@ -20,7 +20,8 @@
  * Run: pnpm run test:docs-search-index
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assert, defineSuite } from "./helpers/harness.js";
@@ -90,6 +91,155 @@ await test("no parking placeholder leaks into the index", () => {
     !records.some((r) => r.content.includes(nul)),
     "a code-span placeholder was left in the generated index",
   );
+});
+
+// A heading written `## Title {#custom-id}` is anchored at `#custom-id` by
+// Docusaurus and its text is `Title`. The plugin used to slug the whole line,
+// so the record's title kept the literal `{#custom-id}` and its link pointed at
+// a fragment the page does not have.
+await test("a heading's explicit {#id} is its anchor and not part of its title", () => {
+  const docPath = "docs/getting-started/providers/above-dev.md";
+  const source = readFileSync(path.join(ROOT, docPath), "utf8");
+  const heading = "## Tools & structured output — a documented caveat";
+  assert(
+    source.includes(`${heading} {#tools-and-structured-output}`),
+    `precondition: ${docPath} no longer has that heading with that explicit id; pick another`,
+  );
+  const page = records.filter((r) =>
+    r.url.startsWith("/docs/getting-started/providers/above-dev#"),
+  ) as Array<SearchRecord & { title: string }>;
+  const record = page.find(
+    (r) => r.title === "Tools & structured output — a documented caveat",
+  );
+  if (record === undefined) {
+    throw new Error(
+      "the heading's record is missing, or its title still carries the {#id}",
+    );
+  }
+  assert(
+    record.url ===
+      "/docs/getting-started/providers/above-dev#tools-and-structured-output",
+    `the record links to ${record.url} instead of the heading's explicit id`,
+  );
+  const leaked = (records as Array<SearchRecord & { title: string }>).filter(
+    (r) => /\{#[A-Za-z0-9_-]+\}\s*$/.test(r.title),
+  );
+  assert(
+    leaked.length === 0,
+    `${leaked.length} record title(s) still end in a literal {#id}, for example "${leaked[0]?.title}"`,
+  );
+});
+
+// The site loads every record with MiniSearch.addAll, which throws on a repeated
+// id, and the hook then treats the whole index as failed to load. An explicit
+// {#id} is used as written, so it can equal another heading's auto-slug on the
+// same page; the records must still get distinct ids.
+await test("every record has a distinct objectID", () => {
+  const seen = new Map<string, string>();
+  const repeats: string[] = [];
+  for (const r of records as Array<SearchRecord & { objectID: string }>) {
+    const earlier = seen.get(r.objectID);
+    if (earlier !== undefined) {
+      repeats.push(`${r.url} (also ${earlier})`);
+    } else {
+      seen.set(r.objectID, r.url);
+    }
+  }
+  assert(
+    repeats.length === 0,
+    `${repeats.length} record(s) repeat an objectID, for example ${repeats[0]}`,
+  );
+});
+
+// The plugin reads an explicit id the way Docusaurus does: any characters
+// except `{#` and `}`, ending the heading at the brace. A narrower pattern left
+// `## API {#api.v2}` with the literal id in its title and a slugged anchor.
+type HeadingIdParser = (heading: string) => {
+  text: string;
+  id: string | undefined;
+};
+const requireFromHere = createRequire(import.meta.url);
+const { parseHeadingId } = requireFromHere(
+  path.join(
+    ROOT,
+    "docs-site",
+    "plugins",
+    "docusaurus-plugin-search-index",
+    "headingId.js",
+  ),
+) as { parseHeadingId: HeadingIdParser };
+
+await test("an explicit heading id may contain dots, non-ASCII and spaces", () => {
+  const cases: Array<[string, string | undefined, string]> = [
+    ["API {#api.v2}", "api.v2", "API"],
+    ["Café {#café}", "café", "Café"],
+    ["Title {#a b}", "a b", "Title"],
+    [
+      "Tools & structured output {#tools-and-structured-output}",
+      "tools-and-structured-output",
+      "Tools & structured output",
+    ],
+    ["Plain heading", undefined, "Plain heading"],
+    ["Title {#id}  ", undefined, "Title {#id}  "],
+    ["Title {#}", undefined, "Title {#}"],
+    ["Title {#a}b}", undefined, "Title {#a}b}"],
+  ];
+  for (const [heading, id, text] of cases) {
+    const got = parseHeadingId(heading);
+    assert(
+      got.id === id && got.text === text,
+      `"${heading}" parsed to id ${JSON.stringify(got.id)} / text ${JSON.stringify(got.text)}, expected ${JSON.stringify(id)} / ${JSON.stringify(text)}`,
+    );
+  }
+});
+
+// Docusaurus is the source of truth for what counts as an explicit id. When the
+// docs site's packages are installed, check the plugin's parser against
+// Docusaurus's own on the same lines; without them the fixed cases above still
+// run.
+await test("the plugin's heading-id parser agrees with Docusaurus's", () => {
+  const pnpmStore = path.join(ROOT, "docs-site", "node_modules", ".pnpm");
+  let entries: string[];
+  try {
+    entries = readdirSync(pnpmStore);
+  } catch {
+    return;
+  }
+  const dir = entries.find((e) => e.startsWith("@docusaurus+utils@"));
+  if (dir === undefined) {
+    return;
+  }
+  const { parseMarkdownHeadingId } = requireFromHere(
+    path.join(
+      pnpmStore,
+      dir,
+      "node_modules",
+      "@docusaurus",
+      "utils",
+      "lib",
+      "markdownUtils.js",
+    ),
+  ) as { parseMarkdownHeadingId: HeadingIdParser };
+  const lines = [
+    "API {#api.v2}",
+    "Café {#café}",
+    "Title {#a b}",
+    "Title {#id}  ",
+    "Title {#id}\t",
+    "Title {#}",
+    "Title {#a}b}",
+    "Title {#a{#b}",
+    "Plain heading",
+    "batch <file> {#batch}",
+  ];
+  for (const line of lines) {
+    const ours = parseHeadingId(line);
+    const theirs = parseMarkdownHeadingId(line);
+    assert(
+      ours.id === theirs.id && ours.text === theirs.text,
+      `"${line}": the plugin read id ${JSON.stringify(ours.id)}, Docusaurus read ${JSON.stringify(theirs.id)}`,
+    );
+  }
 });
 
 await runSuite();

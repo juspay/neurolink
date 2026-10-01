@@ -9,6 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const matter = require("gray-matter");
 const { createHash } = require("node:crypto");
+const { parseHeadingId } = require("./headingId");
 
 /** Simple glob matching for exclude patterns */
 function matchGlob(glob, filePath) {
@@ -85,6 +86,7 @@ function extractSections(content) {
   const sections = [];
   const lines = content.split("\n");
   let currentHeading = "";
+  let currentId = "";
   let currentContent = [];
   let currentLevel = 0;
 
@@ -101,12 +103,17 @@ function extractSections(content) {
       if (currentHeading || currentContent.length > 0) {
         sections.push({
           heading: currentHeading,
+          id: currentId,
           level: currentLevel,
           content: stripMarkdown(currentContent.join("\n")).slice(0, 2000),
         });
       }
       currentLevel = headingMatch[1].length;
-      currentHeading = headingMatch[2]
+      // A trailing `{#id}` is Docusaurus's explicit heading id: the page's
+      // anchor is that id, and it is not part of the heading's text.
+      const parsed = parseHeadingId(headingMatch[2]);
+      currentId = parsed.id ?? "";
+      currentHeading = parsed.text
         .replace(/\*\*/g, "")
         .replace(/`/g, "")
         .trim();
@@ -120,6 +127,7 @@ function extractSections(content) {
   if (currentHeading || currentContent.length > 0) {
     sections.push({
       heading: currentHeading,
+      id: currentId,
       level: currentLevel,
       content: stripMarkdown(currentContent.join("\n")).slice(0, 2000),
     });
@@ -306,18 +314,25 @@ async function generateIndex(docsDir, outDir, isExcluded) {
       // Add section entries
       const sections = extractSections(content);
       const anchorCounts = new Map();
+      const sectionUrlOccurrences = new Map();
       for (const section of sections) {
         if (!section.heading) {
           continue;
         }
-        const baseAnchor = section.heading
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, "")
-          .replace(/\s+/g, "-");
-        const occurrence = anchorCounts.get(baseAnchor) ?? 0;
-        anchorCounts.set(baseAnchor, occurrence + 1);
-        const anchor =
-          occurrence === 0 ? baseAnchor : `${baseAnchor}-${occurrence}`;
+        // An explicit id is used as written and never goes through the slugger,
+        // so it neither gets a numeric suffix nor shifts the suffixes of the
+        // auto-slugged headings around it.
+        let anchor = section.id;
+        if (!anchor) {
+          const baseAnchor = section.heading
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, "")
+            .replace(/\s+/g, "-");
+          const occurrence = anchorCounts.get(baseAnchor) ?? 0;
+          anchorCounts.set(baseAnchor, occurrence + 1);
+          anchor =
+            occurrence === 0 ? baseAnchor : `${baseAnchor}-${occurrence}`;
+        }
 
         // Every heading counts toward anchor disambiguation above (matching
         // Docusaurus's own slugger), but a heading with no body text isn't
@@ -327,8 +342,21 @@ async function generateIndex(docsDir, outDir, isExcluded) {
         }
 
         const sectionUrl = `${url}#${anchor}`;
+        // Two records on one page can now share an anchor: an explicit `{#id}`
+        // is used as written, so it can equal the auto-slug of another heading
+        // (for example a `# Anthropic` comment line inside a code fence). The
+        // search hook loads records with MiniSearch.addAll, which throws on a
+        // repeated id and would leave the whole index unloaded, so a repeat is
+        // given its own id. As with `idSource`, only the id input is suffixed;
+        // the record's `url` is untouched.
+        const sectionOccurrence = sectionUrlOccurrences.get(sectionUrl) ?? 0;
+        sectionUrlOccurrences.set(sectionUrl, sectionOccurrence + 1);
+        const sectionIdSource =
+          sectionOccurrence === 0
+            ? idSource(sectionUrl)
+            : `${idSource(sectionUrl)}::section${sectionOccurrence}`;
         documents.push({
-          objectID: objectIdForUrl(idSource(sectionUrl)),
+          objectID: objectIdForUrl(sectionIdSource),
           title: section.heading,
           url: sectionUrl,
           content: section.content,
