@@ -6,7 +6,7 @@
 
 # Type Alias: TTSProviderName
 
-> **TTSProviderName** = `"google-ai"` \| `"vertex"` \| `"openai-tts"` \| `"elevenlabs"` \| `"elevenlabs-tts"` \| `"azure-tts"` \| `"fish-audio"` \| `"cartesia"` \| `string` & `object`
+> **TTSProviderName** = `"google-ai"` \| `"vertex"` \| `"openai-tts"` \| `"elevenlabs"` \| `"elevenlabs-tts"` \| `"azure-tts"` \| `"fish-audio"` \| `"sixtydb"` \| `"cartesia"` \| `string` & `object`
 
 Known TTS provider identifiers shipped with NeuroLink.
 

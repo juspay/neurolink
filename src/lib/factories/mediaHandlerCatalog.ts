@@ -22,6 +22,7 @@ export const MEDIA_HANDLER_CATALOG: readonly MediaHandlerDescriptor[] = [
   { kind: "tts", name: "elevenlabs", aliases: ["elevenlabs-tts"] },
   { kind: "tts", name: "azure-tts" },
   { kind: "tts", name: "fish-audio" },
+  { kind: "tts", name: "sixtydb" },
   { kind: "tts", name: "cartesia" },
   // --- STT ---
   { kind: "stt", name: "whisper", aliases: ["openai-stt"] },

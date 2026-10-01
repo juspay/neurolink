@@ -257,6 +257,8 @@ export {
   ElevenLabsTTSHandler,
   FishAudioTTS,
   FishAudioTTSHandler,
+  SixtyDBTTS,
+  SixtyDBTTSHandler,
   GoogleTTSHandler,
   OpenAITTS,
   OpenAITTSHandler,

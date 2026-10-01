@@ -5,7 +5,7 @@
 **Last Updated:** May 2026
 **NeuroLink Version:** 9.62.0
 
-Comparison of NeuroLink's text and multimodal AI providers, including capabilities, pricing, and use case recommendations. (Note: voice providers — OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, Whisper, OpenAI Realtime, Gemini Live — are documented separately under [Voice Providers](../getting-started/providers/index.md).)
+Comparison of NeuroLink's text and multimodal AI providers, including capabilities, pricing, and use case recommendations. (Note: voice providers — OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, [60db](../getting-started/providers/sixtydb.md), Whisper, OpenAI Realtime, Gemini Live — are documented separately under [Voice Providers](../getting-started/providers/index.md).)
 
 ---
 
