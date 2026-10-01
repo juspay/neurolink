@@ -158,6 +158,7 @@
     "test:video-abort": "pnpm exec tsx test/continuous-test-suite-video-abort.ts",
     "test:video-options-allowlist": "pnpm exec tsx test/continuous-test-suite-video-options-allowlist.ts",
     "test:tts": "pnpm exec tsx test/continuous-test-suite-tts.ts",
+    "test:tts:sixtydb": "pnpm exec tsx test/continuous-test-suite-sixtydb.ts",
     "test:tts:unit": "pnpm exec tsx test/continuous-test-suite-tts-unit.ts",
     "test:stt:unit": "pnpm exec tsx test/continuous-test-suite-stt-unit.ts",
     "test:realtime:unit": "pnpm exec tsx test/continuous-test-suite-realtime-unit.ts",

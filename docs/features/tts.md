@@ -12,13 +12,13 @@ NeuroLink provides integrated Text-to-Speech (TTS) capabilities, allowing you to
 
 **Key Features:**
 
-- **Multiple providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, Azure TTS, Fish Audio, and Cartesia
+- **Multiple providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, Azure TTS, Fish Audio, Cartesia, and 60db
 - **High-quality voices** - Neural, Wavenet, Standard, and multilingual voice types
 - **Multiple languages** - 50+ voices across 10+ languages
 - **Flexible audio formats** - MP3, WAV, OGG/Opus
 - **Voice customization** - Adjust speed, pitch, and volume
 - **Two synthesis modes** - Direct text-to-speech OR AI response synthesis
-- **Production-ready** - Works with Google Cloud, OpenAI, ElevenLabs, Azure, Fish Audio, and Cartesia
+- **Production-ready** - Works with Google Cloud, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia, and 60db
 
 ---
 
@@ -123,6 +123,7 @@ TTS is available through the following providers:
 | **azure-tts**  | API Key (`AZURE_SPEECH_KEY` + region `AZURE_SPEECH_REGION`) | Neural voices with SSML support                                                                  | Enterprise-grade Azure Speech                                                                                                                                                                                     |
 | **fish-audio** | API Key (`FISH_AUDIO_API_KEY`)                              | 14 languages, voice cloning (15 s reference); models: `s1` (default), `speech-1.6`, `speech-1.5` | Low-cost, ~80% cheaper than ElevenLabs — see [provider guide](../getting-started/providers/fish-audio.md)                                                                                                         |
 | **cartesia**   | API Key (`CARTESIA_API_KEY`)                                | Cartesia voice library, English-first; models: `sonic-2` (default), `sonic`                      | Low-latency Sonic models — see [provider guide](../getting-started/providers/cartesia.md). Synchronous `/tts/bytes`; the WebSocket streaming flow is exposed separately via `CartesiaStream` in the voice server. |
+| **sixtydb**    | Workspace API key (`SIXTYDB_API_KEY`)                       | Quality and fast workspace voice catalogs                                                        | WAV or PCM16 at 24 kHz — see [provider guide](../getting-started/providers/sixtydb.md)                                                                                                                            |
 
 **Planned for future releases:**
 
@@ -483,7 +484,7 @@ neurolink generate "Your text" \
   --tts-output <file> \
   --tts-use-ai-response
 # --tts                  : enable TTS (boolean flag, required)
-# --tts-provider         : google-ai|vertex|openai-tts|elevenlabs|azure-tts|fish-audio|cartesia
+# --tts-provider         : google-ai|vertex|openai-tts|elevenlabs|azure-tts|fish-audio|cartesia|sixtydb
 # --tts-voice            : voice id (optional — provider default applies)
 # --tts-format           : mp3|wav|ogg (default: mp3)
 # --tts-speed            : 0.25-4.0 (default: 1.0)
