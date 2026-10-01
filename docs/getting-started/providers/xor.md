@@ -47,8 +47,8 @@ LiteLLM proxy with a route to one. NeuroLink posts to `<base URL>/v1/systemone`.
 The base URL is the origin of the deployment or of the proxy route, and a
 trailing `/v1` is accepted. On a LiteLLM proxy the key's team must be allowed
 the model you ask for (`xor-1.1` by default); otherwise the proxy answers 403
-`team_model_access_denied`, and its message lists the models the team can use. A
-proxy may serve XOR under a name of its own: set `XOR_MODEL` to that name.
+`team_model_access_denied`. A proxy may serve XOR under a name of its own: set
+`XOR_MODEL` to that name.
 
 ### 2. Configure
 
@@ -220,24 +220,32 @@ scripts, which errs toward refusing. The 200,000 figure is a conservative
 default under the deployment's 250,000-token prefill, and that prefill is shared
 by the state, the questions and any media.
 
-On one live LiteLLM route, a state of about 215,000 tokens (1.2 million
-characters of English) was accepted, and one of about 430,000 tokens was refused
-with a 500 whose text says the input is longer than the model's 262,144-token
-context length. The estimate is not exact in either direction. English averaged
-about 5.6 characters per token there, so the estimate over-counts it. Dense JSON
-averaged about 1.8, so a large dense state can pass the local check and still be
-refused by the server. A structured (non-string) state of 100,000 Chinese
-characters also passed the local check and was refused by the server.
+The figures in this paragraph are measurements of one live LiteLLM route, not
+limits of XOR: the model behind the route's name has not been confirmed as XOR,
+and its 262,144-token context length differs from the 250,000-token prefill
+above. They were taken by sending requests to the route directly rather than
+through NeuroLink, which refuses a state of 1.2 million ASCII characters before
+any request, at about 315,000 estimated tokens. A state of about 215,000 tokens
+(1.2 million characters of English) was accepted, and one of about 430,000
+tokens was refused with a 500 whose text says the input is longer than the
+model's context length. The estimate is not exact in either direction. English
+averaged about 5.6 characters per token on the route, so the estimate
+over-counts it. Dense JSON averaged about 1.8, so the estimate under-counts it
+by more than half, and a dense state estimated under the limit can still be
+longer than the server's context. A structured (non-string) state of 100,000
+Chinese characters passed NeuroLink's local check and was refused by the
+server, which counted it as 485,774 tokens.
 
 A state near the limit, or a lot of media, can therefore still be refused by the
-server as too long. That arrives as `max_tokens_exceeded` (not retried) when the
-status is 413 or the message says the context was too long, and otherwise as
-`server` (retried once). Built-in consumers treat a refusal as "carry on as
-before".
+server as too long. A 413, or a 5xx other than 503 whose message says the
+context was too long, arrives as `max_tokens_exceeded` and is not retried; every
+other reply is classified as in the Errors table below. Built-in consumers treat
+a refusal as "carry on as before".
 
 **A proxy may cap parallel requests.** On that route the key allowed 5 at a
 time. After a burst of rejected requests (403 and 422 replies), every request
-was answered 429 for about half an hour. NeuroLink retries a 429 once.
+was answered 429 for about half an hour. That order was observed; the rejected
+requests were not confirmed as the cause. NeuroLink retries a 429 once.
 
 **No question cap.** NeuroLink sets none. A `choice` or `score` takes 2 to 255
 options, which the server enforces.
@@ -298,8 +306,9 @@ key, long hex runs and embedded `data:` URLs.
 - **A 401** — the endpoint rejected the key. The provider instance stops
   retrying after a rejection, so fix the key and construct a new one.
 - **A 403 with `team_model_access_denied`** — the LiteLLM proxy's team for this
-  key does not allow `xor-1.1`. Add the model to the team; the instance works
-  again without a restart.
+  key does not allow the model you asked for (`XOR_MODEL`, or `xor-1.1` by
+  default). Add the model to the team; the instance works again without a
+  restart.
 - **`max_tokens_exceeded`** — the state is over about 200,000 estimated tokens,
   or the state, the questions and the media together are more than the
   deployment's prefill. Shorten the state, or send fewer or smaller images or a
