@@ -321,6 +321,11 @@ const PROVIDERS_NOT_COVERED: Array<{ provider: string; reason: string }> = [
     reason:
       "Decide-only inference, like typesafe — no text-generation surface for any of cells 1-9.",
   },
+  {
+    provider: "xor",
+    reason:
+      "Decide-only inference (XorProvider extends SystemOneDecisionProvider, like typesafe and laya) — no text-generation surface for any of cells 1-9.",
+  },
 ];
 
 for (const providerId of Object.keys(PROVIDERS)) {
@@ -568,6 +573,18 @@ async function main(): Promise<void> {
                 expectedModel,
                 `cell3 identity: StreamResult.model did not report what the mock server actually served`,
               );
+              // Analytics price the turn from this value, so it has to name the
+              // served model too. Only providers that build their analytics from
+              // the observed model are held to it; the rest report the requested
+              // model and are not asserted here.
+              if (row.protocol === "openai" && streamResult.analytics) {
+                const analytics = await streamResult.analytics;
+                assertEqual(
+                  analytics.model,
+                  expectedModel,
+                  `cell3 identity: StreamResult.analytics.model did not report what the mock server actually served`,
+                );
+              }
             },
           );
 

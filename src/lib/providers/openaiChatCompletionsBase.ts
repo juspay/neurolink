@@ -2470,25 +2470,36 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       }
     };
 
+    // Captured now, as before, so deferring the analytics below does not
+    // change the response time they report.
+    const analyticsResponseTime = Date.now() - startTime;
     const result: StreamResult = {
       stream: transformedStream(),
       provider: this.providerName,
       model: modelId,
-      analytics: streamAnalyticsCollector.createAnalytics(
-        this.providerName,
-        modelId,
-        {
-          textStream: (async function* () {})(),
-          usage: usagePromise,
-          finishReason: finishPromise,
-        } as never,
-        Date.now() - startTime,
-        {
-          requestId:
-            (options as { requestId?: string }).requestId ??
-            `${this.providerName}-stream-${Date.now()}`,
-          streamingMode: true,
-        },
+      // Created once the turn has finished so that `analytics.model` (and the
+      // cost priced from it) names the model the server actually echoed, the
+      // same value `result.model` reports below, rather than the requested
+      // one. `finishPromise` is settled by every exit path of the loop and is
+      // never rejected, and the collector already waited on it, so deferring
+      // adds no new way for this promise to stay pending.
+      analytics: finishPromise.then(() =>
+        streamAnalyticsCollector.createAnalytics(
+          this.providerName,
+          observedServerModel ?? modelId,
+          {
+            textStream: (async function* () {})(),
+            usage: usagePromise,
+            finishReason: finishPromise,
+          } as never,
+          analyticsResponseTime,
+          {
+            requestId:
+              (options as { requestId?: string }).requestId ??
+              `${this.providerName}-stream-${Date.now()}`,
+            streamingMode: true,
+          },
+        ),
       ),
       toolsUsed,
       metadata: streamMetadata,
