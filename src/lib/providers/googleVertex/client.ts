@@ -84,6 +84,11 @@ import {
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import {
+  fireOnErrorOnce,
+  getLifecycleMiddlewareConfig,
+  isLifecycleStreamCallbacksOwnedByBaseProvider,
+} from "../../utils/lifecycleCallbacks.js";
+import {
   GEMINI_ELISION_NOTE,
   planGeminiLoopReclaim,
   previewGeminiToolResponseText,
@@ -7304,6 +7309,26 @@ export class GoogleVertexProvider extends BaseProvider {
    * this for free via the AI SDK `wrapStream` middleware; native @google/genai
    * bypasses that wrapper, so native consumers need their lifecycle
    * callbacks invoked from here.
+   *
+   * `BaseProvider.stream()` always passes the result this method returns
+   * through `wrapStreamWithLifecycleCallbacks` afterwards too (that wrapper
+   * has "no early return when there are no callbacks" — see its own doc
+   * comment) — so unconditionally firing here double-fires onChunk/onFinish
+   * for every native Vertex stream. `isLifecycleStreamCallbacksOwnedByBaseProvider`
+   * reads the SAME nested lifecycle config off the SAME `options` object
+   * `wrapStreamWithLifecycleCallbacks` reads from (NeuroLink.applyStreamLifecycleMiddleware
+   * stamps it before either method runs), so both sites agree on which one
+   * actually fires without a second, Vertex-specific marker — and without
+   * relying on a Symbol on the `StreamResult` itself, which would not
+   * survive `withStreamModelFallback`'s rebuild of a plain forwarding object
+   * between this method and `wrapStreamWithLifecycleCallbacks`.
+   *
+   * onError is deliberately NOT gated by that marker — same precedent as
+   * `middleware/builtin/lifecycle.ts`'s `wrapStream` ("onError is NOT
+   * covered by this flag: it keeps its own, independent dedup via
+   * fireOnErrorOnce's shared fired-marker"). `fireOnErrorOnce` stamps the
+   * error so `BaseProvider`'s own catch (which checks
+   * `hasLifecycleErrorFired`) skips its own fire for the same failure.
    */
   private wrapStreamResultWithLifecycle(
     options: StreamOptions,
@@ -7317,8 +7342,11 @@ export class GoogleVertexProvider extends BaseProvider {
     ).onChunk;
     const onFinish = (options as { onFinish?: (payload: unknown) => unknown })
       .onFinish;
-    const onError = (options as { onError?: (payload: unknown) => unknown })
-      .onError;
+    // `StreamOptions.onError` is already properly typed as `OnErrorCallback`
+    // (unlike the two casts above, kept from before that field existed on
+    // the type) — read directly so `fireOnErrorOnce` below gets it without
+    // a cast.
+    const onError = options.onError;
     if (
       typeof onChunk !== "function" &&
       typeof onFinish !== "function" &&
@@ -7327,12 +7355,16 @@ export class GoogleVertexProvider extends BaseProvider {
       return result;
     }
 
+    const streamCallbacksOwnedByBaseProvider =
+      isLifecycleStreamCallbacksOwnedByBaseProvider(
+        getLifecycleMiddlewareConfig(options),
+      );
+
     const originalIterable = result.stream;
     let accumulated = "";
     let sequence = 0;
-    const provider = this.providerName;
     const fireOnChunk = (payload: unknown) => {
-      if (typeof onChunk !== "function") {
+      if (typeof onChunk !== "function" || streamCallbacksOwnedByBaseProvider) {
         return;
       }
       try {
@@ -7349,7 +7381,10 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     };
     const fireOnFinish = (payload: unknown) => {
-      if (typeof onFinish !== "function") {
+      if (
+        typeof onFinish !== "function" ||
+        streamCallbacksOwnedByBaseProvider
+      ) {
         return;
       }
       try {
@@ -7397,27 +7432,18 @@ export class GoogleVertexProvider extends BaseProvider {
             finishReason: result.finishReason || "stop",
           });
         } catch (err) {
-          if (typeof onError === "function") {
-            try {
-              const errInst =
-                err instanceof Error ? err : new Error(String(err));
-              const cbResult = onError({
-                error: errInst,
-                duration: Date.now() - startTime,
-                recoverable: false,
-              });
-              Promise.resolve(cbResult).catch((e) =>
-                logger.warn(
-                  `[${provider}] onError callback rejected: ${e instanceof Error ? e.message : String(e)}`,
-                ),
-              );
-            } catch (e) {
-              logger.warn(
-                `[${provider}] onError callback threw: ${e instanceof Error ? e.message : String(e)}`,
-              );
-            }
-          }
-          throw err;
+          const errInst = err instanceof Error ? err : new Error(String(err));
+          fireOnErrorOnce(onError, errInst, {
+            error: errInst,
+            duration: Date.now() - startTime,
+            recoverable: false,
+          });
+          // Rethrow the normalized `errInst` (not the raw `err`) so the
+          // fired-mark `fireOnErrorOnce` just stamped on it propagates to
+          // BaseProvider's own catch (`hasLifecycleErrorFired`), which
+          // would otherwise see an unstamped error and fire onError again
+          // for the same logical failure.
+          throw errInst;
         }
       },
     };

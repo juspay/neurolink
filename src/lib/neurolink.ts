@@ -331,6 +331,7 @@ import {
 import {
   hasLifecycleErrorFired,
   markLifecycleErrorFired,
+  markLifecycleStreamCallbacksOwnedByBaseProvider,
 } from "./utils/lifecycleCallbacks.js";
 import { interleaveTTSStream } from "./utils/ttsStream.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
@@ -1260,6 +1261,21 @@ export class NeuroLink {
       return;
     }
 
+    const config = {
+      ...options.middleware?.middlewareConfig?.lifecycle?.config,
+      ...(options.onFinish !== undefined ? { onFinish: options.onFinish } : {}),
+      ...(options.onError !== undefined ? { onError: options.onError } : {}),
+      ...(options.onChunk !== undefined ? { onChunk: options.onChunk } : {}),
+    };
+    // BaseProvider.wrapStreamWithLifecycleCallbacks unconditionally wraps
+    // every provider's stream() result and fires onChunk/onFinish from
+    // there, reliably, for this exact config object. Stamp it so the
+    // model-level lifecycle middleware (builtin/lifecycle.ts) skips its own
+    // onChunk/onFinish firing for it instead of delivering each one twice.
+    // See markLifecycleStreamCallbacksOwnedByBaseProvider's doc comment for
+    // why generate()'s config below is never stamped this way.
+    markLifecycleStreamCallbacksOwnedByBaseProvider(config);
+
     options.middleware = {
       ...options.middleware,
       middlewareConfig: {
@@ -1267,18 +1283,7 @@ export class NeuroLink {
         lifecycle: {
           ...options.middleware?.middlewareConfig?.lifecycle,
           enabled: true,
-          config: {
-            ...options.middleware?.middlewareConfig?.lifecycle?.config,
-            ...(options.onFinish !== undefined
-              ? { onFinish: options.onFinish }
-              : {}),
-            ...(options.onError !== undefined
-              ? { onError: options.onError }
-              : {}),
-            ...(options.onChunk !== undefined
-              ? { onChunk: options.onChunk }
-              : {}),
-          },
+          config,
         },
       },
     };

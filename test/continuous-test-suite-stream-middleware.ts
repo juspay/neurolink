@@ -16,9 +16,14 @@ import { once } from "node:events";
 import { z } from "zod";
 import type {
   NeuroLinkMiddleware,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
   LanguageModelV3StreamPart,
+  LanguageModelV3StreamResult,
   StreamResult,
   AnalyticsData,
+  LifecycleChunkPayload,
+  LifecycleFinishPayload,
 } from "../src/lib/types/index.js";
 import { defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -28,7 +33,7 @@ import {
   startScriptedChatServer,
   chatCompletion,
 } from "./helpers/mockChatServer.js";
-import { NeuroLink, tool } from "../dist/index.js";
+import { NeuroLink, tool, createLifecycleMiddleware } from "../dist/index.js";
 
 assertDistFresh();
 
@@ -2331,6 +2336,429 @@ await test("AI Studio: generate usage preserves cache-read and reasoning tokens 
   } finally {
     await nl.shutdown();
     await server.close();
+  }
+});
+
+// A synthetic model-level middleware that short-circuits doStream and
+// returns a hand-built, true V3 delta-shaped stream: `{type: "text-delta",
+// delta: "..."}`, with no legacy `textDelta` field anywhere — exactly the
+// shape the OpenAI-compatible bridge (and, per the original Bedrock report,
+// Bedrock's) emits. Reasoning is split across two deltas ("Hel"/"lo")
+// rather than delivered as one chunk: a single-delta stream can't
+// distinguish "fired once per chunk" from "fired once total", which is
+// precisely the distinction this regression needs.
+const v3DeltaStream: NeuroLinkMiddleware = {
+  specificationVersion: "v3",
+  metadata: { id: "v3-delta-stream", name: "V3 delta stream" },
+  wrapStream: async () => ({
+    stream: new ReadableStream<LanguageModelV3StreamPart>({
+      start(controller) {
+        controller.enqueue({ type: "text-start", id: "r1" });
+        controller.enqueue({ type: "text-delta", id: "r1", delta: "Hel" });
+        controller.enqueue({ type: "text-delta", id: "r1", delta: "lo" });
+        controller.enqueue({ type: "text-end", id: "r1" });
+        controller.enqueue({
+          type: "finish",
+          finishReason: { unified: "stop" },
+          usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
+        });
+        controller.close();
+      },
+    }),
+  }),
+};
+
+await test("stream() fires onChunk/onFinish exactly once per real chunk through the native V3 middleware chain (lifecycle double-fire regression)", async () => {
+  // The mock server exists only to give the SDK a valid provider/model/
+  // credentials triple to resolve; v3DeltaStream's wrapStream pre-empts
+  // doStream entirely, so the assertion below that the wire was never hit
+  // is the precondition proving this test measures the middleware chain,
+  // not a real network round trip.
+  const server = await startMockChatServer();
+  const sdk = new NeuroLink();
+  const onChunkCalls: LifecycleChunkPayload[] = [];
+  const onFinishCalls: LifecycleFinishPayload[] = [];
+  try {
+    const result = await sdk.stream({
+      input: { text: "hello" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: mockOpenAICredentials(server),
+      middleware: {
+        middleware: [v3DeltaStream],
+        enabledMiddleware: ["v3-delta-stream"],
+      },
+      onChunk: (payload) => {
+        onChunkCalls.push(payload);
+      },
+      onFinish: (payload) => {
+        onFinishCalls.push(payload);
+      },
+    });
+
+    assert.equal(
+      await bounded(readText(result)),
+      "Hello",
+      "the stream's own text content was wrong",
+    );
+
+    assert.equal(
+      server.getAllRequestBodies().length,
+      0,
+      "the synthetic V3 stream should have pre-empted the real wire call",
+    );
+
+    const textDeltaCalls = onChunkCalls.filter((c) => c.type === "text-delta");
+    // Precondition for every assertion below that indexes or concatenates
+    // textDeltaCalls: fail on the count first, with its own message,
+    // before a length-dependent assertion below could fail confusingly.
+    assert.equal(
+      textDeltaCalls.length,
+      2,
+      "onChunk's text-delta call count did not match the real chunk count — it must fire exactly once per chunk, not duplicated",
+    );
+    for (const call of textDeltaCalls) {
+      assert.equal(
+        typeof call.textDelta,
+        "string",
+        "a text-delta onChunk payload carried no text",
+      );
+    }
+    // Built with += (not Array#join, which silently maps undefined to "")
+    // so a reintroduced textDelta-field bug surfaces as a literal
+    // "undefined" substring here exactly as it would for a real caller
+    // concatenating chunks.
+    let joinedChunkText = "";
+    for (const call of textDeltaCalls) {
+      joinedChunkText += call.textDelta;
+    }
+    assert.equal(
+      joinedChunkText,
+      "Hello",
+      "accumulated onChunk text did not match the real deltas",
+    );
+
+    assert.equal(
+      onFinishCalls.length,
+      1,
+      "onFinish fired a different number of times than exactly once",
+    );
+    assert.equal(
+      onFinishCalls[0]?.text,
+      "Hello",
+      "onFinish's accumulated text was wrong",
+    );
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
+await test("createLifecycleMiddleware applied directly to a hand-built V3 model, bypassing BaseProvider entirely, still fires onChunk/onFinish exactly once (standalone consumers are unaffected)", async () => {
+  // This reproduces what an external consumer does with the exported
+  // `createLifecycleMiddleware`: apply it to their own V3 LanguageModel via
+  // a middleware composer, entirely outside NeuroLink.stream()/generate()
+  // and BaseProvider. The real `ai` package is not a dependency of this
+  // project (confirmed against package.json — "ai" appears only in the
+  // keywords array, and node_modules/ai does not exist), and NeuroLink's
+  // own src/lib/middleware/wrapLanguageModel.ts is an internal, unexported
+  // implementation detail, not part of the public surface a consumer could
+  // import. What a `wrapLanguageModel` composer does — call the
+  // middleware's own `wrapStream` with a `doStream` that resolves the
+  // underlying model's `doStream` — is reproduced inline below, which
+  // exercises the exact same `middleware.wrapStream` entry point any such
+  // composer would call.
+  const onChunkCalls: LifecycleChunkPayload[] = [];
+  const onFinishCalls: LifecycleFinishPayload[] = [];
+
+  const fakeModel: LanguageModelV3 = {
+    specificationVersion: "v3",
+    provider: "standalone-test",
+    modelId: "standalone-test-model",
+    supportedUrls: {},
+    doGenerate: () =>
+      Promise.reject(
+        new Error(
+          "doGenerate should not be called by a stream-only standalone test",
+        ),
+      ),
+    doStream: async () => ({
+      stream: new ReadableStream<LanguageModelV3StreamPart>({
+        start(controller) {
+          controller.enqueue({ type: "text-start", id: "r1" });
+          controller.enqueue({ type: "text-delta", id: "r1", delta: "Hel" });
+          controller.enqueue({ type: "text-delta", id: "r1", delta: "lo" });
+          controller.enqueue({ type: "text-end", id: "r1" });
+          controller.enqueue({
+            type: "finish",
+            finishReason: { unified: "stop" },
+            usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
+          });
+          controller.close();
+        },
+      }),
+    }),
+  };
+
+  const middleware = createLifecycleMiddleware({
+    onChunk: (payload) => {
+      onChunkCalls.push(payload);
+    },
+    onFinish: (payload) => {
+      onFinishCalls.push(payload);
+    },
+  });
+
+  if (!middleware.wrapStream) {
+    throw new Error(
+      "createLifecycleMiddleware's returned middleware has no wrapStream",
+    );
+  }
+
+  const params: LanguageModelV3CallOptions = { prompt: [] };
+  const streamResult = await middleware.wrapStream({
+    doGenerate: () => fakeModel.doGenerate(params),
+    doStream: () => fakeModel.doStream(params),
+    params,
+    model: fakeModel,
+  });
+
+  const reader = streamResult.stream.getReader();
+  for (;;) {
+    const next = await reader.read();
+    if (next.done) {
+      break;
+    }
+  }
+
+  const textDeltaCalls = onChunkCalls.filter((c) => c.type === "text-delta");
+  assert.equal(
+    textDeltaCalls.length,
+    2,
+    "the standalone path's onChunk count changed — it must still fire once per real text-delta chunk, exactly as it did before BaseProvider's dedup existed",
+  );
+  let joinedChunkText = "";
+  for (const call of textDeltaCalls) {
+    joinedChunkText += call.textDelta;
+  }
+  assert.equal(
+    joinedChunkText,
+    "Hello",
+    "the standalone path's accumulated chunk text was wrong",
+  );
+
+  assert.equal(
+    onFinishCalls.length,
+    1,
+    "the standalone path's onFinish fire count changed",
+  );
+  assert.equal(
+    onFinishCalls[0]?.text,
+    "Hello",
+    "the standalone path's onFinish text was wrong",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// VERTEX — native stream() lifecycle callbacks (double-fire regression).
+//
+// GoogleVertexProvider's native @google/genai stream path (like AI Studio
+// above) bypasses the AI SDK LanguageModel plumbing entirely, so it carries
+// its OWN direct lifecycle firer (`wrapStreamResultWithLifecycle` in
+// src/lib/providers/googleVertex/client.ts) for the SAME reason AI Studio
+// needed middleware reproduced natively. Unlike AI Studio's model-level
+// middleware (gated by `isLifecycleStreamCallbacksOwnedByBaseProvider` since
+// the v3DeltaStream fix above), Vertex's firer was never gated: every native
+// Vertex stream's result is ALSO passed, unconditionally, through
+// `BaseProvider.wrapStreamWithLifecycleCallbacks` afterwards (see that
+// method's own "no early return when there are no callbacks" doc comment),
+// so onChunk/onFinish each fired twice — once from Vertex's own firer
+// (enriched with usage/finishReason), once from BaseProvider's generic one
+// (bare `{text, duration}`). Vertex AI Express Mode
+// (`credentials.vertex.apiKey` with no project/location) skips ADC entirely
+// and reaches `credentials.vertex.baseURL`, the same mechanism
+// continuous-test-suite-vertex-loop-characterization.ts uses, so this is
+// reachable offline.
+// ---------------------------------------------------------------------------
+
+const VERTEX_MODEL = "gemini-2.0-flash";
+
+// Cleared for the duration of the test so a dev machine's ambient ADC
+// configuration (a real GOOGLE_APPLICATION_CREDENTIALS file, a real
+// project/location pair) can't divert the call away from Express Mode's
+// apiKey+baseURL path and toward a real network call.
+const TOUCHED_VERTEX_ENV_VARS = [
+  "GOOGLE_CLOUD_PROJECT",
+  "GOOGLE_CLOUD_PROJECT_ID",
+  "VERTEX_PROJECT_ID",
+  "GOOGLE_VERTEX_PROJECT",
+  "GOOGLE_CLOUD_LOCATION",
+  "VERTEX_LOCATION",
+  "GOOGLE_VERTEX_LOCATION",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "GOOGLE_VERTEX_API_KEY",
+  "GOOGLE_VERTEX_BASE_URL",
+  "GOOGLE_API_KEY",
+] as const;
+
+function withVertexEnv(): () => void {
+  const saved: Record<string, string | undefined> = {};
+  for (const key of TOUCHED_VERTEX_ENV_VARS) {
+    saved[key] = process.env[key];
+    delete process.env[key];
+  }
+  return () => {
+    for (const key of TOUCHED_VERTEX_ENV_VARS) {
+      const prior = saved[key];
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  };
+}
+
+type VertexStandInCall = { body: Record<string, unknown> };
+type VertexStandIn = {
+  calls: VertexStandInCall[];
+  port: number;
+  close: () => Promise<void>;
+};
+
+// Reuses `aiStudioTextTurn`'s Gemini REST SSE framing — Vertex's native
+// @google/genai client and AI Studio's speak the identical wire format, the
+// only difference is which base URL / auth the SDK is pointed at. One
+// `usageMetadata` (promptTokenCount: 5, candidatesTokenCount: 4) backs this
+// section's usage-enrichment assertions below.
+async function startVertexStandIn(
+  reply: (callIndex: number) => string,
+): Promise<VertexStandIn> {
+  const calls: VertexStandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        body = {};
+      }
+      calls.push({ body });
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(reply(calls.length - 1));
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      }),
+  };
+}
+
+function vertexCredentialsFor(port: number) {
+  return {
+    vertex: {
+      apiKey: "express-key",
+      baseURL: `http://127.0.0.1:${port}`,
+    },
+  };
+}
+
+await test("Vertex: stream() fires onChunk/onFinish exactly once through the native Gemini stream path (lifecycle double-fire regression)", async () => {
+  const restoreEnv = withVertexEnv();
+  const server = await startVertexStandIn(() => aiStudioTextTurn("Hello"));
+  const sdk = new NeuroLink();
+  const onChunkCalls: LifecycleChunkPayload[] = [];
+  const onFinishCalls: LifecycleFinishPayload[] = [];
+  const onErrorCalls: unknown[] = [];
+  try {
+    const result = await sdk.stream({
+      input: { text: "hi" },
+      provider: "vertex",
+      model: VERTEX_MODEL,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: vertexCredentialsFor(server.port),
+      onChunk: (payload) => {
+        onChunkCalls.push(payload);
+      },
+      onFinish: (payload) => {
+        onFinishCalls.push(payload);
+      },
+      onError: (payload) => {
+        onErrorCalls.push(payload);
+      },
+    });
+
+    assert.equal(
+      await bounded(readText(result)),
+      "Hello",
+      "the stream's own text content was wrong",
+    );
+
+    assert.equal(
+      server.calls.length,
+      1,
+      "the Vertex stand-in was not called exactly once — this test's other assertions would not be measuring a single real turn",
+    );
+
+    const textDeltaCalls = onChunkCalls.filter((c) => c.type === "text-delta");
+    assert.equal(
+      textDeltaCalls.length,
+      1,
+      "onChunk fired a different number of times than exactly once — Vertex's own native firer and BaseProvider's generic wrapper both fired for the same chunk",
+    );
+    assert.equal(
+      textDeltaCalls[0]?.textDelta,
+      "Hello",
+      "the single onChunk fire carried the wrong text",
+    );
+
+    assert.equal(
+      onFinishCalls.length,
+      1,
+      "onFinish fired a different number of times than exactly once — Vertex's own native firer and BaseProvider's generic wrapper both fired for the same turn",
+    );
+    assert.equal(
+      onFinishCalls[0]?.text,
+      "Hello",
+      "the single onFinish fire carried the wrong accumulated text",
+    );
+    assert.equal(
+      onFinishCalls[0]?.usage?.promptTokens,
+      5,
+      "the surviving onFinish fire lost the usage enrichment (promptTokens) that only Vertex's own firer used to carry",
+    );
+    assert.equal(
+      onFinishCalls[0]?.usage?.completionTokens,
+      4,
+      "the surviving onFinish fire lost the usage enrichment (completionTokens) that only Vertex's own firer used to carry",
+    );
+    assert.equal(
+      onFinishCalls[0]?.finishReason,
+      "stop",
+      "the surviving onFinish fire lost the finishReason enrichment that only Vertex's own firer used to carry",
+    );
+
+    assert.equal(
+      onErrorCalls.length,
+      0,
+      "onError fired on a clean single-turn response",
+    );
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+    restoreEnv();
   }
 });
 

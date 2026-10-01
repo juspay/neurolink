@@ -5,7 +5,10 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { isRecoverableError } from "../../utils/errorHandling.js";
-import { fireOnErrorOnce } from "../../utils/lifecycleCallbacks.js";
+import {
+  fireOnErrorOnce,
+  isLifecycleStreamCallbacksOwnedByBaseProvider,
+} from "../../utils/lifecycleCallbacks.js";
 import type { LanguageModelMiddleware } from "../../types/index.js";
 import type {
   LanguageModelV3GenerateResult,
@@ -120,22 +123,50 @@ export function createLifecycleMiddleware(
           return result;
         }
 
+        // BaseProvider.wrapStreamWithLifecycleCallbacks already fires
+        // onChunk/onFinish for this exact config object, from NeuroLink's
+        // own normalized stream, for every NeuroLink-internal stream() call
+        // regardless of provider/transport. When that marker is present,
+        // firing onChunk/onFinish here too would deliver each one twice —
+        // once from these raw, provider-shaped V3 chunks, once from
+        // BaseProvider's normalized ones. onError is NOT covered by this
+        // flag: it keeps its own, independent dedup via `fireOnErrorOnce`'s
+        // shared fired-marker below, unchanged.
+        const streamCallbacksOwnedByBaseProvider =
+          isLifecycleStreamCallbacksOwnedByBaseProvider(config);
+
         let sequenceNumber = 0;
         let accumulatedText = "";
 
         const transformStream = new TransformStream({
           transform(chunk, controller) {
             try {
-              if (chunk.type === "text-delta") {
-                accumulatedText += chunk.textDelta;
+              // V3 stream parts carry the delta on `delta` (see
+              // LanguageModelV3StreamPart in types/aiCompat.ts); `textDelta`
+              // is a V2-era AI-SDK field that V3 providers (e.g. Bedrock's
+              // bridge, this package's own openaiChatCompletionsBase) never
+              // set. Reading `chunk.textDelta` alone silently produced
+              // `undefined`, which string-concatenated into a literal
+              // "undefined" per chunk. Falling back to `textDelta` keeps any
+              // caller still emitting the older shape working unchanged.
+              const textDelta =
+                chunk.type === "text-delta"
+                  ? (chunk.delta ?? chunk.textDelta)
+                  : undefined;
+
+              if (chunk.type === "text-delta" && textDelta !== undefined) {
+                accumulatedText += textDelta;
               }
 
-              if (config.onChunk && chunk.type) {
+              if (
+                config.onChunk &&
+                chunk.type &&
+                !streamCallbacksOwnedByBaseProvider
+              ) {
                 try {
                   const callbackResult = config.onChunk({
                     type: chunk.type,
-                    textDelta:
-                      chunk.type === "text-delta" ? chunk.textDelta : undefined,
+                    textDelta,
                     sequenceNumber: sequenceNumber++,
                   });
                   Promise.resolve(callbackResult).catch((e) => {
@@ -164,7 +195,7 @@ export function createLifecycleMiddleware(
             }
           },
           flush() {
-            if (config.onFinish) {
+            if (config.onFinish && !streamCallbacksOwnedByBaseProvider) {
               try {
                 const callbackResult = config.onFinish({
                   text: accumulatedText,

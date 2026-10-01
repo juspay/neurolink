@@ -23,9 +23,7 @@ import type {
   FileToolRootPolicy,
   JsonValue,
   UnknownRecord,
-  LifecycleMiddlewareConfig,
   MiddlewareFactoryOptions,
-  OptionsWithLifecycleMiddleware,
   StreamOptions,
   StreamResult,
   AIProvider,
@@ -70,6 +68,7 @@ import {
   extractRetryAfterMsFromError,
 } from "../utils/providerRetry.js";
 import {
+  getLifecycleMiddlewareConfig,
   hasLifecycleErrorFired,
   markLifecycleErrorFired,
 } from "../utils/lifecycleCallbacks.js";
@@ -134,21 +133,6 @@ import { generateOnceNative } from "../utils/nativeSingleShot.js";
 import { validateExecutionControl } from "../utils/parameterValidation.js";
 import { extractTokenUsage } from "../utils/tokenUtils.js";
 import { preserveLiveStreamAccessors } from "../utils/streamResultAccessors.js";
-
-/**
- * Read the consumer-facing lifecycle callbacks buried inside a request's
- * middleware blob. The parameter is `unknown` on purpose: request options
- * arrive as several structurally-unrelated shapes (StreamOptions,
- * TextGenerationOptions), and the lifecycle branch is an optional add-on
- * none of them declare — a single structural view keeps the read cast-free
- * at every call site.
- */
-function getLifecycleMiddlewareConfig(
-  options: unknown,
-): LifecycleMiddlewareConfig | undefined {
-  return (options as OptionsWithLifecycleMiddleware | undefined)?.middleware
-    ?.middlewareConfig?.lifecycle?.config;
-}
 
 /**
  * Abstract base class for all AI providers
@@ -1095,11 +1079,34 @@ export abstract class BaseProvider implements AIProvider {
           yield chunk;
         }
         if (onFinish) {
+          // Read `result.usage` / `result.finishReason` here, after the
+          // drain loop above has fully exhausted `upstreamIterable` — the
+          // same point native background-loop providers (Vertex's Gemini3
+          // and Claude paths) resolve these fields by, whether they are
+          // plain values set before `result` was returned or live getters
+          // preserved through `withStreamModelFallback`
+          // (`preserveLiveStreamAccessors`). Both fields are generic
+          // `StreamResult` members for every provider, not Vertex-specific,
+          // so this enrichment is additive for all of them: only present
+          // when `result` actually carries a value, never a synthesized
+          // default (a provider that never populated these fields keeps
+          // getting the exact same bare `{text, duration}` payload as
+          // before).
+          const { usage, finishReason } = result;
           await safeFire(
             () =>
               onFinish({
                 text: accumulated,
                 duration: Date.now() - startTime,
+                ...(usage
+                  ? {
+                      usage: {
+                        promptTokens: usage.input ?? 0,
+                        completionTokens: usage.output ?? 0,
+                      },
+                    }
+                  : {}),
+                ...(finishReason ? { finishReason } : {}),
               }),
             "onFinish",
           );

@@ -28,9 +28,122 @@
  * WeakSet does not.
  */
 
-import type { LifecycleErrorPayload, OnErrorCallback } from "../types/index.js";
+import type {
+  LifecycleErrorPayload,
+  LifecycleMiddlewareConfig,
+  OnErrorCallback,
+  OptionsWithLifecycleMiddleware,
+} from "../types/index.js";
 
 const ON_ERROR_FIRED = Symbol.for("neurolink.onErrorFired");
+
+/**
+ * Read the consumer-facing lifecycle callbacks buried inside a request's
+ * middleware blob. The parameter is `unknown` on purpose: request options
+ * arrive as several structurally-unrelated shapes (StreamOptions,
+ * TextGenerationOptions), and the lifecycle branch is an optional add-on
+ * none of them declare — a single structural view keeps the read cast-free
+ * at every call site.
+ *
+ * Shared (moved out of `BaseProvider`) because two independent firing sites
+ * now need the same read: `BaseProvider.wrapStreamWithLifecycleCallbacks`
+ * (every provider's stream) and `GoogleVertexProvider.wrapStreamResultWithLifecycle`
+ * (Vertex's own native-stream firer, which must check the SAME
+ * `isLifecycleStreamCallbacksOwnedByBaseProvider` marker on the SAME nested
+ * config object that BaseProvider's wrapper reads from `options`, so that
+ * both sites agree on who owns firing without a second marker).
+ */
+export function getLifecycleMiddlewareConfig(
+  options: unknown,
+): LifecycleMiddlewareConfig | undefined {
+  return (options as OptionsWithLifecycleMiddleware | undefined)?.middleware
+    ?.middlewareConfig?.lifecycle?.config;
+}
+
+/**
+ * Marks a stream lifecycle config as "BaseProvider.wrapStreamWithLifecycleCallbacks
+ * already fires onChunk/onFinish for this config, authoritatively, from
+ * NeuroLink's own normalized stream — the model-level lifecycle middleware
+ * (middleware/builtin/lifecycle.ts) must not ALSO fire them from the raw
+ * per-provider V3 chunks it sees."
+ *
+ * Only `NeuroLink.applyStreamLifecycleMiddleware()` stamps a config with this
+ * marker, and only for stream()'s config: it is the one function that builds
+ * a lifecycle config fresh from stream()'s top-level onChunk/onFinish/onError
+ * options, for a call that unconditionally passes through
+ * `BaseProvider.wrapStreamWithLifecycleCallbacks` afterwards — see that
+ * method's doc comment ("the only point every provider's stream passes
+ * through unconditionally"). Without this marker both layers fire
+ * onChunk/onFinish for the same logical stream: once (unreliable, raw,
+ * provider-shape-dependent) from the model-level middleware, once (reliable,
+ * normalized) from BaseProvider.
+ *
+ * `NeuroLink.applyGenerateLifecycleMiddleware()` must NEVER stamp its config
+ * this way. BaseProvider has no equivalent guaranteed-delivery layer for
+ * generate()'s onFinish: `BaseProvider.finalizeNativeGenerate`'s own doc
+ * comment states onFinish is deliberately NOT fired there because "the
+ * native paths now wrap their model, so the lifecycle middleware fires it" —
+ * the model-level middleware is the SOLE firing site for every native
+ * generate loop that goes through the model wrap (sagemaker,
+ * openaiChatCompletionsBase, anthropic). The one generate path that bypasses
+ * the model wrap (GoogleVertex's native @google/genai loop) fires onFinish
+ * itself via `BaseProvider.fireGenerateOnFinish` precisely because the
+ * middleware never runs for it. Stamping the generate config would make the
+ * model-level middleware suppress its own firing with nothing left to fire
+ * it, silently breaking onFinish for every one of those providers.
+ *
+ * A config a consumer builds directly — e.g. calling the exported
+ * `createLifecycleMiddleware` and applying it to their own model via the
+ * `ai` package's `wrapLanguageModel`, entirely outside NeuroLink's
+ * BaseProvider/stream()/generate() call path — is never stamped, so that
+ * standalone use keeps firing onChunk/onFinish exactly as before (CLAUDE.md
+ * rule 5: public SDK API must not break existing callers).
+ *
+ * Symbol-stamped on the object itself (not a typed field) for the same
+ * reason as `ON_ERROR_FIRED` above: it survives across separate module
+ * copies of the same config object where a closed-over WeakSet would not.
+ */
+const STREAM_CALLBACKS_OWNED_BY_BASE_PROVIDER = Symbol.for(
+  "neurolink.lifecycleStreamCallbacksOwnedByBaseProvider",
+);
+
+/**
+ * Stamp a stream lifecycle config object with
+ * `STREAM_CALLBACKS_OWNED_BY_BASE_PROVIDER`. See that symbol's doc comment
+ * for who may call this (only `applyStreamLifecycleMiddleware`) and why.
+ */
+export function markLifecycleStreamCallbacksOwnedByBaseProvider(
+  config: object,
+): void {
+  try {
+    Object.defineProperty(config, STREAM_CALLBACKS_OWNED_BY_BASE_PROVIDER, {
+      value: true,
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+  } catch {
+    // Non-extensible config object — worst case is the pre-fix double fire.
+  }
+}
+
+/**
+ * True when `markLifecycleStreamCallbacksOwnedByBaseProvider` already
+ * stamped this config. The model-level lifecycle middleware reads this to
+ * decide whether to fire its own onChunk/onFinish for a stream config.
+ */
+export function isLifecycleStreamCallbacksOwnedByBaseProvider(
+  config: unknown,
+): boolean {
+  if (config === null || typeof config !== "object") {
+    return false;
+  }
+  return (
+    (config as Record<symbol, unknown>)[
+      STREAM_CALLBACKS_OWNED_BY_BASE_PROVIDER
+    ] === true
+  );
+}
 
 function stampFired(error: object): void {
   try {
