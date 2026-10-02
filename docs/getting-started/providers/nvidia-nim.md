@@ -1,6 +1,6 @@
 ---
 title: NVIDIA NIM Provider Guide
-description: Access hundreds of AI models including Llama 3.3, DeepSeek-R1, Mixtral, Phi-4, and vision models through NVIDIA's hosted NIM inference platform
+description: Access hundreds of AI models including gpt-oss, Llama, DeepSeek-R1, Mixtral, Phi-4, and vision models through NVIDIA's hosted NIM inference platform
 keywords: nvidia nim, llama, deepseek, mixtral, phi-4, vision, reasoning, gpu inference
 ---
 
@@ -44,8 +44,8 @@ Add to your `.env` file:
 # Required
 NVIDIA_NIM_API_KEY=nvapi-...
 
-# Optional: override the default model (default: meta/llama-3.3-70b-instruct)
-NVIDIA_NIM_MODEL=meta/llama-3.3-70b-instruct
+# Optional: override the default model (default: openai/gpt-oss-20b)
+NVIDIA_NIM_MODEL=openai/gpt-oss-20b
 
 # Optional: self-hosted NIM base URL (default: https://integrate.api.nvidia.com/v1)
 NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
@@ -87,6 +87,12 @@ console.log(result.content);
 
 NIM hosts hundreds of models. NeuroLink ships with these popular models pre-enumerated:
 
+### OpenAI gpt-oss (default)
+
+| Model ID             | Context | Vision | Reasoning |
+| -------------------- | ------- | ------ | --------- |
+| `openai/gpt-oss-20b` | 128K    | No     | No        |
+
 ### Meta Llama
 
 | Model ID                             | Context | Vision | Reasoning |
@@ -120,6 +126,8 @@ NIM hosts hundreds of models. NeuroLink ships with these popular models pre-enum
 | `mistralai/mixtral-8x7b-instruct-v0.1`  | 32K     | Efficient MoE    |
 | `microsoft/phi-4`                       | 16K     | Compact, capable |
 | `google/gemma-3-27b-it`                 | 128K    | Google Gemma     |
+
+> **Availability, checked 2026-10-02.** NVIDIA's `GET https://integrate.api.nvidia.com/v1/models` did not list `meta/llama-3.3-70b-instruct`, `meta/llama-3.1-70b-instruct`, `deepseek-ai/deepseek-r1-distill-llama-70b` or `google/gemma-3-27b-it`. The `NvidiaNimModels` enum records a probe on 2026-08-26 in which these answered "no longer available", and keeps the members so existing code compiles. `meta/llama-3.1-405b-instruct`, `deepseek-ai/deepseek-r1`, `mistralai/mixtral-8x22b-instruct-v0.1`, `mistralai/mixtral-8x7b-instruct-v0.1` and `microsoft/phi-4` were also absent from that list on that date, and `meta/llama-3.2-90b-vision-instruct` was listed.
 
 Browse the full catalog at [https://build.nvidia.com/models](https://build.nvidia.com/models). You can pass any model ID via `--model` or `model:` — NIM returns 404 for IDs that are not in the catalog.
 
@@ -182,7 +190,7 @@ const ai = new NeuroLink();
 
 const stream = await ai.stream({
   provider: "nvidia-nim",
-  model: "meta/llama-3.3-70b-instruct",
+  model: "openai/gpt-oss-20b",
   input: {
     text: "Walk me through building a REST API with Hono and TypeScript.",
   },
@@ -268,7 +276,7 @@ pnpm run cli loop --provider nvidia-nim
 | Environment Variable            | Required | Default                               | Description                                |
 | ------------------------------- | -------- | ------------------------------------- | ------------------------------------------ |
 | `NVIDIA_NIM_API_KEY`            | Yes      | —                                     | NVIDIA NIM API key (starts with `nvapi-`)  |
-| `NVIDIA_NIM_MODEL`              | No       | `meta/llama-3.3-70b-instruct`         | Default model                              |
+| `NVIDIA_NIM_MODEL`              | No       | `openai/gpt-oss-20b`                  | Default model                              |
 | `NVIDIA_NIM_BASE_URL`           | No       | `https://integrate.api.nvidia.com/v1` | Base URL (override for self-hosted NIM)    |
 | `NVIDIA_NIM_TOP_K`              | No       | —                                     | Top-K sampling; `-1` to disable            |
 | `NVIDIA_NIM_MIN_P`              | No       | —                                     | Minimum token probability; `0` to disable  |
@@ -328,7 +336,7 @@ The model ID is not in the NIM catalog, or your account tier does not have acces
 open https://build.nvidia.com/models
 ```
 
-Use the exact model ID shown on the model's page (e.g., `meta/llama-3.3-70b-instruct`).
+Use the exact model ID shown on the model's page (e.g., `openai/gpt-oss-20b`).
 
 ### "NVIDIA NIM quota exceeded"
 

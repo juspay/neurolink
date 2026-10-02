@@ -34,7 +34,7 @@ SUITES="client middleware tool-reliability tracing observability workflow mcp pp
 model_for() {
   case "$1" in
     deepseek)    echo "deepseek-chat" ;;
-    nvidia-nim)  echo "meta/llama-3.3-70b-instruct" ;;
+    nvidia-nim)  echo "openai/gpt-oss-20b" ;;
     # Local providers default to empty — the providers themselves auto-discover
     # the loaded model from /v1/models. Set TEST_LM_STUDIO_MODEL / TEST_LLAMACPP_MODEL
     # to pin a specific model for the run.

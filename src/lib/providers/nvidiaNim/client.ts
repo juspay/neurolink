@@ -1,5 +1,4 @@
-import type { AIProviderName } from "../../constants/enums.js";
-import { NvidiaNimModels } from "../../constants/enums.js";
+import { AIProviderName, NvidiaNimModels } from "../../constants/enums.js";
 import type {
   NeurolinkCredentials,
   NvidiaNimExtraBody,
@@ -189,8 +188,8 @@ const getDefaultNimModel = (): string => {
   // descriptor is the Factory+Registry convention's source of truth.
   return getProviderModel(
     "NVIDIA_NIM_MODEL",
-    PROVIDER_DESCRIPTORS_BY_NAME.get("nvidia-nim" as AIProviderName)
-      ?.defaultModel ?? NvidiaNimModels.GPT_OSS_20B,
+    PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.NVIDIA_NIM)?.defaultModel ??
+      NvidiaNimModels.GPT_OSS_20B,
   );
 };
 
@@ -230,7 +229,7 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
       process.env.NVIDIA_NIM_BASE_URL ??
       NVIDIA_NIM_DEFAULT_BASE_URL;
 
-    super("nvidia-nim" as AIProviderName, modelName, sdk, { baseURL, apiKey });
+    super(AIProviderName.NVIDIA_NIM, modelName, sdk, { baseURL, apiKey });
 
     logger.debug("NVIDIA NIM Provider initialized", {
       modelName: this.modelName,
@@ -240,7 +239,7 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected getProviderName(): AIProviderName {
-    return "nvidia-nim" as AIProviderName;
+    return AIProviderName.NVIDIA_NIM;
   }
 
   protected getDefaultModel(): string {
