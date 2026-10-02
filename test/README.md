@@ -104,7 +104,7 @@ live     providers (incl. issue-03 fallback regression), mcp:http
 product  media (image+video), tts, ppt, proxy
 
 others   workflow, auth, client, rag, tasks, servers, middleware,
-         new-providers, matrix — run individually or as needed.
+         new-providers, matrix, docs-snippets — run individually or as needed.
          provider-matrix is the canonical capability sweep.
 ```
 

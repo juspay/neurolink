@@ -1,0 +1,292 @@
+{
+  "docs/DOCUMENTATION-AUDIT-REPORT.md": {
+    "defaultProvider": 1
+  },
+  "docs/advanced/analytics.md": {
+    "analytics": 1
+  },
+  "docs/advanced/index.md": {
+    "enableAnalytics": 1
+  },
+  "docs/advanced/streaming.md": {
+    "providers": 1
+  },
+  "docs/connectors/tara.md": {
+    "defaultProvider": 1,
+    "memory": 1
+  },
+  "docs/connectors/yama.md": {
+    "defaultModel": 1,
+    "defaultProvider": 1
+  },
+  "docs/conversation-memory.md": {
+    "debug": 1
+  },
+  "docs/cookbook/autoresearch-quickstart.md": {
+    "model": 2,
+    "provider": 2
+  },
+  "docs/cookbook/tool-chaining.md": {
+    "mcpServers": 1
+  },
+  "docs/development/factory-migration.md": {
+    "analytics": 1,
+    "debugging": 1,
+    "factory": 1,
+    "logging": 1,
+    "providers": 2
+  },
+  "docs/examples/advanced.md": {
+    "analytics": 1,
+    "defaultProvider": 3
+  },
+  "docs/examples/business.md": {
+    "analytics": 1
+  },
+  "docs/features/audio-input.md": {
+    "debug": 1
+  },
+  "docs/features/autoresearch.md": {
+    "model": 2,
+    "provider": 2
+  },
+  "docs/features/claude-subscription.md": {
+    "authMethod": 1,
+    "model": 1,
+    "oauthToken": 1,
+    "provider": 1
+  },
+  "docs/features/guardrails.md": {
+    "middleware": 5
+  },
+  "docs/features/mcp-tools-showcase.md": {
+    "audit": 1
+  },
+  "docs/features/ppt-generation.md": {
+    "debug": 1,
+    "logLevel": 1
+  },
+  "docs/features/video-director-mode.md": {
+    "debug": 1,
+    "logLevel": 1
+  },
+  "docs/features/video-generation.md": {
+    "debug": 1,
+    "logLevel": 1
+  },
+  "docs/getting-started/provider-setup.md": {
+    "memory": 1
+  },
+  "docs/getting-started/providers/aws-bedrock.md": {
+    "failoverConfig": 1,
+    "onSuccess": 2,
+    "providers": 8
+  },
+  "docs/getting-started/providers/azure-openai.md": {
+    "failoverConfig": 2,
+    "healthCheck": 1,
+    "loadBalancing": 1,
+    "onError": 1,
+    "onSuccess": 1,
+    "providers": 12
+  },
+  "docs/getting-started/providers/google-ai.md": {
+    "providers": 4
+  },
+  "docs/getting-started/providers/google-vertex.md": {
+    "failoverConfig": 2,
+    "loadBalancing": 1,
+    "onSuccess": 2,
+    "providers": 8
+  },
+  "docs/getting-started/providers/huggingface.md": {
+    "providers": 4
+  },
+  "docs/getting-started/providers/index.md": {
+    "compliance": 1,
+    "failoverConfig": 1,
+    "loadBalancing": 1,
+    "providers": 3
+  },
+  "docs/getting-started/providers/openai-compatible.md": {
+    "loadBalancing": 1,
+    "providers": 4
+  },
+  "docs/getting-started/providers/openrouter.md": {
+    "enableAnalytics": 1,
+    "providers": 4,
+    "timeout": 1
+  },
+  "docs/guides/enterprise/audit-trails.md": {
+    "auditLog": 10,
+    "compliance": 3,
+    "providers": 10
+  },
+  "docs/guides/enterprise/compliance.md": {
+    "compliance": 3,
+    "onRequest": 1,
+    "onSuccess": 1,
+    "providers": 5,
+    "security": 1
+  },
+  "docs/guides/enterprise/cost-optimization.md": {
+    "failoverConfig": 2,
+    "onSuccess": 1,
+    "providers": 6
+  },
+  "docs/guides/enterprise/load-balancing.md": {
+    "circuitBreaker": 1,
+    "hashKey": 1,
+    "healthCheck": 2,
+    "loadBalancing": 19,
+    "onError": 1,
+    "onSuccess": 4,
+    "providers": 21,
+    "rateLimit": 1
+  },
+  "docs/guides/enterprise/monitoring.md": {
+    "onError": 2,
+    "onRequest": 1,
+    "onSuccess": 5,
+    "providers": 5
+  },
+  "docs/guides/enterprise/multi-provider-failover.md": {
+    "circuitBreaker": 3,
+    "failoverConfig": 11,
+    "healthCheck": 3,
+    "loadBalancing": 2,
+    "providers": 20
+  },
+  "docs/guides/enterprise/multi-region.md": {
+    "compliance": 1,
+    "failoverConfig": 1,
+    "loadBalancing": 2,
+    "onSuccess": 1,
+    "providers": 10
+  },
+  "docs/guides/examples/code-patterns.md": {
+    "failoverConfig": 1,
+    "providers": 9
+  },
+  "docs/guides/examples/use-cases.md": {
+    "failoverConfig": 2,
+    "loadBalancing": 2,
+    "mcpServers": 1,
+    "providers": 13
+  },
+  "docs/guides/frameworks/express.md": {
+    "providers": 1
+  },
+  "docs/guides/frameworks/fastify.md": {
+    "providers": 2
+  },
+  "docs/guides/frameworks/nextjs.md": {
+    "providers": 1
+  },
+  "docs/guides/frameworks/sveltekit.md": {
+    "providers": 1
+  },
+  "docs/guides/mcp/server-catalog.md": {
+    "mcpServers": 7,
+    "middleware": 1,
+    "providers": 6
+  },
+  "docs/guides/migration/from-langchain.md": {
+    "fallbackProviders": 1,
+    "middleware": 1,
+    "model": 3,
+    "provider": 18,
+    "temperature": 1
+  },
+  "docs/guides/migration/from-vercel-ai-sdk.md": {
+    "fallbackProviders": 1,
+    "model": 1,
+    "provider": 14
+  },
+  "docs/guides/provider-selection.md": {
+    "model": 2,
+    "provider": 2
+  },
+  "docs/guides/redis-configuration.md": {
+    "telemetry": 1
+  },
+  "docs/guides/server-adapters/deployment.md": {
+    "defaultProvider": 4
+  },
+  "docs/guides/server-adapters/express.md": {
+    "defaultProvider": 3
+  },
+  "docs/guides/server-adapters/fastify.md": {
+    "defaultProvider": 2
+  },
+  "docs/guides/server-adapters/hono.md": {
+    "defaultProvider": 4
+  },
+  "docs/guides/server-adapters/index.md": {
+    "defaultProvider": 1
+  },
+  "docs/guides/server-adapters/koa.md": {
+    "defaultProvider": 2
+  },
+  "docs/guides/server-adapters/security.md": {
+    "defaultProvider": 5
+  },
+  "docs/guides/server-adapters/streaming.md": {
+    "defaultProvider": 1
+  },
+  "docs/guides/server-adapters/websocket.md": {
+    "defaultProvider": 2
+  },
+  "docs/mcp-latency-optimization-implementation-guide.md": {
+    "backgroundWarmup": 1
+  },
+  "docs/performance-optimization.md": {
+    "caching": 2,
+    "connectionPool": 1,
+    "monitoring": 1,
+    "profiling": 1,
+    "routing": 1
+  },
+  "docs/reference/analytics.md": {
+    "defaultOptions": 1,
+    "middleware": 1
+  },
+  "docs/reference/configuration.md": {
+    "timeout": 1
+  },
+  "docs/reference/error-codes.md": {
+    "fallbackProviders": 1,
+    "provider": 2
+  },
+  "docs/reference/index.md": {
+    "debug": 1,
+    "logLevel": 1
+  },
+  "docs/reference/server-configuration.md": {
+    "defaultProvider": 1
+  },
+  "docs/reference/troubleshooting.md": {
+    "azureApiKey": 1,
+    "azureDeployment": 1,
+    "azureEndpoint": 1,
+    "debug": 1,
+    "httpProxy": 1,
+    "httpsProxy": 1,
+    "mcpServers": 2,
+    "onLog": 1,
+    "onRequest": 1,
+    "onResponse": 1,
+    "provider": 2
+  },
+  "docs/sdk/nestjs-integration.md": {
+    "providers": 1
+  },
+  "docs/tutorials/chat-app.md": {
+    "failoverConfig": 1,
+    "loadBalancing": 1,
+    "providers": 1
+  },
+  "docs/tutorials/rag.md": {
+    "providers": 1
+  }
+}

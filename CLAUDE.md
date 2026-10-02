@@ -368,6 +368,7 @@ pnpm run test:credentials # Includes issue-01 model-access regression
 pnpm run test:evaluation  # Includes evaluation-scoring sub-suite
 pnpm run test:middleware
 pnpm run test:autoresearch       # E2E + live (live half skips without keys)
+pnpm run test:docs-snippets      # Docs' new NeuroLink({...}) options vs the built d.ts (no-API; needs a build; CI does NOT run it); :update regenerates its ledger
 
 # What CI actually gates — NOT test:unit.
 # .github/workflows/ci.yml has two required jobs over test/, and both are
