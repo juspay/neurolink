@@ -118,7 +118,7 @@ await neurolink.generate({
 
 | Model                   | Context   | Vision | $/M in · out · cached         | Notes                                                                                                                                                                                                                                       |
 | ----------------------- | --------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `z-ai/glm-5.3-flash` ⭐ | 131,072\* | no     | $0.03 / $0.10 (cached $0.006) | Only model Pareto serves. Max output documented as 1–131,072 tokens (default 131,072). \*Context window is not published by Pareto — this figure reuses the documented output ceiling as a conservative floor, not a stated context length. |
+| `z-ai/glm-5.3-flash` ⭐ | 131,072\* | no     | $0.09 / $0.30 (cached $0.018) | Only model Pareto serves. Max output documented as 1–131,072 tokens (default 131,072). \*Context window is not published by Pareto — this figure reuses the documented output ceiling as a conservative floor, not a stated context length. |
 
 \* Pareto's own docs state it does **not** disclose GLM 5.3 Flash's serving
 details ("We do not disclose the technical details of our GLM 5.3 Flash
