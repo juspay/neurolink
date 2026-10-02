@@ -309,6 +309,52 @@ class NeuroLinkBuildValidator {
     }
   }
 
+  // typedoc matches an exclude like `**/test/**` against ABSOLUTE paths, so it
+  // also drops every source file when the checkout itself sits under a
+  // directory of that name (~/test/neurolink). The docs drift gate runs at a
+  // CI path with no such segment, so the mistake passes CI and a developer's
+  // regeneration then emits a handful of pages instead of the full reference.
+  // Anchor project-relative excludes with `./` instead.
+  checkTypedocExcludes(): void {
+    this.log("Checking typedoc.json excludes are anchored to the project...");
+
+    const configPath = path.join(this.rootDir, "typedoc.json");
+    if (!fs.existsSync(configPath)) {
+      return;
+    }
+
+    let exclude: unknown;
+    try {
+      exclude = (
+        JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+          exclude?: unknown;
+        }
+      ).exclude;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.errors.push(`Could not parse typedoc.json: ${message}`);
+      return;
+    }
+    if (!Array.isArray(exclude)) {
+      return;
+    }
+
+    const unanchoredDirectory = /^\*\*\/[^*]+\/\*\*$/;
+    for (const pattern of exclude) {
+      if (
+        typeof pattern === "string" &&
+        pattern !== "**/node_modules/**" &&
+        unanchoredDirectory.test(pattern)
+      ) {
+        this.errors.push(
+          `typedoc.json exclude "${pattern}" matches a directory name anywhere in the absolute path.\n` +
+            `   A checkout under a directory of that name would generate no API docs.\n` +
+            `   Anchor it to the project root: "./${pattern.slice(3)}"`,
+        );
+      }
+    }
+  }
+
   // Check package.json consistency
   validatePackageJson(): void {
     this.log("Validating package.json configuration...");
@@ -674,6 +720,7 @@ class NeuroLinkBuildValidator {
 
     // Run all validation checks
     this.checkProjectStructure();
+    this.checkTypedocExcludes();
     this.checkConsoleStatements();
     await this.checkApiKeyLeaks();
     this.validatePackageJson();

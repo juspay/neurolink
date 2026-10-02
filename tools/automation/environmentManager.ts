@@ -11,6 +11,7 @@ import path from "path";
 import crypto from "crypto";
 import { PROVIDER_DESCRIPTORS } from "../../src/lib/factories/providerDescriptors.js";
 import { satisfiesFallbacks } from "../../src/lib/utils/providerConfig.js";
+import type { ProviderDescriptor } from "../../src/lib/types/index.js";
 
 /** Parsed contents of a .env-style file: raw key/value string pairs. */
 type EnvMap = Record<string, string>;
@@ -23,6 +24,30 @@ type EnvironmentValidation = {
   warnings: string[];
   recommendations: string[];
 };
+
+/**
+ * True when the .env sets any variable a provider reads for its endpoint,
+ * model or key — the signal available for providers that need no credential.
+ */
+const declaresAnyEnvVar = (
+  vars: ProviderDescriptor["envVars"],
+  env: EnvMap,
+): boolean =>
+  [
+    vars.apiKey,
+    ...(vars.fallbacks ?? []),
+    vars.baseURL,
+    ...(vars.baseURLFallbacks ?? []),
+    vars.model,
+    ...(vars.modelFallbacks ?? []),
+  ].some((name) => !!name && !!env[name]);
+
+/**
+ * Configured providers that earn the full provider-count share of the score.
+ * The catalog carries dozens of providers and nobody configures them all, so
+ * dividing by the catalog size made the score a rounding error.
+ */
+const FULL_SCORE_PROVIDER_COUNT = 5;
 
 class EnvironmentManager {
   envFile: string;
@@ -263,8 +288,14 @@ class EnvironmentManager {
     const providers: Record<string, boolean> = {};
     for (const d of PROVIDER_DESCRIPTORS) {
       if (d.envVars.optional || d.localRuntime) {
+        // No credential is required here, but "configured" still has to mean
+        // the .env says so: marking these true unconditionally made an empty
+        // .env report three providers, which hid the no-providers warning.
+        // Only Ollama is also probed, because a running daemon is a real
+        // signal on its own.
         providers[d.name] =
-          d.name === "ollama" ? await this.checkOllamaStatus() : true;
+          declaresAnyEnvVar(d.envVars, env) ||
+          (d.name === "ollama" && (await this.checkOllamaStatus()));
         continue;
       }
       const { apiKey, fallbacks, extraRequired, extraRequiredFallbacks } =
@@ -333,12 +364,8 @@ class EnvironmentManager {
   reportValidation(validation: EnvironmentValidation) {
     console.log("\n📊 ENVIRONMENT VALIDATION RESULTS");
     console.log("=".repeat(50));
-    const totalProviders = Object.keys(validation.providers).length;
     console.log(
-      `✅ Configured providers: ${validation.configured.length}/${totalProviders}`,
-    );
-    console.log(
-      `⚠️  Missing providers: ${validation.missing.length}/${totalProviders}`,
+      `✅ Configured providers: ${validation.configured.length} of ${Object.keys(validation.providers).length} available`,
     );
 
     if (validation.configured.length > 0) {
@@ -348,11 +375,12 @@ class EnvironmentManager {
       });
     }
 
+    // Listing every unconfigured provider printed dozens of lines, one per
+    // catalog entry, and buried the warnings below.
     if (validation.missing.length > 0) {
-      console.log(`\n🔴 Missing providers:`);
-      validation.missing.forEach((provider) => {
-        console.log(`  ❌ ${provider}`);
-      });
+      console.log(
+        `\n⚪ ${validation.missing.length} other providers are not configured (docs/getting-started/providers/ lists the variables each one needs).`,
+      );
     }
 
     if (validation.warnings.length > 0) {
@@ -379,9 +407,9 @@ class EnvironmentManager {
     const diversityWeight = 20; // 20% for provider diversity
     const bestPracticeWeight = 10; // 10% for following best practices
 
-    const totalProviders = Object.keys(validation.providers).length;
     const configuredScore =
-      (validation.configured.length / totalProviders) * configuredWeight;
+      Math.min(validation.configured.length / FULL_SCORE_PROVIDER_COUNT, 1) *
+      configuredWeight;
     const diversityScore =
       Math.min(validation.configured.length / 3, 1) * diversityWeight;
     const bestPracticeScore = validation.configured.includes("openai")

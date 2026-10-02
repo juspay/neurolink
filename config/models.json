@@ -25,7 +25,7 @@
         }
       },
       "claude-4.5-opus": {
-        "id": "claude-opus-4-5-20251124",
+        "id": "claude-opus-4-5-20251101",
         "displayName": "Claude 4.5 Opus",
         "capabilities": [
           "function-calling",
@@ -318,7 +318,7 @@
         }
       },
       "claude-4.5-opus": {
-        "id": "anthropic.claude-opus-4-5-20251124-v1:0",
+        "id": "anthropic.claude-opus-4-5-20251101-v1:0",
         "displayName": "Claude 4.5 Opus (Bedrock)",
         "capabilities": [
           "function-calling",
@@ -463,7 +463,7 @@
         "releaseDate": "2025-09-29"
       },
       "claude-opus-4-5": {
-        "id": "claude-opus-4-5-20251124",
+        "id": "claude-opus-4-5-20251101",
         "displayName": "Claude 4.5 Opus (Vertex)",
         "capabilities": [
           "function-calling",

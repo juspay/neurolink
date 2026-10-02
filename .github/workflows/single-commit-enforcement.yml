@@ -230,22 +230,24 @@ jobs:
           # The format check above reads only the subject line (%s). GitHub reads
           # the WHOLE message, body included, so a skip directive quoted in a body
           # -- e.g. while documenting semantic-release's own commit template --
-          # silently suppresses every workflow for the resulting push. That has
-          # already happened once on `release`: the merge ran no CI at all, and
-          # nothing reported it, because a skipped run looks identical to a run
-          # that was never required.
+          # silently suppresses every push/pull_request workflow for the
+          # resulting push. That has already happened once on `release`: the
+          # merge ran no CI at all, and nothing reported it, because a skipped
+          # run looks identical to a run that was never required.
           FULL_MSG=$(git log -1 --pretty=format:%B "$COMMIT_HASH")
+          SKIP_RE='\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'
 
-          if echo "$FULL_MSG" | grep -qiE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'; then
+          if printf '%s\n' "$FULL_MSG" | grep -qiE "$SKIP_RE"; then
             echo "❌ POLICY VIOLATION: commit message contains a CI-skip directive"
             echo ""
             echo "Offending line(s):"
-            echo "$FULL_MSG" | grep -niE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]' | sed 's/^/    /'
+            printf '%s\n' "$FULL_MSG" | grep -niE "$SKIP_RE" | sed 's/^/    /'
             echo ""
             echo "GitHub honours [skip ci], [ci skip], [no ci], [skip actions] and"
             echo "[actions skip] anywhere in a commit message -- subject or body."
-            echo "Merging this would push a commit that runs no workflows at all,"
-            echo "including the checks required to protect this branch."
+            echo "Merging this would push a commit that runs none of the push or"
+            echo "pull_request workflows, including the checks required to protect"
+            echo "this branch."
             echo ""
             echo "🔧 TO FIX:"
             echo "  If you were quoting the directive rather than intending it,"

@@ -12,7 +12,7 @@
  * docs(readme): update installation guide
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -59,7 +59,7 @@ const SEMANTIC_COMMIT_PATTERN = /^([a-z]+)(\([a-zA-Z0-9\-/]+\)):\s(.+)$/i;
  *
  * This script runs from a husky hook on every commit AND in two workflows, so
  * an unbounded git call blocks committing entirely and stalls the Single Commit
- * Policy check with it. `execSync` blocks the event loop, so the symptom is a
+ * Policy check with it. `execFileSync` blocks the event loop, so the symptom is a
  * frozen terminal with no output rather than a slow one. Ten seconds matches
  * the bound already used for the same purpose in scripts/security-check.ts.
  *
@@ -111,7 +111,7 @@ class CommitValidator {
       }
 
       // Try to get from git commit message file
-      const gitDir = execSync("git rev-parse --git-dir", {
+      const gitDir = execFileSync("git", ["rev-parse", "--git-dir"], {
         encoding: "utf8",
         timeout: GIT_TIMEOUT_MS,
         killSignal: "SIGKILL",
@@ -125,11 +125,15 @@ class CommitValidator {
       }
 
       // Try to get the last commit message
-      const lastCommit = execSync('git log -1 --pretty=format:"%s"', {
-        encoding: "utf8",
-        timeout: GIT_TIMEOUT_MS,
-        killSignal: "SIGKILL",
-      });
+      const lastCommit = execFileSync(
+        "git",
+        ["log", "-1", "--pretty=format:%s"],
+        {
+          encoding: "utf8",
+          timeout: GIT_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        },
+      );
       return lastCommit.trim();
     } catch (_error: unknown) {
       this.addError("Unable to retrieve commit message");

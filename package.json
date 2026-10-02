@@ -188,6 +188,7 @@
     "test:tool-routing-cli": "pnpm exec tsx test/continuous-test-suite-tool-routing-cli.ts",
     "test:tool-dedup": "pnpm exec tsx test/continuous-test-suite-tool-dedup.ts",
     "test:tools-manager-truncation": "pnpm exec tsx test/continuous-test-suite-tools-manager-truncation.ts",
+    "test:tooling-scripts": "pnpm exec tsx test/continuous-test-suite-tooling-scripts.ts",
     "test:model-not-found-retryable": "pnpm exec tsx test/continuous-test-suite-model-not-found-retryable.ts",
     "test:reasoning-parity-live": "pnpm exec tsx test/continuous-test-suite-reasoning-parity-live.ts",
     "test:ci": "pnpm run test && pnpm run test:client && pnpm run test:hitl",

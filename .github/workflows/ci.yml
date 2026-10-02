@@ -46,10 +46,11 @@ on:
 #
 # This is the floor for the whole workflow. A job that genuinely needs more must
 # declare it itself, which makes the exception visible in review rather than
-# implicit in a repository setting nobody reads. Nothing here needs more today:
-# no job pushes, tags, publishes or comments, and the single GITHUB_TOKEN
-# consumer is `semantic-release --dry-run`, restricted to commit-analyzer and
-# release-notes-generator.
+# implicit in a repository setting nobody reads. One job needs more:
+# semantic-release-validation declares `contents: write` because
+# semantic-release's verifyAuth runs `git push --dry-run` on push to release.
+# No other job pushes, tags, publishes or comments, so every other checkout sets
+# `persist-credentials: false` rather than leaving GITHUB_TOKEN in .git/config.
 permissions:
   contents: read
 
@@ -85,6 +86,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -354,6 +357,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -707,6 +712,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -799,6 +806,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -853,7 +862,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       # Every shard runs even if another fails, so one broken suite never
-      # hides the state of the other 42 — the same property the loop below
+      # hides the state of the other suites — the same property the loop below
       # has always had within a single job.
       fail-fast: false
       matrix:
@@ -866,6 +875,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -926,12 +937,11 @@ jobs:
           # fixtures or mocked fetch, so a suite that starts making real network
           # calls fails here rather than silently costing money and flaking.
           #
-          # The list below grew from 8 to 38. The 30 added were not picked by
-          # reading them: every suite script that CI never invoked was run with
-          # the environment fully stripped — `env -i` plus
+          # The list below grew from the original 8. The suites added since were
+          # not picked by reading them: every suite script that CI never
+          # invoked was run with the environment fully stripped — `env -i` plus
           # DOTENV_CONFIG_PATH=/dev/null, checked to actually suppress .env —
-          # and only the ones that passed that way are here. They contribute
-          # 373 assertions.
+          # and only the ones that passed that way were kept.
           #
           # test:middleware is still held back, and the cause is now measured
           # rather than guessed. Diagnosed 2026-08-27.
@@ -1175,6 +1185,7 @@ jobs:
             test:vendor-recovery@5
             test:browser-bundle@5
             test:tools-manager-truncation@3
+            test:tooling-scripts@100
           "
           # Normalise every entry to name@weight (missing or non-numeric
           # weights become 30), then sort by weight descending. Greedy
@@ -1240,7 +1251,7 @@ jobs:
           echo "──────────────────────────────────────────────"
           if [ -n "$FAILED" ]; then
             # Every suite runs before failing, so one broken suite does not hide
-            # the state of the other seven.
+            # the state of the other suites.
             echo "Failing suites:$FAILED"
             exit 1
           fi
@@ -1252,6 +1263,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -1276,6 +1289,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4

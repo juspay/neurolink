@@ -40,8 +40,9 @@ jobs:
       # Removed after the apt install broke CI three ways in one day: a corrupt
       # published asset, a version pin that stopped resolving, and an Ubuntu
       # mirror returning Ign: for every index while apt sat for 14 minutes.
-      # Because build-check is a required check, each of those blocked every
-      # open pull request on a dependency none of these jobs use.
+      # In ci.yml, where the same install ran, each of those blocked every open
+      # pull request via the required build-check; here it would have stalled
+      # or failed the release run, on a dependency none of these jobs use.
       #
       # If a job here ever runs a suite that genuinely exercises media, install
       # ffmpeg in THAT job only, and bound every wait (DPkg::Lock::Timeout,

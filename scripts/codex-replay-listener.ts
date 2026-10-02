@@ -221,7 +221,7 @@ function printHelp(): void {
 Options:
   --port <n>            Listen port (default 41045)
   --script <name>        SSE event script: ${SCRIPT_NAMES.join(", ")} (default full)
-  --requests <n>          Exit after n requests (default 0 = unbounded)
+  --requests <n>          Exit after n served /responses requests (default 0 = unbounded)
   --delay-ms <n>          Delay between each SSE event (default 15)
   --log-file <path>       Also write a JSONL request/response log to this path (default: console only)
   --no-log                No-op alias; logging to a file is already off by default
@@ -410,6 +410,17 @@ function textTurnEvents(): SSEEvent[] {
 }
 
 /**
+ * Deliberately not a name the request declares. Codex sends its tool list with
+ * every request (test/fixtures/codex-request-*.json declare `exec` as a custom
+ * tool, which takes a raw string rather than JSON arguments), and a
+ * function_call that names a declared tool is routed to that tool's handler.
+ * Naming `exec` here raised a Fatal "incompatible payload" error inside the CLI
+ * instead of exercising the id round trip this script exists for. An undeclared
+ * name gets an "unsupported call" result that still carries the call_id.
+ */
+const SYNTHETIC_TOOL_NAME = "replay_tool";
+
+/**
  * A function_call turn whose item id AND call_id are `toolu_`-prefixed —
  * Anthropic's tool-use id convention, not OpenAI's `call_...` convention —
  * to test whether the CLI passes an unfamiliar-but-well-formed id straight
@@ -430,7 +441,7 @@ function toolCallTurnEvents(toolCallId: string): SSEEvent[] {
       data: {
         type: "response.output_item.added",
         output_index: 0,
-        item: { id: toolCallId, type: "function_call", name: "exec", call_id: toolCallId, arguments: "" },
+        item: { id: toolCallId, type: "function_call", name: SYNTHETIC_TOOL_NAME, call_id: toolCallId, arguments: "" },
       },
     },
     {
@@ -450,7 +461,7 @@ function toolCallTurnEvents(toolCallId: string): SSEEvent[] {
       data: {
         type: "response.output_item.done",
         output_index: 0,
-        item: { id: toolCallId, type: "function_call", name: "exec", call_id: toolCallId, arguments: "ls -la", status: "completed" },
+        item: { id: toolCallId, type: "function_call", name: SYNTHETIC_TOOL_NAME, call_id: toolCallId, arguments: "ls -la", status: "completed" },
       },
     },
     {
@@ -459,7 +470,7 @@ function toolCallTurnEvents(toolCallId: string): SSEEvent[] {
         type: "response.completed",
         response: {
           id: RESPONSE_ID,
-          output: [{ id: toolCallId, type: "function_call", name: "exec", call_id: toolCallId, arguments: "ls -la", status: "completed" }],
+          output: [{ id: toolCallId, type: "function_call", name: SYNTHETIC_TOOL_NAME, call_id: toolCallId, arguments: "ls -la", status: "completed" }],
           usage: {
             input_tokens: 51,
             input_tokens_details: { cache_write_tokens: 0, cached_tokens: 0 },
@@ -543,12 +554,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// `n` numbers every request in the log; `served` counts only the ones that got
+// a scripted turn. --requests is measured against `served`, because a probe
+// that 404s must not use up the limit before a turn has been answered.
+type RequestCount = { n: number; served: number };
+
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   args: Args,
   log: (entry: Record<string, unknown>) => void,
-  requestCount: { n: number },
+  requestCount: RequestCount,
 ): Promise<void> {
   const raw = await readBody(req);
   let parsedBody: unknown = null;
@@ -578,6 +594,7 @@ async function handleRequest(
     log({ kind: "response", seq: requestCount.n, status: 404 });
     return;
   }
+  requestCount.served++;
 
   const events = buildScript(args.script, args.toolIdPrefix, classification.hasFunctionCallOutput);
 
@@ -628,11 +645,11 @@ async function main(): Promise<void> {
     "Point a real codex CLI at this listener via an isolated CODEX_HOME — see the header comment in this file for the exact config.toml/auth.json snippet.",
   );
 
-  const requestCount = { n: 0 };
+  const requestCount: RequestCount = { n: 0, served: 0 };
   const server = createServer((req, res) => {
     handleRequest(req, res, args, log, requestCount)
       .then(() => {
-        if (args.requests > 0 && requestCount.n >= args.requests) {
+        if (args.requests > 0 && requestCount.served >= args.requests) {
           console.log(`Reached --requests limit (${args.requests}); shutting down.`);
           server.close();
         }

@@ -18,6 +18,14 @@
  *   neurolink/no-local-type-alias         → Rule 2 (strict): No `type X = ...` alias outside
  *                                            src/lib/types/ (catches non-exported aliases
  *                                            that the Rule 12 rule misses).
+ *   neurolink/e2e-tests-only              → Rule 15: Tests are end-to-end only (import the built
+ *                                            `dist/` surface, never a runtime module from src/lib/).
+ *   neurolink/no-inline-secret-regex      → No inline secret-redaction regex outside
+ *                                            src/lib/utils/logSanitize.ts (use sanitizeForLog).
+ *   neurolink/provider-typed-errors       → `formatProviderError` in src/lib/providers/ returns a
+ *                                            typed error, never a plain `new Error(...)`.
+ *   neurolink/provider-base-class         → Provider classes in src/lib/providers/ extend
+ *                                            BaseProvider or a recognised provider base class.
  */
 
 "use strict";

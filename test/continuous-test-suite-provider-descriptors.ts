@@ -12,7 +12,7 @@ import "dotenv/config";
  * dist equivalents already exercised elsewhere in this repo's suites, so
  * there was no reachability barrier, just a stale import path).
  *
- * ONE NARROW, DISCLOSED EXCEPTION: the two tests under "environmentManager
+ * ONE NARROW, DISCLOSED EXCEPTION: the tests under "environmentManager
  * derives its provider checklist from descriptors" import `EnvironmentManager`
  * from `../tools/automation/environmentManager.js`. That file lives under
  * `tools/`, not `src/`, and is never compiled into `dist/` by any `build*`
@@ -20,14 +20,19 @@ import "dotenv/config";
  * standalone dev-tooling script behind `env:validate`/`env:setup`, not part
  * of the packaged `@juspay/neurolink` surface at all. There is no dist
  * artifact for it to import instead, so this isn't a determinism workaround
- * in the rule-15 sense (nothing here is nondeterministic) — it's a genuine
- * absence of a shipped equivalent for those 2 tests only. Every other test
+ * in the rule-15 sense — it's a genuine absence of a shipped equivalent for
+ * those tests only. (The ones that read a .env do use fixed inputs: a
+ * throwaway file, with the Ollama probe stubbed, so neither the repo's own
+ * .env nor a daemon on the host can change the answer.) Every other test
  * in this file drives the real dist module graph.
  *
  * Run: npx tsx test/continuous-test-suite-provider-descriptors.ts
  *      pnpm run test:provider-descriptors
  */
 import { createServer, type Server } from "node:http";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   defineSuite,
   logSection,
@@ -847,7 +852,7 @@ await runSuite(async () => {
     "environmentManager derives its provider checklist from descriptors",
   );
 
-  // These 2 tests import from ../tools/, not ../dist/ — see the file-header
+  // These tests import from ../tools/, not ../dist/ — see the file-header
   // exception note: tools/automation/environmentManager.ts has no dist
   // build output and isn't part of the shipped package surface.
   await test("validateEnvironment's providers object has one key per descriptor, not just 9", async () => {
@@ -864,13 +869,82 @@ await runSuite(async () => {
     );
   });
 
-  await test("calculateScore denominator matches the actual provider count, not a hardcoded 9", async () => {
+  await test("calculateScore stays within 0-100 for the real descriptor set", async () => {
     const { EnvironmentManager } =
       await import("../tools/automation/environmentManager.js");
     const manager = new EnvironmentManager();
     const validation = await manager.validateEnvironment();
     const score = manager.calculateScore(validation);
     assert(score >= 0 && score <= 100, "score out of 0-100 range");
+  });
+
+  // Exercised against a throwaway .env, never the repo's own: the parsed file
+  // decides everything here, and a developer's real one is full of keys.
+  const validateAgainstEnv = async (envContents: string) => {
+    const { EnvironmentManager } =
+      await import("../tools/automation/environmentManager.js");
+    const dir = mkdtempSync(join(tmpdir(), "env-manager-"));
+    try {
+      const envFile = join(dir, ".env");
+      writeFileSync(envFile, envContents);
+      const manager = new EnvironmentManager();
+      manager.envFile = envFile;
+      // A daemon on the machine running the suite must not change the answer.
+      manager.checkOllamaStatus = async () => false;
+      return await manager.validateEnvironment();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  await test("an empty .env configures no provider, including the credential-free ones", async () => {
+    const validation = await validateAgainstEnv("");
+    assertEqual(
+      validation.configured.length,
+      0,
+      "configured provider count for an empty .env",
+    );
+    assert(
+      validation.warnings.some((w) => w.includes("No AI providers configured")),
+      "the no-providers warning should fire for an empty .env",
+    );
+  });
+
+  await test("a local endpoint in .env configures exactly that provider", async () => {
+    const validation = await validateAgainstEnv(
+      "LM_STUDIO_BASE_URL=http://localhost:1234\n",
+    );
+    assertEqual(
+      validation.configured.join(","),
+      "lm-studio",
+      "configured providers for a .env that sets only LM_STUDIO_BASE_URL",
+    );
+  });
+
+  await test("calculateScore does not depend on how many providers the catalog holds", async () => {
+    const { EnvironmentManager } =
+      await import("../tools/automation/environmentManager.js");
+    const manager = new EnvironmentManager();
+    const withCatalogOf = (size: number) => ({
+      configured: ["openai", "anthropic", "google-ai"],
+      missing: [],
+      providers: Object.fromEntries(
+        Array.from({ length: size }, (_, i) => [`provider-${i}`, i < 3]),
+      ),
+      warnings: [],
+      recommendations: [],
+    });
+    // 3 of 5 for the provider share (42), full diversity (20), openai (10).
+    assertEqual(
+      manager.calculateScore(withCatalogOf(10)),
+      72,
+      "score with a 10-provider catalog",
+    );
+    assertEqual(
+      manager.calculateScore(withCatalogOf(85)),
+      72,
+      "score with an 85-provider catalog",
+    );
   });
 
   logSection("setup.ts checkExistingConfigurations derived from descriptors");

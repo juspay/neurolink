@@ -32,8 +32,11 @@
  *      package is reachable from runtime dependencies.
  *
  * 4. Source/test/script imports
- *    - Greps the repo's own source trees for `from "<banned>"` or
- *      `require("<banned>")`.
+ *    - Scans the repo's own source trees, plus the files sitting directly in
+ *      the repo root (eslint.config.js, vite.config.ts, ...), for
+ *      `from "<banned>"`, `import("<banned>")` and `require("<banned>")`. The
+ *      scan runs over the whole file, so a specifier on a line of its own
+ *      is found as well.
  *    - Comments are explicitly ignored so explanatory references like
  *      "GoogleVertexProvider no longer uses @ai-sdk/google-vertex" remain
  *      legal.
@@ -344,7 +347,15 @@ function checkPnpmWhy(): void {
   }
 }
 
-const SOURCE_EXTS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
+const SOURCE_EXTS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".mts",
+  ".cts",
+]);
 // Paths where a banned import is the READER's dependency, not NeuroLink's.
 // examples/client-sdks/ demonstrates driving NeuroLink from a third-party SDK
 // (see createNeuroLinkProvider in src/lib/client/aiSdkAdapter.ts); the consumer
@@ -437,8 +448,85 @@ function collectSourceFiles(rootDir: string): string[] {
       }
     }
   }
+  // Files directly in the repo root — eslint.config.js, vite.config.ts,
+  // svelte.config.js, .pnpmfile.cjs. They sit outside every directory seeded
+  // above, and ESLint ignores `*.config.*`, so nothing else would notice a
+  // banned import added to one of them.
+  for (const entry of readdirSync(rootDir)) {
+    const full = join(rootDir, entry);
+    try {
+      if (statSync(full).isFile() && SOURCE_EXTS.has(extname(entry))) {
+        out.push(full);
+      }
+    } catch {
+      continue;
+    }
+  }
   return out;
 }
+
+/**
+ * Replace every comment character with a space, leaving newlines and every
+ * other character where it was, so a match offset still maps to the original
+ * line.
+ *
+ * This works on the WHOLE file rather than line by line because an import is
+ * not confined to one line: `import(\n  "ai"\n)`, `require(\n"ai")` and
+ * `from\n  "ai"` all pass through a per-line scan unseen.
+ *
+ * String and template literals are walked over unchanged so a `//` inside
+ * `"https://..."` does not open a comment. A quote that is never closed on its
+ * line (an apostrophe inside a regex literal, say) ends at the line break
+ * instead of swallowing the rest of the file, so a mis-read string stays
+ * confined to its own line.
+ */
+function blankComments(source: string): string {
+  const parts: string[] = [];
+  const blank = (text: string): string => text.replace(/[^\n]/g, " ");
+  let copiedUpTo = 0;
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (ch === "/" && (next === "/" || next === "*")) {
+      parts.push(source.slice(copiedUpTo, i));
+      let end: number;
+      if (next === "/") {
+        const lineEnd = source.indexOf("\n", i);
+        end = lineEnd === -1 ? source.length : lineEnd;
+      } else {
+        const close = source.indexOf("*/", i + 2);
+        end = close === -1 ? source.length : close + 2;
+      }
+      parts.push(blank(source.slice(i, end)));
+      copiedUpTo = end;
+      i = end;
+    } else if (ch === '"' || ch === "'" || ch === "`") {
+      i++;
+      while (i < source.length && source[i] !== ch) {
+        if (source[i] === "\\") {
+          i++;
+        } else if (source[i] === "\n" && ch !== "`") {
+          break;
+        }
+        i++;
+      }
+      i++;
+    } else {
+      i++;
+    }
+  }
+  parts.push(source.slice(copiedUpTo));
+  return parts.join("");
+}
+
+const IMPORT_PATTERNS = BANNED_PACKAGES.map((banned) => ({
+  banned,
+  pattern: new RegExp(
+    `(?:from|import|require)\\s*\\(?\\s*["']${escapeRegex(banned)}(?:["']|/)`,
+    "g",
+  ),
+}));
 
 function checkSourceImports(rootDir: string): void {
   const files = collectSourceFiles(rootDir);
@@ -456,61 +544,15 @@ function checkSourceImports(rootDir: string): void {
     } catch {
       continue;
     }
-    const lines = contents.split("\n");
-    // Track whether we're currently inside a multi-line block comment.
-    // Without this, an import inside `/* ... */` that spans multiple lines
-    // would slip through the per-line comment-stripping below and trigger
-    // a false-positive banned-import error.
-    let inBlockComment = false;
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      let code = raw;
-
-      // Continue a block comment from the previous line; drop everything up
-      // to and including its terminating `*/`. If the comment doesn't end
-      // on this line, skip the line entirely.
-      if (inBlockComment) {
-        const end = code.indexOf("*/");
-        if (end === -1) {
-          continue;
-        }
-        code = code.slice(end + 2);
-        inBlockComment = false;
-      }
-
-      // Strip same-line `/* ... */` blocks. If a `/*` opens without a
-      // matching `*/` on this line, flip the flag and drop the rest of
-      // the line so the next iteration knows to skip until the terminator.
-      while (true) {
-        const start = code.indexOf("/*");
-        if (start === -1) {
-          break;
-        }
-        const end = code.indexOf("*/", start + 2);
-        if (end === -1) {
-          code = code.slice(0, start);
-          inBlockComment = true;
-          break;
-        }
-        code = code.slice(0, start) + code.slice(end + 2);
-      }
-
-      // Strip line-comment tails and skip lines that became empty.
-      code = code.replace(/\/\/.*$/, "");
-      if (!code.trim()) {
-        continue;
-      }
-      for (const banned of BANNED_PACKAGES) {
-        const importPattern = new RegExp(
-          `(?:from|import|require)\\s*\\(?\\s*["']${escapeRegex(banned)}(?:["']|/)`,
+    const code = blankComments(contents);
+    for (const { banned, pattern } of IMPORT_PATTERNS) {
+      for (const match of code.matchAll(pattern)) {
+        const line = code.slice(0, match.index).split("\n").length;
+        record(
+          "error",
+          `${rel}:${line}`,
+          `Source file imports banned package "${banned}".`,
         );
-        if (importPattern.test(code)) {
-          record(
-            "error",
-            `${rel}:${i + 1}`,
-            `Source file imports banned package "${banned}".`,
-          );
-        }
       }
     }
   }

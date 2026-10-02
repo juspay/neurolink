@@ -154,9 +154,13 @@ shape — the CLI's real "exec" tool tried to run it for real (sandboxed
 read-only, so harmless) and failed on the payload shape, not on the id. The
 CLI recovered gracefully (non-fatal, turn continued, exit 0) and still
 produced the `function_call_output`/`call_id` round-trip captured above.
-Worth renaming the script's synthetic tool away from `"exec"` (e.g.
-`"replay_tool"`) in a future run to avoid this collision entirely and get a
-cleaner log, but it did not prevent this question from being settled.
+That collision is now removed: the script's synthetic tool is named
+`"replay_tool"`, which the request does not declare. Re-run against
+`codex-cli 0.160.0` the CLI logs the non-fatal `unsupported call:
+replay_tool` instead of the Fatal error, still sends the follow-up request
+carrying the `function_call_output`, and exits 0. (The same run with the
+`"exec"` name reproduced the Fatal error on 0.160.0, so the old behaviour was
+not specific to 0.155.1.)
 
 `no-created` / `no-in-progress` remain the only two bisection scripts not
 yet run against the real CLI.

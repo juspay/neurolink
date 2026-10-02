@@ -385,6 +385,70 @@ await test("Model id tables agree with the model enums", async () => {
 });
 
 /**
+ * config/models.json is the registry `DynamicModelProvider` serves from GitHub
+ * and from the working directory, so it has to name the same model ids the
+ * enums do. Opus 4.5 is the case that already went wrong: the enums were
+ * corrected from the launch date (…20251124…) to the id AWS, Vertex and
+ * Anthropic actually issue (…20251101…), and this file kept the launch date in
+ * all three provider sections.
+ */
+await test("config/models.json Claude ids agree with the model enums", async () => {
+  const { BedrockModels, VertexModels, AnthropicModels } =
+    await import("../dist/constants/enums.js");
+
+  const configPath = path.join(process.cwd(), "config", "models.json");
+  assert(
+    fs.existsSync(configPath),
+    "config/models.json not found (run from repo root)",
+  );
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+    models: Record<string, Record<string, { id: string }>>;
+  };
+
+  // Two spellings name the same model under a different string: Vertex pins
+  // with "@" where the registry uses a hyphen, and Bedrock's regional
+  // inference profile carries a "us." prefix.
+  const canonical = (id: string): string =>
+    id.replace(/^us\./, "").replace("@", "-");
+
+  const surfaces = [
+    { section: "anthropic", models: AnthropicModels },
+    { section: "bedrock", models: BedrockModels },
+    { section: "vertex", models: VertexModels },
+  ] as const;
+
+  const unknown: string[] = [];
+  let checked = 0;
+  for (const { section, models } of surfaces) {
+    const declared = new Set(
+      (Object.values(models) as string[]).map(canonical),
+    );
+    for (const [key, entry] of Object.entries(config.models[section] ?? {})) {
+      checked++;
+      if (!declared.has(canonical(entry.id))) {
+        unknown.push(`${section}.${key}`);
+      }
+    }
+  }
+
+  assert(
+    checked > 0,
+    "config/models.json had no anthropic/bedrock/vertex entries",
+  );
+  // Offending keys are printed, never interpolated into the message: they
+  // contain provider names, and defineSuite downgrades a failure to SKIP when
+  // the message looks like a provider error.
+  if (unknown.length > 0) {
+    console.error("  config/models.json ids no model enum carries:");
+    unknown.forEach((key) => console.error(`    ${key}`));
+  }
+  assert(
+    unknown.length === 0,
+    `${unknown.length} config/models.json id(s) match no model enum value (listed above)`,
+  );
+});
+
+/**
  * `getAllModels(provider)`/`isValidModel(provider, model)`
  * (src/lib/utils/modelChoices.ts) have no consumer that reaches them
  * through NeuroLink's shipped surface today (neither function is exported

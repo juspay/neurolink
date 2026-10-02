@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Report which symbols a commit stopped referencing in a file.
+ * Report which symbols a commit stopped calling in a file.
  *
  * Written for reviewing refactors that MOVE code — a loop extracted into a
  * shared engine, a helper lifted into a module. The risk in that shape of
@@ -19,6 +19,11 @@
  *     gen_ai.provider.total_attempts silently stopped being emitted.
  *
  * Both appear immediately in the set difference below.
+ *
+ * It tracks CALLS, not every mention: `new X()`, tagged templates, `super()`,
+ * `import()` and `obj["name"]()` count, but a function passed by reference
+ * (`items.forEach(handler)`) records `forEach` and not `handler`, because
+ * nothing there is invoked in this file.
  *
  * Usage:
  *   node scripts/migration-symbol-diff.mjs <commit> <path> [<path>...]
@@ -45,7 +50,10 @@ import ts from "typescript";
  *
  * Property calls are recorded under BOTH the full path and the bare property,
  * so `span.setAttribute()` matches whether the reader thinks of it as
- * `setAttribute` or as the span call it was.
+ * `setAttribute` or as the span call it was. A path may start at `this` or
+ * `super`: `this.client.send()` and `this.logger.send()` are different calls,
+ * and collapsing both to a bare `send` would hide the loss of either one while
+ * the other survived.
  */
 function callsIn(source, fileName) {
   const sourceFile = ts.createSourceFile(
@@ -79,6 +87,17 @@ function callsIn(source, fileName) {
     return current;
   };
   /**
+   * The name in `obj["name"]` / ``obj[`name`]``. A computed key is not a name
+   * anyone can look for, so only a literal counts.
+   */
+  const literalKey = (expression) => {
+    if (!ts.isElementAccessExpression(expression)) {
+      return undefined;
+    }
+    const argument = expression.argumentExpression;
+    return ts.isStringLiteralLike(argument) ? argument.text : undefined;
+  };
+  /**
    * The dotted path, but only while every link is a plain name: `trace`,
    * `trace.getActiveSpan`, `a.b.c`. Returns undefined the moment the chain
    * roots in something else — `foo().bar`, `arr[0].bar` — because the printed
@@ -91,9 +110,20 @@ function callsIn(source, fileName) {
     if (ts.isIdentifier(expression)) {
       return expression.text;
     }
+    if (expression.kind === ts.SyntaxKind.ThisKeyword) {
+      return "this";
+    }
+    if (expression.kind === ts.SyntaxKind.SuperKeyword) {
+      return "super";
+    }
     if (ts.isPropertyAccessExpression(expression)) {
       const prefix = dottedName(expression.expression);
       return prefix === undefined ? undefined : `${prefix}.${expression.name.text}`;
+    }
+    const key = literalKey(expression);
+    if (key !== undefined) {
+      const prefix = dottedName(expression.expression);
+      return prefix === undefined ? undefined : `${prefix}.${key}`;
     }
     return undefined;
   };
@@ -103,10 +133,22 @@ function callsIn(source, fileName) {
       found.add(expression.text);
       return;
     }
-    if (ts.isPropertyAccessExpression(expression)) {
+    // `super(...)` and `import(...)` have no identifier to read a name from.
+    if (expression.kind === ts.SyntaxKind.SuperKeyword) {
+      found.add("super");
+      return;
+    }
+    if (expression.kind === ts.SyntaxKind.ImportKeyword) {
+      found.add("import");
+      return;
+    }
+    const bareName = ts.isPropertyAccessExpression(expression)
+      ? expression.name.text
+      : literalKey(expression);
+    if (bareName !== undefined) {
       // Always the bare property, so a call is findable by the name a reader
       // remembers; the dotted path as well when it is short enough to be one.
-      found.add(expression.name.text);
+      found.add(bareName);
       const dotted = dottedName(expression);
       if (dotted !== undefined) {
         found.add(dotted);
@@ -120,6 +162,8 @@ function callsIn(source, fileName) {
   const visit = (node) => {
     if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
       record(node.expression);
+    } else if (ts.isTaggedTemplateExpression(node)) {
+      record(node.tag);
     }
     ts.forEachChild(node, visit);
   };

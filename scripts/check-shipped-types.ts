@@ -39,7 +39,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import ts from "typescript";
 
 const ROOT = process.cwd();
@@ -68,16 +68,13 @@ const UNRESOLVED_REFERENCE_CODES = new Set([
  * A floor alone is not enough: a partial build that happens to clear it gets
  * validated as though it were the whole package, and the subset passes while
  * the missing declarations are never examined. So the floor is only the first
- * gate — `assertBuildIsComplete` then requires that every entry point the
- * package actually publishes is present, which is the property that matters.
+ * gate. Two stronger ones follow in `main()`: every entry point the package
+ * publishes must be present, and the declaration set under `dist/` must equal
+ * the one the source tree emits (`findDeclarationSetDrift`), which catches a
+ * missing file no entry point happens to name.
  */
 const MINIMUM_DECLARATION_FILES = 100;
 
-/**
- * Every declaration file named by `package.json`'s `exports` map, plus the
- * root `types` entry. If the package promises a subpath, its .d.ts has to be
- * on disk before any verdict about "the shipped declarations" is meaningful.
- */
 const collectDeclarationFiles = (dir: string, found: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -90,30 +87,126 @@ const collectDeclarationFiles = (dir: string, found: string[] = []): string[] =>
   return found;
 };
 
+const toPosix = (path: string): string => path.split(sep).join("/");
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * Does a published type entry exist on disk?
  *
- * `exports` subpaths may be wildcard patterns (`./dist/adapters/*.d.ts`), which
- * name a family rather than a file. For those the question is whether the
- * family is present at all, so one match is enough; treating the pattern as a
- * literal path reports every wildcard subpath as missing on a perfectly good
- * build.
+ * `exports` subpaths may be wildcard patterns (`./dist/adapters/*.d.ts`). Node
+ * matches `*` against any substring, `/` included, and the rest of the pattern
+ * literally, so the pattern is turned into an anchored regular expression and
+ * tested against every declaration actually built. One match is enough — the
+ * question is whether the family is present, not whether it is complete.
+ *
+ * Matching only "some declaration under the directory before the last slash"
+ * was too loose in both directions: `dist/foo-*.d.ts` passed when only
+ * `bar.d.ts` existed, and a `*` in a directory component was joined onto the
+ * path literally, so it was reported missing on a good build.
  */
-const publishedEntryExists = (entry: string): boolean => {
+const publishedEntryExists = (
+  entry: string,
+  builtDeclarations: readonly string[],
+): boolean => {
   if (!entry.includes("*")) {
     return existsSync(join(ROOT, entry));
   }
-  const dir = join(ROOT, entry.slice(0, entry.lastIndexOf("/")));
-  if (!existsSync(dir)) {
-    return false;
+  const pattern = new RegExp(
+    `^${entry.split("*").map(escapeRegExp).join(".*")}$`,
+  );
+  return builtDeclarations.some((file) =>
+    pattern.test(toPosix(relative(ROOT, file))),
+  );
+};
+
+/**
+ * `<source root>` -> the prefix its declarations get under `dist/`.
+ *
+ * `svelte-package` emits `src/lib` at the top of `dist/`, and the CLI build
+ * emits `src/cli` under `dist/cli/` (scripts/collapse-cli-lib-duplicate.mjs
+ * removes the `lib` copy it would otherwise ship twice).
+ */
+const SOURCE_ROOTS = [
+  { dir: "src/lib", prefix: "" },
+  { dir: "src/cli", prefix: "cli/" },
+] as const;
+
+const emitsDeclaration = (file: string): boolean =>
+  /\.tsx?$/.test(file) &&
+  !file.endsWith(".d.ts") &&
+  !/\.(test|spec)\.tsx?$/.test(file);
+
+const collectSourceModules = (dir: string, found: string[] = []): string[] => {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      collectSourceModules(full, found);
+    } else if (emitsDeclaration(entry)) {
+      found.push(full);
+    }
   }
-  try {
-    return collectDeclarationFiles(dir).length > 0;
-  } catch {
-    return false;
+  return found;
+};
+
+/** The `dist/`-relative declaration path a source module is expected to emit. */
+const expectedDeclarationPath = (
+  rootDir: string,
+  prefix: string,
+  source: string,
+): string =>
+  `${prefix}${toPosix(relative(join(ROOT, rootDir), source)).replace(/\.tsx?$/, "")}.d.ts`;
+
+/**
+ * Compare the declarations under `dist/` with the modules the source tree
+ * emits one for.
+ *
+ * `missing` is the partial-build case: a declaration the build should have
+ * produced is not there, and because nothing may import it the entry-point
+ * check cannot see it. `stale` is the reverse — a declaration left behind by a
+ * source file that no longer exists, which `files: ["dist"]` would still
+ * publish. Either way `dist/` is not what a clean build of this tree ships.
+ */
+const findDeclarationSetDrift = (
+  builtDeclarations: readonly string[],
+): { missing: string[]; stale: string[] } => {
+  const expected = new Set<string>();
+  for (const { dir, prefix } of SOURCE_ROOTS) {
+    const absolute = join(ROOT, dir);
+    if (!existsSync(absolute)) {
+      continue;
+    }
+    for (const source of collectSourceModules(absolute)) {
+      expected.add(expectedDeclarationPath(dir, prefix, source));
+    }
+  }
+  const built = new Set(
+    builtDeclarations.map((file) => toPosix(relative(DIST, file))),
+  );
+  return {
+    missing: [...expected].filter((file) => !built.has(file)).sort(),
+    stale: [...built].filter((file) => !expected.has(file)).sort(),
+  };
+};
+
+const REPORTED_DRIFT_LIMIT = 20;
+
+const reportDrift = (label: string, paths: readonly string[]): void => {
+  console.error(`  ${label} (${paths.length}):`);
+  for (const path of paths.slice(0, REPORTED_DRIFT_LIMIT)) {
+    console.error(`    dist/${path}`);
+  }
+  if (paths.length > REPORTED_DRIFT_LIMIT) {
+    console.error(`    ...and ${paths.length - REPORTED_DRIFT_LIMIT} more`);
   }
 };
 
+/**
+ * Every declaration file named by `package.json`'s `exports` map, plus the
+ * root `types` entry. If the package promises a subpath, its .d.ts has to be
+ * on disk before any verdict about "the shipped declarations" is meaningful.
+ */
 const collectPublishedTypeEntries = (): string[] => {
   const manifest = JSON.parse(
     readFileSync(join(ROOT, "package.json"), "utf8"),
@@ -162,7 +255,7 @@ const main = (): number => {
   }
 
   const missingEntries = collectPublishedTypeEntries().filter(
-    (entry) => !publishedEntryExists(entry),
+    (entry) => !publishedEntryExists(entry, files),
   );
   if (missingEntries.length > 0) {
     console.error(
@@ -172,6 +265,22 @@ const main = (): number => {
     );
     for (const entry of missingEntries) {
       console.error(`  ${entry}`);
+    }
+    return 1;
+  }
+
+  const drift = findDeclarationSetDrift(files);
+  if (drift.missing.length > 0 || drift.stale.length > 0) {
+    console.error(
+      "✗ the declarations under dist/ do not match the modules src/ emits " +
+        "them for, so a pass here would describe a different package than " +
+        "the one a clean build ships. Rebuild from a clean dist/.",
+    );
+    if (drift.missing.length > 0) {
+      reportDrift("missing from the build", drift.missing);
+    }
+    if (drift.stale.length > 0) {
+      reportDrift("left over with no source module", drift.stale);
     }
     return 1;
   }
