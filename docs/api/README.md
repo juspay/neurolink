@@ -1130,6 +1130,7 @@ console.log(result.content);
 - [DecisionResult](type-aliases/DecisionResult.md)
 - [DecisionLimits](type-aliases/DecisionLimits.md)
 - [DecisionMediaLimits](type-aliases/DecisionMediaLimits.md)
+- [DecisionImageDimensions](type-aliases/DecisionImageDimensions.md)
 - [DecisionPreparedMedia](type-aliases/DecisionPreparedMedia.md)
 - [DecisionMediaResult](type-aliases/DecisionMediaResult.md)
 - [DecisionMediaKind](type-aliases/DecisionMediaKind.md)

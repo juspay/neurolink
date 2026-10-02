@@ -326,6 +326,11 @@ const PROVIDERS_NOT_COVERED: Array<{ provider: string; reason: string }> = [
     reason:
       "Decide-only inference (XorProvider extends SystemOneDecisionProvider, like typesafe and laya) — no text-generation surface for any of cells 1-9.",
   },
+  {
+    provider: "perplexity-decider",
+    reason:
+      "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe, laya and xor) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
+  },
 ];
 
 for (const providerId of Object.keys(PROVIDERS)) {

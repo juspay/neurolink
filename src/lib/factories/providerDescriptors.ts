@@ -13,6 +13,7 @@ import {
   TypeSafeModels,
   LayaModels,
   XorModels,
+  PerplexityDeciderModels,
   JinaModels,
   StabilityModels,
   IdeogramModels,
@@ -480,7 +481,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { decideMs: 5000 },
     setupUrl: "https://console.typesafe.ai/keys",
   },
-  // Laya MUST stay after TypeSafe, and XOR after Laya.
+  // Laya MUST stay after TypeSafe, XOR after Laya, and Perplexity after XOR.
   // resolveDefaultDecisionProvider() returns the first configured
   // DECISION_PROVIDERS entry, in this order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
@@ -571,6 +572,69 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
       media: { maxImages: 8, video: true, maxRequestBytes: 8 * 1024 * 1024 },
     },
     setupUrl: "https://huggingface.co/juspay/xor",
+  },
+  {
+    name: AIProviderName.PERPLEXITY_DECIDER,
+    aliases: [],
+    credentialsKey: "perplexityDecider",
+    envVars: {
+      // The same key the `perplexity` text provider reads, so an ambient
+      // PERPLEXITY_API_KEY configures this provider too. It sits after XOR in
+      // this list, which is what keeps that from displacing any other decision
+      // provider a host has configured.
+      apiKey: "PERPLEXITY_API_KEY",
+      // Optional: the API is hosted at a public endpoint, so a key alone is
+      // enough and there is no extraRequired.
+      baseURL: "PERPLEXITY_DECIDER_BASE_URL",
+      model: "PERPLEXITY_DECIDER_MODEL",
+    },
+    defaultModel: PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
+    // Serves only `decide`, like the other decision providers — the one
+    // declaration that keeps it out of every generation code path, and out of
+    // the way of the `perplexity` text provider.
+    inferenceKinds: ["decide"],
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    // Deliberately NO autoSelectPriority / autoSelectPreference /
+    // defaultHealthSweepPriority, for the same reason as TypeSafe above.
+    //
+    // Measured live: 4s at 65,000 input tokens, 10s at 146,000 and 23s at
+    // 251,000 (faster than linear: about 17,000, 15,000 and 11,000 tokens a
+    // second), plus about 65 ms for each question after the first (128 minimal
+    // questions took 8.9s). 10s is the allowance for the state and covers every
+    // one the window below admits except log text or number arrays close to it;
+    // the provider adds 100 ms a question on top, so a request at the
+    // 128-question cap waits about 22.8s. A larger state passes a per-call
+    // `timeoutMs`.
+    timeouts: { decideMs: 10_000 },
+    // The server reads 262,144 input tokens in all and answers an over-long
+    // request with an explicit 400, never a silent truncation. The state and the
+    // questions were measured to count toward it; images are billed as input
+    // tokens and presumably count too. The window below is deliberately lower: a
+    // state of 100,000 tokens takes about 7s of the 10s above (interpolated from
+    // those points), and a much larger one would outlast it and be retried into
+    // the same wait. The estimate is about four characters per token. Measured
+    // on 40,000-character samples: English prose 4.3, TypeScript 3.8, a minified
+    // JSON catalog 3.4, log lines with timestamps and ids 1.35 and arrays of
+    // numbers 1.2. Only the last two run low enough to pass the window and still
+    // be refused by the server; JSON is under-counted by about 13%. A request
+    // over the window fails locally as max_tokens_exceeded, which every consumer
+    // treats as "carry on as before". 128 questions is the documented cap,
+    // confirmed live.
+    // Non-ASCII text is charged at the measured rate for CJK (0.46 tokens per
+    // code point) and Devanagari (0.44), not for emoji (2.6), because an
+    // over-charge silently shuts every non-Latin caller out while an
+    // under-charge is caught by that 400.
+    decisionLimits: {
+      maxStateTokens: 100_000,
+      maxQuestions: 128,
+      nonAsciiTokensPerChar: 0.5,
+      // Images only; the API has no video input. A ninth image in one request
+      // is refused with a 400, and the 32 MiB body is the documented cap.
+      media: { maxImages: 8, video: false, maxRequestBytes: 32 * 1024 * 1024 },
+    },
+    setupUrl: "https://console.perplexity.ai",
   },
 ];
 
@@ -750,11 +814,18 @@ export function resolveDefaultDecisionProvider(
   )?.name;
 }
 
-/** Names of the decision providers that accept images or video. */
-export function listMediaDecisionProviders(): string[] {
-  return DECISION_PROVIDERS.filter(
-    (descriptor) => descriptor.decisionLimits?.media !== undefined,
-  ).map((descriptor) => descriptor.name);
+/**
+ * Names of the decision providers that accept images, or, with `video`, the
+ * ones that accept video too: a hint that names a provider which would refuse
+ * the same request is worse than none.
+ */
+export function listMediaDecisionProviders(needs?: {
+  video?: boolean;
+}): string[] {
+  return DECISION_PROVIDERS.filter((descriptor) => {
+    const media = descriptor.decisionLimits?.media;
+    return media !== undefined && (!needs?.video || media.video);
+  }).map((descriptor) => descriptor.name);
 }
 
 /**

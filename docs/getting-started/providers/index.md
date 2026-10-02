@@ -455,9 +455,10 @@ Access multiple providers through unified interfaces:
 ## 🧠 Decision-Only Providers {#decision-only-providers}
 
 The providers that serve `decide` rather than `generate`/`stream`:
-[TypeSafe](typesafe.md), [Laya](laya.md) and [XOR](xor.md). Each returns typed
-`boolean`/`choice`/`score` answers and emits no text, so none appears in
-generation fallback chains or the health sweep.
+[TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md) and
+[Perplexity](perplexity-decider.md). Each returns typed `boolean`/`choice`/`score`
+answers and emits no text, so none appears in generation fallback chains or the
+health sweep.
 
 ### [TypeSafe (Jev)](typesafe.md)
 
@@ -467,7 +468,7 @@ generation fallback chains or the health sweep.
 - ⚡ Latency flat in question count — 1 question ~393 ms, 400 questions ~465 ms
 - 💰 ~$0.00002 per decision (~$0.042/M input, output billed at zero)
 - 🔌 Two transports: TypeSafe direct, or the Vercel AI Gateway
-- 🛡️ Fails open — with no key configured, every consumer behaves exactly as before
+- 🛡️ Fails open — with no decision provider configured, every consumer behaves exactly as before
 - 🔑 API key from [console.typesafe.ai/keys](https://console.typesafe.ai/keys)
 - 🔄 Aliases: `jev`, `typesafe-ai`
 
@@ -489,13 +490,26 @@ generation fallback chains or the health sweep.
 **Open-weights decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from `xor-1.1`, Juspay's Apache-2.0 model, at a deployment or LiteLLM proxy route you configure
 
 - 🧭 Serves `decide` only; built-in features use it when its key and base URL are set and no TypeSafe key, no `AI_GATEWAY_API_KEY` and no Laya key and base URL is
-- 🖼️ Takes up to 8 images or one video with a decision, as a Buffer, a local file path or a `data:` URL; TypeSafe and Laya refuse media before any request
+- 🖼️ Takes up to 8 images or one video with a decision, as a Buffer, a local file path or a `data:` URL; TypeSafe and Laya refuse media before any request, and Perplexity refuses a video
 - 📏 Refuses more than about 200,000 estimated tokens of state before any network call
 - 🔌 No built-in endpoint: `XOR_BASE_URL` (or `credentials.xor.baseURL`) is the origin of a deployment or of a LiteLLM route to one; requests go to `<base URL>/v1/systemone`
 - 🔑 `XOR_API_KEY` is the key that endpoint accepts; on LiteLLM, the key's team must allow `xor-1.1`
 - 📦 Weights and setup: [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor)
 
 [Setup Guide →](xor.md)
+
+### [Perplexity Decisions](perplexity-decider.md)
+
+**Hosted decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from Perplexity's `pplx-decider-v1-27b`, at `https://api.perplexity.ai`
+
+- 🧭 Serves `decide` only (provider id `perplexity-decider`, not the Sonar text provider `perplexity`); built-in features use it when it is configured and no TypeSafe key, no `AI_GATEWAY_API_KEY`, no Laya key and base URL and no XOR key and base URL is
+- 🔑 `PERPLEXITY_API_KEY` alone configures it, and it is the same key the Perplexity text provider reads, so a key set for Sonar also lets built-in features use it when none of TypeSafe, Laya or XOR is configured; the guide lists what each consumer then sends
+- 🖼️ Takes up to 8 PNG, JPEG or WebP images with a decision; no video
+- 💰 $0.04 per million input tokens (image tokens included), output free, as Perplexity documents it
+- 📏 Refuses more than about 100,000 estimated tokens of state (NeuroLink's own window; the server's ceiling is 262,144 input tokens), or more than 128 questions, before any network call. The 128-question cap, the server's token ceiling and the latency were measured on a real account in October 2026
+- 🔌 Hosted endpoint, so no base URL is needed; `PERPLEXITY_DECIDER_BASE_URL` (or `credentials.perplexityDecider.baseURL`) can name another origin
+
+[Setup Guide →](perplexity-decider.md)
 
 ## 🧩 Additional Catalog Providers
 

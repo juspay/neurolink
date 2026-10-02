@@ -362,6 +362,14 @@ export type NeurolinkCredentials = {
    * `<baseURL>/v1/systemone`.
    */
   xor?: { apiKey?: string; baseURL?: string };
+  /**
+   * Perplexity Decisions API — the `decide` inference type. The key is the same
+   * `PERPLEXITY_API_KEY` the `perplexity` text provider reads, but this slice
+   * is separate so the two cannot be mixed up. `baseURL` is optional and
+   * defaults to `https://api.perplexity.ai`; requests go to
+   * `<baseURL>/v1/decisions`.
+   */
+  perplexityDecider?: { apiKey?: string; baseURL?: string };
 };
 
 /**

@@ -43,6 +43,7 @@ import {
   createTypeSafeConfig,
   createLayaConfig,
   createXorConfig,
+  createPerplexityDeciderConfig,
   satisfiesFallbacks,
 } from "../../lib/utils/providerConfig.js";
 import {
@@ -200,6 +201,7 @@ export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   typesafe: createTypeSafeConfig(),
   laya: createLayaConfig(),
   xor: createXorConfig(),
+  "perplexity-decider": createPerplexityDeciderConfig(),
   ...Object.fromEntries(
     getCatalogJsonEntries()
       .filter((e) => e.id !== "mistral")

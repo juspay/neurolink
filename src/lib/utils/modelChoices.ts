@@ -25,6 +25,7 @@ import {
   TypeSafeModels,
   LayaModels,
   XorModels,
+  PerplexityDeciderModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
@@ -433,6 +434,13 @@ const TOP_MODELS_CONFIG: Record<
         "Recommended - XOR 1.1, decision model that also reads images and video",
     },
   ],
+  [AIProviderName.PERPLEXITY_DECIDER]: [
+    {
+      model: PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
+      description:
+        "Recommended - Perplexity decision model that also reads images",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -478,6 +486,8 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
   [AIProviderName.LAYA]: LayaModels.TYPED_DECISIONS,
   [AIProviderName.XOR]: XorModels.XOR_1_1,
+  [AIProviderName.PERPLEXITY_DECIDER]:
+    PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
 };
 
 /**
@@ -516,6 +526,7 @@ const MODEL_ENUMS: Record<
   [AIProviderName.TYPESAFE]: TypeSafeModels,
   [AIProviderName.LAYA]: LayaModels,
   [AIProviderName.XOR]: XorModels,
+  [AIProviderName.PERPLEXITY_DECIDER]: PerplexityDeciderModels,
   [AIProviderName.AUTO]: null,
 };
 

@@ -197,6 +197,9 @@ export type DecisionMediaLimits = {
   maxRequestBytes: number;
 };
 
+/** An image's size in pixels, read from its header. */
+export type DecisionImageDimensions = { width: number; height: number };
+
 /** Media after preparation: everything is a `data:` URL, ready for the wire. */
 export type DecisionPreparedMedia = {
   images: string[];

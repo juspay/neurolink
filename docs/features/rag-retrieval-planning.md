@@ -7,7 +7,9 @@ passage, worth matching by an exact phrase) and "how does billing relate to
 entitlements?" (many passages, relationships across documents) got the same
 plan. `RAGPipelineConfig.decide` lets a
 [decision model](/docs/features/decide-inference-type) answer all four for
-the query in hand, in one ~400ms request.
+the query in hand, in one request (~400ms on TypeSafe; on Perplexity each further
+question adds about 65 ms, up to 128, see
+[its guide](../getting-started/providers/perplexity-decider.md#limits)).
 
 **The degradation contract.** `config.decide` is optional and defaults to
 unset. Without it, `query()` behaves exactly as before — the configured

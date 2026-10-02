@@ -813,6 +813,14 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
     _default: { input: 0.042 / 1_000_000, output: 0 },
     "jev-latest": { input: 0.042 / 1_000_000, output: 0 },
   },
+  "perplexity-decider": {
+    // The Decisions API bills $0.04 per million INPUT tokens (image tokens
+    // included) and charges nothing for output or per request. `output: 0` is
+    // a price, not a token count, so do not "correct" it from
+    // `usage.output_tokens`. Rate from the API reference (checked 2026-10-02).
+    _default: { input: 0.04 / 1_000_000, output: 0 },
+    "pplx-decider-v1-27b": { input: 0.04 / 1_000_000, output: 0 },
+  },
   stability: {
     // Stability AI bills per image; symbolic per-token rate.
     _default: { input: 0, output: 0.04 / 1_000 },

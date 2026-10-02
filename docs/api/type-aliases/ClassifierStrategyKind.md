@@ -16,5 +16,6 @@ Which classification strategy to run.
   _calibrated_ confidence rather than a self-reported one.
 - `auto` — `jev` when a decision provider is configured, in the environment
   or in SDK credentials (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with
-  `LAYA_BASE_URL`, or `XOR_API_KEY` with `XOR_BASE_URL`), otherwise
+  `LAYA_BASE_URL`, `XOR_API_KEY` with `XOR_BASE_URL`, or
+  `PERPLEXITY_API_KEY`), otherwise
   `heuristic`.

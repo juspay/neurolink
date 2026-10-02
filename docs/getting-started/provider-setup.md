@@ -113,6 +113,7 @@ Embedding, media-generation, and decision-only providers — not part of `genera
 - **[TypeSafe Jev](providers/typesafe.md)** - decision-only; serves `decide()`, not `generate()`/`stream()`. Set `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the gateway transport)
 - **[Laya](providers/laya.md)** - decision-only, open-weights; serves `decide()` on a Laya server or LiteLLM proxy route you configure. Set `LAYA_API_KEY` + `LAYA_BASE_URL`; used when TypeSafe isn't configured
 - **[XOR](providers/xor.md)** - decision-only, open-weights `xor-1.1`; serves `decide()` and takes images or video. Set `XOR_API_KEY` + `XOR_BASE_URL` (`XOR_MODEL` is optional, default `xor-1.1`); used when neither TypeSafe nor Laya is configured
+- **[Perplexity Decisions](providers/perplexity-decider.md)** - decision-only; serves `decide()` with `pplx-decider-v1-27b` and takes images (no video). Set `PERPLEXITY_API_KEY` alone (`PERPLEXITY_DECIDER_MODEL` and `PERPLEXITY_DECIDER_BASE_URL` are optional); used when none of TypeSafe, Laya or XOR is configured. The key is shared with the Perplexity text provider, so a key set for Sonar also configures it
 
 Voice providers (TTS/STT/Realtime) are configured further down in this guide — see [OpenAI TTS](#openai-tts) onward.
 

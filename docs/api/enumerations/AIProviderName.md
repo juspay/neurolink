@@ -640,6 +640,15 @@ XOR (Juspay, open weights) — serves the `decide` inference type only.
 
 ---
 
+### PERPLEXITY_DECIDER
+
+> **PERPLEXITY_DECIDER**: `"perplexity-decider"`
+
+Perplexity Decisions API (`pplx-decider-v1-27b`) — serves the `decide`
+inference type only. Distinct from `PERPLEXITY`, the Sonar text provider.
+
+---
+
 ### AUTO
 
 > **AUTO**: `"auto"`

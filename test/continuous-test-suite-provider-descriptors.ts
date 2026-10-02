@@ -51,10 +51,11 @@ await runSuite(async () => {
     // hand-registered non-catalog providers (openai, anthropic, google-ai,
     // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
     // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-    // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor).
+    // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor,
+    // perplexity-decider).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 24;
+    const NON_CATALOG_PROVIDER_COUNT = 25;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -358,7 +359,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 24;
+    const NON_CATALOG_PROVIDER_COUNT = 25;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -813,10 +814,13 @@ await runSuite(async () => {
       // typesafe serves only the `decide` inference type, so it has no tools
       // at all — the same reason voyage/jina (embedding-only) are here.
       "typesafe",
-      // laya is the second decide-only provider: no tools for the same reason.
+      // laya is decide-only too: no tools for the same reason.
       "laya",
-      // xor is the third decide-only provider: no tools for the same reason.
+      // xor is decide-only too: no tools for the same reason.
       "xor",
+      // perplexity-decider is decide-only as well, and unrelated to the
+      // `perplexity` text provider: no tools for the same reason.
+      "perplexity-decider",
     ]);
     // A catalog entry whose capabilities.tools is anything but true derives a
     // non-native toolSupport (buildCatalogDescriptor): false gives "none"

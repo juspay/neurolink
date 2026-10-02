@@ -28,7 +28,8 @@ Master enable switch (--classifier-router).
 Strategy: "auto" (default), "heuristic", "llm" or "jev"
 (--classifier-strategy). "auto" resolves to "jev" when a decision
 provider is configured (TYPESAFE_API_KEY, LAYA_API_KEY with
-LAYA_BASE_URL, or XOR_API_KEY with XOR_BASE_URL) and "heuristic" otherwise.
+LAYA_BASE_URL, XOR_API_KEY with XOR_BASE_URL, or PERPLEXITY_API_KEY) and
+"heuristic" otherwise.
 
 ---
 

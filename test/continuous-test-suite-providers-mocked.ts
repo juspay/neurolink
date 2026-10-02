@@ -9,7 +9,7 @@ import type {
 } from "../dist/index.js";
 import { spawnSync } from "node:child_process";
 import dnsPromises from "node:dns/promises";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -3210,6 +3210,9 @@ async function runLayaDecide(): Promise<void> {
     "LAYA_BASE_URL",
     "XOR_API_KEY",
     "XOR_BASE_URL",
+    "PERPLEXITY_API_KEY",
+    "PERPLEXITY_DECIDER_BASE_URL",
+    "PERPLEXITY_DECIDER_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -4308,6 +4311,9 @@ async function runXorDecide(): Promise<void> {
     "LAYA_BASE_URL",
     "XOR_API_KEY",
     "XOR_BASE_URL",
+    "PERPLEXITY_API_KEY",
+    "PERPLEXITY_DECIDER_BASE_URL",
+    "PERPLEXITY_DECIDER_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -4938,8 +4944,24 @@ async function runXorDecide(): Promise<void> {
             expectEq(failure.kind, "invalid_request", `${name}: kind`);
             expect(
               failure.message.includes("does not accept images or video") &&
-                failure.message.includes("xor"),
-              `${name}: names the fix`,
+                failure.message.includes("xor") &&
+                failure.message.includes("perplexity-decider"),
+              `${name}: names every provider that reads images`,
+            );
+            // Perplexity reads images and not video, so a request with a video
+            // is pointed at the provider that does, and at no other.
+            const withVideo = await captureDecisionFailure(() =>
+              provider.decide!({
+                state: "short",
+                questions: { q: XOR_QUESTIONS.urgent },
+                video: fixtureBytes("blue.mp4"),
+              }),
+            );
+            expectEq(withVideo.kind, "invalid_request", `${name}: video kind`);
+            expect(
+              withVideo.message.includes("xor") &&
+                !withVideo.message.includes("perplexity-decider"),
+              `${name}: a video refusal names only the provider that reads video`,
             );
           }
           expectEq(calls.length, 0, "no request from either");
@@ -5237,11 +5259,2784 @@ async function runXorDecide(): Promise<void> {
   );
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: Perplexity Decisions (decide-only)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * The Decisions API answers the same typed `noul` / `choice` / `score`
+ * questions as the other decision providers, so the `boolean`↔`noul`
+ * translation and the answer parser are shared. What this section pins is
+ * Perplexity's own: a public endpoint that needs only a key (the
+ * `PERPLEXITY_API_KEY` the Sonar text provider reads too), the `model` field
+ * that is always sent, images that travel inside `state`, the three error
+ * envelopes, `Retry-After`, and the limits.
+ *
+ * The 200 body is the API reference's own example, which a live probe
+ * reproduced number for number. The error bodies are the shapes that probe saw.
+ * A case that rests on a stand-in (a status or a field no live call returned)
+ * says so where it is.
+ */
+const PERPLEXITY_DECIDE_SPEC = {
+  provider: "perplexity-decider",
+  envVar: "PERPLEXITY_API_KEY",
+  baseURLEnvVar: "PERPLEXITY_DECIDER_BASE_URL",
+  key: "test-fake-perplexity-decider-credential",
+  urlMatch: "api.perplexity.ai/v1/decisions",
+  endpoint: "https://api.perplexity.ai/v1/decisions",
+  model: "pplx-decider-v1-27b",
+};
+
+/** The API reference's example `x-request-id`. */
+const PERPLEXITY_REQUEST_ID = "7a1504a6-a884-48e6-af6e-0c3140aeb6db";
+
+const PERPLEXITY_REVIEW = {
+  title: "Battery died after two weeks",
+  review:
+    "The headphones sound great, but the battery stopped charging after two weeks.",
+};
+
+// The API reference's request in the SDK's own spelling: `boolean` is the SDK's
+// name for the wire's `noul`.
+const PERPLEXITY_QUESTIONS = {
+  defect: {
+    type: "boolean",
+    instructions: "Does the review report a product defect?",
+  },
+  sentiment: {
+    type: "choice",
+    instructions: "What is the overall sentiment of the review?",
+    criteria: {
+      positive: "Mostly satisfied",
+      mixed: "Praise and complaints in one review",
+      negative: "Mostly dissatisfied",
+    },
+  },
+  severity: {
+    type: "score",
+    instructions: "How severe is the reported problem?",
+    criteria: ["Cosmetic", "Inconvenient", "Product unusable"],
+  },
+} satisfies DecisionQuestionMap;
+
+const PERPLEXITY_ONE_QUESTION = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+} satisfies DecisionQuestionMap;
+
+/** What PERPLEXITY_QUESTIONS must look like on the wire: only `boolean` is renamed. */
+const PERPLEXITY_WIRE_REQUEST = {
+  model: "pplx-decider-v1-27b",
+  state: {
+    title: "Battery died after two weeks",
+    review:
+      "The headphones sound great, but the battery stopped charging after two weeks.",
+  },
+  questions: {
+    defect: {
+      type: "noul",
+      instructions: "Does the review report a product defect?",
+    },
+    sentiment: {
+      type: "choice",
+      instructions: "What is the overall sentiment of the review?",
+      criteria: {
+        positive: "Mostly satisfied",
+        mixed: "Praise and complaints in one review",
+        negative: "Mostly dissatisfied",
+      },
+    },
+    severity: {
+      type: "score",
+      instructions: "How severe is the reported problem?",
+      criteria: ["Cosmetic", "Inconvenient", "Product unusable"],
+    },
+  },
+};
+
+type PerplexityLiveBody = {
+  model: string;
+  answers: Record<string, Record<string, unknown>>;
+  usage: { input_tokens: number; output_tokens: number };
+};
+
+/** The API reference's example response, which the live API returned unchanged. */
+function perplexityLiveBody(
+  model: string = PERPLEXITY_DECIDE_SPEC.model,
+): PerplexityLiveBody {
+  return {
+    model,
+    answers: {
+      defect: { type: "noul", noul: 0.9424522889347015 },
+      sentiment: {
+        type: "choice",
+        choice: "mixed",
+        confidence: 0.9255246944002182,
+        probabilities: {
+          positive: 0.020649883775315993,
+          mixed: 0.9503497962668123,
+          negative: 0.02900031995787183,
+        },
+      },
+      severity: {
+        type: "score",
+        score: 1.7838686319784252,
+        confidence: 0.7838686319784252,
+        legend: {
+          "0": "Cosmetic",
+          "1": "Inconvenient",
+          "2": "Product unusable",
+        },
+        probabilities: {
+          "0": 0.008423954913615923,
+          "1": 0.199283458194343,
+          "2": 0.7922925868920411,
+        },
+      },
+    },
+    usage: { input_tokens: 367, output_tokens: 3 },
+  };
+}
+
+// The error envelopes a live probe saw, all `{"error": {...}}`. Which layer
+// answered decides the shape: `code` is a number, null or a string, so only the
+// HTTP status is reliable.
+const PERPLEXITY_ERRORS = {
+  // 401: the key is checked before the body, and `code` is a number here.
+  invalidKey: {
+    error: {
+      message:
+        "Invalid API key provided. Ensure your API key is correct and active.",
+      type: "invalid_api_key",
+      code: 401,
+    },
+  },
+  // 400 from the gateway layer: `code` and `param` are null.
+  gatewayBadRequest: {
+    error: {
+      code: null,
+      message:
+        "The request body is not valid JSON for the Decisions API, or has an unknown or mistyped field.",
+      param: null,
+      type: "invalid_request_error",
+    },
+  },
+  // 400 from the model server: `code` is a string.
+  modelServerBadRequest: {
+    error: {
+      message: "Noul question must have criteria or instructions",
+      type: "invalid_request",
+      code: "400",
+    },
+  },
+  // The model server's refusal of an input past its context window.
+  overLength: {
+    error: {
+      message:
+        "Input length (262144) exceeds or equals model's maximum context length (262144)",
+      type: "invalid_request",
+      code: "400",
+    },
+  },
+  tooLarge: {
+    error: {
+      code: null,
+      message:
+        "request body exceeds the maximum allowed size of 33554432 bytes",
+      param: null,
+      type: "invalid_request_error",
+    },
+  },
+  rateLimited: {
+    error: {
+      code: null,
+      message: "Request rate limit exceeded, please try again later.",
+      param: null,
+      type: "too_many_requests",
+    },
+  },
+};
+
+/** An HTML page of the kind the gateway answers a 504 with, after about a minute. */
+const PERPLEXITY_GATEWAY_PAGE =
+  "<html><head><title>504 Gateway Time-out</title></head><body><center><h1>504 Gateway Time-out</h1></center><p>gateway-page-marker</p></body></html>";
+
+type PerplexityReply = {
+  status: number;
+  json?: unknown;
+  text?: string;
+  contentType?: string;
+  headers?: Record<string, string>;
+};
+type PerplexityRespond = PerplexityReply | (() => PerplexityReply);
+
+function perplexityRoute(
+  respond: PerplexityRespond = { status: 200, json: perplexityLiveBody() },
+) {
+  return { method: "POST", url: PERPLEXITY_DECIDE_SPEC.urlMatch, respond };
+}
+
+/** Replies in order, the last one repeating, noting when each request arrived. */
+function perplexityScript(replies: readonly PerplexityReply[]) {
+  const stamps: number[] = [];
+  const route = perplexityRoute(() => {
+    stamps.push(Date.now());
+    return replies[Math.min(stamps.length - 1, replies.length - 1)];
+  });
+  return { route, stamps };
+}
+
+const perplexityPause = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+async function createPerplexity(model?: string) {
+  const { ProviderFactory } = await import("../dist/index.js");
+  return ProviderFactory.createProvider(PERPLEXITY_DECIDE_SPEC.provider, model);
+}
+
+/** One decision on a single question, for tests that only care what was sent. */
+async function perplexityDecideOne(
+  provider: Awaited<ReturnType<typeof createPerplexity>>,
+  overrides: Partial<DecisionRequest> = {},
+) {
+  return provider.decide!({
+    state: "short",
+    questions: PERPLEXITY_ONE_QUESTION,
+    ...overrides,
+  });
+}
+
+type PerplexityBody = {
+  model?: string;
+  state?: unknown;
+  questions?: Record<string, unknown>;
+};
+
+function perplexityBodyOf(call: { bodyJson: unknown } | undefined) {
+  return (call?.bodyJson ?? {}) as PerplexityBody;
+}
+
+type PerplexityFailure = {
+  threw: boolean;
+  kind: string | undefined;
+  message: string;
+  status: number | undefined;
+  requestId: string | undefined;
+  retryable: boolean | undefined;
+};
+
+/** Run one decision expected to fail, and report everything the error carries. */
+async function capturePerplexityFailure(
+  run: () => Promise<unknown>,
+): Promise<PerplexityFailure> {
+  try {
+    await run();
+  } catch (error) {
+    const cause = (
+      error as {
+        cause?: {
+          kind?: string;
+          status?: number;
+          requestId?: string;
+          retryable?: boolean;
+        };
+      }
+    ).cause;
+    return {
+      threw: true,
+      kind: cause?.kind,
+      message: error instanceof Error ? error.message : "",
+      status: cause?.status,
+      requestId: cause?.requestId,
+      retryable: cause?.retryable,
+    };
+  }
+  return {
+    threw: false,
+    kind: undefined,
+    message: "",
+    status: undefined,
+    requestId: undefined,
+    retryable: undefined,
+  };
+}
+
+/** Run one decision against a canned reply; report how it was classified. */
+async function perplexityOutcome(
+  respond: PerplexityRespond,
+  request: Partial<DecisionRequest> = {},
+) {
+  return withMocks([perplexityRoute(respond)], async ({ calls }) => {
+    const failure = await capturePerplexityFailure(async () =>
+      perplexityDecideOne(await createPerplexity(), request),
+    );
+    return { ...failure, calls: calls.length };
+  });
+}
+
+async function perplexityCase(
+  name: string,
+  body: () => Promise<void>,
+): Promise<void> {
+  try {
+    await body();
+    record(results, name, true);
+  } catch (err) {
+    record(
+      results,
+      name,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/** Key order is not part of a JSON contract, so bodies are compared with keys sorted. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(",")}]`;
+  }
+  if (typeof value === "object" && value !== null) {
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+const sameJson = (actual: unknown, expected: unknown): boolean =>
+  stableJson(actual) === stableJson(expected);
+
+const dataUrl = (mime: string, bytes: Buffer): string =>
+  `data:${mime};base64,${bytes.toString("base64")}`;
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+function syntheticPng(width: number, height: number): Buffer {
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "ascii");
+  ihdr.writeUInt32BE(width, 8);
+  ihdr.writeUInt32BE(height, 12);
+  // 8-bit RGB; the CRC after it is left zero, since the size reader skips it.
+  ihdr.set([8, 2, 0, 0, 0], 16);
+  return Buffer.concat([PNG_SIGNATURE, ihdr]);
+}
+
+function syntheticWebp(chunk: string): Buffer {
+  const bytes = Buffer.alloc(30);
+  bytes.write("RIFF", 0, "ascii");
+  bytes.writeUInt32LE(22, 4);
+  bytes.write("WEBP", 8, "ascii");
+  bytes.write(chunk, 12, "ascii");
+  bytes.writeUInt32LE(10, 16);
+  return bytes;
+}
+
+type SyntheticImageLayout = {
+  label: string;
+  mime: string;
+  build: (width: number, height: number) => Buffer;
+};
+
+/**
+ * Bytes that carry only what the provider reads: a format signature and the
+ * picture's size. They do not decode, which is the point: the size check can be
+ * driven at any dimensions without a megabyte fixture, and none of it reaches a
+ * real server. Each layout is a different place the size lives: PNG's IHDR, a
+ * JPEG's first frame header, and the three WebP flavours.
+ */
+const SYNTHETIC_IMAGE_LAYOUTS: readonly SyntheticImageLayout[] = [
+  { label: "PNG", mime: "image/png", build: syntheticPng },
+  {
+    label: "JPEG",
+    mime: "image/jpeg",
+    build: (width, height) =>
+      Buffer.from([
+        0xff,
+        0xd8,
+        0xff,
+        0xc0,
+        0x00,
+        0x11,
+        0x08,
+        height >> 8,
+        height & 0xff,
+        width >> 8,
+        width & 0xff,
+        0x03,
+        0x01,
+        0x22,
+        0x00,
+        0x02,
+        0x11,
+        0x01,
+        0x03,
+        0x11,
+        0x01,
+        0xff,
+        0xd9,
+      ]),
+  },
+  {
+    // What an encoder writes: the frame header is not first, so the reader has
+    // to step over a JFIF segment and a quantisation table to reach it, and it
+    // is the progressive one (SOF2).
+    label: "JPEG (progressive, after APP0 and DQT)",
+    mime: "image/jpeg",
+    build: (width, height) =>
+      Buffer.concat([
+        Buffer.from([0xff, 0xd8]),
+        Buffer.from([
+          0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+          0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        ]),
+        Buffer.from([0xff, 0xdb, 0x00, 0x43, 0x00]),
+        Buffer.alloc(64, 1),
+        Buffer.from([
+          0xff,
+          0xc2,
+          0x00,
+          0x11,
+          0x08,
+          height >> 8,
+          height & 0xff,
+          width >> 8,
+          width & 0xff,
+          0x03,
+          0x01,
+          0x22,
+          0x00,
+          0x02,
+          0x11,
+          0x01,
+          0x03,
+          0x11,
+          0x01,
+        ]),
+        Buffer.from([0xff, 0xd9]),
+      ]),
+  },
+  {
+    label: "WebP (VP8X)",
+    mime: "image/webp",
+    build: (width, height) => {
+      const bytes = syntheticWebp("VP8X");
+      bytes.writeUIntLE(width - 1, 24, 3);
+      bytes.writeUIntLE(height - 1, 27, 3);
+      return bytes;
+    },
+  },
+  {
+    label: "WebP (VP8L)",
+    mime: "image/webp",
+    build: (width, height) => {
+      const bytes = syntheticWebp("VP8L");
+      bytes[20] = 0x2f;
+      bytes.writeUInt32LE(
+        ((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14),
+        21,
+      );
+      return bytes;
+    },
+  },
+  {
+    label: "WebP (VP8)",
+    mime: "image/webp",
+    build: (width, height) => {
+      const bytes = syntheticWebp("VP8 ");
+      bytes.set([0x9d, 0x01, 0x2a], 23);
+      bytes.writeUInt16LE(width, 26);
+      bytes.writeUInt16LE(height, 28);
+      return bytes;
+    },
+  },
+];
+
+/** Every variable that can make a decision provider the default one. */
+const PERPLEXITY_DECISION_ENV = [
+  "TYPESAFE_API_KEY",
+  "AI_GATEWAY_API_KEY",
+  "LAYA_API_KEY",
+  "LAYA_BASE_URL",
+  "XOR_API_KEY",
+  "XOR_BASE_URL",
+  "PERPLEXITY_API_KEY",
+  "PERPLEXITY_DECIDER_BASE_URL",
+  "PERPLEXITY_DECIDER_MODEL",
+];
+
+/** No decision provider configured at all. */
+function clearPerplexityEnv(): void {
+  for (const name of PERPLEXITY_DECISION_ENV) {
+    setEnv(name, undefined);
+  }
+}
+
+/** Only the Perplexity key set: no other decision provider is configured. */
+function resetPerplexityEnv(): void {
+  clearPerplexityEnv();
+  setEnv(PERPLEXITY_DECIDE_SPEC.envVar, PERPLEXITY_DECIDE_SPEC.key);
+}
+
+/**
+ * Base URLs that cannot work. Each carries the marker `hunter2`, which must
+ * reach neither an error message nor a log line. The scheme-less userinfo row is
+ * the one `new URL()` reads as the scheme `user:`, which a redactor that rebuilds
+ * a URL from its scheme and host hands straight back.
+ */
+const PERPLEXITY_BAD_BASE_URLS: readonly (readonly [string, string])[] = [
+  ["userinfo", "https://ops:hunter2-basic@pplx.internal.test/proxy"],
+  // Each half of the userinfo alone, so the guard cannot lose one of its terms
+  // unnoticed.
+  ["username only", "https://hunter2-user@pplx.internal.test/proxy"],
+  ["password only", "https://:hunter2-pass@pplx.internal.test/proxy"],
+  ["query token", "https://pplx.internal.test/proxy?token=hunter2-query"],
+  [
+    "userinfo and query token",
+    "https://ops:hunter2-basic@pplx.internal.test/proxy?token=hunter2-query",
+  ],
+  ["fragment", "https://pplx.internal.test/proxy#hunter2-fragment"],
+  ["not a URL", "not a url hunter2-raw"],
+  ["no scheme", "pplx.internal:8080 hunter2-noscheme"],
+  ["no host", "pplx.internal.test/hunter2-nohost"],
+  ["scheme-less userinfo", "user:hunter2-basic@host.example:8080"],
+  ["file scheme", "file:///tmp/hunter2-file"],
+  ["ftp scheme", "ftp://host.example/hunter2-ftp"],
+];
+
+async function runPerplexityWire(): Promise<void> {
+  const { envVar, baseURLEnvVar, key, endpoint } = PERPLEXITY_DECIDE_SPEC;
+
+  // ── P0: no key — refused as authentication, and nothing is sent ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: no key, no request",
+    async () => {
+      try {
+        for (const blank of [undefined, "   "]) {
+          setEnv(envVar, blank);
+          await withMocks([perplexityRoute()], async ({ calls }) => {
+            const failure = await capturePerplexityFailure(async () =>
+              perplexityDecideOne(await createPerplexity()),
+            );
+            expectEq(failure.kind, "authentication", "missing key classified");
+            expect(
+              failure.message.includes("PERPLEXITY_API_KEY") &&
+                failure.message.includes(
+                  "credentials.perplexityDecider.apiKey",
+                ),
+              "names both ways to set it",
+            );
+            expect(failure.retryable === false, "a missing key is not retried");
+            expectEq(calls.length, 0, "no network call without a key");
+          });
+        }
+      } finally {
+        setEnv(envVar, key);
+      }
+    },
+  );
+
+  // ── P1: the wire — route, method, credential, content type, three body keys ──
+  await perplexityCase("DECIDE perplexity-decider: wire contract", async () => {
+    await withMocks([perplexityRoute()], async ({ calls }) => {
+      await (
+        await createPerplexity()
+      ).decide!({
+        state: PERPLEXITY_REVIEW,
+        questions: PERPLEXITY_QUESTIONS,
+      });
+      expectEq(calls.length, 1, "single POST");
+      const call = calls[0];
+      expectEq(call.method, "POST", "method");
+      expectEq(call.url, endpoint, "route");
+      expectEq(
+        call.headers.authorization,
+        `Bearer ${key}`,
+        "bearer credential",
+      );
+      expect(
+        (call.headers["content-type"] ?? "").includes("application/json"),
+        "JSON content type",
+      );
+      expect(
+        !("x-api-key" in call.headers),
+        "the key travels only as a bearer token",
+      );
+      expectEq(
+        call.headers["x-pplx-integration"],
+        "neurolink",
+        "Perplexity's integration attribution on its own API host",
+      );
+      const body = call.bodyJson as Record<string, unknown>;
+      expectEq(
+        Object.keys(body).sort().join(","),
+        "model,questions,state",
+        "exactly the three documented body keys",
+      );
+      expect(
+        sameJson(body, PERPLEXITY_WIRE_REQUEST),
+        "the body is the API reference's request",
+      );
+    });
+  });
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: a boolean keeps its criteria as a noul",
+    async () => {
+      const criteria = {
+        true: "Something is broken or not working.",
+        false: "Normal wear or personal preference.",
+      };
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity(), {
+          questions: {
+            broken: {
+              type: "boolean",
+              instructions: "Does the review report a product defect?",
+              criteria,
+            },
+          },
+        });
+        expect(
+          sameJson(perplexityBodyOf(calls[0]).questions, {
+            broken: {
+              type: "noul",
+              instructions: "Does the review report a product defect?",
+              criteria,
+            },
+          }),
+          "type renamed, instructions and criteria untouched",
+        );
+      });
+    },
+  );
+
+  // ── P2: `model` is always sent: default, construction, per call ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: the model field is always sent",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity());
+        await perplexityDecideOne(await createPerplexity("pplx-custom"));
+        await perplexityDecideOne(await createPerplexity("pplx-custom"), {
+          model: "pplx-per-call",
+        });
+        const sent = calls.map((c) => perplexityBodyOf(c).model);
+        expectEq(sent[0], PERPLEXITY_DECIDE_SPEC.model, "default model");
+        expectEq(sent[1], "pplx-custom", "model pinned at construction");
+        expectEq(sent[2], "pplx-per-call", "per-call model wins");
+      });
+    },
+  );
+
+  // The registry reads PERPLEXITY_DECIDER_MODEL once, when providers register, so
+  // a value set after that point changes nothing. A fresh process is the only
+  // way to give it a value before registration, and so the only place a Sonar
+  // variable can be shown not to reach the model either: set in-process, a
+  // PERPLEXITY_MODEL arrives after the default was captured and proves nothing.
+  await perplexityCase(
+    "DECIDE perplexity-decider: PERPLEXITY_DECIDER_MODEL names the model, and the Sonar variables do not",
+    async () => {
+      const distUrl = new URL("../dist/index.js", import.meta.url).href;
+      const child = `
+        const sent = [];
+        const urls = [];
+        globalThis.fetch = async (input, init) => {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          if (!url.includes("/v1/decisions")) {
+            throw new Error("no route for a request this test does not expect");
+          }
+          const body = JSON.parse(String(init.body));
+          sent.push(body.model);
+          urls.push(url);
+          return new Response(
+            JSON.stringify({ model: body.model, answers: { urgent: { type: "noul", noul: 0.5 } }, usage: { input_tokens: 1, output_tokens: 1 } }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        };
+        const { NeuroLink } = await import(${JSON.stringify(distUrl)});
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const questions = { urgent: { type: "boolean", instructions: "Is this urgent?" } };
+        const named = await nl.decide({ provider: "perplexity-decider", state: "short", questions });
+        const perCall = await nl.decide({ provider: "perplexity-decider", model: "pplx-per-call", state: "short", questions });
+        console.log("RESULT:" + JSON.stringify({ sent, urls, named: named.model, perCall: perCall.model }));
+        process.exit(0);
+      `;
+      /** One fresh process, with the Sonar provider's own variables set from the start. */
+      const runChild = (decider: Record<string, string>) => {
+        const res = spawnSync(
+          process.execPath,
+          ["--input-type=module", "-e", child],
+          {
+            encoding: "utf8",
+            timeout: 60_000,
+            killSignal: "SIGKILL",
+            env: {
+              ...Object.fromEntries(
+                Object.entries(process.env).filter(
+                  ([name]) => !PERPLEXITY_DECISION_ENV.includes(name),
+                ),
+              ),
+              PERPLEXITY_API_KEY: key,
+              ...decider,
+              PERPLEXITY_MODEL: "sonar-pro",
+              PERPLEXITY_BASE_URL: "https://sonar.text.example/v1",
+            },
+          },
+        );
+        // The detail stays free of the child's output: only its status is quoted.
+        expectEq(
+          res.status,
+          0,
+          `the child exited cleanly (signal ${res.signal})`,
+        );
+        const line = (res.stdout ?? "")
+          .split("\n")
+          .find((l) => l.startsWith("RESULT:"));
+        expect(line !== undefined, "the child reported its requests");
+        return JSON.parse((line ?? "RESULT:{}").slice("RESULT:".length)) as {
+          sent?: string[];
+          urls?: string[];
+          named?: string;
+          perCall?: string;
+        };
+      };
+
+      const withVariable = runChild({
+        PERPLEXITY_DECIDER_MODEL: "pplx-env-model",
+      });
+      expect(
+        sameJson(withVariable.sent, ["pplx-env-model", "pplx-per-call"]),
+        "the variable named the model on the wire, and a per-call model still won",
+      );
+      expect(
+        sameJson(withVariable.urls, [endpoint, endpoint]),
+        "the Sonar base URL did not move the route",
+      );
+      expectEq(
+        withVariable.named,
+        "pplx-env-model",
+        "the result echoes that model",
+      );
+      expectEq(
+        withVariable.perCall,
+        "pplx-per-call",
+        "the per-call model is echoed",
+      );
+
+      // With the decider's own variable unset, the only model that may be used is
+      // the default. A fallback to PERPLEXITY_MODEL would send "sonar-pro", which
+      // the run above cannot show because there the decider's variable wins.
+      const withoutVariable = runChild({});
+      expect(
+        sameJson(withoutVariable.sent, [
+          PERPLEXITY_DECIDE_SPEC.model,
+          "pplx-per-call",
+        ]),
+        "with no PERPLEXITY_DECIDER_MODEL the default model is sent, not PERPLEXITY_MODEL",
+      );
+      expect(
+        sameJson(withoutVariable.urls, [endpoint, endpoint]),
+        "the Sonar base URL did not move the route without the decider's model variable either",
+      );
+      expectEq(
+        withoutVariable.named,
+        PERPLEXITY_DECIDE_SPEC.model,
+        "the result echoes the default model",
+      );
+    },
+  );
+
+  // The Sonar provider reads PERPLEXITY_BASE_URL; decide must not. The base URL
+  // is read when a provider is constructed, so setting it here does reach the
+  // code under test. PERPLEXITY_MODEL does not: it is checked in the fresh
+  // process above, where it exists before the default model is captured.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the Sonar provider's base URL variable is ignored",
+    async () => {
+      const prior = process.env.PERPLEXITY_BASE_URL;
+      try {
+        setEnv("PERPLEXITY_BASE_URL", "https://sonar.text.example/v1");
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          await perplexityDecideOne(await createPerplexity());
+          expectEq(calls[0]?.url, endpoint, "route unaffected");
+        });
+      } finally {
+        setEnv("PERPLEXITY_BASE_URL", prior);
+      }
+    },
+  );
+
+  // ── P3: every spelling of the base URL reaches the same endpoint ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: base URL spellings",
+    async () => {
+      const proxied = "https://pplx.test.example/proxy/v1/decisions";
+      const rows: Array<[string, string]> = [
+        ["https://pplx.test.example/proxy", proxied],
+        ["https://pplx.test.example/proxy/", proxied],
+        ["https://pplx.test.example/proxy/v1", proxied],
+        ["https://pplx.test.example/proxy/v1/", proxied],
+        // The documented server spelling, and a blank override, both mean the
+        // public endpoint.
+        ["https://api.perplexity.ai/v1", endpoint],
+        ["   ", endpoint],
+      ];
+      try {
+        for (const [base, expected] of rows) {
+          setEnv(baseURLEnvVar, base);
+          await withMocks(
+            [{ ...perplexityRoute(), url: "/v1/decisions" }],
+            async ({ calls }) => {
+              await perplexityDecideOne(await createPerplexity());
+              expectEq(calls[0]?.url, expected, "endpoint for this spelling");
+              // Attribution goes to Perplexity's own host and to no other.
+              expectEq(
+                calls[0]?.headers["x-pplx-integration"],
+                expected === endpoint ? "neurolink" : undefined,
+                "attribution header for this endpoint",
+              );
+            },
+          );
+        }
+      } finally {
+        setEnv(baseURLEnvVar, undefined);
+      }
+    },
+  );
+
+  // ── P4: a base URL that cannot work, or carries a credential, is refused and never echoed ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: a base URL that cannot work is refused, never echoed",
+    async () => {
+      try {
+        for (const [label, base] of PERPLEXITY_BAD_BASE_URLS) {
+          setEnv(baseURLEnvVar, base);
+          await withMocks(
+            [{ ...perplexityRoute(), url: "/v1/decisions" }],
+            async ({ calls }) => {
+              const failure = await capturePerplexityFailure(async () =>
+                perplexityDecideOne(await createPerplexity()),
+              );
+              expectEq(failure.kind, "invalid_request", `${label}: kind`);
+              expect(
+                failure.message.includes("PERPLEXITY_DECIDER_BASE_URL") &&
+                  failure.message.includes(
+                    "credentials.perplexityDecider.baseURL",
+                  ),
+                `${label}: names both ways to set it`,
+              );
+              expect(
+                !failure.message.includes("hunter2"),
+                `${label}: nothing from the value is echoed`,
+              );
+              expectEq(calls.length, 0, `${label}: no request`);
+            },
+          );
+        }
+      } finally {
+        setEnv(baseURLEnvVar, undefined);
+      }
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: credentials.perplexityDecider.baseURL is checked the same way",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        const { NeuroLink } = await import("../dist/index.js");
+        const nl = new NeuroLink({
+          credentials: {
+            perplexityDecider: {
+              apiKey: "test-fake-config-credential",
+              baseURL: "https://ops:hunter2-basic@pplx.internal.test/proxy",
+            },
+          },
+        });
+        const failure = await capturePerplexityFailure(async () =>
+          nl.decide({
+            provider: PERPLEXITY_DECIDE_SPEC.provider,
+            state: "short",
+            questions: PERPLEXITY_ONE_QUESTION,
+          }),
+        );
+        expectEq(failure.kind, "invalid_request", "kind");
+        expect(!failure.message.includes("hunter2"), "nothing echoed");
+        expectEq(
+          calls.filter((c) => c.method === "POST").length,
+          0,
+          "no decision request",
+        );
+      });
+    },
+  );
+
+  // ── P5: a base URL's credentials never reach the debug log ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: base URL credentials stay out of the debug log",
+    async () => {
+      const { logger } = await import("../dist/index.js");
+      const originalDebug = console.debug;
+      const priorDebugFlag = process.env.NEUROLINK_DEBUG;
+      // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+      const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+      const priorLogLevel =
+        loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+          ? loadLevel
+          : "info";
+      const lines: string[] = [];
+      const constructionLines = async (base: string): Promise<string[]> => {
+        lines.length = 0;
+        setEnv(baseURLEnvVar, base);
+        await createPerplexity();
+        return lines.filter((l) =>
+          l.includes("Perplexity decision provider initialized"),
+        );
+      };
+      try {
+        setEnv("NEUROLINK_DEBUG", "true");
+        logger.setLogLevel("debug");
+        console.debug = (...args: unknown[]) => {
+          lines.push(
+            args
+              .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+              .join(" "),
+          );
+        };
+        // Every row is tried before anything is asserted, so a failure names all
+        // of the rows that leak, not only the first.
+        const silent: string[] = [];
+        const leaked: string[] = [];
+        for (const [label, base] of PERPLEXITY_BAD_BASE_URLS) {
+          const init = await constructionLines(base);
+          if (init.length === 0) {
+            silent.push(label);
+          }
+          if (init.some((l) => l.includes("hunter2"))) {
+            leaked.push(label);
+          }
+        }
+        expect(
+          silent.length === 0,
+          `the construction log line is missing for: ${silent.join(", ")}`,
+        );
+        expect(
+          leaked.length === 0,
+          `a base URL reached the debug log: ${leaked.join(", ")}`,
+        );
+        const init = await constructionLines(
+          "https://pplx.internal.test/proxy",
+        );
+        expect(
+          init.some((l) => l.includes("pplx.internal.test/proxy")),
+          "a usable base URL keeps its host and path in the log for diagnostics",
+        );
+      } finally {
+        console.debug = originalDebug;
+        logger.setLogLevel(priorLogLevel);
+        setEnv("NEUROLINK_DEBUG", priorDebugFlag);
+        setEnv(baseURLEnvVar, undefined);
+      }
+    },
+  );
+}
+
+async function runPerplexityAnswers(): Promise<void> {
+  const { key } = PERPLEXITY_DECIDE_SPEC;
+
+  // ── P6: the live response, parsed ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: the live response is parsed",
+    async () => {
+      await withMocks(
+        [
+          perplexityRoute({
+            status: 200,
+            json: perplexityLiveBody(),
+            headers: { "x-request-id": PERPLEXITY_REQUEST_ID },
+          }),
+        ],
+        async () => {
+          const result = await (
+            await createPerplexity()
+          ).decide!({
+            state: PERPLEXITY_REVIEW,
+            questions: PERPLEXITY_QUESTIONS,
+          });
+          const defect = result.answers.defect;
+          expectEq(defect.type, "boolean", "a noul answer is a boolean");
+          expectEq(
+            defect.type === "boolean" ? defect.probability : -1,
+            0.9424522889347015,
+            "noul mapped to probability",
+          );
+          expect(
+            !("confidence" in defect),
+            "a boolean answer carries no confidence of its own",
+          );
+          const sentiment = result.answers.sentiment;
+          expectEq(
+            sentiment.type === "choice" ? sentiment.choice : "",
+            "mixed",
+            "choice",
+          );
+          expectEq(
+            sentiment.type === "choice" ? sentiment.confidence : -1,
+            0.9255246944002182,
+            "the reported confidence, not the top probability",
+          );
+          expect(
+            sentiment.type === "choice" &&
+              sameJson(sentiment.probabilities, {
+                positive: 0.020649883775315993,
+                mixed: 0.9503497962668123,
+                negative: 0.02900031995787183,
+              }),
+            "the whole distribution is kept",
+          );
+          const severity = result.answers.severity;
+          expectEq(
+            severity.type === "score" ? severity.score : -1,
+            1.7838686319784252,
+            "score",
+          );
+          expectEq(
+            severity.type === "score" ? severity.confidence : -1,
+            0.7838686319784252,
+            "the reported confidence",
+          );
+          expect(
+            severity.type === "score" &&
+              sameJson(severity.legend, {
+                "0": "Cosmetic",
+                "1": "Inconvenient",
+                "2": "Product unusable",
+              }),
+            "the legend is kept",
+          );
+          expect(
+            severity.type === "score" &&
+              sameJson(severity.probabilities, {
+                "0": 0.008423954913615923,
+                "1": 0.199283458194343,
+                "2": 0.7922925868920411,
+              }),
+            "the level probabilities are kept",
+          );
+          expectEq(
+            Object.keys(result.answers).length,
+            3,
+            "one answer per question",
+          );
+          expectEq(
+            result.model,
+            PERPLEXITY_DECIDE_SPEC.model,
+            "model echoed by the API",
+          );
+          expectEq(
+            result.provider,
+            PERPLEXITY_DECIDE_SPEC.provider,
+            "provider name",
+          );
+          expectEq(result.usage.inputTokens, 367, "usage.input_tokens mapped");
+          expectEq(result.usage.outputTokens, 3, "usage.output_tokens mapped");
+          expectEq(result.requestId, PERPLEXITY_REQUEST_ID, "request id kept");
+          expect(
+            !("mediaBytes" in result),
+            "a text-only request reports no media bytes",
+          );
+        },
+      );
+    },
+  );
+
+  // ── P6b: a choice or score with no reported confidence falls back to its peak ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: confidence falls back to the peak probability",
+    async () => {
+      const body = perplexityLiveBody();
+      delete body.answers.sentiment.confidence;
+      delete body.answers.severity.confidence;
+      await withMocks(
+        [perplexityRoute({ status: 200, json: body })],
+        async () => {
+          const result = await (
+            await createPerplexity()
+          ).decide!({
+            state: PERPLEXITY_REVIEW,
+            questions: PERPLEXITY_QUESTIONS,
+          });
+          const sentiment = result.answers.sentiment;
+          const severity = result.answers.severity;
+          expectEq(
+            sentiment.type === "choice" ? sentiment.confidence : -1,
+            0.9503497962668123,
+            "choice: the top probability",
+          );
+          expectEq(
+            severity.type === "score" ? severity.confidence : -1,
+            0.7922925868920411,
+            "score: the top probability",
+          );
+        },
+      );
+    },
+  );
+
+  // ── P6c: only `x-request-id` is the request id ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: the request id is x-request-id",
+    async () => {
+      const rows: Array<[Record<string, string>, string | undefined]> = [
+        [{ "x-request-id": PERPLEXITY_REQUEST_ID }, PERPLEXITY_REQUEST_ID],
+        [
+          { "x-typesafe-request-id": "ts-1", "x-litellm-call-id": "ll-1" },
+          undefined,
+        ],
+        [{}, undefined],
+      ];
+      for (const [headers, expected] of rows) {
+        await withMocks(
+          [
+            perplexityRoute({
+              status: 200,
+              json: perplexityLiveBody(),
+              headers,
+            }),
+          ],
+          async () => {
+            const result = await perplexityDecideOne(await createPerplexity());
+            expectEq(result.requestId, expected, "request id header");
+          },
+        );
+      }
+    },
+  );
+
+  // ── P6d: the model a response names is the one reported ──
+  // The API echoes the name it was sent, so a request and its response normally
+  // agree; they are made to differ here so the source of the answer shows.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the response's model is reported, the requested one fills a gap",
+    async () => {
+      const named = perplexityLiveBody();
+      const rows: Array<[string, unknown, string]> = [
+        [
+          "a response that names its model",
+          named,
+          PERPLEXITY_DECIDE_SPEC.model,
+        ],
+        [
+          "a response that omits it",
+          { answers: named.answers, usage: named.usage },
+          "pplx-per-call",
+        ],
+      ];
+      for (const [label, json, expected] of rows) {
+        await withMocks([perplexityRoute({ status: 200, json })], async () => {
+          const result = await perplexityDecideOne(await createPerplexity(), {
+            model: "pplx-per-call",
+          });
+          expectEq(result.model, expected, `${label}: reported model`);
+        });
+      }
+    },
+  );
+
+  // ── P7: state may be a string, an object, an array, a number or a boolean ──
+  await perplexityCase("DECIDE perplexity-decider: state forms", async () => {
+    const rows: Array<[string, DecisionState, unknown]> = [
+      [
+        "a string",
+        "payouts have failed for three days",
+        "payouts have failed for three days",
+      ],
+      ["an object", PERPLEXITY_REVIEW, PERPLEXITY_REVIEW],
+      ["an array", ["first", { second: true }], ["first", { second: true }]],
+      [
+        "nested values",
+        { log: ["a", "b"], meta: { attempts: 3 } },
+        { log: ["a", "b"], meta: { attempts: 3 } },
+      ],
+      ["a number", 42, "42"],
+      ["zero", 0, "0"],
+      ["true", true, "true"],
+      ["false", false, "false"],
+      ["an empty string", "", ""],
+    ];
+    await withMocks([perplexityRoute()], async ({ calls }) => {
+      for (const [label, state, wire] of rows) {
+        const before = calls.length;
+        await perplexityDecideOne(await createPerplexity(), { state });
+        expectEq(calls.length, before + 1, `${label}: one request`);
+        const body = calls[before].bodyJson as Record<string, unknown>;
+        expect(sameJson(body.state, wire), `${label}: state as sent`);
+        expectEq(
+          Object.keys(body).sort().join(","),
+          "model,questions,state",
+          `${label}: still three body keys`,
+        );
+      }
+    });
+  });
+
+  // A key with stray whitespace is trimmed, and a whitespace-only one is no key.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the key is trimmed",
+    async () => {
+      try {
+        setEnv(PERPLEXITY_DECIDE_SPEC.envVar, `  ${key}  `);
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          await perplexityDecideOne(await createPerplexity());
+          expectEq(
+            calls[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "bearer credential without the padding",
+          );
+        });
+      } finally {
+        setEnv(PERPLEXITY_DECIDE_SPEC.envVar, key);
+      }
+    },
+  );
+}
+
+async function runPerplexityMedia(): Promise<void> {
+  const pixel = syntheticPng(64, 64);
+  const pixelUrl = dataUrl("image/png", pixel);
+  const imagePart = (url: string) => ({
+    type: "image_url",
+    image_url: { url },
+  });
+
+  // ── P8: every supported format goes inside state, after the caller's state ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: PNG, JPEG and WebP go inside state",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const layout of SYNTHETIC_IMAGE_LAYOUTS) {
+          const image = layout.build(64, 64);
+          const url = dataUrl(layout.mime, image);
+          const result = await perplexityDecideOne(await createPerplexity(), {
+            state: "Which colour is the square?",
+            images: [image],
+          });
+          const body = perplexityBodyOf(calls[calls.length - 1]);
+          expect(
+            sameJson(body.state, [
+              "Which colour is the square?",
+              imagePart(url),
+            ]),
+            `${layout.label}: the caller's state, then the image as an image_url part`,
+          );
+          expectEq(
+            Object.keys(body).sort().join(","),
+            "model,questions,state",
+            `${layout.label}: no separate media field`,
+          );
+          expectEq(
+            result.mediaBytes,
+            url.length,
+            `${layout.label}: media bytes reported`,
+          );
+        }
+      });
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: images from a Buffer, a path and a data URL",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "pplx-media-"));
+      try {
+        const path = join(dir, "pixel.png");
+        writeFileSync(path, pixel);
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          const result = await perplexityDecideOne(await createPerplexity(), {
+            images: [pixel, path, pixelUrl],
+          });
+          const state = perplexityBodyOf(calls[0]).state;
+          expect(
+            Array.isArray(state) && state.length === 4,
+            "the caller's state and three images",
+          );
+          expect(
+            Array.isArray(state) &&
+              state
+                .slice(1)
+                .every((part) => sameJson(part, imagePart(pixelUrl))),
+            "every form encodes identically",
+          );
+          expectEq(
+            result.mediaBytes,
+            pixelUrl.length * 3,
+            "media bytes reported",
+          );
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: the caller's state leads the images",
+    async () => {
+      const rows: Array<[string, DecisionState, unknown[]]> = [
+        ["a string", "Which colour?", ["Which colour?"]],
+        ["an object", PERPLEXITY_REVIEW, [PERPLEXITY_REVIEW]],
+        ["an array", ["first", { second: true }], ["first", { second: true }]],
+        ["a number", 42, ["42"]],
+        // Nothing to say beside the pictures: only the images are sent.
+        ["an empty string", "", []],
+        ["an empty array", [], []],
+      ];
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const [label, state, leading] of rows) {
+          await perplexityDecideOne(await createPerplexity(), {
+            state,
+            images: [pixel],
+          });
+          expect(
+            sameJson(perplexityBodyOf(calls[calls.length - 1]).state, [
+              ...leading,
+              imagePart(pixelUrl),
+            ]),
+            `${label}: state array`,
+          );
+        }
+      });
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: eight images go out together",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        const result = await perplexityDecideOne(await createPerplexity(), {
+          images: Array.from({ length: 8 }, () => pixel),
+        });
+        const state = perplexityBodyOf(calls[0]).state;
+        expect(
+          Array.isArray(state) && state.length === 9,
+          "the caller's state and eight images",
+        );
+        expectEq(
+          result.mediaBytes,
+          pixelUrl.length * 8,
+          "media bytes reported",
+        );
+      });
+    },
+  );
+
+  // ── P9: what the API would refuse, or stall on, is refused before any request ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: unusable images are refused, with no request",
+    async () => {
+      const gif = Buffer.from([
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x3b,
+      ]);
+      const mp4 = Buffer.concat([
+        Buffer.from([0x00, 0x00, 0x00, 0x18]),
+        Buffer.from("ftypmp42", "ascii"),
+        Buffer.alloc(12),
+      ]);
+      const notPng = "is not a PNG, JPEG or WebP image";
+      const rows: Array<{
+        label: string;
+        request: Partial<DecisionRequest>;
+        includes: string;
+      }> = [
+        { label: "a GIF", request: { images: [gif] }, includes: notPng },
+        {
+          label: "a GIF data URL",
+          request: { images: ["data:image/gif;base64,R0lGODlhAQABAAAAACw="] },
+          includes: notPng,
+        },
+        {
+          label: "a data URL that declares image/jpg",
+          request: {
+            images: [`data:image/jpg;base64,${pixel.toString("base64")}`],
+          },
+          includes: notPng,
+        },
+        {
+          label: "an SVG data URL",
+          request: { images: ["data:image/svg+xml;base64,PHN2Zy8+"] },
+          includes: notPng,
+        },
+        {
+          label: "an https URL",
+          request: { images: ["https://example.test/a.png"] },
+          includes: "remote URL",
+        },
+        {
+          label: "an http URL, in any case",
+          request: { images: ["HTTP://example.test/a.png"] },
+          includes: "remote URL",
+        },
+        {
+          label: "a video",
+          request: { video: mp4 },
+          includes: "does not accept video",
+        },
+        {
+          label: "nine images",
+          request: { images: Array.from({ length: 9 }, () => pixel) },
+          includes: "at most 8 images",
+        },
+      ];
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const row of rows) {
+          const failure = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity(), row.request),
+          );
+          expectEq(failure.kind, "invalid_request", `${row.label}: kind`);
+          expect(
+            failure.message.includes(row.includes),
+            `${row.label}: message`,
+          );
+          expect(failure.retryable === false, `${row.label}: not retried`);
+          expectEq(calls.length, 0, `${row.label}: no request`);
+        }
+        // The same mock does answer an image the provider lets through, so the
+        // silence above is the provider's, not the mock's.
+        await perplexityDecideOne(await createPerplexity(), {
+          images: [pixel],
+        });
+        expectEq(calls.length, 1, "an allowed image does reach the mock");
+      });
+    },
+  );
+
+  // ── P10: the tile cap — 2,048 tiles of 32x32 pixels, rounded to the nearest tile ──
+  // The API does not refuse a larger image: it holds the request for about a
+  // minute and answers an HTML 504. Every header layout the size is read from
+  // is driven at the sizes the API documents on each side of the cap. 1450 and
+  // 1470 are not multiples of 32: they round to 45 and 46 tiles a side, so the
+  // first fits (2,025 tiles) where counting any partial tile would refuse it,
+  // and the second does not (2,116) where dropping a partial tile would send it.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the tile cap, in every format",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const layout of SYNTHETIC_IMAGE_LAYOUTS) {
+          for (const [width, height] of [
+            [1440, 1440],
+            [1450, 1450],
+            [2048, 1024],
+          ]) {
+            const before = calls.length;
+            await perplexityDecideOne(await createPerplexity(), {
+              images: [layout.build(width, height)],
+            });
+            expectEq(
+              calls.length,
+              before + 1,
+              `${layout.label} ${width}x${height}: sent`,
+            );
+          }
+          for (const [width, height] of [
+            [1470, 1470],
+            [1600, 1310],
+            [2048, 2048],
+          ]) {
+            const before = calls.length;
+            const failure = await capturePerplexityFailure(async () =>
+              perplexityDecideOne(await createPerplexity(), {
+                images: [layout.build(width, height)],
+              }),
+            );
+            expectEq(
+              failure.kind,
+              "invalid_request",
+              `${layout.label} ${width}x${height}: kind`,
+            );
+            expect(
+              failure.message.includes(`${width}x${height}`) &&
+                failure.message.includes("2048 tiles"),
+              `${layout.label} ${width}x${height}: names the size and the cap`,
+            );
+            expectEq(
+              calls.length,
+              before,
+              `${layout.label} ${width}x${height}: refused locally`,
+            );
+          }
+        }
+      });
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: the offending image is numbered",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            images: [pixel, syntheticPng(2048, 2048)],
+          }),
+        );
+        expectEq(failure.kind, "invalid_request", "kind");
+        expect(failure.message.includes("Image 2 is 2048x2048"), "image 2");
+        expectEq(calls.length, 0, "refused before any request");
+      });
+    },
+  );
+
+  // An image whose size cannot be read is not guessed at: it is sent as is.
+  await perplexityCase(
+    "DECIDE perplexity-decider: an image whose size cannot be read is sent as is",
+    async () => {
+      const rows: Array<[string, Buffer]> = [
+        ["a bare PNG signature", PNG_SIGNATURE],
+        [
+          "a PNG cut off inside IHDR",
+          Buffer.concat([
+            PNG_SIGNATURE,
+            Buffer.from([0x00, 0x00, 0x00, 0x0d]),
+            Buffer.from("IHDR", "ascii"),
+          ]),
+        ],
+        [
+          "a JPEG with no frame header",
+          Buffer.from([
+            0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00,
+            0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+          ]),
+        ],
+      ];
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const [label, image] of rows) {
+          const before = calls.length;
+          await perplexityDecideOne(await createPerplexity(), {
+            images: [image],
+          });
+          expectEq(calls.length, before + 1, `${label}: sent`);
+        }
+      });
+    },
+  );
+
+  // ── P11: the 32 MiB body cap, not the 8 MiB the XOR deployment has ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: the 32 MiB body cap",
+    async () => {
+      // A data URL whose size the reader cannot read, so only the byte cap decides.
+      const sized = (mib: number) =>
+        `data:image/png;base64,${"A".repeat(mib * 1024 * 1024)}`;
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity(), {
+          images: [sized(31)],
+        });
+        expectEq(calls.length, 1, "31 MiB is inside the cap");
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            images: [sized(33)],
+          }),
+        );
+        expectEq(failure.kind, "invalid_request", "33 MiB: kind");
+        expect(
+          failure.message.includes("accepts at most 33554432"),
+          "33 MiB: names the cap",
+        );
+        expectEq(calls.length, 1, "33 MiB: refused before any request");
+      });
+    },
+  );
+}
+
+async function runPerplexityErrors(): Promise<void> {
+  type ErrorRow = {
+    label: string;
+    reply: PerplexityReply;
+    kind: string;
+    calls: number;
+    includes?: string;
+    excludes?: string;
+    requestId?: string;
+  };
+  const rid = { "x-request-id": PERPLEXITY_REQUEST_ID };
+
+  // ── P12: each envelope is flattened, classified, and retried only when it should be ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: envelopes are flattened and classified",
+    async () => {
+      const rows: ErrorRow[] = [
+        {
+          label: "401 invalid key (code is a number)",
+          reply: { status: 401, json: PERPLEXITY_ERRORS.invalidKey },
+          kind: "authentication",
+          calls: 1,
+          includes: "Invalid API key provided",
+        },
+        {
+          label: "400 from the gateway (code null)",
+          reply: {
+            status: 400,
+            json: PERPLEXITY_ERRORS.gatewayBadRequest,
+            headers: rid,
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "unknown or mistyped field",
+          requestId: PERPLEXITY_REQUEST_ID,
+        },
+        {
+          label: "400 from the model server (code a string)",
+          reply: { status: 400, json: PERPLEXITY_ERRORS.modelServerBadRequest },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "Noul question must have criteria or instructions",
+          excludes: "(field:",
+        },
+        // The next two rest on a stand-in: no live 400 was seen carrying a
+        // `param`, so they pin how the provider formats one, not what the API
+        // sends.
+        {
+          label: "400 naming a field its message does not",
+          reply: {
+            status: 400,
+            json: {
+              error: {
+                ...PERPLEXITY_ERRORS.modelServerBadRequest.error,
+                param: "questions.defect",
+              },
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "(field: questions.defect)",
+        },
+        {
+          label: "400 naming a field its message already names",
+          reply: {
+            status: 400,
+            json: {
+              error: {
+                message: "Each request needs between 1 and 128 questions",
+                type: "invalid_request",
+                code: "400",
+                param: "questions",
+              },
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "between 1 and 128 questions",
+          excludes: "(field:",
+        },
+        {
+          label: "400 over the model's context length",
+          reply: { status: 400, json: PERPLEXITY_ERRORS.overLength },
+          kind: "max_tokens_exceeded",
+          calls: 1,
+          includes: "maximum context length",
+        },
+        {
+          label: "413 body over the cap",
+          reply: {
+            status: 413,
+            json: PERPLEXITY_ERRORS.tooLarge,
+            headers: rid,
+          },
+          kind: "max_tokens_exceeded",
+          calls: 1,
+          includes: "33554432",
+          requestId: PERPLEXITY_REQUEST_ID,
+        },
+        {
+          label: "404 with an empty body",
+          reply: { status: 404 },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "HTTP 404",
+        },
+        {
+          label: "405 with an empty body",
+          reply: { status: 405, text: "", headers: { allow: "POST", ...rid } },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "HTTP 405",
+          requestId: PERPLEXITY_REQUEST_ID,
+        },
+        // Statuses and wording the API was not seen to return. They pin the
+        // classification: every other 4xx is a request the caller fixes, so it
+        // is not retried, and its body is read only in the envelope above.
+        {
+          label: "403, which the API does not document",
+          reply: {
+            status: 403,
+            json: {
+              error: {
+                message: "Forbidden by policy",
+                type: "forbidden",
+                code: 403,
+              },
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "Forbidden by policy",
+        },
+        {
+          label: "422 with a FastAPI detail",
+          reply: {
+            status: 422,
+            json: { detail: "questions must be a non-empty map" },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "HTTP 422",
+          excludes: "non-empty map",
+        },
+        {
+          label: "400 with a flat string error",
+          reply: { status: 400, json: { error: "plain failure text" } },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "HTTP 400",
+          excludes: "plain failure text",
+        },
+        {
+          label: "429 rate limited",
+          reply: { status: 429, json: PERPLEXITY_ERRORS.rateLimited },
+          kind: "rate_limit",
+          calls: 2,
+          includes: "Request rate limit exceeded",
+        },
+        {
+          label: "500 with an empty body",
+          reply: { status: 500 },
+          kind: "server",
+          calls: 2,
+          includes: "HTTP 500",
+        },
+        {
+          label: "502 with an HTML body",
+          reply: {
+            status: 502,
+            text: "<html><body>bad gateway</body></html>",
+            contentType: "text/html",
+          },
+          kind: "server",
+          calls: 2,
+          includes: "HTTP 502",
+          excludes: "<html",
+        },
+        {
+          label: "503 unavailable",
+          reply: {
+            status: 503,
+            json: {
+              error: {
+                message: "The model service is temporarily unavailable",
+                type: "service_unavailable",
+                code: null,
+              },
+            },
+          },
+          kind: "overloaded",
+          calls: 2,
+          includes: "temporarily unavailable",
+        },
+      ];
+      for (const row of rows) {
+        const outcome = await perplexityOutcome(row.reply);
+        expectEq(outcome.kind, row.kind, `${row.label}: kind`);
+        expectEq(outcome.status, row.reply.status, `${row.label}: status kept`);
+        expectEq(outcome.calls, row.calls, `${row.label}: attempts`);
+        expect(
+          outcome.retryable === row.calls > 1,
+          `${row.label}: retryable matches the attempts`,
+        );
+        expectEq(outcome.requestId, row.requestId, `${row.label}: request id`);
+        if (row.includes) {
+          expect(
+            outcome.message.includes(row.includes),
+            `${row.label}: message`,
+          );
+        }
+        if (row.excludes) {
+          expect(
+            !outcome.message.includes(row.excludes),
+            `${row.label}: message leaves this out`,
+          );
+        }
+      }
+    },
+  );
+
+  // ── P12b: a 504's HTML page is retried, and never echoed ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: an HTML 504 is retried and never echoed",
+    async () => {
+      const outcome = await perplexityOutcome({
+        status: 504,
+        text: PERPLEXITY_GATEWAY_PAGE,
+        contentType: "text/html; charset=UTF-8",
+      });
+      expectEq(outcome.kind, "server", "classified as a server failure");
+      expectEq(outcome.status, 504, "status kept");
+      expect(outcome.retryable === true, "retryable");
+      expectEq(outcome.calls, 2, "retried up to the maximum");
+      expect(
+        outcome.message.endsWith("Perplexity request failed with HTTP 504"),
+        "the short fallback message",
+      );
+      expect(
+        !/<[a-z]/i.test(outcome.message) &&
+          !outcome.message.includes("gateway-page-marker"),
+        "no HTML reaches the message",
+      );
+      expectEq(outcome.requestId, undefined, "a 504 carries no request id");
+    },
+  );
+
+  // A 200 that is not an answer map is a changed format: a failure, not a retry.
+  await perplexityCase(
+    "DECIDE perplexity-decider: a 200 without an answers map fails",
+    async () => {
+      const outcome = await perplexityOutcome({
+        status: 200,
+        json: {
+          model: PERPLEXITY_DECIDE_SPEC.model,
+          usage: { input_tokens: 1 },
+        },
+      });
+      expectEq(outcome.kind, "server", "classified as a server failure");
+      expect(outcome.retryable === false, "not retried");
+      expectEq(outcome.calls, 1, "one request");
+      expect(
+        outcome.message.includes("without an answers map"),
+        "says what is missing",
+      );
+    },
+  );
+
+  // ── P13: a 401 disables that instance, as the shared base does for every key ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: a 401 trips the breaker",
+    async () => {
+      await withMocks(
+        [perplexityRoute({ status: 401, json: PERPLEXITY_ERRORS.invalidKey })],
+        async ({ calls }) => {
+          const provider = await createPerplexity();
+          const first = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(provider),
+          );
+          expectEq(first.kind, "authentication", "401 classified");
+          expect(
+            first.message.includes("Invalid API key provided"),
+            "the API's own text is kept",
+          );
+          const second = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(provider),
+          );
+          expectEq(
+            second.kind,
+            "authentication",
+            "breaker keeps the classification",
+          );
+          expect(
+            second.message.includes("rejected this API key earlier"),
+            "breaker message",
+          );
+          expectEq(calls.length, 1, "no second request after a rejected key");
+          await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity()),
+          );
+          expectEq(calls.length, 2, "a new instance asks again");
+        },
+      );
+    },
+  );
+
+  // ── P13b: any other 4xx is the caller's to fix, and the SAME instance keeps working ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: other 4xx do not disable the provider",
+    async () => {
+      const script = perplexityScript([
+        { status: 400, json: PERPLEXITY_ERRORS.modelServerBadRequest },
+        {
+          status: 403,
+          json: {
+            error: {
+              message: "Forbidden by policy",
+              type: "forbidden",
+              code: 403,
+            },
+          },
+        },
+        { status: 200, json: perplexityLiveBody() },
+      ]);
+      await withMocks([script.route], async ({ calls }) => {
+        const provider = await createPerplexity();
+        const first = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(provider),
+        );
+        expectEq(first.kind, "invalid_request", "a 400 is a request to fix");
+        const second = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(provider),
+        );
+        expectEq(second.kind, "invalid_request", "so is a 403");
+        const third = await perplexityDecideOne(provider);
+        expectEq(
+          third.provider,
+          PERPLEXITY_DECIDE_SPEC.provider,
+          "the same instance works once the cause is gone",
+        );
+        expectEq(calls.length, 3, "every call was really sent");
+      });
+    },
+  );
+
+  // ── P14: keys are redacted from every message, but the model name stays readable ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: keys are redacted, the model name is not",
+    async () => {
+      const { key } = PERPLEXITY_DECIDE_SPEC;
+      // Keys carry `_` and `-`, so the stand-ins do too.
+      const shaped = "pplx-AbCdEfGhIj_KlMnOpQrSt-UvWxYz0123456789_AbCdEf";
+      const thirty = `pplx-${"Ab_1-".repeat(6)}`;
+      const bad = (message: string): PerplexityReply => ({
+        status: 400,
+        json: { error: { message, type: "invalid_request", code: "400" } },
+      });
+      const rows: Array<{
+        label: string;
+        reply: PerplexityReply;
+        gone: string[];
+        kept?: string;
+      }> = [
+        {
+          label: "the configured key, echoed on a 401",
+          reply: {
+            status: 401,
+            json: {
+              error: {
+                message: `Invalid API key ${key} provided`,
+                type: "invalid_api_key",
+                code: 401,
+              },
+            },
+          },
+          gone: [key],
+          kept: "Invalid API key",
+        },
+        {
+          label: "a key-shaped token",
+          reply: bad(`Unknown credential ${shaped} in the request`),
+          gone: [shaped],
+          kept: "Unknown credential",
+        },
+        {
+          label: "a token of exactly 30 characters after the prefix",
+          reply: bad(`Unknown credential ${thirty} in the request`),
+          gone: [thirty],
+          kept: "Unknown credential",
+        },
+        {
+          label: "a key beside the model's name",
+          reply: bad(
+            `Invalid model 'pplx-decider-v1-27b' for key ${shaped} and key ${key}`,
+          ),
+          gone: [shaped, key],
+          kept: "'pplx-decider-v1-27b'",
+        },
+        {
+          label: "a model name whose suffix runs past twenty characters",
+          reply: bad("Invalid model 'pplx-decider-v1-27b-latest'"),
+          gone: [],
+          kept: "'pplx-decider-v1-27b-latest'",
+        },
+      ];
+      for (const row of rows) {
+        const outcome = await perplexityOutcome(row.reply);
+        expect(outcome.threw, `${row.label}: the call failed`);
+        expect(
+          row.gone.every((secret) => !outcome.message.includes(secret)),
+          `${row.label}: the secret is gone`,
+        );
+        // The marker appears exactly when something was removed, so a row that
+        // must stay readable also proves nothing was redacted from it.
+        expect(
+          outcome.message.includes("[redacted]") === row.gone.length > 0,
+          `${row.label}: the marker matches what was removed`,
+        );
+        // 30 is the provider's floor; a model name's suffix stays under it.
+        expect(
+          !/pplx-[A-Za-z0-9_-]{30,}/.test(outcome.message),
+          `${row.label}: nothing key-shaped is left`,
+        );
+        if (row.kept) {
+          expect(
+            outcome.message.includes(row.kept),
+            `${row.label}: the readable part stays`,
+          );
+        }
+      }
+    },
+  );
+}
+
+async function runPerplexityRetries(): Promise<void> {
+  const rateLimited = (headers: Record<string, string>): PerplexityReply => ({
+    status: 429,
+    json: PERPLEXITY_ERRORS.rateLimited,
+    headers,
+  });
+  const answered: PerplexityReply = {
+    status: 200,
+    json: perplexityLiveBody(),
+    headers: { "x-request-id": PERPLEXITY_REQUEST_ID },
+  };
+
+  /**
+   * Every setTimeout of 100 ms or more scheduled while `run` executes: the wait
+   * a retry asked for, which does not depend on how busy the machine is. A
+   * window on the measured gap cannot tell "1 s from a lenient parse" from "a
+   * quarter second of backoff" once it has to be loose enough for a loaded
+   * runner; the scheduled value can.
+   */
+  const withScheduledWaits = async <T>(run: () => Promise<T>) => {
+    const nativeSetTimeout = globalThis.setTimeout;
+    const waits: number[] = [];
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+      const ms = args[1];
+      if (typeof ms === "number" && ms >= 100) {
+        waits.push(ms);
+      }
+      return Reflect.apply(nativeSetTimeout, globalThis, args);
+    }) as typeof setTimeout;
+    try {
+      return { result: await run(), waits };
+    } finally {
+      globalThis.setTimeout = nativeSetTimeout;
+    }
+  };
+
+  /** A 429 carrying `headers`, then a 200: how the one retry was spaced. */
+  const retried = async (
+    headers: Record<string, string>,
+    request: Partial<DecisionRequest> = {},
+  ) => {
+    const script = perplexityScript([rateLimited(headers), answered]);
+    return withMocks([script.route], async ({ calls }) => {
+      const provider = await createPerplexity();
+      const startedAt = Date.now();
+      const { result: outcome, waits } = await withScheduledWaits(() =>
+        capturePerplexityFailure(async () =>
+          perplexityDecideOne(provider, request),
+        ),
+      );
+      return {
+        outcome,
+        waits,
+        firstRequestAt: script.stamps[0],
+        calls: calls.length,
+        elapsed: Date.now() - startedAt,
+        gap:
+          script.stamps.length > 1
+            ? script.stamps[1] - script.stamps[0]
+            : undefined,
+        sameBody: calls.length > 1 && calls[0].bodyText === calls[1].bodyText,
+      };
+    });
+  };
+
+  // ── P15: a 429's Retry-After is the wait before the one retry ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: a 429 with Retry-After is retried once, after that wait",
+    async () => {
+      const run = await retried({
+        "retry-after": "1",
+        "x-request-id": PERPLEXITY_REQUEST_ID,
+      });
+      expect(!run.outcome.threw, "the retry succeeded");
+      expectEq(run.calls, 2, "exactly one retry");
+      expectEq(
+        run.waits.join(","),
+        "1000",
+        "the one second the header asked for was scheduled, and nothing else",
+      );
+      // A timer cannot fire early, so the measured gap only has a floor.
+      expect(
+        run.gap !== undefined && run.gap >= 950,
+        `the retry did wait that second (waited ${run.gap} ms)`,
+      );
+      expect(run.sameBody, "the retry resends the same body");
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: a Retry-After longer than the timeout is not waited out",
+    async () => {
+      const run = await retried({ "retry-after": "30" }, { timeoutMs: 1000 });
+      expectEq(run.outcome.kind, "rate_limit", "the 429 is thrown");
+      expect(run.outcome.retryable === true, "still classified as retryable");
+      expectEq(run.calls, 1, "one request, no retry");
+      expectEq(run.waits.length, 0, "no wait was scheduled");
+      expect(
+        run.elapsed < 6000,
+        `thrown at once, far below the 30 seconds asked for (took ${run.elapsed} ms)`,
+      );
+      expect(
+        run.outcome.message.includes("Request rate limit exceeded"),
+        "the API's own text is kept",
+      );
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: no usable Retry-After means the default backoff",
+    async () => {
+      // `Number()` reads "0x10" as 16 and "1e3" as 1,000 seconds, and a zero or a
+      // date already past would retry at once, so only whole seconds above zero
+      // and a future HTTP date are waited on.
+      for (const [label, headers] of [
+        ["no header", {}],
+        ["an unreadable value", { "retry-after": "soon" }],
+        ["a hex number", { "retry-after": "0x10" }],
+        ["an exponent", { "retry-after": "1e3" }],
+        ["a negative number", { "retry-after": "-5" }],
+        ["zero seconds", { "retry-after": "0" }],
+        [
+          "a date already past",
+          { "retry-after": new Date(Date.now() - 60_000).toUTCString() },
+        ],
+      ] as const) {
+        const run = await retried({ ...headers });
+        expect(!run.outcome.threw, `${label}: the retry succeeded`);
+        expectEq(run.calls, 2, `${label}: exactly one retry`);
+        // The default backoff is 250 ms plus up to 250 ms of jitter. What was
+        // scheduled is checked, not how long the machine took: a header read
+        // leniently as one second would sit inside any window loose enough for
+        // a loaded runner.
+        expect(
+          run.waits.length === 1 && run.waits[0] >= 250 && run.waits[0] < 500,
+          `${label}: scheduled the default backoff of a quarter to a half second`,
+        );
+        expect(
+          run.gap !== undefined && run.gap >= 200,
+          `${label}: and waited it (waited ${run.gap} ms)`,
+        );
+      }
+    },
+  );
+
+  // Retry-After may be an HTTP date as well as seconds.
+  await perplexityCase(
+    "DECIDE perplexity-decider: Retry-After as an HTTP date",
+    async () => {
+      // HTTP dates have whole-second resolution, so the date 2 s ahead is cut
+      // back to a whole second and the wait is between 1 s less the time it took
+      // to reach the header and 2 s. The header is read just after the first
+      // request arrives, so that arrival time stands for it, with 250 ms of
+      // slack. The default backoff (under half a second) cannot be mistaken for
+      // the result unless the call itself was slow.
+      const issuedAt = Date.now();
+      const near = await retried({
+        "retry-after": new Date(issuedAt + 2000).toUTCString(),
+      });
+      const reached = (near.firstRequestAt ?? issuedAt) - issuedAt;
+      expect(!near.outcome.threw, "a near date: the retry succeeded");
+      expectEq(near.calls, 2, "a near date: one retry");
+      expect(
+        near.waits.length === 1 &&
+          near.waits[0] > 750 - reached &&
+          near.waits[0] <= 2000,
+        `a near date is scheduled as a wait of about a second to two (the first request arrived after ${reached} ms)`,
+      );
+      const far = await retried(
+        { "retry-after": new Date(Date.now() + 60_000).toUTCString() },
+        { timeoutMs: 1000 },
+      );
+      expectEq(far.outcome.kind, "rate_limit", "a distant date: thrown");
+      expectEq(far.calls, 1, "a distant date: not waited out");
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: an abort ends a Retry-After wait at once",
+    async () => {
+      const script = perplexityScript([
+        rateLimited({ "retry-after": "9" }),
+        answered,
+      ]);
+      await withMocks([script.route], async ({ calls }) => {
+        const controller = new AbortController();
+        const startedAt = Date.now();
+        const pending = capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            signal: controller.signal,
+          }),
+        );
+        await perplexityPause(300);
+        controller.abort();
+        const failure = await pending;
+        const elapsed = Date.now() - startedAt;
+        expectEq(
+          failure.kind,
+          "network",
+          "an abort is reported as a network error",
+        );
+        expect(failure.retryable === false, "not retried");
+        expectEq(calls.length, 1, "no second request after the abort");
+        expect(
+          elapsed < 6000,
+          `ended long before the nine seconds asked for (took ${elapsed} ms)`,
+        );
+      });
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: a Retry-After that does not fit what is left of the timeout is thrown",
+    async () => {
+      // The 429 takes 700 ms of a 1.5 s budget, so the second it asks for does
+      // not fit, although it is shorter than the whole timeout.
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: PERPLEXITY_DECIDE_SPEC.urlMatch,
+            respond: async () => {
+              await perplexityPause(700);
+              return rateLimited({ "retry-after": "1" });
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const failure = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity(), { timeoutMs: 1500 }),
+          );
+          expectEq(failure.kind, "rate_limit", "the 429 is thrown");
+          expectEq(calls.length, 1, "no retry");
+        },
+      );
+    },
+  );
+
+  // ── P16: transport failures — a network error and a timeout are retried, an abort is not ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: a network error is retried, and its message is scrubbed",
+    async () => {
+      const { key } = PERPLEXITY_DECIDE_SPEC;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: PERPLEXITY_DECIDE_SPEC.urlMatch,
+            respond: () => {
+              throw new TypeError(
+                `fetch failed at https://ops:hunter2-basic@api.perplexity.ai/v1/decisions?token=hunter2-query: upstream refused ${key} and sk-ambient1234567890abcdef`,
+              );
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const failure = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity()),
+          );
+          expectEq(failure.kind, "network", "a transport failure");
+          expect(failure.retryable === true, "retryable");
+          expectEq(calls.length, 2, "retried once");
+          expect(
+            !failure.message.includes("hunter2") &&
+              !failure.message.includes(key) &&
+              !failure.message.includes("sk-ambient"),
+            "no credential from the URL or the key reaches the message",
+          );
+          expect(
+            failure.message.includes("api.perplexity.ai"),
+            "the host stays for diagnostics",
+          );
+        },
+      );
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: a call past its timeout is a retried timeout",
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: PERPLEXITY_DECIDE_SPEC.urlMatch,
+            respond: async () => {
+              await perplexityPause(400);
+              return { status: 200, json: perplexityLiveBody() };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const failure = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity(), { timeoutMs: 100 }),
+          );
+          expectEq(failure.kind, "timeout", "classified as a timeout");
+          expect(failure.retryable === true, "retryable");
+          expectEq(calls.length, 2, "retried once");
+        },
+      );
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: a caller's abort is not retried",
+    async () => {
+      const controller = new AbortController();
+      controller.abort();
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            signal: controller.signal,
+          }),
+        );
+        expectEq(
+          failure.kind,
+          "network",
+          "an abort is reported as a network error",
+        );
+        expect(failure.retryable === false, "not retryable");
+        expectEq(calls.length, 1, "one attempt");
+      });
+    },
+  );
+}
+
+async function runPerplexityLimits(): Promise<void> {
+  const { provider, model } = PERPLEXITY_DECIDE_SPEC;
+  const questionsOf = (count: number): DecisionQuestionMap =>
+    Object.fromEntries(
+      Array.from({ length: count }, (_, i) => [
+        `q${i}`,
+        { type: "boolean" as const, instructions: `Is statement ${i} true?` },
+      ]),
+    );
+
+  // ── P17: 128 questions go out, 129 are refused locally ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: 128 questions go out, 129 are refused locally",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity(), {
+          questions: questionsOf(128),
+        });
+        expectEq(calls.length, 1, "128 questions in one request");
+        expectEq(
+          Object.keys(perplexityBodyOf(calls[0]).questions ?? {}).length,
+          128,
+          "all 128 were sent",
+        );
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            questions: questionsOf(129),
+          }),
+        );
+        expectEq(
+          failure.kind,
+          "max_tokens_exceeded",
+          "129 questions classified",
+        );
+        expect(
+          failure.message.includes("at most 128 questions") &&
+            failure.message.includes("has 129"),
+          "names the cap and the count",
+        );
+        expect(failure.retryable === false, "not retried");
+        expectEq(calls.length, 1, "refused before any request");
+      });
+    },
+  );
+
+  // The timeout reaches the platform as `AbortSignal.timeout(ms)`, so recording
+  // that argument shows what a request was given without waiting for it.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the default timeout grows with the question count",
+    async () => {
+      const nativeTimeout = AbortSignal.timeout;
+      const asked: number[] = [];
+      AbortSignal.timeout = (ms: number) => {
+        asked.push(ms);
+        return nativeTimeout.call(AbortSignal, ms);
+      };
+      try {
+        await withMocks([perplexityRoute()], async () => {
+          const provider = await createPerplexity();
+          const timeoutOf = async (
+            request: Partial<DecisionRequest>,
+          ): Promise<string> => {
+            asked.length = 0;
+            await perplexityDecideOne(provider, request);
+            return asked.join(",");
+          };
+          expectEq(
+            await timeoutOf({}),
+            "10100",
+            "one question: the 10 s allowance and 100 ms",
+          );
+          expectEq(
+            await timeoutOf({ questions: questionsOf(128) }),
+            "22800",
+            "128 questions: the allowance and 12.8 s",
+          );
+          expectEq(
+            await timeoutOf({ timeoutMs: 1234 }),
+            "1234",
+            "a caller's own timeout is used as given",
+          );
+        });
+      } finally {
+        AbortSignal.timeout = nativeTimeout;
+      }
+    },
+  );
+
+  // ── P18: the state window is 100,000 estimated tokens ──
+  // The shared estimator charges ceil(characters / 4) tokens plus a 5% margin
+  // for ASCII, so the window closes at 380,952 characters.
+  await perplexityCase(
+    "DECIDE perplexity-decider: the ASCII state window",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity(), {
+          state: "a".repeat(380_952),
+        });
+        expectEq(calls.length, 1, "the last size that fits goes out");
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            state: "a".repeat(380_953),
+          }),
+        );
+        expectEq(failure.kind, "max_tokens_exceeded", "one character more");
+        expect(
+          failure.message.includes("~100001 tokens") &&
+            failure.message.includes("reads at most 100000") &&
+            failure.message.includes(model),
+          "names the estimate, the window and the model",
+        );
+        expectEq(calls.length, 1, "refused before any request");
+      });
+    },
+  );
+
+  // Non-ASCII text is charged ceil(characters x 0.5), the rate measured for CJK.
+  await perplexityCase(
+    "DECIDE perplexity-decider: non-ASCII text is charged at half a token per character",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        for (const characters of [190_000, 200_000]) {
+          await perplexityDecideOne(await createPerplexity(), {
+            state: "你".repeat(characters),
+          });
+        }
+        expectEq(calls.length, 2, "up to 100,000 tokens goes out");
+        for (const characters of [200_001, 210_000]) {
+          const failure = await capturePerplexityFailure(async () =>
+            perplexityDecideOne(await createPerplexity(), {
+              state: "你".repeat(characters),
+            }),
+          );
+          expectEq(
+            failure.kind,
+            "max_tokens_exceeded",
+            `${characters} characters: refused`,
+          );
+          expect(
+            failure.message.includes(`~${Math.ceil(characters * 0.5)} tokens`),
+            `${characters} characters: charged ceil(characters x 0.5)`,
+          );
+          expect(
+            failure.message.includes("reads at most 100000"),
+            `${characters} characters: names the window`,
+          );
+        }
+        expectEq(calls.length, 2, "refused before any request");
+      });
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: an object state is measured too",
+    async () => {
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        await perplexityDecideOne(await createPerplexity(), {
+          state: { log: "a".repeat(300_000) },
+        });
+        expectEq(calls.length, 1, "300,000 characters in a field goes out");
+        const failure = await capturePerplexityFailure(async () =>
+          perplexityDecideOne(await createPerplexity(), {
+            state: { log: "a".repeat(400_000) },
+          }),
+        );
+        expectEq(failure.kind, "max_tokens_exceeded", "400,000 is refused");
+        expectEq(calls.length, 1, "refused before any request");
+      });
+    },
+  );
+
+  // ── P19: a decision model generates no text ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: generate and stream refuse, and send nothing",
+    async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      await withMocks([perplexityRoute()], async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const generate = await captureDecisionFailure(() =>
+          nl.generate({
+            provider,
+            input: { text: "ping" },
+            disableTools: true,
+          }),
+        );
+        expect(
+          generate.message.includes("decision-only provider") &&
+            generate.message.includes("decide()"),
+          "generate() says the provider is decision-only, and what to use",
+        );
+        const stream = await captureDecisionFailure(async () => {
+          const result = await nl.stream({
+            provider,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        });
+        expect(
+          stream.message.includes("decision-only provider") &&
+            stream.message.includes("streaming is not available"),
+          "stream() says streaming is not available",
+        );
+        // A NeuroLink instance may also fetch its model config in the
+        // background; only a decision is a POST.
+        expectEq(
+          calls.filter((c) => c.method === "POST").length,
+          0,
+          "no request was sent for either",
+        );
+      });
+    },
+  );
+}
+
+async function runPerplexityCredentials(): Promise<void> {
+  const { provider, envVar, baseURLEnvVar, key, endpoint } =
+    PERPLEXITY_DECIDE_SPEC;
+  const { NeuroLink, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const decideOnSdk = (nl: InstanceType<typeof NeuroLink>) =>
+    nl.decide({
+      provider,
+      state: "short",
+      questions: PERPLEXITY_ONE_QUESTION,
+    });
+
+  // ── P20: SDK credentials beat the environment, key and base URL alike ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: SDK credentials beat the environment",
+    async () => {
+      try {
+        setEnv(envVar, "test-fake-env-credential");
+        setEnv(baseURLEnvVar, "https://pplx.env.example/other");
+        await withMocks(
+          [{ ...perplexityRoute(), url: "/v1/decisions" }],
+          async ({ calls }) => {
+            const nl = new NeuroLink({
+              credentials: {
+                perplexityDecider: {
+                  apiKey: "test-fake-config-credential",
+                  baseURL: "https://pplx.config.example/gw/v1/",
+                },
+              },
+            });
+            await decideOnSdk(nl);
+            // A NeuroLink instance may also fetch its model config in the
+            // background; only the decision is a POST.
+            const post = calls.find((c) => c.method === "POST");
+            expectEq(
+              post?.url,
+              "https://pplx.config.example/gw/v1/decisions",
+              "endpoint from credentials.perplexityDecider.baseURL",
+            );
+            expectEq(
+              post?.headers.authorization,
+              "Bearer test-fake-config-credential",
+              "key from credentials.perplexityDecider.apiKey",
+            );
+          },
+        );
+      } finally {
+        resetPerplexityEnv();
+      }
+    },
+  );
+
+  // ── P21: the Sonar provider's credentials are not this provider's ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: credentials.perplexity does not configure decide",
+    async () => {
+      const textSlice = { perplexity: { apiKey: "test-fake-text-credential" } };
+      try {
+        clearPerplexityEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(textSlice),
+          undefined,
+          "the text provider's slice selects nothing",
+        );
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ credentials: textSlice });
+          const named = await capturePerplexityFailure(async () =>
+            decideOnSdk(nl),
+          );
+          expectEq(named.kind, "authentication", "naming the provider fails");
+          expect(
+            named.message.includes("PERPLEXITY_API_KEY"),
+            "the message names PERPLEXITY_API_KEY",
+          );
+          const unnamed = await capturePerplexityFailure(async () =>
+            nl.decide({
+              state: "short",
+              questions: PERPLEXITY_ONE_QUESTION,
+            }),
+          );
+          expect(
+            unnamed.threw && unnamed.message.includes("No decision provider"),
+            "a bare decide() finds no provider to use",
+          );
+          expectEq(
+            calls.filter((c) => c.method === "POST").length,
+            0,
+            "no decision request",
+          );
+        });
+        // With the environment key set, it is that key, not the text slice's,
+        // that is sent.
+        setEnv(envVar, key);
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          await decideOnSdk(new NeuroLink({ credentials: textSlice }));
+          const post = calls.find((c) => c.method === "POST");
+          expectEq(
+            post?.headers.authorization,
+            `Bearer ${key}`,
+            "the environment key",
+          );
+        });
+      } finally {
+        resetPerplexityEnv();
+      }
+    },
+  );
+
+  // ── P22: PERPLEXITY_API_KEY alone makes it the default decision provider ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: PERPLEXITY_API_KEY alone makes it the default",
+    async () => {
+      try {
+        resetPerplexityEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "the key alone selects it",
+        );
+        await withMocks([perplexityRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await nl.tryDecide({
+            state: "short",
+            questions: PERPLEXITY_ONE_QUESTION,
+          });
+          expectEq(result?.provider, provider, "chosen without being named");
+          const posts = calls.filter((c) => c.method === "POST");
+          expectEq(posts.length, 1, "one decision request");
+          expectEq(posts[0]?.url, endpoint, "to the public endpoint");
+          expectEq(
+            posts[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "with the environment key",
+          );
+        });
+      } finally {
+        resetPerplexityEnv();
+      }
+    },
+  );
+
+  // ── P22b: it is the last resort, and a blank key is no key ──
+  await perplexityCase(
+    "DECIDE perplexity-decider: the other decision providers keep precedence",
+    async () => {
+      try {
+        resetPerplexityEnv();
+        setEnv("XOR_API_KEY", "test-fake-xor-credential");
+        setEnv("XOR_BASE_URL", "https://xor.test.example/proxy");
+        expectEq(resolveDefaultDecisionProvider(), "xor", "xor wins");
+        setEnv("LAYA_API_KEY", "test-fake-laya-credential");
+        setEnv("LAYA_BASE_URL", "https://laya.test.example/base");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "laya",
+          "laya wins over xor",
+        );
+        setEnv("TYPESAFE_API_KEY", "test-fake-typesafe-credential");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "typesafe",
+          "typesafe wins over both",
+        );
+        resetPerplexityEnv();
+        setEnv(envVar, "   ");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "a blank key selects nothing",
+        );
+        setEnv(envVar, undefined);
+        expectEq(
+          resolveDefaultDecisionProvider({
+            perplexityDecider: { apiKey: "test-fake-config-credential" },
+          }),
+          provider,
+          "credentials.perplexityDecider.apiKey alone selects it",
+        );
+      } finally {
+        resetPerplexityEnv();
+      }
+    },
+  );
+}
+
+async function runPerplexityDecide(): Promise<void> {
+  // Sections before this one leave their own fake keys behind, and a developer's
+  // .env can hold a real one. Everything is cleared first and put back after.
+  const prior = PERPLEXITY_DECISION_ENV.map((name) => process.env[name]);
+  try {
+    resetPerplexityEnv();
+    await runPerplexityWire();
+    await runPerplexityAnswers();
+    await runPerplexityMedia();
+    await runPerplexityErrors();
+    await runPerplexityRetries();
+    await runPerplexityLimits();
+    await runPerplexityCredentials();
+  } finally {
+    PERPLEXITY_DECISION_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
 async function runDecideSection(): Promise<void> {
-  console.log("\n=== Decision providers (TypeSafe, Laya, XOR) ===");
+  console.log("\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity) ===");
   await runTypeSafeDecide();
   await runLayaDecide();
   await runXorDecide();
+  await runPerplexityDecide();
 }
 
 async function runImageGenSection(): Promise<void> {
@@ -8065,14 +10860,17 @@ async function main(): Promise<void> {
   console.log("=== Mocked Contract Test Suite (New Providers) ===");
 
   // A developer's .env may set LAYA_MODEL / LAYA_BASE_URL /
-  // TYPESAFE_GATEWAY_URL. The registry captures each provider's default model
-  // when it registers, so they are cleared first; each section sets whatever
-  // it needs itself.
+  // TYPESAFE_GATEWAY_URL, or a real PERPLEXITY_API_KEY. The registry captures
+  // each provider's default model when it registers, so they are cleared first;
+  // each section sets whatever it needs itself.
   setEnv("LAYA_MODEL", undefined);
   setEnv("LAYA_BASE_URL", undefined);
   setEnv("XOR_MODEL", undefined);
   setEnv("XOR_API_KEY", undefined);
   setEnv("XOR_BASE_URL", undefined);
+  setEnv("PERPLEXITY_API_KEY", undefined);
+  setEnv("PERPLEXITY_DECIDER_BASE_URL", undefined);
+  setEnv("PERPLEXITY_DECIDER_MODEL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

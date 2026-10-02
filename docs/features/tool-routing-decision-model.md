@@ -5,8 +5,11 @@ a 15-second budget. That shape cannot express uncertainty — a server is in
 the list or it is not, and the only recourse for a model that is unsure is to
 include it. A [decision model](/docs/features/decide-inference-type) instead
 asks one calibrated yes/no question per server, in a single round trip of
-about 400ms and $0.00002, and each answer comes back with a real probability
-rather than a name that either did or didn't make a list.
+about 400ms and $0.00002 on TypeSafe (on Perplexity each further question adds
+about 65 ms, up to 128 in a request; see
+[its guide](../getting-started/providers/perplexity-decider.md#limits)), and each
+answer comes back with a real probability rather than a name that either did or
+didn't make a list.
 
 **The degradation contract.** `selectServersByDecision()` is used only when a
 decision provider is configured; hosts never wire `decideFn` by hand — it is

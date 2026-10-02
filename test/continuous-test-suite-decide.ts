@@ -23,10 +23,10 @@ const fetchCapture = installFetchCapture();
  * `src/lib/`, so this exercises the copy callers actually load (CLAUDE.md
  * rule 15, "one module graph per suite").
  *
- * Live tests skip without `TYPESAFE_API_KEY`. The degradation and
- * discriminator tests do NOT skip: "behaves correctly with no key" and "a
- * text-less provider is unreachable from generation" are the contracts that
- * matter most, and neither needs a key.
+ * Live tests skip without the key of the provider they exercise. The
+ * degradation and discriminator tests do NOT skip: "behaves correctly with no
+ * key" and "a text-less provider is unreachable from generation" are the
+ * contracts that matter most, and neither needs a key.
  *
  * ⚠️ Assertion messages here never interpolate a response payload. `test()`
  * downgrades a throw to SKIP when the message looks like a provider error, so
@@ -36,6 +36,9 @@ const fetchCapture = installFetchCapture();
  *      pnpm run test:decide
  */
 
+import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import {
   AIProviderName,
   buildModelCatalog,
@@ -67,6 +70,7 @@ import {
 } from "../dist/index.js";
 import { defineSuite, logSection, runCLI } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { flatPng } from "./helpers/flatPng.js";
 
 assertDistFresh();
 
@@ -84,7 +88,7 @@ const HAS_KEY = typeof REAL_KEY === "string" && REAL_KEY.trim() !== "";
 // otherwise find a working provider in exactly the tests asserting there
 // isn't one, and eight degradation tests would fail for the wrong reason.
 const REAL_GATEWAY_KEY = process.env.AI_GATEWAY_API_KEY;
-// Laya is a third key that configures a decision provider. A developer's .env
+// Laya's key configures a decision provider as well. A developer's .env
 // holding it would otherwise hand every "nothing is configured" test a working
 // provider, exactly as the gateway key would.
 const REAL_LAYA_KEY = process.env.LAYA_API_KEY;
@@ -94,14 +98,24 @@ const HAS_LAYA_KEY =
 const REAL_LAYA_BASE_URL = process.env.LAYA_BASE_URL;
 const HAS_LAYA_BASE_URL =
   typeof REAL_LAYA_BASE_URL === "string" && REAL_LAYA_BASE_URL.trim() !== "";
-// XOR is a fourth key that configures a decision provider, and like Laya it has
-// no built-in endpoint, so its live tests also need XOR_BASE_URL.
+// XOR's key configures a decision provider too, and like Laya it has no
+// built-in endpoint, so its live tests also need XOR_BASE_URL.
 const REAL_XOR_KEY = process.env.XOR_API_KEY;
 const HAS_XOR_KEY =
   typeof REAL_XOR_KEY === "string" && REAL_XOR_KEY.trim() !== "";
 const REAL_XOR_BASE_URL = process.env.XOR_BASE_URL;
 const HAS_XOR_BASE_URL =
   typeof REAL_XOR_BASE_URL === "string" && REAL_XOR_BASE_URL.trim() !== "";
+// Perplexity's Decisions API reads PERPLEXITY_API_KEY, the same key the
+// `perplexity` text provider reads, so an ambient key from a developer's .env
+// configures a decision provider here too. It has a public endpoint, so the key
+// alone is enough and every "nothing is configured" test must blank it.
+const REAL_PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
+const HAS_PERPLEXITY_KEY =
+  typeof REAL_PERPLEXITY_KEY === "string" && REAL_PERPLEXITY_KEY.trim() !== "";
+const REAL_PERPLEXITY_DECIDER_BASE_URL =
+  process.env.PERPLEXITY_DECIDER_BASE_URL;
+const REAL_PERPLEXITY_DECIDER_MODEL = process.env.PERPLEXITY_DECIDER_MODEL;
 
 function restoreEnv(): void {
   if (HAS_KEY) {
@@ -134,11 +148,29 @@ function restoreEnv(): void {
   } else {
     delete process.env.XOR_BASE_URL;
   }
+  if (REAL_PERPLEXITY_KEY !== undefined) {
+    process.env.PERPLEXITY_API_KEY = REAL_PERPLEXITY_KEY;
+  } else {
+    delete process.env.PERPLEXITY_API_KEY;
+  }
+  if (REAL_PERPLEXITY_DECIDER_BASE_URL !== undefined) {
+    process.env.PERPLEXITY_DECIDER_BASE_URL = REAL_PERPLEXITY_DECIDER_BASE_URL;
+  } else {
+    delete process.env.PERPLEXITY_DECIDER_BASE_URL;
+  }
+  if (REAL_PERPLEXITY_DECIDER_MODEL !== undefined) {
+    process.env.PERPLEXITY_DECIDER_MODEL = REAL_PERPLEXITY_DECIDER_MODEL;
+  } else {
+    delete process.env.PERPLEXITY_DECIDER_MODEL;
+  }
 }
 
 /**
  * Remove every setting that would configure a decision provider, including
- * LAYA_BASE_URL, which Laya needs alongside its key.
+ * LAYA_BASE_URL, which Laya needs alongside its key, and PERPLEXITY_API_KEY,
+ * which the `perplexity` text provider shares. The Perplexity base URL and
+ * model overrides go too, so a developer's own endpoint or model never decides
+ * what a keyless test sees.
  */
 function clearDecisionKeys(): void {
   delete process.env.TYPESAFE_API_KEY;
@@ -147,6 +179,9 @@ function clearDecisionKeys(): void {
   delete process.env.LAYA_BASE_URL;
   delete process.env.XOR_API_KEY;
   delete process.env.XOR_BASE_URL;
+  delete process.env.PERPLEXITY_API_KEY;
+  delete process.env.PERPLEXITY_DECIDER_BASE_URL;
+  delete process.env.PERPLEXITY_DECIDER_MODEL;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -167,6 +202,12 @@ function requireXorKey(): void {
   }
   if (!HAS_XOR_BASE_URL) {
     throw new Error("SKIP: XOR_BASE_URL not set");
+  }
+}
+
+function requirePerplexityKey(): void {
+  if (!HAS_PERPLEXITY_KEY) {
+    throw new Error("SKIP: PERPLEXITY_API_KEY not set");
   }
 }
 
@@ -1988,6 +2029,9 @@ const NO_PROVIDER_ENV = {
   LAYA_BASE_URL: "",
   XOR_API_KEY: "",
   XOR_BASE_URL: "",
+  PERPLEXITY_API_KEY: "",
+  PERPLEXITY_DECIDER_BASE_URL: "",
+  PERPLEXITY_DECIDER_MODEL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -2008,7 +2052,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or PERPLEXITY_API_KEY for perplexity-decider.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2172,7 +2216,7 @@ await test("15.5 — a provider error keeps the provider's own detail", async ()
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-logSection("16. Laya — the second decision provider");
+logSection("16. Laya — a decision provider at a configured endpoint");
 // ───────────────────────────────────────────────────────────────────────────
 
 await test("16.1 — laya declares decide and only decide, and no generation rank", async () => {
@@ -2418,6 +2462,9 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
         XOR_API_KEY: "",
         XOR_BASE_URL: "",
+        PERPLEXITY_API_KEY: "",
+        PERPLEXITY_DECIDER_BASE_URL: "",
+        PERPLEXITY_DECIDER_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2457,6 +2504,9 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
         XOR_API_KEY: "",
         XOR_BASE_URL: "",
+        PERPLEXITY_API_KEY: "",
+        PERPLEXITY_DECIDER_BASE_URL: "",
+        PERPLEXITY_DECIDER_MODEL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2498,6 +2548,9 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         LAYA_BASE_URL: REAL_LAYA_BASE_URL ?? "",
         XOR_API_KEY: "",
         XOR_BASE_URL: "",
+        PERPLEXITY_API_KEY: "",
+        PERPLEXITY_DECIDER_BASE_URL: "",
+        PERPLEXITY_DECIDER_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2519,7 +2572,7 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
 });
 
 restoreEnv();
-logSection("17. XOR — the third decision provider");
+logSection("17. XOR — a decision provider that also reads images and video");
 
 await test("17.1 — xor declares decide and only decide, and no generation rank", async () => {
   const xor = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR);
@@ -3003,6 +3056,1458 @@ await test("17.18 — a bare --video with no value ⇒ refused, never dropped", 
   assert(
     !/ECONNREFUSED|network/i.test(result.stderr),
     "the failure must happen before any request",
+  );
+});
+
+restoreEnv();
+logSection("18. Perplexity Decisions — a hosted decision provider");
+
+// Read off the public surface, not imported from source (rule 15).
+type DecideOptions = Parameters<NeuroLink["decide"]>[0];
+type DecideResult = Awaited<ReturnType<NeuroLink["decide"]>>;
+type DecisionFailure = {
+  kind?: string;
+  status?: number;
+  retryable?: boolean;
+  message: string;
+};
+
+/** The structured cause every decision provider attaches to its errors, beside the message. */
+function readDecisionFailure(error: unknown): DecisionFailure {
+  const cause =
+    error instanceof Error
+      ? (
+          error as Error & {
+            cause?: { kind?: string; status?: number; retryable?: boolean };
+          }
+        ).cause
+      : undefined;
+  return {
+    kind: cause?.kind,
+    status: cause?.status,
+    retryable: cause?.retryable,
+    message: error instanceof Error ? error.message : "",
+  };
+}
+
+/** The failure of a call that is expected to fail, or undefined when it did not. */
+async function failureOf(
+  run: () => Promise<unknown>,
+): Promise<DecisionFailure | undefined> {
+  try {
+    await run();
+    return undefined;
+  } catch (error) {
+    return readDecisionFailure(error);
+  }
+}
+
+// `fileURLToPath`, not `.pathname`: the latter stays percent-encoded, so a
+// checkout under a path with a space in it would not find a single fixture.
+const PERPLEXITY_FIXTURE_DIR = fileURLToPath(
+  new URL("./fixtures/decide/perplexity-decider/", import.meta.url),
+);
+
+await test("18.1 — perplexity-decider declares decide and only decide, and no generation rank", async () => {
+  const decider = PROVIDER_DESCRIPTORS_BY_NAME.get(
+    AIProviderName.PERPLEXITY_DECIDER,
+  );
+  assert(
+    decider !== undefined,
+    "perplexity-decider has no registered descriptor",
+  );
+  assert(
+    servesInferenceKind(decider!, "decide"),
+    "perplexity-decider must declare decide",
+  );
+  assert(
+    !servesInferenceKind(decider!, "generate") &&
+      !servesInferenceKind(decider!, "stream"),
+    "a model that emits no text must not declare generate or stream",
+  );
+  assert(
+    decider!.autoSelectPriority === undefined &&
+      decider!.autoSelectPreference === undefined &&
+      decider!.defaultHealthSweepPriority === undefined,
+    "a decision provider must stay out of every generation fallback chain",
+  );
+  assert(
+    decider!.toolSupport === "none" && decider!.healthCheck !== "live-generate",
+    "a decision provider has no tools and cannot answer a live-generate probe",
+  );
+  assert(
+    decider!.credentialsKey === "perplexityDecider",
+    "the credentials slice must be the decider's own, not the text provider's",
+  );
+});
+
+await test("18.2 — it shares its key with the perplexity text provider, which stays a text provider", async () => {
+  const decider = PROVIDER_DESCRIPTORS_BY_NAME.get(
+    AIProviderName.PERPLEXITY_DECIDER,
+  );
+  const text = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.PERPLEXITY);
+  assert(
+    decider !== undefined && text !== undefined,
+    "both perplexity descriptors must be registered",
+  );
+  assert(
+    decider!.envVars.apiKey === "PERPLEXITY_API_KEY" &&
+      text!.envVars.apiKey === decider!.envVars.apiKey,
+    "the two providers must read the same key variable",
+  );
+  assert(
+    servesInferenceKind(text!, "generate") &&
+      !servesInferenceKind(text!, "decide"),
+    "the text provider must keep generating and must not become a decision provider",
+  );
+  assert(
+    (decider!.envVars.extraRequired ?? []).length === 0,
+    "a hosted endpoint needs no second variable: the key alone configures it",
+  );
+});
+
+await test("18.3 — it declares the limits that were measured: a state window, a question cap, images and no video", async () => {
+  const decider = PROVIDER_DESCRIPTORS_BY_NAME.get(
+    AIProviderName.PERPLEXITY_DECIDER,
+  );
+  const limits = decider?.decisionLimits;
+  assert(
+    limits !== undefined,
+    "perplexity-decider must declare decisionLimits",
+  );
+  assert(
+    limits!.maxStateTokens === 100_000,
+    "the state window must stay at the measured 100,000 estimated tokens",
+  );
+  assert(
+    limits!.maxStateTokens < 262_144,
+    "the local window must sit inside the documented 262,144-token ceiling",
+  );
+  assert(
+    limits!.nonAsciiTokensPerChar === 0.5,
+    "non-ASCII text must be charged at the measured half a token per character",
+  );
+  assert(
+    limits!.maxQuestions === 128,
+    "the documented 128-question cap must be declared",
+  );
+  assert(
+    limits!.media !== undefined && limits!.media.maxImages === 8,
+    "up to 8 images per request must be declared",
+  );
+  assert(
+    limits!.media!.video === false,
+    "the API reads no video, so none may be declared",
+  );
+  assert(
+    limits!.media!.maxRequestBytes === 32 * 1024 * 1024,
+    "the documented 32 MiB body cap must be declared",
+  );
+  assert(
+    decider!.timeouts?.decideMs === 10_000,
+    "the default timeout must stay at 10 seconds",
+  );
+});
+
+await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, and perplexity-decider last", async () => {
+  const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
+  const index = (name: string) => names.indexOf(name);
+  assert(
+    index("typesafe") !== -1 &&
+      index("typesafe") < index("laya") &&
+      index("laya") < index("xor") &&
+      index("xor") < index("perplexity-decider"),
+    "the derived decision-provider list must read typesafe, laya, xor, perplexity-decider",
+  );
+  // It shares an environment key with a text provider, so it must come after
+  // every provider a host sets up on purpose. A provider added after it would
+  // be displaced by an ambient key, which is a decision to make deliberately.
+  assert(
+    names[names.length - 1] === "perplexity-decider",
+    "perplexity-decider must be the last entry in the precedence order",
+  );
+});
+
+await test("18.5 — precedence: a shared ambient key activates it only when nothing ahead is configured", async () => {
+  try {
+    clearDecisionKeys();
+    process.env.TYPESAFE_API_KEY = "apikey_placeholder_for_resolution";
+    process.env.LAYA_API_KEY = "sk-placeholder-for-resolution";
+    process.env.LAYA_BASE_URL = "https://laya.placeholder.invalid";
+    process.env.XOR_API_KEY = "sk-placeholder-for-resolution";
+    process.env.XOR_BASE_URL = "https://xor.placeholder.invalid";
+    process.env.PERPLEXITY_API_KEY = "pplx-placeholder-for-resolution";
+    const all = resolveDefaultDecisionProvider();
+    delete process.env.TYPESAFE_API_KEY;
+    const withoutTypeSafe = resolveDefaultDecisionProvider();
+    delete process.env.LAYA_API_KEY;
+    const withoutLaya = resolveDefaultDecisionProvider();
+    delete process.env.XOR_API_KEY;
+    const perplexityAlone = resolveDefaultDecisionProvider();
+    process.env.PERPLEXITY_API_KEY = "   ";
+    const blank = resolveDefaultDecisionProvider();
+    assert(
+      all === "typesafe",
+      "with everything configured, typesafe must stay the default",
+    );
+    assert(
+      withoutTypeSafe === "laya",
+      "without typesafe, laya must stay ahead of xor and perplexity-decider",
+    );
+    assert(
+      withoutLaya === "xor",
+      "without laya, xor must stay ahead of perplexity-decider",
+    );
+    assert(
+      perplexityAlone === "perplexity-decider",
+      "a key alone must configure perplexity-decider: it has no second variable",
+    );
+    assert(
+      blank === undefined,
+      "a whitespace-only perplexity key must not count as configured",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("18.6 — credentials passed to the SDK count: its own slice alone, and a base URL alone does not", async () => {
+  try {
+    clearDecisionKeys();
+    assert(
+      resolveDefaultDecisionProvider({
+        perplexityDecider: { apiKey: "pplx-placeholder-from-config" },
+      }) === "perplexity-decider",
+      "the decider's own credentials slice must configure it on its own",
+    );
+    assert(
+      resolveDefaultDecisionProvider({
+        perplexityDecider: { baseURL: "https://pplx.placeholder.invalid" },
+      }) === undefined,
+      "a base URL without a key must not count as configured",
+    );
+    assert(
+      resolveDefaultDecisionProvider({
+        perplexityDecider: { apiKey: "   " },
+      }) === undefined,
+      "a whitespace-only configured key must not count as configured",
+    );
+    process.env.PERPLEXITY_DECIDER_BASE_URL =
+      "https://pplx.placeholder.invalid";
+    assert(
+      resolveDefaultDecisionProvider() === undefined,
+      "the optional base URL variable must not configure it without a key",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+// A dead local address, so a request that got past a local refusal is recorded
+// by the fetch capture and fails at once instead of reaching the real API.
+const PERPLEXITY_DEAD_BASE_URL = "http://127.0.0.1:9/dead-perplexity";
+const PERPLEXITY_DEAD_ROUTE = "/dead-perplexity/v1/decisions";
+const PERPLEXITY_PLACEHOLDER_KEY = "pplx-placeholder-for-the-dead-address";
+const PERPLEXITY_ONE_QUESTION = {
+  q: { type: "boolean" as const, instructions: "Is this a test?" },
+};
+
+/** A client whose Perplexity requests can only land on the dead address. */
+function deadPerplexity(baseURL = PERPLEXITY_DEAD_BASE_URL): NeuroLink {
+  return new NeuroLink({
+    credentials: {
+      perplexityDecider: { apiKey: PERPLEXITY_PLACEHOLDER_KEY, baseURL },
+    },
+  });
+}
+
+/** Requests recorded for the dead address, or for a host under the reserved .invalid TLD, since the last reset. */
+function escapedRequests(): number {
+  return fetchCapture
+    .list()
+    .filter(
+      (c) =>
+        c.url.endsWith(PERPLEXITY_DEAD_ROUTE) || /\.invalid[:/]/.test(c.url),
+    ).length;
+}
+
+await test("18.7 — the key is shared through the environment only: the text provider's credentials do not configure decide", async () => {
+  try {
+    clearDecisionKeys();
+    const textOnly = {
+      perplexity: { apiKey: "pplx-placeholder-for-the-text-provider" },
+    };
+    assert(
+      resolveDefaultDecisionProvider(textOnly) === undefined,
+      "the text provider's credentials slice must not configure the decision provider",
+    );
+    process.env.PERPLEXITY_API_KEY = "pplx-placeholder-from-the-environment";
+    assert(
+      resolveDefaultDecisionProvider() === "perplexity-decider",
+      "the shared environment variable must configure the decision provider",
+    );
+    delete process.env.PERPLEXITY_API_KEY;
+
+    fetchCapture.reset();
+    const unnamed = await failureOf(() =>
+      new NeuroLink({ credentials: textOnly }).decide({
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+    assert(
+      unnamed !== undefined &&
+        unnamed.message.includes("No decision provider is configured"),
+      "the text provider's slice alone must leave decide with no provider to use",
+    );
+
+    const named = await failureOf(() =>
+      new NeuroLink({
+        credentials: {
+          ...textOnly,
+          perplexityDecider: { baseURL: PERPLEXITY_DEAD_BASE_URL },
+        },
+      }).decide({
+        provider: "perplexity-decider",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+    assert(
+      named?.kind === "authentication" &&
+        named.message.includes("PERPLEXITY_API_KEY"),
+      "naming the decider with only the text provider's slice must be refused, saying which variable to set",
+    );
+    assert(
+      escapedRequests() === 0,
+      "a call with no key of its own must not send anything",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("18.8 — an ambient perplexity key cannot leak into a keyless test", async () => {
+  try {
+    // A developer's own TypeSafe, Laya or XOR key outranks this one, and the
+    // suite loads their .env, so start from nothing configured.
+    clearDecisionKeys();
+    process.env.PERPLEXITY_API_KEY = "pplx-ambient-placeholder";
+    process.env.PERPLEXITY_DECIDER_BASE_URL = "https://pplx.ambient.invalid";
+    process.env.PERPLEXITY_DECIDER_MODEL = "ambient-placeholder-model";
+    assert(
+      resolveDefaultDecisionProvider() === "perplexity-decider",
+      "precondition: with nothing ahead configured, the ambient key must be seen",
+    );
+    clearDecisionKeys();
+    assert(
+      resolveDefaultDecisionProvider() === undefined,
+      "clearDecisionKeys must clear the perplexity key too",
+    );
+    assert(
+      process.env.PERPLEXITY_DECIDER_BASE_URL === undefined &&
+        process.env.PERPLEXITY_DECIDER_MODEL === undefined,
+      "clearDecisionKeys must clear the perplexity base URL and model too",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("18.9 — the SDK's nothing-configured error names perplexity's variable too", async () => {
+  let failure: DecisionFailure | undefined;
+  try {
+    clearDecisionKeys();
+    failure = await failureOf(() =>
+      new NeuroLink().decide({
+        state: "x",
+        questions: { q: { type: "boolean", instructions: "?" } },
+      }),
+    );
+  } finally {
+    restoreEnv();
+  }
+  assert(failure !== undefined, "decide must fail with nothing configured");
+  assert(
+    failure.message.includes("PERPLEXITY_API_KEY") &&
+      failure.message.includes("XOR_") &&
+      failure.message.includes("LAYA_") &&
+      failure.message.includes("TYPESAFE_"),
+    "the error must name the variable for each decision provider",
+  );
+});
+
+await test("18.10 — decide --provider perplexity-decider with no credential ⇒ one clean line", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "Refund request for a damaged item",
+      "--provider",
+      "perplexity-decider",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: NO_PROVIDER_ENV, timeoutMs: 30_000 },
+  );
+  assert(
+    result.exitCode !== 0,
+    "decide must fail without a perplexity credential",
+  );
+  assert(
+    result.stderr.includes("PERPLEXITY_API_KEY") &&
+      result.stderr.includes("credentials.perplexityDecider.apiKey"),
+    "the failure line must be perplexity-decider's own: the variable and the credentials slice to set",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace instead of a clean message",
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Local refusals. Each one is a request the API would answer badly or not at
+// all (a 400, or a minute's stall and a 504), so the provider turns it away
+// before any request. The dead address and the fetch capture prove "before any
+// request" rather than assume it.
+// ───────────────────────────────────────────────────────────────────────────
+
+type RefusalOptions = Omit<DecideOptions, "provider" | "questions"> &
+  Partial<Pick<DecideOptions, "questions">>;
+
+/** A request that must get past every local check and fail at the dead address. */
+async function expectReachesTransport(
+  label: string,
+  options: RefusalOptions,
+): Promise<void> {
+  fetchCapture.reset();
+  const failure = await failureOf(() =>
+    deadPerplexity().decide({
+      provider: "perplexity-decider",
+      questions: PERPLEXITY_ONE_QUESTION,
+      ...options,
+    }),
+  );
+  assert(
+    failure?.kind === "network",
+    `${label}: the request must get as far as the transport`,
+  );
+  assert(
+    escapedRequests() >= 1,
+    `${label}: the request must be recorded on its way out`,
+  );
+}
+
+/** A request that must be refused locally: its kind and wording, and zero requests sent. */
+async function expectLocalRefusal(
+  label: string,
+  options: RefusalOptions,
+  expected: { kind: string; text: string },
+): Promise<void> {
+  fetchCapture.reset();
+  const failure = await failureOf(() =>
+    deadPerplexity().decide({
+      provider: "perplexity-decider",
+      questions: PERPLEXITY_ONE_QUESTION,
+      ...options,
+    }),
+  );
+  assert(
+    failure !== undefined,
+    `${label}: the request must be refused, not answered`,
+  );
+  assert(
+    failure.kind === expected.kind,
+    `${label}: the refusal has the wrong kind`,
+  );
+  assert(
+    failure.message.includes(expected.text),
+    `${label}: the refusal must say why`,
+  );
+  assert(
+    failure.retryable === false,
+    `${label}: a refusal must not be retryable`,
+  );
+  assert(
+    escapedRequests() === 0,
+    `${label}: a refused request must never reach the transport`,
+  );
+}
+
+await test("18.11 — positive control: a valid request reaches the transport, however the base URL is spelled", async () => {
+  // Without this, every zero-request assertion below could pass because the
+  // capture sees nothing at all.
+  for (const baseURL of [
+    PERPLEXITY_DEAD_BASE_URL,
+    `${PERPLEXITY_DEAD_BASE_URL}/`,
+    `${PERPLEXITY_DEAD_BASE_URL}/v1`,
+    `${PERPLEXITY_DEAD_BASE_URL}/v1/`,
+  ]) {
+    fetchCapture.reset();
+    const failure = await failureOf(() =>
+      deadPerplexity(baseURL).decide({
+        provider: "perplexity-decider",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+    assert(
+      failure?.kind === "network",
+      "a request to a dead address must fail at the transport",
+    );
+    assert(
+      escapedRequests() >= 1,
+      "every spelling of the base URL must reach the same route, recorded on its way out",
+    );
+  }
+  // The same filter also has to see a request to a .invalid host, which the
+  // remote-URL refusal below relies on.
+  fetchCapture.reset();
+  await fetch("http://control.example.invalid/", {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => undefined);
+  assert(
+    escapedRequests() === 1,
+    "a request to a .invalid host must be recorded too",
+  );
+});
+
+const TINY_GIF = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64",
+);
+
+await test("18.12 — a GIF is refused locally, as a Buffer and as a data: URL", async () => {
+  const refusal = { kind: "invalid_request", text: "PNG, JPEG or WebP" };
+  await expectLocalRefusal(
+    "a GIF Buffer",
+    { state: "x", images: [TINY_GIF] },
+    refusal,
+  );
+  await expectLocalRefusal(
+    "a GIF data URL",
+    {
+      state: "x",
+      images: [`data:image/gif;base64,${TINY_GIF.toString("base64")}`],
+    },
+    refusal,
+  );
+});
+
+await test("18.13 — a remote image URL is refused locally, and never fetched for you", async () => {
+  await expectLocalRefusal(
+    "a remote image URL",
+    { state: "x", images: ["https://images.example.invalid/red.png"] },
+    { kind: "invalid_request", text: "remote URL" },
+  );
+});
+
+await test("18.14 — a video is refused locally: the API reads images only", async () => {
+  const refusal = { kind: "invalid_request", text: "does not accept video" };
+  await expectLocalRefusal(
+    "a video",
+    { state: "x", video: `${XOR_FIXTURE_DIR}red.mp4` },
+    refusal,
+  );
+  await expectLocalRefusal(
+    "a video beside a valid image",
+    {
+      state: "x",
+      images: [`${PERPLEXITY_FIXTURE_DIR}red.png`],
+      video: `${XOR_FIXTURE_DIR}red.mp4`,
+    },
+    refusal,
+  );
+});
+
+await test("18.15 — nine images are refused locally, and eight are sent", async () => {
+  const image = `${PERPLEXITY_FIXTURE_DIR}red.png`;
+  await expectLocalRefusal(
+    "nine images",
+    { state: "x", images: Array.from({ length: 9 }, () => image) },
+    { kind: "invalid_request", text: "at most 8 images" },
+  );
+  await expectReachesTransport("eight images", {
+    state: "x",
+    images: Array.from({ length: 8 }, () => image),
+  });
+});
+
+await test("18.16 — an image past 2,048 tiles of 32x32 pixels is refused locally, in every format the API reads", async () => {
+  // The API does not refuse these: it holds the request for about a minute and
+  // answers 504. 1600x1310 is the documentation's own example of one that does
+  // not fit: 50 x 41 tiles once each side is rounded to a multiple of 32.
+  const refusal = (size: string) => ({
+    kind: "invalid_request",
+    text: `${size} pixels`,
+  });
+  await expectLocalRefusal(
+    "a 2048x2048 PNG",
+    { state: "x", images: [flatPng(2048, 2048)] },
+    refusal("2048x2048"),
+  );
+  await expectLocalRefusal(
+    "a 1600x1310 PNG",
+    { state: "x", images: [flatPng(1600, 1310)] },
+    refusal("1600x1310"),
+  );
+  await expectLocalRefusal(
+    "a 1600x1310 JPEG",
+    {
+      state: "x",
+      images: [`${PERPLEXITY_FIXTURE_DIR}too-large-1600x1310.jpg`],
+    },
+    refusal("1600x1310"),
+  );
+  // A WebP header comes in three layouts that put the size in different
+  // places: lossy (VP8), lossless (VP8L) and extended (VP8X, what an alpha
+  // channel produces). One real file of each.
+  for (const [layout, file] of [
+    ["lossy", "too-large-1600x1310.webp"],
+    ["lossless", "too-large-1600x1310-lossless.webp"],
+    ["extended", "too-large-1600x1310-alpha.webp"],
+  ]) {
+    await expectLocalRefusal(
+      `a 1600x1310 ${layout} WebP`,
+      { state: "x", images: [`${PERPLEXITY_FIXTURE_DIR}${file}`] },
+      refusal("1600x1310"),
+    );
+  }
+});
+
+await test("18.17 — the sizes the API documents as fitting are sent", async () => {
+  await expectReachesTransport("a 1440x1440 PNG", {
+    state: "x",
+    images: [flatPng(1440, 1440)],
+  });
+  await expectReachesTransport("a 2048x1024 PNG", {
+    state: "x",
+    images: [flatPng(2048, 1024)],
+  });
+});
+
+await test("18.18 — a state past the window is refused locally, and one inside it is sent", async () => {
+  // ASCII is estimated at a quarter of a token per character plus a 5% margin,
+  // against a window of 100,000 tokens: roughly 381,000 characters.
+  await expectLocalRefusal(
+    "a 390,000-character ASCII state",
+    { state: "x".repeat(390_000) },
+    { kind: "max_tokens_exceeded", text: "Shorten the state" },
+  );
+  await expectReachesTransport("a 370,000-character ASCII state", {
+    state: "x".repeat(370_000),
+  });
+});
+
+await test("18.19 — the CJK charge is pinned from both sides: 190,000 characters are sent and 210,000 are refused", async () => {
+  // Half a token per character: 95,000 and 105,000 estimated tokens against the
+  // same 100,000. What the server charges per CJK character depends on the text
+  // (0.46 and 0.55 were measured live for two different texts), so half a token
+  // is a mid-range charge, not an upper bound; the window sitting well inside
+  // the server's 262,144-token ceiling is what absorbs the difference. The
+  // first state goes out, and the live test below shows the API accepts it.
+  await expectReachesTransport("190,000 CJK characters", {
+    state: "中".repeat(190_000),
+  });
+  await expectLocalRefusal(
+    "210,000 CJK characters",
+    { state: "中".repeat(210_000) },
+    { kind: "max_tokens_exceeded", text: "Shorten the state" },
+  );
+});
+
+await test("18.20 — 129 questions are refused locally, and 128 are sent", async () => {
+  const questions = (count: number) =>
+    Object.fromEntries(
+      Array.from({ length: count }, (_, i) => [
+        `q${i}`,
+        { type: "boolean" as const, instructions: "Is this a test?" },
+      ]),
+    );
+  await expectLocalRefusal(
+    "129 questions",
+    { state: "x", questions: questions(129) },
+    { kind: "max_tokens_exceeded", text: "at most 128 questions" },
+  );
+  await expectReachesTransport("128 questions", {
+    state: "x",
+    questions: questions(128),
+  });
+});
+
+// The CLI refusals use a dead local address too, so a request that escaped to
+// the network would surface as a connection error instead of the refusal. The
+// positive control below proves that address really is where a sent request
+// lands, so the refusals after it are not passing vacuously.
+const PERPLEXITY_CLI_ENV = {
+  ...NO_PROVIDER_ENV,
+  PERPLEXITY_API_KEY: "pplx-placeholder-for-cli",
+  PERPLEXITY_DECIDER_BASE_URL: "http://127.0.0.1:9/pplx",
+};
+
+await test("18.21 — positive control: a valid image request does reach the transport", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "perplexity-decider",
+      "--image",
+      `${PERPLEXITY_FIXTURE_DIR}red.png`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: PERPLEXITY_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "nothing listens on the dead address");
+  assert(
+    /ECONNREFUSED|network|fetch failed/i.test(result.stderr),
+    "a valid request must fail at the transport, which is what the refusals below must not do",
+  );
+});
+
+await test("18.22 — nine --image flags ⇒ refused locally, one clean line", async () => {
+  const args = [
+    "decide",
+    "The state text",
+    "--provider",
+    "perplexity-decider",
+    "--questions",
+    ONE_QUESTION,
+  ];
+  for (let i = 0; i < 9; i++) {
+    args.push("--image", `${PERPLEXITY_FIXTURE_DIR}red.png`);
+  }
+  const result = await runCLI(args, {
+    env: PERPLEXITY_CLI_ENV,
+    timeoutMs: 30_000,
+  });
+  assert(result.exitCode !== 0, "nine images must be refused");
+  assert(result.stderr.includes("at most 8"), "the refusal must say the limit");
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the refusal printed a stack trace",
+  );
+});
+
+await test("18.23 — --video ⇒ refused before any request, because the API reads no video", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "perplexity-decider",
+      "--video",
+      `${XOR_FIXTURE_DIR}red.mp4`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: PERPLEXITY_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "a video must be refused");
+  assert(
+    result.stderr.includes("does not accept video"),
+    "the refusal must say why",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the refusal printed a stack trace",
+  );
+});
+
+await test("18.24 — a missing --image file ⇒ one clean line naming the image", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "perplexity-decider",
+      "--image",
+      `${PERPLEXITY_FIXTURE_DIR}no-such-file.png`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: PERPLEXITY_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "a missing image must fail");
+  assert(
+    result.stderr.includes("Could not read Image 1"),
+    "the failure must name the image",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the failure must happen before any request",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace",
+  );
+});
+
+await test("18.25 — a base URL that carries a credential ⇒ refused locally, never echoed", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "perplexity-decider",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    {
+      env: {
+        ...PERPLEXITY_CLI_ENV,
+        PERPLEXITY_DECIDER_BASE_URL:
+          "https://ops:hunter2-basic@pplx.internal.invalid/proxy",
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  assert(result.exitCode !== 0, "a credentialed base URL must be refused");
+  assert(
+    result.stderr.includes("PERPLEXITY_DECIDER_BASE_URL"),
+    "the refusal must say which variable to fix",
+  );
+  assert(
+    !(result.stdout + result.stderr).includes("hunter2"),
+    "nothing from the base URL may be echoed",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "the refusal must happen before any request",
+  );
+});
+
+await test("18.26 — typesafe refuses an image and names perplexity-decider as one that takes it", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "typesafe",
+      "--image",
+      `${PERPLEXITY_FIXTURE_DIR}red.png`,
+      "--questions",
+      ONE_QUESTION,
+    ],
+    {
+      env: {
+        ...PERPLEXITY_CLI_ENV,
+        TYPESAFE_API_KEY: "apikey_placeholder_for_cli",
+        TYPESAFE_BASE_URL: "http://127.0.0.1:9/typesafe",
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  assert(result.exitCode !== 0, "typesafe must refuse an image");
+  assert(
+    result.stderr.includes("does not accept images") &&
+      result.stderr.includes("perplexity-decider"),
+    "the refusal must name the providers that do read images",
+  );
+});
+
+// The real API's 401 never repeats the key, so no live call can show that a
+// repeated one is stripped. A gateway at PERPLEXITY_DECIDER_BASE_URL can, so
+// this one does: it answers 401 and repeats the bearer token it was sent,
+// beside a key-shaped string that was never configured. The configured key is
+// not shaped like a Perplexity key, so only an exact-match strip can remove it.
+const ECHOED_KEY = "placeholder-key-the-gateway-repeats";
+const ECHOED_STRANGER = `pplx-${"k".repeat(48)}`;
+
+type GatewayAnswer = { status: number; body: unknown };
+
+/** Runs `run` against a local gateway that answers each request as `answer` says, handing it the bearer token of every request the gateway has received. */
+async function withGateway<T>(
+  answer: (bearer: string) => GatewayAnswer,
+  run: (baseURL: string, bearers: readonly string[]) => Promise<T>,
+): Promise<T> {
+  const bearers: string[] = [];
+  const gateway = createServer((request, response) => {
+    request.resume();
+    const bearer = (request.headers.authorization ?? "").replace(
+      /^Bearer /,
+      "",
+    );
+    bearers.push(bearer);
+    const { status, body } = answer(bearer);
+    response.writeHead(status, {
+      "content-type": "application/json",
+      connection: "close",
+    });
+    response.end(JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => gateway.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = gateway.address();
+    const port =
+      typeof address === "object" && address !== null ? address.port : 0;
+    assert(port > 0, "the test gateway must listen on a port");
+    return await run(`http://127.0.0.1:${port}`, bearers);
+  } finally {
+    gateway.closeAllConnections();
+    await new Promise<void>((resolve) => gateway.close(() => resolve()));
+  }
+}
+
+/** A gateway that refuses with a 401 and repeats the bearer token it was sent, beside a key-shaped string it never saw. */
+const withEchoingGateway = <T>(
+  run: (baseURL: string, bearers: readonly string[]) => Promise<T>,
+): Promise<T> =>
+  withGateway(
+    (bearer) => ({
+      status: 401,
+      body: {
+        error: {
+          message: `Invalid key ${bearer}, and ${ECHOED_STRANGER} is not on file`,
+          type: "invalid_request_error",
+          code: 401,
+        },
+      },
+    }),
+    run,
+  );
+
+await test("18.26b — a gateway that repeats the key in its error text: the reason stays and the key does not, in the SDK and the CLI", async () => {
+  await withEchoingGateway(async (baseURL, bearers) => {
+    const failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: { perplexityDecider: { apiKey: ECHOED_KEY, baseURL } },
+      }).decide({
+        provider: "perplexity-decider",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+    const message = failure?.message ?? "";
+    // The gateway's body repeats whatever bearer it received, so this is what
+    // makes the keys' absence below mean something: they were sent, and repeated.
+    // Read into a number first: asserting on `bearers.length` itself narrows it
+    // to the literal 1, and the count after the CLI call could not be compared.
+    const sentBySdk: number = bearers.length;
+    assert(
+      sentBySdk === 1 && bearers[0] === ECHOED_KEY,
+      "precondition: the configured key must reach the gateway, once",
+    );
+    assert(
+      failure?.kind === "authentication" && failure.status === 401,
+      "the gateway's refusal must come back as authentication with its own status",
+    );
+    assert(
+      !message.includes(ECHOED_KEY),
+      "the configured key must be stripped from the failure",
+    );
+    assert(
+      !message.includes(ECHOED_STRANGER),
+      "a key-shaped string must be stripped from the failure",
+    );
+    assert(
+      message.includes("is not on file"),
+      "the gateway's own reason must be kept",
+    );
+
+    const result = await runCLI(
+      [
+        "decide",
+        "The state text",
+        "--provider",
+        "perplexity-decider",
+        "--questions",
+        ONE_QUESTION,
+      ],
+      {
+        env: {
+          ...NO_PROVIDER_ENV,
+          PERPLEXITY_API_KEY: ECHOED_KEY,
+          PERPLEXITY_DECIDER_BASE_URL: baseURL,
+        },
+        timeoutMs: 30_000,
+      },
+    );
+    const output = result.stdout + result.stderr;
+    assert(result.exitCode !== 0, "a refused key must exit non-zero");
+    assert(
+      bearers.length === 2 && bearers[1] === ECHOED_KEY,
+      "precondition: the CLI must send the configured key to the gateway too",
+    );
+    assert(
+      !output.includes(ECHOED_KEY) && !output.includes(ECHOED_STRANGER),
+      "neither repeated key may reach the CLI's output",
+    );
+    assert(
+      output.includes("is not on file"),
+      "the CLI must print the gateway's own reason",
+    );
+  });
+});
+
+// The CLI's success path, without a key or a network: the one live test of it
+// (18.34) skips whenever the service does not answer, and a CLI that never
+// exits would otherwise be invisible here. The harness reports a command it had
+// to kill as exit code -1, which this test does not accept.
+await test("18.26c — the CLI against a gateway that answers: exit 0, clean JSON on stdout, the key sent once", async () => {
+  await withGateway(
+    () => ({
+      status: 200,
+      body: {
+        model: "pplx-decider-v1-27b",
+        answers: { urgent: { type: "noul", noul: 0.75 } },
+        usage: { input_tokens: 7, output_tokens: 1 },
+      },
+    }),
+    async (baseURL, bearers) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "perplexity-decider",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        {
+          env: {
+            ...NO_PROVIDER_ENV,
+            PERPLEXITY_API_KEY: ECHOED_KEY,
+            PERPLEXITY_DECIDER_BASE_URL: baseURL,
+          },
+          timeoutMs: 30_000,
+        },
+      );
+      assert(
+        result.exitCode === 0,
+        "the CLI must exit 0 once the gateway has answered",
+      );
+      const sent: number = bearers.length;
+      assert(
+        sent === 1 && bearers[0] === ECHOED_KEY,
+        "the configured key must reach the gateway, once",
+      );
+      const parsed: unknown = JSON.parse(result.stdout);
+      assert(
+        isRecordLike(parsed) && parsed.provider === "perplexity-decider",
+        "stdout must be the raw JSON result",
+      );
+      const answers = isRecordLike(parsed) ? parsed.answers : undefined;
+      const urgent = isRecordLike(answers) ? answers.urgent : undefined;
+      assert(
+        isRecordLike(urgent) &&
+          urgent.type === "boolean" &&
+          urgent.probability === 0.75,
+        "the gateway's answer must come through as a boolean probability",
+      );
+      assert(
+        !looksLikeStackTrace(result.stderr),
+        "stderr must not hold a stack trace",
+      );
+    },
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Against the real API. A service that is busy, throttled or unreachable says
+// nothing about the contract, and neither does a key it refuses, so those skip;
+// a 200 without an answers map is a changed response format and fails.
+// ───────────────────────────────────────────────────────────────────────────
+
+function isTransientPerplexityFailure(failure: DecisionFailure): boolean {
+  return (
+    ["rate_limit", "overloaded", "timeout", "network"].includes(
+      failure.kind ?? "",
+    ) ||
+    (failure.kind === "server" && (failure.status ?? 0) >= 500)
+  );
+}
+
+/** Skipped by kind, not by the wording of the refusal, which would split the live half between skips and failures. */
+function isRefusedPerplexityKey(failure: DecisionFailure): boolean {
+  return failure.kind === "authentication";
+}
+
+/** The CLI prints no status, so a transient failure is told apart by its text; a 200 with no answers is not transient. */
+function isTransientPerplexityCliFailure(stderr: string): boolean {
+  return (
+    [
+      "timed out",
+      "rate-limiting",
+      "overloaded",
+      "network error",
+      "server error",
+    ].some((phrase) => stderr.includes(phrase)) &&
+    !stderr.includes("answers map")
+  );
+}
+
+/** The CLI's own line for the `authentication` kind, which is what a refused key prints. */
+function isRefusedPerplexityCliKey(stderr: string): boolean {
+  return stderr.includes("Authentication failed");
+}
+
+/** One real decision against the configured endpoint, skipping on a transient or refused-key reply. */
+async function decideLive(
+  options: Omit<DecideOptions, "provider">,
+): Promise<DecideResult> {
+  restoreEnv();
+  try {
+    return await new NeuroLink().decide({
+      provider: "perplexity-decider",
+      ...options,
+    });
+  } catch (error) {
+    const failure = readDecisionFailure(error);
+    if (isTransientPerplexityFailure(failure)) {
+      throw new Error("SKIP: perplexity returned a transient reply", {
+        cause: error,
+      });
+    }
+    if (isRefusedPerplexityKey(failure)) {
+      throw new Error("SKIP: perplexity refused the configured key", {
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
+
+/** The API echoes the model it was sent, so compare against the requested one, never a name prefix. */
+function requestedPerplexityModel(): string {
+  return process.env.PERPLEXITY_DECIDER_MODEL?.trim() || "pplx-decider-v1-27b";
+}
+
+await test("18.27 — a rejected key reaches the real API and comes back as authentication, sent once", async () => {
+  // Needs no credential of ours: the point is that the API's own 401 maps to
+  // `authentication` and that it is not retried. Whether a repeated key is
+  // stripped is 18.26b: this API's 401 never repeats it, so nothing here shows it.
+  const rejectedKey = "pplx-definitely-not-a-valid-key-0123456789";
+  let failure: DecisionFailure | undefined;
+  try {
+    // Cleared so the default endpoint is the one asked, whatever a
+    // developer's own .env holds.
+    clearDecisionKeys();
+    fetchCapture.reset();
+    failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: { perplexityDecider: { apiKey: rejectedKey } },
+      }).decide({
+        provider: "perplexity-decider",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+  } finally {
+    restoreEnv();
+  }
+  assert(failure !== undefined, "a rejected key must not produce an answer");
+  if (isTransientPerplexityFailure(failure)) {
+    throw new Error("SKIP: the Perplexity API was unreachable or throttled");
+  }
+  assert(
+    failure.kind === "authentication" && failure.status === 401,
+    "a rejected key must come back as authentication, with the API's own status",
+  );
+  assert(failure.retryable === false, "a rejected key must not be retried");
+  assert(
+    fetchCapture
+      .list()
+      .filter((c) => c.url === "https://api.perplexity.ai/v1/decisions")
+      .length === 1,
+    "a rejected key must be sent exactly once, to the default endpoint",
+  );
+});
+
+// The example from the API's own quickstart: one review, three questions.
+const PERPLEXITY_DOCS_STATE = {
+  title: "Battery died after two weeks",
+  review:
+    "The headphones sound great, but the battery stopped charging after two weeks.",
+};
+const PERPLEXITY_DOCS_QUESTIONS = {
+  defect: {
+    type: "boolean",
+    instructions: "Does the review report a product defect?",
+  },
+  sentiment: {
+    type: "choice",
+    instructions: "What is the overall sentiment of the review?",
+    criteria: {
+      positive: "Mostly satisfied",
+      mixed: "Praise and complaints in one review",
+      negative: "Mostly dissatisfied",
+    },
+  },
+  severity: {
+    type: "score",
+    instructions: "How severe is the reported problem?",
+    criteria: ["Cosmetic", "Inconvenient", "Product unusable"],
+  },
+} as const;
+
+await test("18.28 — live: the documentation's example answers boolean, choice and score", async () => {
+  requirePerplexityKey();
+  const result = await decideLive({
+    state: PERPLEXITY_DOCS_STATE,
+    questions: PERPLEXITY_DOCS_QUESTIONS,
+  });
+  const { defect, sentiment, severity } = result.answers;
+  assert(
+    result.provider === "perplexity-decider",
+    "the result must come from perplexity-decider",
+  );
+  assert(
+    defect?.type === "boolean" && defect.probability > 0.5,
+    "a review that reports a broken battery must score above one half for a defect",
+  );
+  assert(
+    sentiment?.type === "choice" && sentiment.choice === "mixed",
+    "praise and a complaint in one review must read as mixed",
+  );
+  assert(
+    Object.keys(sentiment.probabilities).sort().join() ===
+      "mixed,negative,positive",
+    "the distribution must cover exactly the options that were offered",
+  );
+  assert(
+    Math.abs(
+      Object.values(sentiment.probabilities).reduce((a, b) => a + b, 0) - 1,
+    ) < 0.05,
+    "the probabilities must sum to about one",
+  );
+  assert(
+    sentiment.confidence >= 0 && sentiment.confidence <= 1,
+    "the choice confidence must be a probability",
+  );
+  assert(
+    severity?.type === "score" && severity.score >= 1 && severity.score <= 2,
+    "a battery that stopped charging must score between inconvenient and unusable",
+  );
+  assert(
+    severity.legend["0"] === "Cosmetic" &&
+      severity.legend["2"] === "Product unusable",
+    "the legend must map each level back to the rubric",
+  );
+  assert(
+    result.model === requestedPerplexityModel(),
+    "the reported model must be the one that was asked for",
+  );
+  assert(result.usage.inputTokens > 0, "usage must be reported");
+  assert(result.latencyMs > 0, "latency must be measured");
+  assert(
+    typeof result.requestId === "string" && result.requestId.length > 0,
+    "the request id header must be carried through",
+  );
+  assert(
+    result.mediaBytes === undefined,
+    "a request with no image must report no media",
+  );
+});
+
+const PERPLEXITY_COLOR_QUESTION = {
+  color: {
+    type: "choice" as const,
+    instructions: "What color is the attached image?",
+    criteria: { red: "red", blue: "blue", green: "green", yellow: "yellow" },
+  },
+};
+
+async function perplexityColour(
+  images: NonNullable<DecideOptions["images"]>,
+): Promise<string> {
+  const result = await decideLive({
+    state: "Look at the attached image.",
+    questions: PERPLEXITY_COLOR_QUESTION,
+    images,
+  });
+  const answer = result.answers.color;
+  assert(answer?.type === "choice", "color must be a choice answer");
+  assert((result.mediaBytes ?? 0) > 0, "the image must be reported as sent");
+  return answer.choice;
+}
+
+const readFixture = (name: string): Buffer =>
+  readFileSync(`${PERPLEXITY_FIXTURE_DIR}${name}`);
+
+// Each format arrives in a different form, so one run also shows that a file
+// path, a Buffer and a data: URL all reach the API as the image they hold.
+await test("18.29 — live: red and blue PNG images (file paths) are told apart", async () => {
+  requirePerplexityKey();
+  const red = await perplexityColour([`${PERPLEXITY_FIXTURE_DIR}red.png`]);
+  const blue = await perplexityColour([`${PERPLEXITY_FIXTURE_DIR}blue.png`]);
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+await test("18.30 — live: red and blue JPEG images (Buffers) are told apart", async () => {
+  requirePerplexityKey();
+  const red = await perplexityColour([readFixture("red.jpg")]);
+  const blue = await perplexityColour([readFixture("blue.jpg")]);
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+await test("18.31 — live: red and blue WebP images (data: URLs) are told apart", async () => {
+  requirePerplexityKey();
+  const dataUrl = (name: string) =>
+    `data:image/webp;base64,${readFixture(name).toString("base64")}`;
+  const red = await perplexityColour([dataUrl("red.webp")]);
+  const blue = await perplexityColour([dataUrl("blue.webp")]);
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+/** Digits from a seeded generator: a fixed text with no repeating structure for a tokenizer to merge. */
+function digitState(length: number): string {
+  let seed = 0x2545f491;
+  const digits: string[] = [];
+  for (let i = 0; i < length; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    digits.push(String((seed >>> 16) % 10));
+  }
+  return digits.join("");
+}
+
+await test("18.32 — live: a state past the server's own ceiling comes back as max_tokens_exceeded with status 400, sent once", async () => {
+  requirePerplexityKey();
+  // 360,000 digits estimate at 94,500 tokens, inside the local window, yet the
+  // server counts them against its own 262,144-token ceiling and refuses.
+  const state = digitState(360_000);
+  await expectReachesTransport("the 360,000-digit state", {
+    state,
+    timeoutMs: 30_000,
+  });
+
+  restoreEnv();
+  fetchCapture.reset();
+  const startedAt = Date.now();
+  const failure = await failureOf(() =>
+    new NeuroLink().decide({
+      provider: "perplexity-decider",
+      state,
+      questions: PERPLEXITY_ONE_QUESTION,
+      timeoutMs: 30_000,
+    }),
+  );
+  const elapsedMs = Date.now() - startedAt;
+  assert(
+    failure !== undefined,
+    "a state past the server's ceiling must be refused, not answered",
+  );
+  if (isTransientPerplexityFailure(failure)) {
+    throw new Error("SKIP: perplexity returned a transient reply");
+  }
+  if (isRefusedPerplexityKey(failure)) {
+    throw new Error("SKIP: perplexity refused the configured key");
+  }
+  assert(
+    failure.kind === "max_tokens_exceeded",
+    "the server's over-length refusal must map to max_tokens_exceeded",
+  );
+  assert(
+    failure.status === 400,
+    "the refusal must carry the server's own status, which shows it was not the local window",
+  );
+  assert(
+    failure.retryable === false,
+    "an over-length request must not be retried",
+  );
+  assert(
+    fetchCapture
+      .list()
+      .filter((c) => c.method === "POST" && c.url.endsWith("/v1/decisions"))
+      .length === 1,
+    "the over-length request must be sent exactly once",
+  );
+  // Printed, not asserted: a 400 that arrives late is still the explicit
+  // refusal, and the status above is what shows it was one.
+  console.log(`    refused by the server in ${elapsedMs}ms`);
+});
+
+const CJK_PARAGRAPH =
+  "客户在周一下午提交了退款申请，原因是收到的商品与页面描述不符，包装也有明显的破损。客服人员核对了订单记录和物流信息，确认商品在运输途中受到挤压，因此同意全额退款，并将在三个工作日内把款项退回到原支付账户。";
+
+/** Exactly `chars` characters of running Chinese text, all in the Basic Multilingual Plane. */
+function cjkState(chars: number): string {
+  return CJK_PARAGRAPH.repeat(Math.ceil(chars / CJK_PARAGRAPH.length)).slice(
+    0,
+    chars,
+  );
+}
+
+await test("18.33 — live: 190,000 CJK characters are accepted by the server as well as by the local window", async () => {
+  requirePerplexityKey();
+  // 190,000 characters at half a token each is 95,000 estimated tokens, so the
+  // window lets them through. The figure printed below is what the server
+  // counted for this paragraph; a change in it is worth a look, not a failure.
+  const chars = 190_000;
+  const result = await decideLive({
+    state: cjkState(chars),
+    questions: PERPLEXITY_ONE_QUESTION,
+    timeoutMs: 30_000,
+  });
+  assert(
+    result.answers.q?.type === "boolean",
+    "the question must be answered, not refused",
+  );
+  assert(
+    result.usage.inputTokens > 0 && result.usage.inputTokens < 262_144,
+    "the server's own count must sit inside its ceiling",
+  );
+  console.log(
+    `    measured ${(result.usage.inputTokens / chars).toFixed(3)} input tokens per character over ${chars} characters in ${result.latencyMs}ms`,
+  );
+});
+
+await test("18.34 — live: decide --provider perplexity-decider --image --format json is clean JSON", async () => {
+  requirePerplexityKey();
+  restoreEnv();
+  const result = await runCLI(
+    [
+      "decide",
+      "Look at the attached image.",
+      "--provider",
+      "perplexity-decider",
+      "--image",
+      `${PERPLEXITY_FIXTURE_DIR}red.png`,
+      "--format",
+      "json",
+      "--questions",
+      JSON.stringify(PERPLEXITY_COLOR_QUESTION),
+    ],
+    { timeoutMs: 60_000 },
+  );
+  // A positive exit code only: the harness reports a command it had to kill as
+  // -1 and writes "timed out" into stderr itself, which the predicate would
+  // otherwise read as the service being slow, turning a CLI that never exits
+  // into a skip.
+  if (result.exitCode > 0 && isTransientPerplexityCliFailure(result.stderr)) {
+    throw new Error("SKIP: perplexity returned a transient reply");
+  }
+  if (result.exitCode > 0 && isRefusedPerplexityCliKey(result.stderr)) {
+    throw new Error("SKIP: perplexity refused the configured key");
+  }
+  assert(result.exitCode === 0, "the live CLI call must succeed");
+  const parsed: unknown = JSON.parse(result.stdout);
+  assert(
+    isRecordLike(parsed) && parsed.provider === "perplexity-decider",
+    "stdout must be the raw JSON result",
+  );
+  const answers = isRecordLike(parsed) ? parsed.answers : undefined;
+  const color = isRecordLike(answers) ? answers.color : undefined;
+  assert(
+    isRecordLike(color) && color.choice === "red",
+    "the image the CLI sent must be read as red",
+  );
+  assert(
+    !looksLikeStackTrace(result.stderr),
+    "stderr must not hold a stack trace",
   );
 });
 

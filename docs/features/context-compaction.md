@@ -365,8 +365,10 @@ previous stage didn't bring tokens below the target budget.
 Everything below Stage 0 is chronological: the pipeline's only notion of
 "droppable" is "old". Stage 0 is the one stage that asks what a message is
 _for_ — one boolean per message ("is this needed to answer the current
-request?") in a single batch, which costs the same for 200 messages as for one
-because decision latency is flat in question count.
+request?") in a single batch. On TypeSafe that costs the same for 200 messages
+as for one because decision latency is flat in question count; on Perplexity each
+further question adds about 65 ms and a request takes at most 128 (see
+[its guide](../getting-started/providers/perplexity-decider.md#limits)).
 
 It is **strictly additive**. With no decision provider configured the stage
 does not run, `stagesUsed` omits `relevance`, and the pipeline behaves exactly

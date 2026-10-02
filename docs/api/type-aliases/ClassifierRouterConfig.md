@@ -26,10 +26,11 @@ Master switch. When false/absent, the router is never built.
 
 Classification strategy. Default: "auto" — which resolves to "jev" when a
 decision provider is configured, in the environment or in SDK credentials
-(`TYPESAFE_API_KEY`, `LAYA_API_KEY` with `LAYA_BASE_URL`, or
-`XOR_API_KEY` with `XOR_BASE_URL`) and "heuristic" otherwise, so configuring one
-upgrades routing without any code change. Behaviour for callers with no
-key is unchanged.
+(`TYPESAFE_API_KEY`, `LAYA_API_KEY` with `LAYA_BASE_URL`,
+`XOR_API_KEY` with `XOR_BASE_URL`, or `PERPLEXITY_API_KEY`) and "heuristic"
+otherwise, so configuring one upgrades routing without any code change.
+Behaviour for callers with no key is unchanged. `PERPLEXITY_API_KEY` is also
+the Perplexity text provider's key, so it counts here too.
 
 ---
 

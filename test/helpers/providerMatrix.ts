@@ -821,6 +821,31 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       decide: true,
     },
   ],
+  [
+    "perplexity-decider",
+    {
+      name: "perplexity-decider",
+      defaultModel: "pplx-decider-v1-27b",
+      // A hosted API with a public endpoint, so the key alone configures it.
+      // It is the same PERPLEXITY_API_KEY the `perplexity` text provider reads.
+      envVars: ["PERPLEXITY_API_KEY"],
+      // Serves only `decide`, like the other decision providers: every
+      // generation capability is false because it emits no text at all.
+      text: false,
+      streaming: false,
+      tools: false,
+      toolsWithStreaming: false,
+      structuredOutput: false,
+      structuredOutputWithTools: false,
+      vision: false,
+      embeddings: false,
+      thinking: false,
+      imageGeneration: false,
+      videoGeneration: false,
+      tts: false,
+      decide: true,
+    },
+  ],
 ];
 
 export const PROVIDERS: Record<string, ProviderEntry> =

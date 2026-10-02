@@ -1571,3 +1571,22 @@ export function createXorConfig(): ProviderConfigOptions {
     ],
   };
 }
+
+/**
+ * Perplexity Decisions API — the `decide` inference type, not the Sonar text
+ * models. It reads the same PERPLEXITY_API_KEY as the `perplexity` text
+ * provider and has a public endpoint, so the key alone configures it.
+ */
+export function createPerplexityDeciderConfig(): ProviderConfigOptions {
+  return {
+    providerName: "Perplexity Decisions",
+    envVarName: "PERPLEXITY_API_KEY",
+    setupUrl: "https://console.perplexity.ai",
+    description: "API key for the Perplexity Decisions API",
+    instructions: [
+      "1. Create an API key in the Perplexity console (https://console.perplexity.ai)",
+      "2. Set PERPLEXITY_API_KEY; it is the same key the Perplexity text provider reads, so setting it also lets decide() use Perplexity when no other decision provider is configured",
+      "3. Optionally set PERPLEXITY_DECIDER_BASE_URL to an origin other than https://api.perplexity.ai (NeuroLink calls <base>/v1/decisions)",
+    ],
+  };
+}

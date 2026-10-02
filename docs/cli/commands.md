@@ -218,27 +218,27 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 npx @juspay/neurolink decide --state-file ticket.json \
   --questions-file questions.json --format json
 
-# Ask about an image (XOR only); repeat --image for several, or use --video
+# Ask about an image (XOR and Perplexity read images); repeat --image for several, or use --video (XOR)
 npx @juspay/neurolink decide "What color is this?" --provider xor \
   --image ./photo.png \
   --questions '{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}'
 ```
 
-| Option                      | Description                                                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `state`                     | The content to judge, as a positional argument (or use `--state-file`).                                                       |
-| `--state-file <path>`       | Path to a file holding the state (plain text or JSON).                                                                        |
-| `--questions <json>`        | Inline JSON map of questions. Exactly one of this or `--questions-file`.                                                      |
-| `--questions-file <path>`   | Path to a JSON file holding the questions map.                                                                                |
-| `--provider <name>`         | Decision provider to use: `typesafe`, `laya` or `xor`. Defaults to the first configured, in that order (TypeSafe, Laya, XOR). |
-| `--model <name>`            | Overrides the provider's configured model for this call.                                                                      |
-| `--image <path>`            | An image for the model to read, as a file path or a `data:` URL. Repeat the flag for several (XOR takes up to 8).             |
-| `--video <path>`            | One video for the model to read (MP4, MOV or WebM), as a file path or a `data:` URL. Prefer one kind of media per request.    |
-| `--timeout <ms>`            | Timeout in milliseconds.                                                                                                      |
-| `--format text\|json`, `-f` | Output format (default: `text`). With `json`, stdout carries only the result.                                                 |
-| `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                                                                |
+| Option                      | Description                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state`                     | The content to judge, as a positional argument (or use `--state-file`).                                                                                         |
+| `--state-file <path>`       | Path to a file holding the state (plain text or JSON).                                                                                                          |
+| `--questions <json>`        | Inline JSON map of questions. Exactly one of this or `--questions-file`.                                                                                        |
+| `--questions-file <path>`   | Path to a JSON file holding the questions map.                                                                                                                  |
+| `--provider <name>`         | Decision provider to use: `typesafe`, `laya`, `xor` or `perplexity-decider`. Defaults to the first configured, in that order (TypeSafe, Laya, XOR, Perplexity). |
+| `--model <name>`            | Overrides the provider's configured model for this call.                                                                                                        |
+| `--image <path>`            | An image for the model to read, as a file path or a `data:` URL. Repeat the flag for several (XOR and Perplexity take up to 8).                                 |
+| `--video <path>`            | One video for the model to read (MP4, MOV or WebM), as a file path or a `data:` URL. Prefer one kind of media per request.                                      |
+| `--timeout <ms>`            | Timeout in milliseconds, used as given. Perplexity's default is 10 seconds plus 100 ms a question; raise it for a state of more than about 100,000 real tokens. |
+| `--format text\|json`, `-f` | Output format (default: `text`). With `json`, stdout carries only the result.                                                                                   |
+| `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                                                                                                  |
 
-Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command: TypeSafe reads `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route), Laya reads `LAYA_API_KEY` and `LAYA_BASE_URL` (required: Laya has no built-in endpoint), and XOR reads `XOR_API_KEY` and `XOR_BASE_URL` (required: XOR has no built-in endpoint), from the environment. Media is checked before any request: an `http(s)` URL, a missing or empty file, a file that is not an image or a video, more than 8 images and a request body over 8 MB are refused with no network call, and TypeSafe and Laya refuse media outright. Images and a video together are allowed, but the model does not reliably tell the two apart, so send one kind of media per request. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
+Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command: TypeSafe reads `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route), Laya reads `LAYA_API_KEY` and `LAYA_BASE_URL` (required: Laya has no built-in endpoint), XOR reads `XOR_API_KEY` and `XOR_BASE_URL` (required: XOR has no built-in endpoint), and Perplexity reads `PERPLEXITY_API_KEY` alone (it has a hosted endpoint; `PERPLEXITY_DECIDER_BASE_URL` can name another origin), from the environment. `PERPLEXITY_API_KEY` is also the Perplexity text provider's key, so setting it for that provider configures `decide` too, tried after TypeSafe, Laya and XOR. Media is checked before any request: an `http(s)` URL, a missing or empty file, a file that is not an image or a video, more than 8 images and a request body over the provider's limit (8 MB for XOR, 32 MiB for Perplexity) are refused with no network call, TypeSafe and Laya refuse media outright, and Perplexity refuses `--video`, any image that is not PNG, JPEG or WebP, and any image over 2,048 tiles of 32 × 32 pixels (a larger one stalls the API for about a minute before it answers 504). Images and a video together are allowed, but the model does not reliably tell the two apart, so send one kind of media per request. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
 
 ### `batch <file>` {#batch}
 

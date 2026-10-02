@@ -27,6 +27,7 @@ import { groqManifest } from "./manifests/groq.js";
 import { typesafeManifest } from "./manifests/typesafe.js";
 import { layaManifest } from "./manifests/laya.js";
 import { xorManifest } from "./manifests/xor.js";
+import { perplexityDeciderManifest } from "./manifests/perplexityDecider.js";
 import { cohereManifest } from "./manifests/cohere.js";
 import { togetherAiManifest } from "./manifests/together-ai.js";
 import { fireworksManifest } from "./manifests/fireworks.js";
@@ -136,6 +137,7 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   typesafe: typesafeManifest,
   laya: layaManifest,
   xor: xorManifest,
+  "perplexity-decider": perplexityDeciderManifest,
   cerebras: catalogManifest("cerebras"),
   sambanova: catalogManifest("sambanova"),
   cohere: cohereManifest,

@@ -111,17 +111,28 @@ failure and is what every internal consumer uses — plus the CLI's
 `neurolink decide [state]`, a thin wrapper over `decide()` (`src/cli/commands/decide.ts`).
 
 **Decision providers; descriptor order is precedence.** TypeSafe (Jev,
-hosted), Laya (open weights, at a configured base URL — there is no default) and
+hosted), Laya (open weights, at a configured base URL — there is no default),
 XOR (open weights that also reads images and video, likewise at a configured base
-URL) all extend `SystemOneDecisionProvider` in `src/lib/providers/systemOneDecision.ts`,
+URL) and Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
+images, no video, at the public `https://api.perplexity.ai`, so a key alone
+configures it) all extend `SystemOneDecisionProvider` in
+`src/lib/providers/systemOneDecision.ts`,
 which owns the request loop, retries, the auth circuit breaker and answer
 parsing; each provider supplies only its endpoint, headers, body and error
 parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
-entry with a key set, in descriptor order, so TypeSafe's entry sitting before
-Laya's, and Laya's before XOR's, is what makes TypeSafe win whenever either of its
-keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY` or
-`XOR_API_KEY`. Reordering them
+entry that is fully configured (a key, plus a base URL for Laya and XOR, which
+have no built-in endpoint), in descriptor order, so TypeSafe's entry sitting before
+Laya's, Laya's before XOR's, and XOR's before Perplexity's, is what makes TypeSafe
+win whenever either of its keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`) is set
+alongside `LAYA_API_KEY`, `XOR_API_KEY` or `PERPLEXITY_API_KEY`. Reordering them
 changes which model every built-in consumer uses.
+
+**Perplexity's key is shared with the `perplexity` text provider.** Both read
+`PERPLEXITY_API_KEY`, so an ambient key set only for Sonar also configures
+`decide`, as the fallback after TypeSafe, Laya and XOR. Any test that asserts the
+"nothing configured" path must blank `PERPLEXITY_API_KEY` as well as the other
+decision keys, and docs must say so plainly. `credentials.perplexity` (the text
+provider's slice) does not configure it; `credentials.perplexityDecider` does.
 
 **`decisionLimits` refuses what a model cannot read.** A descriptor may declare
 `decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an
@@ -134,9 +145,28 @@ measured per-checkpoint rate (`nonAsciiTokensPerChar`: 1.5, or 0.6 on
 `multilingual`), since the ~4-characters-per-token estimate is several times
 too generous for non-Latin scripts. TypeSafe declares none and relies on its
 server. XOR declares a conservative 200,000-token state window, no question cap, and
-is the only provider with `media` (up to 8 images and one video per request, prepared
-by `src/lib/utils/decisionMedia.ts`); every other provider refuses media before any
-request.
+`media` of up to 8 images and one video per request (prepared by
+`src/lib/utils/decisionMedia.ts`). Perplexity declares a 100,000-token state
+window, 128 questions and `media` of up to 8 images and no video, with a 32 MiB
+body. Measured on a real account in October 2026: the 128-question and 8-image
+caps, the 262,144-token input ceiling, the non-ASCII rates and the stall on large
+images. Taken from Perplexity's documentation and not measured: the 32 MiB body,
+and the 2,048-tile rule behind the image check (three image sizes were probed and
+agree with it; the edge itself was not). The 100,000 is a deliberate local
+window, not a measurement and not the server's limit: the server reads 262,144
+input tokens in all and refuses more with an explicit 400, which the provider
+reports as `max_tokens_exceeded`. Non-ASCII text is charged 0.5 per character
+(measured: CJK 0.46, Devanagari 0.44), a ninth image is refused with a 400, and
+the estimate (3.81 characters per token) over-counts English prose (4.34
+measured) and runs about 13% low on minified JSON (3.36), which stays far under
+the ceiling at the window (about 113,000 real tokens), and much lower on log lines
+(1.35, about 281,000 real tokens at the window) and arrays of numbers (1.16, about
+328,000), so a state of either, or emoji-heavy text, can pass the window and
+still be refused. The
+provider also checks image format and the 2,048-tile cap per image locally,
+because a larger image stalls the API for about a minute before an HTML 504. XOR
+and Perplexity are the providers with `media`; every other provider refuses media
+before any request.
 
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20

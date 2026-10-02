@@ -8,8 +8,8 @@ keywords: xor, decide, decision model, open weights, images, video, litellm, cal
 
 **A provider of `decide`** — the same typed `boolean` / `choice` /
 `score` answers as [TypeSafe's Jev](typesafe.md) and [Laya](laya.md), from
-Juspay's open-weights model, and the one that also reads images and a video. It
-emits no text at all.
+Juspay's open-weights model, which also reads images and a video. It emits no
+text at all.
 
 ---
 
@@ -112,7 +112,8 @@ neurolink decide "We were billed twice for March." --provider xor \
 
 ## Images and video
 
-XOR reads images and one video alongside the `state`. TypeSafe and Laya do not.
+XOR reads images and one video alongside the `state`. TypeSafe and Laya do not
+read media, and [Perplexity](perplexity-decider.md) reads images but no video.
 
 ```typescript
 import { readFile } from "node:fs/promises";
@@ -180,7 +181,7 @@ The rules:
   cannot decode are sent, and the server's refusal comes back as a `server`
   error, retried once.
 - **TypeSafe and Laya refuse media too**, before any request, and the error
-  names the providers that accept it.
+  names the providers that accept it. Perplexity refuses a video.
 - **Images and a video can be sent together** (up to 8 images and one video),
   but the model does not reliably tell the two apart.
 - **The result carries `mediaBytes`**, the encoded size of the media sent. The
@@ -194,19 +195,24 @@ The rules:
 Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured, in the environment or in the
-`credentials` passed to the SDK, in the order TypeSafe, Laya, XOR. TypeSafe
-counts with either of its keys, `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya
-and XOR each count only with both their key and their base URL. A caller can
-always name XOR with `provider: "xor"`. So:
+`credentials` passed to the SDK, in the order TypeSafe, Laya, XOR,
+[Perplexity](perplexity-decider.md). TypeSafe counts with either of its keys,
+`TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR each count only with
+both their key and their base URL. Perplexity counts with its key alone, which is
+shared with Perplexity's text provider. A caller can always name XOR with
+`provider: "xor"`. So:
 
 - **A TypeSafe key, or Laya's key and base URL, plus XOR's key and base URL:**
   built-in features use TypeSafe or Laya, in that order; XOR runs only where a
   caller asks for `provider: "xor"`.
+- **XOR's key and base URL, plus a Perplexity key:** built-in features use XOR;
+  Perplexity runs only where a caller asks for
+  `provider: "perplexity-decider"`.
 - **Only XOR's key and base URL:** built-in features use XOR.
 - **An XOR key with no base URL:** XOR is not configured. Built-in features
   ignore it, and `provider: "xor"` fails with `XOR requires a base URL`.
-- **None of them:** everything behaves exactly as it did without a decision
-  model.
+- **None of TypeSafe, Laya, XOR or Perplexity:** everything behaves exactly as
+  it did without a decision model.
 
 ---
 
@@ -326,5 +332,6 @@ key, long hex runs and embedded `data:` URLs.
 
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
 - [Laya Provider Guide](laya.md)
+- [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [XOR on Hugging Face](https://huggingface.co/juspay/xor)

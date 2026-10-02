@@ -9,7 +9,8 @@ keywords: typesafe, jev, decide, decision model, calibrated confidence, routing,
 **One of the providers that serve `decide` rather than `generate`/`stream`** —
 it returns typed, calibrated judgments and emits no text at all. The others are
 [Laya](laya.md) and [XOR](xor.md), open-weights models served from an endpoint
-you configure; TypeSafe runs first when more than one is configured.
+you configure, and [Perplexity](perplexity-decider.md), a hosted API. When more
+than one is configured, TypeSafe is tried before the others.
 
 ---
 
@@ -35,8 +36,8 @@ unreachable in normal use.
 
 - **Provider id**: `typesafe` (aliases: `jev`, `typesafe-ai`)
 - **Inference kinds**: `decide` only — one of the providers that do (the others
-  are [Laya](laya.md) and [XOR](xor.md)); TypeSafe runs first when more than one
-  is configured
+  are [Laya](laya.md), [XOR](xor.md) and [Perplexity](perplexity-decider.md));
+  TypeSafe is tried before them when more than one is configured
 - **Tool calling**: none (`toolSupport: "none"`) — a decision model calls nothing
 - **Health check**: `env-only`; it is never probed with a live generation
 - **Default decide timeout**: 5000 ms (`timeouts.decideMs`)
@@ -62,7 +63,7 @@ Create one at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
 ### 2. Configure
 
 ```bash
-export TYPESAFE_API_KEY=apikey_...      # the only switch
+export TYPESAFE_API_KEY=apikey_...      # enables TypeSafe
 export TYPESAFE_MODEL=jev-latest        # optional
 export TYPESAFE_BASE_URL=https://api.typesafe.ai  # optional
 ```
@@ -117,10 +118,14 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 
 ## The degradation contract
 
-**Setting the key is the entire switch, and removing it is a complete undo.**
-Every internal consumer of `decide` fails open: with no decision provider
-configured, model routing, context budgeting, relevance compaction, tool routing
-and RAG planning all behave exactly as they did before. There is no
+**Setting the key is the entire switch for TypeSafe, and removing it is a
+complete undo while no other decision provider is configured.** Every internal
+consumer of `decide` fails open: with no decision provider configured, model
+routing, context budgeting, relevance compaction, tool routing and RAG planning
+all behave exactly as they did before. Note that Perplexity's key is shared with
+its text provider, so a `PERPLEXITY_API_KEY` set for that provider also counts as
+a configured decision provider; see
+[One key, two providers](perplexity-decider.md#one-key-two-providers). There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour.
 
@@ -209,5 +214,7 @@ not a substitute for the reported confidence, is in
 
 - [The `decide` inference type](/docs/features/decide-inference-type) — the full reference
 - [Model routing with a decision model](/docs/features/classifier-router-jev-strategy)
+- [Laya Provider Guide](laya.md)
 - [XOR Provider Guide](xor.md)
+- [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Provider setup overview](/docs/getting-started/provider-setup)

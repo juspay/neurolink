@@ -115,6 +115,11 @@ export enum AIProviderName {
   LAYA = "laya",
   /** XOR (Juspay, open weights) — serves the `decide` inference type only. */
   XOR = "xor",
+  /**
+   * Perplexity Decisions API (`pplx-decider-v1-27b`) — serves the `decide`
+   * inference type only. Distinct from `PERPLEXITY`, the Sonar text provider.
+   */
+  PERPLEXITY_DECIDER = "perplexity-decider",
   AUTO = "auto",
 }
 
@@ -2222,4 +2227,13 @@ export enum LayaModels {
  */
 export enum XorModels {
   XOR_1_1 = "xor-1.1",
+}
+
+/**
+ * Perplexity decision models. Hand-written: the Decisions API is a Tier-3
+ * provider, so it is not in the provider catalog and codegen never touches
+ * this. The API serves one model and answers 400 to a missing or unknown one.
+ */
+export enum PerplexityDeciderModels {
+  PPLX_DECIDER_V1_27B = "pplx-decider-v1-27b",
 }

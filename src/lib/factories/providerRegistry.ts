@@ -28,6 +28,7 @@ import {
   TypeSafeModels,
   LayaModels,
   XorModels,
+  PerplexityDeciderModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
@@ -675,6 +676,36 @@ export class ProviderRegistry {
         process.env.XOR_MODEL || XorModels.XOR_1_1,
         [],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR),
+      );
+
+      // Register the Perplexity Decisions API — a `decide` provider reached at
+      // Perplexity's public endpoint. Its descriptor declares inferenceKinds:
+      // ["decide"], so nothing in the generation fallback chain can reach it,
+      // and it is registered apart from the `perplexity` text provider.
+      ProviderFactory.registerProvider(
+        AIProviderName.PERPLEXITY_DECIDER,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: NeuroLink,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const perplexityDeciderCreds =
+            credentials as NeurolinkCredentials["perplexityDecider"];
+          const { PerplexityDeciderProvider } =
+            await import("../providers/perplexityDecider.js");
+          return new PerplexityDeciderProvider(
+            modelName,
+            sdk,
+            undefined,
+            perplexityDeciderCreds,
+          );
+        },
+        process.env.PERPLEXITY_DECIDER_MODEL ||
+          PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
+        [],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.PERPLEXITY_DECIDER),
       );
 
       logger.debug("All AI providers registered successfully");

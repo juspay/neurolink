@@ -243,25 +243,27 @@ protocol), and 20 catalog providers whose base URL is a plain env override
 (every catalog provider except `cloudflare`, which needs a
 `computedBaseURL`/account-id template the mock can't satisfy — see below).
 
-**13 providers not covered**, each for a structural reason (no silent caps —
+**The providers not covered** are listed below, each for a structural reason (no silent caps —
 the suite itself throws at import time if a `PROVIDERS` entry is in neither
 list):
 
-| Provider     | Reason                                                                                                                                                                               |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `vertex`     | Signed Google Cloud client (service account / ADC), not a plain bearer-token HTTP call; no base-URL override, credentials can't be faked with a static string.                       |
-| `google-ai`  | Speaks Google's Gemini wire protocol — a third protocol family this gate's mock does not implement (only OpenAI-compatible and Anthropic Messages are).                              |
-| `bedrock`    | AWS SigV4-signed requests via the AWS SDK — same class of problem as vertex.                                                                                                         |
-| `sagemaker`  | AWS SigV4-signed requests via the AWS SDK — same class of problem as vertex.                                                                                                         |
-| `cloudflare` | Catalog entry declares a `baseURLTemplate` with a hardcoded `api.cloudflare.com` host; only the `{accountId}` path segment is overridable via `CLOUDFLARE_ACCOUNT_ID`, not the host. |
-| `voyage`     | Embeddings-only (`text: false`) — no chat surface for cells 1-3, and its embeddings wire shape is a custom protocol not implemented here.                                            |
-| `jina`       | Embeddings/reranking-only (`text: false`) — same reasoning as voyage.                                                                                                                |
-| `stability`  | Image-generation-only (`text: false`) — no chat surface, image generation out of scope.                                                                                              |
-| `ideogram`   | Image-generation-only (`text: false`) — same as stability.                                                                                                                           |
-| `recraft`    | Image-generation-only (`text: false`) — same as stability.                                                                                                                           |
-| `replicate`  | Predictions API (poll-based, `streaming: false`) — a custom protocol distinct from both implemented protocol families.                                                               |
-| `typesafe`   | Decide-only (`SystemOneDecisionProvider`) — every generation capability is `false`; no text surface for any cell.                                                                    |
-| `laya`       | Decide-only, like typesafe — no text surface for any cell.                                                                                                                           |
+| Provider             | Reason                                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `vertex`             | Signed Google Cloud client (service account / ADC), not a plain bearer-token HTTP call; no base-URL override, credentials can't be faked with a static string.                       |
+| `google-ai`          | Speaks Google's Gemini wire protocol — a third protocol family this gate's mock does not implement (only OpenAI-compatible and Anthropic Messages are).                              |
+| `bedrock`            | AWS SigV4-signed requests via the AWS SDK — same class of problem as vertex.                                                                                                         |
+| `sagemaker`          | AWS SigV4-signed requests via the AWS SDK — same class of problem as vertex.                                                                                                         |
+| `cloudflare`         | Catalog entry declares a `baseURLTemplate` with a hardcoded `api.cloudflare.com` host; only the `{accountId}` path segment is overridable via `CLOUDFLARE_ACCOUNT_ID`, not the host. |
+| `voyage`             | Embeddings-only (`text: false`) — no chat surface for cells 1-3, and its embeddings wire shape is a custom protocol not implemented here.                                            |
+| `jina`               | Embeddings/reranking-only (`text: false`) — same reasoning as voyage.                                                                                                                |
+| `stability`          | Image-generation-only (`text: false`) — no chat surface, image generation out of scope.                                                                                              |
+| `ideogram`           | Image-generation-only (`text: false`) — same as stability.                                                                                                                           |
+| `recraft`            | Image-generation-only (`text: false`) — same as stability.                                                                                                                           |
+| `replicate`          | Predictions API (poll-based, `streaming: false`) — a custom protocol distinct from both implemented protocol families.                                                               |
+| `typesafe`           | Decide-only (`SystemOneDecisionProvider`) — every generation capability is `false`; no text surface for any cell.                                                                    |
+| `laya`               | Decide-only, like typesafe — no text surface for any cell.                                                                                                                           |
+| `xor`                | Decide-only, like typesafe and laya — no text surface for any cell.                                                                                                                  |
+| `perplexity-decider` | Decide-only, like typesafe, laya and xor — no text surface for any cell. Distinct from the `perplexity` text provider, which the gate covers.                                        |
 
 Cells 4 (tools), 5 (structured output), 6 (thinking) and 7 (embeddings) run
 only where the covered provider's row/catalog descriptor declares that

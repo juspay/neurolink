@@ -107,9 +107,11 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured — in the environment or in
 the `credentials` passed to the SDK — in the order TypeSafe, Laya,
-[XOR](xor.md). TypeSafe has two keys, `TYPESAFE_API_KEY` and
-`AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and either one counts. Laya
-counts only with both its key and its base URL, and so does XOR. So:
+[XOR](xor.md), [Perplexity](perplexity-decider.md). TypeSafe has two keys,
+`TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and
+either one counts. Laya counts only with both its key and its base URL, and so
+does XOR. Perplexity counts with its key alone, and that key,
+`PERPLEXITY_API_KEY`, is shared with Perplexity's text provider. So:
 
 - **A TypeSafe key, plus Laya's key and base URL:** built-in features use
   TypeSafe; Laya runs only where a caller asks for `provider: "laya"`.
@@ -118,8 +120,11 @@ counts only with both its key and its base URL, and so does XOR. So:
   only where a caller asks for `provider: "xor"`.
 - **A Laya key with no base URL:** Laya is not configured. Built-in features
   ignore it, and `provider: "laya"` fails with `Laya requires a base URL`.
-- **None of TypeSafe, Laya or XOR:** everything behaves exactly as it did
-  without a decision model.
+- **Laya's key and base URL, plus a Perplexity key:** built-in features use
+  Laya; Perplexity runs only where a caller asks for
+  `provider: "perplexity-decider"`.
+- **None of TypeSafe, Laya, XOR or Perplexity:** everything behaves exactly as
+  it did without a decision model.
 
 ---
 
@@ -204,4 +209,5 @@ export LAYA_BASE_URL=http://127.0.0.1:8000
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
 - [XOR Provider Guide](xor.md)
+- [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Laya on GitHub](https://github.com/NandhaKishorM/laya)

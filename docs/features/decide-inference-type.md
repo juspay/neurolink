@@ -6,18 +6,18 @@
 
 NeuroLink recognises three inference types. Two of them produce text:
 
-| Type         | Call                     | Produces                                   |
-| ------------ | ------------------------ | ------------------------------------------ |
-| `generate`   | `neurolink.generate()`   | text                                       |
-| `stream`     | `neurolink.stream()`     | text, incrementally                        |
-| **`decide`** | **`neurolink.decide()`** | **typed, calibrated judgements — no text** |
+| Type         | Call                     | Produces                       |
+| ------------ | ------------------------ | ------------------------------ |
+| `generate`   | `neurolink.generate()`   | text                           |
+| `stream`     | `neurolink.stream()`     | text, incrementally            |
+| **`decide`** | **`neurolink.decide()`** | **typed judgements — no text** |
 
 A **decision model** takes one `state` plus a map of named, typed questions and
 returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
 of prose. The decide providers are TypeSafe's **Jev**, Convai Innovations'
-open-weights **Laya** and Juspay's open-weights **XOR**, which also reads images
-and video.
+open-weights **Laya**, Juspay's open-weights **XOR**, which also reads images and
+video, and Perplexity's hosted **Decisions** API, which also reads images.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -44,12 +44,17 @@ decision provider slots in without changing any call site.
 ### Confidence is not probability
 
 `probabilities` says _what_ the model thinks. `confidence` says _whether you
-should act on it_. It is calibrated — derived from the distribution, not
-self-reported — which is what makes it usable as a gate.
+should act on it_. On TypeSafe's Jev it is calibrated — derived from the
+distribution, not self-reported — which is what makes it usable as a gate. Each
+provider reports its own: Perplexity's is, in Perplexity's words, the model's own
+certainty estimate and not the top probability, Perplexity does not call it
+calibrated, and NeuroLink has not measured whether it is, so tune a threshold on
+your own data (see the
+[Perplexity guide](../getting-started/providers/perplexity-decider.md)).
 
 **Calibration is a property of _groups_ of answers, not a promise about any
-one.** Across many answers, those scored 0.8 are right about 80% of the time.
-It does not mean a specific 0.8 answer is right.
+one.** Where a confidence is calibrated, answers scored 0.8 are right about 80%
+of the time across many answers. It does not mean a specific 0.8 answer is right.
 
 A `boolean` carries no confidence of its own. Use `decisionBooleanConfidence(p)`
 — distance from a coin flip, so 0.5 → 0 and 0/1 → 1. Note also that a `boolean`
@@ -62,7 +67,7 @@ question shape does not transfer to another.
 ## Enabling it
 
 ```bash
-export TYPESAFE_API_KEY=apikey_...     # the only switch
+export TYPESAFE_API_KEY=apikey_...     # enables TypeSafe
 export TYPESAFE_MODEL=jev-latest       # optional
 export TYPESAFE_BASE_URL=https://api.typesafe.ai  # optional
 ```
@@ -105,22 +110,63 @@ provider, exactly as the environment does. On a LiteLLM proxy the key's team
 must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
 
 Built-in features use the first configured decision provider in the order
-TypeSafe, Laya, XOR. XOR counts as configured only with both its key and its
-base URL, and runs where a caller names it (`provider: "xor"`) or when neither
-of the others is configured. It is the one that reads images and video; see
+TypeSafe, Laya, XOR, Perplexity. XOR counts as configured only with both its key
+and its base URL, and runs where a caller names it (`provider: "xor"`) or when
+neither TypeSafe nor Laya is configured. It reads images and video; see
 [Images and video](#images-and-video) and the
 [XOR provider guide](../getting-started/providers/xor.md).
 
+### Perplexity, at its hosted endpoint
+
+```bash
+export PERPLEXITY_API_KEY=pplx-...                      # required; also the Sonar text provider's key
+export PERPLEXITY_DECIDER_MODEL=pplx-decider-v1-27b     # optional
+export PERPLEXITY_DECIDER_BASE_URL=https://api.perplexity.ai   # optional: an origin
+```
+
+Perplexity's `pplx-decider-v1-27b` is a hosted API at a public endpoint, so a key
+alone configures it and there is no base URL to set. NeuroLink calls
+`<base URL>/v1/decisions`; a trailing `/v1` on an override is accepted. The key
+can equally come from the config passed to the SDK,
+`new NeuroLink({ credentials: { perplexityDecider: { apiKey } } })`, or per call;
+config set there counts when a `decide()` call picks the default decision
+provider, exactly as the environment does. The classifier router's `auto` gate is
+read differently: it looks at the constructor's credentials and the environment
+only, so a `credentials.perplexityDecider` passed on one call does not influence
+it. The provider id is `perplexity-decider`: the `perplexity` provider is the
+Sonar text provider, which serves `generate()` and `stream()` and not `decide()`.
+
+**`PERPLEXITY_API_KEY` is shared with that text provider.** A host that set it
+only to use Sonar has therefore also configured `decide`, and built-in features
+will use Perplexity whenever none of TypeSafe, Laya or XOR is configured.
+Perplexity comes after XOR in descriptor order, so it never displaces one that
+is. Context compaction's relevance stage and summary gate need no opt-in of their
+own, so earlier conversation text starts going to Perplexity the first time a
+conversation outgrows its budget; model routing, tool routing and RAG planning do
+nothing unless enabled. To keep the shared key from activating decisions, pass
+the text provider's key as `credentials.perplexity` instead of through the
+environment, and keep it out of `.env` too, because the SDK and the CLI load that
+file into the environment, or configure one of TypeSafe, Laya and XOR, which then
+receives those texts instead. The Perplexity provider guide lists
+[what each consumer sends](../getting-started/providers/perplexity-decider.md#what-is-sent-to-perplexity)
+and the
+[exact switches](../getting-started/providers/perplexity-decider.md#one-key-two-providers).
+It reads images but no video; see [Images and video](#images-and-video).
+
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
-`undefined` when no decision provider has its key set, and `tryDecide()` returns
-`null` on any failure. There is no configuration in which a missing, invalid,
-slow or unreachable decision model changes NeuroLink's observable behaviour —
-it only ever falls back to what it did before.
+`undefined` when no decision provider is configured (a key, plus a base URL for
+Laya and XOR), and `tryDecide()` returns `null` on any failure. There is no
+configuration in which a missing, invalid, slow or unreachable decision model
+changes NeuroLink's observable behaviour — it only ever falls back to what it did
+before.
 
 A credential the service does not accept disables that provider instance rather
 than paying a round trip on every later call to be told so again. An XOR 403 or
 402 is not that case: on a LiteLLM proxy it means the key's team lacks the model
-or the budget, which an admin can fix, so the instance is not disabled.
+or the budget, which an admin can fix, so the instance is not disabled. For
+Perplexity only a 401 is that case: a 413 or a 400 over the model's context length
+is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4xx
+is a non-retried `invalid_request`.
 
 ---
 
@@ -249,7 +295,8 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 ```
 
 To ask about an image or a video, add `--image <path>` (repeatable) or
-`--video <path>`; only XOR reads media:
+`--video <path>`. XOR reads both, Perplexity reads images only, and TypeSafe and
+Laya read neither:
 
 ```bash
 npx @juspay/neurolink decide "A product photo from a listing." --provider xor \
@@ -271,12 +318,13 @@ single request. This is the basis for picking from a large catalogue.
 
 ## Images and video
 
-A decision provider whose descriptor declares media limits reads images and one
-video alongside `state`. XOR does; TypeSafe and Laya do not. Two optional fields
+A decision provider whose descriptor declares media limits reads images, and
+possibly one video, alongside `state`. XOR does, and so does Perplexity, which
+declares images only and no video; TypeSafe and Laya do not. Two optional fields
 on the request carry them, for `decide()` and `tryDecide()` alike:
 
-- `images` — up to 8 images, the limit XOR declares.
-- `video` — one video.
+- `images` — up to 8 images, the limit XOR and Perplexity each declare.
+- `video` — one video, for a provider that declares video (XOR).
 
 Each image and the video takes the same three input forms:
 
@@ -303,7 +351,8 @@ console.log(result.mediaBytes); // encoded size of the images sent
 NeuroLink identifies a Buffer or a file from its bytes, not its extension — PNG,
 JPEG, WebP and GIF images, and MP4, MOV and WebM video —
 and sends it as a `data:` URL. A `data:` URL you pass yourself must hold base64
-image or video content, and is sent as given.
+image or video content, and is sent as given. Perplexity reads PNG, JPEG and
+WebP only, and refuses a GIF before any request.
 
 **What is refused.** Everything NeuroLink can check is refused before any
 request, as a non-retryable `invalid_request`:
@@ -315,13 +364,18 @@ request, as a non-retryable `invalid_request`:
 - a missing file, a directory, or an empty Buffer or file;
 - something that is not an image or a video;
 - more than 8 images;
-- a request body over 8 MB. The limit applies to the encoded body, so the base64
-  form counts. A file over it is refused from its size, before it is read;
+- a request body over the provider's limit: 8 MB for XOR, 32 MiB for Perplexity.
+  The limit applies to the encoded body, so the base64 form counts. A file over
+  it is refused from its size, before it is read;
+- a video sent to a provider that declares no video (Perplexity);
+- an image Perplexity cannot read: one of another type, or over 2,048 tiles of
+  32 × 32 pixels, which the API would otherwise hold for about a minute before
+  answering 504;
 - any media sent to a provider that declares no media capability (TypeSafe,
   Laya). The message names the providers that accept media.
 
-**Images and a video can be sent together** (up to 8 images and one video), but
-the model does not reliably tell the two apart.
+**Images and a video can be sent together** to XOR (up to 8 images and one
+video), but the model does not reliably tell the two apart.
 
 The result carries `mediaBytes`, the encoded size of the media sent. The
 `decide` spans carry `decision.images.count` and `decision.media.bytes`, and
@@ -335,7 +389,8 @@ and silently ignores images, which NeuroLink cannot detect; see the
 
 This inverts the instinct you have from LLMs.
 
-**Question count barely affects latency** (measured against the live API):
+**On TypeSafe, question count barely affects latency** (measured against its live
+API):
 
 | questions | round trip | input tokens |
 | --------- | ---------- | ------------ |
@@ -344,14 +399,21 @@ This inverts the instinct you have from LLMs.
 | 100       | 423 ms     | 2 281        |
 | 400       | 465 ms     | 8 581        |
 
-400 questions cost ~70 ms more than one. **Concurrent requests, by contrast,
-queue**: ten parallel calls take ~1.4 s wall with nine landing together at the
-end, while the server's own upstream time stays flat at 64–169 ms.
+> These are TypeSafe's figures. `perplexity-decider` differs: about 0.3 to 1.1 s
+> for one question, about 65 ms for each further question (a request takes at
+> most 128), and an input time that grows faster than linearly with size: 3.9 s
+> at 65,000 tokens, 10 s at 146,000 and 22.9 s at 251,000. See
+> [its latency section](../getting-started/providers/perplexity-decider.md#latency-and-the-timeout).
 
-So 400 things in one request takes ~465 ms; the same 400 as separate requests
-takes roughly a minute. Add every question you _might_ need to the call you are
-already making — speculative questions are nearly free, a second round trip is
-not.
+On TypeSafe, 400 questions cost ~70 ms more than one. **Concurrent requests, by
+contrast, queue**: ten parallel calls take ~1.4 s wall with nine landing together
+at the end, while the server's own upstream time stays flat at 64–169 ms.
+
+So on TypeSafe, 400 things in one request take ~465 ms; the same 400 as separate
+requests take roughly a minute. Add every question you _might_ need to the call
+you are already making — speculative questions are nearly free on TypeSafe (on
+Perplexity each costs about 65 ms, up to 128 in a request), and a second round
+trip is not.
 
 ---
 
@@ -365,14 +427,18 @@ provider is configured and `heuristic` when not.
 
 One request asks for the difficulty tier, whether the task needs
 vision/tools/reasoning, whether carrying it out is risky, **and** which pool
-member to use — all at once, in ~400 ms.
+member to use — all at once, in ~400 ms on TypeSafe's Jev.
 
-|                        | `heuristic`   | `llm`                           | `jev`      |
-| ---------------------- | ------------- | ------------------------------- | ---------- |
-| Added latency          | 0 ms          | ~1–8 s                          | ~400 ms    |
-| Cost per decision      | none          | a full LLM call                 | ~$0.00002  |
-| Confidence             | keyword score | self-reported (defaults to 0.7) | calibrated |
-| Picks a model directly | no            | yes                             | yes        |
+|                        | `heuristic`   | `llm`                           | `jev`                                               |
+| ---------------------- | ------------- | ------------------------------- | --------------------------------------------------- |
+| Added latency          | 0 ms          | ~1–8 s                          | ~400 ms on TypeSafe                                 |
+| Cost per decision      | none          | a full LLM call                 | ~$0.00002 on TypeSafe                               |
+| Confidence             | keyword score | self-reported (defaults to 0.7) | as the provider reports it (calibrated on TypeSafe) |
+| Picks a model directly | no            | yes                             | yes                                                 |
+
+The `jev` column is TypeSafe's figures; the
+[Perplexity guide](../getting-started/providers/perplexity-decider.md) gives its
+latency and the confidence it reports.
 
 Thresholds are **asymmetric**, because the two mistakes do not cost the same:
 `minUpgradeConfidence` defaults to 0.3 (spending more on a wrong guess costs
@@ -419,8 +485,11 @@ rubric, the invariant, and how the threshold scales the compaction target.
 
 Before the existing positional compaction stages run, an optional Stage 0
 asks, per eligible message, whether the current request still needs it — at
-~400 ms for the whole batch regardless of message count. Only plain
-user/assistant text is eligible, the most recent messages are never
+~400 ms for the whole batch regardless of message count (on TypeSafe;
+`perplexity-decider` differs, taking about 0.3 to 1.1 s for one question and about
+65 ms for each further one, plus an input time that grows faster than linearly
+with size).
+Only plain user/assistant text is eligible, the most recent messages are never
 touched, and a message is dropped only on a confident "no."
 
 |                   | Positional stages (1–4)            | Stage 0 (relevance)                                          |
@@ -437,10 +506,10 @@ Stage 3.
 
 The shipped tool router asks a generative model for `{servers: string[]}` on
 a 15-second budget — a shape that cannot express uncertainty. A decision
-model instead asks one calibrated yes/no question per server, and a server is
-excluded only on a confident "no" (`minDropConfidence` default 0.6), because
-dropping a needed server breaks the turn while keeping an unneeded one only
-costs a few tokens.
+model instead asks one yes/no question per server, answered with a probability,
+and a server is excluded only on a confident "no" (`minDropConfidence` default
+0.6), because dropping a needed server breaks the turn while keeping an unneeded
+one only costs a few tokens.
 
 A measured wording change moved unrelated servers from a mean probability of
 0.31 (dropping 12 of 39 unneeded servers) to a mean of 0.03 (dropping 37 of
@@ -485,7 +554,36 @@ the status is 413 or the message says the context was too long, and otherwise as
 `server`, retried once. XOR has no question cap in NeuroLink, and its server takes 2 to 255
 options on a `choice` or `score`.
 
-**Two separate size ceilings**, both enforced:
+**Perplexity's input ceiling covers more than the state.** Measured on a real
+account in October 2026: the server reads under 262,144 input tokens per request,
+counted over the state and the questions, and refuses input of 262,144 tokens or
+more with an explicit 400 instead of cutting the state off. Images are billed as
+input tokens, about one for each 32 × 32 tile plus about 95 for the image (a fit
+to three measured sizes), and are assumed to count toward the ceiling too; that
+was not measured. It takes at most 128 questions and 8 images. The documented
+32 MiB body limit was not measured. NeuroLink's own window is 100,000 estimated
+tokens of state, a deliberate local limit and not the server's; a state estimated
+above it, or more than 128 questions, is refused locally with
+`max_tokens_exceeded`. The estimate is about 3.8 characters per token for ASCII
+text and half a token per non-ASCII character (measured: CJK 0.46 tokens per
+character, Devanagari 0.44), and it counts the state's text only. Measured on
+40,000-character samples, it over-counts English prose (4.34 characters per
+token) and is close for TypeScript (3.84). It runs about 13% low on minified JSON
+(3.36), which stays far under the ceiling at the window: 380,000 characters of
+JSON are about 113,000 real tokens. It runs much lower on log lines (1.35) and
+arrays of integers (1.16), which are about 281,000 and 328,000 real tokens for
+the same 380,000 characters, and on emoji (2.6 tokens per code point), so a state
+that is mostly one of those can pass the window and still be refused by the
+server. A request that passes it can also be refused when the questions, or the
+images if they count as assumed, push the input over. That refusal arrives as
+`max_tokens_exceeded` too, and is not retried. A state estimated above the window
+needs a smaller state or another provider: no setting raises it, so a larger
+state that would fit the server can be sent only through a decision provider with
+a larger window. Perplexity documents a request rate of 10 per second for the
+account's tier, and on the account tested 14 parallel requests got 10 answers and
+4 replies of 429.
+
+**Two separate size ceilings** (TypeSafe), both enforced:
 
 - `state` + the **single longest** question ≤ **~33 000 tokens** (measured
   exactly: 33 002 accepted, 33 003 rejected). Usually the binding one.
@@ -510,17 +608,36 @@ from TypeSafe's own docs: a _missing_ `Authorization` header returns **403**, an
 _invalid_ key returns **401**. The gateway does not share this quirk — it
 returns **401** for both, and reserves **403** for account state.
 
-**`max_tokens_exceeded` arrives with no `message` field** — the one error a
-long-context caller is most likely to hit. The provider supplies the sentence.
+**On TypeSafe, `max_tokens_exceeded` arrives with no `message` field** — the one
+error a long-context caller is most likely to hit. The provider supplies the
+sentence. Perplexity's over-length 400 does carry a message, and its provider
+reads the kind from that text.
 
-**Latency**: p50 ~400 ms warm, but the first call after idle measured
-2.0–2.7 s. The default timeout is 5 s for that reason, and every internal call
-site is fail-open regardless.
+**Latency**: TypeSafe's p50 is ~400 ms warm, but the first call after idle
+measured 2.0–2.7 s. The default timeout is 5 s for that reason, and every
+internal call site is fail-open regardless. Perplexity's time scales with the
+input and with the question count. Input time grows faster than linearly: 3.9 s
+at 65,000 tokens, 10 s at 146,000 and 22.9 s at 251,000 (about 17,000, 15,000
+and 11,000 tokens per second), against 0.3 to 1.1 s for one question on a short
+state, plus about 65 ms for each question after the first (128 minimal questions
+took 8.9 s). Its default timeout is 10 s plus 100 ms for each question, so 10.1 s
+for one question and 22.8 s for 128, and a `timeoutMs` you pass is used as given.
+A timeout is retried once, so a request that stalls can take about twice the
+timeout. Pass a larger `timeoutMs` for any state of more than about 100,000 real
+tokens, which log lines and arrays of numbers reach well inside the window. The
+[provider guide](../getting-started/providers/perplexity-decider.md#latency-and-the-timeout)
+lists the timeout setting for each built-in consumer.
 
 **Privacy**: when enabled, the `state` you send leaves the machine. For model
-routing that is the prompt text. With no key set, nothing is transmitted.
+routing that is the prompt text; for compaction and tool routing it is earlier
+conversation text. With no decision provider configured, nothing is transmitted.
+A `PERPLEXITY_API_KEY` set for the Perplexity text provider counts as a decision
+provider's key, so with it set and none of TypeSafe, Laya or XOR configured, the
+state of a decision goes to Perplexity. The provider guide lists
+[what each consumer sends](../getting-started/providers/perplexity-decider.md#what-is-sent-to-perplexity).
 
-**Cost**: $0.042 per million input tokens, output free.
+**Cost**: TypeSafe, $0.042 per million input tokens, output free. Perplexity,
+$0.04 per million input tokens (image tokens included), output free.
 
 ---
 
@@ -562,9 +679,12 @@ decision model needs:
 
 1. An `AIProviderName` member and a `<Name>Models` enum
    (`src/lib/constants/enums.ts`, **outside** the generated regions).
-2. A provider class extending `BaseProvider` that overrides `decide()` and
-   implements `getAISDKModel()` / `executeStream()` as throws — the same shape
-   the embedding-only providers (`voyage.ts`, `jina.ts`) already use.
+2. A provider class extending `SystemOneDecisionProvider`
+   (`src/lib/providers/systemOneDecision.ts`), which owns the request loop,
+   retries, the auth circuit breaker and answer parsing, and supplies the
+   throwing `getAISDKModel()` / `executeStream()` stubs, the same shape the
+   embedding-only providers (`voyage.ts`, `jina.ts`) use. The class supplies
+   its endpoint, headers, body, error parsing and messages.
 3. A descriptor with **`inferenceKinds: ["decide"]`**, no auto-select ranks, and
    `healthCheck: "env-only"`. That one field is what keeps a text-less model out
    of every generation fallback chain; nothing else needs to know the provider

@@ -9,9 +9,10 @@ calibrated confidence on each. This page is the strategy's own mechanics —
 **The degradation contract.** With no decision provider configured,
 `resolveStrategy()` resolves `auto` to `heuristic`, exactly as it always did.
 `classifyJev()` itself never throws: any failure, timeout, or malformed answer
-falls back to `classifyHeuristic()`. Setting `TYPESAFE_API_KEY` (or
+falls back to `classifyHeuristic()`. Configuring a decision provider (for example `TYPESAFE_API_KEY` or
 `AI_GATEWAY_API_KEY`) upgrades routing; it cannot make routing worse than before
-the key existed.
+the key existed. The same holds for `PERPLEXITY_API_KEY`, which is also the
+Perplexity text provider's key.
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
@@ -49,7 +50,9 @@ Alongside it, one batch asks: `difficulty` (a `choice` over the five tiers),
 [per-request context budget](/docs/features/context-budget)), and, only when the
 pool has more than one member, `model` (a `choice` over the pool, rendered by
 [the catalogue](/docs/features/classifier-router-catalog)). All of this rides in
-one ~400ms request, because latency is flat in question count — see
+one request. On TypeSafe that takes ~400ms, because latency is flat in question
+count; on Perplexity each further question adds about 65 ms, up to 128 (see
+[its guide](../getting-started/providers/perplexity-decider.md#limits)). See
 [the batching rule](/docs/features/decide-inference-type#the-one-rule-batch-never-fan-out).
 
 ## The difficulty rubric

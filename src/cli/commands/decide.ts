@@ -10,7 +10,7 @@
  *
  * Credentials are env-only here, exactly as every other CLI command: the
  * decision provider reads its own settings (TYPESAFE_API_KEY, LAYA_API_KEY and
- * LAYA_BASE_URL, or XOR_API_KEY and XOR_BASE_URL) itself.
+ * LAYA_BASE_URL, XOR_API_KEY and XOR_BASE_URL, or PERPLEXITY_API_KEY) itself.
  */
 
 import chalk from "chalk";
@@ -233,7 +233,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         array: true,
         nargs: 1,
         describe:
-          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR takes up to 8)",
+          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR and Perplexity take up to 8)",
       })
       .option("video", {
         type: "string",
@@ -268,7 +268,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       )
       .example(
         '$0 decide "What color is this?" --provider xor --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
-        "Ask about an image (XOR only)",
+        "Ask about an image (XOR and Perplexity read images)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {

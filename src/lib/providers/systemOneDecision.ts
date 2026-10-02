@@ -186,7 +186,29 @@ export function redactCredentials(message: string, apiKey: string): string {
     .trim();
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Rejects with the signal's reason when it aborts, so a caller tearing a turn
+ * down is not held, nor its process kept alive, for the length of a vendor's
+ * Retry-After wait. The half-second backoff after a transport error is waited
+ * out without a signal: a rejection there would leave the catch block that is
+ * already handling that error.
+ */
+const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort(): void {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 
 /**
  * `estimateTokens` assumes ~4 characters per token. That holds for English
@@ -289,6 +311,24 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       };
     }
     return question;
+  }
+
+  /**
+   * How long a rate-limited or unavailable response asks the caller to wait.
+   * Undefined keeps the default backoff. A wait longer than what is left of the
+   * attempt's timeout is not taken: the error is thrown at once, so a fail-open
+   * consumer is not held for the length of a vendor's cooldown.
+   */
+  protected readRetryAfterMs(_headers: Headers): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * The per-attempt timeout when the caller sets none. A provider whose latency
+   * grows with the number of questions scales the descriptor's allowance here.
+   */
+  protected defaultTimeoutMs(_questionCount: number): number | undefined {
+    return this.getDescriptorDecideMs();
   }
 
   /** Per-question confidence a transport reports outside the answer objects. */
@@ -427,7 +467,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
     const timeoutMs =
       request.timeoutMs ??
-      this.getDescriptorDecideMs() ??
+      this.defaultTimeoutMs(questionEntries.length) ??
       this.defaultTimeout ??
       DEFAULT_DECISION_TIMEOUT_MS;
 
@@ -479,7 +519,19 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           if (!lastError.retryable || attempt === this.maxRetries) {
             throw this.decisionError(lastError);
           }
-          await sleep(2 ** attempt * 250 + Math.random() * 250);
+          const retryAfterMs = this.readRetryAfterMs(response.headers);
+          // The wait comes out of this attempt's own budget, so a slow answer
+          // with a long Retry-After cannot be followed by a second full attempt.
+          if (
+            retryAfterMs !== undefined &&
+            retryAfterMs > timeoutMs - (Date.now() - startedAt)
+          ) {
+            throw this.decisionError(lastError);
+          }
+          await sleep(
+            retryAfterMs ?? 2 ** attempt * 250 + Math.random() * 250,
+            request.signal,
+          );
           continue;
         }
 
@@ -581,7 +633,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       request,
       limits?.media,
       this.vendorLabel(),
-      listMediaDecisionProviders(),
+      listMediaDecisionProviders({ video: request.video !== undefined }),
     );
     if (prepared.status === "refused") {
       throw this.decisionError({

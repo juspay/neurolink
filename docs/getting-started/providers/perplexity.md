@@ -40,6 +40,19 @@ PERPLEXITY_API_KEY=pplx-your-key
 PERPLEXITY_MODEL=sonar
 ```
 
+> **`PERPLEXITY_API_KEY` also configures decisions.** The same variable configures
+> the [Perplexity Decisions provider](perplexity-decider.md) (`perplexity-decider`,
+> which serves `decide()`). So setting it for Sonar also lets NeuroLink's built-in
+> features send decision requests to Perplexity when no TypeSafe, Laya or XOR
+> provider is configured, and context compaction needs no other opt-in to do so.
+> To avoid that, pass the key through the SDK as `credentials.perplexity.apiKey`
+> instead of the environment, and keep it out of `.env` too: the SDK and the CLI
+> load that file into the environment, so a `PERPLEXITY_API_KEY` line like the one
+> above would still configure decisions. (That the text provider reads this slice
+> is taken from the code and has not been run against the live API.) See
+> [What is sent to Perplexity](perplexity-decider.md#what-is-sent-to-perplexity)
+> and [One key, two providers](perplexity-decider.md#one-key-two-providers).
+
 ### 3. Generate
 
 ```typescript
@@ -105,5 +118,6 @@ pnpm run cli generate "What were today's tech-stock movers?" --provider perplexi
 
 ## See Also
 
+- [Perplexity Decisions Provider](/docs/getting-started/providers/perplexity-decider) — typed, calibrated `decide()` judgments on the same key
 - [Anthropic Provider](/docs/getting-started/providers/anthropic) — web-search via the `web_search` tool
 - [Vertex Provider](/docs/getting-started/providers/google-vertex) — Google search grounding
