@@ -321,10 +321,11 @@ it directly, so they were removed when the suites became end-to-end only
 | `test/continuous-test-suite-log-sanitize.ts` | H03 + H04 token formats, record/header sanitization, H04 regression grep                                |
 | `test/continuous-test-suite-stream-span.ts`  | H07 span lifetime + error path + recordException ordering, M08 typed-error sweep, M09 brand check sweep |
 
-Nothing has replaced them. The primitives themselves are unchanged and the
-`eslint` rules that force callers through them still apply, but the bypass
-categories above are now caught only by review. Treat the checklist below
-as the live control.
+Nothing has replaced them. The primitives themselves are unchanged, and only
+two `eslint` rules still apply (`no-inline-secret-regex` for log redaction,
+`provider-typed-errors` for typed provider errors). The SSRF/`safeDownload`,
+stream-span and `isNeuroLink` brand-check bypasses have no rule and are caught
+only by review. Treat the checklist below as the live control.
 
 ---
 

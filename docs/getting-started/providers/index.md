@@ -46,7 +46,7 @@ Access leading AI models directly from their creators:
 
 **GPT-5.4, GPT-5, GPT-4o, and o-series reasoning models**
 
-- 🧠 GPT-5.4 and GPT-5 series flagships with up to 400K context
+- 🧠 GPT-5.4 and GPT-5 series flagships with up to 1.05M context
 - 👁️ GPT-4o multimodal (vision) and o3 / o3-pro / o4-mini reasoning models
 - 🔧 Full tool/function calling and embeddings support
 - 🔑 Auth: API Key (`OPENAI_API_KEY`)

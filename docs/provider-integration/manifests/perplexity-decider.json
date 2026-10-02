@@ -4,6 +4,7 @@
   "addedInPR": "pending",
   "addedDate": "2026-10-02",
   "mockedContractSection": "DECIDE perplexity-decider",
+  "manualTestStatus": "ci-mocked-only",
   "notes": "A provider of the `decide` inference type: Perplexity's hosted Decisions API (model pplx-decider-v1-27b), reached at https://api.perplexity.ai unless PERPLEXITY_DECIDER_BASE_URL or credentials.perplexityDecider.baseURL names another origin, so a key alone configures it. The key is PERPLEXITY_API_KEY, shared with the `perplexity` text provider, which means an ambient key from that provider also activates decide here. Tier 3 for the same reasons as typesafe, laya and xor (the catalog schema has no decide vocabulary and requires output-token fields), and distinct from the catalog's `perplexity` Sonar provider. Extends SystemOneDecisionProvider. Declares inferenceKinds [\"decide\"] and decisionLimits, and sits after xor in HAND_DESCRIPTORS so typesafe, laya and xor stay the default whenever their keys are set. Reads images (not video) through DecisionRequest, sent as image_url parts inside state. SystemOneDecisionProvider gained an optional readRetryAfterMs hook so a 429's Retry-After is honored.",
   "filesTouched": [
     "src/lib/constants/enums.ts",

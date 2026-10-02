@@ -12,11 +12,11 @@ keywords: openai, gpt, gpt-5.4, gpt-5, gpt-4o, o3, o4-mini, embeddings, function
 
 ## Overview
 
-OpenAI provides API access to the GPT model family, including the latest GPT-5.4 series, GPT-5 series, GPT-4o multimodal models, and o-series reasoning models. NeuroLink talks to the OpenAI HTTP API directly — generation, streaming, tool calling, vision and embeddings are all served by NeuroLink's own client, with no third-party model SDK in the path.
+OpenAI provides API access to the GPT model family, including the GPT-6 family, the GPT-5.4 series, GPT-5 series, GPT-4o multimodal models, and o-series reasoning models. NeuroLink talks to the OpenAI HTTP API directly — generation, streaming, tool calling, vision and embeddings are all served by NeuroLink's own client, with no third-party model SDK in the path.
 
 ### Key Benefits
 
-- **GPT-5.4 Series**: Newest flagship models (March 2026) with 400K context windows
+- **GPT-5.4 Series**: Flagship models (March 2026) with 1.05M context (`gpt-5.4`, `gpt-5.4-pro`; mini and nano 400K)
 - **GPT-5 Series**: Flagship models with up to 400K context windows
 - **GPT-4.1 Series**: 1M context window models for large document processing
 - **GPT-4o**: Multimodal model with vision support
@@ -108,7 +108,7 @@ OPENAI_MODEL=gpt-4o
 | `GPT_6_ASTRA`         | `gpt-6-astra`         | GPT-6        | 1.05M          | **New** (September 2026) |
 | `GPT_6_SOL`           | `gpt-6-sol`           | GPT-6        | 1.05M          | **New** (September 2026) |
 | `GPT_6_LUNA`          | `gpt-6-luna`          | GPT-6        | 1.05M          | **New** (September 2026) |
-| `GPT_5_4`             | `gpt-5.4`             | GPT-5.4      | 400K           | **New** (March 2026)     |
+| `GPT_5_4`             | `gpt-5.4`             | GPT-5.4      | 1.05M          | **New** (March 2026)     |
 | `GPT_5_4_MINI`        | `gpt-5.4-mini`        | GPT-5.4      | 400K           | **New** (March 2026)     |
 | `GPT_5_4_NANO`        | `gpt-5.4-nano`        | GPT-5.4      | 400K           | **New** (March 2026)     |
 | `GPT_5_3_CODEX`       | `gpt-5.3-codex`       | GPT-5.3      | 400K           |                          |

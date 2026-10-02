@@ -48,14 +48,15 @@ comments, no trailing commas.
   // instead — see above.)
   "tier": 3,
 
-  // Full PR URL. Leave "" until the PR exists, fill in before merge.
+  // Full PR URL. Leave "" until the PR exists, fill in before merge. Must
+  // be a string; the gate does not check that it is a URL.
   "addedInPR": "https://github.com/juspay/neurolink/pull/1234",
 
   // YYYY-MM-DD.
   "addedDate": "2026-08-15",
 
   // Every file this provider's onboarding touched — used for PR review,
-  // not machine-checked beyond "the array exists".
+  // not machine-checked beyond "an array of strings".
   "filesTouched": ["src/lib/constants/enums.ts", "..."],
 
   // Must match the section-name prefix used in
@@ -63,7 +64,8 @@ comments, no trailing commas.
   // `${section}: ...`, ...)` calls for this provider, e.g. "LLM cerebras".
   "mockedContractSection": "LLM example-vendor",
 
-  // One of: "not-tested" | "manual-live-tested" | "ci-mocked-only"
+  // One of: "not-tested" | "manual-live-tested" | "ci-mocked-only" |
+  // "verified-live". The gate requires a string, not one of these values.
   "manualTestStatus": "not-tested",
 
   // REQUIRED when tier === 4 only. A sentence or two justifying why
@@ -77,6 +79,10 @@ comments, no trailing commas.
 `pnpm run verify:provider-onboarding` (`tools/verify-provider-onboarding.ts`)
 fails a PR that introduces a new `AIProviderName` member without matching
 onboarding evidence: a valid catalog JSON entry for Tier 2 providers (see
-above), or a structurally valid manifest here for Tier 3/4 providers. It
+above), or a structurally valid manifest here for Tier 3/4 providers. A
+manifest is structurally valid when it is a JSON object whose `provider`
+matches the file name and which carries `provider`, `tier`, `addedInPR`,
+`addedDate`, `filesTouched` (an array of strings), `mockedContractSection`
+and `manualTestStatus`, plus `tier4Justification` when `tier` is 4. The gate
 does not retroactively require either for providers that predate the gate
 — see that tool's `LEGACY_PROVIDERS` list.

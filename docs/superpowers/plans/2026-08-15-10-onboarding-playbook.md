@@ -8,12 +8,7 @@
 
 **Tech Stack:** TypeScript, tsx (no build step for tooling), Markdown docs, GitHub Actions (existing `ci.yml`), pnpm scripts.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+**Spec:** four audit notes, kept as uncommitted local scratch notes and not in the repo: the OpenAI-compat family (area 10), CI/CD automated-testing coverage for provider changes (gap 1), the provider registration and instantiation chain (area 00), and types, models and config (area 11).
 
 ## Global Constraints
 
@@ -55,7 +50,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Create the ADR directory and index.
 
   ```bash
-  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr
+  mkdir -p "$(git rev-parse --show-toplevel)/docs/provider-integration/adr"
   ```
 
 - [ ] Write `docs/provider-integration/adr/README.md`:
@@ -271,9 +266,9 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify the ADRs render as expected Markdown (no broken relative links) and commit.
 
   ```bash
-  grep -rl "^# ADR-000" $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr/
+  grep -rl "^# ADR-000" "$(git rev-parse --show-toplevel)/docs/provider-integration/adr/"
   # Expected: all three 000N files listed
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign && pnpm run format
+  cd "$(git rev-parse --show-toplevel)" && pnpm run format
   git add docs/provider-integration/adr/
   git commit -m "docs(provider-integration): add ADRs for descriptor/catalog/mocked-gate decisions"
   ```
@@ -295,7 +290,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Create the tiers directory and write the overview.
 
   ```bash
-  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/tiers
+  mkdir -p "$(git rev-parse --show-toplevel)/docs/provider-integration/tiers"
   ```
 
   `docs/provider-integration/tiers/README.md`:
@@ -415,7 +410,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify both files exist and the overview's internal links resolve to files that exist.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   test -f docs/provider-integration/tiers/README.md && \
   test -f docs/provider-integration/tiers/tier-1-aggregator-passthrough.md && \
   echo "OK: both files present"
@@ -497,7 +492,6 @@ This is a docs-only task; there is no code to test, so the verification step is 
     fallbackModels: ["llama3.1-8b"],
   },
   ```
-  ````
 
   Add `errorRules` only if the vendor's error bodies need a match beyond
   `DEFAULT_ERROR_RULES` (Plan 07) — most Tier 2 providers don't.
@@ -625,15 +619,12 @@ This is a docs-only task; there is no code to test, so the verification step is 
   ```
 
   All five commands must pass/exit 0 before opening the PR.
-
-  ```
-
-  ```
+  ````
 
 - [ ] Verify the file was created and contains all six numbered steps.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   grep -c "^## Step" docs/provider-integration/tiers/tier-2-catalog-entry.md
   # Expected: 6
   ```
@@ -753,7 +744,6 @@ This is a docs-only task; there is no code to test, so the verification step is 
     // worked, currently-shipping Tier-3-shaped example.
   }
   ```
-  ````
 
   ## Verification commands
 
@@ -766,15 +756,12 @@ This is a docs-only task; there is no code to test, so the verification step is 
   pnpm run build
   pnpm run cli generate "hello" --provider acme
   ```
-
-  ```
-
-  ```
+  ````
 
 - [ ] Verify the file exists and the file-list table has exactly 9 rows.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   grep -c "^| [1-9] " docs/provider-integration/tiers/tier-3-adapter-native.md
   # Expected: 9
   ```
@@ -869,7 +856,6 @@ This is a docs-only task; there is no code to test, so the verification step is 
     "tier4Justification": "Auth is SDK-mediated request signing (proprietary HMAC scheme); cannot be replicated with plain fetch headers."
   }
   ```
-  ````
 
   ## Verification commands
 
@@ -884,15 +870,12 @@ This is a docs-only task; there is no code to test, so the verification step is 
   pnpm run verify:provider-onboarding
   pnpm run build
   ```
-
-  ```
-
-  ```
+  ````
 
 - [ ] Verify the file exists and mentions `tier4Justification` (the field Task 9's tool checks for).
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   grep -c "tier4Justification" docs/provider-integration/tiers/tier-4-full-custom.md
   # Expected: a number >= 2 (mentioned in prose and in the JSON example)
   ```
@@ -928,7 +911,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
 - [ ] Create the manifests directory and write the README.
 
   ```bash
-  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/manifests
+  mkdir -p "$(git rev-parse --show-toplevel)/docs/provider-integration/manifests"
   ```
 
   `docs/provider-integration/manifests/README.md`:
@@ -1050,7 +1033,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
 - [ ] Verify both fixtures are valid JSON.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   node -e 'JSON.parse(require("fs").readFileSync("docs/provider-integration/manifests/_example-tier2-catalog.json", "utf8")); JSON.parse(require("fs").readFileSync("docs/provider-integration/manifests/_example-tier3-adapter.json", "utf8")); console.log("OK: both valid JSON")'
   # Expected: OK: both valid JSON
   ```
@@ -1206,7 +1189,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
       removed `ALL_PROVIDERS` array or the stale 12-file checklist framing.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   grep -rn "add to \`ALL_PROVIDERS\`\|The relevant section is the \`ALL_PROVIDERS\` array" docs/provider-integration/ || echo "CLEAN"
   # Expected: CLEAN
   ```
@@ -1547,7 +1530,7 @@ This is a template-string generator with no external dependencies — no unit-te
       expected files.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   pnpm run scaffold:provider -- --name=cerebras --tier=2 \
     --baseURL=https://api.cerebras.ai/v1 --envVar=CEREBRAS_API_KEY \
     --defaultModel=llama3.1-70b --aliases=cerebras-ai \
@@ -1920,7 +1903,7 @@ This tool is source-only — it imports `PROVIDER_DESCRIPTORS`/`OPENAI_COMPAT_CA
       member is in `LEGACY_PROVIDERS`).
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   pnpm run verify:provider-onboarding
   # Expected: "No new (post-legacy) providers to check." and exit code 0
   echo "exit: $?"
@@ -1988,7 +1971,7 @@ This tool is source-only — it imports `PROVIDER_DESCRIPTORS`/`OPENAI_COMPAT_CA
       new section.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   node -e 'require("js-yaml")' 2>/dev/null && node -e 'const yaml=require("js-yaml"); yaml.load(require("fs").readFileSync(".github/workflows/ci.yml","utf8")); console.log("YAML OK")' || python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('YAML OK')"
   # Expected: "YAML OK" from whichever parser is available
   grep -q "New Provider Onboarding" .github/PULL_REQUEST_TEMPLATE.md && echo "OK: PR template updated"
@@ -2057,11 +2040,11 @@ This tool is source-only — it imports `PROVIDER_DESCRIPTORS`/`OPENAI_COMPAT_CA
   **Start at `docs/provider-integration/tiers/README.md`** — it routes you to one of four tiers by actual effort required, not a one-size-fits-all checklist:
 
   - **Tier 1 — aggregator passthrough** (a model already served by LiteLLM/OpenRouter): zero code, just a model id. See `tiers/tier-1-aggregator-passthrough.md`.
-  - **Tier 2 — catalog entry** (OpenAI-wire-compatible, zero behavioral quirks — most new providers): one `OpenAICompatCatalogEntry` row in `src/lib/providers/openaiCompatCatalog.ts` + one `ProviderDescriptor` row in `src/lib/factories/providerDescriptors.ts` + one mocked-contract test section. ~1 hour. See `tiers/tier-2-catalog-entry.md`.
+  - **Tier 2 — catalog entry** (OpenAI-wire-compatible, zero behavioral quirks — most new providers): one JSON file, `src/lib/providers/catalog/<id>.json`; the registry entry, descriptor and model enums are generated from it (`pnpm run codegen:catalog`). ~1 hour. See `tiers/tier-2-catalog-entry.md`.
   - **Tier 3 — adapter-based native** (own SDK/wire format, still a normal HTTP request/response lifecycle): a `src/lib/providers/<name>.ts` class extending `BaseProvider`, days. See `tiers/tier-3-adapter-native.md`.
   - **Tier 4 — full custom** (SageMaker-class: non-HTTP protocol or SDK-signed auth): everything Tier 3 needs plus a custom lifecycle, and a written `tier4Justification` in its manifest. See `tiers/tier-4-full-custom.md`.
 
-  Regardless of tier, `AIProviderName` lives in `src/lib/constants/enums.ts` (not `src/lib/types/providers.ts`). Every provider ends with a manifest at `docs/provider-integration/manifests/<name>.json` and a green `pnpm run verify:provider-onboarding` — this is a required CI gate for Tier 2+ providers, not optional. Use `pnpm run scaffold:provider` (`tools/scaffold-provider.ts`) to generate starting-point snippets instead of copy-pasting from an existing provider by hand.
+  `AIProviderName` lives in `src/lib/constants/enums.ts` (not `src/lib/types/providers.ts`). Every Tier 3+ provider ends with a manifest at `docs/provider-integration/manifests/<name>.json` and a green `pnpm run verify:provider-onboarding`. A Tier 2 provider has no manifest: its catalog JSON carries the evidence, and the same gate checks that it parses against the schema and has `evidence.rosterVerified` and `evidence.addedInPR` (see `manifests/README.md`). The gate is required in CI for both, not optional. Use `pnpm run scaffold:provider` (`tools/scaffold-provider.ts`) to generate starting-point snippets instead of copy-pasting from an existing provider by hand.
   ```
 
 - [ ] Fix the `src/lib/types/providers.ts` row in the Key Files table
@@ -2087,7 +2070,7 @@ interface, `AIProviderName` enum |``) and add rows for the new
       remains.
 
   ```bash
-  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
+  cd "$(git rev-parse --show-toplevel)"
   grep -n "AIProviderName.*enum.*src/lib/types/providers.ts\|src/lib/types/providers.ts.*AIProviderName" CLAUDE.md || echo "CLEAN: no stale location reference"
   # Expected: CLEAN: no stale location reference
   grep -q "tiers/README.md" CLAUDE.md && echo "OK: tiered flow referenced"

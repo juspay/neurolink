@@ -116,17 +116,17 @@ await neurolink.generate({
 
 ## Models
 
-| Model                   | Context   | Vision | $/M in · out · cached         | Notes                                                                                                                                                                                                                                       |
-| ----------------------- | --------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `z-ai/glm-5.3-flash` ⭐ | 131,072\* | no     | $0.09 / $0.30 (cached $0.018) | Only model Pareto serves. Max output documented as 1–131,072 tokens (default 131,072). \*Context window is not published by Pareto — this figure reuses the documented output ceiling as a conservative floor, not a stated context length. |
+| Model                   | Context         | Vision | $/M in · out · cached         | Notes                                                                                                                                                                                                                                |
+| ----------------------- | --------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `z-ai/glm-5.3-flash` ⭐ | not published\* | no     | $0.09 / $0.30 (cached $0.018) | Only model Pareto serves. Max output documented as 1–131,072 tokens (default 131,072). \*Pareto publishes no context window; the catalog falls back to 131,072, the documented output ceiling, which is not a vendor context length. |
 
 \* Pareto's own docs state it does **not** disclose GLM 5.3 Flash's serving
 details ("We do not disclose the technical details of our GLM 5.3 Flash
 serving system"), and no context-window number appears on any public page.
-`models.defaultContextWindow` (131,072) is therefore the documented
-**output** ceiling reused as a floor, flagged in the catalog entry's
-description — correct it once Pareto publishes a real figure or an
-authenticated probe reveals one.
+`models.defaultContextWindow` (131,072) is therefore a catalog fallback — the
+documented **output** ceiling, not a vendor context length — flagged in the
+catalog entry's description. Correct it once Pareto publishes a real figure or
+an authenticated probe reveals one.
 
 **Fallback order:** none — `z-ai/glm-5.3-flash` is the only model Pareto
 serves, so it is both the default and its own (schema-exempt) single-entry
@@ -156,15 +156,15 @@ OpenAI-compatible contract, but no NeuroLink call has actually exercised it.
 
 ## Troubleshooting
 
-| Symptom                                 | Cause                                                                | Fix                                                                                                                             |
-| --------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `Invalid Pareto Inference API key`      | `PARETO_INFERENCE_API_KEY` unset, wrong, or expired                  | Pareto documents 401 as "the chat API key is missing, invalid, or no longer active" — check or replace the key in the dashboard |
-| 429 with `credit_exhausted`             | Prepaid balance is empty                                             | Buy more prepaid credits                                                                                                        |
-| 429 with `credit_insufficient`          | Held credits (reserved for `max_tokens`) are below what's needed     | Lower `max_tokens`, or buy more credits                                                                                         |
-| 429 with `model_capacity`               | The model itself is at capacity — not an account-level limit         | Honor the `Retry-After` header and retry                                                                                        |
-| 502 mid-stream                          | The model request failed after the stream started                    | Retry the request; check whether a tool call already ran before retrying                                                        |
-| 503                                     | Temporary Pareto-side failure (e.g. maintenance, GPU outage)         | Wait and retry; `Retry-After` gives the delay in seconds                                                                        |
-| No context-window figure in the catalog | Pareto does not publish one and declines to disclose serving details | Treat `defaultContextWindow` as a conservative floor, not a hard vendor number, until corrected by a real probe                 |
+| Symptom                                 | Cause                                                                | Fix                                                                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid Pareto Inference API key`      | `PARETO_INFERENCE_API_KEY` unset, wrong, or expired                  | Pareto documents 401 as "the chat API key is missing, invalid, or no longer active" — check or replace the key in the dashboard                 |
+| 429 with `credit_exhausted`             | Prepaid balance is empty                                             | Buy more prepaid credits                                                                                                                        |
+| 429 with `credit_insufficient`          | Held credits (reserved for `max_tokens`) are below what's needed     | Lower `max_tokens`, or buy more credits                                                                                                         |
+| 429 with `model_capacity`               | The model itself is at capacity — not an account-level limit         | Honor the `Retry-After` header and retry                                                                                                        |
+| 502 mid-stream                          | The model request failed after the stream started                    | Retry the request; check whether a tool call already ran before retrying                                                                        |
+| 503                                     | Temporary Pareto-side failure (e.g. maintenance, GPU outage)         | Wait and retry; `Retry-After` gives the delay in seconds                                                                                        |
+| No context-window figure in the catalog | Pareto does not publish one and declines to disclose serving details | Treat `defaultContextWindow` as a catalog fallback (the documented output ceiling, not a vendor context length) until corrected by a real probe |
 
 ---
 

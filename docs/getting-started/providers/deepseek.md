@@ -24,7 +24,7 @@ The older ids still work as aliases of `deepseek-flash`: **`deepseek-chat`** ans
 - **Protocol**: OpenAI-compatible (`/v1/chat/completions`)
 - **Default base URL**: `https://api.deepseek.com`
 - **Context window**: 1M tokens (1,048,576), with up to 384K (393,216) output tokens
-- **Vision**: `deepseek-flash` and its aliases; not `deepseek-v4-pro'
+- **Vision**: `deepseek-flash` and its aliases; not `deepseek-v4-pro`
 - **Streaming**: Supported
 - **Tool calling**: Supported. Tools and JSON output work in the same request.
 - **Reasoning trace**: returned as `reasoning_content` when thinking is on (`deepseek-reasoner`)

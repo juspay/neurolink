@@ -158,7 +158,7 @@ Match provider capabilities to your feature needs:
 
 | Feature               | Full Support                                                 | Partial Support                                        | No Support                                                  |
 | --------------------- | ------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- |
-| **Streaming**         | All except SageMaker                                         | SageMaker                                              | -                                                           |
+| **Streaming**         | All text-generation providers except SageMaker               | SageMaker                                              | -                                                           |
 | **Tool Calling**      | OpenAI, Anthropic, Google, Azure, Bedrock, Mistral, DeepSeek | HuggingFace, Ollama, NIM†, LM Studio†, llama.cpp†      | SageMaker                                                   |
 | **Vision**            | OpenAI, Anthropic, Google, Azure                             | Mistral, Ollama, LiteLLM, NIM†, LM Studio†, llama.cpp† | HuggingFace, SageMaker, DeepSeek                            |
 | **PDF Native**        | Anthropic, Google AI Studio, Vertex                          | Bedrock (Claude)                                       | OpenAI, Azure, Mistral, DeepSeek, NIM, LM Studio, llama.cpp |
@@ -172,6 +172,8 @@ Match provider capabilities to your feature needs:
 † Model-dependent: capability depends on the specific model loaded / hosted. Check provider documentation.
 
 ‡ NVIDIA NIM thinking supported on Nemotron-Reasoning and DeepSeek-R1 hosted models via `thinkingLevel` option.
+
+Decision-only providers (TypeSafe Jev, Laya, XOR, Perplexity Decisions) generate no text, so they do not stream; use `decide()` with them.
 
 ```typescript
 // Feature-specific provider selection

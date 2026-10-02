@@ -26,7 +26,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "node:os";
 import { pathToFileURL } from "node:url";
-import { assert, defineSuite } from "./helpers/harness.js";
+import { assert, defineSuite, runCommand } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 // Type-only: erased at compile time, so this does not pull the runtime
 // suite off the all-dist module graph (rule 15) — the enum's runtime
@@ -663,6 +663,98 @@ await test("isValidModel rejects a fabricated id when a catalog provider's every
     assert(
       isValidModel(CopyAIProviderName.FIREWORKS, REAL_ID_IN_CATALOG),
       "isValidModel(FIREWORKS, <real catalog id>) must still accept a real catalog id even when every entry (including this one) is retired",
+    );
+  } finally {
+    fs.rmSync(scratchRoot, { recursive: true, force: true });
+  }
+});
+
+/**
+ * The onboarding gate rejects a hand-written provider's manifest that drops a
+ * field the manifests README documents.
+ *
+ * `tools/verify-provider-onboarding.ts` is repo tooling, not a package
+ * surface, so this drives the real tool as a subprocess rather than importing
+ * it. Its reads are relative to the working directory, so the child runs in a
+ * scratch tree: `src` and `test` are symlinks to the real ones, and only the
+ * manifests directory is a copy that can be edited. The checked-in manifests
+ * are never touched.
+ *
+ * Three providers each lose one field. `perplexity-decider` is left intact in
+ * the same run as the control: it must still pass, which shows the scratch tree
+ * measured something and that the failures come from the removed fields. The
+ * tool's output is never quoted into an assertion message.
+ */
+await test("verify:provider-onboarding rejects a manifest missing addedInPR, filesTouched or manualTestStatus (isolated tree)", async () => {
+  const manifestsRel = path.join("docs", "provider-integration", "manifests");
+  const dropped: ReadonlyArray<{ provider: string; field: string }> = [
+    { provider: "xor", field: "addedInPR" },
+    { provider: "laya", field: "filesTouched" },
+    { provider: "typesafe", field: "manualTestStatus" },
+  ];
+  const control = "perplexity-decider";
+
+  const scratchRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "neurolink-onboarding-gate-"),
+  );
+  try {
+    const scratchManifests = path.join(scratchRoot, manifestsRel);
+    fs.mkdirSync(scratchManifests, { recursive: true });
+    fs.symlinkSync(
+      path.join(process.cwd(), "src"),
+      path.join(scratchRoot, "src"),
+      "dir",
+    );
+    fs.symlinkSync(
+      path.join(process.cwd(), "test"),
+      path.join(scratchRoot, "test"),
+      "dir",
+    );
+
+    for (const provider of [...dropped.map((d) => d.provider), control]) {
+      const real = path.join(process.cwd(), manifestsRel, `${provider}.json`);
+      assert(
+        fs.existsSync(real),
+        `precondition: ${provider} must be a hand-written provider with a checked-in manifest`,
+      );
+      const manifest = JSON.parse(fs.readFileSync(real, "utf8")) as Record<
+        string,
+        unknown
+      >;
+      const drop = dropped.find((d) => d.provider === provider);
+      if (drop) {
+        assert(
+          drop.field in manifest,
+          `precondition: the checked-in ${provider} manifest must carry ${drop.field}, or removing it proves nothing`,
+        );
+        delete manifest[drop.field];
+      }
+      fs.writeFileSync(
+        path.join(scratchManifests, `${provider}.json`),
+        JSON.stringify(manifest, null, 2),
+      );
+    }
+
+    const result = await runCommand(
+      path.join(process.cwd(), "node_modules", ".bin", "tsx"),
+      [path.join(process.cwd(), "tools", "verify-provider-onboarding.ts")],
+      { cwd: scratchRoot, timeoutMs: 120_000 },
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    assert(
+      output.includes(`✓ ${control}`),
+      "the intact manifest must still pass in the scratch tree, or the tree measured nothing",
+    );
+    for (const { provider, field } of dropped) {
+      assert(
+        output.includes(`✗ ${provider}`),
+        `a ${provider} manifest without ${field} must be rejected by the gate`,
+      );
+    }
+    assert(
+      result.exitCode !== 0,
+      "the gate must exit non-zero when a manifest is incomplete",
     );
   } finally {
     fs.rmSync(scratchRoot, { recursive: true, force: true });

@@ -95,9 +95,9 @@ preserved verbatim — including xAI's "top up your account" quota URL and
 Groq's decommissioned-vs-not-found distinction — via each rule's own
 `message` field (`string | ((ctx) => string)`), with model-name
 interpolation carried through `ctx.modelName`. There is no message-wording
-regression here. Timeout classification is likewise unchanged: 15 of the 16
-providers map `TimeoutError` to `NetworkError` (the classifier's default),
-and Groq alone maps it to `ProviderError`. Groq's subclass override is
+regression here. Timeout classification is likewise unchanged: every catalog
+provider except Groq maps `TimeoutError` to `NetworkError` (the classifier's
+default), and Groq alone maps it to `ProviderError`. Groq's subclass override is
 preserved verbatim via the JSON's `quirks.timeoutErrorClass`, so no
 provider's timeout class changed during migration.
 

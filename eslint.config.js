@@ -332,7 +332,9 @@ export default [
       // list is the determinism exception: a suite may sit outside the rule
       // only when it needs deterministic control a live call cannot give.
       // Every entry states why in its own file header. Adding to this list is
-      // a review decision, not a way to silence the rule.
+      // a review decision, not a way to silence the rule. The closed
+      // "Grandfathered" block near the end of the list is legacy debt with no
+      // per-file header; it may shrink, never grow.
       "neurolink/e2e-tests-only": [
         "error",
         {

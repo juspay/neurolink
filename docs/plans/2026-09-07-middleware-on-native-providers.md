@@ -162,11 +162,22 @@ seam exists, adding one is part of the work, not a footnote.
 Start from the precedent already in the repo rather than inventing one: the
 per-provider characterization suites (`test:vertex-loop-characterization`,
 `test:aistudio-loop-characterization`, `test:bedrock-loop-characterization`)
-already drive these three deterministically, and `providers-mocked` reaches
-them through `installMockFetch`, which intercepts at the fetch layer and so
-does not need a caller-supplied `baseURL` at all. That interception is the
-most likely answer for AI Studio and Vertex; Bedrock's AWS SDK client may
-need its own endpoint option instead.
+already drive these three deterministically, each through its own seam.
+`providers-mocked` is not that precedent: it has no AI Studio section, and
+its Vertex and Bedrock sections are construction-only because their SDKs
+bypass `globalThis.fetch`, so `installMockFetch` cannot reach them. The seams
+the characterization suites use are:
+
+- **AI Studio:** `credentials.googleAiStudio.baseURL`, which the provider
+  threads into the SDK's `httpOptions.baseUrl`.
+- **Vertex:** Express Mode (`credentials.vertex.apiKey` with no
+  project/location, plus `credentials.vertex.baseURL`). ADC authentication
+  ignores an endpoint override, so Express Mode is the only route to a local
+  server.
+- **Bedrock:** the AWS SDK's own `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` variable
+  with fake AWS credentials. The stand-in has to speak cleartext HTTP/2,
+  because the SDK defaults to `NodeHttp2Handler` for its event-stream
+  operations.
 
 ### Two traps this repo has already paid for
 

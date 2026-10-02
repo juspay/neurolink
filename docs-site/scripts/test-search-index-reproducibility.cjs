@@ -209,6 +209,11 @@ async function main() {
       { cwd: mergeDir, encoding: "utf8" },
     );
     assert.equal(
+      merge.error,
+      undefined,
+      `git merge-file could not run: ${merge.error && merge.error.message}`,
+    );
+    assert.equal(
       merge.status,
       0,
       "edits to two different pages must merge the index without a conflict",

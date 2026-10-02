@@ -96,8 +96,11 @@ const LEGACY_PROVIDERS: ReadonlySet<string> = new Set([
 type ProviderManifest = {
   provider: string;
   tier: 1 | 2 | 3 | 4;
+  addedInPR: string;
   addedDate: string;
+  filesTouched: string[];
   mockedContractSection: string;
+  manualTestStatus: string;
   tier4Justification?: string;
 };
 
@@ -314,6 +317,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
 function catalogJsonPath(provider: string): string {
   return join(REPO_ROOT, "src/lib/providers/catalog", `${provider}.json`);
 }
@@ -397,13 +404,16 @@ function loadManifest(provider: string): ManifestCheck {
   if (
     typeof parsed.provider !== "string" ||
     typeof parsed.tier !== "number" ||
+    typeof parsed.addedInPR !== "string" ||
     typeof parsed.addedDate !== "string" ||
-    typeof parsed.mockedContractSection !== "string"
+    !isStringArray(parsed.filesTouched) ||
+    typeof parsed.mockedContractSection !== "string" ||
+    typeof parsed.manualTestStatus !== "string"
   ) {
     return {
       manifest: null,
       problem:
-        "manifest missing required field(s) (provider, tier, addedDate, mockedContractSection)",
+        "manifest missing required field(s) (provider, tier, addedInPR, addedDate, filesTouched, mockedContractSection, manualTestStatus)",
     };
   }
   if (parsed.provider !== provider) {
@@ -422,8 +432,11 @@ function loadManifest(provider: string): ManifestCheck {
   const manifest: ProviderManifest = {
     provider: parsed.provider,
     tier: parsed.tier as 1 | 2 | 3 | 4,
+    addedInPR: parsed.addedInPR,
     addedDate: parsed.addedDate,
+    filesTouched: parsed.filesTouched,
     mockedContractSection: parsed.mockedContractSection,
+    manualTestStatus: parsed.manualTestStatus,
     ...(typeof parsed.tier4Justification === "string"
       ? { tier4Justification: parsed.tier4Justification }
       : {}),

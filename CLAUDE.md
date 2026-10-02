@@ -63,7 +63,7 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 
 **Enforcement:** Rules 2, 6 and 7-15 are enforced via ESLint. Rules 2, 6, 7-13 and 15 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
 
-Rule 15's determinism exception is the `allow` list on `neurolink/e2e-tests-only` in `eslint.config.js`. Adding a file to it is a review decision, and the file's own header must say what determinism buys — it is not a way to silence the rule. The rule ignores type-only imports (`import type`, and `{ type A }` where every specifier is type-only) because they are erased and assert nothing.
+Rule 15's determinism exception is the `allow` list on `neurolink/e2e-tests-only` in `eslint.config.js`. Adding a file to it is a review decision, and the file's own header must say what determinism buys — it is not a way to silence the rule. (A closed "Grandfathered" block of legacy suites near the end of the list is exempt from the header requirement and must not grow.) The rule ignores type-only imports (`import type`, and `{ type A }` where every specifier is type-only) because they are erased and assert nothing.
 
 | Rule     | ESLint rule                               |
 | -------- | ----------------------------------------- |
@@ -480,11 +480,16 @@ that was never required — and it surfaced only because the branch's check list
 looked implausibly short an hour later.
 
 If you need to write about a directive, break up the literal (`skip-ci`) or put
-the explanation in the **PR body**, which GitHub does not scan. This is now
-enforced: `Reject CI-Skip Directives` in `single-commit-enforcement.yml` reads
-the full message with `%B` and fails the PR. Note the older
-`Validate Commit Message Format` step reads only `%s`, so it cannot see a
-directive in the body — that gap is exactly how this got through.
+the explanation in the **PR body**, which GitHub does not scan. GitHub skips the
+`push` and `pull_request` runs when the PR's head commit holds a directive, so
+the required `🔒 Single Commit Policy Validation` check never reports: it stays
+Pending and blocks the merge. `Reject CI-Skip Directives` in
+`single-commit-enforcement.yml` (it reads the full message with `%B`) is only a
+backstop and cannot report that case, and its regex does not cover a
+`skip-checks:` trailer. The older `Validate Commit Message Format` step reads
+only `%s`, but that is not why this got through: GitHub skipped the whole
+workflow before any step ran, so even a check that read the full message would
+never have run.
 
 ### ⚠️ Required status checks and the release bot
 
@@ -614,12 +619,13 @@ Two things to know when stacking:
 
 ### ⚠️ Reading a CI result: seven ways this repo has misread one
 
-Every incident below produced a confident wrong answer. The first four are the
-same mistake — treating the _absence_ of a signal as a signal. The last three
-are its close relatives: reading a signal the tool never emitted, getting the
-same wrong answer twice from two passes that shared an input, and reading a
-signal that belongs to a commit you have already replaced. They are recorded
-together because each one cost real time before it was spotted.
+Every incident below produced a confident wrong answer. Incidents 1, 2 and 4
+are the same mistake — treating the _absence_ of a signal as a signal — and 3 is
+its inverse, a surplus read as a miscount. The last three are its close
+relatives: reading a signal the tool never emitted, getting the same wrong
+answer twice from two passes that shared an input, and reading a signal that
+belongs to a commit you have already replaced. They are recorded together
+because each one cost real time before it was spotted.
 
 **1. `CANCELLED` is not a failure.** Superseded runs report `CANCELLED`, and this
 workflow cancels its own in-progress runs (`concurrency.cancel-in-progress`), so
@@ -1024,13 +1030,18 @@ changes." Before investigating your own diff, reproduce on the untouched
 # A fixed path is not re-runnable: the second call dies with
 # `fatal: '/tmp/nl-audit' already exists` instead of auditing. Take a unique
 # directory, and remove the worktree outside the `&&` chain so a failed audit
-# still cleans up after itself.
+# still cleans up after itself. The chain sits in an `if` condition, which
+# `set -e` does not act on, so a failing audit cannot end a `set -e` caller's
+# shell before the cleanup below runs and leave the worktree registered.
 audit_dir="$(mktemp -d)/nl-audit"
-git fetch origin release \
+if git fetch origin release \
   && git worktree add "$audit_dir" origin/release \
   && ( cd "$audit_dir" && pnpm install --frozen-lockfile \
-       && pnpm exec tsx scripts/security-check.ts )
-audit_status=$?
+       && pnpm exec tsx scripts/security-check.ts ); then
+  audit_status=0
+else
+  audit_status=$?
+fi
 # Guarded: if the fetch or the `worktree add` failed, there is nothing to
 # remove, and an unguarded remove prints `fatal: ... is not a working tree`
 # on exactly the failure path this section exists to de-confuse.

@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Pipe Layer of an AI Nervous System</strong></p>
-  <p>Provider Neurons Across Major AI Vendors | 3 Inference Types (generate · stream · decide) | Voice (TTS/STT/Realtime) | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>Provider Neurons Across Major AI Vendors | 3 Inference Types (generate · stream · decide) | Voice (TTS/STT/Realtime) | 58+ MCP Servers | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -514,7 +514,7 @@ neurolink > Now implement the first suggestion
 [AI remembers previous context and implements suggestion]
 
 neurolink > /mcp discover
-✓ Discovered 58 MCP tools:
+✓ Discovered 58 MCP servers:
    GitHub: create_issue, list_repos, create_pr...
    PostgreSQL: query, insert, update...
    [full list]
@@ -649,7 +649,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 - [Enterprise HITL Guide](features/enterprise-hitl.md) - Approval workflows for high-stakes operations
 - [Interactive CLI Guide](features/interactive-cli.md) - AI development environment
-- [MCP Tools Showcase](features/mcp-tools-showcase.md) - 58+ external tools & 6 built-in tools
+- [MCP Tools Showcase](features/mcp-tools-showcase.md) - 58+ external MCP servers & 6 built-in tools
 
 **Provider Intelligence:**
 
