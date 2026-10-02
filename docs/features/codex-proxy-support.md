@@ -162,6 +162,7 @@ describe a Codex account, and none served that turn.
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No Codex accounts configured | `401` with a message pointing at `neurolink auth login codex`                                                                                                                    |
 | All accounts cooling         | Terminal `response.failed` SSE event (200, `retry-after` computed from the soonest recovery) instead of a bare `429`, so the CLI shows a real error instead of "Reconnecting..." |
+| All accounts auth-cooling    | The same terminal event with code `server_error` instead of `insufficient_quota` (every account is parked by an auth failure), so it is not reported as spent quota              |
 | `401` / `403` from upstream  | One forced token refresh, then rotate; a failed refresh disables the account until re-login                                                                                      |
 | `429`                        | Cool the account per its reported window, then rotate                                                                                                                            |
 | `5xx` / network              | Rotate to the next account                                                                                                                                                       |

@@ -397,10 +397,11 @@ function codexSessionId(body: ClaudeRequest): string | undefined {
     return undefined;
   }
   const fields = parsed as Record<string, unknown>;
-  const sessionId = fields.session_id ?? fields.parent_session_id;
-  return typeof sessionId === "string" && sessionId.length > 0
-    ? sessionId
-    : undefined;
+  // `??` would let an empty or non-string session_id shadow a usable
+  // parent_session_id, so each field has to qualify on its own.
+  return [fields.session_id, fields.parent_session_id].find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 }
 
 /** Convert a Claude Messages request into the ChatGPT Codex Responses shape. */

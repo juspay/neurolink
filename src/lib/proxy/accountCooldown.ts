@@ -137,7 +137,9 @@ export async function saveAccountCooldown(
     await ensureAccountCooldownsLoaded();
     // Another worker (a draining one during a rolling restart) may have written
     // the file since this one loaded it, so the change folds onto the file as
-    // it is now rather than onto this worker's copy.
+    // it is now rather than onto this worker's copy. Best-effort: the mutex is
+    // per process, so two workers writing within the same few ms can still
+    // lose one update.
     const onDisk = await readCooldownsFromDisk(memoryCache);
     memoryCache = onDisk;
     const current = onDisk[accountKey];
@@ -159,7 +161,8 @@ export async function clearAccountCooldown(
   await mutationMutex.runExclusive(async () => {
     await ensureAccountCooldownsLoaded();
     // Compare against the file, not this worker's copy: another worker may
-    // have extended this cooldown since, and that one must survive.
+    // have extended this cooldown since, and that one must survive. Same
+    // best-effort limit as saveAccountCooldown: no cross-process lock.
     const onDisk = await readCooldownsFromDisk(memoryCache);
     memoryCache = onDisk;
     const current = onDisk[accountKey];

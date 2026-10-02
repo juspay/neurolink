@@ -275,24 +275,29 @@ function buildCodexErrorResponse(
 }
 
 /**
- * Build a terminal Codex Responses SSE stream for a quota-exhaustion failure
- * that never reached an upstream request (every pooled account is cooling).
+ * Build a terminal Codex Responses SSE stream for a failure that never reached
+ * an upstream request (every pooled account is cooling).
  * A bare non-2xx status with no body reads to the Codex CLI as a dropped
  * connection, so it shows "Reconnecting... waiting for network" forever
  * instead of a real error. Emitting a well-formed `response.failed` event —
  * the same terminal shape the CLI already parses out of a live stream —
  * lets it render the actual failure instead.
+ *
+ * The code is what the client keys on: `insufficient_quota` tells it the plan
+ * is spent, so it is reserved for a pool that is out of quota. Accounts parked
+ * by a transient auth failure report `server_error` instead.
  */
-function buildCodexQuotaExhaustedResponse(
+function buildCodexPoolCoolingResponse(
   message: string,
-  retryAfterSec?: number,
+  retryAfterSec: number | undefined,
+  code: "insufficient_quota" | "server_error",
 ): Response {
   const payload = {
     type: "response.failed",
     response: {
       error: {
-        type: "insufficient_quota",
-        code: "insufficient_quota",
+        type: code,
+        code,
         message,
       },
     },
@@ -1732,16 +1737,33 @@ async function executeCodexResponsesRequest(
           "request_too_large",
         );
       }
+      const resetAt = soonest ? new Date(soonest).toISOString() : undefined;
+      // A refresh that failed transiently, or a 401 with no refresh token to
+      // retry with, parks the account as "auth". Reporting that as spent quota
+      // would tell the user the plan is exhausted when it is not.
+      if (ordered.every((account) => account.coolingReason === "auth")) {
+        await recordFinalOutcome(undefined, 503, {
+          errorType: "all_accounts_auth_cooling",
+          errorMessage: "All Codex accounts are cooling after an auth failure",
+        });
+        return buildCodexPoolCoolingResponse(
+          resetAt
+            ? `Codex authentication is temporarily unavailable for every account. Retry after ${resetAt}, or run \`neurolink auth login codex\` if it persists.`
+            : "Codex authentication is temporarily unavailable for every account. Retry shortly, or run `neurolink auth login codex` if it persists.",
+          retryAfterSec,
+          "server_error",
+        );
+      }
       await recordFinalOutcome(undefined, 429, {
         errorType: "all_accounts_cooling",
         errorMessage: "All Codex accounts are rate-limited",
       });
-      const resetAt = soonest ? new Date(soonest).toISOString() : undefined;
-      return buildCodexQuotaExhaustedResponse(
+      return buildCodexPoolCoolingResponse(
         resetAt
           ? `Codex quota exhausted: all accounts are rate-limited. Resets at ${resetAt}.`
           : "Codex quota exhausted: all accounts are rate-limited.",
         retryAfterSec,
+        "insufficient_quota",
       );
     }
 

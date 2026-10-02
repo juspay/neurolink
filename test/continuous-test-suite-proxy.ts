@@ -27,8 +27,15 @@
  * because `detect()`/`apply()`/`restore()` resolve paths from HOME, and the
  * behaviours worth pinning — refusing to write for an absent CLI, refusing to
  * restore without a snapshot — are precisely the ones a live `proxy start`
- * never exercises. `Analyze: exact rates…` is the exception: it drives the
- * built CLI end to end.
+ * never exercises. `Analyze: exact rates…` and `Analyze: prefix-priced…` are
+ * the exception: they drive the built CLI end to end.
+ *
+ * `Attribution: every configured client…` takes the exception too. It also
+ * imports `getMappedClientNames` from `src/lib/proxy/clientAttribution.ts`, and
+ * compares two static rosters (the configurators against the User-Agent
+ * prefixes). No CLI command prints the User-Agent roster, and live attribution
+ * is covered end to end by `Attribution: the request log records the calling
+ * CLI`.
  *
  * The `Ledger:` cases and `Accounts: route joins…` take the same exception for
  * the same reason. The ledger's whole job is what happens to malformed input —
@@ -4359,6 +4366,54 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     });
   }
 
+  // Keyed by User-Agent, not by clientApp. Four of the callers above are
+  // expected to classify as "unknown", and a clientApp-keyed map would let
+  // them overwrite each other — turning a wrong answer for one caller into a
+  // pass as long as any single unknown row landed.
+  const readAttribution = (): {
+    appended: string[];
+    seen: Map<string, string>;
+  } => {
+    if (!fs.existsSync(logPath)) {
+      return { appended: [], seen: new Map() };
+    }
+    // sizeBefore is a BYTE offset from statSync. Slicing a decoded string by it
+    // counts UTF-16 code units instead, so one multi-byte character anywhere in
+    // the earlier log shifts the cut and the first "appended" line arrives
+    // truncated mid-JSON. Slice the buffer, then decode.
+    const appended = fs
+      .readFileSync(logPath)
+      .subarray(sizeBefore)
+      .toString("utf8")
+      .split("\n")
+      .filter((l) => l.trim());
+    const seen = new Map<string, string>();
+    for (const line of appended) {
+      try {
+        const rec = JSON.parse(line) as {
+          clientApp?: string;
+          userAgent?: string;
+        };
+        if (rec.clientApp && rec.userAgent) {
+          seen.set(rec.userAgent, rec.clientApp);
+        }
+      } catch {
+        // partial trailing line
+      }
+    }
+    return { appended, seen };
+  };
+
+  // The proxy writes each row through a queued async writer it does not await,
+  // so a response can finish before its row is on disk. Poll for every caller's
+  // row rather than reading once, or a slow disk reads as a missing User-Agent.
+  let { appended, seen } = readAttribution();
+  const deadline = Date.now() + 15_000;
+  while (!agents.every((a) => seen.has(a.ua)) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    ({ appended, seen } = readAttribution());
+  }
+
   if (!fs.existsSync(logPath)) {
     log(
       "proxy wrote no request log; attribution could not be observed",
@@ -4366,41 +4421,12 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     );
     return null;
   }
-  // sizeBefore is a BYTE offset from statSync. Slicing a decoded string by it
-  // counts UTF-16 code units instead, so one multi-byte character anywhere in
-  // the earlier log shifts the cut and the first "appended" line arrives
-  // truncated mid-JSON. Slice the buffer, then decode.
-  const appended = fs
-    .readFileSync(logPath)
-    .subarray(sizeBefore)
-    .toString("utf8")
-    .split("\n")
-    .filter((l) => l.trim());
   if (appended.length === 0) {
     log(
       "proxy appended no log lines; attribution could not be observed",
       "yellow",
     );
     return null;
-  }
-
-  // Keyed by User-Agent, not by clientApp. Four of the callers above are
-  // expected to classify as "unknown", and a clientApp-keyed map would let
-  // them overwrite each other — turning a wrong answer for one caller into a
-  // pass as long as any single unknown row landed.
-  const seen = new Map<string, string>();
-  for (const line of appended) {
-    try {
-      const rec = JSON.parse(line) as {
-        clientApp?: string;
-        userAgent?: string;
-      };
-      if (rec.clientApp && rec.userAgent) {
-        seen.set(rec.userAgent, rec.clientApp);
-      }
-    } catch {
-      // partial trailing line
-    }
   }
 
   for (const a of agents) {
@@ -6734,22 +6760,25 @@ async function testAnalyzeKeepsUsageAcrossWindowEdge(): Promise<boolean> {
   }
 }
 
-async function testAnalyzePricingProvenance(): Promise<boolean> {
+type AnalyzedPricing = {
+  requestsPriced?: number;
+  requestsPricedByPrefix?: number;
+  modelsPricedByPrefix?: string[];
+  requestsUnpriced?: number;
+  unpricedModels?: string[];
+};
+
+/** Run the built `proxy analyze` over one log row per `{model, provider}`. */
+async function analyzePricingFor(
+  models: Array<{ model: string; provider: string }>,
+): Promise<AnalyzedPricing | null> {
   const { execFileSync } = await import("child_process");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-pricing-"));
   const logs = path.join(dir, "logs");
   fs.mkdirSync(logs, { recursive: true });
   const ts = new Date().toISOString();
   const day = ts.slice(0, 10);
-  const rows = [
-    {
-      requestId: "b1",
-      model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-      provider: "bedrock",
-    },
-    { requestId: "v1", model: "gemini-2.5-pro", provider: "vertex" },
-    { requestId: "s1", model: "claude-sonnet-4-5", provider: "anthropic" },
-  ].map((r) =>
+  const rows = models.map((r, index) =>
     JSON.stringify({
       timestamp: ts,
       method: "POST",
@@ -6762,6 +6791,7 @@ async function testAnalyzePricingProvenance(): Promise<boolean> {
       responseTimeMs: 900,
       inputTokens: 1000,
       outputTokens: 100,
+      requestId: `p${index}`,
       ...r,
     }),
   );
@@ -6784,30 +6814,85 @@ async function testAnalyzePricingProvenance(): Promise<boolean> {
       ],
       { encoding: "utf8" },
     );
-    const report = JSON.parse(out) as {
-      cache?: { requestsPriced?: number; requestsPricedByPrefix?: number };
-    };
-    if (report.cache?.requestsPriced !== 3) {
-      log(
-        "analyze did not price every request that carried a known model",
-        "red",
-      );
-      return false;
-    }
-    if (report.cache?.requestsPricedByPrefix !== 0) {
-      log(
-        "analyze reported an exact rate as an inferred one — provenance regressed",
-        "red",
-      );
-      return false;
-    }
-    return true;
+    return (JSON.parse(out) as { cache?: AnalyzedPricing }).cache ?? null;
   } catch {
     log("proxy analyze did not produce a parseable report", "red");
-    return false;
+    return null;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+async function testAnalyzePricingProvenance(): Promise<boolean> {
+  const cache = await analyzePricingFor([
+    {
+      model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      provider: "bedrock",
+    },
+    { model: "gemini-2.5-pro", provider: "vertex" },
+    { model: "claude-sonnet-4-5", provider: "anthropic" },
+  ]);
+  if (!cache) {
+    return false;
+  }
+  if (cache.requestsPriced !== 3) {
+    log(
+      "analyze did not price every request that carried a known model",
+      "red",
+    );
+    return false;
+  }
+  if (cache.requestsPricedByPrefix !== 0) {
+    log(
+      "analyze reported an exact rate as an inferred one — provenance regressed",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+// The other half of provenance: a rate inherited from a similarly-named model,
+// and a model with no rate at all, must each be named in the report rather than
+// folded into the priced total or priced at $0.
+async function testAnalyzePricingFallbacks(): Promise<boolean> {
+  // "gpt-5.3" has no row of its own and inherits "gpt-5"'s rate by prefix.
+  const cache = await analyzePricingFor([
+    { model: "claude-sonnet-4-5", provider: "anthropic" },
+    { model: "gpt-5.3", provider: "openai" },
+    { model: "gpt-5.3", provider: "openai" },
+    { model: "no-such-model-xyz", provider: "openai" },
+  ]);
+  if (!cache) {
+    return false;
+  }
+  if (cache.requestsPriced !== 3) {
+    log(
+      "analyze must count exact and prefix-matched requests as priced, and an unpriced one as neither",
+      "red",
+    );
+    return false;
+  }
+  if (
+    cache.requestsPricedByPrefix !== 2 ||
+    cache.modelsPricedByPrefix?.length !== 1 ||
+    cache.modelsPricedByPrefix[0] !== "gpt-5.3"
+  ) {
+    log(
+      "analyze must report each prefix-priced request and name the model once",
+      "red",
+    );
+    return false;
+  }
+  if (
+    cache.requestsUnpriced !== 1 ||
+    cache.unpricedModels?.length !== 1 ||
+    cache.unpricedModels[0] !== "no-such-model-xyz"
+  ) {
+    log("analyze must report a model with no pricing row as unpriced", "red");
+    return false;
+  }
+  return true;
 }
 
 // ============================================================================
@@ -8014,7 +8099,78 @@ async function testPlanCooldownFor429(): Promise<boolean | null> {
     return false;
   }
 
-  log("planCooldownFor429: 5 cases passed", "green");
+  // 6. The reconcile path must classify a scoped window the way the request
+  // path does. A header-derived session-scoped window carries the wire id of
+  // the served model, and a usage-API window can carry the wire id without a
+  // display name; neither may be read as an account-wide unified rejection.
+  const reconcileOutcome = (
+    windows: NonNullable<AccountQuota["windows"]>,
+  ): { kind: string | undefined; coolingUntil: number | undefined } => {
+    const parked = {
+      coolingUntil: now + 12 * 3600 * 1000,
+      coolingReason: "unified" as const,
+    };
+    const outcome = __testHooks.reconcileCooldownFromQuota(
+      parked as never,
+      makeQuota({
+        unifiedStatus: "rejected",
+        overageStatus: "rejected",
+        lastUpdated: now,
+        sessionResetAt: nowSec + 2 * 3600,
+        weeklyResetAt: nowSec + 5 * 24 * 3600,
+        windows,
+      }),
+      now,
+    );
+    return { kind: outcome?.kind, coolingUntil: parked.coolingUntil };
+  };
+  const exhausted = {
+    group: "session",
+    used: 1,
+    status: "rejected",
+    resetsAt: scopedResetSec,
+    updatedAt: now,
+  };
+  for (const [label, window] of [
+    [
+      "session-scoped header window",
+      {
+        ...exhausted,
+        kind: "session_scoped",
+        scopeModel: "claude-fable-5",
+        scopeModelId: "claude-fable-5-20260115",
+      },
+    ],
+    [
+      "weekly-scoped window with only a wire id",
+      {
+        ...exhausted,
+        kind: "weekly_scoped",
+        scopeModelId: "claude-fable-5-20260115",
+      },
+    ],
+  ] as const) {
+    const outcome = reconcileOutcome([window]);
+    if (outcome.kind !== "cleared" || outcome.coolingUntil !== undefined) {
+      log(
+        `planCooldownFor429: a ${label} must release the account-wide unified cooldown`,
+        "red",
+      );
+      return false;
+    }
+  }
+  // Control: a window with no model scope at all is account-wide evidence and
+  // must keep the unified cooldown in place.
+  const unscoped = reconcileOutcome([{ ...exhausted, kind: "weekly_scoped" }]);
+  if (unscoped.kind === "cleared" || unscoped.coolingUntil === undefined) {
+    log(
+      "planCooldownFor429: a window with no model scope must not release the account-wide cooldown",
+      "red",
+    );
+    return false;
+  }
+
+  log("planCooldownFor429: 6 cases passed", "green");
   return true;
 }
 
@@ -15196,6 +15352,11 @@ const tests: TestFunction[] = [
   {
     name: "Analyze: exact rates are not reported as inferred",
     fn: testAnalyzePricingProvenance,
+    category: "proxy-config",
+  },
+  {
+    name: "Analyze: prefix-priced and unpriced models are reported",
+    fn: testAnalyzePricingFallbacks,
     category: "proxy-config",
   },
   {

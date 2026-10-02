@@ -1245,10 +1245,15 @@ function hasScopedOnlyExhaustion(
   ) {
     return false;
   }
+  // Same notion of "scoped" as the request path: header windows (which carry
+  // both a display scope and the wire id) and usage-API windows (often only
+  // one of them) must classify alike, or a 429 is scoped when routed and
+  // account-wide when reconciled.
   return (quota.windows ?? []).some(
     (window) =>
-      window.kind === "weekly_scoped" &&
-      typeof window.scopeModel === "string" &&
+      (window.kind === "weekly_scoped" || window.kind === "session_scoped") &&
+      (typeof window.scopeModel === "string" ||
+        typeof window.scopeModelId === "string") &&
       now - scopedWindowObservedAt(quota, window) <=
         QUOTA_SNAPSHOT_FRESHNESS_MS &&
       isScopedWindowExhausted(window, now),

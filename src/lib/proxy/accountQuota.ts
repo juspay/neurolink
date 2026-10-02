@@ -482,6 +482,8 @@ async function flushToDisk(): Promise<void> {
       // Another worker (a draining one during a rolling restart) may have
       // written the file since this one loaded it: fold only this worker's
       // changes onto the file as it is now, never rewrite it from this copy.
+      // Best-effort: the mutexes are per process, so two workers flushing
+      // within the same few ms can still lose one update.
       const onDisk = await readQuotasFromDisk(filePath, fallback);
       const merged = { ...onDisk };
       for (const [key, quota] of Object.entries(flushing)) {

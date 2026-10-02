@@ -115,6 +115,7 @@ import {
   codexAnthropicAffinityKey,
 } from "../src/lib/proxy/codexOutboundCache.js";
 import type {
+  AccountCoolingReason,
   ClaudeMessage,
   ClaudeRequest,
   ClaudeTextBlock,
@@ -4053,6 +4054,39 @@ await test("Claude fallback falls back to the session when there is no prefix", 
   );
 });
 
+// An empty or non-string session_id must not shadow a usable
+// parent_session_id: with no prefix to hash, losing the session means the
+// request goes out with no cache key at all.
+await test("Claude fallback uses parent_session_id when session_id is empty or not a string", () => {
+  const parentId = "ee313449-09b0-4f0e-bae6-1c0bf6573ad5";
+  const keyFor = (fields: Record<string, unknown>): string | undefined =>
+    convertClaudeRequestToCodex(
+      {
+        model: "claude-opus-5",
+        max_tokens: 64,
+        messages: [{ role: "user", content: "hello" }],
+        metadata: { user_id: JSON.stringify(fields) },
+      } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+      "gpt-5.6-sol",
+    ).prompt_cache_key;
+
+  const viaParent = keyFor({ parent_session_id: parentId });
+  assert(
+    typeof viaParent === "string" && viaParent.length === 64,
+    "a parent session alone must still pin the conversation",
+  );
+  for (const shadow of ["", 42, null]) {
+    assert(
+      keyFor({ session_id: shadow, parent_session_id: parentId }) === viaParent,
+      "an unusable session_id must fall through to the parent session",
+    );
+  }
+  assert(
+    keyFor({ session_id: "", parent_session_id: "" }) === undefined,
+    "two empty session fields must still mean no cache key",
+  );
+});
+
 // The two real bugs this PR fixed both lived in the seam between fallback
 // legs, and neither was reachable by a test that drives a single leg: a failed
 // Codex leg left its model, account, deferred-failure flag and failure usage
@@ -4211,6 +4245,8 @@ await test("a failed Codex leg leaves nothing behind for the Vertex leg that ser
     } else {
       process.env.GOOGLE_CLOUD_LOCATION = prevLocation;
     }
+    // The account would otherwise stay in the pool for every later case.
+    await tokenStore.clearTokens(key);
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -4972,6 +5008,132 @@ await test("createCodexProxyRoutes warns once when an anthropic target is enable
   } finally {
     logger.warn = originalWarn;
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A pool parked only by "auth" cooldowns (a token refresh that failed
+// transiently, or a 401 with no refresh token to retry with) is not out of
+// quota. The terminal error has to say so: `insufficient_quota` tells the
+// client the plan is spent, which for these accounts is false.
+await test("Codex responses does not report an auth-cooled pool as spent quota", async () => {
+  const { saveAccountCooldown, clearAccountCooldown } =
+    await import("../src/lib/proxy/accountCooldown.js");
+  const route = createCodexProxyRoutes("").routes.find(
+    (entry) =>
+      entry.method === "POST" && entry.path === "/backend-api/codex/responses",
+  );
+  assert(route !== undefined, "the Codex responses route was not registered");
+  const keys = [
+    "codex:auth-cooling-a@example.test",
+    "codex:auth-cooling-b@example.test",
+  ];
+  const savedFetch = globalThis.fetch;
+  assertEqual(
+    (await __testHooks.loadCodexProxyAccounts()).length,
+    0,
+    "an earlier case left a Codex account in the shared pool",
+  );
+  const terminalFor = async (
+    reasons: AccountCoolingReason[],
+  ): Promise<{
+    code: unknown;
+    message: unknown;
+    retryAfter: string | null;
+  }> => {
+    try {
+      for (const [index, reason] of reasons.entries()) {
+        await tokenStore.saveTokens(keys[index], {
+          accessToken: "isolated-access",
+          tokenType: "Bearer",
+          expiresAt: Date.now() + 7_200_000,
+        });
+        await saveAccountCooldown(keys[index], Date.now() + 120_000, reason);
+      }
+      // Every account is cooling, so no upstream request may be made.
+      globalThis.fetch = async () => {
+        throw new Error("a cooling pool must not reach the upstream");
+      };
+      const result = await route!.handler({
+        requestId: `auth-cooling-${reasons.join("-")}`,
+        method: "POST",
+        path: "/backend-api/codex/responses",
+        headers: {},
+        query: {},
+        params: {},
+        metadata: {},
+        responseHeaders: {},
+        timestamp: Date.now(),
+        neurolink: {},
+        toolRegistry: {},
+        body: {
+          model: "gpt-5.6-sol",
+          stream: true,
+          store: false,
+          input: [
+            {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: "hello" }],
+            },
+          ],
+        },
+      } as unknown as ServerContext);
+      if (!(result instanceof Response)) {
+        throw new Error("the handler did not return a Response");
+      }
+      const data = (await result.text())
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+      if (data === undefined) {
+        throw new Error("the terminal event carried no data");
+      }
+      const error = (
+        JSON.parse(data.slice("data: ".length)) as {
+          response?: { error?: { code?: unknown; message?: unknown } };
+        }
+      ).response?.error;
+      return {
+        code: error?.code,
+        message: error?.message,
+        retryAfter: result.headers.get("retry-after"),
+      };
+    } finally {
+      globalThis.fetch = savedFetch;
+      for (const key of keys) {
+        await tokenStore.clearTokens(key);
+        await clearAccountCooldown(key);
+      }
+    }
+  };
+
+  const authOnly = await terminalFor(["auth", "auth"]);
+  assertEqual(
+    authOnly.code,
+    "server_error",
+    "an auth-cooled pool was reported as spent quota",
+  );
+  assert(
+    typeof authOnly.message === "string" &&
+      !authOnly.message.includes("quota exhausted"),
+    "the auth-cooled message still claimed the quota was exhausted",
+  );
+  assert(
+    Number(authOnly.retryAfter) > 0,
+    "the auth-cooled response lost its retry-after",
+  );
+
+  // Controls: any account cooling for a quota reason keeps the quota error, so
+  // the distinction is not simply "always server_error".
+  for (const reasons of [
+    ["weekly", "weekly"],
+    ["auth", "weekly"],
+  ] as const) {
+    const quota = await terminalFor([...reasons]);
+    assertEqual(
+      quota.code,
+      "insufficient_quota",
+      "a pool with a quota cooldown must still report spent quota",
+    );
   }
 });
 
