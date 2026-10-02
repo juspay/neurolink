@@ -1,5 +1,6 @@
 // GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.
 export type CatalogProviderName =
+  | "a2agent"
   | "above-dev"
   | "ai21"
   | "aiand"
@@ -81,6 +82,7 @@ export type CatalogProviderName =
   | "xai"
   | "z-ai";
 export type CatalogCredentialKey =
+  | "a2agent"
   | "aboveDev"
   | "ai21"
   | "aiand"

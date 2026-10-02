@@ -269,6 +269,20 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 ---
 
+### a2agent?
+
+> `optional` **a2agent?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### aboveDev?
 
 > `optional` **aboveDev?**: `object`

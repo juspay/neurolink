@@ -230,6 +230,7 @@ export type NeurolinkCredentials = {
   lmStudio?: { apiKey?: string; baseURL?: string };
   llamacpp?: { apiKey?: string; baseURL?: string };
   // ── BEGIN GENERATED(credentials): provider catalog (pnpm run codegen:catalog) ──
+  a2agent?: { apiKey?: string; baseURL?: string };
   aboveDev?: { apiKey?: string; baseURL?: string };
   ai21?: { apiKey?: string; baseURL?: string };
   aiand?: { apiKey?: string; baseURL?: string };

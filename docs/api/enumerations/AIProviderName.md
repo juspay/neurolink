@@ -94,6 +94,12 @@ Supported AI Provider Names
 
 ---
 
+### A2AGENT
+
+> **A2AGENT**: `"a2agent"`
+
+---
+
 ### ABOVE_DEV
 
 > **ABOVE_DEV**: `"above-dev"`
