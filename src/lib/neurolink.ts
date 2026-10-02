@@ -180,8 +180,15 @@ import {
 import { AIProviderFactory } from "./core/factory.js";
 import {
   describeDecisionProviderKeys,
+  PROVIDER_ALIAS_INDEX,
+  PROVIDER_DESCRIPTORS_BY_NAME,
   resolveDefaultDecisionProvider,
 } from "./factories/providerDescriptors.js";
+import {
+  MAX_PARALLEL_DECISION_BATCHES,
+  mergeDecisionResults,
+  splitDecisionRequest,
+} from "./utils/decisionBatches.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { resolveRequestKind } from "./core/resolveRequestKind.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -17846,10 +17853,16 @@ Current user's request: ${currentInput}`;
    * that is unconfigured, slow, rate-limited or down must never change
    * NeuroLink's observable behaviour — the caller falls back to whatever it
    * did before the decision was available.
+   *
+   * It also takes more questions than a provider's per-request cap: the map is
+   * split at the cap, the batches run a few at a time, and the answers come
+   * back joined. A batch that fails costs only its own answers, which every
+   * consumer already reads as "no decision"; null comes back only when every
+   * batch failed. `decide()` itself stays strict and refuses an over-cap request.
    */
   async tryDecide(options: DecisionOptions): Promise<DecisionResult | null> {
     try {
-      const result = await this.decide(options);
+      const result = await this.decideInBatches(options);
       if (logger.shouldLog("debug")) {
         logger.debug(
           `decide: ${Object.keys(result.answers).length} answers in ${result.latencyMs}ms` +
@@ -17869,6 +17882,69 @@ Current user's request: ${currentInput}`;
       );
       return null;
     }
+  }
+
+  /**
+   * One `decide()` call, or, when the question map is longer than the resolved
+   * provider's cap, several run a few at a time with their results joined. The
+   * provider is resolved here exactly as `decide()` resolves it, so the cap that
+   * is read is the cap of the provider that will answer.
+   */
+  private async decideInBatches(
+    options: DecisionOptions,
+  ): Promise<DecisionResult> {
+    const providerName =
+      options.provider ??
+      resolveDefaultDecisionProvider(
+        this.resolveCredentials(options.credentials),
+      );
+    // The name a caller passes may be an alias (`jev` for `typesafe`), so it is
+    // resolved to the canonical provider before its descriptor is read.
+    const canonical = providerName
+      ? PROVIDER_ALIAS_INDEX.get(providerName.toLowerCase())
+      : undefined;
+    const cap = canonical
+      ? PROVIDER_DESCRIPTORS_BY_NAME.get(canonical)?.decisionLimits
+          ?.maxQuestions
+      : undefined;
+    const batches = splitDecisionRequest(options, cap);
+    if (batches.length === 1) {
+      return this.decide(options);
+    }
+
+    const answered: DecisionResult[] = [];
+    let firstFailure: unknown;
+    for (
+      let from = 0;
+      from < batches.length;
+      from += MAX_PARALLEL_DECISION_BATCHES
+    ) {
+      const settled = await Promise.allSettled(
+        batches
+          .slice(from, from + MAX_PARALLEL_DECISION_BATCHES)
+          .map((batch) => this.decide(batch)),
+      );
+      for (const outcome of settled) {
+        if (outcome.status === "fulfilled") {
+          answered.push(outcome.value);
+        } else {
+          firstFailure ??= outcome.reason;
+        }
+      }
+    }
+
+    const [first, ...rest] = answered;
+    if (first === undefined) {
+      throw firstFailure instanceof Error
+        ? firstFailure
+        : new Error(String(firstFailure));
+    }
+    if (rest.length + 1 < batches.length) {
+      logger.debug(
+        `decide: ${batches.length - answered.length} of ${batches.length} batches failed; using the answers of the rest`,
+      );
+    }
+    return mergeDecisionResults([first, ...rest]);
   }
 
   /**

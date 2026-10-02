@@ -137,7 +137,11 @@ provider's slice) does not configure it; `credentials.perplexityDecider` does.
 **`decisionLimits` refuses what a model cannot read.** A descriptor may declare
 `decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an
 over-limit request with `max_tokens_exceeded` before any network call, and every
-internal consumer then fails open as usual. Laya declares 768 state tokens on
+internal consumer then fails open as usual. The exception is the question cap:
+`decide()` refuses a longer map, but `tryDecide()` (the door every consumer
+uses) splits it at the cap, runs up to four batches at a time and joins the
+answers, so a consumer that asks 300 questions of a 64-question provider still
+gets its decision. A failed batch loses only its own answers. Laya declares 768 state tokens on
 `typed-decisions` and `multilingual`, 320 on `english`, `auto` and any unlisted
 name, and 64 questions, because its server answers a longer state from the
 first 1,024 tokens without saying so. Non-ASCII characters are charged at a

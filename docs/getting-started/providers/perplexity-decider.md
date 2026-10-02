@@ -378,9 +378,12 @@ provider you name or to the default one.
 
 Two consumers can ask more questions in one request than Perplexity takes:
 relevance compaction asks about up to 300 messages and tool routing about up to
-200 servers, against 128 here. Past 128, NeuroLink refuses the request before it
-leaves the machine, the consumer carries on as it did without a decision model,
-and nothing is sent.
+200 servers, against 128 here. `tryDecide()`, which every built-in consumer
+calls, splits such a request into batches of at most 128 questions, runs up to
+four at a time and joins the answers. The state goes with every batch, so it is
+sent, and billed, once for each. A batch that fails costs only its own
+questions, which then have no answer, and the consumer carries on without that
+decision.
 
 Treat each request like any hosted provider call for data handling and
 retention: it is a request to `api.perplexity.ai` made with your key.
@@ -537,8 +540,10 @@ consumer treats that as "carry on as before".
   provider.** There is no setting that raises the window, so a larger state that
   would fit the server's ceiling can be sent only through a decision provider
   with a larger window.
-- **More than 128 questions** is refused with `max_tokens_exceeded`, the cap the
-  API enforces.
+- **More than 128 questions in a `decide()` call** is refused with
+  `max_tokens_exceeded`, the cap the API enforces. `tryDecide()` splits the
+  request at 128 instead (see
+  [What is sent to Perplexity](#what-is-sent-to-perplexity)).
 - **More than 8 images**, an image that is not PNG, JPEG or WebP, an image over
   2,048 tiles of 32 × 32 pixels, a remote image URL, a video, or a body over
   32 MiB is refused with `invalid_request`.
@@ -694,10 +699,11 @@ to its scheme, host and path.
   whose dimensions it cannot read as given. Resize the image.
 - **`Perplexity does not accept video`** — send images, or use a decision
   provider that reads video.
-- **`max_tokens_exceeded`** — the state is estimated above 100,000 tokens, the
-  request has more than 128 questions, or the server refused input of 262,144
-  tokens or more. Shorten the state, split it or the questions across requests,
-  or use a decision provider with a larger window.
+- **`max_tokens_exceeded`** — the state is estimated above 100,000 tokens, a
+  `decide()` call has more than 128 questions (`tryDecide()` splits them), or the
+  server refused input of 262,144 tokens or more. Shorten the state, split it or
+  the questions across requests, or use a decision provider with a larger
+  window.
 - **`timeout`** — the request took longer than the timeout, 10 seconds plus
   100 ms for each question by default, and a timeout is retried once, so the
   error arrives after about twice that. Raise `timeoutMs` for a state of more

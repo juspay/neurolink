@@ -506,7 +506,7 @@ health sweep.
 - 🔑 `PERPLEXITY_API_KEY` alone configures it, and it is the same key the Perplexity text provider reads, so a key set for Sonar also lets built-in features use it when none of TypeSafe, Laya or XOR is configured; the guide lists what each consumer then sends
 - 🖼️ Takes up to 8 PNG, JPEG or WebP images with a decision; no video
 - 💰 $0.04 per million input tokens (image tokens included), output free, as Perplexity documents it
-- 📏 Refuses more than about 100,000 estimated tokens of state (NeuroLink's own window; the server's ceiling is 262,144 input tokens), or more than 128 questions, before any network call. The 128-question cap, the server's token ceiling and the latency were measured on a real account in October 2026
+- 📏 Refuses more than about 100,000 estimated tokens of state (NeuroLink's own window; the server's ceiling is 262,144 input tokens), or more than 128 questions in a `decide()` call (`tryDecide()` splits them), before any network call. The 128-question cap, the server's token ceiling and the latency were measured on a real account in October 2026
 - 🔌 Hosted endpoint, so no base URL is needed; `PERPLEXITY_DECIDER_BASE_URL` (or `credentials.perplexityDecider.baseURL`) can name another origin
 
 [Setup Guide →](perplexity-decider.md)

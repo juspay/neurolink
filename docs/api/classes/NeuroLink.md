@@ -3027,6 +3027,12 @@ that is unconfigured, slow, rate-limited or down must never change
 NeuroLink's observable behaviour — the caller falls back to whatever it
 did before the decision was available.
 
+It also takes more questions than a provider's per-request cap: the map is
+split at the cap, the batches run a few at a time, and the answers come
+back joined. A batch that fails costs only its own answers, which every
+consumer already reads as "no decision"; null comes back only when every
+batch failed. `decide()` itself stays strict and refuses an over-cap request.
+
 ##### Parameters
 
 ###### options

@@ -3952,6 +3952,208 @@ async function runLayaDecide(): Promise<void> {
       );
     }
   }
+
+  // ── M9: tryDecide splits a question map at the provider's cap ──
+  // Built-in consumers ask about up to 300 messages or 200 servers in one
+  // request, and decide() refuses what a provider's cap does not take, so past
+  // the cap a consumer used to lose its whole decision. tryDecide is the one door
+  // they all use; decide() itself stays strict.
+  const booleans = (count: number) =>
+    Object.fromEntries(
+      Array.from({ length: count }, (_, i) => [
+        `q${i}`,
+        { type: "boolean" as const, instructions: `Is statement ${i} true?` },
+      ]),
+    );
+  const idsSent = (body: unknown): string[] =>
+    Object.keys(
+      (body as { questions?: Record<string, unknown> }).questions ?? {},
+    );
+  /** A Laya that answers each question it is sent, and refuses the batch that holds `refuse`. */
+  const layaAnswering = (
+    refuse?: string,
+  ): Parameters<typeof installMockFetch>[0][number] => ({
+    method: "POST",
+    url: LAYA_DECIDE_SPEC.urlMatch,
+    respond: (call) => {
+      const ids = idsSent(call.bodyJson);
+      if (refuse !== undefined && ids.includes(refuse)) {
+        return { status: 400, json: { detail: "bad request" } };
+      }
+      return {
+        status: 200,
+        json: {
+          model: "typed-decisions",
+          answers: Object.fromEntries(
+            ids.map((id) => [id, { type: "noul", noul: 0.5, confidence: 0.5 }]),
+          ),
+          usage: { input_tokens: 10, output_tokens: 0 },
+          routing: { model: "typed-decisions", reason: "explicit" },
+        },
+      };
+    },
+  });
+  const batchCase = async (name: string, body: () => Promise<void>) => {
+    try {
+      await body();
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  };
+
+  await batchCase(
+    "DECIDE laya: M9a tryDecide splits more than 64 questions and joins the answers",
+    async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      await withMocks([layaAnswering()], async ({ calls }) => {
+        const result = await new NeuroLink().tryDecide({
+          provider: "laya",
+          state: "short",
+          questions: booleans(150),
+        });
+        const sizes = calls
+          .map((c) => idsSent(c.bodyJson).length)
+          .sort((a, b) => b - a);
+        expectEq(sizes.join(","), "64,64,22", "three requests, none over 64");
+        expectEq(
+          Object.keys(result?.answers ?? {}).length,
+          150,
+          "every question was answered",
+        );
+        expectEq(result?.usage.inputTokens, 30, "usage is summed");
+        expectEq(result?.provider, "laya", "the provider is reported once");
+      });
+    },
+  );
+
+  await batchCase(
+    "DECIDE laya: M9b a batch that fails costs only its own answers",
+    async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      // q64 is the first question of the second batch.
+      await withMocks([layaAnswering("q64")], async ({ calls }) => {
+        const result = await new NeuroLink().tryDecide({
+          provider: "laya",
+          state: "short",
+          questions: booleans(150),
+        });
+        expectEq(calls.length, 3, "all three batches were tried");
+        expect(result !== null, "the answers that did come back are kept");
+        const answers = result?.answers ?? {};
+        expectEq(Object.keys(answers).length, 86, "the other two batches");
+        expect(
+          "q0" in answers && "q128" in answers && !("q64" in answers),
+          "exactly the failed batch's questions are missing",
+        );
+      });
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: LAYA_DECIDE_SPEC.urlMatch,
+            respond: { status: 400, json: { detail: "bad request" } },
+          },
+        ],
+        async () => {
+          const none = await new NeuroLink().tryDecide({
+            provider: "laya",
+            state: "short",
+            questions: booleans(150),
+          });
+          expectEq(none, null, "every batch failing is still fail-open");
+        },
+      );
+    },
+  );
+
+  await batchCase(
+    "DECIDE laya: M9c decide() still refuses an over-cap request, and 64 is one request",
+    async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      await withMocks([layaAnswering()], async ({ calls }) => {
+        const nl = new NeuroLink();
+        let refusal = "";
+        try {
+          await nl.decide({
+            provider: "laya",
+            state: "short",
+            questions: booleans(65),
+          });
+        } catch (err) {
+          refusal = err instanceof Error ? err.message : String(err);
+        }
+        expect(
+          refusal.includes("at most 64 questions"),
+          "decide() names the cap",
+        );
+        expectEq(calls.length, 0, "and sends nothing");
+        const atCap = await nl.tryDecide({
+          provider: "laya",
+          state: "short",
+          questions: booleans(64),
+        });
+        expectEq(calls.length, 1, "64 questions go out as one request");
+        expectEq(
+          Object.keys(atCap?.answers ?? {}).length,
+          64,
+          "and all are answered",
+        );
+      });
+    },
+  );
+
+  await batchCase(
+    "DECIDE typesafe: M9d a provider with no question cap gets one request",
+    async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      const prior = process.env[TYPESAFE_DECIDE_SPEC.envVar];
+      try {
+        setEnv(TYPESAFE_DECIDE_SPEC.envVar, "test-fake-typesafe-credential");
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: TYPESAFE_DECIDE_SPEC.urlMatch,
+              respond: (call) => ({
+                status: 200,
+                json: {
+                  model: "jev-1.13.0",
+                  answers: Object.fromEntries(
+                    idsSent(call.bodyJson).map((id) => [
+                      id,
+                      { type: "noul", noul: 0.5 },
+                    ]),
+                  ),
+                  usage: { input_tokens: 10, output_tokens: 0 },
+                },
+              }),
+            },
+          ],
+          async ({ calls }) => {
+            const result = await new NeuroLink().tryDecide({
+              provider: "typesafe",
+              state: "short",
+              questions: booleans(300),
+            });
+            expectEq(calls.length, 1, "300 questions, one request");
+            expectEq(
+              Object.keys(result?.answers ?? {}).length,
+              300,
+              "all answered",
+            );
+          },
+        );
+      } finally {
+        setEnv(TYPESAFE_DECIDE_SPEC.envVar, prior);
+      }
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -7653,6 +7855,76 @@ async function runPerplexityLimits(): Promise<void> {
         expect(failure.retryable === false, "not retried");
         expectEq(calls.length, 1, "refused before any request");
       });
+    },
+  );
+
+  // The case the batching exists for: relevance compaction asks about up to 300
+  // messages, and Perplexity takes 128. decide() refuses that (above); tryDecide
+  // is what every built-in consumer calls, and splits it.
+  await perplexityCase(
+    "DECIDE perplexity-decider: tryDecide splits 300 questions into 128, 128 and 44",
+    async () => {
+      let served = 0;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: PERPLEXITY_DECIDE_SPEC.urlMatch,
+            respond: (call) => {
+              served += 1;
+              const ids = Object.keys(
+                (call.bodyJson as { questions?: Record<string, unknown> })
+                  .questions ?? {},
+              );
+              return {
+                status: 200,
+                headers: { "x-request-id": `req-${served}` },
+                json: {
+                  model: PERPLEXITY_DECIDE_SPEC.model,
+                  answers: Object.fromEntries(
+                    ids.map((id) => [id, { type: "noul", noul: 0.5 }]),
+                  ),
+                  usage: { input_tokens: 100, output_tokens: 0 },
+                },
+              };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const { NeuroLink } = await import("../dist/index.js");
+          const result = await new NeuroLink().tryDecide({
+            provider: PERPLEXITY_DECIDE_SPEC.provider,
+            state: "short",
+            questions: questionsOf(300),
+          });
+          const sizes = calls
+            .map((c) => Object.keys(perplexityBodyOf(c).questions ?? {}).length)
+            .sort((a, b) => b - a);
+          expectEq(
+            sizes.join(","),
+            "128,128,44",
+            "three requests, none over 128",
+          );
+          expectEq(
+            Object.keys(result?.answers ?? {}).length,
+            300,
+            "every question was answered",
+          );
+          expectEq(result?.usage.inputTokens, 300, "usage is summed");
+          expectEq(
+            (result?.requestId ?? "").split(",").length,
+            3,
+            "every batch's request id is listed",
+          );
+          expect(
+            sameJson(
+              Object.keys(result?.answers ?? {}),
+              Object.keys(questionsOf(300)),
+            ),
+            "the answers come back in the order the questions were asked",
+          );
+        },
+      );
     },
   );
 

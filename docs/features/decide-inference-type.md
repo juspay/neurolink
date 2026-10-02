@@ -284,6 +284,19 @@ Use `decide()` instead of `tryDecide()` when you want the failure to surface;
 it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
 
+**More questions than a provider takes.** A provider that caps the questions in
+one request (Laya takes 64) refuses a longer map from `decide()` with
+`max_tokens_exceeded`. `tryDecide()`, which every built-in consumer calls,
+splits the map at the cap instead, keeps the questions in the order given, runs
+up to four batches at a time and joins the answers into one result: usage is
+summed, the latency is the slowest batch's, and `requestId` lists the batches'
+ids. A batch that fails costs only its own questions, which then have no answer
+(the `read*` helpers return `undefined` for them, and every built-in consumer
+carries on without that decision); `tryDecide()` returns `null` only when every
+batch failed. The state and any media are sent with each batch, so a split
+request costs the state's tokens once for each batch. A provider with no cap
+(TypeSafe, XOR) always gets one request.
+
 ### From the CLI
 
 The same primitive is available as `neurolink decide [state]`, which calls
@@ -563,8 +576,8 @@ to three measured sizes), and are assumed to count toward the ceiling too; that
 was not measured. It takes at most 128 questions and 8 images. The documented
 32 MiB body limit was not measured. NeuroLink's own window is 100,000 estimated
 tokens of state, a deliberate local limit and not the server's; a state estimated
-above it, or more than 128 questions, is refused locally with
-`max_tokens_exceeded`. The estimate is about 3.8 characters per token for ASCII
+above it, or more than 128 questions in a `decide()` call, is refused locally
+with `max_tokens_exceeded` (`tryDecide()` splits the questions at 128). The estimate is about 3.8 characters per token for ASCII
 text and half a token per non-ASCII character (measured: CJK 0.46 tokens per
 character, Devanagari 0.44), and it counts the state's text only. Measured on
 40,000-character samples, it over-counts English prose (4.34 characters per
