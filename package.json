@@ -286,7 +286,8 @@
     "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts",
     "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts",
     "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts",
-    "test:logging-guidelines": "pnpm exec tsx test/continuous-test-suite-logging-guidelines.ts"
+    "test:logging-guidelines": "pnpm exec tsx test/continuous-test-suite-logging-guidelines.ts",
+    "test:proxy-polyfills": "pnpm exec tsx test/continuous-test-suite-proxy-polyfills.ts"
   },
   "files": [
     "dist",
@@ -444,6 +445,7 @@
     "chardet": "2.1.1",
     "croner": "^9.1.0",
     "csv-parser": "^3.2.0",
+    "diff": "^9.0.0",
     "dotenv": "^17.3.1",
     "eventsource-parser": "^3.0.8",
     "fast-xml-parser": "^5.7.0",
@@ -565,7 +567,6 @@
     "@vercel/ncc": "^0.38.4",
     "concurrently": "^9.2.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
-    "diff": "^9.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.0.2",
     "glob": "^13.0.6",

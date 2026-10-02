@@ -71,6 +71,45 @@ removing its settings. Worker IPC identity is not persisted. This includes
 `NEUROLINK_PROXY_OTLP_BODIES_ENDPOINT`, `NEUROLINK_PROXY_CONTEXT_POLICY`, and
 `NEUROLINK_PROXY_TOKEN_BUDGET`.
 
+## Local compatibility polyfills
+
+An automatic package upgrade leaves the routing config, environment file, and
+launchd definition intact. It also preserves the exact previous package path,
+including when a local build and an official build share a version number.
+Managed service starts and worker replacements do not reapply CLI client
+configuration. User changes to Codex, Claude Code, and other client settings
+remain in place. Use explicit `proxy setup` or foreground `proxy start` to
+configure client routing.
+
+Each freshly staged package records its original proxy runtime files. When a
+later upgrade is available, the updater compares the serving package with that
+baseline and applies only the remaining local diff hunks to a new candidate.
+Independent release changes remain intact. A fix already present in the release
+is skipped and disappears from the local diff on subsequent upgrades. The
+serving package is never edited during this reconciliation.
+
+An overlapping change, ambiguous patch context, unsupported dependency change,
+or invalid JavaScript aborts candidate preparation. The current worker,
+launcher, config, and rollback selection remain in place. Automatic staging
+logs the number of files applied or already included without logging their
+contents. Runtime JavaScript and JSON are supported; dependency trees and
+browser bundles are not local proxy polyfills.
+
+Clean legacy installations bootstrap their baseline by comparing with a
+separately staged registry package of the same version. An edited legacy build
+cannot be safely compared without its actual original base, so its upgrade is
+retained until that base is recorded explicitly:
+
+```bash
+neurolink proxy polyfill capture \
+  --base /pristine-package/dist/cli/index.js \
+  --patched /locally-patched-package/dist/cli/index.js
+```
+
+This command records the original files; it does not apply edits, select a
+package, or restart a service. Supply the pristine package from which the local
+edit was made. A different existing baseline is refused rather than overwritten.
+
 ## Optional token reservations
 
 `NEUROLINK_PROXY_TOKEN_BUDGET` accepts a JSON object. No token cap is enabled by

@@ -26,6 +26,7 @@ const checks = [
     "fallback-parent",
     "codex-outbound-fallback",
     "update-staging",
+    "polyfills",
     "pressure-recovery",
     "token-budget",
     "capture-pipeline",

@@ -92,6 +92,15 @@ export async function applyAllClients(
   return results;
 }
 
+/** Service replacements own the server process, not the user's client routing. */
+export async function applyClientsOnProxyStart(
+  proxyBaseUrl: string,
+  options: CliProxyClientApplyOptions,
+  managedByLaunchd: boolean,
+): Promise<CliProxyClientApplyResult[]> {
+  return managedByLaunchd ? [] : applyAllClients(proxyBaseUrl, options);
+}
+
 /** Restore every client's previous configuration. See applyAllClients. */
 export async function restoreAllClients(
   proxyBaseUrl: string,

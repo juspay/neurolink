@@ -14,9 +14,9 @@ import {
   chmodSync,
   rmSync,
 } from "node:fs";
-import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   basename,
   dirname,
@@ -30,6 +30,7 @@ import type {
   ProxyPackageSelection,
   ProxyPackageSelectionState,
   ProxyStagedInstallOptions,
+  ProxyPackageUpgradeOptions,
   GlobalInstallerExecFile,
   GlobalInstallerKind,
   GlobalInstallerProbe,
@@ -38,6 +39,15 @@ import type {
   ResolveGlobalInstallerOptions,
   ValidateInstalledVersionOptions,
 } from "../types/index.js";
+import {
+  changedProxyRuntimeFiles,
+  proxyPackageRoot,
+  readProxyPackageBaseline,
+  reconcileProxyPackagePolyfills,
+  snapshotProxyPackage,
+  writeProxyPackageBaseline,
+  writeProxyPolyfilledFile,
+} from "./proxyPackagePolyfills.js";
 
 function runText(
   execFileSync: GlobalInstallerExecFile,
@@ -509,7 +519,10 @@ export function selectProxyPackage(
     schemaVersion: 1,
     active: selection,
     previous:
-      current.active && current.active.version !== selection.version
+      current.active &&
+      (current.active.version !== selection.version ||
+        current.active.entryScript !== selection.entryScript ||
+        current.active.nodePath !== selection.nodePath)
         ? current.active
         : current.previous,
   };
@@ -721,11 +734,212 @@ export async function installStagedProxyPackage(
         }
       });
     });
-    validate(staging);
+    const stagedSelection = validate(staging);
+    writeProxyPackageBaseline(
+      stagedSelection,
+      snapshotProxyPackage(stagedSelection),
+    );
     await rename(staging, destination);
     return validate(destination);
   } finally {
     await rm(staging, { recursive: true, force: true });
+  }
+}
+
+/** Registry comparison must never inherit an existing directory's dependencies. */
+async function installFreshProxyRegistryPackage(
+  options: ProxyStagedInstallOptions,
+): Promise<{ selection: ProxyPackageSelection; container: string }> {
+  if (!/^\d+\.\d+\.\d+$/.test(options.version)) {
+    throw new Error("Invalid proxy package version");
+  }
+  await mkdir(options.packagesDir, { recursive: true, mode: 0o700 });
+  const container = await mkdtemp(
+    join(options.packagesDir, `.registry-${options.version}-`),
+  );
+  try {
+    const selection = await installStagedProxyPackage({
+      ...options,
+      packagesDir: container,
+    });
+    return { selection, container };
+  } catch (error) {
+    await rm(container, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+/** Preserve local runtime diff hunks before any launcher or live selection changes. */
+export async function prepareProxyPackageUpgrade(
+  options: ProxyPackageUpgradeOptions,
+): Promise<ProxyPackageSelection> {
+  const assertOwner = () => assertPackageSelectionOwner(options.isCurrentOwner);
+  assertOwner();
+  const active = options.activePackage;
+  let baseline = readProxyPackageBaseline(active);
+  if (!baseline) {
+    // Legacy packages need a clean registry comparison. Never invent a baseline
+    // from edited files: an unknown local build must remain serving until its
+    // operator records the actual base with `proxy polyfill capture`.
+    const original = await installFreshProxyRegistryPackage({
+      ...options,
+      version: active.version,
+    });
+    let retainReference = false;
+    try {
+      assertOwner();
+      baseline = readProxyPackageBaseline(original.selection);
+      if (!baseline) {
+        throw new Error("Pristine registry package baseline is missing");
+      }
+      if (
+        changedProxyRuntimeFiles(baseline, snapshotProxyPackage(active)).length
+      ) {
+        retainReference = true;
+        throw new Error(
+          `Active proxy contains local changes without a recorded base; upgrade retained the serving package. Record its actual original package with 'proxy polyfill capture --base <original-entry> --patched <local-entry>'. Downloaded registry reference: ${original.selection.entryScript}`,
+        );
+      }
+      writeProxyPackageBaseline(active, baseline);
+    } finally {
+      if (!retainReference) {
+        await rm(original.container, { recursive: true, force: true });
+      }
+    }
+  }
+  const local = snapshotProxyPackage(active);
+  // Also rejects unsupported local dependency/entrypoint changes.
+  changedProxyRuntimeFiles(baseline, local);
+  const fresh = await installFreshProxyRegistryPackage(options);
+  try {
+    const candidate = fresh.selection;
+    assertOwner();
+    const candidateBase = readProxyPackageBaseline(candidate);
+    if (
+      !candidateBase ||
+      changedProxyRuntimeFiles(candidateBase, snapshotProxyPackage(candidate))
+        .length
+    ) {
+      throw new Error(
+        "Candidate proxy package has no trustworthy pristine baseline",
+      );
+    }
+    const { files, report } = reconcileProxyPackagePolyfills(
+      baseline,
+      local,
+      candidateBase,
+    );
+    const assertLocalUnchanged = () => {
+      assertOwner();
+      if (
+        JSON.stringify(snapshotProxyPackage(active)) !== JSON.stringify(local)
+      ) {
+        throw new Error(
+          "Active proxy files changed while preparing the upgrade; activation refused",
+        );
+      }
+    };
+    assertLocalUnchanged();
+    if (!report.applied.length) {
+      const destination = join(
+        options.packagesDir,
+        `${options.version}-release-${randomUUID()}`,
+      );
+      await rename(
+        resolve(proxyPackageRoot(candidate.entryScript), "../../.."),
+        destination,
+      );
+      const selected = inspectProxyPackage(
+        join(
+          destination,
+          "node_modules",
+          "@juspay",
+          "neurolink",
+          candidateBase.entryRelative,
+        ),
+      );
+      assertOwner();
+      options.onPolyfills?.(report);
+      return selected;
+    }
+    const digest = createHash("sha256")
+      .update(JSON.stringify({ version: options.version, files }))
+      .digest("hex")
+      .slice(0, 16);
+    const destination = join(
+      options.packagesDir,
+      `${options.version}-polyfills-${digest}-${randomUUID()}`,
+    );
+    const candidateRoot = proxyPackageRoot(candidate.entryScript);
+    const expected = { ...candidateBase.files };
+    for (const [path, content] of Object.entries(files)) {
+      if (content === null) {
+        delete expected[path];
+      } else {
+        expected[path] = content;
+      }
+    }
+    const validateCopy = (root: string) => {
+      const selection = inspectProxyPackage(
+        join(
+          root,
+          "node_modules",
+          "@juspay",
+          "neurolink",
+          candidateBase.entryRelative,
+        ),
+      );
+      const snapshot = snapshotProxyPackage(selection);
+      if (
+        selection.version !== options.version ||
+        snapshot.manifest !== candidateBase.manifest ||
+        Object.keys({ ...snapshot.files, ...expected }).some(
+          (path) => snapshot.files[path] !== expected[path],
+        )
+      ) {
+        throw new Error(
+          "Polyfilled proxy package does not match its validated plan",
+        );
+      }
+      for (const path of report.applied) {
+        if (files[path] !== null && /\.[cm]?js$/.test(path)) {
+          (options.execFileSync ?? nodeExecFileSync)(
+            selection.nodePath,
+            ["--check", join(proxyPackageRoot(selection.entryScript), path)],
+            { timeout: 10_000, stdio: "pipe" },
+          );
+        }
+      }
+      return selection;
+    };
+    const staging = await mkdtemp(
+      join(options.packagesDir, `.polyfill-${options.version}-`),
+    );
+    try {
+      await cp(resolve(candidateRoot, "../../.."), staging, {
+        recursive: true,
+        mode: constants.COPYFILE_FICLONE,
+        verbatimSymlinks: true,
+      });
+      const root = join(staging, "node_modules", "@juspay", "neurolink");
+      for (const [path, content] of Object.entries(files)) {
+        if (content === null) {
+          await rm(join(root, path));
+        } else {
+          writeProxyPolyfilledFile(root, path, content);
+        }
+      }
+      validateCopy(staging);
+      assertLocalUnchanged();
+      await rename(staging, destination);
+      const selection = validateCopy(destination);
+      options.onPolyfills?.(report);
+      return selection;
+    } finally {
+      await rm(staging, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(fresh.container, { recursive: true, force: true });
   }
 }
 

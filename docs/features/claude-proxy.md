@@ -831,7 +831,7 @@ For streaming requests, the proxy reads the first chunk from the upstream respon
 
 ### Claude Code integration
 
-When the proxy starts, it automatically updates `~/.claude/settings.json`:
+Foreground `proxy start` and explicit `proxy setup` configure `~/.claude/settings.json`:
 
 ```json
 {
@@ -845,6 +845,11 @@ When the proxy starts, it automatically updates `~/.claude/settings.json`:
 When the proxy stops (Ctrl+C or SIGTERM), it removes these entries from the settings file. This means Claude Code automatically routes through the proxy when it is running and goes direct when it is not.
 
 **Note:** You must restart Claude Code after starting or stopping the proxy for the settings change to take effect.
+
+Managed service restarts and rolling upgrades preserve existing client settings.
+They do not reapply routing or replace user edits. Run `neurolink proxy setup`
+when you want to configure clients explicitly, including after a standalone
+service installation.
 
 ### Proxy state file
 

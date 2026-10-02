@@ -38,6 +38,7 @@ import {
 import { logger } from "../../lib/utils/logger.js";
 import {
   applyAllClients,
+  applyClientsOnProxyStart,
   restoreAllClients,
 } from "../proxy-clients/registry.js";
 import { resolveProxyConfigPath } from "../../lib/proxy/proxyConfig.js";
@@ -125,6 +126,7 @@ import {
   isProxyServiceEnvironmentKey,
   parseProxyServiceInstallSettings,
   installStagedProxyPackage,
+  prepareProxyPackageUpgrade,
   readProxyPackageSelection,
   resolveProxyWorkerPackage,
   selectProxyPackage,
@@ -3860,9 +3862,11 @@ async function startProxyRuntime(params: {
   }
 
   if (!isDev) {
-    for (const result of await applyAllClients(url, {
-      configPath: params.configPath,
-    })) {
+    for (const result of await applyClientsOnProxyStart(
+      url,
+      { configPath: params.configPath },
+      managedByLaunchd,
+    )) {
       if (result.error) {
         // Visible, not debug-level. A client whose config could not be written
         // will keep talking to its own upstream, which looks like the proxy
@@ -3892,6 +3896,11 @@ async function startProxyRuntime(params: {
           ),
         );
       }
+    }
+    if (managedByLaunchd) {
+      logger.always(
+        "  Service startup preserves client settings; use 'neurolink proxy setup' to change client routing.",
+      );
     }
   } else {
     logger.always(
@@ -5617,20 +5626,38 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             return;
           }
           try {
-            // Retain a validated rollback even when migrating from a mutable
-            // global package whose on-disk version already differs from live.
-            previousPackage = await installStagedProxyPackage({
-              version: runningVersion,
-              packagesDir: PROXY_PACKAGES_DIR,
-              installer,
-            });
+            // Keep the exact serving tree, including a same-version local
+            // build. Restaging by version would discard its edits and rollback.
+            if (previousPackage?.version !== runningVersion) {
+              try {
+                const original = inspectProxyPackage(process.argv[1]);
+                if (original.version === runningVersion) {
+                  previousPackage = original;
+                }
+              } catch {
+                // A mutable global entry may have disappeared since startup.
+              }
+            }
+            if (previousPackage?.version !== runningVersion) {
+              previousPackage = await installStagedProxyPackage({
+                version: runningVersion,
+                packagesDir: PROXY_PACKAGES_DIR,
+                installer,
+              });
+            }
             if (!isCurrentUpdateOwner()) {
               return;
             }
-            candidatePackage = await installStagedProxyPackage({
+            candidatePackage = await prepareProxyPackageUpgrade({
               version: result.latestVersion,
               packagesDir: PROXY_PACKAGES_DIR,
               installer,
+              activePackage: previousPackage,
+              isCurrentOwner: isCurrentUpdateAttemptOwner,
+              onPolyfills: ({ applied, alreadyIncluded }) =>
+                logger.always(
+                  `[updater] local polyfills: ${applied.length} files applied, ${alreadyIncluded.length} already included in release`,
+                ),
               onProgress: ({ elapsedMs, outputBytes }) =>
                 logger.debug(
                   `[updater] staged install progress elapsedMs=${elapsedMs} outputBytes=${outputBytes}`,

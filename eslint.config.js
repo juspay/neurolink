@@ -404,6 +404,9 @@ export default [
             "test/continuous-test-suite-proxy-route-accounting.ts",
             "test/continuous-test-suite-proxy-capture-pipeline.ts",
             "test/continuous-test-suite-proxy-update-staging.ts",
+            // Recorded package diffs and conflicting releases must be deterministic;
+            // the capture command is also exercised through the built CLI.
+            "test/continuous-test-suite-proxy-polyfills.ts",
             "test/continuous-test-suite-proxy-pressure-recovery.ts",
             "test/continuous-test-suite-proxy-token-budget.ts",
             "test/fixtures/proxyTokenBudgetWorker.mts",

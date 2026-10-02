@@ -5135,6 +5135,36 @@ export type ProxyStagedInstallOptions = {
   onProgress?: (progress: { elapsedMs: number; outputBytes: number }) => void;
 };
 
+/** Original proxy runtime files retained before any local compatibility edits. */
+export type ProxyPackageBaseline = {
+  schemaVersion: 1;
+  version: string;
+  manifest: string;
+  entryRelative: string;
+  files: Record<string, string>;
+};
+
+/** A candidate carries only local diff hunks that its release still needs. */
+export type ProxyPackagePolyfillReport = {
+  applied: string[];
+  alreadyIncluded: string[];
+};
+
+/** Staged upgrade that reconciles recorded local edits before publication. */
+export type ProxyPackageUpgradeOptions = ProxyStagedInstallOptions & {
+  activePackage: ProxyPackageSelection;
+  isCurrentOwner?: () => boolean;
+  onPolyfills?: (report: ProxyPackagePolyfillReport) => void;
+};
+
+/** Capture a trusted baseline for a locally patched package without activation. */
+export type ProxyPolyfillArgs = {
+  action: "capture";
+  base: string;
+  patched: string;
+  format: "text" | "json";
+};
+
 /** Saved launchd settings retained when installing the service again. */
 export type ProxyServiceInstallSettings = {
   envFile?: string;
