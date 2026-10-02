@@ -827,18 +827,13 @@ const testServer = new NeuroLink({
 ### 4. ✅ Monitor MCP Server Usage
 
 ```typescript
-// ✅ Track tool usage via analytics middleware
-const neurolink = new NeuroLink({
-  middleware: {
-    analytics: {
-      enabled: true,
-    },
-  },
-});
+// ✅ Track tool usage via analytics
+const neurolink = new NeuroLink();
 
 const result = await neurolink.generate({
   input: { text: "Your prompt" },
   tools: "auto",
+  enableAnalytics: true,
 });
 
 // Analytics data is available in the result metadata

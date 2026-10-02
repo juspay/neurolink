@@ -428,10 +428,19 @@ import { createAnalyticsMiddleware } from "@juspay/neurolink";
 
 const analyticsMiddleware = createAnalyticsMiddleware();
 
-const neurolink = new NeuroLink({
-  middleware: [analyticsMiddleware],
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Explain quantum computing in simple terms" },
+  enableAnalytics: true,
+  middleware: {
+    middleware: [analyticsMiddleware],
+    enabledMiddleware: ["analytics"],
+  },
 });
 ```
+
+The same two fields attach your own middleware (see Custom Analytics Collection below): registering it with `middleware` does not switch it on, so list its `metadata.id` in `enabledMiddleware` as well.
 
 ### Middleware Metadata
 

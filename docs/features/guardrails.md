@@ -33,15 +33,13 @@ Guardrails work out of the box with the `security` preset. No custom configurati
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({
-  middleware: {
-    preset: "security", // (1)!
-  },
-});
+const neurolink = new NeuroLink();
 
 const result = await neurolink.generate({
-  // (2)!
-  prompt: "Tell me about security best practices",
+  input: { text: "Tell me about security best practices" },
+  middleware: {
+    preset: "security", // (1)!
+  }, // (2)!
 });
 
 // Output is automatically filtered for bad words and unsafe content
@@ -49,7 +47,7 @@ console.log(result.content); // (3)!
 ```
 
 1. Enables guardrails middleware with default configuration
-2. All generate/stream calls automatically apply filtering
+2. Pass `middleware` on every call that should be filtered; the `NeuroLink` constructor does not take this option
 3. Content is already filtered - safe to display to users
 
 ### Custom Guardrails Configuration
@@ -57,7 +55,10 @@ console.log(result.content); // (3)!
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Write a product description" },
   middleware: {
     preset: "security",
     middlewareConfig: {
@@ -200,7 +201,10 @@ AI-powered safety check:
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Draft a refund policy" },
   middleware: {
     preset: "all", // Enables guardrails + analytics + others
     middlewareConfig: {
@@ -240,10 +244,14 @@ for await (const chunk of stream) {
 // Add/remove filtered terms dynamically
 const customWords = await loadBlocklistFromDatabase();
 
-const neurolink = new NeuroLink({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Write a product description" },
   middleware: {
     middlewareConfig: {
       guardrails: {
+        enabled: true,
         config: {
           badWords: {
             enabled: true,
@@ -274,8 +282,11 @@ See [guardrails-ai-integration.md](../guardrails-ai-integration.md) for complete
 **Solution**:
 
 ```typescript
-// Ensure preset is set or guardrails explicitly enabled
-const neurolink = new NeuroLink({
+// Ensure preset is set or guardrails explicitly enabled, on the call itself
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Tell me about security best practices" },
   middleware: {
     preset: "security", // ← Must set this
   },

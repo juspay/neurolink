@@ -358,14 +358,21 @@ await neurolink.generate({
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Hello" },
   provider: "openai",
   middleware: {
-    analytics: { enabled: true },
-    autoEvaluation: { enabled: true },
+    middlewareConfig: {
+      analytics: { enabled: true },
+      autoEvaluation: { enabled: true },
+    },
   },
 });
 ```
+
+`autoEvaluation` scores each response with a judge model, which defaults to Vertex, so this call fails without Google credentials. Point the judge at a provider you have with `config: { provider: "openai" }` under `autoEvaluation`, or set `blocking: false` to let the call succeed when the judge fails.
 
 **Benefits:**
 
