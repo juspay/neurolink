@@ -68,7 +68,7 @@ and `verify:provider-onboarding`.
 builds).
 
 The `pre-push` hook is a **different** set, not a subset: `check:deps`,
-`build`, `test:provider-structure`, `test:model-manifests`.
+`check:docs-api`, `build`, `test:provider-structure`, `test:model-manifests`.
 `test:providers-mocked` is deliberately not among them — at 259s it dominated
 push latency, and `provider-safety-net` already gates it on every PR.
 

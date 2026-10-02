@@ -339,6 +339,9 @@ pnpm run check:watch      # Watch mode
 pnpm run lint             # Check lint + format
 pnpm run format           # Auto-format
 pnpm run check:all        # All quality checks
+pnpm run check:docs-api   # Regenerate docs/api and fail if it differs from src/
+# validate and validate:all do NOT include that docs/api check. CI runs it as
+# its own step, so a green validate:all can still fail the required `test`.
 
 # Testing — every suite is end-to-end (see "Tests are end-to-end only" below).
 # All suites run via tsx; there is no vitest runner despite vitest.config.ts existing.
@@ -380,9 +383,10 @@ pnpm run test:autoresearch       # E2E + live (live half skips without keys)
 #   test → `lint` (format-check, eslint), `validate` (validate:all, docs:api
 #     currency, check:deps), `types` (check:ci-scripts, check:test-parse,
 #     check:tools-tests, both builds).
-# The pre-push hook is a DIFFERENT set, not a subset: check:deps, build,
-# test:provider-structure, test:model-manifests. test:providers-mocked is
-# deliberately not in it — 259s, and provider-safety-net already gates it.
+# The pre-push hook is a DIFFERENT set, not a subset: check:deps,
+# check:docs-api, build, test:provider-structure, test:model-manifests.
+# test:providers-mocked is deliberately not in it — 259s, and
+# provider-safety-net already gates it.
 # Everything else in test/ runs only when someone runs it, so adding a suite
 # does not make it a gate.
 
