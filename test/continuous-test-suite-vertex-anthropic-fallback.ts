@@ -217,6 +217,47 @@ test("Vertex-supported adaptive display values pass through", () => {
   }
 });
 
+test("Sonnet 5.5 adapts a fixed thinking budget from a Haiku fallback", () => {
+  const thinking = {
+    type: "enabled",
+    budget_tokens: 31999,
+    display: "omitted",
+  };
+  const body = {
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 32000,
+    messages: [{ role: "user", content: "hi" }],
+    thinking,
+  };
+  const out = buildVertexAnthropicPayload(body, "claude-sonnet-5-5");
+  assert.deepEqual(out.thinking, { type: "adaptive", display: "omitted" });
+  assert.deepEqual(thinking, {
+    type: "enabled",
+    budget_tokens: 31999,
+    display: "omitted",
+  });
+});
+
+test("Sonnet 5.5 normalizes updates after adapting fixed thinking", () => {
+  const out = buildVertexAnthropicPayload(
+    {
+      messages: [{ role: "user", content: "hi" }],
+      thinking: { type: "enabled", budget_tokens: 2048, display: "updates" },
+    },
+    "claude-sonnet-5-5",
+  );
+  assert.deepEqual(out.thinking, { type: "adaptive", display: "summarized" });
+});
+
+test("fixed thinking stays unchanged for targets that support it", () => {
+  const thinking = { type: "enabled", budget_tokens: 2048 };
+  const out = buildVertexAnthropicPayload(
+    { messages: [{ role: "user", content: "hi" }], thinking },
+    "claude-sonnet-5",
+  );
+  assert.deepEqual(out.thinking, thinking);
+});
+
 test("thinking disabled is dropped for an always-on-thinking target", () => {
   const out = buildVertexAnthropicPayload(
     {

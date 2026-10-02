@@ -428,10 +428,26 @@ function fitRequestToTarget(
     );
   }
   const thinking = payload.thinking;
-  if (record(thinking) && thinking.display === "updates") {
+  if (
+    record(thinking) &&
+    thinking.type === "enabled" &&
+    targetModel === "claude-sonnet-5-5"
+  ) {
+    // Sonnet 5.5 rejects fixed thinking budgets. Keep the requested display,
+    // but use its adaptive mode; a fixed token budget has no Vertex equivalent.
+    payload.thinking = {
+      type: "adaptive",
+      ...(thinking.display !== undefined ? { display: thinking.display } : {}),
+    };
+    logger.warn(
+      `[vertex-anthropic] ${targetModel} rejects thinking "enabled"; sending adaptive without a fixed budget`,
+    );
+  }
+  const targetThinking = payload.thinking;
+  if (record(targetThinking) && targetThinking.display === "updates") {
     // Claude Code requests live thinking updates, but Vertex accepts only
     // summarized or omitted adaptive thinking display.
-    payload.thinking = { ...thinking, display: "summarized" };
+    payload.thinking = { ...targetThinking, display: "summarized" };
   }
   if (record(thinking) && thinking.type === "disabled") {
     const outputConfig = payload.output_config;
