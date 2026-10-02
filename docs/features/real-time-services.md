@@ -121,14 +121,11 @@ The TTS and STT _flags_ on `generate` / `stream` (e.g. `--tts`, `--stt`, `--inpu
 
 For multi-tenant deployments — voice bots, IVR-style applications, in-app voice features — NeuroLink ships a real-time voice agent server. It bridges browser/mobile clients to provider realtime APIs with session management, observability, and tool routing.
 
-```typescript
-// startVoiceServer is the canonical export
-import { startVoiceServer } from "@juspay/neurolink/dist/lib/server/voice/voiceServerApp.js";
-
-await startVoiceServer(8081);
+```bash
+npx @juspay/neurolink serve voice --port 8081
 ```
 
-> **Note:** the server is a function export (`startVoiceServer`), not a `NeuroLinkVoiceServer` class. To run it from the CLI, prefer `npx @juspay/neurolink serve voice --port 8081`.
+> **Note:** the server is launched from the CLI, as in Quick Start (CLI) above. `startVoiceServer`, the function behind that command, is internal: it is a function rather than a `NeuroLinkVoiceServer` class, and the package does not export it, so there is no supported import path for starting it from code.
 
 The server emits OTEL spans + Langfuse traces per session, supports HITL approvals on tool calls, and can be deployed standalone or behind your own gateway.
 

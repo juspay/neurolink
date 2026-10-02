@@ -27,6 +27,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assert, defineSuite, Skip } from "./helpers/harness.js";
@@ -506,6 +507,248 @@ await test("the documented /autoresearch package entry is exported", async () =>
     typeof autoresearch.resolveConfig === "function" &&
       typeof autoresearch.ResearchWorker === "function",
     "the /autoresearch entry must expose the documented API",
+  );
+});
+
+/**
+ * Every `@juspay/neurolink/<subpath>` that README.md or a docs page shows a
+ * reader must resolve through package.json's public exports map. Four
+ * documented specifiers never did (`/middleware`, `/utils/analyticsUtils` and
+ * two `dist/...` deep paths): copying the snippet threw
+ * ERR_PACKAGE_PATH_NOT_EXPORTED, and nothing noticed, because the test above
+ * names a single specifier by hand.
+ *
+ * This reads the prose instead, so a subpath is checked the moment someone
+ * documents it. Resolution is Node's own, in a child process started at the
+ * package root (where the package name refers to itself) against the built
+ * tree. docs/api is typedoc output for the main entry and docs/plans is design
+ * notes; neither tells a reader what to import, so both are out of scope.
+ */
+
+/** `@juspay/neurolink/` plus a subpath. The subpath may contain dots
+ * (`voiceServerApp.js`) but may not end in one, so a sentence-final period or
+ * the `...` of a placeholder is not read as part of the specifier. */
+const DOCUMENTED_SUBPATH_PATTERN =
+  /@juspay\/neurolink\/[A-Za-z0-9_./*-]*[A-Za-z0-9_/*-]/g;
+
+const SCANNED_EXTENSIONS = new Set([
+  ".md",
+  ".mdx",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".mjs",
+  ".json",
+  ".sh",
+  ".txt",
+  ".yaml",
+  ".yml",
+]);
+
+/**
+ * Text that starts with `@juspay/neurolink/` and is not an import. An entry
+ * matches on the specifier AND the file, so the same text on another page is
+ * still checked. Do not add an entry to silence a snippet a reader will copy:
+ * export the subpath or fix the page. An entry the docs no longer contain
+ * fails the test below, so this list cannot outlive what it excuses.
+ */
+const NOT_AN_IMPORT: ReadonlyArray<{
+  specifier: string;
+  files: readonly string[];
+}> = [
+  {
+    // src/lib/neurolink.ts hands this string to Symbol.for(). It is a registry
+    // key shared by every copy of the package, not a module path.
+    specifier: "@juspay/neurolink/sdk-brand",
+    files: [
+      "docs/provider-integration/CHECKLIST.md",
+      "docs/provider-integration/SAFETY-PRIMITIVES.md",
+    ],
+  },
+  {
+    // The "Not" half of a correct/incorrect pair, showing what to avoid. The
+    // pattern stops before the `...` placeholder, hence the trailing slash.
+    specifier: "@juspay/neurolink/dist/",
+    files: ["docs/skills/neurolink-guide/troubleshooting.md"],
+  },
+  {
+    // A tsconfig "include" glob over files on disk, not a module specifier.
+    specifier: "@juspay/neurolink/dist/**/*",
+    files: ["docs/reference/configuration.md"],
+  },
+];
+
+/** Resolves a subpath that is exported, and one that is not: the two controls
+ * that make a clean scan mean something. */
+const RESOLVES_CONTROL = "@juspay/neurolink/autoresearch";
+const NOT_EXPORTED_CONTROL = "@juspay/neurolink/__documented-nowhere__";
+
+type DocumentedSpecifier = { file: string; line: number; specifier: string };
+type SubpathResolution = {
+  specifier: string;
+  resolved: boolean;
+  fileExists: boolean;
+  code: string | null;
+};
+
+function listScannedFiles(dir: string, skipped: ReadonlySet<string>): string[] {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (skipped.has(full)) {
+        return [];
+      }
+      if (entry.isDirectory()) {
+        return listScannedFiles(full, skipped);
+      }
+      return entry.isFile() && SCANNED_EXTENSIONS.has(path.extname(entry.name))
+        ? [full]
+        : [];
+    })
+    .sort();
+}
+
+function scanDocumentedSubpaths(): {
+  fileCount: number;
+  found: DocumentedSpecifier[];
+} {
+  const docsDir = path.join(ROOT, "docs");
+  const files = [
+    path.join(ROOT, "README.md"),
+    ...listScannedFiles(
+      docsDir,
+      new Set([path.join(docsDir, "api"), path.join(docsDir, "plans")]),
+    ),
+  ];
+  const found = files.flatMap((file) => {
+    const text = fs.readFileSync(file, "utf8");
+    return [...text.matchAll(DOCUMENTED_SUBPATH_PATTERN)].map((match) => ({
+      file: path.relative(ROOT, file).split(path.sep).join("/"),
+      line: text.slice(0, match.index).split("\n").length,
+      specifier: match[0],
+    }));
+  });
+  return { fileCount: files.length, found };
+}
+
+/** One entry per file and specifier, at the first line it appears on. */
+function firstOccurrences(
+  found: readonly DocumentedSpecifier[],
+): DocumentedSpecifier[] {
+  const first = new Map<string, DocumentedSpecifier>();
+  for (const occurrence of found) {
+    const key = JSON.stringify([occurrence.file, occurrence.specifier]);
+    if (!first.has(key)) {
+      first.set(key, occurrence);
+    }
+  }
+  return [...first.values()];
+}
+
+/** `import.meta.resolve` returns the URL of an exports target that is missing
+ * on disk instead of throwing, so a subpath mapped to a file the build never
+ * wrote would pass on resolution alone. The file itself is checked too. */
+function buildResolveProbe(specifiers: readonly string[]): string {
+  return `
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+const outcomes = ${JSON.stringify(specifiers)}.map((specifier) => {
+  try {
+    const url = import.meta.resolve(specifier);
+    return {
+      specifier,
+      resolved: true,
+      fileExists: url.startsWith("file:") && existsSync(fileURLToPath(url)),
+      code: null,
+    };
+  } catch (error) {
+    return {
+      specifier,
+      resolved: false,
+      fileExists: false,
+      code: typeof error?.code === "string" ? error.code : "UNKNOWN",
+    };
+  }
+});
+console.log(JSON.stringify(outcomes));
+`;
+}
+
+await test("every @juspay/neurolink/<subpath> specifier in README.md and docs/ resolves through the package exports map", () => {
+  const { fileCount, found } = scanDocumentedSubpaths();
+  assert(
+    fileCount > 300,
+    "precondition: the scan read too few files to be a scan of the documentation",
+  );
+  assert(
+    found.some(
+      (f) =>
+        f.file === "README.md" &&
+        f.specifier === "@juspay/neurolink/autoresearch",
+    ) && found.some((f) => f.specifier === "@juspay/neurolink/client"),
+    "precondition: the scan did not find specifiers the documentation is known to contain",
+  );
+
+  const documented = [...new Set(found.map((f) => f.specifier))].sort();
+  const { status, stdout, stderr } = runChildScript(
+    buildResolveProbe([RESOLVES_CONTROL, NOT_EXPORTED_CONTROL, ...documented]),
+  );
+  if (status !== 0) {
+    console.error(stderr);
+  }
+  assert(
+    status === 0,
+    "precondition: the resolution probe process did not exit cleanly",
+  );
+  const probed = JSON.parse(
+    stdout.trim().split("\n").pop() ?? "[]",
+  ) as SubpathResolution[];
+  const outcomes = new Map(probed.map((p) => [p.specifier, p] as const));
+  assert(
+    outcomes.get(RESOLVES_CONTROL)?.resolved === true &&
+      outcomes.get(RESOLVES_CONTROL)?.fileExists === true,
+    "precondition: the probe did not resolve a subpath that is known to be exported",
+  );
+  assert(
+    outcomes.get(NOT_EXPORTED_CONTROL)?.code ===
+      "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    "precondition: the probe did not reject a subpath that is known not to be exported",
+  );
+
+  const staleEntries = NOT_AN_IMPORT.flatMap(({ specifier, files }) =>
+    files
+      .filter(
+        (file) =>
+          !found.some((f) => f.file === file && f.specifier === specifier),
+      )
+      .map((file) => `${file}: ${specifier}`),
+  );
+  for (const stale of staleEntries) {
+    console.error(`  stale allowlist entry, ${stale}`);
+  }
+  assert(
+    staleEntries.length === 0,
+    "an allowlisted non-import no longer appears in the documentation; remove its entry",
+  );
+
+  const unresolved = firstOccurrences(found).filter((f) => {
+    const allowed = NOT_AN_IMPORT.some(
+      ({ specifier, files }) =>
+        specifier === f.specifier && files.includes(f.file),
+    );
+    const outcome = outcomes.get(f.specifier);
+    return !allowed && !(outcome?.resolved === true && outcome.fileExists);
+  });
+  for (const f of unresolved) {
+    const outcome = outcomes.get(f.specifier);
+    console.error(
+      `  ${f.file}:${f.line}  ${f.specifier}  (${outcome?.code ?? "export target missing on disk"})`,
+    );
+  }
+  assert(
+    unresolved.length === 0,
+    "a documented subpath specifier does not resolve through the package exports map",
   );
 });
 

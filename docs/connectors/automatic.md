@@ -104,7 +104,7 @@ Automatic uses NeuroLink for MCP tool registry, HITL conversation types, and Ope
 
 - MCP tool registry and execution
 - OpenTelemetry logging (DEBUG / INFO / WARN / ERROR severity)
-- HITL types from `@juspay/neurolink/dist/types/hitlTypes`
+- HITL types from `@juspay/neurolink`
 - Conversation memory configuration types
 
 ## Gateway Unlocked

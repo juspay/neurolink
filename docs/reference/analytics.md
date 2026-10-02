@@ -424,7 +424,7 @@ type EvaluationProvider =
 NeuroLink provides built-in analytics middleware:
 
 ```typescript
-import { createAnalyticsMiddleware } from "@juspay/neurolink/middleware";
+import { createAnalyticsMiddleware } from "@juspay/neurolink";
 
 const analyticsMiddleware = createAnalyticsMiddleware();
 
@@ -491,53 +491,6 @@ function createCustomAnalyticsMiddleware(): NeuroLinkMiddleware {
       }
     },
   };
-}
-```
-
-## Analytics Utilities
-
-### Formatting Utilities
-
-```typescript
-import {
-  formatTokenUsage,
-  formatAnalyticsForDisplay,
-  getAnalyticsSummary,
-} from "@juspay/neurolink/utils/analyticsUtils";
-
-// Format token usage as string
-const usageString = formatTokenUsage(result.usage);
-// Output: "100 input / 50 output / 20 cache-read"
-
-// Format full analytics for display
-const display = formatAnalyticsForDisplay(result.analytics);
-// Output: "Provider: openai | Model: gpt-4o | Tokens: 100 input / 50 output | Cost: $0.00015 | Time: 1.2s"
-
-// Get analytics summary
-const summary = getAnalyticsSummary(result.analytics);
-console.log({
-  totalTokens: summary.totalTokens,
-  costPerToken: summary.costPerToken,
-  requestsPerSecond: summary.requestsPerSecond,
-});
-```
-
-### Validation Utilities
-
-```typescript
-import {
-  hasValidTokenUsage,
-  isTokenUsage,
-} from "@juspay/neurolink/utils/analyticsUtils";
-
-// Check if analytics has valid token usage
-if (hasValidTokenUsage(result.analytics)) {
-  // Safe to access token fields
-}
-
-// Type guard for token usage
-if (isTokenUsage(data)) {
-  console.log(data.total);
 }
 ```
 
