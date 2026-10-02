@@ -1026,8 +1026,8 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 2097152, // 2M tokens
-      maxOutputTokens: 8192,
+      maxContextTokens: 1048576, // 1M tokens
+      maxOutputTokens: 65536,
       maxRequestsPerMinute: 360,
     },
     useCases: {

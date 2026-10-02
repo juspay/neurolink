@@ -122,9 +122,9 @@ export const PROVIDER_TOKEN_LIMITS = {
     /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
     "gemini-3-pro-preview": 8192,
     // Gemini 2.5 Series
-    "gemini-2.5-pro": 8192,
-    "gemini-2.5-flash": 8192,
-    "gemini-2.5-flash-lite": 8192,
+    "gemini-2.5-pro": 65536,
+    "gemini-2.5-flash": 65536,
+    "gemini-2.5-flash-lite": 65536,
     // Gemini 2.0 Series
     "gemini-2.0-flash-001": 8192,
     "gemini-2.0-flash-lite": 8192,
@@ -148,9 +148,9 @@ export const PROVIDER_TOKEN_LIMITS = {
     /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
     "gemini-3-pro-preview": 8192,
     // Gemini 2.5 Series
-    "gemini-2.5-pro": 8192,
-    "gemini-2.5-flash": 8192,
-    "gemini-2.5-flash-lite": 8192,
+    "gemini-2.5-pro": 65536,
+    "gemini-2.5-flash": 65536,
+    "gemini-2.5-flash-lite": 65536,
     // Gemini 2.0 Series
     "gemini-2.0-flash-001": 8192,
     "gemini-2.0-flash-lite": 8192,

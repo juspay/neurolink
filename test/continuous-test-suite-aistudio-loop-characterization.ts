@@ -127,6 +127,16 @@ type StandIn = {
   close: () => Promise<void>;
 };
 
+/** The output-token ceiling a request carries in its generationConfig. */
+function outputLimitSent(call: StandInCall | undefined): number | undefined {
+  const config = call?.body.generationConfig;
+  if (typeof config !== "object" || config === null) {
+    return undefined;
+  }
+  const value = (config as { maxOutputTokens?: unknown }).maxOutputTokens;
+  return typeof value === "number" ? value : undefined;
+}
+
 /** Names of the function declarations sent to the model on a given request. */
 function declaredToolNames(call: StandInCall | undefined): string[] {
   const tools = (call?.body?.tools ?? []) as Array<{
@@ -421,6 +431,72 @@ await test("the generate path declares and executes a caller's tools", async () 
     restore();
     await server.close();
   }
+});
+
+section("output ceiling");
+
+// Google documents a 65,536-token output limit for Gemini 2.5 on both AI Studio
+// and Vertex. The manifest declared 8,192, and the stream path takes the
+// per-model ceiling as its default and as the clamp on an explicit maxTokens,
+// so every stream was cut at an eighth of what the model can produce. Only the
+// stream path is pinned: AI Studio's generate() overrides the shared option
+// normalisation and sends no output ceiling at all when the caller gives none,
+// so the table never reached it. The request body is the only place the value
+// is visible.
+const GEMINI_25_OUTPUT_LIMIT = 65536;
+
+async function streamedOutputLimit(
+  model: string,
+  maxTokens?: number,
+): Promise<number | undefined> {
+  const server = await startStandIn(() => textTurn("streamed"));
+  const restore = withAiStudioEnv();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "google-ai",
+      model,
+      ...(maxTokens === undefined ? {} : { maxTokens }),
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    assert(
+      server.calls.length === 1,
+      "the call did not reach the stand-in once",
+    );
+    return outputLimitSent(server.calls[0]);
+  } finally {
+    restore();
+    await server.close();
+  }
+}
+
+for (const gemini25 of ["gemini-2.5-flash", "gemini-2.5-pro"]) {
+  await test(`a ${gemini25} stream call with no maxTokens asks for its documented output limit`, async () => {
+    assert(
+      (await streamedOutputLimit(gemini25)) === GEMINI_25_OUTPUT_LIMIT,
+      "the request did not ask for the documented output limit",
+    );
+  });
+}
+
+await test("a stream maxTokens between the old and the documented limit is sent unchanged", async () => {
+  assert(
+    (await streamedOutputLimit("gemini-2.5-flash", 20000)) === 20000,
+    "a caller's maxTokens inside the documented limit was altered",
+  );
+});
+
+await test("a stream maxTokens above the documented limit is clamped to it", async () => {
+  assert(
+    (await streamedOutputLimit("gemini-2.5-flash", 100000)) ===
+      GEMINI_25_OUTPUT_LIMIT,
+    "a maxTokens above the documented limit was not clamped to it",
+  );
 });
 
 section("repeatedly failing tool");
