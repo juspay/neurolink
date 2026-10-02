@@ -161,6 +161,17 @@ export function installMockFetch(routes: Route[]): MockFetchHandle {
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> => {
+    // Real fetch rejects an already-aborted signal before anything is sent, so
+    // such a call is not recorded either: `calls` is what reached the wire.
+    const signal =
+      init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    if (signal?.aborted) {
+      throw (
+        signal.reason ??
+        new DOMException("The operation was aborted", "AbortError")
+      );
+    }
+
     const url = urlOf(input);
     const method = (
       init?.method ?? (input instanceof Request ? input.method : "GET")
@@ -207,16 +218,8 @@ export function installMockFetch(routes: Route[]): MockFetchHandle {
     // whose `respond` deliberately delays (simulating a slow upstream, e.g.
     // to exercise a caller-side timeout) would otherwise resolve anyway,
     // since nothing here was watching the signal.
-    const signal =
-      init?.signal ?? (input instanceof Request ? input.signal : undefined);
     if (!signal) {
       return respond();
-    }
-    if (signal.aborted) {
-      throw (
-        signal.reason ??
-        new DOMException("The operation was aborted", "AbortError")
-      );
     }
     return new Promise<Response>((resolve, reject) => {
       const onAbort = (): void => {

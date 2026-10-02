@@ -422,7 +422,19 @@ await test("clearHandlers disconnects active sessions before removing handlers",
   );
 
   const drainProvider = "unit-test-realtime-drain";
-  const { handler, calls } = makeStubHandler();
+  const stub = makeStubHandler();
+  const { calls } = stub;
+  // Reads the registry from inside disconnect(): an implementation that
+  // cleared first and disconnected afterwards would still reach a call count
+  // of 1, but would see the provider already gone here.
+  let registeredDuringDisconnect: boolean | undefined;
+  const handler: RealtimeHandler = {
+    ...stub.handler,
+    disconnect: async (): Promise<void> => {
+      registeredDuringDisconnect = RealtimeProcessor.supports(drainProvider);
+      await stub.handler.disconnect();
+    },
+  };
   RealtimeProcessor.registerHandler(drainProvider, handler);
   await RealtimeProcessor.connect(drainProvider, makeConfig());
   assertEqual(
@@ -437,6 +449,11 @@ await test("clearHandlers disconnects active sessions before removing handlers",
     calls.disconnect,
     1,
     "clearHandlers() disconnects the active session exactly once",
+  );
+  assertEqual(
+    registeredDuringDisconnect,
+    true,
+    "the handler is still registered while disconnect() runs",
   );
   assertEqual(
     RealtimeProcessor.supports(drainProvider),

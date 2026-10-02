@@ -37,7 +37,8 @@ import "dotenv/config";
  * Run: npx tsx test/continuous-test-suite-vertex-loop-characterization.ts
  */
 
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
+import { isDeepStrictEqual } from "node:util";
 import { jsonSchema } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -126,7 +127,19 @@ function toolTurn(name: string, args: Record<string, unknown>): string {
   return sse([{ functionCall: { name, args } }], "STOP");
 }
 
-type StandInCall = { body: Record<string, unknown>; path: string };
+type StandInCall = {
+  body: Record<string, unknown>;
+  path: string;
+  headers: IncomingHttpHeaders;
+};
+
+/**
+ * The Express Mode key every case passes, and the header the SDK carries it
+ * in. The main stand-in refuses a request without it, the way the real
+ * service does.
+ */
+const EXPRESS_KEY = "express-key";
+const API_KEY_HEADER = "x-goog-api-key";
 
 type StandIn = {
   calls: StandInCall[];
@@ -196,7 +209,13 @@ async function startStandIn(
       calls.push({
         body: parseBody(),
         path: String(req.url ?? "").split("?")[0],
+        headers: req.headers,
       });
+      if (req.headers[API_KEY_HEADER] !== EXPRESS_KEY) {
+        res.writeHead(401, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { code: 401 } }));
+        return;
+      }
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.write(reply(calls.length - 1));
       res.end();
@@ -214,13 +233,12 @@ async function startStandIn(
   };
 }
 
+function credentialsWithBaseURL(baseURL: string) {
+  return { vertex: { apiKey: EXPRESS_KEY, baseURL } };
+}
+
 function credentialsFor(port: number) {
-  return {
-    vertex: {
-      apiKey: "express-key",
-      baseURL: `http://127.0.0.1:${port}`,
-    },
-  };
+  return credentialsWithBaseURL(`http://127.0.0.1:${port}`);
 }
 
 function nl() {
@@ -251,7 +269,11 @@ function customTool(counter: { calls: number }) {
 async function startSilentStandIn(): Promise<StandIn> {
   const calls: StandInCall[] = [];
   const server: Server = createServer((req, res) => {
-    calls.push({ body: {}, path: String(req.url ?? "").split("?")[0] });
+    calls.push({
+      body: {},
+      path: String(req.url ?? "").split("?")[0],
+      headers: req.headers,
+    });
     res.writeHead(200, { "content-type": "text/event-stream" });
     // Deliberately no write and no end: the turn clock is what must react.
   });
@@ -278,7 +300,11 @@ async function startDribblingStandIn(): Promise<StandIn> {
   const calls: StandInCall[] = [];
   const timers: NodeJS.Timeout[] = [];
   const server: Server = createServer((req, res) => {
-    calls.push({ body: {}, path: String(req.url ?? "").split("?")[0] });
+    calls.push({
+      body: {},
+      path: String(req.url ?? "").split("?")[0],
+      headers: req.headers,
+    });
     res.writeHead(200, { "content-type": "text/event-stream" });
     const t = setInterval(() => {
       res.write(sse([{ text: "." }]));
@@ -323,6 +349,7 @@ async function startContextPressureStandIn(): Promise<StandIn> {
       calls.push({
         body: parseBody(),
         path: String(req.url ?? "").split("?")[0],
+        headers: req.headers,
       });
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.write(
@@ -400,6 +427,52 @@ await test("the turn reaches the stand-in over Express Mode rather than ADC", as
       !(server.calls[0]?.path ?? "").includes("/projects/"),
       "the request did not take the key-only route",
     );
+    // Reaching the stand-in does not show the key was sent: it has to be in
+    // the request, in the header the SDK uses for it.
+    assert(
+      server.calls[0]?.headers[API_KEY_HEADER] === EXPRESS_KEY,
+      "the request did not carry the Express Mode key",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+await test("a blank baseURL credential falls through to GOOGLE_VERTEX_BASE_URL", async () => {
+  // resolveBaseURL() trims the credential and falls back to the environment,
+  // so an empty or whitespace-only value must not be taken as an endpoint. An
+  // implementation that stopped trimming would hand the SDK a blank base URL
+  // and the request would never reach the stand-in.
+  const server = await startStandIn(() => textTurn("hello from vertex"));
+  const restore = withVertexEnv();
+  process.env.GOOGLE_VERTEX_BASE_URL = `http://127.0.0.1:${server.port}`;
+  try {
+    for (const blank of ["", "   "]) {
+      const before = server.calls.length;
+      const result = await new NeuroLink().stream({
+        input: { text: "hi" },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        disableInternalFallback: true,
+        credentials: credentialsWithBaseURL(blank),
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        if ("content" in chunk && typeof chunk.content === "string") {
+          text += chunk.content;
+        }
+      }
+      assert(
+        text.includes("hello from vertex"),
+        "a blank baseURL credential did not fall back to the environment endpoint",
+      );
+      assert(
+        server.calls.length === before + 1,
+        "a blank baseURL credential should reach the environment endpoint exactly once",
+      );
+    }
   } finally {
     restore();
     await server.close();
@@ -448,6 +521,10 @@ await test("a caller's own tool is declared, executed, and its result returns to
     assert(
       answered.length === 1,
       "the tool result was not carried back to the model",
+    );
+    assert(
+      isDeepStrictEqual(answered[0]?.response, { result: { found: true } }),
+      "the tool's payload was not carried back verbatim",
     );
     assert(text.includes("done"), "the final turn's text was not surfaced");
   } finally {

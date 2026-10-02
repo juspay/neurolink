@@ -11,7 +11,8 @@
  * same commit was green on an unchanged re-run, and green locally).
  *
  * This suite exercises `test/helpers/harness.ts` directly: `defineSuite`,
- * `test()` and `resolveTimeoutScale()` are the module under test, not a
+ * `test()`, `withCaseTimeout()` and `resolveTimeoutScale()` are the module
+ * under test, not a
  * dependency of it. There is no shipped `dist/` surface for test
  * infrastructure to drive instead — `helpers/harness.ts` is never exported
  * from any package entry point — so this file needs no entry in the
@@ -37,8 +38,10 @@ import {
   defineSuite,
   assert,
   assertEqual,
+  isCaseTimeout,
   resolveTimeoutScale,
   TIMEOUT_SCALE_ENV_VAR,
+  withCaseTimeout,
 } from "./helpers/harness.js";
 
 const { test, runSuite } = defineSuite("Harness: offline-timeout honesty", {
@@ -293,6 +296,78 @@ await test("NEUROLINK_TEST_TIMEOUT_SCALE widens the enforced budget for a case t
     assert(
       text.includes("✓"),
       "a case that exceeds the unscaled budget but not the scaled one must pass",
+    );
+  });
+});
+
+await test("a scale small enough to round a budget to 0 floors it at 1ms", async () => {
+  // 100ms * 0.001 rounds to 0. The floor keeps the reported budget at a value
+  // something could meet rather than "0ms".
+  await withTimeoutScaleEnv("0.001", async () => {
+    const { test: flooredTest } = defineSuite("inner floored probe", {
+      offline: true,
+      perTestTimeoutMs: 100,
+    });
+    const { text } = await captureLog(() => flooredTest("wedged case", wedged));
+    assert(
+      text.includes("its 1ms per-test budget"),
+      "a budget that rounds to 0 must be floored at 1ms",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// withCaseTimeout() — the bound used by suites that run their own loop must
+// scale the same way as defineSuite's per-test budget
+// ---------------------------------------------------------------------------
+
+await test("NEUROLINK_TEST_TIMEOUT_SCALE widens a withCaseTimeout bound", async () => {
+  const boundMs = 200;
+  const scale = 6;
+  const caseDelayMs = 600; // > unscaled bound (200ms), < scaled bound (1200ms)
+
+  await withTimeoutScaleEnv(String(scale), async () => {
+    const startedAt = Date.now();
+    await withCaseTimeout(
+      "needs the widened bound",
+      () => delay(caseDelayMs),
+      boundMs,
+    );
+    assert(
+      Date.now() - startedAt >= caseDelayMs,
+      "the case must have run its full delay before this assertion means anything",
+    );
+  });
+});
+
+// Keep this last. A timed-out withCaseTimeout case is recorded as abandoned and
+// every later withCaseTimeout call in the process refuses to start, which is
+// right for the suites that use it and would poison anything placed after it.
+await test("a withCaseTimeout hang reports and waits out the scaled bound", async () => {
+  const boundMs = 100;
+  const scale = 3;
+
+  await withTimeoutScaleEnv(String(scale), async () => {
+    const startedAt = Date.now();
+    let caught: unknown;
+    try {
+      await withCaseTimeout("wedged case", wedged, boundMs);
+    } catch (error) {
+      caught = error;
+    }
+    const elapsedMs = Date.now() - startedAt;
+    assert(
+      isCaseTimeout(caught),
+      "a wedged case must be ended by its case bound",
+    );
+    assert(
+      elapsedMs >= boundMs * scale,
+      "the case must have been given the scaled bound, not the unscaled one",
+    );
+    assert(
+      caught instanceof Error &&
+        caught.message.includes(`${boundMs * scale}ms`),
+      "the error must name the bound that was actually enforced",
     );
   });
 });

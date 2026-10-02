@@ -90,15 +90,23 @@ What keeps the gap harmless is that the suite holds no real credential to
 fall back to. `test/helpers/credentialFreeEnv.ts` is its first import: it
 points `DOTENV_CONFIG_PATH` at `/dev/null`, so neither the SDK's nor the
 harness's `.env` load reads a developer's `.env`, it deletes every
-credential-named variable the shell exported, and it points `HOME` at an
-empty temp directory. The last one matters as much as the first two: the
+credential-named variable the shell exported (including secrets whose names the
+plain API-key and token words miss: service-account and private keys, speech
+keys, OTLP exporter headers, a Redis URL, an auth config blob, the ssh-agent
+socket) together with the ambient `*_BASE_URL`, `*_ENDPOINT`,
+OTLP exporter and `AWS_PROFILE` overrides that could point a cell somewhere
+other than the mock server, and it points `HOME` at an empty temp directory.
+The last one matters as much as the first two: the
 Anthropic provider prefers a stored OAuth token
 (`~/.neurolink/anthropic-credentials.json`) over `ANTHROPIC_API_KEY` and
 refreshes it against Anthropic's live token endpoint, so a gate that only
 cleaned the environment could still send a real refresh token to a real
 host. The suite checks the environment and the home directory before it
 runs a row, and the CLI child inherits that stripped environment plus the
-current row's fake key.
+current row's fake key. Because that check reuses the strip's own pattern, the
+suite also plants a literal list of dummy secret and endpoint variables
+(`test/helpers/ambientSecretCanaries.ts`) before the strip runs and fails if
+any survives, so a name the pattern misses cannot pass unnoticed.
 
 ## The stream-identity defect (cell 3)
 

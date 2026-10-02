@@ -98,13 +98,13 @@ CLI's own internal error, not inferred. `response.completed` alone is
 necessary but not sufficient: it terminates the turn cleanly but does not by
 itself cause the CLI to render output, so a serializer cannot skip straight
 to it as an optimization. `no-created` / `no-in-progress` were not run in
-this pass — the two results above already answer the highest-value question
-in the table (the serializer's minimum required event set includes at least
-`created` → `in_progress` → `output_item.added` → deltas →
-`output_item.done` → `completed`; it cannot compress further at the
-`output_item.added` boundary). Re-run those two remaining scripts before
-finalizing task 8's serializer if the `created`/`in_progress` question
-becomes load-bearing for that task.
+this pass, and `no-output-item-added` removed `.added` and `.done` together.
+So only `output_item.added` before the deltas is established as required;
+`created`, `in_progress` and `output_item.done` are the full-script set, not
+shown to be required (`output_item.done` was removed together with `.added`,
+so its own necessity was never isolated). Re-run the remaining scripts before
+finalizing task 8's serializer if the `created`/`in_progress`/`output_item.done`
+question becomes load-bearing for that task.
 
 ## `tool-call` script — real result (2026-09-27, settles the outbound-fallback design's Q1)
 

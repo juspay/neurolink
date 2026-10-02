@@ -44,11 +44,11 @@ pnpm exec tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=
 
 ## 2. Tiers
 
-| Tier               | Frequency         | Suites                                                                                                                                                                                                                                                                | Cost                  |
-| ------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| **`test:unit`**    | local only        | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `model-not-found-retryable`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
-| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`                                                                                                                                 | small per-call        |
-| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                                                          | metered (image/video) |
+| Tier               | Frequency         | Suites                                                                                                                                                                                                                                   | Cost                  |
+| ------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **`test:unit`**    | local only        | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
+| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`, `model-not-found-retryable`                                                                       | small per-call        |
+| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                             | metered (image/video) |
 
 **What CI actually runs.** Not `test:unit`. Two required jobs in
 `.github/workflows/ci.yml` cover this directory, and both are sharded behind an
@@ -90,7 +90,7 @@ without provider keys, but it is not invoked from `test:unit`. The separate
 ```
 unit     bugfixes, mcp:infra, mcp:spans, tool-routing, tool-routing-cli,
          tool-dedup, model-pool, tool-routing-semantic, mcp-result-cache,
-         model-not-found-retryable, archive:security, office:security,
+         archive:security, office:security,
          vector-chroma / vector-pgvector / vector-pinecone, provider-wiring
 
 live     providers (incl. issue-03 fallback regression), mcp:http
@@ -99,7 +99,9 @@ live     providers (incl. issue-03 fallback regression), mcp:http
          telemetry-gaps + issue-04 absorbed), context (incl. issue-02 +
          issue-06 absorbed), memory (incl. session-memory-bugs absorbed),
          tool-reliability, evaluation (incl. evaluation-scoring absorbed),
-         autoresearch (live half hits real providers)
+         autoresearch (live half hits real providers),
+         model-not-found-retryable (real generate() on Anthropic and OpenAI;
+         skips without both keys)
 
 product  media (image+video), tts, ppt, proxy
 

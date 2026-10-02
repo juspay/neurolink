@@ -208,6 +208,7 @@ import {
   log,
   logSection as harnessLogSection,
   isCaseTimeout,
+  scaleTimeoutMs,
   withCaseTimeout,
 } from "./helpers/harness.js";
 
@@ -5159,7 +5160,7 @@ async function runAllTests(): Promise<void> {
       if (isCaseTimeout(error)) {
         suiteAborted = true;
         log(
-          `\n🛑 ABORTING: "${test.name}" was abandoned by its ${ORCHESTRATOR_CASE_TIMEOUT_MS / 1000}s bound and is still executing.` +
+          `\n🛑 ABORTING: "${test.name}" was abandoned by its ${scaleTimeoutMs(ORCHESTRATOR_CASE_TIMEOUT_MS) / 1000}s bound and is still executing.` +
             `\n   Remaining cases are NOT run and shared resources are NOT disposed —` +
             `\n   this process no longer has clean state, so any further result would be a guess.`,
           "red",

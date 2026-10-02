@@ -130,6 +130,14 @@ await test("LiteLLM provider default and fallback list are current, not stale/re
     "litellm/client.ts must not contain the stale openai/gpt-4o-mini literal anywhere",
   );
   assert(
+    !content.includes('"openai/gpt-4o"'),
+    "litellm/client.ts getFallbackModels() must not offer stale openai/gpt-4o",
+  );
+  assert(
+    content.includes('"openai/gpt-5.4"'),
+    "litellm/client.ts getFallbackModels() must offer current openai/gpt-5.4",
+  );
+  assert(
     !content.includes('"anthropic/claude-3-haiku"'),
     "litellm/client.ts getFallbackModels() must not offer retired anthropic/claude-3-haiku",
   );

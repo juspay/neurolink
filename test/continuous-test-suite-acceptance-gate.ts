@@ -25,7 +25,8 @@
  * barrel, which re-exports it — no deep import needed for that either.
  *
  * Credential-free by construction: `./helpers/credentialFreeEnv.js` is the
- * first import, so no `.env` is ever loaded, every credential-named
+ * first import (after `ambientSecretCanaries.js`, which plants dummy values
+ * the strip must remove), so no `.env` is ever loaded, every credential-named
  * variable the shell exported is gone, and `HOME` is an empty temp directory
  * (no stored OAuth or cloud credential files) before the SDK initialises.
  * `main()` re-checks both after every import has run, and the CLI child in
@@ -33,6 +34,7 @@
  *
  * Run with: pnpm run test:acceptance-gate
  */
+import { survivingAmbientEnvCanaries } from "./helpers/ambientSecretCanaries.js";
 import {
   ISOLATED_HOME,
   credentialEnvNamesPresent,
@@ -482,6 +484,12 @@ async function main(): Promise<void> {
   if (leakedCredentialNames.length > 0) {
     throw new Error(
       `acceptance-gate: ${leakedCredentialNames.length} credential-named env var(s) survived the strip (${leakedCredentialNames.join(", ")}) — the gate is not credential-free`,
+    );
+  }
+  const survivingCanaries = survivingAmbientEnvCanaries();
+  if (survivingCanaries.length > 0) {
+    throw new Error(
+      `acceptance-gate: ${survivingCanaries.length} planted secret/endpoint env var(s) survived the strip (${survivingCanaries.join(", ")}) — the strip pattern misses them`,
     );
   }
   if (homedir() !== ISOLATED_HOME) {

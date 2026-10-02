@@ -582,9 +582,10 @@ jobs:
       # 87s total. So this is real coverage rather than a suite that goes green
       # by skipping, which is the failure mode worth guarding against here.
       #
-      # test:model-not-found-retryable is deliberately absent: it is the one
-      # member of test:unit that skips entirely without credentials, so running
-      # it here would add a step that can only ever no-op.
+      # test:model-not-found-retryable is deliberately absent: it is a test:live
+      # suite (a real generate() on Anthropic and OpenAI) that skips entirely
+      # without credentials, so running it here would add a step that can only
+      # ever no-op.
       # test:bugfixes was held out of CI until now. Its four FileDetector
       # failures were not flaky and not environmental: getGlobalDispatcher()
       # returns Node's BUILT-IN undici, whose major tracks the runtime, and the
@@ -1086,9 +1087,10 @@ jobs:
           # investigator should stop treating "no operator proxy on 55669" as
           # evidence of isolation.
           #
-          # test:model-not-found-retryable is also absent: it skips entirely
-          # without credentials, so it could only ever no-op here — the same
-          # reason it is held out of the security-suites job.
+          # test:model-not-found-retryable is also absent: it is a test:live
+          # suite that skips entirely without credentials, so it could only
+          # ever no-op here — the same reason it is held out of the
+          # security-suites job.
           #
           # This job is non-blocking on purpose. These are measured once, not
           # proven stable, and `security-suites` is a required check that

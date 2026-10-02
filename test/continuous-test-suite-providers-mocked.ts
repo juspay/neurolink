@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
  *
  * Coverage matrix:
  *
- *   LLM (OpenAI-compat):     xAI, Groq, Together AI, Fireworks, Perplexity
+ *   LLM (OpenAI-compat):     every src/lib/providers/catalog/*.json entry, plus Cohere
  *   LLM (custom shape):      Cohere, Cloudflare Workers AI, Replicate
  *   Embeddings:              Voyage AI, Jina AI
  *   Image-gen:               Stability, Ideogram, Recraft
@@ -492,9 +492,7 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
 }
 
 async function runOpenAICompatSection(): Promise<void> {
-  console.log(
-    "\n=== LLM OpenAI-compat (xAI/Groq/Together/Fireworks/Perplexity/Cohere/Cloudflare) ===",
-  );
+  console.log("\n=== LLM OpenAI-compat (every catalog provider + Cohere) ===");
   const specs = await buildOpenAICompatProviders();
   for (const spec of specs) {
     await runOpenAICompatProvider(spec);
@@ -7990,7 +7988,9 @@ async function runPerplexityRetries(): Promise<void> {
           "an abort is reported as a network error",
         );
         expect(failure.retryable === false, "not retryable");
-        expectEq(calls.length, 1, "one attempt");
+        // An already-aborted signal is refused by fetch before anything is
+        // sent, so the mock records no request.
+        expectEq(calls.length, 0, "no request sent for an aborted caller");
       });
     },
   );
@@ -9370,10 +9370,14 @@ async function runAnthropicSection(): Promise<void> {
     const child = `
       process.env.ANTHROPIC_API_KEY = ${JSON.stringify(fakeKey)};
       process.env.NEUROLINK_SKIP_MCP = "true";
-      globalThis.fetch = async () => new Response(
-        JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "Rate limited" } }),
-        { status: 429, headers: { "content-type": "application/json" } },
-      );
+      let fetchCalls = 0;
+      globalThis.fetch = async () => {
+        fetchCalls += 1;
+        return new Response(
+          JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "Rate limited" } }),
+          { status: 429, headers: { "content-type": "application/json" } },
+        );
+      };
       const { NeuroLink } = await import(${JSON.stringify(distUrl)});
       const nl = new NeuroLink({ conversationMemory: { enabled: false } });
       let caught;
@@ -9397,6 +9401,11 @@ async function runAnthropicSection(): Promise<void> {
         console.log("WRONG_ERROR", name, "tags=" + tags);
         process.exit(4);
       }
+      // The right error class is not proof the 429 came from the wire.
+      if (fetchCalls < 1) {
+        console.log("NO_REQUEST");
+        process.exit(5);
+      }
       console.log("SURVIVED");
     `;
     const res = spawnSync(
@@ -9410,7 +9419,8 @@ async function runAnthropicSection(): Promise<void> {
     );
     // Child exit codes: 0 = survived the real failure · 1 = the process was
     // killed by the unhandled rejection (the bug) · 3 = nothing threw at all
-    // · 4 = something threw, but not the failure under test. Only 0 counts.
+    // · 4 = something threw, but not the failure under test · 5 = the right
+    // error, but no request ever reached fetch. Only 0 counts.
     // The detail below stays free of payload text on purpose — record()'s
     // skip classifier reads message content, so quoting a provider-ish string
     // into it can downgrade a genuine failure to a skip.

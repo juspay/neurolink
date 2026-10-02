@@ -28,7 +28,8 @@
  *
  * Per-test timeout budget scaling:
  *   `NEUROLINK_TEST_TIMEOUT_SCALE` multiplies every suite's resolved
- *   `perTestTimeoutMs` (default 240_000, or a suite's own override). It is
+ *   `perTestTimeoutMs` (default 240_000, or a suite's own override), and every
+ *   `withCaseTimeout` bound, explicit or default. It is
  *   unset by default, which resolves to a scale of 1 — today's fixed
  *   budgets, unchanged, on a local machine. Set it on a shared/loaded CI
  *   executor (e.g. `NEUROLINK_TEST_TIMEOUT_SCALE=2`) to widen every suite's
@@ -190,8 +191,9 @@ export const TIMEOUT_SCALE_ENV_VAR = "NEUROLINK_TEST_TIMEOUT_SCALE";
  * Multiplier for every suite's `perTestTimeoutMs`, read from
  * `NEUROLINK_TEST_TIMEOUT_SCALE`. Falls back to 1 (today's fixed budgets,
  * unchanged) whenever the value is unset or does not parse as a finite
- * number greater than 0 — an invalid override should never shrink a budget
- * to 0 or leave it negative.
+ * number greater than 0, so an invalid override leaves a budget alone. This
+ * guards the scale only: a valid but tiny one can still round a budget down
+ * to 0, which `scaleTimeoutMs` floors.
  *
  * Exported (not just used internally by `defineSuite`) so this parsing can
  * be asserted on directly instead of only through a live timer race.
@@ -203,6 +205,15 @@ export function resolveTimeoutScale(): number {
   }
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+/**
+ * `baseMs` under `NEUROLINK_TEST_TIMEOUT_SCALE`, never below 1ms. A small
+ * positive scale (0.001 on a 100ms bound) rounds to 0, which would report a
+ * budget of "0ms" that nothing could meet.
+ */
+export function scaleTimeoutMs(baseMs: number): number {
+  return Math.max(1, Math.round(baseMs * resolveTimeoutScale()));
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +447,9 @@ export type SuiteHandle = {
 /**
  * Default bound for a single case in a suite that runs its own loop.
  *
- * Matches `defineSuite`'s per-test default so the two paths cannot drift.
+ * Same base as `defineSuite`'s per-test default, and both scale by
+ * `NEUROLINK_TEST_TIMEOUT_SCALE` through `scaleTimeoutMs`, so the two paths
+ * cannot drift.
  */
 export const CASE_TIMEOUT_MS = 240_000;
 
@@ -548,6 +561,7 @@ export async function withCaseTimeout<T>(
         `results after it cannot be trusted.`,
     );
   }
+  const budgetMs = scaleTimeoutMs(timeoutMs);
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
@@ -555,8 +569,8 @@ export async function withCaseTimeout<T>(
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           abandonedCase = name;
-          reject(new CaseTimeoutError(name, timeoutMs));
-        }, timeoutMs);
+          reject(new CaseTimeoutError(name, budgetMs));
+        }, budgetMs);
       }),
     ]);
   } finally {
@@ -580,9 +594,7 @@ export function defineSuite(
 
   // Scaled by NEUROLINK_TEST_TIMEOUT_SCALE (see this file's header comment);
   // the scale is 1 by default, so this is exactly today's fixed value.
-  const perTestTimeoutMs = Math.round(
-    (defs.perTestTimeoutMs ?? 240_000) * resolveTimeoutScale(),
-  );
+  const perTestTimeoutMs = scaleTimeoutMs(defs.perTestTimeoutMs ?? 240_000);
   // Sentinel used by the per-test timeout below. Classified as SKIP because a
   // live suite can't tell an SDK bug from an upstream that never responded.
   // A suite that declares `offline` has no upstream, so that particular

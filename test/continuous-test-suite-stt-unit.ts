@@ -75,6 +75,13 @@ const { test, runSuite } = defineSuite("STTProcessor (via generate())", {
 const NS = "e2e-stt-suite";
 const AUDIO = Buffer.from("fake-audio-bytes");
 
+// The registry is process-wide and the tests below register `${NS}-*` handlers
+// that nothing removes. Capture what was there first so the end of the file can
+// put it back.
+const baselineHandlers = STTProcessor.listProviders().map(
+  (name) => [name, STTProcessor.getHandler(name)!] as const,
+);
+
 function makeStubHandler(overrides: Partial<STTHandler> = {}): {
   handler: STTHandler;
   calls: Array<{ audio: unknown; options: unknown }>;
@@ -612,5 +619,12 @@ await test("clearHandlers() wipes every registered STT handler, and restoring a 
     "a provider registered after the snapshot stays gone — restore replays exactly what it captured, not everything ever registered",
   );
 });
+
+// test() records a failure rather than throwing, so every test above has run
+// by here and this is the suite's finally.
+STTProcessor.clearHandlers();
+for (const [name, handler] of baselineHandlers) {
+  STTProcessor.registerHandler(name, handler);
+}
 
 await runSuite();

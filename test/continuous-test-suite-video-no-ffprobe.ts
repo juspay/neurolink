@@ -31,7 +31,13 @@ process.env.NEUROLINK_SKIP_MCP = "true";
 
 import "dotenv/config";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, symlinkSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  symlinkSync,
+} from "node:fs";
 import * as path from "node:path";
 import {
   assert,
@@ -64,9 +70,12 @@ const extractedFrameCount = (output: string): number | null => {
  * built around it. Skips when an ffprobe still resolves through that PATH,
  * since the fallback would then never run.
  *
- * The PATH keeps the directory of the running node: a child spawned with an
- * explicit `env` is looked up through that env's PATH, so without it `node`
- * itself would not resolve on a machine that installs it outside /usr/bin.
+ * The PATH is that directory plus the directory of the running node, and
+ * nothing else: a child spawned with an explicit `env` is looked up through
+ * that env's PATH, so without node's directory `node` itself would not resolve
+ * on a machine that installs it outside /usr/bin. /usr/bin and /bin are left
+ * out on purpose, because that is where a distro puts ffprobe, so including
+ * them would skip both cases before either asserted anything.
  */
 async function ffmpegOnlyPath(): Promise<{ toolPath: string; ffmpeg: string }> {
   if (process.platform === "win32") {
@@ -88,24 +97,18 @@ async function ffmpegOnlyPath(): Promise<{ toolPath: string; ffmpeg: string }> {
       : execFileSync("which", [realFfmpeg], { encoding: "utf8" }).trim(),
     ffmpeg,
   );
-  const toolPath = [
-    binDir,
-    path.dirname(process.execPath),
-    "/usr/bin",
-    "/bin",
-  ].join(path.delimiter);
-  try {
-    execFileSync("which", ["ffprobe"], {
-      env: { PATH: toolPath },
-      stdio: "ignore",
-    });
-    throw new Skip("an ffprobe is on the system PATH, so it cannot be absent");
-  } catch (error) {
-    if (error instanceof Skip) {
-      throw error;
+  const toolDirs = [binDir, path.dirname(process.execPath)];
+  // Checked directly rather than through `which`, which would itself have to
+  // resolve through the restricted PATH.
+  for (const dir of toolDirs) {
+    try {
+      accessSync(path.join(dir, "ffprobe"), constants.X_OK);
+    } catch {
+      continue;
     }
+    throw new Skip("an ffprobe is on the tool PATH, so it cannot be absent");
   }
-  return { toolPath, ffmpeg };
+  return { toolPath: toolDirs.join(path.delimiter), ffmpeg };
 }
 
 async function framesReachingTheModel(

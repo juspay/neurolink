@@ -332,7 +332,7 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       process.env.LITELLM_FALLBACK_MODELS?.split(",")
         .map((m) => m.trim())
         .filter((m) => m.length > 0) || [
-        "openai/gpt-4o",
+        "openai/gpt-5.4",
         "anthropic/claude-haiku-4-5-20251001",
         "meta-llama/llama-3.1-8b-instruct",
         "google/gemini-2.5-flash",
