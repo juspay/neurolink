@@ -1155,6 +1155,7 @@ jobs:
             test:video:unit@12
             test:adjust-body-after-400@10
             test:anthropic-streaming-retry@10
+            test:anthropic-thinking-disabled@5
             test:dynamic@10
             test:local-usage@8
             test:provider-fallback-latency@6

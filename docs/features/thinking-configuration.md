@@ -127,6 +127,32 @@ const response = await neurolink.generate({
 - **Recommended for complex reasoning**: 20,000-50,000 tokens
 - **Maximum depth**: 50,000-100,000 tokens
 
+### Turning thinking off
+
+Some Claude models, `claude-sonnet-5` among them, think before answering even when
+no `thinkingConfig` is given, and that thinking counts against the request's
+`max_tokens`. To turn it off for a call, pass `type: "disabled"`:
+
+```typescript
+const response = await neurolink.generate({
+  input: { text: "Reply with one word." },
+  provider: "anthropic",
+  model: "claude-sonnet-5",
+  thinkingConfig: { type: "disabled" },
+});
+```
+
+NeuroLink sends `thinking: { type: "disabled" }` on both `generate()` and
+`stream()`. Turning thinking off does not change which sampling parameters a
+model accepts. On a model that takes a `temperature`, NeuroLink still sends it
+with thinking disabled; it is dropped only while thinking is on. Some models,
+`claude-sonnet-5` among them, do not accept a `temperature` at all, and NeuroLink
+leaves it off for them whatever the thinking setting.
+
+`enabled: false`, or no `thinkingConfig` at all, sends nothing, so the model's own
+default applies. If `enabled: true` and `budgetTokens` are also set, thinking is
+enabled, as before.
+
 ## Configuration Options
 
 The `thinkingConfig` object supports the following options:
@@ -134,7 +160,7 @@ The `thinkingConfig` object supports the following options:
 ```typescript
 thinkingConfig: {
   enabled?: boolean;           // Enable/disable thinking
-  type?: "enabled" | "disabled"; // Alternative enable/disable
+  type?: "enabled" | "disabled"; // "disabled" turns thinking off (Anthropic)
   budgetTokens?: number;       // Token budget (Anthropic models)
   thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Thinking level (Gemini models)
 }

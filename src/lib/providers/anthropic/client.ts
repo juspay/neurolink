@@ -1506,7 +1506,12 @@ export class AnthropicProvider extends BaseProvider {
         // Extended thinking passthrough (providerOptions.anthropic.thinking).
         const thinking = options.providerOptions?.anthropic?.thinking as
           | { type: "enabled"; budget_tokens: number }
+          | { type: "disabled" }
           | undefined;
+        // `disabled` is sent so a model that thinks by default (claude-sonnet-5
+        // does, unasked) is told not to, but it fixes nothing about sampling: only a
+        // block that turns thinking ON makes Anthropic reject temperature.
+        const thinkingOn = thinking?.type === "enabled";
 
         // Close the stable prefix with a breakpoint on the last tool. The
         // stream path does the same, just before its own marker count.
@@ -1550,7 +1555,7 @@ export class AnthropicProvider extends BaseProvider {
         // Dropping a caller's explicit sampling parameters is exactly the
         // kind of silent discard this change fixes elsewhere, so say so.
         if (
-          thinking &&
+          thinkingOn &&
           (samplingParams.temperature !== undefined ||
             samplingParams.topP !== undefined)
         ) {
@@ -1569,10 +1574,10 @@ export class AnthropicProvider extends BaseProvider {
           // forwarding it alongside thinking turns a call that used to work
           // into a 400. Drop the sampling knobs for exactly those turns and
           // let Anthropic's thinking defaults stand.
-          ...(!thinking && samplingParams.temperature !== undefined
+          ...(!thinkingOn && samplingParams.temperature !== undefined
             ? { temperature: samplingParams.temperature }
             : {}),
-          ...(!thinking && samplingParams.topP !== undefined
+          ...(!thinkingOn && samplingParams.topP !== undefined
             ? { top_p: samplingParams.topP }
             : {}),
           ...(options.stopSequences && options.stopSequences.length > 0
@@ -1962,6 +1967,11 @@ export class AnthropicProvider extends BaseProvider {
         type: "enabled" as const,
         budget_tokens: options.thinkingConfig.budgetTokens,
       };
+    } else if (options.thinkingConfig?.type === "disabled") {
+      // Without this the request carries no `thinking` field at all, which on
+      // a model that thinks by default means "think" — the explicit
+      // `type: "disabled"` the type already offered was silently dropped.
+      anthropicNamespace.thinking = { type: "disabled" as const };
     }
     // The per-call `timeout` keeps its per-MODEL-CALL meaning once
     // `turnTimeoutMs` owns the whole-turn deadline, and it reaches the model
@@ -2249,7 +2259,11 @@ export class AnthropicProvider extends BaseProvider {
             type: "enabled" as const,
             budget_tokens: options.thinkingConfig.budgetTokens,
           }
-        : undefined;
+        : options.thinkingConfig?.type === "disabled"
+          ? { type: "disabled" as const }
+          : undefined;
+    // See the generate path: `disabled` is sent, but only ON constrains sampling.
+    const thinkingOn = thinking?.type === "enabled";
 
     // Wrap the native stream in an OTel span to capture provider-level
     // latency and token usage (same span name as the pre-migration path so
@@ -2521,7 +2535,7 @@ export class AnthropicProvider extends BaseProvider {
             : {},
           "anthropic.executeStream",
         );
-        if (thinking && streamSamplingParams.temperature !== undefined) {
+        if (thinkingOn && streamSamplingParams.temperature !== undefined) {
           logger.debug(
             "[anthropic] extended thinking is enabled, so temperature is omitted on the stream path — Anthropic rejects any temperature but 1 while thinking is set",
           );
@@ -2537,7 +2551,7 @@ export class AnthropicProvider extends BaseProvider {
           ...(payload.system ? { system: payload.system } : {}),
           // Same constraint on the streaming path: a temperature alongside
           // `thinking` is rejected outright.
-          ...(!thinking && streamSamplingParams.temperature !== undefined
+          ...(!thinkingOn && streamSamplingParams.temperature !== undefined
             ? { temperature: streamSamplingParams.temperature }
             : {}),
           ...(cachedTools && cachedTools.length > 0
