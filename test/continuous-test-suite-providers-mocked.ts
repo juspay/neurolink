@@ -5743,9 +5743,10 @@ function perplexityLiveBody(
   };
 }
 
-// The error envelopes a live probe saw, all `{"error": {...}}`. Which layer
-// answered decides the shape: `code` is a number, null or a string, so only the
-// HTTP status is reliable.
+// The error envelopes a live probe saw, all `{"error": {...}}`, except
+// `tooLarge`, the 413 Perplexity documents and that was never provoked. Which
+// layer answered decides the shape: `code` is a number, null or a string, so
+// only the HTTP status is reliable.
 const PERPLEXITY_ERRORS = {
   // 401: the key is checked before the body, and `code` is a number here.
   invalidKey: {
@@ -5779,6 +5780,17 @@ const PERPLEXITY_ERRORS = {
     error: {
       message:
         "Input length (262144) exceeds or equals model's maximum context length (262144)",
+      type: "invalid_request",
+      code: "400",
+    },
+  },
+  // The same refusal when images are part of the input; the wording differs.
+  // Measured live on 2026-10-03: 250,676 text tokens plus eight 2,048-tile
+  // images.
+  overLengthWithImages: {
+    error: {
+      message:
+        "Total input tokens (250676 text + 16384 vision = 267060) exceeds maximum context length (262144)",
       type: "invalid_request",
       code: "400",
     },
@@ -7283,6 +7295,33 @@ async function runPerplexityErrors(): Promise<void> {
           kind: "max_tokens_exceeded",
           calls: 1,
           includes: "maximum context length",
+        },
+        {
+          label: "400 over the context length, with images in the input",
+          reply: { status: 400, json: PERPLEXITY_ERRORS.overLengthWithImages },
+          kind: "max_tokens_exceeded",
+          calls: 1,
+          includes: "16384 vision",
+        },
+        {
+          // A control with invented wording: it names the maximum context
+          // length but does not exceed it, so only the `exceeds` in the pattern
+          // can tell it from a real over-length refusal.
+          label:
+            "400 that names the maximum context length without exceeding it",
+          reply: {
+            status: 400,
+            json: {
+              error: {
+                message: "The maximum context length is fixed for this model",
+                type: "invalid_request",
+                code: "400",
+              },
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "fixed for this model",
         },
         {
           label: "413 body over the cap",

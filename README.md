@@ -390,8 +390,8 @@ Measured against TypeSafe's live API — don't extrapolate past these:
 
 The figures above are TypeSafe's. Perplexity's Decisions API, measured on a real account in October 2026:
 
-- Up to 128 questions and 8 images per request. The server reads under 262,144 input tokens (the state and the questions count; images are billed as input tokens and assumed to count too, which was not measured) and refuses more with an explicit 400; it never cuts a state off silently.
-- Latency grows faster than linearly with input: 3.9 s at 65,000 tokens, 10 s at 146,000, 22.9 s at 251,000 (about 17,000, 15,000 and 11,000 tokens per second). An image costs about one input token per 32 × 32 tile plus about 95 per image, a fit to three measured sizes.
+- Up to 128 questions and 8 images per request. The server reads under 262,144 input tokens (the state, the questions and the images all count; an image counts one token per 32 × 32 tile, measured) and refuses more with an explicit 400; it never cuts a state off silently.
+- Latency grows faster than linearly with input: 3.9 s at 65,000 tokens, 10 s at 146,000, 22.9 s at 251,000 (about 17,000, 15,000 and 11,000 tokens per second). An image costs about one input token per 32 × 32 tile, plus about 95 to 103 tokens that look like fixed request overhead.
 - 10 requests per second on the account tested; a 429 carries `Retry-After`, which NeuroLink honours.
 - NeuroLink's own state window is 100,000 estimated tokens, a deliberate local limit and not the server's. The price, $0.04 per million input tokens (image tokens included, output free), is Perplexity's documented figure.
 

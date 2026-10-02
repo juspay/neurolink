@@ -569,11 +569,13 @@ options on a `choice` or `score`.
 
 **Perplexity's input ceiling covers more than the state.** Measured on a real
 account in October 2026: the server reads under 262,144 input tokens per request,
-counted over the state and the questions, and refuses input of 262,144 tokens or
-more with an explicit 400 instead of cutting the state off. Images are billed as
-input tokens, about one for each 32 × 32 tile plus about 95 for the image (a fit
-to three measured sizes), and are assumed to count toward the ceiling too; that
-was not measured. It takes at most 128 questions and 8 images. The documented
+counted over the state, the questions and the images, and refuses input of
+262,144 tokens or more with an explicit 400 instead of cutting the state off.
+Images are billed as input tokens, about one for each 32 × 32 tile plus 95 to
+103 more in the single-image requests measured, which looks like fixed request
+overhead and not a charge per image. They count toward the ceiling at one token
+for each tile: eight 2,048-tile images added 16,384 to a request that was then
+refused. It takes at most 128 questions and 8 images. The documented
 32 MiB body limit was not measured. NeuroLink's own window is 100,000 estimated
 tokens of state, a deliberate local limit and not the server's; a state estimated
 above it, or more than 128 questions in a `decide()` call, is refused locally
@@ -587,9 +589,10 @@ JSON are about 113,000 real tokens. It runs much lower on log lines (1.35) and
 arrays of integers (1.16), which are about 281,000 and 328,000 real tokens for
 the same 380,000 characters, and on emoji (2.6 tokens per code point), so a state
 that is mostly one of those can pass the window and still be refused by the
-server. A request that passes it can also be refused when the questions, or the
-images if they count as assumed, push the input over. That refusal arrives as
-`max_tokens_exceeded` too, and is not retried. A state estimated above the window
+server. A request that passes it can also be refused when the questions or the
+images push the input over. That refusal arrives as `max_tokens_exceeded` too,
+whichever of the server's two wordings it uses (one for text alone, one when
+images are in the request), and is not retried. A state estimated above the window
 needs a smaller state or another provider: no setting raises it, so a larger
 state that would fit the server can be sent only through a decision provider with
 a larger window. Perplexity documents a request rate of 10 per second for the

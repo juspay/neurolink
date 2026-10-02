@@ -609,9 +609,9 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // `timeoutMs`.
     timeouts: { decideMs: 10_000 },
     // The server reads 262,144 input tokens in all and answers an over-long
-    // request with an explicit 400, never a silent truncation. The state and the
-    // questions were measured to count toward it; images are billed as input
-    // tokens and presumably count too. The window below is deliberately lower: a
+    // request with an explicit 400, never a silent truncation. The state, the
+    // questions and the images were all measured to count toward it, an image at
+    // one token for each 32 x 32 tile. The window below is deliberately lower: a
     // state of 100,000 tokens takes about 7s of the 10s above (interpolated from
     // those points), and a much larger one would outlast it and be retried into
     // the same wait. The estimate is about four characters per token. Measured

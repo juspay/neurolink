@@ -153,10 +153,11 @@ server. XOR declares a conservative 200,000-token state window, no question cap,
 `src/lib/utils/decisionMedia.ts`). Perplexity declares a 100,000-token state
 window, 128 questions and `media` of up to 8 images and no video, with a 32 MiB
 body. Measured on a real account in October 2026: the 128-question and 8-image
-caps, the 262,144-token input ceiling, the non-ASCII rates and the stall on large
-images. Taken from Perplexity's documentation and not measured: the 32 MiB body,
-and the 2,048-tile rule behind the image check (three image sizes were probed and
-agree with it; the edge itself was not). The 100,000 is a deliberate local
+caps, the 262,144-token input ceiling (images count toward it, one token for
+each 32 × 32 tile), the non-ASCII rates, and the stall on large images with its
+2,048-tile rule checked at the edge (each side rounds to the nearest 32; 2,048
+tiles fits, 2,050 stalls). Taken from Perplexity's documentation and not
+measured: the 32 MiB body. The 100,000 is a deliberate local
 window, not a measurement and not the server's limit: the server reads 262,144
 input tokens in all and refuses more with an explicit 400, which the provider
 reports as `max_tokens_exceeded`. Non-ASCII text is charged 0.5 per character

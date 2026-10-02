@@ -88,8 +88,15 @@ function isPerplexityApiHost(baseURL: string): boolean {
  * The model server answers input past its limit with a 400, not the 413 the
  * gateway documents, so the kind comes from the text. `error.code` cannot be
  * used: it is a string, a number or null depending on which layer answered.
+ *
+ * The wording depends on what was sent. Text alone is refused with "Input
+ * length (262144) exceeds or equals model's maximum context length (262144)",
+ * the figure in brackets being the limit and not the size sent; a request with
+ * images is refused with "Total input tokens (A text + B vision = C) exceeds
+ * maximum context length (262144)". Both are matched.
  */
-const OVER_LENGTH_MESSAGE = /exceeds or equals model's maximum context length/i;
+const OVER_LENGTH_MESSAGE =
+  /exceeds(?: or equals)?(?: model's)? maximum context length/i;
 
 /**
  * Only 401 is `authentication`, and so only 401 trips the breaker. Every other

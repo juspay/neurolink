@@ -38,8 +38,8 @@ so a key alone configures it: there is no base URL to set.
 | Endpoint                 | `https://api.perplexity.ai/v1/decisions`; `PERPLEXITY_DECIDER_BASE_URL` can name another origin                   |
 | Media                    | images (PNG, JPEG or WebP), up to 8 per request; no video                                                         |
 | Questions per request    | up to 128                                                                                                         |
-| Server input ceiling     | under 262,144 tokens (state and questions); more is refused with an explicit 400, never cut off silently          |
-| Images and that ceiling  | billed as input tokens (measured); that they count toward the ceiling is assumed, not measured                    |
+| Server input ceiling     | under 262,144 tokens (state, questions and images); more is refused with an explicit 400, never cut off silently  |
+| Images and that ceiling  | billed as input tokens, and counted toward the ceiling at one token per 32 × 32 tile (measured)                   |
 | NeuroLink's state window | 100,000 estimated tokens: a deliberate local limit, not the server's                                              |
 | Cost                     | $0.04 per million input tokens (image tokens included); output tokens are free. Perplexity's documented price     |
 | Default timeout          | 10 seconds plus 100 ms for each question (10.1 s for one, 22.8 s for 128); `timeoutMs` or `--timeout` replaces it |
@@ -48,18 +48,15 @@ so a key alone configures it: there is no base URL to set.
 Each limit, token rate and latency in this guide is either **measured on a real
 account in October 2026** or taken from Perplexity's documentation, and says
 which where it appears. Measured: the 128-question and 8-image caps, the
-262,144-token input ceiling for the state and the questions (nothing is cut off
-silently), characters per token for each kind of text, latency by input size and
-by question count, what an image costs, which image sizes stall, and how the API
-answers a burst of requests. Documented and not tested: the 32 MiB request body,
-the price, and the option and level counts. Perplexity documents a limit of 10
-requests per second for the account's tier (every organization, on every plan,
-with a token limit on large bursts), and a burst test on the one account tested
-saw the request limit act. The 2,048-tile image rule is Perplexity's documented
-rule, checked at three image sizes (see [Images](#images)). One thing is assumed,
-not measured: that images count toward the 262,144-token ceiling. They are billed
-as input tokens, which was measured, but no request put images next to the
-ceiling.
+262,144-token input ceiling for the state, the questions and the images (nothing
+is cut off silently), characters per token for each kind of text, latency by
+input size and by question count, what an image costs, which image sizes stall
+(the 2,048-tile rule, checked at its edge: see [Images](#images)), and how the
+API answers a burst of requests. Documented and not tested: the 32 MiB request
+body, the price, and the option and level counts. Perplexity documents a limit of
+10 requests per second for the account's tier (every organization, on every
+plan, with a token limit on large bursts), and a burst test on the one account
+tested saw the request limit act.
 
 ---
 
@@ -235,12 +232,18 @@ The rules:
   and the height to the nearest multiple of 32 and keep (width / 32) ×
   (height / 32) at or under 2,048: by that count 1440 × 1440 (2,025 tiles) and
   2048 × 1024 (2,048) fit, and 1600 × 1310 (2,050) does not. Perplexity documents
-  this rule. The probe tried three sizes, and all three agree with it:
-  1920 × 1080 (2,040 tiles) was answered in 1.1 seconds, while 2048 × 2048
-  (4,096 tiles, tried twice) and 4000 × 3000 (11,750 tiles) stalled for about
-  56 seconds and came back as an HTML 504. No size just past the limit was tried,
-  so the edge itself rests on the documentation. The trigger is pixel count, not
-  file size: the 2048 × 2048 image was a 60 KB PNG. An oversized image is not
+  this rule, and it was checked at its edge. Fitting sizes were answered in
+  about a second: 1920 × 1080 (2,040 tiles) in 1.1 seconds, 2048 × 1024 (2,048,
+  exactly the cap) in 1.3 and 1450 × 1450 in 1.1. That last one rounds to 45 tiles
+  a side (45.3), 2,025 in all, where rounding up (46 a side, 2,116) would have
+  failed. Oversized sizes stalled for about 56 seconds and came back as an HTML
+  504: 1600 × 1310 (2,050 tiles, two over), 1470 × 1470 (46 a side, 2,116, which
+  would have fitted had each side been rounded down), 2048 × 2048 (4,096 tiles,
+  tried twice) and 4000 × 3000 (11,750). So each side rounds to the nearest
+  multiple of 32 and the cap is 2,048 tiles, as NeuroLink's check has it. The
+  trigger is the tile count, not the file size (the 2048 × 2048 image was a 60 KB
+  PNG) and not the raw pixel count: 1600 × 1310 is 2,096,000 pixels and stalled,
+  while 2048 × 1024, at 2,097,152, did not. An oversized image is not
   refused with a 400, so NeuroLink reads each image's dimensions from its header
   and refuses it before any request, naming its size. An image whose dimensions
   cannot be read is sent as given.
@@ -251,15 +254,28 @@ The rules:
 - **No video.** `video` and `--video` are refused before any request with
   `Perplexity does not accept video.`
 - **Images are billed as input tokens.** Measured: about one input token for
-  each 32 × 32 tile (1,024 pixels) plus about 95 for the image, billed like text.
-  That is a fit to three sizes, not a documented rate: 1920 × 1080 (2,040 tiles)
-  cost about 2,135 tokens, 1024 × 1024 (1,024 tiles) about 1,119 and 512 × 512
-  (256 tiles) about 351. That they count toward the 262,144-token input ceiling
-  was not measured and is assumed from the billing; by the fit, eight images at
-  the 2,048-tile cap add at most about 17,000 tokens. NeuroLink's local window
-  checks the state's text only, not the images or the questions, so a request
-  that passes it can still be refused by the API for being over its input
-  ceiling.
+  each 32 × 32 tile (1,024 pixels), billed like text, plus 95 to 103 more in
+  the single-image requests measured. That is a fit to the sizes measured, not a
+  documented rate: 1920 × 1080 (2,040 tiles) cost about 2,135 tokens,
+  1024 × 1024 (1,024 tiles) about 1,119, 512 × 512 (256 tiles) about 351,
+  2048 × 1024 (2,048 tiles) 2,151 and 1450 × 1450 (2,025 tiles) 2,128. The extra
+  95 to 103 looks like fixed overhead for the request, not a charge for each
+  image: a request with eight images was counted as exactly 8 × 2,048 vision
+  tokens, with its text only 52 tokens above the same text alone. A single-image
+  request cannot tell the two apart, so this is a reading of the figures and not
+  a documented rule. **Images count toward the 262,144-token input ceiling.**
+  Measured: 1.1 million characters of text (250,624 input tokens) was answered,
+  and the same text with eight 2,048-tile images was refused with a 400, `Total
+input tokens (250676 text + 16384 vision = 267060) exceeds maximum context
+length (262144)`. Each of those images counted as 2,048 vision tokens, one for
+  each tile. So eight images at the cap take up to 16,384 tokens of the ceiling.
+  NeuroLink's local window checks the state's text only, not the images or the
+  questions, so a request that passes it can still be refused by the API for
+  being over its input ceiling. The server words that refusal two ways, `Input
+length (…) exceeds or equals model's maximum context length (…)` for text alone
+  and the `Total input tokens (… text + … vision = …) exceeds maximum context
+length (…)` above when images are in the request, and NeuroLink reports both as
+  `max_tokens_exceeded`.
 - **The result carries `mediaBytes`**, the encoded size of the images sent. The
   `decide` spans carry `decision.images.count` and `decision.media.bytes`, and
   never any base64.
@@ -383,7 +399,10 @@ calls, splits such a request into batches of at most 128 questions, runs up to
 four at a time and joins the answers. The state goes with every batch, so it is
 sent, and billed, once for each. A batch that fails costs only its own
 questions, which then have no answer, and the consumer carries on without that
-decision.
+decision. Measured live through the published package: 300 questions went out as
+128, 128 and 44 and all 300 were answered, in order, in 2.5 seconds with no 429;
+640 questions went out as five requests of 128 and all 640 were answered in
+2.6 seconds, also with no 429.
 
 Treat each request like any hosted provider call for data handling and
 retention: it is a request to `api.perplexity.ai` made with your key.
@@ -435,9 +454,12 @@ these:
    `PERPLEXITY_API_KEY` line from that file as well as from the shell, or point
    `DOTENV_CONFIG_PATH` at a file that does not have it. With no
    `PERPLEXITY_API_KEY` in the environment or in a loaded `.env`, Perplexity
-   decisions are not configured. **Not verified:** that the text provider reads
-   `credentials.perplexity.apiKey` was read from the code, and was not run
-   against the live Sonar API. The CLI reads only the environment and the `.env`
+   decisions are not configured. **Verified live** with the environment variable
+   unset in the process: a `generate()` call to the Sonar provider with the key
+   only in `credentials.perplexity.apiKey` returned content, while `decide()`
+   with the same slice threw `No decision provider is configured` and
+   `tryDecide()` returned `null`; the key in `credentials.perplexityDecider`
+   made `decide()` answer. The CLI reads only the environment and the `.env`
    it loads, so a CLI run that has the variable set in either place has
    decisions configured; set it only for the commands that need it.
 2. **Configure TypeSafe, Laya or XOR.** One of them then answers every built-in
@@ -462,16 +484,16 @@ provider off while the key is set.
 NeuroLink probed the live API from an account limited to 10 requests per second.
 These figures were observed, not taken from Perplexity's documentation:
 
-| What                  | Measured                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Questions per request | 128 accepted (128 answers in 8.9 s, 11,904 input tokens); 129 is refused with a 400. An extra minimal question adds about 92 input tokens, and a one-character state with one question bills 116.                                                                                                                                                                                                                                                             |
-| Images per request    | 8 accepted (with three questions); 9 refused with a 400 (with one question; the message says "per question").                                                                                                                                                                                                                                                                                                                                                 |
-| Input ceiling         | Input of 262,144 tokens or more is refused with an explicit 400 (`Input length (262144) exceeds or equals model's maximum context length (262144)`). The state and the questions count toward it; that images count too is assumed, not measured. Nothing is cut off silently: needles at the head and at the tail of a state were both found at 900,000 characters, and a tail needle at 1.55 million characters (251,350 input tokens, answered in 22.9 s). |
-| Tokens per character  | By kind of text, in the table below. Other scripts: CJK about 0.46 tokens per character, Devanagari 0.44, emoji 2.6 per code point.                                                                                                                                                                                                                                                                                                                           |
-| Latency               | Grows faster than linearly with input: 3.9 s at 65,000 tokens, 10 s at 146,000 and 22.9 s at 251,000, about 17,000, 15,000 and 11,000 tokens per second. One question on a short state took 0.3 to 1.1 s, and each question after the first added about 65 ms (128 minimal questions took 8.9 s on 11,904 input tokens).                                                                                                                                      |
-| Image cost            | About one input token for each 32 × 32 tile plus about 95 for the image, a fit to three sizes: 1920 × 1080 (2,040 tiles) cost about 2,135 tokens, 1024 × 1024 (1,024 tiles) about 1,119 and 512 × 512 (256 tiles) about 351.                                                                                                                                                                                                                                  |
-| Image size            | Three sizes were tried: 1920 × 1080 (2,040 tiles) answered in 1.1 s; 2048 × 2048 (4,096 tiles, tried twice) and 4000 × 3000 (11,750 tiles) stalled for about 56 seconds and returned an HTML 504. The 2048 × 2048 image was a 60 KB PNG, so the trigger is pixel count, not file size.                                                                                                                                                                        |
-| Rate limit            | 10 requests per second: a burst of 14 parallel requests got 10 answers and 4 replies of 429, and capacity returned within about 3 seconds. A 429 carries `Retry-After: 1`, in seconds.                                                                                                                                                                                                                                                                        |
+| What                  | Measured                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Questions per request | 128 accepted (128 answers in 8.9 s, 11,904 input tokens); 129 is refused with a 400. An extra minimal question adds about 92 input tokens, and a one-character state with one question bills 116.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Images per request    | 8 accepted (with three questions); 9 refused with a 400 (with one question; the message says "per question").                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Input ceiling         | Input of 262,144 tokens or more is refused with an explicit 400 (`Input length (262144) exceeds or equals model's maximum context length (262144)`, or with images in the request `Total input tokens (250676 text + 16384 vision = 267060) exceeds maximum context length (262144)`). The state, the questions and the images all count toward it; each 2,048-tile image counted as 2,048 vision tokens. Nothing is cut off silently: needles at the head and at the tail of a state were both found at 900,000 characters, and a tail needle at 1.55 million characters (251,350 input tokens, answered in 22.9 s).                                                          |
+| Tokens per character  | By kind of text, in the table below. Other scripts: CJK about 0.46 tokens per character, Devanagari 0.44, emoji 2.6 per code point.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Latency               | Grows faster than linearly with input: 3.9 s at 65,000 tokens, 10 s at 146,000 and 22.9 s at 251,000, about 17,000, 15,000 and 11,000 tokens per second. One question on a short state took 0.3 to 1.1 s, and each question after the first added about 65 ms (128 minimal questions took 8.9 s on 11,904 input tokens).                                                                                                                                                                                                                                                                                                                                                       |
+| Image cost            | About one input token for each 32 × 32 tile, plus 95 to 103 more that look like fixed overhead for the request and not a charge for each image: 1920 × 1080 (2,040 tiles) cost about 2,135 tokens, 1024 × 1024 (1,024 tiles) about 1,119, 512 × 512 (256 tiles) about 351, 2048 × 1024 (2,048 tiles) 2,151 and 1450 × 1450 (2,025 tiles) 2,128. Eight images in one request were counted as exactly 16,384 vision tokens, 2,048 each, with the text only 52 tokens above the same text alone.                                                                                                                                                                                  |
+| Image size            | Seven sizes were tried. Answered in about a second: 1920 × 1080 (2,040 tiles) in 1.1 s, 2048 × 1024 (2,048 tiles, exactly the cap) in 1.3 s and 1450 × 1450 (45 tiles a side, 2,025) in 1.1 s. Stalled for about 56 seconds and returned an HTML 504: 1600 × 1310 (2,050 tiles, two over), 1470 × 1470 (46 tiles a side, 2,116), 2048 × 2048 (4,096, tried twice) and 4000 × 3000 (11,750). Each side rounds to the nearest multiple of 32 and the cap is 2,048 tiles. The trigger is the tile count, not the file size (the 2048 × 2048 image was a 60 KB PNG) and not the raw pixel count (1600 × 1310 is 2,096,000 pixels and stalled; 2048 × 1024, at 2,097,152, did not). |
+| Rate limit            | 10 requests per second: a burst of 14 parallel requests got 10 answers and 4 replies of 429, and capacity returned within about 3 seconds. A 429 carries `Retry-After: 1`, in seconds.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Characters per token, by kind of text. Each sample was 40,000 characters, sent
 as the state of a one-question request, with the cost of the bare question
@@ -549,9 +571,10 @@ consumer treats that as "carry on as before".
   32 MiB is refused with `invalid_request`.
 
 A request that passes the local checks can still be refused by the API, for
-example because the questions push the input past 262,144 tokens (or the images
-do, if they count toward the ceiling as assumed). A 400 that says the input
-exceeds or equals the model's maximum context length arrives as
+example because the questions or the images push the input past 262,144 tokens.
+A 400 that says the input exceeds the model's maximum context length, in either
+of the two wordings the server uses (see
+[Limits](#measured-on-a-real-account-october-2026)), arrives as
 `max_tokens_exceeded`, and any other 400 as an `invalid_request` carrying the
 API's own message. Neither is retried.
 
@@ -612,22 +635,22 @@ caller's abort signal ends a wait immediately.
 
 ## Errors
 
-| Reply                                                                     | Kind                                                    | Retried                        |
-| ------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------ |
-| 401                                                                       | `authentication` — the provider instance stops retrying | no                             |
-| 413                                                                       | `max_tokens_exceeded` (the body is over 32 MiB)         | no                             |
-| 400 saying the input exceeds or equals the model's maximum context length | `max_tokens_exceeded`                                   | no                             |
-| any other 4xx (for example another 400, 403, 404)                         | `invalid_request`, with Perplexity's own message        | no                             |
-| 429                                                                       | `rate_limit`                                            | yes, once, after `Retry-After` |
-| 503                                                                       | `overloaded`                                            | yes, once                      |
-| other 5xx (500, 502, 504)                                                 | `server`                                                | yes, once                      |
-| no response within the timeout                                            | `timeout`                                               | yes, once                      |
-| the request fails before any reply (connection refused, DNS failure)      | `network`                                               | yes, once                      |
-| the caller's own `signal` aborts the request                              | `network`                                               | no                             |
-| state or questions over the limit (local)                                 | `max_tokens_exceeded`, with no network call             | no                             |
-| unusable images, or a video (local)                                       | `invalid_request`, with no network call                 | no                             |
-| no key configured (local)                                                 | `authentication`, with no network call                  | no                             |
-| a base URL that cannot work (local)                                       | `invalid_request`, with no network call                 | no                             |
+| Reply                                                                | Kind                                                    | Retried                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------ |
+| 401                                                                  | `authentication` — the provider instance stops retrying | no                             |
+| 413                                                                  | `max_tokens_exceeded` (the body is over 32 MiB)         | no                             |
+| 400 saying the input exceeds the model's maximum context length      | `max_tokens_exceeded`                                   | no                             |
+| any other 4xx (for example another 400, 403, 404)                    | `invalid_request`, with Perplexity's own message        | no                             |
+| 429                                                                  | `rate_limit`                                            | yes, once, after `Retry-After` |
+| 503                                                                  | `overloaded`                                            | yes, once                      |
+| other 5xx (500, 502, 504)                                            | `server`                                                | yes, once                      |
+| no response within the timeout                                       | `timeout`                                               | yes, once                      |
+| the request fails before any reply (connection refused, DNS failure) | `network`                                               | yes, once                      |
+| the caller's own `signal` aborts the request                         | `network`                                               | no                             |
+| state or questions over the limit (local)                            | `max_tokens_exceeded`, with no network call             | no                             |
+| unusable images, or a video (local)                                  | `invalid_request`, with no network call                 | no                             |
+| no key configured (local)                                            | `authentication`, with no network call                  | no                             |
+| a base URL that cannot work (local)                                  | `invalid_request`, with no network call                 | no                             |
 
 Only a 401 disables the provider instance, because a bad key does not fix
 itself: after the first rejection the instance stops sending requests. A 4xx
