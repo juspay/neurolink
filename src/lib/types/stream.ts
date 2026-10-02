@@ -24,14 +24,14 @@ import type {
   TerminalAgentModeVersion,
 } from "./agentMode.js";
 import type { Content, ImageWithAltText } from "./content.js";
-import type { ChatMessage } from "./conversation.js";
+import type { ChatMessage, ToolReplayMode } from "./conversation.js";
 import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
 import type {
-  AdditionalMemoryUser,
   GenerateStopReason,
   TTSMetadata,
   ToolExecutionCaptureOptions,
 } from "./generate.js";
+import type { MemoryCallOptions } from "./memory.js";
 import type {
   AIModelProviderConfig,
   NeurolinkCredentials,
@@ -653,11 +653,21 @@ export type StreamOptions = {
   /**
    * Tool choice configuration for streaming generation.
    * Mirrors generate() so translated/fallback requests can preserve forced tool use.
+   * A forced choice (`"required"` or a named tool) is applied only to the
+   * first `toolChoiceSteps` steps (default 1); see GenerateOptions.toolChoice.
    */
   toolChoice?: ToolChoice<Record<string, Tool>>;
 
+  /** Leading steps a forced `toolChoice` stays in force (default 1). See GenerateOptions.toolChoiceSteps. */
+  toolChoiceSteps?: number;
+
+  /** How stored tool steps are replayed into the prompt. See GenerateOptions.replayToolSteps. */
+  replayToolSteps?: ToolReplayMode;
+
   /**
    * Optional callback that runs before each stream step in a multi-step generation.
+   * Only a returned `toolChoice` is honoured (for that step); `activeTools` is
+   * accepted but ignored. See GenerateOptions.prepareStep.
    */
   prepareStep?: (options: {
     steps: StepResult<Record<string, Tool>>[];
@@ -859,21 +869,9 @@ export type StreamOptions = {
    * Override the global memory SDK behavior for this specific call.
    * All flags default to `true` when the global memory SDK is enabled.
    * If the global memory SDK is disabled, these flags have no effect.
+   * Shared with `GenerateOptions` — see `MemoryCallOptions`.
    */
-  memory?: {
-    /** Master toggle for this call. When false, both read and write are skipped. Defaults to true. */
-    enabled?: boolean;
-    /** Whether to read condensed memory and prepend to prompt. Defaults to true. */
-    read?: boolean;
-    /** Whether to write (add/condense) the conversation into memory after completion. Defaults to true. */
-    write?: boolean;
-    /**
-     * Additional users whose memory should be retrieved/stored alongside the primary user.
-     * Each entry can override the condensation prompt and maxWords for that user.
-     * Primary user is still determined by context.userId.
-     */
-    additionalUsers?: AdditionalMemoryUser[];
-  };
+  memory?: MemoryCallOptions;
 
   /** PII detection — scans and optionally redacts PII from input before the LLM call. */
   piiDetection?: {

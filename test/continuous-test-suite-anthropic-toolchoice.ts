@@ -34,9 +34,14 @@ import "dotenv/config";
  * as well and exist to catch this fix breaking the shape that already worked,
  * or switching tool choice on for callers who never asked.
  *
- * `maxSteps` is capped deliberately: a forced tool choice with no cap does not
- * reliably terminate, since the model can be compelled to call the tool again
- * on every step. That is worth its own look and is not what this suite tests.
+ * The first four cases cap `maxSteps` deliberately: they pin the wire shape of
+ * step 0 and nothing else. The cases under "a forced choice lapses" are the
+ * other half of the story — a forced choice used to be baked into EVERY step's
+ * request, so the model was compelled to call the tool again on each step and
+ * the loop only ended when `maxSteps` ran out. Now a forced choice applies to
+ * the first `toolChoiceSteps` steps (default 1) and the model is then free to
+ * answer; those cases assert the step-1 request carries no forced choice and
+ * the turn ends well short of its cap.
  *
  * Run: pnpm run build && npx tsx test/continuous-test-suite-anthropic-toolchoice.ts
  */
@@ -71,13 +76,23 @@ const asObject = (
 ): Record<string, unknown> | null =>
   value !== null && typeof value === "object" ? value : null;
 
-const weatherTool = () => ({
+const weatherTool = (counter?: { calls: number }) => ({
   get_weather: tool({
     description: "Returns the current weather for a city",
     inputSchema: z.object({ city: z.string() }),
-    execute: async ({ city }: { city: string }) => ({ city, tempC: 22 }),
+    execute: async ({ city }: { city: string }) => {
+      if (counter) {
+        counter.calls++;
+      }
+      return { city, tempC: 22 };
+    },
   }),
 });
+
+/** Cheapest live model for the multi-step cases. */
+const LOOP_MODEL = "claude-haiku-4-5-20251001";
+/** Well above the two or three steps a lapsed forced choice actually takes. */
+const LOOP_MAX_STEPS = 6;
 
 /**
  * Record every outbound Messages request while `run` executes, restoring the
@@ -244,6 +259,181 @@ await test("omitting toolChoice sends no tool_choice", async () => {
   assert(
     seen.every((r) => r.toolChoice === null),
     "a request carried a tool_choice even though the caller supplied none",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// A forced choice lapses after toolChoiceSteps
+// ---------------------------------------------------------------------------
+
+await test("a named toolChoice forces the tool once, then step 1 goes out unforced and the turn ends", async () => {
+  skipUnlessProviderAvailable(PROVIDER);
+  const counter = { calls: 0 };
+  let result: { stepsUsed?: number; toolsUsed?: string[] } | null = null;
+  const seen = await observeRequests(async () => {
+    result = await new NeuroLink().generate({
+      input: { text: PROMPT },
+      provider: PROVIDER,
+      model: LOOP_MODEL,
+      maxTokens: 2000,
+      maxSteps: LOOP_MAX_STEPS,
+      toolChoice: { type: "tool", toolName: "get_weather" },
+      tools: weatherTool(counter),
+    });
+  });
+
+  assert(
+    seen.length >= 2,
+    "precondition failed: a forced tool call must produce at least a tool step and an answer step",
+  );
+  assert(
+    asObject(seen[0].toolChoice)?.type === "tool",
+    "step 0 did not carry the forced tool choice",
+  );
+  // The regression: this used to be `{ type: "tool" }` again, and again on
+  // every step after it, until maxSteps.
+  assert(
+    seen[1].toolChoice === null ||
+      asObject(seen[1].toolChoice)?.type === "auto",
+    "step 1 still carried a forced tool choice",
+  );
+  assert(counter.calls === 1, "the forced tool did not run exactly once");
+  assert(
+    seen.length < LOOP_MAX_STEPS,
+    "the turn ran all the way to maxSteps instead of ending on its own",
+  );
+  const r = result as { stepsUsed?: number; toolsUsed?: string[] } | null;
+  assert(
+    r?.toolsUsed?.includes("get_weather") === true,
+    "the result does not report the forced tool as used",
+  );
+});
+
+await test("toolChoiceSteps: 2 holds the forced choice for two steps and then releases it", async () => {
+  skipUnlessProviderAvailable(PROVIDER);
+  const counter = { calls: 0 };
+  const seen = await observeRequests(() =>
+    new NeuroLink().generate({
+      input: { text: PROMPT },
+      provider: PROVIDER,
+      model: LOOP_MODEL,
+      maxTokens: 2000,
+      maxSteps: LOOP_MAX_STEPS,
+      toolChoice: { type: "tool", toolName: "get_weather" },
+      toolChoiceSteps: 2,
+      tools: weatherTool(counter),
+    }),
+  );
+
+  assert(
+    seen.length >= 3,
+    "precondition failed: two forced steps must be followed by an answer step",
+  );
+  assert(
+    asObject(seen[0].toolChoice)?.type === "tool" &&
+      asObject(seen[1].toolChoice)?.type === "tool",
+    "steps 0 and 1 did not both carry the forced tool choice",
+  );
+  assert(
+    seen[2].toolChoice === null ||
+      asObject(seen[2].toolChoice)?.type === "auto",
+    "step 2 still carried a forced tool choice",
+  );
+  assert(counter.calls === 2, "the forced tool did not run exactly twice");
+  assert(
+    seen.length < LOOP_MAX_STEPS,
+    "the turn ran all the way to maxSteps instead of ending on its own",
+  );
+});
+
+await test("a prepareStep toolChoice wins for its step over the toolChoiceSteps rule", async () => {
+  skipUnlessProviderAvailable(PROVIDER);
+  const counter = { calls: 0 };
+  const stepNumbersSeen: number[] = [];
+  const seen = await observeRequests(() =>
+    new NeuroLink().generate({
+      input: { text: PROMPT },
+      provider: PROVIDER,
+      model: LOOP_MODEL,
+      maxTokens: 2000,
+      maxSteps: LOOP_MAX_STEPS,
+      // Would force the tool on every step of this turn on its own...
+      toolChoice: { type: "tool", toolName: "get_weather" },
+      toolChoiceSteps: LOOP_MAX_STEPS,
+      // ...but the hook releases it from step 1 on, and must win.
+      prepareStep: async ({ stepNumber }) => {
+        stepNumbersSeen.push(stepNumber);
+        return stepNumber === 0 ? undefined : { toolChoice: "auto" };
+      },
+      tools: weatherTool(counter),
+    }),
+  );
+
+  assert(
+    seen.length >= 2,
+    "precondition failed: a forced tool call must produce at least two steps",
+  );
+  assert(
+    stepNumbersSeen[0] === 0 && stepNumbersSeen[1] === 1,
+    "prepareStep was not called once per step with the step number",
+  );
+  assert(
+    asObject(seen[0].toolChoice)?.type === "tool",
+    "step 0 (hook returned undefined) did not fall back to the forced choice",
+  );
+  assert(
+    seen[1].toolChoice === null ||
+      asObject(seen[1].toolChoice)?.type === "auto",
+    "the hook's auto did not override the forced choice on step 1",
+  );
+  assert(counter.calls === 1, "the forced tool did not run exactly once");
+  assert(
+    seen.length < LOOP_MAX_STEPS,
+    "the turn ran all the way to maxSteps instead of ending on its own",
+  );
+});
+
+await test("the streaming path applies the same per-step rule", async () => {
+  skipUnlessProviderAvailable(PROVIDER);
+  const counter = { calls: 0 };
+  let toolsUsed: string[] | undefined;
+  const seen = await observeRequests(async () => {
+    const result = await new NeuroLink().stream({
+      input: { text: PROMPT },
+      provider: PROVIDER,
+      model: LOOP_MODEL,
+      maxTokens: 2000,
+      maxSteps: LOOP_MAX_STEPS,
+      toolChoice: { type: "tool", toolName: "get_weather" },
+      tools: weatherTool(counter),
+    });
+    for await (const _chunk of result.stream) {
+      // drain
+    }
+    toolsUsed = result.toolsUsed;
+  });
+
+  assert(
+    seen.length >= 2,
+    "precondition failed: a forced tool call must produce at least two steps",
+  );
+  assert(
+    asObject(seen[0].toolChoice)?.type === "tool",
+    "stream step 0 did not carry the forced tool choice",
+  );
+  assert(
+    seen[1].toolChoice === null ||
+      asObject(seen[1].toolChoice)?.type === "auto",
+    "stream step 1 still carried a forced tool choice",
+  );
+  assert(counter.calls === 1, "the forced tool did not run exactly once");
+  assert(
+    seen.length < LOOP_MAX_STEPS,
+    "the streamed turn ran all the way to maxSteps instead of ending on its own",
+  );
+  assert(
+    Array.isArray(toolsUsed) && toolsUsed.includes("get_weather"),
+    "the stream result does not report the forced tool as used",
   );
 });
 

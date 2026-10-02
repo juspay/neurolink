@@ -28,6 +28,7 @@ import {
   getEffectiveTokenThreshold,
 } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
+import { extractIsErrorText } from "../utils/toolResultStatus.js";
 
 export class ConversationMemoryManager implements IConversationMemoryManager {
   private sessions: Map<string, SessionMemory> = new Map();
@@ -594,6 +595,7 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
       if (toolCallId) {
         toolNameById.set(toolCallId, toolName);
       }
+      const callStepIndex = toolCall.stepIndex;
       session.messages.push({
         id: randomUUID(),
         role: "tool_call",
@@ -601,6 +603,10 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
         tool: toolName,
         ...(toolCallId ? { toolCallId } : {}),
         args: (toolCall.args ?? {}) as Record<string, unknown>,
+        // Zero-based loop step, so replay can keep sequential steps apart.
+        ...(typeof callStepIndex === "number"
+          ? { metadata: { stepIndex: callStepIndex } }
+          : {}),
         timestamp,
       });
     }
@@ -624,6 +630,15 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
           }]`;
         }
       }
+      // A result the tool RETURNED with `isError: true` (a thrown error that
+      // neurolink.executeTool converted, a breaker refusal, an MCP failure)
+      // is a failure too; recording it as success made the next turn's
+      // replay say "→ ok" for a call that failed.
+      const error =
+        toolResult.error !== undefined && toolResult.error !== null
+          ? String(toolResult.error)
+          : extractIsErrorText(rawOutput);
+      const stepIndex = toolResult.stepIndex;
       session.messages.push({
         id: randomUUID(),
         role: "tool_result",
@@ -631,9 +646,10 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
         tool: toolName,
         ...(toolCallId ? { toolCallId } : {}),
         result: {
-          success: !toolResult.error,
-          ...(toolResult.error ? { error: String(toolResult.error) } : {}),
+          success: error === undefined,
+          ...(error !== undefined ? { error } : {}),
         },
+        ...(typeof stepIndex === "number" ? { metadata: { stepIndex } } : {}),
         timestamp,
       });
     }

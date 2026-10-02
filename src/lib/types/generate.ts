@@ -13,7 +13,12 @@ import type {
   TerminalAgentModeVersion,
 } from "./agentMode.js";
 import type { Content, ImageWithAltText } from "./content.js";
-import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ToolReplayMode,
+} from "./conversation.js";
+import type { MemoryCallOptions } from "./memory.js";
 import type { EvaluationData } from "./evaluation.js";
 import type {
   MiddlewareFactoryOptions,
@@ -27,7 +32,7 @@ import type {
   VideoOutputOptions,
 } from "./multimodal.js";
 import type { PPTGenerationResult, PPTOutputOptions } from "./ppt.js";
-import type { TTSOptions, TTSResult } from "./tts.js";
+import type { TTSOptions, TTSResult, TTSSynthesisMode } from "./tts.js";
 import type { STTOptions, STTResult } from "./stt.js";
 import type { AvatarOptions, AvatarResult } from "./avatar.js";
 import type { MusicOptions, MusicResult } from "./music.js";
@@ -624,24 +629,51 @@ export type GenerateOptions = {
    * - `"required"`: the model must call at least one tool
    * - `{ type: "tool", toolName: string }`: the model must call the specified tool
    *
-   * Note: When used without `prepareStep`, this applies to **every step** in the
-   * `maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
-   * will cause infinite tool calls until `maxSteps` is exhausted.
+   * A forced choice (`"required"` or a named tool) is applied only to the
+   * first `toolChoiceSteps` steps of the `maxSteps` loop (default 1) and the
+   * model is then free to answer. Holding a forced choice on every step would
+   * compel a tool call on every step, and the loop would only end when
+   * `maxSteps` ran out. `"auto"` and `"none"` are applied unchanged on every
+   * step. Vertex, Google AI Studio and Bedrock do not honour `toolChoice`.
    */
   toolChoice?: ToolChoice<Record<string, Tool>>;
 
   /**
+   * How many leading steps a forced `toolChoice` (`"required"` or a named
+   * tool) stays in force; from that step on the model chooses (`"auto"`).
+   * A non-negative integer, default 1. `0` never forces. Ignored for
+   * `"auto"` and `"none"`. A `prepareStep` result that names a `toolChoice`
+   * overrides this for that step.
+   */
+  toolChoiceSteps?: number;
+
+  /**
+   * How this request replays the session's stored tool steps
+   * (`tool_call` / `tool_result` rows in `conversationMessages`) into the
+   * prompt: `"full"` (real tool-call / tool-result turns), `"marker"` (a
+   * compact `[called <tool> → ok]` line per call, the default) or `"off"`.
+   * Overrides `conversationMemory.replayToolSteps` for this request.
+   */
+  replayToolSteps?: ToolReplayMode;
+
+  /**
    * Optional callback that runs before each step in a multi-step generation.
-   * Allows dynamically changing `toolChoice` and available tools per step.
    *
-   * This is the recommended way to enforce specific tool calls on certain steps
-   * while allowing the model freedom on others.
+   * Honoured field of the result: `toolChoice`, applied to that step only
+   * and taking precedence over `toolChoice` / `toolChoiceSteps`.
    *
-   * Maps to Vercel AI SDK's `experimental_prepareStep`.
+   * Not honoured — accepted for source compatibility with the former Vercel
+   * AI SDK `experimental_prepareStep` shape, but ignored by every native
+   * loop: `model` (the turn's model cannot change mid-loop) and
+   * `experimental_activeTools` (tool visibility is fixed for the turn; use
+   * `toolFilter` / `excludeTools` instead).
+   *
+   * `steps` carries one record per completed step (content, text, tool calls,
+   * tool results, finish reason, usage); `model` is the resolved model id.
    *
    * @example Force a specific tool on step 0, then switch to auto:
    * ```typescript
-   * prepareStep: ({ stepNumber, steps }) => {
+   * prepareStep: async ({ stepNumber }) => {
    *   if (stepNumber === 0) {
    *     return {
    *       toolChoice: { type: 'tool', toolName: 'myTool' }
@@ -650,8 +682,6 @@ export type GenerateOptions = {
    *   return { toolChoice: 'auto' };
    * }
    * ```
-   *
-   * @see https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
    */
   prepareStep?: (options: {
     steps: StepResult<Record<string, Tool>>[];
@@ -848,22 +878,9 @@ export type GenerateOptions = {
    * Override the global memory SDK behavior for this specific call.
    * All flags default to `true` when the global memory SDK is enabled.
    * If the global memory SDK is disabled, these flags have no effect.
-   *
+   * Shared with `StreamOptions` — see `MemoryCallOptions`.
    */
-  memory?: {
-    /** Master toggle for this call. When false, both read and write are skipped. Defaults to true. */
-    enabled?: boolean;
-    /** Whether to read condensed memory and prepend to prompt. Defaults to true. */
-    read?: boolean;
-    /** Whether to write (add/condense) the conversation into memory after completion. Defaults to true. */
-    write?: boolean;
-    /**
-     * Additional users whose memory should be retrieved/stored alongside the primary user.
-     * Each entry can override the condensation prompt and maxWords for that user.
-     * Primary user is still determined by context.userId.
-     */
-    additionalUsers?: AdditionalMemoryUser[];
-  };
+  memory?: MemoryCallOptions;
 
   /**
    * PII detection — scans and optionally redacts PII from input before the LLM call.
@@ -951,7 +968,11 @@ export type AdditionalMemoryUser = {
   read?: boolean;
   /** Whether to write conversation into this user's memory. Defaults to true. */
   write?: boolean;
-  /** Custom condensation prompt for this user. Overrides the default Hippocampus prompt. */
+  /**
+   * Custom condensation prompt for this user. Overrides the instance prompt.
+   * Must contain `{{OLD_MEMORY}}` and `{{NEW_CONTENT}}`; a template missing
+   * either is logged and this owner falls back to the instance prompt.
+   */
   prompt?: string;
   /** Max words for this user's condensed memory. Overrides the default maxWords. */
   maxWords?: number;
@@ -1509,34 +1530,22 @@ export type TextGenerationOptions = {
    * - `"required"`: the model must call at least one tool
    * - `{ type: "tool", toolName: string }`: the model must call the specified tool
    *
-   * Note: When used without `prepareStep`, this applies to **every step** in the
-   * `maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
-   * will cause infinite tool calls until `maxSteps` is exhausted.
+   * A forced choice is applied only to the first `toolChoiceSteps` steps
+   * (default 1); see GenerateOptions.toolChoice.
    */
   toolChoice?: ToolChoice<Record<string, Tool>>;
 
+  /** Leading steps a forced `toolChoice` stays in force (default 1). See GenerateOptions.toolChoiceSteps. */
+  toolChoiceSteps?: number;
+
+  /** How stored tool steps are replayed into the prompt. See GenerateOptions.replayToolSteps. */
+  replayToolSteps?: ToolReplayMode;
+
   /**
    * Optional callback that runs before each step in a multi-step generation.
-   * Allows dynamically changing `toolChoice` and available tools per step.
-   *
-   * This is the recommended way to enforce specific tool calls on certain steps
-   * while allowing the model freedom on others.
-   *
-   * Maps to Vercel AI SDK's `experimental_prepareStep`.
-   *
-   * @example Force a specific tool on step 0, then switch to auto:
-   * ```typescript
-   * prepareStep: ({ stepNumber, steps }) => {
-   *   if (stepNumber === 0) {
-   *     return {
-   *       toolChoice: { type: 'tool', toolName: 'myTool' }
-   *     };
-   *   }
-   *   return { toolChoice: 'auto' };
-   * }
-   * ```
-   *
-   * @see https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
+   * Only a returned `toolChoice` is honoured (for that step); `model` and
+   * `experimental_activeTools` are accepted but ignored. See
+   * GenerateOptions.prepareStep.
    */
   prepareStep?: (options: {
     steps: StepResult<Record<string, Tool>>[];
@@ -1555,9 +1564,19 @@ export type TextGenerationOptions = {
   /**
    * Text-to-Speech (TTS) configuration
    *
-   * Enable audio generation from text. Behavior depends on useAiResponse flag:
-   * - When useAiResponse is false/undefined (default): TTS synthesizes the input text directly
-   * - When useAiResponse is true: TTS synthesizes the AI-generated response
+   * Enable audio generation from text. Behavior depends on `tts.mode`
+   * (explicit) or the legacy `useAiResponse` flag:
+   * - `mode: "direct"` / useAiResponse false or undefined (default): TTS
+   *   synthesizes the input text directly, with no LLM call — `usage` is
+   *   zero and `content` echoes the input. A direct request that also
+   *   carries LLM-shaped options (tools, systemPrompt, messages, schema,
+   *   conversationMemory) logs a warning, since those options have no effect
+   *   in this mode.
+   * - `mode: "response"` / useAiResponse true: TTS synthesizes the
+   *   AI-generated response after generation completes.
+   *
+   * `result.ttsMetadata.mode` reports which one ran. Set `tts.sanitize` to
+   * strip markdown, URLs and emoji before synthesis.
    *
    * @example Using input text (default)
    * ```typescript
@@ -1914,6 +1933,12 @@ export type TTSMetadata = {
   attempted: boolean;
   /** Whether TTS synthesis completed successfully. */
   success: boolean;
+  /**
+   * What was synthesized: the input text (`"direct"`) or the model's reply
+   * (`"response"`). Set by `generate()`; `stream()` always synthesizes the
+   * response and reports `"response"` where it records metadata.
+   */
+  mode?: TTSSynthesisMode;
   /** Structured synthesis error details, present only when synthesis failed. */
   error?: {
     code: string;
@@ -1956,6 +1981,42 @@ export type GenerateOptionsNormalized = GenerateOptions & {
 };
 
 /**
+ * The per-step hook shape every native loop calls: the narrowest common form
+ * of the `prepareStep` callbacks declared on GenerateOptions, StreamOptions
+ * and TextGenerationOptions, each of which is assignable to it. The loops
+ * read only `toolChoice` off the result.
+ */
+export type NativeLoopPrepareStep = (options: {
+  steps: StepResult<Record<string, Tool>>[];
+  stepNumber: number;
+  maxSteps: number;
+  model: LanguageModel;
+}) => PromiseLike<
+  { toolChoice?: ToolChoice<Record<string, Tool>> } | undefined
+>;
+
+/**
+ * What `resolveStepToolChoice` needs to decide one step's tool choice.
+ * Shared by the native generate loop and both stream loops so the
+ * `toolChoiceSteps` / `prepareStep` rule cannot drift between them.
+ */
+export type StepToolChoiceInput = {
+  /** The turn's resolved tool choice in NeuroLink shape, or undefined. */
+  base: unknown;
+  /** Zero-based step index. */
+  step: number;
+  toolChoiceSteps?: number;
+  prepareStep?: NativeLoopPrepareStep;
+  /** Records of the steps completed so far, handed to `prepareStep`. */
+  steps: StepResult<Record<string, Tool>>[];
+  maxSteps: number;
+  /** The resolved model id (always a string at runtime), handed to `prepareStep`. */
+  model: string;
+  /** The turn's abort signal; a pending `prepareStep` is released when it fires. */
+  abortSignal?: AbortSignal;
+};
+
+/**
  * Inputs to the shared native generate loop (`core/nativeGenerateLoop.ts`).
  * One loop serves every provider whose delegating model exposes a v3-shaped
  * `doGenerate`; the provider supplies the wire details.
@@ -1981,7 +2042,14 @@ export type NativeGenerateLoopArgs = {
   tools?: Array<Record<string, unknown>>;
   /** Registered tools, used to execute a call the model asks for. */
   toolsRecord: Record<string, unknown>;
+  /** The turn's resolved tool choice, applied per step via `resolveStepToolChoice`. */
   toolChoice?: unknown;
+  /** Leading steps a forced `toolChoice` stays in force (default 1). */
+  toolChoiceSteps?: number;
+  /** Caller's per-step hook; only its `toolChoice` is honoured. */
+  prepareStep?: NativeLoopPrepareStep;
+  /** Resolved model id, handed to `prepareStep` as its `model` argument. */
+  modelId: string;
   responseFormat?: Record<string, unknown>;
   providerOptions?: Record<string, Record<string, unknown>>;
   maxSteps: number;
@@ -1994,6 +2062,16 @@ export type NativeGenerateLoopArgs = {
   runStep: (
     call: () => Promise<Record<string, unknown>>,
   ) => Promise<Record<string, unknown>>;
+  /**
+   * Called for a tool call the loop rejects before any execute runs (unknown
+   * tool, arguments the schema rejected), so the provider can emit the
+   * `tool:start` / `tool:end` pair no executor will.
+   */
+  onRejectedToolCall?: (
+    toolName: string,
+    error: string,
+    toolCallId: string,
+  ) => void;
 };
 
 export type NativeGenerateLoopResult = {

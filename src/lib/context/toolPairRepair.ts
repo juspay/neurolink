@@ -30,6 +30,42 @@ import { randomUUID } from "crypto";
 const MISSING_RESULT_CONTENT =
   "[Tool result unavailable - conversation was compacted]";
 
+const REPAIR_RESULT_ID_PREFIX = "repair-result-";
+const REPAIR_CALL_ID_PREFIX = "repair-call-";
+const MISSING_CALL_CONTENT_SUFFIX = " - conversation was compacted]";
+
+/**
+ * True for a row this module invented to stand in for a dropped call or
+ * result. Replay must not present such a row as a real outcome: the model
+ * would be told a call succeeded ("→ ok") or given a fabricated input when
+ * the truth is that the record was lost. Recognised by id prefix, with the
+ * placeholder text as a fallback for rows that travelled without their id.
+ */
+export function isRepairPlaceholder(row: {
+  id?: string;
+  role: string;
+  content?: unknown;
+}): boolean {
+  if (
+    typeof row.id === "string" &&
+    (row.id.startsWith(REPAIR_RESULT_ID_PREFIX) ||
+      row.id.startsWith(REPAIR_CALL_ID_PREFIX))
+  ) {
+    return true;
+  }
+  if (typeof row.content !== "string") {
+    return false;
+  }
+  if (row.role === "tool_result") {
+    return row.content === MISSING_RESULT_CONTENT;
+  }
+  return (
+    row.role === "tool_call" &&
+    row.content.startsWith("[Tool call for ") &&
+    row.content.endsWith(MISSING_CALL_CONTENT_SUFFIX)
+  );
+}
+
 /**
  * Collect the tool batch starting at `start` (which must index a tool-role
  * message). Consumes the maximal run of calls followed by the maximal run of
@@ -56,7 +92,7 @@ function collectBatch(messages: ChatMessage[], start: number): RepairToolBatch {
 /** Synthetic `tool_result` standing in for a call whose result was dropped. */
 function syntheticResult(call: ChatMessage): ChatMessage {
   return {
-    id: `repair-result-${randomUUID()}`,
+    id: `${REPAIR_RESULT_ID_PREFIX}${randomUUID()}`,
     role: "tool_result",
     content: MISSING_RESULT_CONTENT,
     tool: call.tool,
@@ -69,9 +105,9 @@ function syntheticResult(call: ChatMessage): ChatMessage {
 /** Synthetic `tool_call` standing in for a result whose call was dropped. */
 function syntheticCall(result: ChatMessage): ChatMessage {
   return {
-    id: `repair-call-${randomUUID()}`,
+    id: `${REPAIR_CALL_ID_PREFIX}${randomUUID()}`,
     role: "tool_call",
-    content: `[Tool call for ${result.tool || "unknown"} - conversation was compacted]`,
+    content: `[Tool call for ${result.tool || "unknown"}${MISSING_CALL_CONTENT_SUFFIX}`,
     tool: result.tool,
     ...(result.toolCallId ? { toolCallId: result.toolCallId } : {}),
     timestamp: result.timestamp,

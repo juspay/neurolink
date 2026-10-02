@@ -70,3 +70,11 @@ Always includes both `tool` and `toolName` for backward compatibility.
 ### executionId?
 
 > `optional` **executionId?**: `string`
+
+---
+
+### toolCallId?
+
+> `optional` **toolCallId?**: `string`
+
+The model's tool-call id when the loop supplied one, for pairing start/end.

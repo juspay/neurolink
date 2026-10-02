@@ -11,12 +11,17 @@ import { logger } from "./logger.js";
 import type {
   TTSAudioFormat,
   TTSChunk,
+  TTSHandlerTimeBudget,
   TTSOptions,
   TTSResult,
   TTSHandler,
   TTSVoice,
 } from "../types/index.js";
 import { VALID_AUDIO_FORMATS } from "../types/index.js";
+import {
+  prepareTextForSpeech,
+  resolveSpeechSanitizeOptions,
+} from "./speechText.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { NeuroLinkError } from "./errorHandling.js";
 import { HandlerRegistry } from "../core/handlerRegistry.js";
@@ -45,6 +50,79 @@ export const TTS_ERROR_CODES = {
 
 const DEFAULT_STREAMING_BUFFER_SIZE = 120;
 const SENTENCE_BOUNDARY = /[.!?]+(?:["')\]]+)?(?=\s|$)/g;
+
+/**
+ * Slack added to a handler's declared time budget for the pauses its retry
+ * loop takes between attempts (Retry-After is capped at 10 s per pause).
+ */
+const HANDLER_RETRY_PAUSE_SLACK_MS = 10_000;
+/** The handler defaults the budget assumes when the caller set no knobs (ElevenLabs: 30 s, one retry). */
+const HANDLER_DEFAULT_TIMEOUT_MS = 30_000;
+const HANDLER_DEFAULT_RETRIES = 1;
+/** Handlers with a built-in retry loop, i.e. the ones the defaults describe. */
+const RETRYING_TTS_PROVIDERS: ReadonlySet<string> = new Set([
+  "elevenlabs",
+  "elevenlabs-tts",
+]);
+/** Largest delay `setTimeout` honours; anything above fires at once. */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * The wall-clock a handler may legitimately spend on one `synthesize()` call:
+ * `timeoutMs × (1 + retries)` plus pause slack (see `TTSHandlerTimeBudget`).
+ * A knob the caller did not set takes the handler default — 30 s per attempt
+ * and one retry — so the budget is always a number. It used to be `undefined`
+ * when neither knob was set, which left the outer synthesis timeout at the
+ * provider's own value: with the 60 s provider default, a first attempt that
+ * hung to its 30 s abort left no room for the documented default retry, and
+ * the caller got a timeout error instead of the retried audio.
+ *
+ * Used by `BaseProvider`'s generate() TTS paths so the outer `withTimeoutFn`
+ * never undercuts the handler's own retry loop.
+ *
+ * `provider` is the name the synthesis will actually be dispatched to —
+ * `tts.provider`, falling back to the request's or the instance's provider —
+ * not just `options.provider`: a caller that reaches ElevenLabs through the
+ * outer provider and leaves `tts.provider` unset got a budget of 0, and the
+ * outer timeout cut the handler's documented default retry. The registry
+ * resolves names case-insensitively, so this check does too; `"ElevenLabs"`
+ * found the handler but not the budget.
+ */
+export function resolveTTSHandlerBudgetMs(
+  options: TTSOptions,
+  provider?: string,
+): number {
+  const { timeoutMs, retries } = options as TTSHandlerTimeBudget;
+  const hasTimeout =
+    typeof timeoutMs === "number" &&
+    Number.isFinite(timeoutMs) &&
+    timeoutMs > 0;
+  const hasRetries =
+    typeof retries === "number" && Number.isInteger(retries) && retries >= 0;
+  const resolvedProvider = String(
+    provider ?? options.provider ?? "",
+  ).toLowerCase();
+  // The defaults describe a retry loop. Only a handler that has one gets a
+  // default budget; for every other provider (Google, OpenAI, Azure,
+  // Cartesia — one attempt, no knobs) the budget is 0 so the caller's own
+  // `timeout` stays the bound instead of being raised to ~70 s.
+  if (
+    !hasTimeout &&
+    !hasRetries &&
+    !RETRYING_TTS_PROVIDERS.has(resolvedProvider)
+  ) {
+    return 0;
+  }
+  const perAttempt = Math.min(
+    hasTimeout ? timeoutMs : HANDLER_DEFAULT_TIMEOUT_MS,
+    MAX_TIMER_MS,
+  );
+  const attempts = 1 + (hasRetries ? retries : HANDLER_DEFAULT_RETRIES);
+  return Math.min(
+    perAttempt * attempts + (attempts - 1) * HANDLER_RETRY_PAUSE_SLACK_MS,
+    MAX_TIMER_MS,
+  );
+}
 
 /** Internal signal raised after all buffered segments have been attempted. */
 export class IncrementalTTSSynthesisError extends Error {
@@ -308,6 +386,19 @@ export class TTSProcessor {
    * @private
    */
   private static readonly DEFAULT_MAX_TEXT_LENGTH = 3000;
+
+  /**
+   * The text cap `synthesize()` enforces for `providerName`: the handler's
+   * `maxTextLength`, or the default when the handler declares none or is not
+   * registered. Lets a caller bound work it does BEFORE synthesis — the
+   * sanitize pass in `BaseProvider` — to text that could ever be accepted.
+   */
+  static maxTextLengthFor(providerName: string): number {
+    return (
+      this.getHandler(providerName)?.maxTextLength ??
+      this.DEFAULT_MAX_TEXT_LENGTH
+    );
+  }
 
   /**
    * Register a TTS handler for a specific provider
@@ -968,6 +1059,13 @@ export class TTSProcessor {
         Math.max(1, Math.trunc(requestedBoundary)),
         maxTextLength,
       );
+      // Per-segment cleanup when `tts.sanitize` is on. A segment may hold an
+      // unterminated fence, so code blocks are always kept (fence lines
+      // stripped, contents spoken) regardless of the caller's `codeBlocks`.
+      const sanitizeOptions = resolveSpeechSanitizeOptions(options.sanitize);
+      const segmentSanitize = sanitizeOptions
+        ? { ...sanitizeOptions, codeBlocks: "keep" as const }
+        : undefined;
       let buffer = "";
       let chunkIndex = 0;
       let cumulativeSize = 0;
@@ -1138,8 +1236,8 @@ export class TTSProcessor {
 
       try {
         while (!stopped()) {
-          const segment = takeSegment();
-          if (segment === undefined) {
+          const rawSegment = takeSegment();
+          if (rawSegment === undefined) {
             if (inputComplete) {
               break;
             }
@@ -1150,6 +1248,15 @@ export class TTSProcessor {
             } else {
               buffer += next.value;
             }
+            continue;
+          }
+
+          const segment = segmentSanitize
+            ? prepareTextForSpeech(rawSegment, segmentSanitize)
+            : rawSegment;
+          // A segment that was only markup (a fence line, a table separator,
+          // a bare heading marker) has nothing to say; it is not a failure.
+          if (segment.length === 0) {
             continue;
           }
 

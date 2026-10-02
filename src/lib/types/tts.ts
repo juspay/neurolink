@@ -50,11 +50,82 @@ export type TTSProviderName =
   | (string & {});
 
 /**
+ * What `generate({ tts })` synthesizes.
+ *
+ * - `"direct"` — the input text / prompt itself, with no LLM call. This is
+ *   the default, and what every documented "speak this text" caller relies
+ *   on.
+ * - `"response"` — the model's generated reply, after generation completes.
+ *
+ * `stream()` always synthesizes the streamed response and ignores this.
+ */
+export type TTSSynthesisMode = "direct" | "response";
+
+/**
+ * Options for {@link prepareTextForSpeech} — the optional cleanup pass that
+ * turns model output (markdown, URLs, emoji) into text a TTS voice can read
+ * aloud. Every default below is what `tts: { sanitize: true }` applies.
+ */
+export type SpeechSanitizeOptions = {
+  /**
+   * Strip markdown syntax: headings, emphasis, inline code, list bullets,
+   * blockquotes, tables (kept as comma-separated rows), links and images
+   * (kept as their text). Fenced code blocks follow `codeBlocks`.
+   * @default true
+   */
+  markdown?: boolean;
+  /**
+   * How fenced code blocks are spoken. `"drop"` removes them entirely,
+   * `"phrase"` replaces each block with `codeBlockPhrase`, `"keep"` strips
+   * only the fence lines and reads the contents. Incremental `stream()`
+   * synthesis always uses `"keep"`: a segment may hold an unterminated fence,
+   * so the block's extent is unknowable per segment.
+   * @default "phrase"
+   */
+  codeBlocks?: "drop" | "phrase" | "keep";
+  /**
+   * Spoken stand-in for a fenced code block when `codeBlocks` is `"phrase"`.
+   * @default "Code block omitted."
+   */
+  codeBlockPhrase?: string;
+  /**
+   * How URLs are spoken. `"hostname"` reduces `https://docs.example.com/a/b`
+   * to `docs.example.com`; `"remove"` drops the URL altogether.
+   * @default "hostname"
+   */
+  urls?: "hostname" | "remove";
+  /**
+   * Remove emoji and pictographs (`\p{Extended_Pictographic}`,
+   * `\p{Emoji_Presentation}`, plus modifiers and joiners).
+   * @default true
+   */
+  emoji?: boolean;
+};
+
+/** {@link SpeechSanitizeOptions} with every default applied. */
+export type ResolvedSpeechSanitizeOptions = Required<SpeechSanitizeOptions>;
+
+/**
  * TTS configuration options
  */
 export type TTSOptions = {
   /** Enable TTS output */
   enabled?: boolean;
+  /**
+   * What to synthesize: the input text (`"direct"`, the default) or the
+   * model's reply (`"response"`). An explicit `mode` wins over the legacy
+   * `useAiResponse` flag. Ignored by `stream()`, which always synthesizes the
+   * streamed response.
+   *
+   * @example Speak the model's reply
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Tell me a joke" },
+   *   tts: { enabled: true, mode: "response" },
+   * });
+   * ```
+   */
+  mode?: TTSSynthesisMode;
   /**
    * Use the AI-generated response for TTS instead of the input text
    *
@@ -65,6 +136,8 @@ export type TTSOptions = {
    * When true: TTS will synthesize the AI-generated response after generation completes
    *
    * @default false
+   * @deprecated Use `mode: "response"` / `mode: "direct"` instead. Still
+   * honoured when `mode` is not set.
    *
    * @example Using input text directly (default)
    * ```typescript
@@ -87,12 +160,37 @@ export type TTSOptions = {
    * ```
    */
   useAiResponse?: boolean;
+  /**
+   * Clean the text before it reaches the voice: strip markdown, reduce URLs
+   * to their hostname, drop emoji. `true` applies the defaults of
+   * {@link SpeechSanitizeOptions}; an object tunes them. Off by default so
+   * existing callers get byte-identical synthesis input. In `stream()` the
+   * pass runs per segment with fenced code kept (fence lines stripped).
+   * @default false
+   */
+  sanitize?: boolean | SpeechSanitizeOptions;
+  /**
+   * Cancels synthesis. A handler that supports it (ElevenLabs) aborts the
+   * request in flight and makes no further retry attempt once this fires.
+   * `generate()` derives one from its own synthesis timeout and the caller's
+   * `abortSignal`, so a handler's retry loop cannot outlive the call that
+   * started it and issue a billable request nobody is waiting for.
+   */
+  signal?: AbortSignal;
   /** Voice identifier (e.g., "en-US-Neural2-C") */
   voice?: string;
   /** Audio format (default: mp3) */
   format?: TTSAudioFormat;
   /** Speaking rate 0.25-4.0 (default: 1.0) */
   speed?: number;
+  /**
+   * BCP-47 language tag (e.g. "en-US", "hi") for providers that accept one.
+   * Provider-specific: ElevenLabs reduces it to the ISO 639-1 primary subtag
+   * (`en-US` → `en`) and forwards it as `language_code` on every model except
+   * `eleven_multilingual_v2`, which rejects the field; Cartesia maps it to
+   * `language`.
+   */
+  language?: string;
   /** Voice pitch adjustment -20.0 to 20.0 semitones (default: 0.0) */
   pitch?: number;
   /** Volume gain in dB -96.0 to 16.0 (default: 0.0) */
@@ -111,6 +209,20 @@ export type TTSOptions = {
    * upper bound. Defaults to 120 characters.
    */
   streamingBufferSize?: number;
+};
+
+/**
+ * Handler-level wall-clock knobs a provider option type may carry (today:
+ * `ElevenLabsTTSOptions`). `generate()`'s outer synthesis timeout is raised to
+ * at least `timeoutMs × (1 + retries)` plus backoff slack — with the handler
+ * defaults (30 s, one retry) standing in for a knob the caller left unset —
+ * so a handler's own retry loop is never cut short from outside.
+ */
+export type TTSHandlerTimeBudget = {
+  /** Per-attempt request timeout in milliseconds (default 30 000; capped at 2³¹−1). */
+  timeoutMs?: number;
+  /** Retries after the first attempt (total attempts = 1 + retries). */
+  retries?: number;
 };
 
 /**

@@ -116,18 +116,24 @@ type Memory = HippocampusConfig & { enabled?: boolean };
 
 ### Optional Fields
 
-| Field              | Type     | Default  | Description                                                                                             |
-| ------------------ | -------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `maxWords`         | number   | 50       | Maximum words in the condensed memory                                                                   |
-| `prompt`           | string   | built-in | Custom condensation prompt (supports `{{OLD_MEMORY}}`, `{{NEW_CONTENT}}`, `{{MAX_WORDS}}` placeholders) |
-| `storage.bucket`   | string   | —        | S3 bucket name (required for S3 storage)                                                                |
-| `storage.prefix`   | string   | —        | S3 key prefix for memory objects                                                                        |
-| `storage.url`      | string   | —        | Redis connection URL (required for Redis storage)                                                       |
-| `storage.path`     | string   | —        | SQLite file path (required for SQLite storage)                                                          |
-| `storage.onGet`    | function | —        | Callback to retrieve memory (required for custom storage)                                               |
-| `storage.onSet`    | function | —        | Callback to persist memory (required for custom storage)                                                |
-| `storage.onDelete` | function | —        | Callback to delete memory (required for custom storage)                                                 |
-| `storage.onClose`  | function | —        | Callback for cleanup on close (optional for custom storage)                                             |
+| Field                   | Type     | Default   | Description                                                                                                                                                                          |
+| ----------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `maxWords`              | number   | 50        | Maximum words in the condensed memory                                                                                                                                                |
+| `prompt`                | string   | built-in  | Custom condensation prompt (supports `{{OLD_MEMORY}}`, `{{NEW_CONTENT}}`, `{{MAX_WORDS}}` placeholders). Validated at construction — see [Template validation](#template-validation) |
+| `strictPrompt`          | boolean  | `false`   | When true, a prompt template missing `{{OLD_MEMORY}}` or `{{NEW_CONTENT}}` makes the constructor throw instead of disable-and-log (at `error`)                                       |
+| `shouldWrite`           | function | —         | Instance-level write gate — see [Write hooks](#write-hooks-shouldwrite-and-onbeforestore)                                                                                            |
+| `onBeforeStore`         | function | —         | Instance-level content transform/veto — see [Write hooks](#write-hooks-shouldwrite-and-onbeforestore)                                                                                |
+| `client`                | object   | —         | A host-managed Hippocampus client (`add/get/delete/close`). NeuroLink uses it directly instead of loading `@juspay/hippocampus`                                                      |
+| `neurolink.credentials` | object   | inherited | Credentials for the condenser's own NeuroLink instance — see [Condenser credentials](#condenser-credentials)                                                                         |
+| `neurolink.instance`    | object   | built     | A host-supplied condenser (`{ generate() }`) — see [Condenser credentials](#condenser-credentials)                                                                                   |
+| `storage.bucket`        | string   | —         | S3 bucket name (required for S3 storage)                                                                                                                                             |
+| `storage.prefix`        | string   | —         | S3 key prefix for memory objects                                                                                                                                                     |
+| `storage.url`           | string   | —         | Redis connection URL (required for Redis storage)                                                                                                                                    |
+| `storage.path`          | string   | —         | SQLite file path (required for SQLite storage)                                                                                                                                       |
+| `storage.onGet`         | function | —         | Callback to retrieve memory (required for custom storage)                                                                                                                            |
+| `storage.onSet`         | function | —         | Callback to persist memory (required for custom storage)                                                                                                                             |
+| `storage.onDelete`      | function | —         | Callback to delete memory (required for custom storage)                                                                                                                              |
+| `storage.onClose`       | function | —         | Callback for cleanup on close (optional for custom storage)                                                                                                                          |
 
 ### Storage Backends
 
@@ -182,7 +188,7 @@ memory: {
 > # or: npm install @juspay/hippocampus
 > ```
 >
-> If memory is configured but the package is missing, NeuroLink logs a one-time warning and disables memory rather than throwing — generation/streaming continue to work normally.
+> If memory is configured but the package is missing, NeuroLink logs a one-time `error` and disables memory rather than throwing — generation/streaming continue to work normally.
 
 #### Custom (Consumer-Managed)
 
@@ -273,6 +279,99 @@ Condensed memory:`,
 | `{{NEW_CONTENT}}` | The new conversation turn: `"User: ...\nAssistant: ..."` |
 | `{{MAX_WORDS}}`   | The configured `maxWords` value                          |
 
+### Template validation
+
+Hippocampus substitutes placeholders with `replaceAll` and requires none of them, so a typo fails silently at the LLM boundary: a template without `{{NEW_CONTENT}}` produces a memory that **never grows**, and one without `{{OLD_MEMORY}}` **overwrites the whole summary on every turn**. NeuroLink validates templates before they can do either:
+
+| Template                                         | When it is checked          | Missing `{{OLD_MEMORY}}` or `{{NEW_CONTENT}}`                                                                      | Missing only `{{MAX_WORDS}}` |
+| ------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| Instance `memory.prompt`                         | `new NeuroLink()`           | Logs at **`error`** and **disables memory** for the instance; with `strictPrompt: true` the constructor **throws** | Warns                        |
+| `HC_CONDENSATION_PROMPT` (only when no `prompt`) | `new NeuroLink()`           | Same as above                                                                                                      | Warns                        |
+| Per-call `memory.prompt`                         | Inside the background write | Warns once per distinct template and **falls back to the instance prompt** for that owner                          | Warns once                   |
+| `additionalUsers[].prompt`                       | Inside the background write | Same as per-call                                                                                                   | Warns once                   |
+
+An **empty or whitespace-only** template counts as unset at every level: it is not validated, never disables memory, and is **stripped before it reaches Hippocampus** — from the constructor config and from every per-call / per-owner `add()` options. Hippocampus resolves `prompt || HC_CONDENSATION_PROMPT || built-in`, so `""` would fall through on its own, but `"   "` is truthy and Hippocampus 0.2.x would use it literally, as a template with no placeholders; NeuroLink omits the key so the next one down applies either way.
+
+The default is disable-and-log because every other memory failure already degrades that way. The log line is at `error`, not `warn`: warnings are hidden at the default log level (they show only with `NEUROLINK_DEBUG=true`), and a configuration that turns memory off is something the operator has to act on. Per-call fallbacks — a bad per-call template, a hook that throws, a write that fails — stay at `warn`, since the instance keeps working. `strictPrompt` is for hosts that would rather fail deployment than run with memory off:
+
+```typescript
+memory: {
+  enabled: true,
+  prompt: myTemplate,
+  strictPrompt: true, // throws ErrorFactory.invalidConfiguration on a fatal template
+}
+```
+
+The same check is exported for hosts that assemble templates at runtime:
+
+```typescript
+import { validateCondensationPrompt } from "@juspay/neurolink";
+
+const verdict = validateCondensationPrompt(template);
+// { valid: boolean; missing: ("OLD_MEMORY" | "NEW_CONTENT" | "MAX_WORDS")[]; fatal: (...)[] }
+```
+
+## Condenser credentials
+
+Hippocampus condenses old + new memory through a NeuroLink `generate()` call. Left to itself it constructs a **bare** `new NeuroLink()` for that call — no credentials — so a host that passes provider keys via `new NeuroLink({ credentials })` rather than `process.env` gets a memory that silently never grows (the condensation error is swallowed and the old memory returned).
+
+NeuroLink now hands Hippocampus a **dedicated child instance** instead:
+
+- It inherits the parent's `credentials` (or the explicit `memory.neurolink.credentials` when set), so condensation works wherever generation works with instance-level credentials. **Per-request `credentials`** passed to `generate()` / `stream()` do **not** reach it: the child is built once per instance, and condensation runs after the response, outside the request. A multi-tenant host that holds no instance-level key gets no condensation at all — supply `memory.neurolink.credentials`, or take over condensation with `memory.neurolink.instance`.
+- It is a child, not the parent: routing condensation through the parent would run its MCP init, skills and middleware, emit `generation:*` on the parent emitter and add the condensation cost to the parent's session budget.
+- It has memory disabled, so it can never recurse into a memory write of its own.
+- It is built lazily on the **first condensation**, never at construction or on a read, so a read-only host pays nothing.
+- It goes with the host: `shutdown()` and `dispose()` release it — but only after **draining the memory writes already scheduled**, bounded by the 30 s write timeout (a write that outlives the bound is left in flight and warned about). A turn's write is deferred to `setImmediate`, so `await nl.generate(…); await nl.shutdown();` — a serverless handler, a per-request instance, a one-shot CLI run — still stores that turn. A write scheduled _after_ the release is skipped (logged at `debug`) rather than rebuilding the child after its host is gone.
+- Building it leaves the process-wide log sink (`logger.setEventEmitter`) exactly where it was, so another instance's log bridge keeps receiving.
+
+```typescript
+memory: {
+  enabled: true,
+  neurolink: {
+    provider: "openai",
+    model: "gpt-4o-mini",
+    // Optional: different keys for condensation than for generation.
+    credentials: { openai: { apiKey: process.env.CONDENSER_KEY } },
+  },
+}
+```
+
+To take over condensation entirely, pass any object with a `generate()`:
+
+```typescript
+memory: {
+  enabled: true,
+  neurolink: {
+    instance: {
+      generate: async ({ input }) => ({ content: await myCondenser(input.text) }),
+    },
+  },
+}
+```
+
+`instance` receives exactly `{ input: { text }, provider, model, temperature, disableTools: true }` and only its `content` is read back (`HippocampusNeurolinkLike`). When set, NeuroLink builds no child and passes the object through untouched.
+
+**Hippocampus version note.** `neurolink.instance` and `neurolink.credentials` are read by `@juspay/hippocampus` ≥ 0.2.0. The peer floor is **0.2.1**, which additionally substitutes the condensation placeholders literally — with 0.2.0 a turn containing `$&` or `$'` corrupts the prompt (juspay/hippocampus#8). On an older Hippocampus the fields are ignored and condensation falls back to a bare `new NeuroLink()` that only sees keys in `process.env`.
+
+### Bring your own client
+
+If your application already runs a Hippocampus instance (or anything with the same `add/get/delete/close` surface), hand it over and NeuroLink will not load or construct `@juspay/hippocampus` at all. `add()` and `get()` are what NeuroLink calls, and both must be functions: a client missing either — a write-only double, say — is refused at initialization with an `error` log and memory disabled, rather than failing every read silently later. `delete()` and `close()` are never called by NeuroLink.
+
+```typescript
+import { Hippocampus } from "@juspay/hippocampus";
+
+const client = new Hippocampus({ storage: { type: "redis" } });
+
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    memory: { enabled: true, client },
+  },
+});
+```
+
+`client` may also be a **factory** — `(config) => new Hippocampus(config)` — which receives the `HippocampusConfig` NeuroLink assembled, including the credentialed child under `neurolink.instance`. That is the way to run your own client class (a subclass, a pinned version, a test double) on exactly what `new Hippocampus(config)` would get. A plain instance is used as-is: wiring its condenser is then the host's job.
+
 ## Integration with generate() and stream()
 
 Memory integrates automatically with both `generate()` and `stream()`:
@@ -294,21 +393,100 @@ For memory to activate on a call, all three conditions must be met:
 
 When memory is globally enabled, it is active for every `generate()` and `stream()` call by default. You can override this behavior on a **per-call basis** using the `memory` option without changing the global config.
 
-**Available flags:**
+**Available options** (`MemoryCallOptions`, identical for `generate()` and `stream()`):
 
-| Flag      | Type    | Default | Description                                                        |
-| --------- | ------- | ------- | ------------------------------------------------------------------ |
-| `enabled` | boolean | `true`  | Master toggle — when `false`, both read and write are skipped      |
-| `read`    | boolean | `true`  | Whether to read past memory and prepend it to the prompt           |
-| `write`   | boolean | `true`  | Whether to write this conversation turn into memory after the call |
+| Option            | Type     | Default  | Description                                                                                                                                                       |
+| ----------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`         | boolean  | `true`   | Master toggle — when `false`, both read and write are skipped                                                                                                     |
+| `read`            | boolean  | `true`   | Whether to read past memory and prepend it to the prompt                                                                                                          |
+| `write`           | boolean  | `true`   | Whether to write this conversation turn into memory after the call                                                                                                |
+| `prompt`          | string   | instance | Condensation prompt for the **primary owner** on this call. Must contain `{{OLD_MEMORY}}` and `{{NEW_CONTENT}}` (see [Template validation](#template-validation)) |
+| `maxWords`        | number   | instance | Word cap for the primary owner's condensed memory on this call                                                                                                    |
+| `shouldWrite`     | function | —        | Per-call write gate — see [Write hooks](#write-hooks-shouldwrite-and-onbeforestore)                                                                               |
+| `onBeforeStore`   | function | —        | Per-call content transform/veto — see [Write hooks](#write-hooks-shouldwrite-and-onbeforestore)                                                                   |
+| `additionalUsers` | array    | —        | Extra owners to read/write — see [Multi-User Memory](#multi-user-memory)                                                                                          |
 
-> **Note:** These flags only take effect when the global memory SDK is enabled. If global memory is disabled, per-call flags have no effect.
+> **Note:** These options only take effect when the global memory SDK is enabled. If global memory is disabled, per-call options have no effect.
 
 **Precedence:**
 
-1. **Global config** — Is memory enabled globally? If not, per-call flags are ignored.
+1. **Global config** — Is memory enabled globally? If not, per-call options are ignored.
 2. **`enabled`** — Master per-call toggle. If `false`, both read and write are skipped regardless of individual flags.
 3. **`read` / `write`** — Fine-grained control over individual operations.
+4. **`prompt` / `maxWords`** — per-call > instance `conversationMemory.memory.prompt` / `maxWords` > Hippocampus built-in default. Before this option existed only `additionalUsers` could override the prompt; the primary owner always condensed with the instance template.
+
+#### Per-call prompt for the primary owner
+
+```typescript
+await neurolink.generate({
+  input: { text: "I switched the store to Stripe last week." },
+  context: { userId: "user-123" },
+  memory: {
+    prompt: `Keep only durable facts about the user's business.
+
+OLD_MEMORY:
+{{OLD_MEMORY}}
+
+NEW_CONTENT:
+{{NEW_CONTENT}}
+
+Condensed memory (max {{MAX_WORDS}} words):`,
+    maxWords: 80,
+  },
+});
+```
+
+### Write hooks: `shouldWrite` and `onBeforeStore`
+
+Two hooks let a host decide **whether** a turn is remembered and **what** text reaches the condenser. Both are accepted per call (`memory.shouldWrite` / `memory.onBeforeStore`) and on the instance (`conversationMemory.memory.shouldWrite` / `.onBeforeStore`). When both are set for the same hook, **the per-call one wins for that call** — the instance hook is not run.
+
+```typescript
+type MemoryTurn = {
+  prompt: string; // the caller's original prompt (before memory context was prepended)
+  response: string; // the assistant's final text, trimmed
+  userId: string; // context.userId
+  sessionId?: string; // context.sessionId
+  provider?: string;
+  model?: string;
+  toolsUsed?: string[]; // stream path: derived from tool:start events
+  usage?: TokenUsage; // generate path only
+  finishReason?: string; // generate path only
+};
+
+shouldWrite?: (turn: MemoryTurn) => boolean | Promise<boolean>;
+onBeforeStore?: (content: string, turn: MemoryTurn) => string | null | Promise<string | null>;
+```
+
+- `shouldWrite` runs first. `false` skips **every** `add()` for the turn — the primary owner and all `additionalUsers`.
+- `onBeforeStore` receives the default `"User: …\nAssistant: …"` rendering. Return a replacement string, or `null` to skip the write. The returned string is what every owner's `add()` receives.
+- Both run **inside the deferred background write** (after `setImmediate`), so an async hook never sits on the response path.
+- A hook that **throws** is logged at `warn` and the write is **skipped** — a missed memory is recoverable, a polluted condensed summary is not. A non-string, non-null return from `onBeforeStore` is treated the same way.
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    memory: {
+      enabled: true,
+      // Instance-wide: never remember turns that were pure tool plumbing.
+      shouldWrite: (turn) =>
+        (turn.toolsUsed?.length ?? 0) === 0 || turn.response.length > 200,
+      // Instance-wide: strip anything that looks like a card number.
+      onBeforeStore: (content) =>
+        content.replace(/\b\d{13,19}\b/g, "[redacted]"),
+    },
+  },
+});
+
+// Per call: override the gate for a seeding call, keep the instance redaction.
+await neurolink.generate({
+  input: { text: "My name is Alice. I run a Shopify store." },
+  context: { userId: "user-123" },
+  memory: { shouldWrite: () => true },
+});
+```
+
+> **Follow-up (not implemented):** a decide-powered durability gate — one `tryDecide()` question per turn ("does this turn contain a fact worth remembering across conversations?") wired in as the default `shouldWrite` when a decision provider is configured, failing open to "write" without one, exactly like the other `decide` consumers. The hook surface above is the seam it would plug into; today the gate is entirely host-defined.
 
 #### Read memory but don't write
 
@@ -422,7 +600,7 @@ The primary user's label is always `"User"`. Additional users use the `label` fi
 
 Each additional user can specify a custom `prompt` and `maxWords` for its condensation strategy. This is useful when different memory scopes need different extraction rules — e.g. personal preferences vs compliance policies.
 
-The `prompt` must include `{{OLD_MEMORY}}`, `{{NEW_CONTENT}}`, and `{{MAX_WORDS}}` placeholders. See [Custom Condensation Prompt](#custom-condensation-prompt) for details.
+The `prompt` must include `{{OLD_MEMORY}}` and `{{NEW_CONTENT}}` (and should include `{{MAX_WORDS}}`). A per-user template missing either structural placeholder is logged once and that user falls back to the instance prompt — see [Template validation](#template-validation). The primary owner's prompt is set with the per-call `memory.prompt` instead — see [Per-Call Memory Control](#per-call-memory-control).
 
 ### Selective Read/Write
 
@@ -439,14 +617,14 @@ memory: {
 
 ### AdditionalMemoryUser Options
 
-| Field      | Type    | Default  | Description                                           |
-| ---------- | ------- | -------- | ----------------------------------------------------- |
-| `userId`   | string  | required | The owner ID to retrieve/store memory for             |
-| `label`    | string  | userId   | Label used in the formatted memory context            |
-| `read`     | boolean | `true`   | Whether to read this user's memory                    |
-| `write`    | boolean | `true`   | Whether to write conversation into this user's memory |
-| `prompt`   | string  | default  | Custom condensation prompt for this user              |
-| `maxWords` | number  | default  | Max words for this user's condensed memory            |
+| Field      | Type    | Default  | Description                                                                                        |
+| ---------- | ------- | -------- | -------------------------------------------------------------------------------------------------- |
+| `userId`   | string  | required | The owner ID to retrieve/store memory for                                                          |
+| `label`    | string  | userId   | Label used in the formatted memory context                                                         |
+| `read`     | boolean | `true`   | Whether to read this user's memory                                                                 |
+| `write`    | boolean | `true`   | Whether to write conversation into this user's memory                                              |
+| `prompt`   | string  | instance | Custom condensation prompt for this user (validated; falls back to the instance prompt when fatal) |
+| `maxWords` | number  | instance | Max words for this user's condensed memory                                                         |
 
 ## Environment Variables
 
@@ -472,15 +650,29 @@ The memory SDK is designed to **never crash the host application**:
 NeuroLink re-exports the memory types for use in host applications:
 
 ```typescript
-import type { Memory, CustomStorageConfig } from "@juspay/neurolink";
+import type {
+  HippocampusMemory,
+  HippocampusNeurolinkLike,
+  MemoryCallOptions,
+  MemoryTurn,
+  MemoryShouldWriteHook,
+  MemoryBeforeStoreHook,
+  CondensationPromptValidation,
+  MemoryCustomStorageConfig,
+} from "@juspay/neurolink";
+import { validateCondensationPrompt } from "@juspay/neurolink";
 
-// Memory = HippocampusConfig & { enabled?: boolean }
-// CustomStorageConfig = { type: 'custom', onGet, onSet, onDelete, onClose? }
+// HippocampusMemory   = HippocampusConfig & MemoryWriteHooks & { enabled?, client?, strictPrompt? }
+// MemoryCallOptions   = the per-call `memory` block on GenerateOptions and StreamOptions
+// MemoryTurn          = what shouldWrite / onBeforeStore receive
+// HippocampusNeurolinkLike = { generate({ input, provider?, model?, temperature?, disableTools? }) }
+// MemoryCustomStorageConfig = { type: 'custom', onGet, onSet, onDelete, onClose? }
 ```
 
 ## See Also
 
 - **[Conversation Memory](../conversation-memory.md)** - Session-based conversation history
-- **[Memory Integration](../advanced/memory-integration.md)** - Advanced hippocampus configuration and patterns
-- **[Context Compaction](context-compaction.md)** - Automatic context window management
+- **[Memory Integration](/docs/advanced/memory-integration)** - Advanced hippocampus configuration and patterns
+- **[Context Compaction](/docs/features/context-compaction)** - Automatic context window management
 - **[Context Summarization](../context-summarization.md)** - Conversation compression
+- **[Per-Request Credentials](/docs/features/per-request-credentials)** - How `credentials` flow to providers. Only instance-level `credentials` (or `memory.neurolink.credentials`) reach the memory condenser; per-request `credentials` do not

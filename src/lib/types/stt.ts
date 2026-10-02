@@ -58,10 +58,29 @@ export type STTOptions = {
 /**
  * STT result from transcription
  */
+/**
+ * Where a provider's `STTResult.confidence` came from, when it has to say —
+ * Scribe reports a per-word `logprob` on some responses and only a
+ * language-detection probability on others, and a caller reading the number
+ * should know which it is getting. `"none"` means the provider reported no
+ * transcript-level signal at all and the field is 0.
+ */
+export type STTConfidenceSource =
+  | "word_logprobs"
+  | "language_probability"
+  | "none";
+
 export type STTResult = {
   /** Full transcribed text */
   text: string;
-  /** Confidence score (0-1) */
+  /**
+   * Transcript confidence (0-1) — Deepgram's alternative confidence,
+   * Whisper's `exp(avg_logprob)`, Scribe's mean per-word `exp(logprob)`.
+   * Always present: a strict-TS consumer reads it without a guard. A provider
+   * with no transcript-level signal reports 0 and, where it can, says so in
+   * `metadata.confidenceSource` rather than passing off a different number
+   * (a language-detection probability, say) as this one silently.
+   */
   confidence: number;
   /** Detected language code */
   language?: string;
@@ -81,6 +100,8 @@ export type STTResult = {
     provider?: string;
     /** Model used */
     model?: string;
+    /** What `confidence` was derived from, for providers that must choose. */
+    confidenceSource?: STTConfidenceSource;
     /** Additional provider-specific metadata */
     [key: string]: unknown;
   };
@@ -609,6 +630,57 @@ export type ElevenLabsVoice = {
 
 export type ElevenLabsVoicesResponse = {
   voices: ElevenLabsVoice[];
+};
+
+// --- ElevenLabs STT (Scribe) ---
+
+/**
+ * Scribe model ids the batch `speech-to-text` endpoint accepts. `scribe_v2`
+ * is the current model and the default; `scribe_v2_medical` is its clinical
+ * fine-tune; `scribe_v1` (and the experimental variant) are deprecated. The
+ * `(string & {})` member keeps the union open so a newly released id can be
+ * used without a cast.
+ */
+export type ElevenLabsSTTModel =
+  | "scribe_v2"
+  | "scribe_v2_medical"
+  | "scribe_v1"
+  | "scribe_v1_experimental"
+  | (string & {});
+
+export type ElevenLabsSTTOptions = STTOptions & {
+  /** Scribe model id. Default `scribe_v2`. */
+  model?: ElevenLabsSTTModel;
+  /**
+   * Annotate non-speech audio events ("(laughter)", "(music)") in the
+   * transcript. ElevenLabs defaults this to true; NeuroLink sends `false` so
+   * the transcript reads as plain speech unless asked otherwise.
+   * @default false
+   */
+  tagAudioEvents?: boolean;
+  /** Per-request timeout in milliseconds. Default 60_000. */
+  timeoutMs?: number;
+  /**
+   * API base URL including the `/v1` prefix. Default
+   * `ELEVENLABS_BASE_URL` or `https://api.elevenlabs.io/v1`.
+   */
+  baseUrl?: string;
+};
+
+export type ElevenLabsSTTWord = {
+  text: string;
+  start?: number;
+  end?: number;
+  type?: "word" | "spacing" | "audio_event" | string;
+  speaker_id?: string;
+  logprob?: number;
+};
+
+export type ElevenLabsSTTResponse = {
+  language_code?: string;
+  language_probability?: number;
+  text: string;
+  words?: ElevenLabsSTTWord[];
 };
 
 // --- Azure TTS ---

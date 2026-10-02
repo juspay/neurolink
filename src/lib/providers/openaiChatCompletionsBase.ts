@@ -70,6 +70,7 @@ import type {
   GenerateStopReason,
   TextGenerationOptions,
   ValidationSchema,
+  StepResult,
   StreamOptions,
   StreamResult,
   Tool,
@@ -89,12 +90,13 @@ import {
   mergeAbortSignals,
   TimeoutError,
 } from "../utils/timeout.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveRequestKind } from "../core/resolveRequestKind.js";
 import {
   appendJsonSchemaInstruction,
   hasNativeDoGenerate,
+  resolveStepToolChoice,
   runNativeGenerateLoop,
+  toPrepareStepRecord,
 } from "../core/nativeGenerateLoop.js";
 import {
   resolveToolExecutionRecords,
@@ -1204,6 +1206,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const doGenerate = model.doGenerate.bind(model);
 
     const shouldUseTools = !options.disableTools && this.supportsTools();
+    // `options.tools` arrives from BaseProvider's merge (getToolsForStream)
+    // already event-wrapped, recorder-wrapped and discovery-partitioned. It
+    // must be used AS IS: copying it would drop the discovery record's null
+    // prototype and non-enumerable resolver, and tools search_tools hydrates
+    // later land only in the original object.
     const toolsRecord = shouldUseTools
       ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
       : {};
@@ -1298,6 +1305,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           ...(withTools && hasTools && options.toolChoice
             ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
             : {}),
+          ...(options.toolChoiceSteps !== undefined
+            ? { toolChoiceSteps: options.toolChoiceSteps }
+            : {}),
+          ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
+          modelId,
           // The per-call `timeout` keeps its per-MODEL-CALL meaning once
           // `turnTimeoutMs` owns the whole-turn deadline, and it reaches the
           // model layer only through this channel. Without it each step fell
@@ -1332,6 +1344,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             ).catch((err) => {
               throw this.handleProviderError(err);
             }),
+          onRejectedToolCall: (name, error, id) =>
+            this.emitRejectedToolCall(name, error, id),
         },
         toolExecutionSummaries,
       );
@@ -1488,7 +1502,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       enhancedWithTools: toolsUsed.length > 0,
     };
 
-    return this.finalizeNativeGenerate(enhanced, options, startTime);
+    return this.finalizeNativeGenerate(
+      enhanced,
+      options,
+      startTime,
+      toolExecutionSummaries,
+    );
   }
 
   /**
@@ -1892,6 +1911,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             doGenerate,
             conversation: conv,
             toolsRecord: {},
+            modelId,
             ...(format ? { responseFormat: format } : {}),
             maxSteps: 1,
             ...(options.maxTokens
@@ -2038,7 +2058,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     let toolsRecord: Record<string, Tool>;
     let wireNameMaps: ReturnType<typeof buildWireToolNameMaps>;
     let openAITools: OpenAICompatChatTool[] | undefined;
-    let openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
+    // The turn's tool choice in NeuroLink shape; translated to the wire per
+    // step (see stepToolChoice below) so a forced choice can lapse after
+    // `toolChoiceSteps` instead of compelling a tool call on every step.
+    let turnToolChoice: unknown;
     // The prompt is kept in its pre-wire shape. Model middleware transforms
     // `params.prompt`, and the conversion to the chat-completions wire format
     // has to happen AFTER that or the transform would be discarded.
@@ -2046,6 +2069,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     try {
       modelId = await this.resolveModelName();
       const shouldUseTools = !options.disableTools && this.supportsTools();
+      // Same identity rule as executeNativeGenerate: the merged record is
+      // the discovery hot record and is never copied here.
       toolsRecord = shouldUseTools
         ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
@@ -2057,10 +2082,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       openAITools = shouldUseTools
         ? buildToolsForOpenAI(toolsRecord, wireNameMaps?.toWire)
         : undefined;
-      openAIToolChoice = mapNeuroLinkToolChoice(
-        resolveToolChoice(options, toolsRecord, shouldUseTools),
-        wireNameMaps?.toWire,
-      );
+      turnToolChoice = resolveToolChoice(options, toolsRecord, shouldUseTools);
 
       promptMessages = (await this.buildMessagesForStream(
         options,
@@ -2100,7 +2122,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const fetchImpl = createProxyFetch();
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const emitter = this.neurolink?.getEventEmitter();
 
     const toolsUsed: string[] = [];
     const toolExecutionSummaries: ToolExecutionSummaryInternal[] = [];
@@ -2206,10 +2227,26 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           options: sampled,
           conversation,
           openAITools,
-          openAIToolChoice,
+          // No declared tools → no tool_choice, and the hook is not consulted:
+          // a forced choice on a tool-less request is a 400.
+          stepToolChoice: async (step, steps) =>
+            openAITools && openAITools.length > 0
+              ? mapNeuroLinkToolChoice(
+                  await resolveStepToolChoice({
+                    base: turnToolChoice,
+                    step,
+                    toolChoiceSteps: options.toolChoiceSteps,
+                    prepareStep: options.prepareStep,
+                    steps,
+                    maxSteps,
+                    model: modelId,
+                    ...(abortSignal ? { abortSignal } : {}),
+                  }),
+                  wireNameMaps?.toWire,
+                )
+              : undefined,
           toolsRecord,
           toolNameFromWire: wireNameMaps?.fromWire,
-          emitter,
           toolsUsed,
           toolExecutionSummaries,
           pushChunk: channel.push,
@@ -2562,10 +2599,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       options,
       conversation,
       openAITools,
-      openAIToolChoice,
+      stepToolChoice,
       toolsRecord,
       toolNameFromWire,
-      emitter,
       toolsUsed,
       toolExecutionSummaries,
       pushChunk,
@@ -2621,8 +2657,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // two different payloads would be meaningless.
       let lastObservedPromptTokens: number | undefined;
       let lastSentEstimate: number | undefined;
+      // Completed-step records handed to a caller's prepareStep hook.
+      const stepRecords: StepResult<Record<string, Tool>>[] = [];
 
       for (let step = 0; step < maxSteps; step++) {
+        const openAIToolChoice = await stepToolChoice(step, stepRecords);
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
         // new tools into toolsRecord between steps. Dispatch already re-reads
         // the record — this block makes the request DECLARE them so the model
@@ -2735,11 +2774,51 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           conversation,
           toolsRecord,
           toolNameFromWire: effectiveToolNameFromWire,
-          emitter,
           toolsUsed,
           toolExecutionSummaries,
           options,
+          stepIndex: step,
         });
+        const executed = toolExecutionSummaries.slice(
+          -stepResult.toolCalls.size,
+        );
+        stepRecords.push(
+          toPrepareStepRecord({
+            stepNumber: step,
+            content: [
+              ...(stepResult.text
+                ? [{ type: "text", text: stepResult.text }]
+                : []),
+              ...executed.map((s) => ({
+                type: "tool-call",
+                toolCallId: s.toolCallId,
+                toolName: s.toolName,
+                input: s.input,
+              })),
+            ],
+            text: stepResult.text,
+            toolCalls: executed.map((s) => ({
+              toolName: s.toolName,
+              toolCallId: s.toolCallId,
+              input: s.input,
+            })),
+            toolResults: executed.map((s) => ({
+              toolName: s.toolName,
+              toolCallId: s.toolCallId,
+              output: s.output,
+            })),
+            finishReason: "tool-calls",
+            inputTokens: stepResult.usage?.prompt_tokens ?? 0,
+            outputTokens: stepResult.usage?.completion_tokens ?? 0,
+            ...(stepResult.usage?.prompt_tokens_details?.cached_tokens !==
+            undefined
+              ? {
+                  cacheReadTokens:
+                    stepResult.usage.prompt_tokens_details.cached_tokens,
+                }
+              : {}),
+          }),
+        );
       }
 
       resolveUsage(toDeferredUsage());
@@ -2901,20 +2980,25 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     conversation: OpenAICompatChatMessage[];
     toolsRecord: Record<string, Tool>;
     toolNameFromWire?: Map<string, string>;
-    emitter: ReturnType<NeuroLink["getEventEmitter"]> | undefined;
     toolsUsed: string[];
     toolExecutionSummaries: ToolExecutionSummaryInternal[];
     options: StreamOptions;
+    /**
+     * Zero-based loop step. Recorded on every summary so the stores persist
+     * `metadata.stepIndex` and replay keeps sequential steps apart — without
+     * it a Redis session replayed two sequential calls as one parallel step.
+     */
+    stepIndex: number;
   }): Promise<void> {
     const {
       stepResult,
       conversation,
       toolsRecord,
       toolNameFromWire,
-      emitter,
       toolsUsed,
       toolExecutionSummaries,
       options,
+      stepIndex,
     } = args;
 
     const toolCallsForMessage: OpenAICompatToolCallWire[] = [];
@@ -2954,14 +3038,14 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       const toolDef =
         toolsRecord[registryName] ??
         resolveDeferredTool(toolsRecord, registryName);
-      emitter?.emit("tool:start", {
-        toolName: registryName,
-        toolCallId: t.id,
-        input,
-      });
+      // No `tool:start` here either: registered and built-in tools emit their
+      // own start/end pair from the executor that runs them, and this raw
+      // emission made every one of them count twice.
       if (!toolDef || typeof toolDef.execute !== "function") {
         errorMsg = `Tool '${registryName}' is not registered.`;
         output = { error: errorMsg };
+        // Rejected before any execute ran, so no executor will report it.
+        this.emitRejectedToolCall(registryName, errorMsg, t.id);
       } else {
         try {
           output = await toolDef.execute(input as never, {} as never);
@@ -2980,6 +3064,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         ...(errorMsg ? { error: errorMsg } : {}),
         startTime: startedAt,
         endTime: endedAt,
+        stepIndex,
       });
       conversation.push({
         role: "tool",
@@ -2991,27 +3076,31 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const justExecuted = toolExecutionSummaries.slice(
       -stepResult.toolCalls.size,
     );
-    emitToolEndFromStepFinish(
-      emitter,
-      justExecuted.map((s) => ({
-        toolName: s.toolName,
-        output: s.output,
-        ...(s.error ? { error: s.error } : {}),
-      })),
-    );
+    // No `tool:end` here: the executor already emitted start/end with the
+    // real duration, and a second emission per result doubled every
+    // consumer's count.
     try {
+      // `args`, not `input`: both stores read `args`, so the previous
+      // `input:` key persisted every tool call with empty arguments.
       await this.handleToolExecutionStorage(
         justExecuted.map((s) => ({
           toolCallId: s.toolCallId,
           toolName: s.toolName,
-          input: s.input as never,
-          output: s.output,
-        })) as never,
+          args:
+            s.input !== null &&
+            typeof s.input === "object" &&
+            !Array.isArray(s.input)
+              ? (s.input as Record<string, unknown>)
+              : {},
+          ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        })),
         justExecuted.map((s) => ({
           toolCallId: s.toolCallId,
           toolName: s.toolName,
           output: s.output,
-        })) as never,
+          ...(s.error ? { error: s.error } : {}),
+          ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        })),
         options,
         new Date(),
       );

@@ -372,6 +372,23 @@ async function test_tool_execution_events(): Promise<boolean | null> {
       maxSteps: 3,
     });
 
+    // Same prompt through stream(): the doubled tool:end lived in the
+    // stream loops only, so a generate()-only count could never catch it.
+    // Both paths' events accumulate into the same arrays and the pair check
+    // below covers the union.
+    const streamed = await sdk.stream({
+      input: {
+        text: "What is the current time right now? You must use the getCurrentTime tool to check.",
+      },
+      provider: TEST_CONFIG.provider as string,
+      ...(TEST_CONFIG.model ? { model: TEST_CONFIG.model } : {}),
+      maxTokens: 200,
+      maxSteps: 3,
+    });
+    for await (const _chunk of streamed.stream) {
+      // drain
+    }
+
     // Wait for event propagation
     await delay(1000);
 
@@ -449,7 +466,32 @@ async function test_tool_execution_events(): Promise<boolean | null> {
       endValid = false;
     }
 
-    if (startValid && endValid) {
+    // Exactly one tool:end per tool:start. The executor emits the pair
+    // itself; the stream loops used to emit a SECOND tool:end per result
+    // (with responseTime 0) on top of it, so every consumer counting ends
+    // saw double. A count mismatch in either direction is a defect.
+    const pairValid = toolStartEvents.length === toolEndEvents.length;
+    if (!pairValid) {
+      log(
+        `  [detail] tool:start fired ${toolStartEvents.length} time(s) but tool:end fired ${toolEndEvents.length} time(s) — expected exactly one end per start`,
+        "red",
+      );
+    }
+    // Every tool:end must carry a measured duration. An instant tool can
+    // legitimately report 0 ms, so only its absence is a defect; the count
+    // equality above is what catches the removed placeholder emission.
+    const durationsValid = toolEndEvents.every((e) => {
+      const d = e.duration ?? e.responseTime;
+      return typeof d === "number" && d >= 0;
+    });
+    if (!durationsValid) {
+      log(
+        "  [detail] a tool:end event carried no numeric duration/responseTime",
+        "red",
+      );
+    }
+
+    if (startValid && endValid && pairValid && durationsValid) {
       logTest(
         "Tool execution events metadata",
         "PASS",
@@ -460,7 +502,7 @@ async function test_tool_execution_events(): Promise<boolean | null> {
       logTest(
         "Tool execution events metadata",
         "FAIL",
-        `startValid=${startValid}, endValid=${endValid}`,
+        `startValid=${startValid}, endValid=${endValid}, pairValid=${pairValid}, durationsValid=${durationsValid}`,
       );
       return false;
     }

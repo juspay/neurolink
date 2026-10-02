@@ -28,6 +28,11 @@ export const MEDIA_HANDLER_CATALOG: readonly MediaHandlerDescriptor[] = [
   { kind: "stt", name: "deepgram" },
   { kind: "stt", name: "google-stt" },
   { kind: "stt", name: "azure-stt" },
+  // "elevenlabs" is reused across kinds on purpose — TTS primary, STT alias —
+  // the same way "vertex" is a TTS alias and the Video primary. Each kind has
+  // its own registry, so `stt: { provider: "elevenlabs" }` and
+  // `tts: { provider: "elevenlabs" }` resolve to different handlers.
+  { kind: "stt", name: "elevenlabs-stt", aliases: ["scribe", "elevenlabs"] },
   // --- Realtime ---
   { kind: "realtime", name: "openai-realtime" },
   { kind: "realtime", name: "gemini-live" },

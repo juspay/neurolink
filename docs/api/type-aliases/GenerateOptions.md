@@ -862,9 +862,36 @@ Controls whether and which tools the model must call.
 - `"required"`: the model must call at least one tool
 - `{ type: "tool", toolName: string }`: the model must call the specified tool
 
-Note: When used without `prepareStep`, this applies to **every step** in the
-`maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
-will cause infinite tool calls until `maxSteps` is exhausted.
+A forced choice (`"required"` or a named tool) is applied only to the
+first `toolChoiceSteps` steps of the `maxSteps` loop (default 1) and the
+model is then free to answer. Holding a forced choice on every step would
+compel a tool call on every step, and the loop would only end when
+`maxSteps` ran out. `"auto"` and `"none"` are applied unchanged on every
+step. Vertex, Google AI Studio and Bedrock do not honour `toolChoice`.
+
+---
+
+### toolChoiceSteps?
+
+> `optional` **toolChoiceSteps?**: `number`
+
+How many leading steps a forced `toolChoice` (`"required"` or a named
+tool) stays in force; from that step on the model chooses (`"auto"`).
+A non-negative integer, default 1. `0` never forces. Ignored for
+`"auto"` and `"none"`. A `prepareStep` result that names a `toolChoice`
+overrides this for that step.
+
+---
+
+### replayToolSteps?
+
+> `optional` **replayToolSteps?**: [`ToolReplayMode`](ToolReplayMode.md)
+
+How this request replays the session's stored tool steps
+(`tool_call` / `tool_result` rows in `conversationMessages`) into the
+prompt: `"full"` (real tool-call / tool-result turns), `"marker"` (a
+compact `[called <tool> → ok]` line per call, the default) or `"off"`.
+Overrides `conversationMemory.replayToolSteps` for this request.
 
 ---
 
@@ -873,12 +900,18 @@ will cause infinite tool calls until `maxSteps` is exhausted.
 > `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 Optional callback that runs before each step in a multi-step generation.
-Allows dynamically changing `toolChoice` and available tools per step.
 
-This is the recommended way to enforce specific tool calls on certain steps
-while allowing the model freedom on others.
+Honoured field of the result: `toolChoice`, applied to that step only
+and taking precedence over `toolChoice` / `toolChoiceSteps`.
 
-Maps to Vercel AI SDK's `experimental_prepareStep`.
+Not honoured — accepted for source compatibility with the former Vercel
+AI SDK `experimental_prepareStep` shape, but ignored by every native
+loop: `model` (the turn's model cannot change mid-loop) and
+`experimental_activeTools` (tool visibility is fixed for the turn; use
+`toolFilter` / `excludeTools` instead).
+
+`steps` carries one record per completed step (content, text, tool calls,
+tool results, finish reason, usage); `model` is the resolved model id.
 
 #### Parameters
 
@@ -907,7 +940,7 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 #### Example
 
 ```typescript
-prepareStep: ({ stepNumber, steps }) => {
+prepareStep: async ({ stepNumber }) => {
   if (stepNumber === 0) {
     return {
       toolChoice: { type: "tool", toolName: "myTool" },
@@ -916,10 +949,6 @@ prepareStep: ({ stepNumber, steps }) => {
   return { toolChoice: "auto" };
 };
 ```
-
-#### See
-
-https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
 
 ---
 
@@ -1225,39 +1254,14 @@ other failures (network, 5xx, timeouts) bubble immediately.
 
 ### memory?
 
-> `optional` **memory?**: `object`
+> `optional` **memory?**: [`MemoryCallOptions`](MemoryCallOptions.md)
 
 Per-call memory control.
 
 Override the global memory SDK behavior for this specific call.
 All flags default to `true` when the global memory SDK is enabled.
 If the global memory SDK is disabled, these flags have no effect.
-
-#### enabled?
-
-> `optional` **enabled?**: `boolean`
-
-Master toggle for this call. When false, both read and write are skipped. Defaults to true.
-
-#### read?
-
-> `optional` **read?**: `boolean`
-
-Whether to read condensed memory and prepend to prompt. Defaults to true.
-
-#### write?
-
-> `optional` **write?**: `boolean`
-
-Whether to write (add/condense) the conversation into memory after completion. Defaults to true.
-
-#### additionalUsers?
-
-> `optional` **additionalUsers?**: [`AdditionalMemoryUser`](AdditionalMemoryUser.md)[]
-
-Additional users whose memory should be retrieved/stored alongside the primary user.
-Each entry can override the condensation prompt and maxWords for that user.
-Primary user is still determined by context.userId.
+Shared with `StreamOptions` — see `MemoryCallOptions`.
 
 ---
 

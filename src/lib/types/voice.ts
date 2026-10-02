@@ -18,7 +18,13 @@ export * from "./stt.js";
 // Re-export all Realtime types
 export * from "./realtime.js";
 
-import type { TTSAudioFormat, TTSOptions, TTSResult, TTSVoice } from "./tts.js";
+import type {
+  TTSAudioFormat,
+  TTSHandlerTimeBudget,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "./tts.js";
 import type { TTSHandler } from "./common.js";
 import type { STTResult, STTHandler } from "./stt.js";
 import type { RealtimeHandler } from "./realtime.js";
@@ -58,6 +64,7 @@ export type VoiceProviderName =
   | "assemblyai"
   | "google-stt"
   | "azure-stt"
+  | "elevenlabs-stt"
   // Realtime providers
   | "openai-realtime"
   | "gemini-live";
@@ -471,15 +478,79 @@ export type ElevenLabsModel =
   | "eleven_multilingual_v2"
   | "eleven_turbo_v2_5"
   | "eleven_turbo_v2"
+  | "eleven_flash_v2_5"
+  | "eleven_flash_v2"
+  | "eleven_v3"
   | "eleven_monolingual_v1";
 
-export type ElevenLabsTTSOptions = TTSOptions & {
-  model?: ElevenLabsModel;
+/** Opus bitrates (kbps) ElevenLabs accepts on `opus_48000_*`. */
+export type ElevenLabsOpusBitrate = 32 | 64 | 96 | 128 | 192;
+
+/** MP3 bitrates (kbps) ElevenLabs accepts on `mp3_44100_*`. */
+export type ElevenLabsMp3Bitrate = 32 | 64 | 96 | 128 | 192;
+
+/**
+ * Every `output_format` value the ElevenLabs text-to-speech endpoint accepts.
+ * There is no `ogg_*` family — Ogg/Opus is `opus_48000_<kbps>`.
+ */
+export type ElevenLabsOutputFormat =
+  | "mp3_22050_32"
+  | "mp3_44100_32"
+  | "mp3_44100_64"
+  | "mp3_44100_96"
+  | "mp3_44100_128"
+  | "mp3_44100_192"
+  | "opus_48000_32"
+  | "opus_48000_64"
+  | "opus_48000_96"
+  | "opus_48000_128"
+  | "opus_48000_192"
+  | "pcm_8000"
+  | "pcm_16000"
+  | "pcm_22050"
+  | "pcm_24000"
+  | "pcm_44100"
+  | "pcm_48000"
+  | "ulaw_8000"
+  | "alaw_8000";
+
+/** The `voice_settings` object on an ElevenLabs synthesis request. */
+export type ElevenLabsVoiceSettings = {
   stability?: number;
-  similarityBoost?: number;
+  similarity_boost?: number;
   style?: number;
-  useSpeakerBoost?: boolean;
+  use_speaker_boost?: boolean;
+  /** 0.7–1.2; `TTSOptions.speed` is clamped into this range. */
+  speed?: number;
 };
+
+export type ElevenLabsTTSOptions = TTSOptions &
+  TTSHandlerTimeBudget & {
+    model?: ElevenLabsModel;
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
+    /** Bitrate for `format: "ogg" | "opus"` (→ `opus_48000_<kbps>`). Default 64; an unlisted value falls back to it with a warning. */
+    opusBitrate?: ElevenLabsOpusBitrate;
+    /** Bitrate for `format: "mp3"` (→ `mp3_44100_<kbps>`). Default 128; an unlisted value falls back to it with a warning. */
+    mp3Bitrate?: ElevenLabsMp3Bitrate;
+    /**
+     * Language sent as `language_code`, an ISO 639-1 code; a BCP-47 tag is
+     * reduced to its primary subtag (`en-US` → `en`). Sent on every model
+     * except `eleven_multilingual_v2`, which does not accept the field (the
+     * API ignores the code on any other model that cannot enforce it).
+     * Falls back to the generic `TTSOptions.language`.
+     */
+    languageCode?: string;
+    /** Raw `voice_settings` overrides; explicit fields win over the camelCase ones. */
+    voiceSettings?: ElevenLabsVoiceSettings;
+    /**
+     * API base URL including the `/v1` prefix. Default
+     * `ELEVENLABS_BASE_URL` or `https://api.elevenlabs.io/v1`.
+     */
+    baseUrl?: string;
+  };
 
 export type GoogleVoiceType =
   | "Standard"

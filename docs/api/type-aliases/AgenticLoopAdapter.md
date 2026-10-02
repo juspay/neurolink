@@ -134,7 +134,11 @@ override.
 
 ### buildStepRequest()
 
-> **buildStepRequest**(`conversation`, `step`): [`AgenticLoopStepRequest`](AgenticLoopStepRequest.md)
+> **buildStepRequest**(`conversation`, `step`): [`AgenticLoopStepRequest`](AgenticLoopStepRequest.md) \| `Promise`\<[`AgenticLoopStepRequest`](AgenticLoopStepRequest.md)\>
+
+May return a promise: an adapter that consults a caller's `prepareStep`
+hook for the step's tool choice has to await it before it can build the
+request. The engine awaits the result either way.
 
 #### Parameters
 
@@ -148,7 +152,7 @@ override.
 
 #### Returns
 
-[`AgenticLoopStepRequest`](AgenticLoopStepRequest.md)
+[`AgenticLoopStepRequest`](AgenticLoopStepRequest.md) \| `Promise`\<[`AgenticLoopStepRequest`](AgenticLoopStepRequest.md)\>
 
 ---
 

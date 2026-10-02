@@ -140,6 +140,17 @@ export const textGenerationOptionsSchema: Record<
     type: "number",
     description: "Maximum number of tool execution steps.",
   },
+  toolChoiceSteps: {
+    type: "number",
+    description:
+      "Leading steps a forced toolChoice (required / named tool) stays in force before the model chooses (default 1).",
+  },
+  replayToolSteps: {
+    type: "string",
+    description:
+      "How stored tool steps are replayed into the prompt: full, marker (default) or off.",
+    allowedValues: ["full", "marker", "off"],
+  },
   enableAnalytics: {
     type: "boolean",
     description: "Enable or disable analytics for responses.",

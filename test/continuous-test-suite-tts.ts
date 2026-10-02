@@ -1741,6 +1741,78 @@ async function testFishAudioTTS(sdk: NeuroLink): Promise<boolean | null> {
   }
 }
 
+/**
+ * ElevenLabs Ogg/Opus end-to-end. `format: "ogg"` used to be sent upstream as
+ * `ogg_22050`, which is not an ElevenLabs output format (422); the fix maps
+ * it to `opus_48000_64`. A real Ogg/Opus container starts with the `OggS`
+ * page marker and carries an `OpusHead` identification packet in its first
+ * page, so both are checked on the returned bytes. Skips without a key.
+ */
+async function testElevenLabsOpusTTS(sdk: NeuroLink): Promise<boolean | null> {
+  const name = "TTS - ElevenLabs Ogg/Opus end-to-end";
+  logTest(name, "TESTING");
+  if (!process.env.ELEVENLABS_API_KEY) {
+    logTest(name, "SKIP", "ELEVENLABS_API_KEY not set");
+    return null;
+  }
+  try {
+    const result = await sdk.generate({
+      input: { text: "Hello from ElevenLabs in Opus." },
+      provider: TEST_CONFIG.provider,
+      ...(TEST_CONFIG.model ? { model: TEST_CONFIG.model } : {}),
+      tts: { enabled: true, provider: "elevenlabs", format: "ogg" },
+    });
+    const buf = result.audio?.buffer;
+    if (!buf || buf.length === 0) {
+      const { verdict, reason } = explainMissingAudio(result.ttsMetadata);
+      logTest(
+        name,
+        verdict === "skip" ? "SKIP" : "FAIL",
+        `no audio buffer — ${reason.slice(0, 160)}`,
+      );
+      return verdict === "skip" ? null : false;
+    }
+    if (buf.subarray(0, 4).toString("latin1") !== "OggS") {
+      logTest(name, "FAIL", "buffer does not start with the Ogg page marker");
+      return false;
+    }
+    if (!buf.subarray(0, 200).toString("latin1").includes("OpusHead")) {
+      logTest(name, "FAIL", "first page carries no OpusHead packet");
+      return false;
+    }
+    if (result.audio?.format !== "opus") {
+      logTest(name, "FAIL", "audio.format is not reported as opus");
+      return false;
+    }
+    if (result.audio?.sampleRate !== 48000) {
+      logTest(name, "FAIL", "audio.sampleRate is not reported as 48000");
+      return false;
+    }
+    if (result.ttsMetadata?.mode !== "direct") {
+      logTest(name, "FAIL", "ttsMetadata.mode is not reported as direct");
+      return false;
+    }
+    logTest(
+      name,
+      "PASS",
+      `${buf.length} bytes Ogg/Opus @ ${result.audio.sampleRate}Hz, voice=${result.audio.voice ?? "default"}`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(
+        name,
+        "SKIP",
+        `upstream credential/quota error: ${msg.slice(0, 120)}`,
+      );
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  }
+}
+
 async function testCartesiaTTS(sdk: NeuroLink): Promise<boolean | null> {
   logTest("TTS - Cartesia end-to-end", "TESTING");
   if (!process.env.CARTESIA_API_KEY) {
@@ -2790,6 +2862,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "TTS - Cartesia end-to-end",
       fn: () => testCartesiaTTS(sharedSdk),
+    },
+    {
+      name: "TTS - ElevenLabs Ogg/Opus end-to-end",
+      fn: () => testElevenLabsOpusTTS(sharedSdk),
     },
 
     // TTS-013 (#492) — Google native streaming, plus its format gate.

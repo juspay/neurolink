@@ -51,6 +51,7 @@ import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
+import { isDirectTTSRequest } from "../../core/resolveRequestKind.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import {
   DEFAULT_TOOL_MAX_RETRIES,
@@ -2658,7 +2659,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // TTS direct-synthesis mode: synthesise the input text directly (no LLM
     // call). BaseProvider.runGenerateInActiveContext does the same dispatch
     // — replicated here because AI Studio's override bypasses that path.
-    if (options.tts?.enabled && !options.tts?.useAiResponse) {
+    if (isDirectTTSRequest(options.tts)) {
       logger.info(
         "[GoogleAIStudio] Routing TTS direct-synthesis to handleDirectTTSSynthesis",
         { model: modelName },

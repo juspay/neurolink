@@ -13,9 +13,11 @@
  *   - PASS: test fn returns/resolves normally
  *   - FAIL: test fn throws an Error not matching the SKIP convention
  *   - SKIP: test fn throws `new Skip(reason)`, OR throws an error whose
- *           message starts with "SKIP:", OR throws a known provider error
- *           caught by isExpectedProviderError() (e.g. missing API key,
- *           rate limit, quota exhausted)
+ *           message starts with "SKIP:", OR — in a live suite only — throws
+ *           a known provider error caught by isExpectedProviderError()
+ *           (e.g. missing API key, rate limit, quota exhausted). A suite
+ *           declared `offline: true` has no upstream, so that third route
+ *           is closed there and such an error is a FAIL.
  *
  * Provider/model resolution order:
  *   opts.provider (constructor) → --provider= argv → NEUROLINK_TEST_PROVIDER
@@ -154,10 +156,13 @@ export type DefineSuiteOpts = {
    * Declare that this suite makes no network calls — stub handlers, offline
    * providers, recorded fixtures only.
    *
-   * A timeout then becomes a FAIL rather than a SKIP. The SKIP default exists
-   * because a live suite genuinely cannot tell a hung SDK from a hung upstream;
-   * with no upstream, that ambiguity does not exist and a test that never
-   * finished can only be a defect in this package.
+   * A timeout then becomes a FAIL rather than a SKIP, and so does a thrown
+   * error whose message merely looks like a provider error (rate limit,
+   * quota, missing key): only an explicit `Skip` / `SKIP:` skips. The SKIP
+   * default exists because a live suite genuinely cannot tell a hung or
+   * throttled upstream from the SDK; with no upstream, that ambiguity does
+   * not exist and a test that never finished, or that surfaced a
+   * provider-shaped message, can only be a defect in this package.
    *
    * This is not a preference. A deadlock in `interleaveTTSStream` teardown sat
    * in `tts:unit` reported as `⊘ skipped` — the suite printed RESULT: PASS and
@@ -621,10 +626,17 @@ export function defineSuite(
         clearTimeout(timeoutId);
       }
       const msg = err instanceof Error ? err.message : String(err);
+      // A provider-shaped error message (rate limit, quota, missing key,
+      // 5xx) is a SKIP only in a live suite, where it really can mean the
+      // upstream and not the SDK. An offline suite has no upstream: the
+      // same message can only have come from the code under test or from
+      // an assertion that quoted a payload, and either is a failure. Before
+      // this gate, `security-suites` could go green with every offline case
+      // downgraded to ⊘ — only an explicit `Skip` / `SKIP:` may skip here.
       const isSkip =
         err instanceof Skip ||
         msg.startsWith("SKIP:") ||
-        isExpectedProviderError(msg);
+        (defs.offline !== true && isExpectedProviderError(msg));
       if (isSkip) {
         skipped++;
         const reason = msg.startsWith("SKIP:") ? msg.slice(5).trim() : msg;

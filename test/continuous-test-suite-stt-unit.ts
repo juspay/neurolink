@@ -44,6 +44,15 @@
  * exercises `registerHandler`'s empty-name/missing-handler guards, so those
  * three assertions are dropped rather than faked; see the task report.
  *
+ * The ElevenLabs Scribe case at the end drives the exported `ElevenLabsSTT`
+ * handler through `generate()` against one local `http.createServer` that
+ * stands in for BOTH api.elevenlabs.io (`/v1/speech-to-text`, recording the
+ * multipart fields) and api.openai.com (`/v1/chat/completions`, answering
+ * "pong"). No fetch is mocked — `installMockFetch` cannot see a `FormData`
+ * body, and the point of the case is the multipart contract on the wire — so
+ * both hops are real HTTP to 127.0.0.1 and the whole call stays on the public
+ * surface.
+ *
  * Imports from ../dist per Rule 15 (tests drive the shipped surface).
  *
  * Run: npx tsx test/continuous-test-suite-stt-unit.ts
@@ -57,12 +66,20 @@ import {
 } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
 import {
+  ElevenLabsSTT,
+  isSTTResult,
   NeuroLink,
   STTProcessor,
   STTError,
   STT_ERROR_CODES,
 } from "../dist/index.js";
-import type { STTHandler, STTResult } from "../dist/index.js";
+import type {
+  ElevenLabsSTTOptions,
+  STTHandler,
+  STTResult,
+} from "../dist/index.js";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 
 const { test, runSuite } = defineSuite("STTProcessor (via generate())", {
   offline: true,
@@ -582,7 +599,7 @@ await test("clearHandlers() wipes every registered STT handler, and restoring a 
   assert(
     duringClear.err instanceof STTError &&
       duringClear.err.code === STT_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
-    "the failure is PROVIDER_NOT_SUPPORTED, proving the registration is gone",
+    "the failure is PROVIDER_NOT_SUPPORTED, proving the registration was removed",
   );
 
   for (const [name, handler] of snapshot) {
@@ -609,8 +626,545 @@ await test("clearHandlers() wipes every registered STT handler, and restoring a 
     !scratchStillGone.ok &&
       scratchStillGone.err instanceof STTError &&
       scratchStillGone.err.code === STT_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
-    "a provider registered after the snapshot stays gone — restore replays exactly what it captured, not everything ever registered",
+    "a provider registered after the snapshot stays unregistered — restore replays exactly what it captured, not everything ever registered",
   );
+});
+
+// ---------------------------------------------------------------------------
+// ElevenLabs Scribe — multipart contract and response mapping, no key
+// ---------------------------------------------------------------------------
+
+type RecordedScribeRequest = {
+  url: string;
+  headers: http.IncomingHttpHeaders;
+  fields: Record<string, string>;
+  file?: { filename: string; bytes: number; contentType: string };
+};
+
+/** Minimal multipart/form-data parser for the stub — enough to read the fields Scribe receives. */
+function parseMultipart(
+  raw: Buffer,
+  contentType: string,
+): Pick<RecordedScribeRequest, "fields" | "file"> {
+  const boundary = contentType.split("boundary=")[1];
+  const fields: Record<string, string> = {};
+  let file: RecordedScribeRequest["file"];
+  if (!boundary) {
+    return { fields, file };
+  }
+  const parts = raw.toString("latin1").split(`--${boundary}`).slice(1, -1);
+  for (const part of parts) {
+    const headerEnd = part.indexOf("\r\n\r\n");
+    const header = part.slice(0, headerEnd);
+    const value = part.slice(headerEnd + 4, part.lastIndexOf("\r\n"));
+    const name = /name="([^"]+)"/.exec(header)?.[1];
+    if (!name) {
+      continue;
+    }
+    const filename = /filename="([^"]+)"/.exec(header)?.[1];
+    if (filename) {
+      file = {
+        filename,
+        bytes: value.length,
+        contentType: /Content-Type:\s*([^\r\n]+)/i.exec(header)?.[1] ?? "",
+      };
+    } else {
+      fields[name] = value;
+    }
+  }
+  return { fields, file };
+}
+
+const SCRIBE_STUB_RESPONSE = {
+  language_code: "eng",
+  language_probability: 0.98,
+  text: "hello there friend",
+  words: [
+    {
+      text: "hello",
+      start: 0.0,
+      end: 0.4,
+      type: "word",
+      speaker_id: "speaker_0",
+      logprob: 0,
+    },
+    // Spacing and audio events carry logprobs too; neither may count.
+    { text: " ", start: 0.4, end: 0.5, type: "spacing", logprob: -9 },
+    {
+      text: "there",
+      start: 0.5,
+      end: 0.9,
+      type: "word",
+      speaker_id: "speaker_0",
+      logprob: Math.log(0.5),
+    },
+    {
+      text: "(laughter)",
+      start: 0.9,
+      end: 1.2,
+      type: "audio_event",
+      logprob: -9,
+    },
+    {
+      text: "friend",
+      start: 1.2,
+      end: 1.6,
+      type: "word",
+      speaker_id: "speaker_1",
+      logprob: Math.log(0.25),
+    },
+  ],
+};
+/** Mean exp(logprob) over the three spoken words: (1 + 0.5 + 0.25) / 3. */
+const SCRIBE_STUB_CONFIDENCE = (1 + 0.5 + 0.25) / 3;
+
+type ScribeGenerateOptions = ElevenLabsSTTOptions & {
+  audio: Buffer;
+  provider: string;
+};
+
+/** Identity helper so Scribe-specific fields pass the excess-property check on `stt`. */
+function scribe(options: ScribeGenerateOptions): ScribeGenerateOptions {
+  return options;
+}
+
+async function withScribeAndChatStub<T>(
+  fn: (ctx: {
+    baseUrl: string;
+    scribeRequests: RecordedScribeRequest[];
+    chatPrompts: string[];
+  }) => Promise<T>,
+): Promise<T> {
+  const scribeRequests: RecordedScribeRequest[] = [];
+  const chatPrompts: string[] = [];
+  const server = http.createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks);
+      if ((req.url ?? "").endsWith("/speech-to-text")) {
+        scribeRequests.push({
+          url: req.url ?? "",
+          headers: req.headers,
+          ...parseMultipart(raw, req.headers["content-type"] ?? ""),
+        });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(SCRIBE_STUB_RESPONSE));
+        return;
+      }
+      const body = JSON.parse(raw.toString("utf8")) as {
+        messages?: Array<{ content?: unknown }>;
+      };
+      const last = body.messages?.at(-1)?.content;
+      chatPrompts.push(typeof last === "string" ? last : JSON.stringify(last));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(openAIPongResponse()));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn({
+      baseUrl: `http://127.0.0.1:${port}/v1`,
+      scribeRequests,
+      chatPrompts,
+    });
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+await test("ElevenLabs Scribe: the multipart request carries model_id, tag_audio_events=false and no language_code unless set; the response maps to text, words and speakers", async () => {
+  const provider = `${NS}-elevenlabs-scribe`;
+  const handler = new ElevenLabsSTT("stub-credential");
+  assert(
+    handler.isConfigured(),
+    "a constructor-supplied credential configures the handler",
+  );
+  assertEqual(handler.supportsStreaming, false, "Scribe is batch-only");
+  STTProcessor.registerHandler(provider, handler);
+
+  await withScribeAndChatStub(
+    async ({ baseUrl, scribeRequests, chatPrompts }) => {
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      const common = {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        credentials: {
+          openai: { apiKey: "offline-test-key", baseURL: baseUrl },
+        },
+        input: { text: "" },
+        disableTools: true,
+      } as const;
+
+      const result = await nl.generate({
+        ...common,
+        stt: scribe({
+          enabled: true,
+          audio: Buffer.from("RIFF-fake-wav-bytes"),
+          provider,
+          baseUrl,
+          format: "wav",
+          speakerDiarization: true,
+          speakerCount: 2,
+        }),
+      });
+
+      assertEqual(
+        scribeRequests.length,
+        1,
+        "one transcription request reached the stub",
+      );
+      const request = scribeRequests[0];
+      assert(request !== undefined, "the request was recorded");
+      assertEqual(
+        request?.url,
+        "/v1/speech-to-text",
+        "the Scribe endpoint is /v1/speech-to-text",
+      );
+      assertEqual(
+        request?.headers["xi-api-key"],
+        "stub-credential",
+        "the constructor credential is the value of the ElevenLabs auth header",
+      );
+      assertEqual(
+        request?.fields.model_id,
+        "scribe_v2",
+        "model_id defaults to scribe_v2, the current Scribe model",
+      );
+      assertEqual(
+        request?.fields.tag_audio_events,
+        "false",
+        "tag_audio_events defaults to false",
+      );
+      assertEqual(
+        request?.fields.language_code,
+        undefined,
+        "no language_code is sent when the caller set none",
+      );
+      assertEqual(
+        request?.fields.diarize,
+        "true",
+        "speakerDiarization maps to diarize",
+      );
+      assertEqual(
+        request?.fields.num_speakers,
+        "2",
+        "speakerCount maps to num_speakers",
+      );
+      assertEqual(
+        request?.file?.filename,
+        "audio.wav",
+        "the audio part is named after its format",
+      );
+      assertEqual(
+        request?.file?.bytes,
+        "RIFF-fake-wav-bytes".length,
+        "the whole buffer is uploaded",
+      );
+
+      assertEqual(
+        result.transcription?.text,
+        "hello there friend",
+        "the transcript text is mapped",
+      );
+      assertEqual(
+        result.transcription?.language,
+        "eng",
+        "the detected language is mapped",
+      );
+      assert(
+        Math.abs(
+          (result.transcription?.confidence ?? Number.NaN) -
+            SCRIBE_STUB_CONFIDENCE,
+        ) < 1e-9,
+        "confidence is the mean per-word exp(logprob) over spoken words only",
+      );
+      assertEqual(
+        result.transcription?.metadata?.confidenceSource,
+        "word_logprobs",
+        "metadata says the confidence came from per-word logprobs",
+      );
+      assertEqual(
+        result.transcription?.metadata?.languageProbability,
+        0.98,
+        "language_probability is exposed as metadata under its own name",
+      );
+      assertEqual(
+        result.transcription?.duration,
+        1.6,
+        "duration is the last word's end",
+      );
+      assertEqual(
+        result.transcription?.words?.map((w) => w.word).join(" "),
+        "hello there friend",
+        "spacing and audio_event entries are excluded from word timings",
+      );
+      assertEqual(
+        result.transcription?.words?.[1]?.startTime,
+        0.5,
+        "word start times are mapped",
+      );
+      assertEqual(
+        result.transcription?.words?.[1]?.endTime,
+        0.9,
+        "word end times are mapped",
+      );
+      assertEqual(
+        result.transcription?.words?.[2]?.speaker,
+        "speaker_1",
+        "speaker_id is carried per word",
+      );
+      assertEqual(
+        result.transcription?.speakers?.join(","),
+        "speaker_0,speaker_1",
+        "distinct speakers are listed",
+      );
+      assertEqual(
+        result.transcription?.metadata?.provider,
+        provider,
+        "metadata names the registered provider (STTProcessor stamps the lookup name)",
+      );
+      assertEqual(
+        result.transcription?.metadata?.model,
+        "scribe_v2",
+        "metadata names the Scribe model",
+      );
+      assertEqual(
+        chatPrompts.length,
+        1,
+        "the transcript then reached the model",
+      );
+      assert(
+        (chatPrompts[0] ?? "").includes("hello there friend"),
+        "the transcript is what the model was asked about",
+      );
+
+      await nl.generate({
+        ...common,
+        stt: scribe({
+          enabled: true,
+          audio: Buffer.from("RIFF-fake-wav-bytes"),
+          provider,
+          baseUrl,
+          language: "en-US",
+          tagAudioEvents: true,
+          model: "scribe_v1_experimental",
+        }),
+      });
+      const second = scribeRequests[1];
+      assertEqual(
+        second?.fields.language_code,
+        "en",
+        "a BCP-47 language is reduced to the ISO code Scribe takes",
+      );
+      assertEqual(
+        second?.fields.tag_audio_events,
+        "true",
+        "tagAudioEvents: true is forwarded",
+      );
+      assertEqual(
+        second?.fields.model_id,
+        "scribe_v1_experimental",
+        "the model option is forwarded",
+      );
+      assertEqual(
+        second?.fields.diarize,
+        "false",
+        "diarize is false when not requested",
+      );
+      assertEqual(
+        second?.fields.num_speakers,
+        undefined,
+        "num_speakers is omitted without diarization",
+      );
+    },
+  );
+});
+
+/**
+ * A Scribe stand-in that answers each request per `plan`: `"stall"` sends the
+ * status line and half a JSON body, then holds the socket open; `"noprob"`
+ * returns a transcript whose words carry no `logprob`; `"bare"` returns text
+ * alone — no words, no language probability.
+ */
+async function withScribeBodyStub<T>(
+  plan: Array<"stall" | "noprob" | "bare">,
+  fn: (baseUrl: string) => Promise<T>,
+): Promise<T> {
+  const open = new Set<http.ServerResponse>();
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      const step = plan.shift() ?? "noprob";
+      res.writeHead(200, { "Content-Type": "application/json" });
+      if (step === "stall") {
+        open.add(res);
+        res.write(
+          '{"language_code":"eng","language_probability":0.99,"text":"hel',
+        );
+        return;
+      }
+      if (step === "bare") {
+        res.end(JSON.stringify({ text: "nothing but text" }));
+        return;
+      }
+      res.end(
+        JSON.stringify({
+          language_code: "eng",
+          language_probability: 0.99,
+          text: "no probabilities here",
+          words: [
+            { text: "no", type: "word", start: 0, end: 0.2 },
+            { text: " ", type: "spacing", start: 0.2, end: 0.3 },
+            { text: "probabilities", type: "word", start: 0.3, end: 0.9 },
+            { text: " ", type: "spacing", start: 0.9, end: 1.0 },
+            { text: "here", type: "word", start: 1.0, end: 1.3 },
+          ],
+        }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn(`http://127.0.0.1:${port}/v1`);
+  } finally {
+    for (const res of open) {
+      res.destroy();
+    }
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+await test("ElevenLabs Scribe: timeoutMs bounds the body read, not just the headers; confidence falls back to language_probability, then 0, and says which", async () => {
+  const handler = new ElevenLabsSTT("stub-credential");
+  await withScribeBodyStub(["stall", "noprob", "bare"], async (baseUrl) => {
+    const started = Date.now();
+    let failure: unknown;
+    try {
+      await handler.transcribe(AUDIO, {
+        baseUrl,
+        format: "wav",
+        timeoutMs: 300,
+      } as ElevenLabsSTTOptions);
+    } catch (err) {
+      failure = err;
+    }
+    const elapsed = Date.now() - started;
+    assert(
+      failure instanceof STTError,
+      "a body that stalls surfaces as an STTError",
+    );
+    assert(
+      elapsed < 5_000,
+      `the stalled body was abandoned at the per-request timeout (took ${elapsed}ms)`,
+    );
+    assertIncludes(
+      failure instanceof Error ? failure.message : "",
+      "timed out after 300ms",
+      "the failure names the per-request timeout",
+    );
+
+    const result = await handler.transcribe(AUDIO, {
+      baseUrl,
+      format: "wav",
+    } as ElevenLabsSTTOptions);
+    assertEqual(
+      result.text,
+      "no probabilities here",
+      "the second, complete response is transcribed",
+    );
+    // `confidence` is required on STTResult (a strict-TS consumer reads it
+    // without a guard), so with no per-word logprob it is the language
+    // probability — and metadata says so, rather than passing one number
+    // off as the other silently.
+    assertEqual(
+      result.confidence,
+      0.99,
+      "with no per-word logprob, confidence falls back to language_probability",
+    );
+    assertEqual(
+      result.metadata?.confidenceSource,
+      "language_probability",
+      "metadata names language_probability as the source",
+    );
+    assertEqual(
+      result.metadata?.languageProbability,
+      0.99,
+      "the language-detection probability still reaches metadata under its own name",
+    );
+    assertEqual(
+      result.words?.length,
+      3,
+      "word timings are still mapped without logprobs",
+    );
+
+    const bare = await handler.transcribe(AUDIO, {
+      baseUrl,
+      format: "wav",
+    } as ElevenLabsSTTOptions);
+    assertEqual(
+      bare.text,
+      "nothing but text",
+      "the bare response is transcribed",
+    );
+    assertEqual(
+      bare.confidence,
+      0,
+      "with neither logprobs nor a language probability, confidence is 0",
+    );
+    assertEqual(
+      bare.metadata?.confidenceSource,
+      "none",
+      "metadata says no transcript-level signal was reported",
+    );
+    assertEqual(
+      isSTTResult(bare),
+      true,
+      "a zero confidence still satisfies the STTResult guard",
+    );
+  });
+});
+
+await test("ElevenLabs Scribe: the catalog registers elevenlabs-stt with scribe and elevenlabs as STT aliases", async () => {
+  // Registration is gated on the credential; supply one for the duration so
+  // the catalog wiring (names + aliases) can be observed without a real key.
+  const original = process.env.ELEVENLABS_API_KEY;
+  process.env.ELEVENLABS_API_KEY = "stub-credential-for-registration";
+  const snapshot = STTProcessor.listProviders().map(
+    (name) => [name, STTProcessor.getHandler(name)] as const,
+  );
+  try {
+    const { registerDefaultSTTHandlers } = await import("../dist/index.js");
+    registerDefaultSTTHandlers();
+    for (const name of ["elevenlabs-stt", "scribe", "elevenlabs"]) {
+      assert(STTProcessor.supports(name), `STTProcessor resolves "${name}"`);
+    }
+    assertEqual(
+      STTProcessor.getHandler("scribe"),
+      STTProcessor.getHandler("elevenlabs-stt"),
+      "aliases share the primary's handler instance",
+    );
+    assert(
+      STTProcessor.getHandler("elevenlabs") instanceof ElevenLabsSTT,
+      'the STT registry\'s "elevenlabs" is the Scribe handler, not the TTS one',
+    );
+  } finally {
+    if (original === undefined) {
+      delete process.env.ELEVENLABS_API_KEY;
+    } else {
+      process.env.ELEVENLABS_API_KEY = original;
+    }
+    // Leave the registry as this test found it.
+    STTProcessor.clearHandlers();
+    for (const [name, handler] of snapshot) {
+      if (handler) {
+        STTProcessor.registerHandler(name, handler);
+      }
+    }
+  }
 });
 
 await runSuite();

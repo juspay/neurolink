@@ -24,8 +24,20 @@ import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
 import type {
   ContextCompactorDeps,
   ContextRelevanceOptions,
+  DecisionAfterEvent,
+  DecisionAnswer,
+  DecisionBeforeEvent,
+  DecisionCallerOptions,
+  DecisionHookContext,
+  DecisionHooks,
+  DecisionLimitsQuery,
+  DecisionLimitsReading,
   DecisionOptions,
+  DecisionQuestion,
+  DecisionQuestionMap,
   DecisionResult,
+  DecisionSiteContext,
+  DecisionState,
   AgentDefinition,
   AgentNetworkConfig,
   AgentRunOptions,
@@ -100,10 +112,12 @@ import type {
   EvaluationData,
   NeurolinkCredentials,
   OptionalValidationSchema,
+  ProviderDescriptor,
   ProviderStatus,
   TextGenerationOptions,
   TextGenerationResult,
   TokenUsage,
+  ToolReplayMode,
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
@@ -180,10 +194,23 @@ import {
 import { AIProviderFactory } from "./core/factory.js";
 import {
   describeDecisionProviderKeys,
+  PROVIDER_ALIAS_INDEX,
+  PROVIDER_DESCRIPTORS_BY_NAME,
   resolveDefaultDecisionProvider,
 } from "./factories/providerDescriptors.js";
+import {
+  decisionKey,
+  HOST_DECISION_NAMESPACE,
+  isHostDecisionKey,
+  snapshotDecisionQuestion,
+  stripHostAnswers,
+} from "./utils/decisionAnswers.js";
+import { resolveDecisionLimitsReading } from "./utils/decisionLimits.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
-import { resolveRequestKind } from "./core/resolveRequestKind.js";
+import {
+  isDirectTTSRequest,
+  resolveRequestKind,
+} from "./core/resolveRequestKind.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
 import { ProviderFactory } from "./factories/providerFactory.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
@@ -221,10 +248,15 @@ import type {
   DynamicResolutionContext,
   HippocampusConfig,
   HippocampusLike,
+  HippocampusMemory,
+  HippocampusNeurolinkLike,
+  MemoryCallOptions,
+  MemoryTurn,
   SkillsCallOptions,
   SkillsConfig,
 } from "./types/index.js";
 import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
+import { validateCondensationPrompt } from "./memory/condensationPrompt.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import { isSkillVisibleInScope } from "./skills/skillMatcher.js";
 import { buildSkillActivationMessage } from "./skills/skillSessionTracker.js";
@@ -244,6 +276,8 @@ import {
   SpanType,
   CircuitBreakerOpenError,
   ConversationMemoryError,
+  DEFAULT_DECISION_HOOK_TIMEOUT_MS,
+  MAX_DECISION_HOOK_TIMEOUT_MS,
   ModelAccessDeniedError,
 } from "./types/index.js";
 import type {
@@ -510,6 +544,13 @@ const isNonRetryableProviderError = sharedIsNonRetryableProviderError;
  * ModelPool catch sites; every other path keeps the general contract.
  */
 const isNonRetryableForPool = sharedIsNonRetryableForPool;
+
+/**
+ * Ceiling on one background memory write (`Promise.all` of its `add()`
+ * calls), and therefore on how long `shutdown()` / `dispose()` wait for the
+ * writes already scheduled before releasing the condenser.
+ */
+const MEMORY_WRITE_TIMEOUT_MS = 30_000;
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -914,6 +955,10 @@ export class NeuroLink {
   // decision provider being configured, not on this.
   private readonly contextRelevanceOptions: ContextRelevanceOptions | undefined;
 
+  // Host hooks riding along on every built-in decide site call. Undefined =
+  // no hooks, and the site calls behave exactly as they did without them.
+  private readonly decisionHooks: DecisionHooks | undefined;
+
   /**
    * Merge instance-level credentials with per-call credentials.
    *
@@ -986,6 +1031,38 @@ export class NeuroLink {
   // Memory instance and config
   private memoryInstance?: HippocampusLike | null;
   private memorySDKConfig?: HippocampusConfig;
+  /**
+   * Set when the instance-level condensation prompt failed validation at
+   * construction (see initializeConversationMemory). Memory stays off for
+   * the instance's lifetime; the reason is what the warning already said.
+   */
+  private memoryDisabledReason?: string;
+  /**
+   * Dedicated child instance Hippocampus condenses through. Built on first
+   * condensation, never at construction — so a read-only host, or one whose
+   * memory never activates, never pays for a second NeuroLink.
+   */
+  private memoryCondenser?: NeuroLink;
+  /**
+   * Set by `releaseMemoryCondenser()`, i.e. by `shutdown()` / `dispose()`,
+   * once the writes already scheduled have been drained. A memory write
+   * scheduled past that point must skip, and the condenser must never be
+   * rebuilt: a child resurrected after release would outlive its host,
+   * unreleased, and — after `dispose()` wiped the credentials — condense
+   * with none.
+   */
+  private memoryCondenserReleased = false;
+  /**
+   * Memory writes scheduled and not yet settled. `releaseMemoryCondenser()`
+   * awaits them (bounded) before it releases anything, so
+   * `await generate(); await shutdown();` — a serverless handler, a
+   * per-request instance, a one-shot CLI run — still stores its last turn.
+   */
+  private readonly pendingMemoryWrites = new Set<Promise<void>>();
+  /** Prompt templates already warned about, so a per-call template warns once. */
+  private readonly warnedCondensationPrompts = new Set<string>();
+  /** `decisionHooks.hookTimeoutMs` once validated; see `decisionHookTimeout`. */
+  private decisionHookTimeoutMs?: number;
 
   // Skills subsystem — lazily initialized manager + instance config.
   // `undefined` = not yet attempted, `null` = init failed (stay disabled).
@@ -1291,12 +1368,184 @@ export class NeuroLink {
 
   private initializeMemoryConfig(): boolean {
     const memory = this.conversationMemoryConfig?.conversationMemory?.memory;
-    if (!memory?.enabled) {
+    if (!memory?.enabled || this.memoryDisabledReason) {
       return false;
     }
 
-    this.memorySDKConfig = memory;
+    // Only the HippocampusConfig part reaches the Hippocampus constructor;
+    // `enabled`, `client`, `strictPrompt` and the write hooks are NeuroLink's.
+    const {
+      enabled: _enabled,
+      client: _client,
+      strictPrompt: _strictPrompt,
+      shouldWrite: _shouldWrite,
+      onBeforeStore: _onBeforeStore,
+      prompt,
+      ...sdkConfig
+    } = memory;
+
+    this.memorySDKConfig = {
+      ...sdkConfig,
+      // A blank template counts as unset here (validateInstanceCondensationPrompt
+      // skips it), so it must not reach Hippocampus either: it resolves
+      // `config.prompt || HC_CONDENSATION_PROMPT || built-in`, and "   " is
+      // truthy — it would condense with a template that has no placeholders.
+      ...(prompt?.trim() ? { prompt } : {}),
+      neurolink: {
+        ...(memory.neurolink ?? {}),
+        credentials: memory.neurolink?.credentials ?? this.credentials,
+        instance:
+          memory.neurolink?.instance ?? this.lazyMemoryCondenserInstance(),
+      },
+    };
     return true;
+  }
+
+  /**
+   * A `generate()`-only handle whose backing NeuroLink is constructed on the
+   * first condensation call, not when memory is configured or first read.
+   */
+  private lazyMemoryCondenserInstance(): HippocampusNeurolinkLike {
+    return {
+      generate: async (options) => {
+        const condenser = this.getMemoryCondenser();
+        if (!condenser) {
+          // Hippocampus swallows a condensation error and keeps the old
+          // memory, which is exactly the right outcome for a write that
+          // outlived its host: skipped, never condensed with no credentials.
+          logger.debug(
+            "[NeuroLink] Memory condensation skipped: the host instance has been shut down",
+          );
+          throw new Error(
+            "Memory condenser released: the host NeuroLink instance has been shut down",
+          );
+        }
+        return condenser.generate(options);
+      },
+    };
+  }
+
+  /**
+   * Release the lazily created condenser with its host. Its own
+   * `shutdown()` is a no-op when condensation never ran; when it did, the
+   * child's memory is disabled and it holds no MCP servers, so this is
+   * cheap — the point is that the host's lifecycle owns the child's.
+   *
+   * The writes already scheduled are drained FIRST, bounded by the write
+   * timeout: a turn's memory write is deferred to `setImmediate`, so
+   * `await generate(); await shutdown();` would otherwise never store the
+   * turn. Only then is the host marked released, so a write scheduled after
+   * that point skips instead of rebuilding the child.
+   */
+  private async releaseMemoryCondenser(): Promise<void> {
+    await this.drainPendingMemoryWrites();
+    this.memoryCondenserReleased = true;
+    const condenser = this.memoryCondenser;
+    if (!condenser) {
+      return;
+    }
+    this.memoryCondenser = undefined;
+    await condenser.shutdown();
+  }
+
+  /**
+   * Wait for every scheduled memory write to settle, including writes
+   * scheduled while waiting, within one `MEMORY_WRITE_TIMEOUT_MS` budget.
+   * A write that outlives the budget is left in flight and warned about —
+   * it will skip or fail on its own once the condenser is gone — rather
+   * than hold shutdown open indefinitely.
+   */
+  private async drainPendingMemoryWrites(): Promise<void> {
+    if (this.pendingMemoryWrites.size === 0) {
+      return;
+    }
+    const deadline = Date.now() + MEMORY_WRITE_TIMEOUT_MS;
+    while (this.pendingMemoryWrites.size > 0) {
+      const remainingMs = deadline - Date.now();
+      const inFlight = [...this.pendingMemoryWrites];
+      if (remainingMs <= 0) {
+        this.warnMemoryWritesLeftInFlight(inFlight.length);
+        return;
+      }
+      try {
+        await withTimeout(
+          Promise.allSettled(inFlight),
+          remainingMs,
+          new Error(
+            `Memory writes still in flight after ${MEMORY_WRITE_TIMEOUT_MS}ms`,
+          ),
+        );
+      } catch {
+        this.warnMemoryWritesLeftInFlight(this.pendingMemoryWrites.size);
+        return;
+      }
+    }
+  }
+
+  private warnMemoryWritesLeftInFlight(count: number): void {
+    logger.warn(
+      `[NeuroLink] Shutdown proceeded with ${count} memory write(s) still in flight after ${MEMORY_WRITE_TIMEOUT_MS}ms; the last turn may not be stored`,
+      { pendingWrites: count },
+    );
+  }
+
+  /**
+   * The child instance Hippocampus condenses through, or null once the host
+   * has been released.
+   *
+   * Deliberately NOT `this`: routing condensation through the parent would
+   * run its MCP init, skills and middleware, emit `generation:*` on the
+   * parent emitter and add the condensation call's cost to
+   * `_sessionCostUsd`. The child inherits `credentials` (or the explicit
+   * `memory.neurolink.credentials`) so condensation no longer depends on
+   * provider keys in `process.env`, has memory disabled so it can never
+   * recurse into a memory write of its own, and — like createWorkerInstance —
+   * joins the host tracer without a second Langfuse exporter.
+   */
+  private getMemoryCondenser(): NeuroLink | null {
+    if (this.memoryCondenser) {
+      return this.memoryCondenser;
+    }
+    if (this.memoryCondenserReleased) {
+      return null;
+    }
+    // Constructing an instance rebinds the process-global logger sink to the
+    // new instance's emitter. That sink is whatever the process last set —
+    // not necessarily this host's emitter (another instance may own a
+    // log-event bridge) — so it is captured and put back as it was, rather
+    // than pointed at the host.
+    const previousSink = logger.getEventEmitter();
+    const credentials =
+      this.conversationMemoryConfig?.conversationMemory?.memory?.neurolink
+        ?.credentials ?? this.credentials;
+    const hostLangfuse = this.observabilityConfig?.langfuse;
+    this.memoryCondenser = new NeuroLink({
+      ...(credentials ? { credentials } : {}),
+      conversationMemory: { enabled: false },
+      enableOrchestration: false,
+      ...(this.observabilityConfig
+        ? {
+            observability: {
+              ...this.observabilityConfig,
+              ...(hostLangfuse
+                ? {
+                    langfuse: {
+                      ...hostLangfuse,
+                      autoDetectExternalProvider: true,
+                      skipLangfuseSpanProcessor: true,
+                    },
+                  }
+                : {}),
+            },
+          }
+        : {}),
+    });
+    if (previousSink) {
+      logger.setEventEmitter(previousSink);
+    } else {
+      logger.clearEventEmitter(this.memoryCondenser.emitter);
+    }
+    return this.memoryCondenser;
   }
 
   /**
@@ -1317,7 +1566,10 @@ export class NeuroLink {
       return null;
     }
 
-    this.memoryInstance = initializeHippocampus(this.memorySDKConfig);
+    this.memoryInstance = initializeHippocampus(
+      this.memorySDKConfig,
+      this.conversationMemoryConfig?.conversationMemory?.memory?.client,
+    );
     return this.memoryInstance;
   }
 
@@ -1501,6 +1753,7 @@ export class NeuroLink {
     // reading config at each call site) keeps compactor construction uniform
     // across the five places that build one.
     this.contextRelevanceOptions = config?.contextRelevance;
+    this.decisionHooks = config?.decisionHooks;
 
     // ClassifierRouter: opt-in. The LLM strategy reuses this instance's
     // generate() (marked so it never recursively re-routes). Fails open.
@@ -1510,13 +1763,19 @@ export class NeuroLink {
             this.generate({
               ...genOptions,
             }),
-          // Fail-open by construction: tryDecide returns null rather than
+          // Fail-open by construction: siteDecide returns null rather than
           // throwing, so an absent or broken decision provider leaves routing
-          // exactly as it was.
-          decide: (decideOptions) => this.tryDecide(decideOptions),
-          // Read lazily: `this.credentials` is assigned later in the constructor.
-          hasDecisionProvider: () =>
-            resolveDefaultDecisionProvider(this.credentials) !== undefined,
+          // exactly as it was. The per-call credentials and ids arrive on the
+          // options themselves — classifyJev forwards them from the router
+          // input, since this caller is fixed at construction.
+          decide: (decideOptions) => this.siteDecide(decideOptions),
+          // Read lazily: `this.credentials` is assigned later in the
+          // constructor. Counts the request's per-call credentials too, so a
+          // host that holds no decision key itself but passes a tenant's on
+          // each call gets the decision strategy, as the other sites do.
+          hasDecisionProvider: (callCredentials) =>
+            this.resolveDecisionProviderName(undefined, callCredentials) !==
+            undefined,
           logger: {
             debug: (message, meta) =>
               logger.debug(message, meta as Record<string, unknown>),
@@ -1659,6 +1918,7 @@ export class NeuroLink {
       // Store config for later use and set flag for lazy initialization
       this.conversationMemoryConfig = config;
       this.conversationMemoryNeedsInit = true;
+      this.validateInstanceCondensationPrompt(config.conversationMemory.memory);
 
       const memoryInitEndTime = process.hrtime.bigint();
       const memoryInitDurationNs = memoryInitEndTime - memoryInitStartTime;
@@ -1701,6 +1961,69 @@ export class NeuroLink {
         message: "Conversation memory not enabled - skipping initialization",
       });
     }
+  }
+
+  /**
+   * Validate the condensation prompt template memory will condense with —
+   * the instance `prompt`, else `HC_CONDENSATION_PROMPT` (which Hippocampus
+   * reads when no config prompt is set). Hippocampus substitutes
+   * placeholders with `replaceAll` and requires none, so a template missing
+   * `{{NEW_CONTENT}}` yields a memory that never grows and one missing
+   * `{{OLD_MEMORY}}` overwrites the summary on every turn — both silently.
+   *
+   * Default is disable-and-log, matching every other memory failure; the
+   * log line is `error` because it is the only signal an operator gets that
+   * memory is off. With `memory.strictPrompt` the constructor throws instead.
+   *
+   * An empty or whitespace-only template counts as unset — Hippocampus
+   * resolves `config.prompt || HC_CONDENSATION_PROMPT || built-in`, so `""`
+   * means "use the next one down", never "a template with no placeholders".
+   */
+  private validateInstanceCondensationPrompt(
+    memory: HippocampusMemory | undefined,
+  ): void {
+    if (!memory?.enabled) {
+      return;
+    }
+    const configuredPrompt = memory.prompt?.trim() ? memory.prompt : undefined;
+    const envPrompt = process.env.HC_CONDENSATION_PROMPT?.trim()
+      ? process.env.HC_CONDENSATION_PROMPT
+      : undefined;
+    const template = configuredPrompt ?? envPrompt;
+    if (template === undefined) {
+      return;
+    }
+    const source = configuredPrompt !== undefined ? "prompt" : "env";
+    const configName =
+      source === "prompt"
+        ? "conversationMemory.memory.prompt"
+        : "HC_CONDENSATION_PROMPT";
+    const verdict = validateCondensationPrompt(template);
+    if (verdict.valid) {
+      if (verdict.missing.length > 0) {
+        logger.warn(
+          `[NeuroLink] Memory condensation prompt (${configName}) has no {{MAX_WORDS}} placeholder; maxWords will not be enforced`,
+          { source, missing: verdict.missing },
+        );
+      }
+      return;
+    }
+    const reason = `missing required placeholder(s) ${verdict.fatal
+      .map((name) => `{{${name}}}`)
+      .join(", ")}`;
+    if (memory.strictPrompt) {
+      throw ErrorFactory.invalidConfiguration(configName, reason, {
+        source,
+        missing: verdict.missing,
+      });
+    }
+    this.memoryDisabledReason = `${configName}: ${reason}`;
+    // `error`, not `warn`: warnings are hidden at the default log level, and
+    // a host whose memory is silently off has no other way to find out.
+    logger.error(
+      `[NeuroLink] Memory disabled: condensation prompt (${configName}) is ${reason}. Without {{NEW_CONTENT}} memory never grows; without {{OLD_MEMORY}} every turn overwrites it. Fix the template or set memory.strictPrompt to fail fast.`,
+      { source, missing: verdict.missing },
+    );
   }
 
   /**
@@ -2494,6 +2817,7 @@ Current user's request: ${currentInput}`;
   ): boolean {
     if (
       !this.conversationMemoryConfig?.conversationMemory?.memory?.enabled ||
+      this.memoryDisabledReason ||
       !userId
     ) {
       return false;
@@ -2518,6 +2842,7 @@ Current user's request: ${currentInput}`;
   ): boolean {
     if (
       !this.conversationMemoryConfig?.conversationMemory?.memory?.enabled ||
+      this.memoryDisabledReason ||
       !userId
     ) {
       return false;
@@ -2593,38 +2918,184 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Build the `add()` options for one memory owner. A per-owner prompt that
+   * fails template validation is dropped (warned once per distinct template)
+   * so that owner condenses with the instance prompt instead — Hippocampus
+   * resolves `options.prompt || this.prompt`, so omitting it is the fallback.
+   * An empty or whitespace-only prompt counts as unset and is omitted the
+   * same way, unvalidated: `""` already falls through in Hippocampus, but
+   * `"   "` is truthy and would be used literally.
+   */
+  private resolveMemoryAddOptions(
+    owner: string,
+    prompt: string | undefined,
+    maxWords: number | undefined,
+  ): { prompt?: string; maxWords?: number } | undefined {
+    let effectivePrompt = prompt?.trim() ? prompt : undefined;
+    if (effectivePrompt !== undefined) {
+      const verdict = validateCondensationPrompt(effectivePrompt);
+      if (
+        verdict.missing.length > 0 &&
+        !this.warnedCondensationPrompts.has(effectivePrompt)
+      ) {
+        if (this.warnedCondensationPrompts.size >= 64) {
+          this.warnedCondensationPrompts.clear();
+        }
+        this.warnedCondensationPrompts.add(effectivePrompt);
+        if (verdict.valid) {
+          logger.warn(
+            "[NeuroLink] Per-owner memory condensation prompt has no {{MAX_WORDS}} placeholder; maxWords will not be enforced for this owner",
+            { owner, missing: verdict.missing },
+          );
+        } else {
+          logger.warn(
+            `[NeuroLink] Per-owner memory condensation prompt is missing ${verdict.fatal
+              .map((name) => `{{${name}}}`)
+              .join(", ")}; using the instance prompt for this owner instead`,
+            { owner, missing: verdict.missing },
+          );
+        }
+      }
+      if (!verdict.valid) {
+        effectivePrompt = undefined;
+      }
+    }
+    if (effectivePrompt === undefined && maxWords === undefined) {
+      return undefined;
+    }
+    // No `prompt` key at all when there is none to send, rather than
+    // `prompt: undefined`: what reaches the client is exactly the fallback.
+    return {
+      ...(effectivePrompt !== undefined ? { prompt: effectivePrompt } : {}),
+      ...(maxWords !== undefined ? { maxWords } : {}),
+    };
+  }
+
+  /**
    * Store a conversation turn in memory (non-blocking).
    * Calls add(userId, content) which internally condenses old + new via LLM.
    * Supports additional users with per-user prompt and maxWords overrides.
+   *
+   * The write hooks (`shouldWrite`, `onBeforeStore`; per-call wins over
+   * instance) run inside the deferred closure so an async hook never sits on
+   * the response path. A `false` / `null` verdict, a non-string transform or
+   * a thrown hook skips every `add()` for the turn — a missed memory is
+   * recoverable, a polluted condensed summary is not.
    */
   private storeMemoryInBackground(
-    originalPrompt: string,
-    responseContent: string,
-    userId: string,
-    additionalUsers?: AdditionalMemoryUser[],
+    turn: MemoryTurn,
+    perCallMemory: MemoryCallOptions | undefined,
     langfuseIdentity?: { traceName?: string | null; sessionId?: string | null },
   ): void {
+    const { userId } = turn;
+    const instanceHooks =
+      this.conversationMemoryConfig?.conversationMemory?.memory;
+    const shouldWrite =
+      perCallMemory?.shouldWrite ?? instanceHooks?.shouldWrite;
+    const onBeforeStore =
+      perCallMemory?.onBeforeStore ?? instanceHooks?.onBeforeStore;
+
     const memoryWrite = async () => {
       try {
+        // A write scheduled after shutdown()/dispose() finished draining has
+        // no host left to condense on; landing it would rebuild the released
+        // condenser. (A write scheduled before is what the drain waits for.)
+        if (this.memoryCondenserReleased) {
+          logger.debug(
+            "[NeuroLink] Memory write skipped: the instance has been shut down",
+            { userId },
+          );
+          return;
+        }
         const client = this.ensureMemoryReady();
         if (!client) {
           return;
         }
 
-        const content = `User: ${originalPrompt}\nAssistant: ${responseContent}`;
+        if (shouldWrite) {
+          let allowed: boolean;
+          try {
+            allowed = await shouldWrite(turn);
+          } catch (error) {
+            logger.warn(
+              "[NeuroLink] memory.shouldWrite hook threw; skipping memory write for this turn",
+              {
+                userId,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+            return;
+          }
+          if (!allowed) {
+            logger.debug("[NeuroLink] memory.shouldWrite declined the turn", {
+              userId,
+            });
+            return;
+          }
+        }
+
+        let content = `User: ${turn.prompt}\nAssistant: ${turn.response}`;
+        if (onBeforeStore) {
+          let transformed: string | null;
+          try {
+            transformed = await onBeforeStore(content, turn);
+          } catch (error) {
+            logger.warn(
+              "[NeuroLink] memory.onBeforeStore hook threw; skipping memory write for this turn",
+              {
+                userId,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+            return;
+          }
+          if (transformed === null) {
+            logger.debug("[NeuroLink] memory.onBeforeStore vetoed the turn", {
+              userId,
+            });
+            return;
+          }
+          if (typeof transformed !== "string") {
+            logger.warn(
+              "[NeuroLink] memory.onBeforeStore returned a non-string; skipping memory write for this turn",
+              { userId, returnedType: typeof transformed },
+            );
+            return;
+          }
+          content = transformed;
+        }
+        if (!content.trim()) {
+          return;
+        }
 
         // Collect all users to write: primary + additional users with write !== false
-        const writeOps: Promise<string>[] = [client.add(userId, content)];
+        const writeOps: Promise<string>[] = [
+          client.add(
+            userId,
+            content,
+            this.resolveMemoryAddOptions(
+              userId,
+              perCallMemory?.prompt,
+              perCallMemory?.maxWords,
+            ),
+          ),
+        ];
 
-        const writableAdditional = (additionalUsers || []).filter(
-          (u) => u.write !== false,
-        );
+        const writableAdditional = (
+          perCallMemory?.additionalUsers || []
+        ).filter((u) => u.write !== false);
         for (const user of writableAdditional) {
-          const addOptions =
-            user.prompt || user.maxWords
-              ? { prompt: user.prompt, maxWords: user.maxWords }
-              : undefined;
-          writeOps.push(client.add(user.userId, content, addOptions));
+          writeOps.push(
+            client.add(
+              user.userId,
+              content,
+              this.resolveMemoryAddOptions(
+                user.userId,
+                user.prompt,
+                user.maxWords,
+              ),
+            ),
+          );
         }
 
         // withTimeout races against Promise.all — if the timeout fires, the
@@ -2634,8 +3105,10 @@ Current user's request: ${currentInput}`;
         // fire-and-forget background writes where a stale completion is harmless.
         await withTimeout(
           Promise.all(writeOps),
-          30_000,
-          new Error("Background memory write timed out after 30s"),
+          MEMORY_WRITE_TIMEOUT_MS,
+          new Error(
+            `Background memory write timed out after ${MEMORY_WRITE_TIMEOUT_MS}ms`,
+          ),
         );
       } catch (error) {
         logger.warn("Memory storage failed:", error);
@@ -2661,7 +3134,22 @@ Current user's request: ${currentInput}`;
               memoryWrite,
             )
         : runWithCurrentLangfuseContext(memoryWrite);
-    setImmediate(wrappedMemoryWrite);
+    // Tracked from the moment it is scheduled, not from when setImmediate
+    // fires: shutdown() typically runs in that gap, and a write it cannot
+    // see is a write it cannot wait for. `memoryWrite` never rejects (it
+    // catches internally), so the settle only ever resolves.
+    const scheduled = new Promise<void>((resolve) => {
+      setImmediate(() => {
+        Promise.resolve()
+          .then(wrappedMemoryWrite)
+          .then(
+            () => resolve(),
+            () => resolve(),
+          );
+      });
+    });
+    this.pendingMemoryWrites.add(scheduled);
+    void scheduled.then(() => this.pendingMemoryWrites.delete(scheduled));
   }
 
   /**
@@ -3912,6 +4400,12 @@ Current user's request: ${currentInput}`;
         logger.debug("[NeuroLink] Background commands and delegates stopped");
       } catch (error) {
         logger.warn("[NeuroLink] Background work cleanup failed:", error);
+      }
+
+      try {
+        await this.releaseMemoryCondenser();
+      } catch (error) {
+        logger.warn("[NeuroLink] Memory condenser shutdown failed:", error);
       }
 
       try {
@@ -5483,15 +5977,54 @@ Current user's request: ${currentInput}`;
   /**
    * Dependencies handed to every `ContextCompactor`.
    *
-   * `tryDecide` returns null whenever no decision provider is configured or
+   * `siteDecide` returns null whenever no decision provider is configured or
    * the call fails, so passing this unconditionally is safe: the compactor
    * runs its previous pipeline unchanged and pays nothing for the option.
+   * `outer` is the request the compaction runs for — its credentials, abort
+   * signal and ids — so both decision stages go to the caller's account.
    */
-  private contextCompactorDeps(): ContextCompactorDeps {
+  private contextCompactorDeps(
+    outer?: DecisionSiteContext,
+  ): ContextCompactorDeps {
     return {
-      decide: (decisionOptions: DecisionOptions) =>
-        this.tryDecide(decisionOptions),
+      decide: (decisionOptions: DecisionCallerOptions) =>
+        this.siteDecide(decisionOptions, outer),
       relevance: this.contextRelevanceOptions,
+    };
+  }
+
+  /**
+   * What a decide site inherits from the request it runs inside. Read off the
+   * request options so every site — routing, tool routing, both compaction
+   * stages — forwards the same fields the same way. The request id is the
+   * documented top-level `requestId` first, then `context.requestId`.
+   */
+  private decisionSiteContext(
+    options: {
+      credentials?: NeurolinkCredentials;
+      abortSignal?: AbortSignal;
+      context?: unknown;
+      requestId?: string;
+    },
+    sessionId?: string,
+  ): DecisionSiteContext {
+    const requestContext = options.context as
+      | Record<string, unknown>
+      | undefined;
+    const requestId =
+      options.requestId ??
+      (typeof requestContext?.requestId === "string"
+        ? requestContext.requestId
+        : undefined);
+    const contextSessionId =
+      typeof requestContext?.sessionId === "string"
+        ? requestContext.sessionId
+        : undefined;
+    return {
+      credentials: options.credentials,
+      signal: options.abortSignal,
+      sessionId: sessionId ?? contextSessionId,
+      requestId,
     };
   }
 
@@ -5531,6 +6064,9 @@ Current user's request: ${currentInput}`;
       excludeTools?: string[];
       toolFilter?: string[];
       conversationMessages?: unknown[];
+      credentials?: NeurolinkCredentials;
+      abortSignal?: AbortSignal;
+      requestId?: string;
     };
     // Prevent recursion: the LLM classifier itself calls generate() with this
     // marker set. Also respect any explicit prior routing decision.
@@ -5560,6 +6096,10 @@ Current user's request: ${currentInput}`;
     const priorMessageCount = Array.isArray(opt.conversationMessages)
       ? opt.conversationMessages.length
       : undefined;
+    // The decision call inherits this request's credentials, abort signal
+    // and ids exactly as the other sites do, so it reaches the caller's
+    // account, dies with the turn, and correlates on the same requestId.
+    const siteContext = this.decisionSiteContext(opt, sessionId);
 
     try {
       const decision = await this.classifierRouter.route({
@@ -5571,6 +6111,9 @@ Current user's request: ${currentInput}`;
         sessionId,
         sessionBound,
         priorMessageCount,
+        credentials: siteContext.credentials,
+        signal: siteContext.signal,
+        requestId: siteContext.requestId,
       });
       if (!decision) {
         return;
@@ -5794,7 +6337,9 @@ Current user's request: ${currentInput}`;
       maxSteps: options.maxSteps,
       toolRoots: options.toolRoots,
       toolChoice: options.toolChoice,
+      toolChoiceSteps: options.toolChoiceSteps,
       prepareStep: options.prepareStep,
+      replayToolSteps: options.replayToolSteps,
       enabledToolNames: options.enabledToolNames,
       enableAnalytics: options.enableAnalytics,
       enableEvaluation: options.enableEvaluation,
@@ -6286,11 +6831,22 @@ Current user's request: ${currentInput}`;
       ) &&
       options.context?.userId
     ) {
+      const sessionId = options.context.sessionId;
       this.storeMemoryInBackground(
-        originalPrompt ?? "",
-        generateResult.content.trim(),
-        options.context.userId as string,
-        options.memory?.additionalUsers,
+        {
+          prompt: originalPrompt ?? "",
+          response: generateResult.content.trim(),
+          userId: options.context.userId as string,
+          ...(typeof sessionId === "string" ? { sessionId } : {}),
+          provider: generateResult.provider,
+          model: generateResult.model,
+          toolsUsed:
+            generateResult.toolsUsed ??
+            generateResult.toolExecutions?.map((t) => t.toolName),
+          usage: generateResult.usage,
+          finishReason: generateResult.finishReason,
+        },
+        options.memory,
         options.context as { traceName?: string; sessionId?: string },
       );
     }
@@ -7236,7 +7792,7 @@ Current user's request: ${currentInput}`;
             enableTruncate: true,
             truncationFraction: fraction,
           },
-          this.contextCompactorDeps(),
+          this.contextCompactorDeps(this.decisionSiteContext(options)),
         );
         const compactionResult = await compactor.compact(
           originalMessages as import("./types/index.js").ChatMessage[],
@@ -7257,6 +7813,7 @@ Current user's request: ${currentInput}`;
           maxTokens: options.maxTokens,
           systemPrompt: options.systemPrompt,
           currentPrompt: options.prompt,
+          toolReplayMode: this.resolveToolReplayModeForBudget(options),
           conversationMessages: repairedResult.messages as Array<{
             role: string;
             content: string;
@@ -7512,10 +8069,7 @@ Current user's request: ${currentInput}`;
     generateInternalHrTimeStart: bigint,
     functionTag: string,
   ): Promise<TextGenerationResult | null> {
-    if (
-      !options.disableTools &&
-      !(options.tts?.enabled && !options.tts?.useAiResponse)
-    ) {
+    if (!options.disableTools && !isDirectTTSRequest(options.tts)) {
       return await this.performMCPGenerationRetries(
         options,
         generateInternalId,
@@ -8022,6 +8576,31 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  /**
+   * The replay mode the budget check should size stored tool rows by: the
+   * request's `replayToolSteps`, else the instance's, else the builder's
+   * `"marker"` default — the same resolution BaseProvider applies before
+   * building messages, so the estimate matches the prompt.
+   *
+   * Reach: every `checkContextBudget` call on the generate and stream paths,
+   * including the post-compaction and post-truncation re-checks. It does NOT
+   * reach the compactor's own stage gates or the summarizer's sizing
+   * (`ContextCompactor`, `SummarizationEngine`): those still count tool rows
+   * at stored size, so under `"marker"` / `"off"` a stage may prune or
+   * summarize more history than the prompt would have carried. Threading the
+   * mode into the compactor is a follow-up, tracked in
+   * docs/features/context-compaction.md ("Context budget").
+   */
+  private resolveToolReplayModeForBudget(options: {
+    replayToolSteps?: ToolReplayMode;
+  }): ToolReplayMode {
+    return (
+      options.replayToolSteps ??
+      this.conversationMemory?.config?.replayToolSteps ??
+      "marker"
+    );
+  }
+
   private async ensureMCPGenerationBudget(
     options: TextGenerationOptions,
     requestId: string,
@@ -8042,6 +8621,7 @@ Current user's request: ${currentInput}`;
       currentPrompt: options.prompt,
       toolDefinitions: availableTools,
       compactionThreshold: options.compactionThreshold,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
     });
 
     logger.info("[TokenBudget] Token breakdown", {
@@ -8151,7 +8731,9 @@ Current user's request: ${currentInput}`;
         summarizationModel:
           this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
       },
-      this.contextCompactorDeps(),
+      this.contextCompactorDeps(
+        this.decisionSiteContext(options, compactionSessionId),
+      ),
     );
 
     // Fixed overhead (system + prompt + tools + files) already exceeds the
@@ -8204,6 +8786,7 @@ Current user's request: ${currentInput}`;
         content: string;
       }>,
       currentPrompt: options.prompt,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
       toolDefinitions: availableTools,
     });
 
@@ -8240,6 +8823,7 @@ Current user's request: ${currentInput}`;
         content: string;
       }>,
       currentPrompt: options.prompt,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
       toolDefinitions: availableTools,
     });
 
@@ -8695,6 +9279,7 @@ Current user's request: ${currentInput}`;
             content: string;
           }>,
           currentPrompt: options.prompt,
+          toolReplayMode: this.resolveToolReplayModeForBudget(options),
           toolDefinitions: options.tools
             ? Object.values(options.tools)
             : undefined,
@@ -8774,6 +9359,7 @@ Current user's request: ${currentInput}`;
                 systemPrompt: options.systemPrompt,
                 conversationMessages: [],
                 currentPrompt: windowed,
+                toolReplayMode: this.resolveToolReplayModeForBudget(options),
                 toolDefinitions: options.tools
                   ? Object.values(options.tools)
                   : undefined,
@@ -8867,7 +9453,9 @@ Current user's request: ${currentInput}`;
                 this.conversationMemoryConfig?.conversationMemory
                   ?.summarizationModel,
             },
-            this.contextCompactorDeps(),
+            this.contextCompactorDeps(
+              this.decisionSiteContext(options, dpgCompactionSessionId),
+            ),
           );
           const compactionResult = await compactor.compact(
             conversationMessages as import("./types/index.js").ChatMessage[],
@@ -8898,6 +9486,7 @@ Current user's request: ${currentInput}`;
               content: string;
             }>,
             currentPrompt: options.prompt,
+            toolReplayMode: this.resolveToolReplayModeForBudget(options),
             toolDefinitions: options.tools
               ? Object.values(options.tools)
               : undefined,
@@ -8952,6 +9541,7 @@ Current user's request: ${currentInput}`;
                 content: string;
               }>,
               currentPrompt: options.prompt,
+              toolReplayMode: this.resolveToolReplayModeForBudget(options),
               toolDefinitions: options.tools
                 ? Object.values(options.tools)
                 : undefined,
@@ -10164,13 +10754,14 @@ Current user's request: ${currentInput}`;
               abortSignal: options.abortSignal,
             }),
           // Calibrated per-server routing when a decision provider is
-          // configured. tryDecide returns null without one, so the resolver
-          // falls straight through to the generative router as before.
+          // configured. siteDecide returns null without one, so the resolver
+          // falls straight through to the generative router as before. The
+          // outer request's credentials, abort signal and ids ride along.
           decideFn: (decisionOptions) =>
-            this.tryDecide({
-              ...decisionOptions,
-              signal: options.abortSignal,
-            }),
+            this.siteDecide(
+              decisionOptions,
+              this.decisionSiteContext(options, sessionId || undefined),
+            ),
           decisionMinDropConfidence: routingConfig.minDropConfidence,
           emitDecision: captureDecision,
           // L2 / ITEM D — only populated when embedding is configured.
@@ -11013,6 +11604,16 @@ Current user's request: ${currentInput}`;
             accumulatedContent,
             startTime,
             eventSequence,
+            // Read only now, after the stream drained: the provider's
+            // toolsUsed is a live getter that resolves as the loop runs.
+            resultToolsUsed: (() => {
+              const fromResult = mcpStreamOutcome.toolsUsed;
+              if (Array.isArray(fromResult) && fromResult.length > 0) {
+                return fromResult;
+              }
+              const fromCalls = currentToolCalls().map((t) => t.toolName);
+              return fromCalls.length > 0 ? fromCalls : undefined;
+            })(),
           });
         }
       })();
@@ -11719,6 +12320,8 @@ Current user's request: ${currentInput}`;
       timestamp: number;
       [key: string]: unknown;
     }>;
+    /** Tool names from THIS request's stream result, when the provider reports them. */
+    resultToolsUsed?: ReadonlyArray<string>;
   }): Promise<void> {
     const {
       enhancedOptions,
@@ -11727,6 +12330,7 @@ Current user's request: ${currentInput}`;
       accumulatedContent,
       startTime,
       eventSequence,
+      resultToolsUsed,
     } = params;
 
     // Logger Guard: the full options object (history + tool outputs) can be
@@ -11840,11 +12444,28 @@ Current user's request: ${currentInput}`;
         accumulatedContent,
       )
     ) {
+      const streamSessionId = enhancedOptions.context?.sessionId;
+      // Tool names come from THIS request's stream result ONLY, as generate()
+      // reads them off its own result — an empty list is authoritative. The
+      // captured tool:start events are never consulted: they are collected
+      // by instance-wide listeners, so a stream that used no tools, running
+      // beside any other tool call on the same instance, would otherwise
+      // hand that tool's name to its shouldWrite / onBeforeStore.
+      // usage/finishReason stay unavailable.
+      const toolsUsed = [...new Set(resultToolsUsed ?? [])];
       this.storeMemoryInBackground(
-        originalPrompt ?? "",
-        accumulatedContent.trim(),
-        enhancedOptions.context?.userId as string,
-        enhancedOptions.memory?.additionalUsers,
+        {
+          prompt: originalPrompt ?? "",
+          response: accumulatedContent.trim(),
+          userId: enhancedOptions.context?.userId as string,
+          ...(typeof streamSessionId === "string"
+            ? { sessionId: streamSessionId }
+            : {}),
+          provider: providerName,
+          model: enhancedOptions.model,
+          ...(toolsUsed.length > 0 ? { toolsUsed } : {}),
+        },
+        enhancedOptions.memory,
         enhancedOptions.context as { traceName?: string; sessionId?: string },
       );
     }
@@ -11996,6 +12617,7 @@ Current user's request: ${currentInput}`;
       model: options.model,
       maxTokens: options.maxTokens,
       systemPrompt: enhancedSystemPrompt,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
       conversationMessages: conversationMessages as Array<{
         role: string;
         content: string;
@@ -12063,7 +12685,9 @@ Current user's request: ${currentInput}`;
             this.conversationMemoryConfig?.conversationMemory
               ?.summarizationModel,
         },
-        this.contextCompactorDeps(),
+        this.contextCompactorDeps(
+          this.decisionSiteContext(options, streamCompactionSessionId),
+        ),
       );
       const compactionResult = await compactor.compact(
         conversationMessages as import("./types/index.js").ChatMessage[],
@@ -12093,6 +12717,7 @@ Current user's request: ${currentInput}`;
         model: options.model,
         maxTokens: options.maxTokens,
         systemPrompt: enhancedSystemPrompt,
+        toolReplayMode: this.resolveToolReplayModeForBudget(options),
         conversationMessages: conversationMessages as Array<{
           role: string;
           content: string;
@@ -12148,6 +12773,7 @@ Current user's request: ${currentInput}`;
           model: options.model,
           maxTokens: options.maxTokens,
           systemPrompt: enhancedSystemPrompt,
+          toolReplayMode: this.resolveToolReplayModeForBudget(options),
           conversationMessages: conversationMessages as Array<{
             role: string;
             content: string;
@@ -17693,20 +18319,444 @@ Current user's request: ${currentInput}`;
    * @throws when no decision provider is configured, or the call fails
    */
   async decide(options: DecisionOptions): Promise<DecisionResult> {
+    return this.runDecide(options);
+  }
+
+  /**
+   * The provider a decision call will go to, resolved exactly as `decide()`
+   * resolves it: an explicit name (or alias) wins, else the first configured
+   * decision provider counting SDK credentials as well as the environment.
+   */
+  private resolveDecisionProviderName(
+    provider: string | undefined,
+    credentials: NeurolinkCredentials | undefined,
+  ): string | undefined {
+    return (
+      provider ??
+      resolveDefaultDecisionProvider(this.resolveCredentials(credentials))
+    );
+  }
+
+  /**
+   * The model `decide()` sends when the caller names none: the one the
+   * provider factory registered — `<PROVIDER>_MODEL` as it read at
+   * registration, else the descriptor default. `decisionLimits()` must
+   * report this same value rather than re-read the environment, or a
+   * `LAYA_MODEL` changed after registration would size a state against one
+   * checkpoint's window while the pre-flight check applies another's.
+   * Before registration has run the registry is empty, and the factory will
+   * read the environment when it does — so that read is returned here.
+   */
+  private registeredDecisionModel(descriptor: ProviderDescriptor): string {
+    const registered = ProviderFactory.getProviderInfo(
+      descriptor.name,
+    )?.defaultModel;
+    if (registered) {
+      return registered;
+    }
+    const envModel = descriptor.envVars.model
+      ? process.env[descriptor.envVars.model]
+      : undefined;
+    return envModel || descriptor.defaultModel;
+  }
+
+  /**
+   * What the decision provider can read, resolved for one model — the same
+   * figures the pre-flight refusal compares against, so a host can size the
+   * questions it adds through `decisionHooks` (or a state it is about to
+   * send) before the call instead of after the refusal.
+   *
+   * Provider resolution is `decide()`'s; the model is `query.model`, else
+   * the model `decide()` would send (see `registeredDecisionModel`); the
+   * per-model entry is flattened over the base. `enforcedLocally` says
+   * whether NeuroLink refuses an over-limit request itself (Laya) or only
+   * reports the server's ceiling (TypeSafe, whose limits are advisory).
+   *
+   * Returns null when no decision provider is configured and none is named —
+   * parity with `tryDecide` — and for a provider that declares no limits.
+   * A named provider is read whether or not it is configured: its limits are
+   * facts about the model, not about this host's credentials.
+   */
+  decisionLimits(query?: DecisionLimitsQuery): DecisionLimitsReading | null {
+    const requested = this.resolveDecisionProviderName(
+      query?.provider,
+      query?.credentials,
+    );
+    if (!requested) {
+      return null;
+    }
+    const canonical =
+      PROVIDER_ALIAS_INDEX.get(requested.toLowerCase()) ?? requested;
+    const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(
+      canonical as AIProviderName,
+    );
+    if (!descriptor) {
+      return null;
+    }
+    const model = query?.model ?? this.registeredDecisionModel(descriptor);
+    return resolveDecisionLimitsReading(descriptor, model);
+  }
+
+  /**
+   * `decisionHooks.hookTimeoutMs`, validated once per instance. A timer
+   * honours delays from 1 to 2^31 − 1 ms and fires at once for anything
+   * else — so `Infinity`, meant to lift the bound, would instead time every
+   * hook out immediately, as would 0, NaN or a negative. Such a value falls
+   * back to the default with one warning.
+   */
+  private decisionHookTimeout(): number {
+    if (this.decisionHookTimeoutMs !== undefined) {
+      return this.decisionHookTimeoutMs;
+    }
+    const configured = this.decisionHooks?.hookTimeoutMs;
+    let resolved = DEFAULT_DECISION_HOOK_TIMEOUT_MS;
+    if (configured !== undefined) {
+      if (
+        typeof configured === "number" &&
+        Number.isFinite(configured) &&
+        configured > 0 &&
+        configured <= MAX_DECISION_HOOK_TIMEOUT_MS
+      ) {
+        resolved = configured;
+      } else {
+        logger.warn(
+          `[Decision] decisionHooks.hookTimeoutMs must be a finite number from 1 to ${MAX_DECISION_HOOK_TIMEOUT_MS} ms; using the default ${DEFAULT_DECISION_HOOK_TIMEOUT_MS} ms`,
+          { configured: String(configured) },
+        );
+      }
+    }
+    this.decisionHookTimeoutMs = resolved;
+    return resolved;
+  }
+
+  /**
+   * `EventEmitter.emit` runs listeners synchronously and rethrows whatever
+   * they throw. A decision event is observe-only, so a throwing listener
+   * must not be able to change the turn's routing or compaction outcome.
+   */
+  private emitDecisionEvent(
+    name: "decision:before" | "decision:after",
+    payload: DecisionBeforeEvent | DecisionAfterEvent,
+  ): void {
+    try {
+      this.emitter.emit(name, payload);
+    } catch (error) {
+      logger.warn(`[Decision] a ${name} listener threw`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * The one path every fail-open decision takes — a host's own `tryDecide`
+   * and all five built-in sites (routing, tool routing, both compaction
+   * stages, RAG planning) end up here.
+   *
+   * For a request stamped with a {@link DecisionSite} this is also where the
+   * host's `decisionHooks` ride along:
+   *
+   * 1. `extendQuestions` may add questions; a throw is logged and ignored.
+   * 2. Each host question is validated (invalid ones dropped, with a warning)
+   *    and namespaced `host__N` on the wire, so it can never collide with
+   *    NeuroLink's own ids (`difficulty`, `server__N`, `msg__N`, …).
+   * 3. Additions are capped at the provider's `maxQuestions` minus
+   *    NeuroLink's own count. Without the cap a host adding one question too
+   *    many would have the WHOLE request refused, and NeuroLink's own routing
+   *    would silently degrade to the heuristic — the host's problem would
+   *    become NeuroLink's. A provider that declares no `maxQuestions`
+   *    (TypeSafe, XOR) takes every well-formed addition.
+   * 4. Answers are split: the consumer sees only its own ids, exactly as it
+   *    would without hooks; `onAnswers` gets the host's answers under the
+   *    host's original ids plus the full result.
+   *
+   * The request's `images` and `video` ride along untouched — `merged` and
+   * the wire call spread the request, and only `state`, the questions and
+   * the result are cloned — so an XOR request keeps its Buffers and its
+   * result keeps `mediaBytes`.
+   *
+   * `decision:before` / `decision:after` fire once per site call on the
+   * instance emitter, observe-only, whether or not the call produced a
+   * result. Without hooks and listeners, the decision payload — state and
+   * questions — is exactly what the consumer built; the outer request's
+   * per-call `credentials` are still forwarded, so the account and base URL
+   * on the wire can differ from the instance's.
+   *
+   * Fail-open by construction, in three layers. Without a decision provider
+   * nothing runs at all — no hook, no event — and the consumer gets the null
+   * it always got. Everything a host can reach (its hook's return value, the
+   * event payloads, the answer split, `onAnswers`) runs inside one `try`;
+   * whatever a host throws, the consumer gets what `tryRunDecide` alone
+   * would have given it. And every host-facing value is a `structuredClone`,
+   * so a hook or listener that edits what it is handed edits neither the
+   * wire request nor the consumer's own question objects.
+   *
+   * `outer` is what the surrounding `generate()` / `stream()` supplies —
+   * per-call credentials, abort signal, ids — and wins over the same fields
+   * on the request.
+   */
+  private async siteDecide(
+    request: DecisionCallerOptions,
+    outer?: DecisionSiteContext,
+  ): Promise<DecisionResult | null> {
+    const merged: DecisionCallerOptions = {
+      ...request,
+      credentials: outer?.credentials ?? request.credentials,
+      // Either cancellation must win: the outer call's abort and the site's
+      // own deadline are independent limits.
+      signal:
+        outer?.signal && request.signal
+          ? AbortSignal.any([outer.signal, request.signal])
+          : (outer?.signal ?? request.signal),
+      sessionId: outer?.sessionId ?? request.sessionId,
+      requestId: outer?.requestId ?? request.requestId,
+    };
+    const site = merged.site;
+    if (!site) {
+      return this.tryRunDecide(merged);
+    }
+    // Inert without a decision provider: a host's hook must not sit on the
+    // request path of a tenant that has no decision model to reach, and an
+    // event for a call that could never be made would only mislead.
+    if (
+      !this.resolveDecisionProviderName(merged.provider, merged.credentials)
+    ) {
+      return null;
+    }
+
+    // Wire id → the host's own id, so answers can be handed back under the
+    // ids the host used, and NeuroLink's consumers never see a host id. A Map,
+    // so a host id such as `__proto__` is an ordinary key.
+    const hostIdByWireId = new Map<string, string>();
+    // Set once the wire call has returned, so the catch below knows whether
+    // to fall back to a fresh call or to hand over what was already obtained.
+    let obtained: DecisionResult | null | undefined;
+    try {
+      const ownQuestions = merged.questions;
+      const ownCount = Object.keys(ownQuestions).length;
+      const hooks = this.decisionHooks;
+      const hookTimeoutMs = this.decisionHookTimeout();
+
+      // Host-facing copies of the consumer's state and questions, made once
+      // and only when something will receive them. The consumer's question
+      // objects are often module-level rubric constants; a listener that
+      // edited one in place would otherwise rewrite every later call.
+      let hostView:
+        | { state: DecisionState; questions: DecisionQuestionMap }
+        | undefined;
+      const hostFacing = (): {
+        state: DecisionState;
+        questions: DecisionQuestionMap;
+      } => {
+        hostView ??= {
+          state: structuredClone(merged.state),
+          questions: structuredClone(ownQuestions),
+        };
+        return hostView;
+      };
+      const hookContext = (): DecisionHookContext => ({
+        site,
+        ...hostFacing(),
+        sessionId: merged.sessionId,
+        requestId: merged.requestId,
+      });
+
+      let questions: DecisionQuestionMap = ownQuestions;
+      if (hooks?.extendQuestions) {
+        let proposed: DecisionQuestionMap | undefined;
+        try {
+          proposed =
+            (await withTimeout(
+              Promise.resolve(hooks.extendQuestions(hookContext())),
+              hookTimeoutMs,
+              new Error(`extendQuestions exceeded ${hookTimeoutMs}ms`),
+            )) ?? undefined;
+        } catch (error) {
+          logger.warn(
+            `[Decision] extendQuestions hook failed for site "${site}" — proceeding with NeuroLink's own questions`,
+            { error: error instanceof Error ? error.message : String(error) },
+          );
+        }
+        const proposedEntries = proposed ? Object.entries(proposed) : [];
+        if (proposedEntries.length > 0) {
+          const limits = this.decisionLimits({
+            provider: merged.provider,
+            model: merged.model,
+            credentials: merged.credentials,
+          });
+          // A provider without a question-count cap (TypeSafe, XOR) takes
+          // every well-formed addition; its token/byte limits still apply
+          // and are what `decisionLimits()` reports for sizing.
+          const room =
+            limits?.maxQuestions !== undefined
+              ? Math.max(0, limits.maxQuestions - ownCount)
+              : Number.POSITIVE_INFINITY;
+          const combined: Record<string, DecisionQuestion> = {
+            ...ownQuestions,
+          };
+          let invalidCount = 0;
+          let overflowCount = 0;
+          for (const [hostId, proposal] of proposedEntries) {
+            // The wire carries a snapshot of the host's question, never the
+            // host's object: validated as a copy, sent as that copy.
+            const question = snapshotDecisionQuestion(proposal);
+            if (question === undefined) {
+              invalidCount += 1;
+              continue;
+            }
+            if (hostIdByWireId.size >= room) {
+              overflowCount += 1;
+              continue;
+            }
+            const wireId = decisionKey(
+              HOST_DECISION_NAMESPACE,
+              hostIdByWireId.size,
+            );
+            combined[wireId] = question;
+            hostIdByWireId.set(wireId, hostId);
+          }
+          if (invalidCount > 0) {
+            logger.warn(
+              `[Decision] dropped ${invalidCount} malformed host question(s) for site "${site}"`,
+            );
+          }
+          if (overflowCount > 0 && limits) {
+            logger.warn(
+              `[Decision] dropped ${overflowCount} host question(s) for site "${site}": ${limits.provider} accepts ${limits.maxQuestions} per request and NeuroLink asks ${ownCount}`,
+            );
+          }
+          questions = combined;
+        }
+      }
+      const hostQuestionCount = hostIdByWireId.size;
+
+      if (this.emitter.listenerCount("decision:before") > 0) {
+        const beforeEvent: DecisionBeforeEvent = {
+          site,
+          state: hostFacing().state,
+          questions:
+            hostQuestionCount === 0
+              ? hostFacing().questions
+              : structuredClone(questions),
+          hostQuestionCount,
+          sessionId: merged.sessionId,
+          requestId: merged.requestId,
+        };
+        this.emitDecisionEvent("decision:before", beforeEvent);
+      }
+
+      const startedAt = Date.now();
+      const result = await this.tryRunDecide({ ...merged, questions });
+      obtained = result;
+
+      // Null-prototype maps: a host id such as `__proto__` or `constructor`
+      // must land as an own key, not fall into the prototype and vanish.
+      const ownAnswers: Record<string, DecisionAnswer> = Object.create(null);
+      const hostAnswers: Record<string, DecisionAnswer> = Object.create(null);
+      if (result) {
+        for (const [id, answer] of Object.entries(result.answers)) {
+          const hostId = hostIdByWireId.get(id);
+          if (hostId === undefined) {
+            ownAnswers[id] = answer;
+          } else {
+            hostAnswers[hostId] = answer;
+          }
+        }
+      }
+
+      // Everything host-facing — the event and the hook — gets its own copy,
+      // so a listener that edits an answer cannot change what NeuroLink's
+      // consumer reads from the same call.
+      const hostFacingResult = result ? structuredClone(result) : null;
+      const afterEvent: DecisionAfterEvent = {
+        site,
+        answers: structuredClone(ownAnswers),
+        hostAnswers: structuredClone(hostAnswers),
+        latencyMs: result?.latencyMs ?? Date.now() - startedAt,
+        provider:
+          result?.provider ??
+          this.resolveDecisionProviderName(merged.provider, merged.credentials),
+        model: result?.model,
+        result: hostFacingResult,
+        sessionId: merged.sessionId,
+        requestId: merged.requestId,
+      };
+      this.emitDecisionEvent("decision:after", afterEvent);
+
+      if (!result || !hostFacingResult) {
+        return null;
+      }
+
+      if (hooks?.onAnswers) {
+        try {
+          await withTimeout(
+            Promise.resolve(
+              hooks.onAnswers({
+                ...hookContext(),
+                answers: structuredClone(hostAnswers),
+                result: hostFacingResult,
+              }),
+            ),
+            hookTimeoutMs,
+            new Error(`onAnswers exceeded ${hookTimeoutMs}ms`),
+          );
+        } catch (error) {
+          logger.warn(`[Decision] onAnswers hook failed for site "${site}"`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      // The consumer's result: untouched when nothing was added, so the
+      // no-hooks path returns the very object the provider produced.
+      return hostQuestionCount === 0
+        ? result
+        : { ...result, answers: ownAnswers };
+    } catch (error) {
+      logger.warn(
+        `[Decision] site "${site}" hook or event handling threw — ${
+          obtained === undefined
+            ? "deciding with NeuroLink's own questions"
+            : "handing the consumer the answers already obtained"
+        }`,
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+      if (obtained === undefined) {
+        return this.tryRunDecide(merged);
+      }
+      return obtained ? stripHostAnswers(obtained, hostIdByWireId) : null;
+    }
+  }
+
+  /**
+   * `decide()` proper. A request stamped with a site — every built-in
+   * consumer's, and a host-wired consumer's — adds `decision.site` and
+   * `decision.host_question_count` (the `host__N` ids the funnel namespaced)
+   * to both spans, so a trace can tell a routing decision from a compaction
+   * one and see how many questions the host rode along with.
+   */
+  private async runDecide(options: DecisionOptions): Promise<DecisionResult> {
     // SDK config counts as much as the environment: credentials given to the
     // constructor or to this call can configure a provider on their own.
-    const providerName =
-      options.provider ??
-      resolveDefaultDecisionProvider(
-        this.resolveCredentials(options.credentials),
-      );
+    const providerName = this.resolveDecisionProviderName(
+      options.provider,
+      options.credentials,
+    );
     if (!providerName) {
       throw new Error(
         `No decision provider is configured. Set ${describeDecisionProviderKeys()} (in the environment or in \`credentials\`), or pass \`provider\` explicitly.`,
       );
     }
 
-    const questionCount = Object.keys(options.questions).length;
+    const questionIds = Object.keys(options.questions);
+    const questionCount = questionIds.length;
+    const stamped: DecisionCallerOptions = options;
+    const siteSpanAttributes = stamped.site
+      ? {
+          "decision.site": stamped.site,
+          "decision.host_question_count":
+            questionIds.filter(isHostDecisionKey).length,
+        }
+      : {};
 
     // Observability parity with generate()/stream(): an OTEL span for the
     // trace view, a serialized span for the in-process metrics aggregator,
@@ -17724,6 +18774,7 @@ Current user's request: ${currentInput}`;
           "ai.provider": providerName,
           "decision.question_count": questionCount,
           "decision.images.count": options.images?.length ?? 0,
+          ...siteSpanAttributes,
         },
       },
       async (otelSpan) => {
@@ -17737,6 +18788,7 @@ Current user's request: ${currentInput}`;
             "ai.model": options.model ?? "",
             "decision.question_count": questionCount,
             "decision.images.count": options.images?.length ?? 0,
+            ...siteSpanAttributes,
           },
           parentSpanId,
           traceId,
@@ -17846,8 +18898,27 @@ Current user's request: ${currentInput}`;
    * that is unconfigured, slow, rate-limited or down must never change
    * NeuroLink's observable behaviour — the caller falls back to whatever it
    * did before the decision was available.
+   *
+   * A request stamped with a `site` — every built-in consumer stamps its own,
+   * so a `RAGPipeline` or `ClassifierRouter` a host wired to this method gets
+   * the same treatment as NeuroLink's internal ones — also runs the host's
+   * `decisionHooks` and emits `decision:before` / `decision:after`.
    */
-  async tryDecide(options: DecisionOptions): Promise<DecisionResult | null> {
+  async tryDecide(
+    options: DecisionCallerOptions,
+  ): Promise<DecisionResult | null> {
+    return this.siteDecide(options);
+  }
+
+  /**
+   * `tryDecide` without the site handling: the try/catch around the call.
+   * Dispatches through `this.decide`, so a subclass override or an instance
+   * patch on the public method sees every decision — the funnel's routing,
+   * tool routing and compaction calls included, not only a host's own.
+   */
+  private async tryRunDecide(
+    options: DecisionOptions,
+  ): Promise<DecisionResult | null> {
     try {
       const result = await this.decide(options);
       if (logger.shouldLog("debug")) {
@@ -19182,6 +20253,16 @@ Current user's request: ${currentInput}`;
         logger.warn("[NeuroLink] Error stopping background work:", error);
       }
 
+      // 0b. The memory condenser is a child instance this one created; it
+      // goes with the host.
+      try {
+        await this.releaseMemoryCondenser();
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+
       // 1. Flush and shutdown OpenTelemetry
       try {
         logger.debug("[NeuroLink] Flushing and shutting down OpenTelemetry...");
@@ -19438,7 +20519,7 @@ Current user's request: ${currentInput}`;
           config?.summarizationModel ??
           this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
       },
-      this.contextCompactorDeps(),
+      this.contextCompactorDeps({ sessionId }),
     );
     // Use actual context window to determine target, not arbitrary heuristic
     const budgetInfo = checkContextBudget({

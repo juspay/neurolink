@@ -23,6 +23,8 @@ import type {
   AnalyticsData,
   EnhancedGenerateResult,
   EvaluationData,
+  MemoryToolCallRecord,
+  MemoryToolResultRecord,
   RawUsageObject,
   TextGenerationOptions,
   TokenUsage,
@@ -279,8 +281,8 @@ export class TelemetryHandler {
    * Handle tool execution storage if available
    */
   async handleToolExecutionStorage(
-    toolCalls: unknown[],
-    toolResults: unknown[],
+    toolCalls: MemoryToolCallRecord[],
+    toolResults: MemoryToolResultRecord[],
     options: TextGenerationOptions | StreamOptions,
     currentTime: Date,
   ): Promise<void> {
@@ -314,19 +316,8 @@ export class TelemetryHandler {
       await this.neurolink.storeToolExecutions(
         sessionId,
         userId,
-        toolCalls as Array<{
-          toolCallId?: string;
-          toolName?: string;
-          args?: Record<string, unknown>;
-          [key: string]: unknown;
-        }>,
-        toolResults as Array<{
-          toolCallId?: string;
-          toolName?: string;
-          output?: unknown;
-          result?: unknown;
-          [key: string]: unknown;
-        }>,
+        toolCalls,
+        toolResults,
         currentTime,
       );
     } catch (error) {

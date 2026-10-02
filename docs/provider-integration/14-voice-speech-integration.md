@@ -95,13 +95,15 @@ Three new canonical type files added to `src/lib/types/` (CLAUDE.md rule #8 comp
 - **Class:** `ElevenLabsTTS implements TTSHandler`
 - **API:** `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=...`
 - **Auth:** `xi-api-key: $ELEVENLABS_API_KEY`
-- **Model:** `eleven_multilingual_v2` (default)
-- **Voices:** Dynamic — fetched from `/v1/voices` and cached for 5 minutes. Default voice: `21m00Tcm4TlvDq8ikWAM` (Rachel).
-- **Output formats:** `mp3_44100_128` (mp3), `pcm_44100` (wav), `ogg_22050` (ogg/opus)
-- **Voice settings:** `stability` (default 0.5), `similarity_boost` (0.75), `style` (0.0), `use_speaker_boost` (true)
+- **Model:** `eleven_multilingual_v2` (default; `ELEVENLABS_MODEL` overrides, a per-call `model` wins)
+- **Voices:** Dynamic — fetched from `/v1/voices` and cached for 5 minutes. Default voice: `21m00Tcm4TlvDq8ikWAM` (Rachel; `ELEVENLABS_VOICE_ID` overrides, a per-call `voice` wins).
+- **Output formats:** `mp3_44100_<mp3Bitrate>` (mp3, default 128), `pcm_44100` (wav — raw PCM, reported as `pcm16`), `opus_48000_<opusBitrate>` (ogg/opus, default 64). There is no `ogg_*` family; bitrates outside `32|64|96|128|192` fall back to the default.
+- **Voice settings:** `stability` (default 0.5), `similarity_boost` (0.75), `style` (0.0), `use_speaker_boost` (true), `speed` (from `TTSOptions.speed`, clamped to 0.7–1.2)
+- **Language:** `language` / `languageCode` is reduced to ISO 639-1 and sent as `language_code` on every model but `eleven_multilingual_v2`
 - **Max text:** 5 000 characters
 - **Registered as:** `"elevenlabs"` and `"elevenlabs-tts"` in `TTSProcessor`
-- **Timeout:** 30-second `AbortController` on `synthesize` and `getVoices` calls
+- **Timeout & retries:** per-attempt `timeoutMs` (default 30 s, covering the audio body) with `retries` (default 1) on 429/5xx/timeout/transport failure, honouring `Retry-After`; a caller `signal` aborts the attempt and the loop. `getVoices` keeps a fixed 30 s `AbortController`.
+- **STT:** `src/lib/voice/providers/ElevenLabsSTT.ts` — Scribe batch transcription (`POST /v1/speech-to-text`, default `scribe_v2`), registered as `"elevenlabs-stt"` with aliases `"scribe"` and `"elevenlabs"` in `STTProcessor`
 
 ### `azure-tts`
 

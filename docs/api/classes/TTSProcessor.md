@@ -35,6 +35,27 @@ if (TTSProcessor.supports("google-ai")) {
 
 ## Methods
 
+### maxTextLengthFor()
+
+> `static` **maxTextLengthFor**(`providerName`): `number`
+
+The text cap `synthesize()` enforces for `providerName`: the handler's
+`maxTextLength`, or the default when the handler declares none or is not
+registered. Lets a caller bound work it does BEFORE synthesis — the
+sanitize pass in `BaseProvider` — to text that could ever be accepted.
+
+#### Parameters
+
+##### providerName
+
+`string`
+
+#### Returns
+
+`number`
+
+---
+
 ### registerHandler()
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`

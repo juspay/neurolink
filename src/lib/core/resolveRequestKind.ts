@@ -1,5 +1,42 @@
 import { isImageGenerationModel } from "./constants.js";
-import type { RequestKind, RequestKindInput } from "../types/index.js";
+import type {
+  RequestKind,
+  RequestKindInput,
+  RequestKindTTSInput,
+  TTSSynthesisMode,
+} from "../types/index.js";
+
+/**
+ * Which text a `generate({ tts })` request synthesizes. An explicit
+ * `tts.mode` wins; otherwise the legacy `useAiResponse` flag decides, and the
+ * absence of both means `"direct"` — the documented default that every
+ * "speak this text" caller relies on.
+ *
+ * Every precedence site (this module, `BaseProvider.synthesizeAIResponseIfNeeded`,
+ * `NeuroLink.attemptMCPGeneration`, the AI Studio generate() override) reads
+ * the answer from here so the rule cannot drift between them.
+ */
+export function resolveTTSMode(
+  tts: RequestKindTTSInput | undefined,
+): TTSSynthesisMode {
+  if (tts?.mode === "direct" || tts?.mode === "response") {
+    return tts.mode;
+  }
+  return tts?.useAiResponse ? "response" : "direct";
+}
+
+/**
+ * True when TTS is enabled and the request wants the input text synthesized,
+ * bypassing the LLM turn. `enabled` is tested for truthiness, as the dispatch
+ * it replaced did and as `synthesizeAIResponseIfNeeded` still does: a caller
+ * off the declared type (`enabled: 1`, `"true"`) reaches the same branch at
+ * every site rather than being routed to a model call by one of them.
+ */
+export function isDirectTTSRequest(
+  tts: RequestKindTTSInput | undefined,
+): boolean {
+  return Boolean(tts?.enabled) && resolveTTSMode(tts) === "direct";
+}
 
 /**
  * The dispatch decision for "what kind of request is this" — text, image,
@@ -20,9 +57,10 @@ import type { RequestKind, RequestKindInput } from "../types/index.js";
  *      non-image output.format (json/structured/text) — this lets dual-mode
  *      models like gemini-3.1-flash-image-preview still perform text or
  *      structured generation when requested.
- *   3. tts.enabled without tts.useAiResponse — direct synthesis, bypassing
- *      the LLM turn entirely (useAiResponse means the LLM's own text
- *      response gets synthesized afterward, which is NOT this branch).
+ *   3. tts.enabled with `resolveTTSMode()` answering "direct" — i.e. no
+ *      `mode: "response"` and no legacy `useAiResponse: true` — direct
+ *      synthesis, bypassing the LLM turn entirely (response mode means the
+ *      LLM's own text gets synthesized afterward, which is NOT this branch).
  *   4. otherwise, "text".
  */
 export function resolveRequestKind(
@@ -50,7 +88,7 @@ export function resolveRequestKind(
     return "image";
   }
 
-  if (options.tts?.enabled && !options.tts?.useAiResponse) {
+  if (isDirectTTSRequest(options.tts)) {
     return "tts-direct";
   }
 

@@ -23,6 +23,7 @@ import {
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   hasNativeDoGenerate,
@@ -317,6 +318,17 @@ export class AmazonSageMakerProvider extends BaseProvider {
         ...(responseFormat ? { responseFormat } : {}),
         ...(v3Tools.length > 0 ? { tools: v3Tools } : {}),
         toolsRecord,
+        // Was never forwarded here, so a caller's toolChoice degraded to the
+        // endpoint's default on SageMaker alone; the language model already
+        // maps it onto `tool_choice`.
+        ...(v3Tools.length > 0 && options.toolChoice
+          ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
+          : {}),
+        ...(options.toolChoiceSteps !== undefined
+          ? { toolChoiceSteps: options.toolChoiceSteps }
+          : {}),
+        ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
+        modelId: this.modelName,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
         ...(options.temperature !== undefined
@@ -334,6 +346,8 @@ export class AmazonSageMakerProvider extends BaseProvider {
           ).catch((err: unknown) => {
             throw this.handleProviderError(err);
           }),
+        onRejectedToolCall: (name, error, id) =>
+          this.emitRejectedToolCall(name, error, id),
       },
       toolExecutionSummaries,
     );
@@ -358,7 +372,12 @@ export class AmazonSageMakerProvider extends BaseProvider {
       ),
       enhancedWithTools: loop.toolsUsed.length > 0,
     };
-    return this.finalizeNativeGenerate(enhanced, options, startTime);
+    return this.finalizeNativeGenerate(
+      enhanced,
+      options,
+      startTime,
+      toolExecutionSummaries,
+    );
   }
 
   /**

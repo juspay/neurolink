@@ -31,12 +31,4 @@ on the wider options type graph.
 
 ### tts?
 
-> `optional` **tts?**: `object`
-
-#### enabled?
-
-> `optional` **enabled?**: `boolean`
-
-#### useAiResponse?
-
-> `optional` **useAiResponse?**: `boolean`
+> `optional` **tts?**: [`RequestKindTTSInput`](RequestKindTTSInput.md)

@@ -227,10 +227,15 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
       }
     | undefined;
 
+  /**
+   * May return a promise: an adapter that consults a caller's `prepareStep`
+   * hook for the step's tool choice has to await it before it can build the
+   * request. The engine awaits the result either way.
+   */
   buildStepRequest(
     conversation: TConversation,
     step: number,
-  ): AgenticLoopStepRequest;
+  ): AgenticLoopStepRequest | Promise<AgenticLoopStepRequest>;
   executeStep(
     request: AgenticLoopStepRequest,
     channel: { push(chunk: AgenticLoopChunk): void },
@@ -321,7 +326,9 @@ export type AnthropicLoopAdapterConfig<
   buildParams: (
     conversation: TMessage[],
     step: number,
-  ) => Anthropic.Messages.MessageCreateParamsNonStreaming;
+  ) =>
+    | Anthropic.Messages.MessageCreateParamsNonStreaming
+    | Promise<Anthropic.Messages.MessageCreateParamsNonStreaming>;
   /** The turn's live tool record, used for deferred-catalog resolution. */
   toolsRecord: Record<string, Tool>;
   /**
