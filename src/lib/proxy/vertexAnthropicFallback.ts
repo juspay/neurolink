@@ -428,6 +428,11 @@ function fitRequestToTarget(
     );
   }
   const thinking = payload.thinking;
+  if (record(thinking) && thinking.display === "updates") {
+    // Claude Code requests live thinking updates, but Vertex accepts only
+    // summarized or omitted adaptive thinking display.
+    payload.thinking = { ...thinking, display: "summarized" };
+  }
   if (record(thinking) && thinking.type === "disabled") {
     const outputConfig = payload.output_config;
     const effort =

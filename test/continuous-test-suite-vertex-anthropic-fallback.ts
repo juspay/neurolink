@@ -194,6 +194,29 @@ test("thinking disabled becomes between_tools on Sonnet 5.5 below xhigh effort",
   assert.equal("thinking" in xhigh, false);
 });
 
+test("Claude Code adaptive thinking updates become Vertex summaries", () => {
+  const thinking = { type: "adaptive", display: "updates" };
+  const body = {
+    model: "claude-sonnet-5-5",
+    messages: [{ role: "user", content: "hi" }],
+    thinking,
+  };
+  const out = buildVertexAnthropicPayload(body, "claude-sonnet-5-5");
+  assert.deepEqual(out.thinking, { type: "adaptive", display: "summarized" });
+  assert.deepEqual(thinking, { type: "adaptive", display: "updates" });
+});
+
+test("Vertex-supported adaptive display values pass through", () => {
+  for (const display of ["summarized", "omitted"]) {
+    const thinking = { type: "adaptive", display };
+    const out = buildVertexAnthropicPayload(
+      { messages: [{ role: "user", content: "hi" }], thinking },
+      "claude-sonnet-5-5",
+    );
+    assert.deepEqual(out.thinking, thinking);
+  }
+});
+
 test("thinking disabled is dropped for an always-on-thinking target", () => {
   const out = buildVertexAnthropicPayload(
     {
