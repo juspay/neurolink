@@ -102,11 +102,16 @@ function decodeMessage(buf: Uint8Array): LocalUsageWireField[] | null {
         return null;
       }
       // Beyond 2^53 a JS number stops being exact, and a token count that
-      // silently loses precision is worse than a refused parse.
+      // silently loses precision is worse than a refused parse. The shift
+      // guard is only the cheap early exit: the eighth byte (shift 49) passes
+      // it and can still carry the sum past Number.MAX_SAFE_INTEGER.
       if (shift > 53) {
         return null;
       }
       result += (byte & 0x7f) * Math.pow(2, shift);
+      if (!Number.isSafeInteger(result)) {
+        return null;
+      }
       shift += 7;
       if ((byte & 0x80) === 0) {
         return result;
@@ -285,6 +290,36 @@ export function extractCursorContextTokens(
   return findBreakdownTotal(rootBlob, 0);
 }
 
+/**
+ * The root blob id a store's meta row points at, or `undefined` when the row is
+ * not hex-encoded JSON carrying a string `latestRootBlobId`.
+ */
+function readLatestRootBlobId(rawMeta: string): string | undefined {
+  // Hex-encoded JSON. Validated rather than assumed: a non-hex value decodes to
+  // mojibake and would throw inside JSON.parse anyway, but the explicit test
+  // says why the buffer conversion is there.
+  if (!/^(?:[0-9a-fA-F]{2})+$/.test(rawMeta)) {
+    return undefined;
+  }
+  try {
+    const meta: unknown = JSON.parse(
+      Buffer.from(rawMeta, "hex").toString("utf8"),
+    );
+    if (
+      typeof meta === "object" &&
+      meta !== null &&
+      "latestRootBlobId" in meta &&
+      typeof (meta as { latestRootBlobId: unknown }).latestRootBlobId ===
+        "string"
+    ) {
+      return (meta as { latestRootBlobId: string }).latestRootBlobId;
+    }
+  } catch {
+    // Not JSON: reported by the caller, which cannot tell this from a missing id.
+  }
+  return undefined;
+}
+
 /** `~/.cursor/chats/<workspaceHash>/<agentId>/store.db`, two levels down. */
 async function findStoreDatabases(): Promise<string[]> {
   const root = chatsRoot();
@@ -411,33 +446,33 @@ export async function createCursorReader(): Promise<LocalUsageReader> {
             (row): row is { value: string } => typeof row.value === "string",
           )?.value;
           if (rawMeta === undefined) {
-            continue;
-          }
-          // Hex-encoded JSON. Validated rather than assumed: a non-hex value
-          // decodes to mojibake and would throw inside JSON.parse anyway, but
-          // the explicit test says why the buffer conversion is there.
-          if (!/^(?:[0-9a-fA-F]{2})+$/.test(rawMeta)) {
-            continue;
-          }
-          let latestRootBlobId: string | undefined;
-          try {
-            const meta: unknown = JSON.parse(
-              Buffer.from(rawMeta, "hex").toString("utf8"),
-            );
-            if (
-              typeof meta === "object" &&
-              meta !== null &&
-              "latestRootBlobId" in meta &&
-              typeof (meta as { latestRootBlobId: unknown })
-                .latestRootBlobId === "string"
-            ) {
-              latestRootBlobId = (meta as { latestRootBlobId: string })
-                .latestRootBlobId;
+            if (metaRows.length === 0) {
+              // A store a session has only just created: no meta row yet. That
+              // is a new session, not a format change.
+              continue;
             }
-          } catch {
+            // A row is there but holds no text (NULL or a BLOB): the store was
+            // opened and counted, so this is reported like any other meta row
+            // that cannot be read.
+            errors.push({
+              cliId: CLI_ID,
+              filePath: dbPath,
+              message:
+                "meta row holds no text value — Cursor's on-disk format has likely changed",
+            });
             continue;
           }
+          const latestRootBlobId = readLatestRootBlobId(rawMeta);
           if (latestRootBlobId === undefined) {
+            // Reported, never silently skipped, for the same reason as the
+            // missing breakdown below: a store opened and counted in
+            // filesScanned that yields nothing must not read as "used nothing".
+            errors.push({
+              cliId: CLI_ID,
+              filePath: dbPath,
+              message:
+                "meta row is not hex-encoded JSON carrying a latestRootBlobId — Cursor's on-disk format has likely changed",
+            });
             continue;
           }
 

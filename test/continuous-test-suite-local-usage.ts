@@ -143,11 +143,26 @@ function assistantLine(
   });
 }
 
+/**
+ * Variables that move a reader's store out from under HOME. `GROK_HOME` and
+ * `HERMES_HOME` are read ahead of `~/.grok` and `~/.hermes`, so a developer
+ * with either exported would have these fixture scans read their real store.
+ * Cleared for the call rather than repointed: a fixture HOME already holds
+ * the default location, and an unset variable is the case the default serves.
+ */
+const STORE_OVERRIDE_VARS = ["GROK_HOME", "HERMES_HOME"] as const;
+
 async function withHome<T>(home: string, fn: () => Promise<T>): Promise<T> {
   const prev = process.env.HOME;
   const prevProfile = process.env.USERPROFILE;
+  const prevOverrides = STORE_OVERRIDE_VARS.map(
+    (name) => [name, process.env[name]] as const,
+  );
   process.env.HOME = home;
   process.env.USERPROFILE = home;
+  for (const name of STORE_OVERRIDE_VARS) {
+    delete process.env[name];
+  }
   try {
     return await fn();
   } finally {
@@ -160,6 +175,13 @@ async function withHome<T>(home: string, fn: () => Promise<T>): Promise<T> {
       delete process.env.USERPROFILE;
     } else {
       process.env.USERPROFILE = prevProfile;
+    }
+    for (const [name, value] of prevOverrides) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
     }
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -2377,7 +2399,15 @@ function cursorRootBlobWithDecoy(
  */
 async function writeCursorFixtureHome(
   rootBlob: Buffer,
-  options?: { latestRootBlobId?: string; corruptMetaHex?: boolean },
+  options?: {
+    latestRootBlobId?: string;
+    corruptMetaHex?: boolean;
+    /** Replaces the meta JSON text; still hex-encoded unless corruptMetaHex. */
+    metaText?: string;
+    omitMetaRow?: boolean;
+    /** Stores this exact value (a NULL or a BLOB) instead of the hex text. */
+    rawMetaValue?: null | Buffer;
+  },
 ): Promise<string> {
   const { DatabaseSync } = await import("node:sqlite");
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-cursorusage-"));
@@ -2404,20 +2434,29 @@ async function writeCursorFixtureHome(
     rootBlob,
   );
 
-  const metaJson = JSON.stringify({
-    agentId: "9b8eb805-fce9-4c6e-80f8-bd4a0641b4db",
-    latestRootBlobId: blobId,
-    name: "Fixture",
-    mode: "default",
-    createdAt: Date.now(),
-    lastUsedModel: "default",
-  });
+  const metaJson =
+    options?.metaText ??
+    JSON.stringify({
+      agentId: "9b8eb805-fce9-4c6e-80f8-bd4a0641b4db",
+      latestRootBlobId: blobId,
+      name: "Fixture",
+      mode: "default",
+      createdAt: Date.now(),
+      lastUsedModel: "default",
+    });
   // Hex-encoded, which is how Cursor stores it — a plain-JSON fixture would
   // pass a reader that never learned about the encoding.
   const metaValue = options?.corruptMetaHex
     ? metaJson
     : Buffer.from(metaJson, "utf8").toString("hex");
-  db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run("0", metaValue);
+  if (!options?.omitMetaRow) {
+    db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run(
+      "0",
+      options !== undefined && "rawMetaValue" in options
+        ? (options.rawMetaValue ?? null)
+        : metaValue,
+    );
+  }
   db.close();
   return home;
 }
@@ -2685,6 +2724,167 @@ async function testGrokReader(): Promise<void> {
     );
   });
 
+  await test("Grok Build reader rejects a usage record that is not the ledger's shape, and reports it", async () => {
+    // A completed turn whose `usage` is present but is not the ledger — empty,
+    // an array, or the same counters under renamed keys — is what a changed
+    // stream format looks like. It used to pass the "is an object" check, have
+    // every missing counter read as 0, and be billed as one request of zero
+    // tokens, so the report said "used nothing" for "could not read it".
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "good",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          grokUpdate(
+            A,
+            { sessionUpdate: "turn_completed", prompt_id: "empty", usage: {} },
+            2,
+          ),
+          grokUpdate(
+            A,
+            { sessionUpdate: "turn_completed", prompt_id: "array", usage: [] },
+            3,
+          ),
+          grokUpdate(
+            A,
+            {
+              sessionUpdate: "turn_completed",
+              prompt_id: "renamed",
+              usage: { input_tokens: 5, output_tokens: 1, model_calls: 1 },
+            },
+            4,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the session stream was never opened",
+    );
+    assert(
+      result.totals.requests === 1 &&
+        result.totals.inputTokens === 100 &&
+        result.totals.outputTokens === 10,
+      "Grok reader counted a usage record that is not the ledger's shape",
+    );
+    // One per stream, not per record: a changed format would otherwise bury the
+    // report under one entry for every turn in the file.
+    assert(
+      result.errors.length === 1 && result.errors[0]?.cliId === "grok",
+      "Grok reader dropped unrecognised usage records silently instead of reporting them",
+    );
+  });
+
+  await test("Grok Build reader rejects a usage counter that is not a finite number", async () => {
+    // `1e999` is valid JSON and parses as Infinity, which is a number but not a
+    // count. A turn carrying one used to pass the shape check, have the counter
+    // read as 0, and be billed as one request of zero tokens.
+    const marker = 123456789;
+    const huge = grokUpdate(
+      A,
+      {
+        sessionUpdate: "turn_completed",
+        prompt_id: "huge",
+        usage: { inputTokens: marker, outputTokens: 1, modelCalls: 1 },
+      },
+      2,
+    ).replace(String(marker), "1e999");
+    assert(
+      huge.includes("1e999"),
+      "precondition failed: the fixture line carries no overflowing counter",
+    );
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "good",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          huge,
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the session stream was never opened",
+    );
+    assert(
+      result.totals.requests === 1 && result.totals.inputTokens === 100,
+      "Grok reader counted a turn whose usage counter is not a finite number",
+    );
+    assert(
+      result.errors.length === 1 && result.errors[0]?.cliId === "grok",
+      "Grok reader dropped a non-finite usage counter silently instead of reporting it",
+    );
+  });
+
+  await test("Grok Build reader drops the earlier turn when its later replacement cannot be read", async () => {
+    // A prompt id seen twice keeps its later record (last write wins). When
+    // that later record has no recognisable usage, the earlier reading used to
+    // stay in the totals, so the report counted a turn the stream no longer
+    // vouches for.
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "replaced",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          grokUpdate(
+            A,
+            {
+              sessionUpdate: "turn_completed",
+              prompt_id: "replaced",
+              usage: {},
+            },
+            2,
+          ),
+          grokCompletedTurn(
+            A,
+            "other",
+            { input: 40, output: 4, calls: 1, turns: 1, model: "grok-4.6" },
+            3,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the session stream was never opened",
+    );
+    assert(
+      result.totals.requests === 1 && result.totals.inputTokens === 40,
+      "Grok reader kept an earlier turn after its replacement became unreadable",
+    );
+    assert(
+      result.errors.length === 1 && result.errors[0]?.cliId === "grok",
+      "Grok reader did not report the unreadable replacement",
+    );
+  });
+
   await test("Grok Build reader honours the scan window per session stream", async () => {
     const home = writeGrokFixtureHome([
       {
@@ -2898,6 +3098,39 @@ async function testHermesReader(): Promise<void> {
       "Hermes reader did not accept a positive estimate without a cost status",
     );
   });
+
+  await test("Hermes Agent reader reports a usage table missing a required column instead of falling back to the session aggregate", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const home = await writeHermesFixtureHome();
+    const db = new DatabaseSync(path.join(home, ".hermes", "state.db"));
+    // The table exists but has lost `api_call_count`. Treating that as "no
+    // usage table" read the sessions aggregate in its place, which omits every
+    // non-primary task, and reported the shortfall as a clean scan.
+    db.exec("DROP TABLE session_model_usage");
+    db.exec(
+      "CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0)",
+    );
+    db.prepare(
+      "INSERT INTO session_model_usage (session_id, model, input_tokens, output_tokens) VALUES (?, ?, ?, ?)",
+    ).run("20260902_024456_01c233", "gemini-3.1-flash-lite-preview", 10_568, 1);
+    db.close();
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("hermes");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the state database was never opened",
+    );
+    assert(
+      result.errors.length === 1 && result.errors[0]?.cliId === "hermes",
+      "Hermes reader did not report a usage table missing a required column",
+    );
+    assert(
+      result.totals.requests === 0 && result.totals.inputTokens === 0,
+      "Hermes reader read the sessions aggregate in place of an unreadable usage table",
+    );
+  });
 }
 
 async function testCursorReader(): Promise<void> {
@@ -2978,13 +3211,73 @@ async function testCursorReader(): Promise<void> {
     log("Cursor cross-check rejects a contradictory blob and reports it");
   });
 
-  await test("Cursor reader treats an unreadable meta row as no data, not as zero usage", async () => {
+  await test("Cursor reader reports an unreadable meta row instead of reading it as zero usage", async () => {
+    const parts = [
+      { name: "system_prompt", tokens: 480, chars: 1959 },
+      { name: "conversation", tokens: 143, chars: 586 },
+    ];
+    // The ways a meta row can be unusable, each of which used to end in a bare
+    // `continue`: the store counted as scanned, no tokens, and nothing to tell
+    // "could not read it" from "it used nothing". A row that holds a NULL or a
+    // BLOB took the silent "no meta row yet" exit, because the lookup only
+    // keeps string values.
+    const unreadable: Array<{
+      label: string;
+      options: {
+        corruptMetaHex?: boolean;
+        metaText?: string;
+        rawMetaValue?: null | Buffer;
+      };
+    }> = [
+      { label: "not hex", options: { corruptMetaHex: true } },
+      { label: "hex but not JSON", options: { metaText: "not json at all" } },
+      {
+        label: "JSON without a root blob id",
+        options: { metaText: JSON.stringify({ name: "Fixture" }) },
+      },
+      { label: "a NULL value", options: { rawMetaValue: null } },
+      {
+        label: "a BLOB value",
+        options: { rawMetaValue: Buffer.from("00ff", "hex") },
+      },
+    ];
+    for (const { label, options } of unreadable) {
+      const home = await writeCursorFixtureHome(
+        cursorRootBlob(parts, 623),
+        options,
+      );
+      const result = await withHome(home, async () => {
+        const reader = await createLocalUsageReader("cursor");
+        return reader.scan({ sinceDays: Infinity });
+      });
+      assert(
+        result.filesScanned === 1,
+        `precondition failed: the store was never opened (${label})`,
+      );
+      assert(
+        result.totals.requests === 0,
+        `Cursor reader counted a session it could not read the meta row of (${label})`,
+      );
+      assert(
+        result.errors.length === 1 &&
+          result.errors[0]?.cliId === "cursor" &&
+          result.errors[0]?.filePath.endsWith("store.db"),
+        `Cursor reader dropped an unreadable meta row silently instead of reporting it (${label})`,
+      );
+    }
+    log("Cursor reader reports a meta row it cannot read, in all five forms");
+  });
+
+  await test("Cursor reader stays silent on a store with no meta row yet", async () => {
+    // The boundary of the rule above: a store a session has only just created
+    // has no meta row. That is a new session, not a format change, and
+    // reporting it would turn every fresh chat into a failure.
     const parts = [
       { name: "system_prompt", tokens: 480, chars: 1959 },
       { name: "conversation", tokens: 143, chars: 586 },
     ];
     const home = await writeCursorFixtureHome(cursorRootBlob(parts, 623), {
-      corruptMetaHex: true,
+      omitMetaRow: true,
     });
     const result = await withHome(home, async () => {
       const reader = await createLocalUsageReader("cursor");
@@ -2995,10 +3288,39 @@ async function testCursorReader(): Promise<void> {
       "precondition failed: the store was never opened",
     );
     assert(
-      result.totals.requests === 0,
-      "Cursor reader counted a session it could not read the meta row of",
+      result.totals.requests === 0 && result.errors.length === 0,
+      "Cursor reader reported or counted a store that has no meta row yet",
     );
-    log("Cursor reader survives a meta row that is not hex-encoded JSON");
+  });
+
+  await test("Cursor reader refuses a varint beyond the exact-integer range instead of returning it rounded", async () => {
+    // 2^53 is one past Number.MAX_SAFE_INTEGER and encodes in eight bytes, so
+    // the decoder's shift guard (which only stops a ninth) lets it through. The
+    // two parts then sum to 2^53 + 1, which a double rounds to 2^53 — exactly
+    // the stated total — so the cross-check passes by accident and the reader
+    // returns a token count that is wrong by construction.
+    const huge = 2 ** 53;
+    const parts = [
+      { name: "system_prompt", tokens: huge, chars: 1 },
+      { name: "conversation", tokens: 1, chars: 1 },
+    ];
+    const home = await writeCursorFixtureHome(cursorRootBlob(parts, huge));
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the store was never opened",
+    );
+    assert(
+      result.totals.inputTokens === 0 && result.totals.requests === 0,
+      "Cursor reader returned a token count beyond the exact-integer range",
+    );
+    assert(
+      result.errors.length === 1,
+      "Cursor reader dropped an unparseable blob silently instead of reporting it",
+    );
   });
 
   await test("Cursor reader honours the scan window", async () => {

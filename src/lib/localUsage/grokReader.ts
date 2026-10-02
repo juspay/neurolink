@@ -24,7 +24,9 @@
  * `modelUsage` map and `numTurns`. A turn that failed before any model call
  * carries no `usage` at all, so it excludes itself. `stop_reason` is not an
  * eligibility test: a truncated or interrupted turn with a usage object was
- * still billed.
+ * still billed. A `usage` that is present but is not that ledger (empty, an
+ * array, none of the counters) is a changed format: it is reported, not billed
+ * as a request of zero tokens.
  *
  * What the numbers MEAN took a second real turn to settle, and the answer is
  * neither "per turn" nor "cumulative" but both, by process:
@@ -217,9 +219,31 @@ function continuesRun(
   );
 }
 
+const USAGE_COUNTERS = ["inputTokens", "outputTokens", "modelCalls"] as const;
+
+/**
+ * Whether `usage` is shaped like the ledger Grok writes: an object, not an
+ * array, with at least one of the counters a turn that reached a model always
+ * carries. `count()` reads any missing field as 0, so without this a `{}`, a
+ * `[]` or the same counters under renamed keys passed as a turn of zero tokens
+ * and was billed as one request.
+ */
+function isTurnUsage(usage: unknown): usage is LocalUsageGrokTurnUsage {
+  if (typeof usage !== "object" || usage === null || Array.isArray(usage)) {
+    return false;
+  }
+  const record = usage as Record<string, unknown>;
+  // `1e999` parses as Infinity, which is a number but not a count: `count()`
+  // reads it as 0, so one such field made a malformed turn a zero-token request.
+  const counters = USAGE_COUNTERS.map((key) => record[key]).filter(
+    (value): value is number => typeof value === "number",
+  );
+  return counters.length > 0 && counters.every(Number.isFinite);
+}
+
 function completedTurn(parsed: unknown): {
   promptId: string | undefined;
-  usage: LocalUsageGrokTurnUsage;
+  usage: unknown;
 } | null {
   if (typeof parsed !== "object" || parsed === null) {
     return null;
@@ -243,13 +267,13 @@ function completedTurn(parsed: unknown): {
   if (u.sessionUpdate !== "turn_completed") {
     return null;
   }
-  if (typeof u.usage !== "object" || u.usage === null) {
+  if (u.usage === undefined || u.usage === null) {
     // Completed without reaching a model — an error before the first call.
     return null;
   }
   return {
     promptId: typeof u.prompt_id === "string" ? u.prompt_id : undefined,
-    usage: u.usage as LocalUsageGrokTurnUsage,
+    usage: u.usage,
   };
 }
 
@@ -257,10 +281,12 @@ async function foldStream(
   filePath: string,
   totals: LocalUsageTotals,
   unpriced: Set<string>,
+  errors: LocalUsageScanError[],
 ): Promise<void> {
   // Insertion-ordered, so the delta rule below sees turns in the order Grok
   // wrote them, with a re-emitted prompt replacing its earlier record.
   const turns = new Map<string, LocalUsageGrokTurn>();
+  let unrecognised = 0;
   const rl = createInterface({
     input: createReadStream(filePath, { encoding: "utf8" }),
     crlfDelay: Infinity,
@@ -283,10 +309,28 @@ async function foldStream(
       if (turn === null) {
         continue;
       }
+      if (!isTurnUsage(turn.usage)) {
+        unrecognised += 1;
+        // The later record for a prompt replaces the earlier one, so one that
+        // cannot be read must not leave the earlier reading in the totals.
+        if (turn.promptId !== undefined) {
+          turns.delete(turn.promptId);
+        }
+        continue;
+      }
       turns.set(turn.promptId ?? `line:${lineNo}`, readTurn(turn.usage));
     }
   } finally {
     rl.close();
+  }
+  if (unrecognised > 0) {
+    // One entry per stream: a changed format hits every turn in the file, and
+    // an entry each would bury everything else a scan has to report.
+    errors.push({
+      cliId: CLI_ID,
+      filePath,
+      message: `${unrecognised} completed turn(s) carried a usage record with no recognisable token or call counter — Grok Build's stream format has likely changed`,
+    });
   }
 
   let prev: LocalUsageGrokTurn | undefined;
@@ -352,7 +396,7 @@ export async function createGrokReader(): Promise<LocalUsageReader> {
           if (cutoff !== undefined && (await stat(file)).mtimeMs < cutoff) {
             continue;
           }
-          await foldStream(file, totals, unpriced);
+          await foldStream(file, totals, unpriced, errors);
           filesScanned += 1;
         } catch (error) {
           errors.push({

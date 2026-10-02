@@ -27,7 +27,9 @@
  * therefore the complete record of what Hermes actually sent to a provider,
  * and this reader sums them. The `sessions` aggregate is read only for a
  * session that has no usage rows at all (a store older than the migration
- * that introduced the table), and never in addition to them.
+ * that introduced the table), and never in addition to them. A usage table
+ * that exists but lacks a required column is a changed schema, and is reported
+ * rather than read around.
  *
  * Cost: Hermes records `estimated_cost_usd` with a `cost_status` of
  * `estimated`, from its own pricing snapshot. That is a modeled figure and is
@@ -279,8 +281,19 @@ function readStore(
     return;
   }
   const usageCols = columnsOf(db, "session_model_usage");
-  const hasUsage =
-    usageCols.size > 0 && USAGE_REQUIRED.every((c) => usageCols.has(c));
+  const missingUsage = USAGE_REQUIRED.filter((c) => !usageCols.has(c));
+  if (usageCols.size > 0 && missingUsage.length > 0) {
+    // Fail closed, for the same reason as above. The table exists, so this is
+    // not a store older than the migration; falling back to the sessions
+    // aggregate would silently drop every non-primary task.
+    errors.push({
+      cliId: CLI_ID,
+      filePath: dbPath,
+      message: `session_model_usage table lacks required column(s) ${missingUsage.join(", ")} — Hermes' schema has changed`,
+    });
+    return;
+  }
+  const hasUsage = usageCols.size > 0;
 
   // Last activity, in seconds. Sessions know theirs; usage rows fall back to
   // their session's when they carry no `last_seen` of their own.
