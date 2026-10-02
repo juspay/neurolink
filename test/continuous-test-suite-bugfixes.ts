@@ -7595,6 +7595,35 @@ exit 127
       return out === "//***@host/path";
     },
   },
+  // A value with no `//` is not an authority: `user:secret@host:80` parses as
+  // the scheme `user:` with the opaque path `secret@host:80`, which rebuilding
+  // from protocol + host + pathname used to hand straight back.
+  {
+    name: "logSanitize: redactUrlForError redacts the password of a scheme-less user:pass@host",
+    category: "image-processor",
+    fn: async () => {
+      return (
+        redactUrlForError("user:secret@host.example:8080") ===
+          "[redacted]@host.example:8080" &&
+        redactUrlForError("ops:p@ss@host.example:8080/path") ===
+          "[redacted]@host.example:8080/path"
+      );
+    },
+  },
+  {
+    name: "logSanitize: redactUrlForError leaves file URLs, Windows drive paths and relative names that hold an @ alone",
+    category: "image-processor",
+    fn: async () => {
+      return (
+        redactUrlForError("file:///srv/node_modules/@scope/pkg/x.js") ===
+          "file:///srv/node_modules/@scope/pkg/x.js" &&
+        // The drive path keeps its folder name; how the rest is rendered is not
+        // what this pins, only that the `@` is not taken for a credential.
+        redactUrlForError("C:\\srv\\ops@corp\\x.png").includes("ops@corp") &&
+        redactUrlForError("report@2x.png") === "report@2x.png"
+      );
+    },
+  },
   // ---------- Round-4: redactUrlCredentials must handle malformed authorities ----------
   {
     name: "logSanitize #564 round 4: redactUrlCredentials strips credentials containing an embedded slash",

@@ -2302,6 +2302,93 @@ async function runTypeSafeGatewayErrors(): Promise<void> {
   } finally {
     setEnv("AI_GATEWAY_API_KEY", undefined);
   }
+
+  // ── a TYPESAFE_BASE_URL's credentials never reach the debug log, with a scheme or without ──
+  {
+    const name =
+      "DECIDE typesafe: base URL credentials stay out of the debug log";
+    const { logger } = await import("../dist/index.js");
+    const originalDebug = console.debug;
+    const priorDebugFlag = process.env.NEUROLINK_DEBUG;
+    const priorBaseURL = process.env.TYPESAFE_BASE_URL;
+    // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+    const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+    const priorLogLevel =
+      loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+        ? loadLevel
+        : "info";
+    const lines: string[] = [];
+    try {
+      setEnv("NEUROLINK_DEBUG", "true");
+      logger.setLogLevel("debug");
+      console.debug = (...args: unknown[]) => {
+        lines.push(
+          args
+            .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+            .join(" "),
+        );
+      };
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      const logged = async (base: string): Promise<string> => {
+        lines.length = 0;
+        setEnv("TYPESAFE_BASE_URL", base);
+        await ProviderFactory.createProvider(
+          TYPESAFE_DECIDE_SPEC.provider,
+          TYPESAFE_DECIDE_SPEC.model,
+        );
+        return lines
+          .filter((l) => l.includes("TypeSafe Provider initialized"))
+          .join("\n");
+      };
+      const withScheme = await logged(
+        "https://ops:hunter2-basic@typesafe.internal.test/ts?token=hunter2-query",
+      );
+      expect(withScheme.length > 0, "the construction log line is captured");
+      expect(
+        !withScheme.includes("hunter2"),
+        "no credential from the base URL is logged",
+      );
+      expect(
+        withScheme.includes("typesafe.internal.test/ts"),
+        "the host and path stay in the log for diagnostics",
+      );
+      // A value with no `//` parses as the scheme `user:` with an opaque path,
+      // which a redactor that rebuilds the URL from scheme and path hands back.
+      // A file URL and a Windows drive path keep their `@`: it is not a credential.
+      const bare = await logged(
+        "user:hunter2-basic@typesafe.internal.test:8080",
+      );
+      expect(bare.length > 0, "a scheme-less value: the log line is captured");
+      expect(
+        !bare.includes("hunter2"),
+        "no password from a scheme-less user:pass@host is logged",
+      );
+      expect(
+        (await logged("file:///srv/node_modules/@scope/typesafe")).includes(
+          "@scope/typesafe",
+        ),
+        "a file URL keeps its @",
+      );
+      expect(
+        (await logged("C:\\srv\\ops@corp\\typesafe")).includes("ops@corp"),
+        "a Windows drive path keeps its @",
+      );
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      console.debug = originalDebug;
+      logger.setLogLevel(priorLogLevel);
+      setEnv("NEUROLINK_DEBUG", priorDebugFlag);
+      setEnv("TYPESAFE_BASE_URL", priorBaseURL);
+    }
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -3184,6 +3271,33 @@ async function runLayaDecide(): Promise<void> {
       expect(
         init.some((l) => l.includes("laya.internal.test/laya")),
         "the host and path stay in the log for diagnostics",
+      );
+      // A value with no `//` parses as the scheme `user:` with an opaque path,
+      // which a redactor that rebuilds the URL from scheme and path hands back.
+      // A file URL and a Windows drive path keep their `@`: it is not a credential.
+      const logged = async (base: string): Promise<string> => {
+        lines.length = 0;
+        setEnv("LAYA_BASE_URL", base);
+        await createLaya();
+        return lines
+          .filter((l) => l.includes("Laya Provider initialized"))
+          .join("\n");
+      };
+      const bare = await logged("user:hunter2-basic@laya.internal.test:8080");
+      expect(bare.length > 0, "a scheme-less value: the log line is captured");
+      expect(
+        !bare.includes("hunter2"),
+        "no password from a scheme-less user:pass@host is logged",
+      );
+      expect(
+        (await logged("file:///srv/node_modules/@scope/laya")).includes(
+          "@scope/laya",
+        ),
+        "a file URL keeps its @",
+      );
+      expect(
+        (await logged("C:\\srv\\ops@corp\\laya")).includes("ops@corp"),
+        "a Windows drive path keeps its @",
       );
       record(results, name, true);
     } catch (err) {
@@ -4289,6 +4403,36 @@ async function runXorDecide(): Promise<void> {
         expect(
           init.some((l) => l.includes("xor.internal.test/proxy")),
           "the host and path stay in the log for diagnostics",
+        );
+        // A value with no `//` parses as the scheme `user:` with an opaque path,
+        // which a redactor that rebuilds the URL from scheme and path hands back.
+        // A file URL and a Windows drive path keep their `@`: it is not a credential.
+        const logged = async (base: string): Promise<string> => {
+          lines.length = 0;
+          setEnv("XOR_BASE_URL", base);
+          await createXor();
+          return lines
+            .filter((l) => l.includes("XOR Provider initialized"))
+            .join("\n");
+        };
+        const bare = await logged("user:hunter2-basic@xor.internal.test:8080");
+        expect(
+          bare.length > 0,
+          "a scheme-less value: the log line is captured",
+        );
+        expect(
+          !bare.includes("hunter2"),
+          "no password from a scheme-less user:pass@host is logged",
+        );
+        expect(
+          (await logged("file:///srv/node_modules/@scope/xor")).includes(
+            "@scope/xor",
+          ),
+          "a file URL keeps its @",
+        );
+        expect(
+          (await logged("C:\\srv\\ops@corp\\xor")).includes("ops@corp"),
+          "a Windows drive path keeps its @",
         );
       } finally {
         console.debug = originalDebug;

@@ -226,6 +226,22 @@ export function redactUrlForError(url: string): string {
     s.length > 200 ? `${s.slice(0, 200)}…` : s;
   try {
     const parsed = new URL(url);
+    // `user:pass@host:80` has no `//`, so it is not an authority: it parses as
+    // the scheme `user:` with the opaque path `pass@host:80`, and rebuilding it
+    // from scheme and path would hand the password back. An opaque path that
+    // holds an `@` is read as credentials and cut at the last one. A file URL
+    // has a path that starts with `/`, and a Windows drive path has a one-letter
+    // scheme, so neither is touched.
+    if (
+      parsed.host === "" &&
+      !parsed.pathname.startsWith("/") &&
+      parsed.pathname.includes("@") &&
+      !/^[a-z]:$/i.test(parsed.protocol)
+    ) {
+      return truncate(
+        `[redacted]@${parsed.pathname.slice(parsed.pathname.lastIndexOf("@") + 1)}`,
+      );
+    }
     // Reconstruct explicitly from protocol + host + pathname — never
     // parsed.username/parsed.password, and never parsed.href (which
     // re-serializes any embedded userinfo) — so a `user:pass@host` in the
