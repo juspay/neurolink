@@ -47,6 +47,7 @@ const { ImageLoader, RAGPipeline, InMemoryVectorStore, prepareRAGTool } =
 type RagSearchSource = {
   source: string;
   hasImage?: boolean;
+  score?: number;
 };
 
 /**
@@ -363,15 +364,27 @@ await test("an ordinary image path still captions from its filename", async () =
 async function startLocalBedrockEmbed(): Promise<{
   endpoint: string;
   invokeCount: () => number;
+  failFromNowOn: () => void;
   close: () => Promise<void>;
 }> {
   let invokeCount = 0;
+  let failing = false;
   const server = createH2Server();
   server.on("request", (req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
       invokeCount += 1;
+      if (failing) {
+        // 400, not 5xx: the SDK retries 5xx with backoff, and a ValidationException
+        // is a terminal error the case can observe straight away.
+        res.writeHead(400, {
+          "content-type": "application/json",
+          "x-amzn-errortype": "ValidationException",
+        });
+        res.end(JSON.stringify({ message: "embedding backend unavailable" }));
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       // Shape Bedrock's Titan (non-Nova) embed response takes: a flat
       // `embedding` array. Fixed and fake — nothing here reads the request
@@ -386,6 +399,9 @@ async function startLocalBedrockEmbed(): Promise<{
   return {
     endpoint: `http://127.0.0.1:${port}`,
     invokeCount: () => invokeCount,
+    failFromNowOn: () => {
+      failing = true;
+    },
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
@@ -742,6 +758,99 @@ await test("prepareRAGTool skips an SVG image source but still indexes a raster 
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("prepareRAGTool fails the search when the query embedding fails instead of querying a provider-embedded index with a hash vector", async () => {
+  // Index and query have to share one embedding space. When the index was built
+  // from provider vectors and the provider then fails for the QUERY alone, the
+  // old path swapped in a 128-dimension hash vector. cosineSimilarity returns 0
+  // on a length mismatch, so every chunk scored 0 and the tool answered with
+  // whichever chunks sorted first, as if they were relevant. An error is the
+  // honest result, and the one the model can act on.
+  const restoreAws = withFakeAwsEnv();
+  const local = await startLocalBedrockEmbed();
+  const previousEndpoint = process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+  process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = local.endpoint;
+  const dir = mkdtempSync(join(tmpdir(), "neurolink-ragint-query-embed-"));
+  try {
+    const alphaPath = join(dir, "alpha.md");
+    const betaPath = join(dir, "beta.md");
+    writeFileSync(alphaPath, "# Alpha\n\nAlpha covers invoices and billing.\n");
+    writeFileSync(betaPath, "# Beta\n\nBeta covers shipping and returns.\n");
+
+    const prepared = await prepareRAGTool({
+      files: [alphaPath, betaPath],
+      embeddingProvider: "bedrock",
+      embeddingModel: TITAN_TEXT_MODEL,
+      topK: 5,
+    });
+
+    // Precondition: the index really was built from provider vectors. A silent
+    // fall back to the hash at index time makes no provider calls at all, and
+    // the failure injected below would then never be reached.
+    assert(
+      prepared.chunksIndexed > 0 &&
+        local.invokeCount() === prepared.chunksIndexed,
+      "the index was not built from one provider embedding call per chunk",
+    );
+
+    const execute = prepared.tool.execute;
+    assertNotNull(execute, "the prepared RAG tool exposes no execute()");
+
+    // Control: with the provider healthy the query is embedded through it and
+    // scores against the provider-space index. Without this, the failing case
+    // below could be rejecting for a reason unrelated to the query embedding.
+    const healthy: unknown = await execute(
+      { query: "invoices" },
+      { toolCallId: "query-embed-healthy", messages: [] },
+    );
+    if (!isRagSearchResult(healthy)) {
+      throw new Error("the prepared tool returned an unexpected result shape");
+    }
+    assert(
+      healthy.sources.length === prepared.chunksIndexed &&
+        healthy.sources.every(
+          (entry) => typeof entry.score === "number" && entry.score > 0.99,
+        ),
+      "a healthy query was not scored in the index's embedding space",
+    );
+    assert(
+      local.invokeCount() === prepared.chunksIndexed + 1,
+      "the healthy query did not embed through the provider exactly once",
+    );
+
+    local.failFromNowOn();
+    const callsBefore = local.invokeCount();
+    let outcome: "rejected" | "resolved" = "resolved";
+    try {
+      await execute(
+        { query: "invoices" },
+        { toolCallId: "query-embed-failing", messages: [] },
+      );
+    } catch {
+      outcome = "rejected";
+    }
+
+    // The failing call must have reached the provider, or the rejection is not
+    // evidence about the query embedding at all.
+    assert(
+      local.invokeCount() === callsBefore + 1,
+      "the failing query did not reach the embedding endpoint exactly once",
+    );
+    assert(
+      outcome === "rejected",
+      "a failed query embedding still produced search results from a mismatched embedding space",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    await local.close();
+    if (previousEndpoint === undefined) {
+      delete process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+    } else {
+      process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = previousEndpoint;
+    }
+    restoreAws();
   }
 });
 

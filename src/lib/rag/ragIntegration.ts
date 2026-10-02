@@ -458,8 +458,9 @@ async function _prepareRAGToolInner(
   // those config fields had no runtime effect and retrieval always used the
   // deterministic hash embedding, which is a lexical fingerprint rather than
   // a semantic space. Index and query must share one embedding space, so the
-  // provider path replaces the hash path wholesale; any provider failure
-  // falls back to the hash for both sides.
+  // provider path replaces the hash path wholesale; a provider failure while
+  // creating the provider or building the index falls back to the hash for
+  // both sides, but one at query time fails that search.
   const wantProviderEmbeddings = Boolean(embeddingProvider || embeddingModel);
   const embedProviderName = embeddingProvider || fallbackProvider || "vertex";
   const embedModelName = embeddingModel || "gemini-2.5-flash";
@@ -589,11 +590,13 @@ async function _prepareRAGToolInner(
           },
         },
         async (span) => {
-          // Query through the same embedding space the index was built in —
-          // provider embeddings when configured (and healthy), else the hash.
-          const queryEmbedding = await embedFn(query).catch(() =>
-            generateSimpleEmbedding(query, EMBEDDING_DIMENSION),
-          );
+          // Query through the same embedding space the index was built in.
+          // A failure here must fail the search: swapping in a hash vector
+          // would be scored against provider-space vectors of another
+          // dimension, which cosine reads as 0 for every chunk, so the tool
+          // would return arbitrary chunks as if they were relevant. A hash-built
+          // index never reaches this — its embedFn cannot reject.
+          const queryEmbedding = await embedFn(query);
 
           // Fetch more candidates than needed so diversity can select across files and images
           const loadedSources = fileContents.length + imageChunks.length;
