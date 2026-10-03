@@ -67,6 +67,7 @@ export class HITLManager extends EventEmitter {
       allowArgumentModification:
         config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION, // Default: true
       autoApproveOnTimeout: config.autoApproveOnTimeout ?? false, // Default: false (safe)
+      autoApproveExclusions: config.autoApproveExclusions ?? [],
       auditLogging: config.auditLogging ?? false, // Default: false
       customRules: config.customRules ?? [], // Default: empty array
     };
@@ -78,6 +79,16 @@ export class HITLManager extends EventEmitter {
     if (!Array.isArray(configWithDefaults.dangerousActions)) {
       throw new HITLConfigurationError(
         "dangerousActions must be an array of strings",
+      );
+    }
+    if (
+      !Array.isArray(configWithDefaults.autoApproveExclusions) ||
+      configWithDefaults.autoApproveExclusions.some(
+        (name) => typeof name !== "string" || name.length === 0,
+      )
+    ) {
+      throw new HITLConfigurationError(
+        "autoApproveExclusions must be an array of non-empty tool names",
       );
     }
 
@@ -311,7 +322,9 @@ export class HITLManager extends EventEmitter {
     const responseTime = Date.now() - request.timestamp;
 
     // Check if auto-approve on timeout is enabled
-    const shouldAutoApprove = this.config.autoApproveOnTimeout === true;
+    const shouldAutoApprove =
+      this.config.autoApproveOnTimeout === true &&
+      !this.config.autoApproveExclusions?.includes(request.toolName);
 
     // Log audit trail if enabled
     if (this.config.auditLogging) {
