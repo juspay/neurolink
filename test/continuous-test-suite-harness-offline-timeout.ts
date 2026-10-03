@@ -40,6 +40,7 @@ import {
   assertEqual,
   isCaseTimeout,
   resolveTimeoutScale,
+  scaleTimeoutMs,
   TIMEOUT_SCALE_ENV_VAR,
   withCaseTimeout,
 } from "./helpers/harness.js";
@@ -336,6 +337,48 @@ await test("NEUROLINK_TEST_TIMEOUT_SCALE widens a withCaseTimeout bound", async 
     assert(
       Date.now() - startedAt >= caseDelayMs,
       "the case must have run its full delay before this assertion means anything",
+    );
+  });
+});
+
+await test("a scale that pushes a bound past Node's timer limit is capped, not wrapped to 1ms", async () => {
+  // Node runs a delay longer than 2^31 - 1 ms after 1ms (and warns), so an
+  // uncapped 600ms * 1e10 bound made a case that was still running look
+  // abandoned the moment it started, while the message named the huge figure.
+  const timerLimitMs = 2_147_483_647;
+  await withTimeoutScaleEnv("1e10", async () => {
+    assertEqual(
+      scaleTimeoutMs(600),
+      timerLimitMs,
+      "a bound beyond the timer limit must be capped at it",
+    );
+
+    const caseDelayMs = 80;
+    const startedAt = Date.now();
+    await withCaseTimeout(
+      "outlives a wrapped timer",
+      () => delay(caseDelayMs),
+      600,
+    );
+    assert(
+      Date.now() - startedAt >= caseDelayMs,
+      "the case must have run its full delay before this assertion means anything",
+    );
+
+    const { test: cappedTest } = defineSuite("inner capped probe", {
+      offline: true,
+      perTestTimeoutMs: 600,
+    });
+    const { text, elapsedMs } = await captureLog(() =>
+      cappedTest("outlives a wrapped timer", () => delay(caseDelayMs)),
+    );
+    assert(
+      elapsedMs >= caseDelayMs,
+      "the case must have run its full delay before this assertion means anything",
+    );
+    assert(
+      text.includes("✓"),
+      "a per-test budget beyond the timer limit must still let a short case pass",
     );
   });
 });

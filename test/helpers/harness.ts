@@ -208,12 +208,24 @@ export function resolveTimeoutScale(): number {
 }
 
 /**
- * `baseMs` under `NEUROLINK_TEST_TIMEOUT_SCALE`, never below 1ms. A small
- * positive scale (0.001 on a 100ms bound) rounds to 0, which would report a
- * budget of "0ms" that nothing could meet.
+ * Longest delay a Node timer honours (2^31 - 1 ms, about 24.8 days). A longer
+ * one is not clamped: Node runs it after 1ms and warns.
+ */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * `baseMs` under `NEUROLINK_TEST_TIMEOUT_SCALE`, within what a timer can hold:
+ * never below 1ms, never above `MAX_TIMER_MS`. A small positive scale (0.001 on
+ * a 100ms bound) rounds to 0, which would report a budget of "0ms" that nothing
+ * could meet. A huge one (the scale only has to be finite and positive) pushed
+ * a 600s bound past the timer limit, so the bound fired after 1ms while its
+ * error message still named the large figure.
  */
 export function scaleTimeoutMs(baseMs: number): number {
-  return Math.max(1, Math.round(baseMs * resolveTimeoutScale()));
+  return Math.min(
+    MAX_TIMER_MS,
+    Math.max(1, Math.round(baseMs * resolveTimeoutScale())),
+  );
 }
 
 // ---------------------------------------------------------------------------
