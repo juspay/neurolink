@@ -76,6 +76,14 @@ Duration in ms (for complete chunks)
 
 ---
 
+### cost?
+
+> `optional` **cost?**: `number`
+
+SDK cost estimate in USD (for complete chunks), when priced.
+
+---
+
 ### error?
 
 > `optional` **error?**: `string`

@@ -316,6 +316,15 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
   },
   // Google Vertex AI — Claude models on Vertex (same pricing, @ date suffix)
   vertex: {
+    // Standard Sonnet 4 rates; the lookup also recognizes its @ date suffix.
+    // https://platform.claude.com/docs/en/about-claude/pricing
+    "claude-sonnet-4": {
+      input: 3.0 / 1_000_000,
+      output: 15.0 / 1_000_000,
+      cacheRead: 0.3 / 1_000_000,
+      cacheCreation: 3.75 / 1_000_000,
+      cacheCreation1h: 6.0 / 1_000_000,
+    },
     // A 1-hour cache write is 2x base input, as on the direct API.
     // Claude 5 family. Absent here until now, so a Vertex leg serving any of
     // them resolved to no rate at all and booked the turn at $0 — on the one
@@ -560,7 +569,13 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
   },
   // Google (Gemini) — updated March 2026
   google: {
-    // Gemini 3.1 family (all require -preview suffix)
+    // GA text/image/video rates: https://ai.google.dev/gemini-api/docs/pricing
+    "gemini-3.1-flash-lite": {
+      input: 0.25 / 1_000_000,
+      output: 1.5 / 1_000_000,
+      cacheRead: 0.025 / 1_000_000,
+    },
+    // Gemini 3.1 preview family
     // cacheRead = 0.25x input (cached content tokens; explicit-cache storage is
     // billed separately by TTL/time, so no per-token cacheCreation rate here).
     "gemini-3.1-pro-preview": {

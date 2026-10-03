@@ -3154,7 +3154,9 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Calculate actual cost - delegated to TelemetryHandler
    */
-  private async calculateActualCost(usage: TokenUsage): Promise<number> {
+  private async calculateActualCost(
+    usage: TokenUsage,
+  ): Promise<number | undefined> {
     return this.telemetryHandler.calculateActualCost(usage);
   }
 

@@ -28,6 +28,22 @@ Override max steps for this execution
 
 ---
 
+### enableAnalytics?
+
+> `optional` **enableAnalytics?**: `boolean`
+
+Enable SDK usage and cost analytics for this execution.
+
+---
+
+### maxBudgetUsd?
+
+> `optional` **maxBudgetUsd?**: `number`
+
+Cumulative budget for the NeuroLink instance, not a per-run cap.
+
+---
+
 ### traceId?
 
 > `optional` **traceId?**: `string`

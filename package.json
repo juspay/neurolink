@@ -272,6 +272,7 @@
     "test:image-exif": "pnpm exec tsx test/continuous-test-suite-image-exif.ts",
     "test:model-pool": "pnpm exec tsx test/continuous-test-suite-model-pool.ts",
     "test:agents": "pnpm exec tsx test/continuous-test-suite-agents.ts",
+    "test:agent-cost": "pnpm exec tsx test/continuous-test-suite-agent-cost.ts",
     "test:classifier-router": "pnpm exec tsx test/continuous-test-suite-classifier-router.ts",
     "test:vector-chroma": "pnpm exec tsx test/continuous-test-suite-vector-chroma.ts",
     "test:vector-pgvector": "pnpm exec tsx test/continuous-test-suite-vector-pgvector.ts",

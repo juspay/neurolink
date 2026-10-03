@@ -79,6 +79,9 @@ export type AgentResult = {
   /** Token usage for this execution */
   usage?: TokenUsage;
 
+  /** SDK estimate in USD; undefined when the model has no known pricing. */
+  cost?: number;
+
   /** Tools used during execution */
   toolsUsed?: string[];
 
@@ -116,6 +119,12 @@ export type AgentExecutionOptions = {
 
   /** Override max steps for this execution */
   maxSteps?: number;
+
+  /** Enable SDK usage and cost analytics for this execution. */
+  enableAnalytics?: boolean;
+
+  /** Cumulative budget for the NeuroLink instance, not a per-run cap. */
+  maxBudgetUsd?: number;
 
   /** Trace ID for observability */
   traceId?: string;
@@ -677,6 +686,9 @@ export type AgentStreamChunk = {
 
   /** Duration in ms (for complete chunks) */
   duration?: number;
+
+  /** SDK cost estimate in USD (for complete chunks), when priced. */
+  cost?: number;
 
   /** Error message (for error chunks) */
   error?: string;

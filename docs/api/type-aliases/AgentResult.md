@@ -36,6 +36,14 @@ Token usage for this execution
 
 ---
 
+### cost?
+
+> `optional` **cost?**: `number`
+
+SDK estimate in USD; undefined when the model has no known pricing.
+
+---
+
 ### toolsUsed?
 
 > `optional` **toolsUsed?**: `string`[]
