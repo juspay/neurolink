@@ -707,6 +707,14 @@ Synthesize speech, transcribe audio, or run live voice sessions. Voice providers
 
 [Setup Guide →](./fish-audio.md)
 
+#### [60db](./sixtydb.md)
+
+Workspace voice catalogs and HTTP text-to-speech.
+
+- WAV or raw PCM16 output at 24 kHz
+- Workspace API key and voice UUID
+- [Setup guide](./sixtydb.md)
+
 #### [Cartesia](./cartesia.md)
 
 **Low-latency Sonic models — synchronous + streaming**

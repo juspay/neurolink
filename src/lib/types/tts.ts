@@ -46,6 +46,7 @@ export type TTSProviderName =
   | "elevenlabs-tts"
   | "azure-tts"
   | "fish-audio"
+  | "sixtydb"
   | "cartesia"
   | (string & {});
 

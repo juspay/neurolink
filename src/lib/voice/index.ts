@@ -102,6 +102,10 @@ export {
 export { GoogleTTSHandler } from "../adapters/tts/googleTTSHandler.js";
 export { AzureTTS, AzureTTS as AzureTTSHandler } from "./providers/AzureTTS.js";
 export {
+  SixtyDBTTS,
+  SixtyDBTTS as SixtyDBTTSHandler,
+} from "./providers/SixtyDBTTS.js";
+export {
   CartesiaTTS,
   CartesiaTTS as CartesiaTTSHandler,
 } from "./providers/CartesiaTTS.js";
@@ -159,6 +163,7 @@ import { AzureTTS } from "./providers/AzureTTS.js";
 import { CartesiaTTS } from "./providers/CartesiaTTS.js";
 import { ElevenLabsTTS } from "./providers/ElevenLabsTTS.js";
 import { FishAudioTTS } from "./providers/FishAudioTTS.js";
+import { SixtyDBTTS } from "./providers/SixtyDBTTS.js";
 import { OpenAITTS } from "./providers/OpenAITTS.js";
 
 import { AzureSTT } from "./providers/AzureSTT.js";
@@ -178,6 +183,7 @@ const TTS_HANDLER_FACTORIES: Readonly<Record<string, () => TTSHandler>> = {
   elevenlabs: () => new ElevenLabsTTS(),
   "azure-tts": () => new AzureTTS(),
   "fish-audio": () => new FishAudioTTS(),
+  sixtydb: () => new SixtyDBTTS(),
   cartesia: () => new CartesiaTTS(),
 };
 

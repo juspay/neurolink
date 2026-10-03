@@ -45,6 +45,7 @@ export type VoiceProviderName =
   | "google-tts"
   | "elevenlabs"
   | "openai-tts"
+  | "sixtydb"
   | "azure-tts"
   | "sarvam"
   | "murf"

@@ -312,6 +312,7 @@ console.log(result.content);
 - [OpenAIRealtime](classes/OpenAIRealtime.md)
 - [OpenAISTT](classes/OpenAISTT.md)
 - [OpenAITTS](classes/OpenAITTS.md)
+- [SixtyDBTTS](classes/SixtyDBTTS.md)
 
 ## Type Aliases
 
@@ -3850,6 +3851,12 @@ Renames and re-exports [ElevenLabsTTS](classes/ElevenLabsTTS.md)
 ### FishAudioTTSHandler
 
 Renames and re-exports [FishAudioTTS](classes/FishAudioTTS.md)
+
+---
+
+### SixtyDBTTSHandler
+
+Renames and re-exports [SixtyDBTTS](classes/SixtyDBTTS.md)
 
 ---
 
