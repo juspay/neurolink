@@ -378,8 +378,18 @@ const SOURCE_SKIP_DIRS = new Set([
   "dist",
   "action-dist",
   ".svelte-kit",
+  ".docusaurus",
   ".git",
 ]);
+
+/**
+ * Build output under a scanned root, skipped by path. Docusaurus writes its
+ * bundles to `docs-site/build`, and the migration guides it compiles into them
+ * show the removed packages as code samples, so a tree where the docs have been
+ * built fails the scan while a fresh clone passes. `build` is a plausible name
+ * for real source elsewhere, so it is skipped by path rather than by name.
+ */
+const SOURCE_SKIP_PATHS = ["docs-site/build"];
 
 /**
  * Directories the MANIFEST scan does not descend into. A separate list from
@@ -410,6 +420,7 @@ const MANIFEST_SKIP_DIRS = new Set([
 
 function collectSourceFiles(rootDir: string): string[] {
   const out: string[] = [];
+  const skippedPaths = new Set(SOURCE_SKIP_PATHS.map((p) => join(rootDir, p)));
   const stack: string[] = [
     "src",
     "test",
@@ -440,7 +451,7 @@ function collectSourceFiles(rootDir: string): string[] {
         continue;
       }
       if (stat.isDirectory()) {
-        if (!SOURCE_SKIP_DIRS.has(entry)) {
+        if (!SOURCE_SKIP_DIRS.has(entry) && !skippedPaths.has(full)) {
           stack.push(full);
         }
       } else if (stat.isFile() && SOURCE_EXTS.has(extname(entry))) {

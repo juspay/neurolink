@@ -244,6 +244,42 @@ await runSuite(async () => {
     );
   });
 
+  await test("docs build output is not scanned, but docs-site source and a build directory elsewhere are", async () => {
+    // The built docs bundle the migration guides' code samples, which show the
+    // removed packages, so a tree where the docs have been built used to fail
+    // the pre-push check while a fresh clone passed.
+    const sample = `import x from "${BANNED}";\n`;
+    const built = await bannedDepsRun({
+      "src/ok.ts": "export const ok = 1;\n",
+      "docs-site/build/assets/js/page.js": sample,
+      "docs-site/.docusaurus/registry.js": sample,
+    });
+    expectOutput(
+      "docs build output",
+      built,
+      built.exitCode === 0,
+      "the docs build output was scanned and reported a sample from compiled documentation",
+    );
+
+    const source = await bannedDepsRun({ "docs-site/src/page.ts": sample });
+    expectOutput(
+      "docs-site source",
+      source,
+      source.exitCode === 1 &&
+        combined(source).includes("[docs-site/src/page.ts:1]"),
+      "a banned import in docs-site source should still fail the scan",
+    );
+
+    const elsewhere = await bannedDepsRun({ "src/build/real.ts": sample });
+    expectOutput(
+      "a directory merely named build",
+      elsewhere,
+      elsewhere.exitCode === 1 &&
+        combined(elsewhere).includes("[src/build/real.ts:1]"),
+      "a banned import under a directory merely named build should still fail the scan",
+    );
+  });
+
   // -------------------------------------------------------------------------
   logSection("check-shipped-types: completeness of dist/");
   // -------------------------------------------------------------------------
