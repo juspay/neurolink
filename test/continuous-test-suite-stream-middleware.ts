@@ -58,6 +58,10 @@ import {
 
 assertDistFresh();
 
+// These cases use local or inline tools. External MCP startup can exceed
+// the transport probe deadlines under the credential-free, throwaway HOME.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 const { test, section, runSuite } = defineSuite("Stream middleware", {
   offline: true,
 });
@@ -375,6 +379,61 @@ await test("a synthetic blocking stream delivers text and settles analytics with
     );
     assert.ok(result.analytics, "analytics were not exposed");
     await bounded(Promise.resolve(result.analytics));
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
+await test("a synthetic blocking stream that closes without a finish part still completes", async () => {
+  // A middleware that blocks the request supplies its own stream, and nothing
+  // obliges it to end with a V3 "finish" part. The stream's terminal step
+  // waits on the finish signal, which only a "finish" part or a started loop
+  // ever settles — so a stream that simply closed left the reader hanging
+  // with no timeout.
+  const server = await startMockChatServer();
+  const sdk = new NeuroLink();
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "block-stream-no-finish", name: "Block stream, no finish" },
+    wrapStream: async () => ({
+      stream: new ReadableStream<LanguageModelV3StreamPart>({
+        start(controller) {
+          controller.enqueue({ type: "text-start", id: "blocked" });
+          controller.enqueue({
+            type: "text-delta",
+            id: "blocked",
+            delta: "BLOCKED",
+          });
+          controller.enqueue({ type: "text-end", id: "blocked" });
+          controller.close();
+        },
+      }),
+    }),
+  };
+  try {
+    const result = await sdk.stream({
+      input: { text: "block this" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: mockOpenAICredentials(server),
+      middleware: {
+        middleware: [middleware],
+        enabledMiddleware: ["block-stream-no-finish"],
+      },
+    });
+    assert.equal(
+      await bounded(readText(result)),
+      "BLOCKED",
+      "blocked content lost",
+    );
+    assert.equal(
+      server.getAllRequestBodies().length,
+      0,
+      "blocked request reached HTTP",
+    );
   } finally {
     await sdk.shutdown();
     await server.close();

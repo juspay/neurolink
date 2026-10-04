@@ -131,6 +131,25 @@ export function extractRetryAfterMsFromError(
 }
 
 /**
+ * OpenAI's chat transport keeps the type inside the JSON response body,
+ * rather than stamping it onto the raw error.
+ */
+export function readOpenAIBodyErrorType(
+  responseBody: unknown,
+): string | undefined {
+  if (typeof responseBody !== "string") {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(responseBody);
+    const inner = (parsed as { error?: { type?: unknown } } | null)?.error;
+    return typeof inner?.type === "string" ? inner.type : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * An OpenAI-wire `insufficient_quota` error: the account is out of credit or
  * has hit a spend cap.
  *
@@ -155,17 +174,7 @@ export function isOpenAIQuotaExhaustedError(error: unknown): boolean {
   if (err.type === "insufficient_quota") {
     return true;
   }
-  // The SDK keeps the raw payload as a string; the type lives inside it.
-  if (typeof err.responseBody === "string") {
-    try {
-      const parsed: unknown = JSON.parse(err.responseBody);
-      const inner = (parsed as { error?: { type?: unknown } } | null)?.error;
-      return inner?.type === "insufficient_quota";
-    } catch {
-      return false;
-    }
-  }
-  return false;
+  return readOpenAIBodyErrorType(err.responseBody) === "insufficient_quota";
 }
 
 /**

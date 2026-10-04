@@ -64,6 +64,8 @@ export type CatalogErrorRuleClass =
 export type CatalogErrorRuleJson = {
   status?: number;
   pattern?: string;
+  /** Restrict the pattern to these HTTP statuses; status matching stays independent. */
+  patternStatuses?: number[];
   class: CatalogErrorRuleClass;
   message: string;
 };

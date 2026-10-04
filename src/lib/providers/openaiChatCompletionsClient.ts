@@ -544,11 +544,23 @@ const SCHEMA_NODES = [
   "else",
 ] as const;
 
-// OpenAI's strict mode does not accept these composition keywords. A schema
+// OpenAI's strict mode does not accept these keywords. A schema
 // carrying one cannot be sent with `strict: true` at all, so it is not merely
 // "not yet normalised" — it must drop to non-strict, where the schema is
 // honoured as written.
-const STRICT_UNSUPPORTED = ["allOf", "not", "if", "then", "else"] as const;
+const STRICT_UNSUPPORTED = [
+  "allOf",
+  "oneOf",
+  "not",
+  "if",
+  "then",
+  "else",
+  "dependentRequired",
+  "dependentSchemas",
+  "patternProperties",
+  "uniqueItems",
+  "prefixItems",
+] as const;
 
 const mapValues = (
   obj: unknown,
@@ -600,7 +612,7 @@ const withClosedObjects = (node: unknown): unknown => {
 /**
  * True when the schema can legally be sent with `strict: true`: every object
  * node lists all of its properties as required, every object is closed, and
- * no composition keyword OpenAI rejects appears anywhere.
+ * no unsupported keyword or tuple-valued items appears anywhere.
  *
  * Deliberately conservative — a false negative costs only the stronger
  * guarantee, while a false positive costs the whole request.
@@ -614,6 +626,10 @@ const satisfiesStrictRequired = (node: unknown): boolean => {
   }
   const rec = node as Record<string, unknown>;
   if (STRICT_UNSUPPORTED.some((k) => k in rec)) {
+    return false;
+  }
+  // Draft-07 tuples have an items array; strict mode accepts one items schema.
+  if (Array.isArray(rec.items)) {
     return false;
   }
   if (rec.type === "object") {
@@ -641,6 +657,12 @@ const satisfiesStrictRequired = (node: unknown): boolean => {
   return mapsOk && nodesOk;
 };
 
+const hasObjectRoot = (schema: Record<string, unknown>): boolean =>
+  schema.type === "object" && !("anyOf" in schema) && !("oneOf" in schema);
+
+const isStrictLegal = (schema: Record<string, unknown>): boolean =>
+  hasObjectRoot(schema) && satisfiesStrictRequired(schema);
+
 export const v3ResponseFormatToOpenAI = (rf: {
   type: "text" | "json";
   schema?: Record<string, unknown>;
@@ -653,7 +675,7 @@ export const v3ResponseFormatToOpenAI = (rf: {
   if (!rf.schema) {
     return { type: "json_object" };
   }
-  // Mutate as little as possible, in this order:
+  // Mutate as little as possible (root must be an object, without anyOf/oneOf):
   //
   //   1. already strict-legal  -> send it UNTOUCHED with strict: true
   //   2. legal once closed     -> send the closed copy with strict: true
@@ -673,9 +695,9 @@ export const v3ResponseFormatToOpenAI = (rf: {
   // what it did before this change.
   const original = rf.schema;
   const closed = withClosedObjects(original) as Record<string, unknown>;
-  const schema = satisfiesStrictRequired(original)
+  const schema = isStrictLegal(original)
     ? original
-    : satisfiesStrictRequired(closed)
+    : isStrictLegal(closed)
       ? closed
       : original;
   return {
@@ -684,7 +706,7 @@ export const v3ResponseFormatToOpenAI = (rf: {
       name: rf.name ?? "response",
       schema: schema as never,
       ...(rf.description ? { description: rf.description } : {}),
-      strict: satisfiesStrictRequired(schema),
+      strict: isStrictLegal(schema),
     },
   };
 };

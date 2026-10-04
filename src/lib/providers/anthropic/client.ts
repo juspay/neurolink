@@ -1822,7 +1822,15 @@ export class AnthropicProvider extends BaseProvider {
         message: (ctx) => `Connection error: ${ctx.message}`,
       },
       {
-        match: (ctx) => /500|502|503|504|server error/i.test(ctx.message),
+        // Match the shared 5xx predicate: HTTP status or a bounded phrase,
+        // rather than digits embedded in an unrelated value.
+        match: (ctx) =>
+          (ctx.statusCode !== undefined &&
+            ctx.statusCode >= 500 &&
+            ctx.statusCode <= 599) ||
+          /server error|bad gateway|service unavailable|gateway timeout|\berror\b\D{0,12}\b5\d\d\b|\b5\d\d\b\D{0,12}\berror\b|\bstatus(?:\s*code)?\b\D{0,12}\b5\d\d\b/i.test(
+            ctx.message,
+          ),
         errorClass: ProviderError,
         message: (ctx) => `Server error: ${ctx.message}`,
       },

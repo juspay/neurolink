@@ -82,6 +82,26 @@ function startModelsListServer(
   });
 }
 
+/** A loopback stand-in whose every answer is the given error status. */
+function startStatusServer(
+  status: number,
+): Promise<{ baseURL: string; close(): Promise<void> }> {
+  const server: Server = createServer((_req, res) => {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "stand-in failure" } }));
+  });
+  return new Promise((resolvePromise) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolvePromise({
+        baseURL: `http://127.0.0.1:${port}`,
+        close: () => new Promise((r) => server.close(() => r())),
+      });
+    });
+  });
+}
+
 await test("models list --provider fireworks --format json drops a retired id from a live listing", async () => {
   // Precondition: the ids this test pins actually match the real catalog
   // fixture's statuses today, so the assertions below test the CLI's
@@ -166,6 +186,74 @@ await test("models list --provider fireworks --format json drops a retired id fr
     assert(
       !ids.includes(RETIRED_MODEL),
       "live listing must not include a catalog id whose status is retired",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("models list --provider litellm falls back to current models when /v1/models is unreachable", async () => {
+  // A LiteLLM proxy whose model endpoint fails is the case the built-in
+  // fallback list exists for. That list must not lead with a model the vendor
+  // has superseded. Its current OpenAI head may differ from the direct default.
+  const server = await startStatusServer(500);
+  const home = tempDir("neurolink-cli-models-list-litellm-");
+  // Unset, not empty: an operator-supplied LITELLM_FALLBACK_MODELS replaces the
+  // built-in list, and that is the list under test.
+  const ambientEnv = { ...process.env };
+  delete ambientEnv.LITELLM_FALLBACK_MODELS;
+  try {
+    const result: ProcessResult = await runCommand(
+      "node",
+      [
+        CLI_PATH,
+        "models",
+        "list",
+        "--provider",
+        "litellm",
+        "--format",
+        "json",
+        "--quiet",
+      ],
+      {
+        cwd: home,
+        env: {
+          ...ambientEnv,
+          HOME: home,
+          LITELLM_API_KEY: "test-placeholder-not-a-real-key",
+          LITELLM_BASE_URL: server.baseURL,
+          HTTP_PROXY: "",
+          HTTPS_PROXY: "",
+          ALL_PROXY: "",
+          NO_PROXY: "127.0.0.1,localhost",
+        } as NodeJS.ProcessEnv,
+        timeoutMs: 30_000,
+      },
+    );
+
+    assert(
+      result.exitCode === 0,
+      `CLI exited non-zero (${result.exitCode}) — did not reach the live listing`,
+    );
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.stdout);
+    } catch {
+      parsed = undefined;
+    }
+    assert(
+      Array.isArray(parsed),
+      "stdout is not a JSON array — CLI output shape changed or the live path was not taken",
+    );
+    const ids = (parsed as Array<{ id?: unknown }>).map((row) => row.id);
+
+    assert(
+      ids[0] === "openai/gpt-5.4",
+      "the fallback list must lead with the current OpenAI model",
+    );
+    assert(
+      !ids.includes("openai/gpt-4o"),
+      "the fallback list must not offer the superseded gpt-4o",
     );
   } finally {
     await server.close();

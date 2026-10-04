@@ -86,7 +86,9 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
           "Start it with: ./llama-server -m model.gguf --port 8080",
       ),
       {
-        match: (ctx) => /400/.test(ctx.message),
+        match: (ctx) =>
+          ctx.statusCode === 400 ||
+          (ctx.statusCode === undefined && /\b400\b/.test(ctx.message)),
         errorClass: ProviderError,
         message:
           "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support).",

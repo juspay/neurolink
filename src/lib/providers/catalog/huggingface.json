@@ -373,7 +373,8 @@
       "message": "HuggingFace model '{model}' not found.\n\nSuggestions:\n1. Check model name spelling\n2. Ensure an Inference Provider serves the model (https://huggingface.co/inference/models)\n3. For tool calling, use: meta-llama/Llama-3.3-70B-Instruct, zai-org/GLM-5 or Qwen/Qwen3.5-397B-A17B"
     },
     {
-      "pattern": "function|tool",
+      "pattern": "\\b(?:(?:tool|function)s?(?:\\s*/\\s*(?:tool|function)s?)?[ _-]?call(?:s|ing)?|tool_choice|tools? (?:is|are) not supported|(?:does|do) not support tools?)\\b",
+      "patternStatuses": [400, 422],
       "class": "provider",
       "message": "HuggingFace tool calling error: {message}\n\nNotes:\n1. Ensure you're using a tool-capable model, e.g. meta-llama/Llama-3.3-70B-Instruct, zai-org/GLM-5 or Qwen/Qwen3.5-397B-A17B\n2. Check that your model supports function calling\n3. Verify tool schema format is correct"
     }

@@ -126,6 +126,7 @@ const catalogErrorRuleJsonSchema = z
   .strictObject({
     status: z.number().optional(),
     pattern: z.string().optional(),
+    patternStatuses: z.array(z.number().int()).min(1).optional(),
     class: catalogErrorRuleClassSchema,
     message: z.string(),
   })
@@ -135,6 +136,13 @@ const catalogErrorRuleJsonSchema = z
         code: "custom",
         path: [],
         message: "errorRules entry requires status or pattern",
+      });
+    }
+    if (rule.patternStatuses !== undefined && rule.pattern === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["patternStatuses"],
+        message: "errorRules patternStatuses requires pattern",
       });
     }
     if (rule.pattern !== undefined) {

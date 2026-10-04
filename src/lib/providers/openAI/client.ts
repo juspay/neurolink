@@ -34,7 +34,10 @@ import { assertSafeUrl } from "../../utils/ssrfGuard.js";
 import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
-import { isOpenAIQuotaExhaustedError } from "../../utils/providerRetry.js";
+import {
+  isOpenAIQuotaExhaustedError,
+  readOpenAIBodyErrorType,
+} from "../../utils/providerRetry.js";
 
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
@@ -140,14 +143,13 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   public formatProviderError(error: unknown): Error {
-    // `type` isn't part of `ProviderErrorContext` (it's an OpenAI-specific
-    // error-body field), so it's read directly off the raw error here and
-    // captured by the rule closures below.
+    // Chat errors retain the JSON in responseBody; embedding errors stamp
+    // type onto the raw error. Keep both paths available to the rule closures.
     const errorObj = error as UnknownRecord;
     const errorType =
       errorObj?.type && typeof errorObj.type === "string"
         ? errorObj.type
-        : undefined;
+        : readOpenAIBodyErrorType(errorObj?.responseBody);
 
     const rules: ProviderErrorRule[] = [
       // Curator P1-1 / Reviewer Finding #4: only the explicit auth markers

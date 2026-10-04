@@ -22,6 +22,14 @@
 
 ---
 
+### patternStatuses?
+
+> `optional` **patternStatuses?**: `number`[]
+
+Restrict the pattern to these HTTP statuses; status matching stays independent.
+
+---
+
 ### class
 
 > **class**: [`CatalogErrorRuleClass`](CatalogErrorRuleClass.md)

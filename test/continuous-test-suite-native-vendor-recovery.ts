@@ -235,6 +235,61 @@ await test("a silently ignored response_format falls back to the schema in the s
   }
 });
 
+await test("a prompt-side fallback that still answers off-schema is not retried a third time", async () => {
+  // The vendor rejects response_format (reply 1), so the loop retries with the
+  // schema in the system prompt (reply 2) — and that answer is prose again.
+  // The result-driven recovery exists for a vendor that IGNORES response_format;
+  // this request already carried the schema in words, so asking again would
+  // send the identical request a second time and bill it. Reply 3 is the
+  // answer such a pointless third request would get, and must never be asked
+  // for.
+  const server = await startScriptedChatServer([
+    {
+      status: 400,
+      body: {
+        error: { message: "json mode cannot be combined with tool calling" },
+      },
+    },
+    chatCompletion({
+      content: "Sure! Tokyo is currently about 22 degrees.",
+      finishReason: "stop",
+    }),
+    chatCompletion({
+      content: '{"city":"Tokyo","temp":22}',
+      finishReason: "stop",
+    }),
+  ]);
+  try {
+    const nl = new NeuroLink();
+    // Whether the caller ends up with an object is not what this case pins;
+    // the number of billed requests is.
+    await nl
+      .generate({
+        input: { text: "weather in Tokyo" },
+        provider: "openai",
+        model: "scripted-model",
+        credentials: credentialsFor(server.baseURL),
+        maxTokens: 64,
+        schema: z.object({ city: z.string(), temp: z.number() }),
+      })
+      .catch(() => undefined);
+
+    const requests = server.requestCount();
+    if (requests < 2) {
+      throw new Error(
+        `precondition failed: prompt-side fallback never issued, saw ${requests} requests`,
+      );
+    }
+    if (requests !== 2) {
+      throw new Error(
+        `prompt-side fallback was retried again — expected 2 requests, saw ${requests}`,
+      );
+    }
+  } finally {
+    await server.close();
+  }
+});
+
 await test("a native tool round trip populates result.toolCalls", async () => {
   let executions = 0;
   // `EnhancedGenerateResult.toolCalls` is a public field. The native loop

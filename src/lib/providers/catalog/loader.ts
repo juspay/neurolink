@@ -104,7 +104,11 @@ function buildErrorRules(entry: ProviderCatalogJson): ProviderErrorRule[] {
     return {
       match: (ctx) =>
         (rule.status !== undefined && ctx.statusCode === rule.status) ||
-        (regex !== undefined && regex.test(ctx.message)),
+        (regex !== undefined &&
+          (rule.patternStatuses === undefined ||
+            (ctx.statusCode !== undefined &&
+              rule.patternStatuses.includes(ctx.statusCode))) &&
+          regex.test(ctx.message)),
       errorClass: ERROR_CLASS_MAP[rule.class],
       message: needsContext
         ? (ctx) => interpolate(rule.message, entry, ctx.modelName, ctx.message)

@@ -278,6 +278,7 @@ async function expectGenerateError(opts: {
   expectClass?: ErrorCtor;
   notClasses?: ErrorCtor[];
   messageIncludes?: string[];
+  messageExcludes?: string[];
 }): Promise<void> {
   try {
     await opts.run();
@@ -304,6 +305,11 @@ async function expectGenerateError(opts: {
     for (const frag of opts.messageIncludes ?? []) {
       if (!e.message.includes(frag)) {
         problems.push(`message did not include "${frag}"`);
+      }
+    }
+    for (const frag of opts.messageExcludes ?? []) {
+      if (e.message.includes(frag)) {
+        problems.push(`message unexpectedly included "${frag}"`);
       }
     }
     record(opts.name, problems.length === 0, problems.join("; ") || undefined);
@@ -366,6 +372,7 @@ async function main(): Promise<void> {
       provider: string;
       model?: string;
       credentials?: Record<string, unknown>;
+      disableInternalFallback?: boolean;
     }) {
       return nl().generate({
         provider: opts.provider,
@@ -373,6 +380,7 @@ async function main(): Promise<void> {
         input: { text: "ping" },
         disableTools: true,
         credentials: opts.credentials,
+        disableInternalFallback: opts.disableInternalFallback,
       } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
     }
 
@@ -869,19 +877,33 @@ async function main(): Promise<void> {
       notClasses: [AuthenticationError],
     });
 
-    // DEMOTED to contract suite: "credential-type marker without echoable
-    // wording -> names its own env var" (old Part B #7). openAI/client.ts's
-    // auth rule OR-branches on `errorType === "invalid_api_key"`, reading
-    // `.type` directly off the raw caught error. But NeuroLink's own
-    // OpenAI-compat HTTP client (buildAPIError() in
-    // openaiChatCompletionsClient.ts) never attaches a `.type` field to the
-    // error it builds from a real fetch() response — confirmed by reading
-    // its full body (sets only .message/.statusCode/.responseHeaders/.url/
-    // .requestBody/.responseBody). A real or mocked HTTP call therefore can
-    // never populate `errorType`, so this specific rule branch is
-    // unreachable via any live/mocked generate() call with the current
-    // implementation — a genuine e2e-reproducibility gap, not a mocking
-    // limitation. Ported verbatim to the contract suite instead.
+    // A compatible endpoint can identify throttling by type without a 429
+    // status or rate-limit wording. The raw chat error retains responseBody,
+    // rather than attaching .type like the embedding transport does.
+    setHandler(() => ({
+      status: 400,
+      body: JSON.stringify({
+        error: { message: "request rejected", type: "rate_limit_error" },
+      }),
+    }));
+    await expectGenerateError({
+      name: "openai: rate_limit_error in the HTTP body is reachable through generate",
+      run: () => gen({ provider: "openai", model: "gpt-4o-mini" }),
+      expectClass: RateLimitError,
+    });
+
+    setHandler(() => ({
+      status: 400,
+      body: JSON.stringify({
+        error: { message: "request rejected", type: "invalid_api_key" },
+      }),
+    }));
+    await expectGenerateError({
+      name: "openai: invalid_api_key in the HTTP body names its own env var",
+      run: () => gen({ provider: "openai", model: "gpt-4o-mini" }),
+      expectClass: AuthenticationError,
+      messageIncludes: ["OPENAI_API_KEY"],
+    });
 
     setHandler(jsonError(404, "model_not_found: no such model"));
     await expectGenerateError({
@@ -1057,6 +1079,81 @@ async function main(): Promise<void> {
       messageIncludes: ["meta-llama/Llama-3.3-70B-Instruct"],
     });
 
+    setHandler(jsonError(400, "tool_choice is not supported for this model"));
+    await expectGenerateError({
+      name: "huggingface: a tool_choice rejection -> the same tool-calling advice",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+        }),
+      notClasses: [AuthenticationError, RateLimitError, InvalidModelError],
+      messageIncludes: ["meta-llama/Llama-3.3-70B-Instruct"],
+    });
+
+    setHandler(jsonError(401, "Unauthorized: see the tools documentation"));
+    await expectGenerateError({
+      name: "huggingface: a 401 that merely mentions tools stays an AuthenticationError",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+          disableInternalFallback: true,
+        }),
+      expectClass: AuthenticationError,
+      messageExcludes: ["tool calling error"],
+    });
+
+    setHandler(jsonError(401, "tool_choice requires authentication"));
+    await expectGenerateError({
+      name: "huggingface: status 401 wins over a tool-call phrase",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+          disableInternalFallback: true,
+        }),
+      expectClass: AuthenticationError,
+      messageExcludes: ["tool calling error"],
+    });
+
+    setHandler(jsonError(429, "too many function_call requests"));
+    await expectGenerateError({
+      name: "huggingface: status 429 wins over a tool-call phrase",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+          disableInternalFallback: true,
+        }),
+      messageIncludes: ["rate limit exceeded"],
+      messageExcludes: ["tool calling error"],
+    });
+
+    setHandler(jsonError(404, "tool_calls endpoint unavailable"));
+    await expectGenerateError({
+      name: "huggingface: a 404 that mentions tool_calls is not tool-calling advice",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+          disableInternalFallback: true,
+        }),
+      messageExcludes: ["tool calling error"],
+    });
+
+    setHandler(jsonError(400, "malfunction in toolkit"));
+    await expectGenerateError({
+      name: "huggingface: unrelated substrings keep the original error",
+      run: () =>
+        gen({
+          provider: "huggingface",
+          model: "meta-llama/Llama-3.1-8B-Instruct",
+        }),
+      messageIncludes: ["malfunction in toolkit"],
+      messageExcludes: ["tool calling error"],
+    });
+
     // -- llamacpp: local-runtime quirks ------------------------------------------
     setEnv("LLAMACPP_BASE_URL", CLOSED_PORT_ORIGIN);
     await expectGenerateError({
@@ -1072,6 +1169,25 @@ async function main(): Promise<void> {
       run: () => gen({ provider: "llamacpp", model: "local-model" }),
       notClasses: [AuthenticationError, RateLimitError, InvalidModelError],
       messageIncludes: ["--jinja"],
+    });
+
+    // The 400 rule used to test the bare digits "400" in the message, so any
+    // error whose text happened to contain them (a token count, a request id)
+    // was reported as the --jinja tool-support hint and lost its real class.
+    setHandler(jsonError(401, "unauthorized: request 14000 rejected"));
+    await expectGenerateError({
+      name: "llamacpp: a 401 whose text contains 400 stays an AuthenticationError",
+      run: () => gen({ provider: "llamacpp", model: "local-model" }),
+      expectClass: AuthenticationError,
+      messageExcludes: ["--jinja"],
+    });
+
+    setHandler(jsonError(500, "slot crashed after 14000 tokens"));
+    await expectGenerateError({
+      name: "llamacpp: a 500 whose text contains 400 is a server error, not the --jinja hint",
+      run: () => gen({ provider: "llamacpp", model: "local-model" }),
+      messageIncludes: ["server error"],
+      messageExcludes: ["--jinja"],
     });
 
     // -- lm-studio: local-runtime quirks -----------------------------------------
@@ -1181,6 +1297,28 @@ async function main(): Promise<void> {
       run: () =>
         gen({ provider: "anthropic", model: "claude-3-5-sonnet-20241022" }),
       messageIncludes: ["Server error: 502"],
+    });
+
+    // The 5xx rule used to match the bare substrings 500/502/503/504 anywhere in
+    // the message, so a 4xx whose text carried one of those digit runs (a token
+    // count, an id) was reported as an upstream server failure.
+    setHandler(jsonError(400, "metadata.user_id 250000 is malformed"));
+    await expectGenerateError({
+      name: "anthropic: a 400 whose text contains 500 is not a server error",
+      run: () =>
+        gen({ provider: "anthropic", model: "claude-3-5-sonnet-20241022" }),
+      messageIncludes: ["Anthropic error:"],
+      messageExcludes: ["Server error:"],
+    });
+
+    // The other direction of the same fix: a 5xx the old substring list did
+    // not name (Anthropic's 529 "overloaded") is still a server error.
+    setHandler(jsonError(529, "Overloaded"));
+    await expectGenerateError({
+      name: "anthropic: a 529 with no 5xx digits in the text is still a server error",
+      run: () =>
+        gen({ provider: "anthropic", model: "claude-3-5-sonnet-20241022" }),
+      messageIncludes: ["Server error:"],
     });
 
     // =========================================================================

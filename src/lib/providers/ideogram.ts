@@ -23,8 +23,8 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
-import { assertSafeUrl } from "../utils/ssrfGuard.js";
+import { MAX_IMAGE_BYTES } from "../utils/sizeGuard.js";
+import { safeDownload } from "../utils/safeFetch.js";
 import type { LanguageModel } from "../types/index.js";
 
 const IDEOGRAM_DEFAULT_BASE_URL = "https://api.ideogram.ai";
@@ -221,37 +221,13 @@ export class IdeogramProvider extends BaseProvider {
       throw new Error("Ideogram returned no image URL");
     }
 
-    // Guard the API-returned URL before fetching (provider-returned URLs
-    // carry the same SSRF risk as caller-supplied ones) — matches Recraft's
-    // equivalent download path.
-    await assertSafeUrl(url);
-
-    // Download the image and convert to base64 to match the imageOutput
-    // contract used by other image-gen providers. Apply a 60s timeout so the
-    // download cannot hang indefinitely.
-    const dlController = new AbortController();
-    const dlTimeoutId = setTimeout(() => dlController.abort(), 60_000);
-    let dl: Response;
-    try {
-      dl = await this.proxyFetch(url, { signal: dlController.signal });
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new Error("Ideogram image download timed out after 60s", {
-          cause: err,
-        });
-      }
-      throw err;
-    } finally {
-      clearTimeout(dlTimeoutId);
-    }
-    if (!dl.ok) {
-      throw new Error(`Failed to download Ideogram image: ${dl.status}`);
-    }
-    const buffer = await readBoundedBuffer(
-      dl,
-      MAX_IMAGE_BYTES,
-      "Ideogram image",
-    );
+    // Resolve and validate once, dial only those addresses, and refuse
+    // redirects so a changing DNS answer cannot steer this download.
+    const buffer = await safeDownload(url, {
+      label: "Ideogram image",
+      maxBytes: MAX_IMAGE_BYTES,
+      timeoutMs: 60_000,
+    });
     const base64 = buffer.toString("base64");
 
     const generationTimeMs = Date.now() - startTime;

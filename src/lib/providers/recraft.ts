@@ -24,8 +24,8 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
-import { assertSafeUrl } from "../utils/ssrfGuard.js";
+import { MAX_IMAGE_BYTES } from "../utils/sizeGuard.js";
+import { safeDownload } from "../utils/safeFetch.js";
 import type { LanguageModel } from "../types/index.js";
 import { detectImageMimeType } from "../utils/imageDetection.js";
 
@@ -227,34 +227,13 @@ export class RecraftProvider extends BaseProvider {
     if (entry.b64_json) {
       base64 = entry.b64_json;
     } else if (entry.url) {
-      // Guard the API-returned URL before fetching (provider-returned URLs
-      // carry the same SSRF risk as caller-supplied ones).
-      await assertSafeUrl(entry.url);
-      // Fallback URL download — apply a 60s timeout so it cannot hang indefinitely.
-      const dlController = new AbortController();
-      const dlTimeoutId = setTimeout(() => dlController.abort(), 60_000);
-      let dl: Response;
-      try {
-        dl = await this.proxyFetch(entry.url, { signal: dlController.signal });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          throw new Error("Recraft image download timed out after 60s", {
-            cause: err,
-          });
-        }
-        throw err;
-      } finally {
-        clearTimeout(dlTimeoutId);
-      }
-      if (!dl.ok) {
-        throw new Error(`Failed to download Recraft image: ${dl.status}`);
-      }
-      const dlBuf = await readBoundedBuffer(
-        dl,
-        MAX_IMAGE_BYTES,
-        "Recraft image",
-      );
-      base64 = dlBuf.toString("base64");
+      // See ideogram.ts: pin validated addresses and refuse redirects.
+      const buffer = await safeDownload(entry.url, {
+        label: "Recraft image",
+        maxBytes: MAX_IMAGE_BYTES,
+        timeoutMs: 60_000,
+      });
+      base64 = buffer.toString("base64");
     } else {
       throw new Error("Recraft response missing both b64_json and url");
     }

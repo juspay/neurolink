@@ -93,6 +93,9 @@ not declared here.
 **`errorRules`** — status code and/or case-insensitive pattern → error
 class + message. Templates: `{model}`, `{apiKeyEnvVar}`, `{setupUrl}`.
 Rules are appended before the defaults and matched first-wins.
+`patternStatuses` (optional, with `pattern`) limits the pattern to responses
+with one of those HTTP statuses, so the same words on another status fall
+through to the defaults.
 
 **`quirks`** — five named, closed escape hatches, all rare. Each one is
 consumed generically by `ConfiguredOpenAICompatProvider`/the catalog loader —

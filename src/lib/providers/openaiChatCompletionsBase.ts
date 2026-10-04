@@ -1348,6 +1348,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // endpoint, the one it was written for, is a Tier-2 catalog provider on
     // this very base class, so without this the recovery would simply not
     // happen for it.
+    let promptSideFallbackRan = false;
     let loop: Awaited<ReturnType<typeof runNativeGenerateLoop>>;
     try {
       loop = await runLoop(conversation, responseFormat);
@@ -1364,6 +1365,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         `[${this.providerName}] provider rejected response_format — retrying with the schema in the system prompt`,
         { provider: this.providerName, model: modelId },
       );
+      // Re-asking after this fallback would bill the same request again.
+      promptSideFallbackRan = true;
       loop = await runLoop(
         appendJsonSchemaInstruction(conversation, responseFormat.schema),
         undefined,
@@ -1378,6 +1381,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // case sailed through and handed the caller prose. Same recovery, keyed on
     // the result rather than on an exception.
     if (
+      !promptSideFallbackRan &&
       responseFormat !== undefined &&
       options.schema !== undefined &&
       !yieldsSchemaValidObject(loop.text, options.schema as ValidationSchema)
@@ -2350,12 +2354,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // `loopPromise` is undefined when a middleware blocked the request
         // before `doStream` ran, in which case there is no loop to surface.
         await loopPromise;
-        // Record the terminal finish reason on the metadata object this
-        // provider returns by reference (`result.metadata`). A rejected
-        // `loopPromise` throws out of this `await` straight into the `catch`
-        // below, so reaching this line means `runStreamLoop` returned
-        // normally and already called `resolveFinish` with the wire value —
-        // `finishPromise` is settled, not pending.
+        // Native loops settle the finish promise before returning. A
+        // middleware can close its synthetic stream without calling doStream,
+        // leaving no loop to settle it. A promise settles once, so an explicit
+        // finish part already observed still wins.
         //
         // `rawFinishReason` is the verbatim vendor value (e.g. "stop",
         // "length", "tool_calls", "content_filter") and is accurate the
@@ -2363,6 +2365,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // post-stream work follows. The graded `finishReason` is set later,
         // once that post-stream work (the structured-output re-ask below)
         // has actually succeeded — see the assignment after that block.
+        if (!loopPromise) {
+          resolveFinish("stop");
+        }
         streamMetadata.rawFinishReason = await finishPromise;
         // Structured output for a `stream({ schema })` turn. Runs HERE —
         // after the stream is fully drained — so a tool-free re-ask (when the

@@ -14,6 +14,13 @@ import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ZodType } from "zod";
+import type { JSONSchema7 } from "json-schema";
+import {
+  IDEOGRAM_FIXTURE_HOST,
+  RECRAFT_FIXTURE_HOST,
+  withImageDownloadTransport,
+} from "./helpers/imageDownloadTransport.js";
 
 /**
  * Mocked Contract Test Suite for New Providers
@@ -89,6 +96,35 @@ async function withMocks<T>(
   } finally {
     handle.unset();
   }
+}
+
+// Model fetch's default redirect-follow behavior for the unsafe legacy
+// download path. The local HTTPS fixture requests the raw response instead.
+async function withRedirectFollowingMocks<T>(
+  routes: Parameters<typeof installMockFetch>[0],
+  fn: (handle: ReturnType<typeof installMockFetch>) => Promise<T>,
+): Promise<T> {
+  return withMocks(routes, async (handle) => {
+    const routeFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const response = await routeFetch(input, init);
+      const location = response.headers.get("location");
+      if (
+        init?.redirect !== "manual" &&
+        response.status >= 300 &&
+        response.status < 400 &&
+        location
+      ) {
+        return routeFetch(location, init);
+      }
+      return response;
+    };
+    try {
+      return await fn(handle);
+    } finally {
+      globalThis.fetch = routeFetch;
+    }
+  });
 }
 
 function openAIChatResponse(content: string, model: string): unknown {
@@ -2520,15 +2556,24 @@ async function runStabilityImageGen(): Promise<void> {
 // the (mocked) fetch runs. Answering that lookup with a fixed public address
 // keeps the suite offline; the fixture host is under .invalid, which never
 // resolves for real, so a download test passes only while this stub holds.
-const IDEOGRAM_FIXTURE_HOST = "cdn.ideogram-fixture.invalid";
 
-async function withPublicDns<T>(fn: () => Promise<T>): Promise<T> {
+async function withPublicDns<T>(
+  fn: (probe: { pinnedLookups: number }) => Promise<T>,
+  rebind = false,
+): Promise<T> {
   const original = dnsPromises.lookup;
+  const lookupCounts = new Map<number, number>();
   const fixedLookup = async (
     _host: string,
     options?: { family?: number; all?: boolean },
   ) => {
-    const answer = { address: "93.184.215.14", family: 4 };
+    const family = options?.family ?? 4;
+    const count = (lookupCounts.get(family) ?? 0) + 1;
+    lookupCounts.set(family, count);
+    const answer = {
+      address: rebind && count > 1 ? "169.254.169.254" : "93.184.215.14",
+      family: 4,
+    };
     if (options?.all) {
       return options.family === 6 ? [] : [answer];
     }
@@ -2537,7 +2582,7 @@ async function withPublicDns<T>(fn: () => Promise<T>): Promise<T> {
   dnsPromises.lookup = fixedLookup as typeof dnsPromises.lookup;
   syncBuiltinESMExports();
   try {
-    return await fn();
+    return await withImageDownloadTransport(fn);
   } finally {
     dnsPromises.lookup = original;
     syncBuiltinESMExports();
@@ -2548,7 +2593,9 @@ async function runIdeogramImageGen(): Promise<void> {
   await withPublicDns(runIdeogramImageGenCases);
 }
 
-async function runIdeogramImageGenCases(): Promise<void> {
+async function runIdeogramImageGenCases(probe: {
+  pinnedLookups: number;
+}): Promise<void> {
   const section = "IMG ideogram";
   const fakeKey = "test-fake-ideogram-credential";
   setEnv("IDEOGRAM_API_KEY", fakeKey);
@@ -2592,6 +2639,10 @@ async function runIdeogramImageGenCases(): Promise<void> {
         const get = calls.find((c) => c.method === "GET");
         expect(!!post, "POST call present");
         expect(!!get, "GET call (CDN download) present");
+        expect(
+          probe.pinnedLookups > 0,
+          "CDN connection used the validated DNS lookup",
+        );
         expect(
           post?.url.includes("api.ideogram.ai/v1/ideogram-v3/generate") ===
             true,
@@ -2687,6 +2738,11 @@ async function runIdeogramImageGenCases(): Promise<void> {
           message = err instanceof Error ? err.message : String(err);
         }
         expect(/size cap/i.test(message), "oversized download is rejected");
+        // The socket close reaches the HTTPS fixture asynchronously.
+        const deadline = Date.now() + 2_000;
+        while (!observed.cancelled && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
         expect(observed.cancelled, "download stream was cancelled");
         expect(
           observed.produced < streamLimit,
@@ -2703,6 +2759,70 @@ async function runIdeogramImageGenCases(): Promise<void> {
     record(
       results,
       `${section}: oversized CDN download is cancelled at the size cap`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── CDN download answers with a redirect ────────────────────────────
+  // assertSafeUrl vets only the URL the API returned. A public host that
+  // answers 302 to an internal address passes it, and a fetch that follows
+  // redirects then reaches that address anyway. The download must ask for
+  // redirect:"manual" and refuse a 3xx instead of following it.
+  try {
+    await withRedirectFollowingMocks(
+      [
+        {
+          method: "POST",
+          url: "api.ideogram.ai/v1/ideogram-v3/generate",
+          respond: {
+            status: 200,
+            json: {
+              data: [{ url: `https://${IDEOGRAM_FIXTURE_HOST}/moved.png` }],
+            },
+          },
+        },
+        {
+          method: "GET",
+          url: `${IDEOGRAM_FIXTURE_HOST}/moved.png`,
+          respond: {
+            status: 302,
+            text: "",
+            headers: { location: "https://169.254.169.254/latest/meta-data/" },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        let message = "";
+        try {
+          await nl.generate({
+            provider: "ideogram",
+            model: "V_3",
+            input: { text: "A poster behind a redirect" },
+            disableTools: true,
+          });
+        } catch (err) {
+          message = err instanceof Error ? err.message : String(err);
+        }
+        const download = calls.find((c) => c.method === "GET");
+        expect(!!download, "CDN download was attempted");
+        expect(
+          !calls.some((call) => call.url.includes("169.254.169.254")),
+          "redirect target was never requested",
+        );
+        expect(/redirect/i.test(message), "a redirected download is refused");
+        record(
+          results,
+          `${section}: CDN redirect is refused, not followed`,
+          true,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: CDN redirect is refused, not followed`,
       false,
       err instanceof Error ? err.message : String(err),
     );
@@ -2824,6 +2944,72 @@ async function runRecraftImageGen(): Promise<void> {
     );
   }
 
+  // ── url fallback download answers with a redirect ───────────────────
+  // Same hole as Ideogram's CDN download: the guard vets the returned URL
+  // only, so the follow-up fetch must not chase a 3xx to somewhere else.
+  try {
+    await withPublicDns(async () => {
+      await withRedirectFollowingMocks(
+        [
+          {
+            method: "POST",
+            url: "external.api.recraft.ai/v1/images/generations",
+            respond: {
+              status: 200,
+              json: {
+                data: [{ url: `https://${RECRAFT_FIXTURE_HOST}/moved.webp` }],
+              },
+            },
+          },
+          {
+            method: "GET",
+            url: `${RECRAFT_FIXTURE_HOST}/moved.webp`,
+            respond: {
+              status: 302,
+              text: "",
+              headers: {
+                location: "https://169.254.169.254/latest/meta-data/",
+              },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          let message = "";
+          try {
+            await nl.generate({
+              provider: "recraft",
+              model: "recraftv3",
+              input: { text: "An icon behind a redirect" },
+              disableTools: true,
+            });
+          } catch (err) {
+            message = err instanceof Error ? err.message : String(err);
+          }
+          const download = calls.find((c) => c.method === "GET");
+          expect(!!download, "url download was attempted");
+          expect(
+            !calls.some((call) => call.url.includes("169.254.169.254")),
+            "redirect target was never requested",
+          );
+          expect(/redirect/i.test(message), "a redirected download is refused");
+        },
+      );
+    });
+    record(
+      results,
+      `${section}: url-fallback redirect is refused, not followed`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: url-fallback redirect is refused, not followed`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
   // ── 401 ─────────────────────────────────────────────────────────────
   try {
     await withMocks(
@@ -2867,6 +3053,94 @@ async function runRecraftImageGen(): Promise<void> {
       false,
       err instanceof Error ? err.message : String(err),
     );
+  }
+}
+
+async function runImageDnsRebindingSection(): Promise<void> {
+  const { NeuroLink } = await import("../dist/index.js");
+  for (const fixture of [
+    {
+      provider: "ideogram",
+      model: "V_3",
+      host: IDEOGRAM_FIXTURE_HOST,
+      endpoint: "api.ideogram.ai/v1/ideogram-v3/generate",
+    },
+    {
+      provider: "recraft",
+      model: "recraftv3",
+      host: RECRAFT_FIXTURE_HOST,
+      endpoint: "external.api.recraft.ai/v1/images/generations",
+    },
+  ]) {
+    const label = `IMG ${fixture.provider}: download pins the public DNS answer despite rebinding`;
+    try {
+      await withPublicDns(async (probe) => {
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: fixture.endpoint,
+              respond: {
+                status: 200,
+                json: {
+                  data: [{ url: `https://${fixture.host}/rebound.png` }],
+                },
+              },
+            },
+            {
+              method: "GET",
+              url: `${fixture.host}/rebound.png`,
+              respond: {
+                status: 200,
+                bytes: FAKE_PNG_BYTES,
+                contentType: "image/png",
+              },
+            },
+          ],
+          async ({ calls }) => {
+            const nl = new NeuroLink({
+              conversationMemory: { enabled: false },
+            });
+            const result = await nl.generate({
+              provider: fixture.provider,
+              model: fixture.model,
+              input: { text: "An image from a rebinding host" },
+              disableTools: true,
+            });
+            expectEq(
+              result.imageOutput?.base64,
+              FAKE_PNG_BASE64,
+              "image bytes from the pinned connection",
+            );
+            expect(
+              calls.some((c) => c.method === "GET"),
+              "image download reached the fixture",
+            );
+            const rebound = await dnsPromises.lookup(fixture.host, {
+              family: 4,
+              all: true,
+            });
+            expectEq(
+              rebound[0]?.address,
+              "169.254.169.254",
+              "subsequent DNS answer is private",
+            );
+            expect(
+              probe.pinnedLookups > 0,
+              "actual image connector used the validated public DNS answer",
+            );
+          },
+        );
+      }, true);
+      record(results, label, true);
+    } catch (err) {
+      record(
+        results,
+        label,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
 
@@ -10139,6 +10413,303 @@ async function runSchemaRetryBillingSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: OpenAI strict structured-output gate.
+//
+// `response_format.json_schema.strict` may be true only for a schema OpenAI's
+// strict mode accepts. The costs are lopsided: a false positive fails the
+// request at the vendor (the caller only recovers through the schema-in-the-
+// prompt retry), a false negative merely forgoes constrained decoding. So the
+// gate has to say no to every construct strict mode refuses — a oneOf union,
+// a root that is not a plain object, and the keywords it lists as unsupported
+// — while still saying yes to a schema it does accept (nested anyOf included).
+// ───────────────────────────────────────────────────────────────────────
+
+async function runOpenAIStrictGateSection(): Promise<void> {
+  const section = "LLM openai (strict schema gate)";
+  console.log(`\n=== ${section} ===`);
+
+  const model = "gpt-4o-mini";
+  setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
+  setEnv("OPENAI_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const { z } = await import("zod");
+
+  // A strict-legal object: closed, every property required.
+  const closed = (
+    properties: Record<string, unknown>,
+  ): Record<string, unknown> => ({
+    type: "object",
+    properties,
+    required: Object.keys(properties),
+    additionalProperties: false,
+  });
+  // Wraps one offending node inside an otherwise strict-legal root, so the
+  // keyword under test is the only reason the gate could say no.
+  const nested = (node: Record<string, unknown>) =>
+    jsonSchema<unknown>(closed({ value: node }));
+  const unchangedOneOf: JSONSchema7 = {
+    type: "object",
+    properties: { value: { oneOf: [{ type: "string" }, { type: "number" }] } },
+    required: ["value"],
+  };
+  const unchangedRootAnyOf: JSONSchema7 = {
+    type: "object",
+    anyOf: [
+      {
+        type: "object",
+        properties: { a: { type: "string" } },
+        required: ["a"],
+      },
+      {
+        type: "object",
+        properties: { b: { type: "string" } },
+        required: ["b"],
+      },
+    ],
+  };
+
+  const containsKey = (value: unknown, key: string): boolean => {
+    if (Array.isArray(value)) {
+      return value.some((entry) => containsKey(entry, key));
+    }
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const record = value as Record<string, unknown>;
+    return (
+      key in record ||
+      Object.values(record).some((entry) => containsKey(entry, key))
+    );
+  };
+
+  const cases: Array<{
+    name: string;
+    schema: ZodType | ReturnType<typeof jsonSchema<unknown>>;
+    strict: boolean;
+    expectedSchema?: JSONSchema7;
+    expectKeyword?: string;
+  }> = [
+    {
+      name: "a closed all-required object stays strict",
+      schema: jsonSchema<unknown>(closed({ city: { type: "string" } })),
+      strict: true,
+    },
+    {
+      name: "a nested anyOf union stays strict",
+      schema: z.object({ value: z.union([z.string(), z.number()]) }),
+      strict: true,
+    },
+    {
+      name: "string length constraints stay strict on base models",
+      schema: z.object({ value: z.string().min(2).max(10) }),
+      strict: true,
+    },
+    {
+      name: "a local non-recursive reference stays strict",
+      schema: jsonSchema<unknown>({
+        ...closed({ value: { $ref: "#/$defs/value" } }),
+        $defs: { value: closed({ city: { type: "string" } }) },
+      }),
+      strict: true,
+    },
+    {
+      name: "a nested discriminated union (oneOf) is not strict",
+      schema: z.object({
+        shape: z.discriminatedUnion("kind", [
+          z.object({ kind: z.literal("a"), x: z.string() }),
+          z.object({ kind: z.literal("b"), y: z.number() }),
+        ]),
+      }),
+      strict: false,
+      expectKeyword: "oneOf",
+    },
+    {
+      name: "a non-strict oneOf schema is sent without closing its objects",
+      schema: jsonSchema<unknown>(unchangedOneOf),
+      strict: false,
+      expectedSchema: unchangedOneOf,
+    },
+    {
+      name: "a root object carrying anyOf is sent unchanged and non-strict",
+      schema: jsonSchema<unknown>(unchangedRootAnyOf),
+      strict: false,
+      expectedSchema: unchangedRootAnyOf,
+    },
+    {
+      name: "a root discriminated union (oneOf) is not strict",
+      schema: z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("a") }),
+        z.object({ kind: z.literal("b") }),
+      ]),
+      strict: false,
+      expectKeyword: "oneOf",
+    },
+    {
+      name: "a root union (anyOf) is not strict",
+      schema: z.union([
+        z.object({ a: z.string() }),
+        z.object({ b: z.string() }),
+      ]),
+      strict: false,
+      expectKeyword: "anyOf",
+    },
+    {
+      name: "a root array is not strict",
+      schema: z.array(z.string()),
+      strict: false,
+    },
+    {
+      name: "a root string is not strict",
+      schema: z.string(),
+      strict: false,
+    },
+    {
+      name: "a tuple (draft-07 items array) is not strict",
+      schema: z.object({ pair: z.tuple([z.string(), z.number()]) }),
+      strict: false,
+    },
+    {
+      name: "a literal draft-07 items array is not strict",
+      schema: jsonSchema<unknown>(
+        closed({
+          pair: {
+            type: "array",
+            items: [{ type: "string" }, { type: "number" }],
+          },
+        }),
+      ),
+      strict: false,
+    },
+    {
+      name: "dependentRequired is not strict",
+      schema: nested({
+        type: "object",
+        properties: { a: { type: "string" }, b: { type: "string" } },
+        required: ["a", "b"],
+        additionalProperties: false,
+        dependentRequired: { a: ["b"] },
+      }),
+      strict: false,
+    },
+    {
+      name: "dependentSchemas is not strict",
+      schema: nested({
+        type: "object",
+        properties: { a: { type: "string" } },
+        required: ["a"],
+        additionalProperties: false,
+        dependentSchemas: { a: { required: ["a"] } },
+      }),
+      strict: false,
+    },
+    {
+      name: "patternProperties is not strict",
+      schema: nested({
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+        patternProperties: { "^x-": { type: "string" } },
+      }),
+      strict: false,
+    },
+    {
+      name: "uniqueItems is not strict",
+      schema: nested({
+        type: "array",
+        items: { type: "string" },
+        uniqueItems: true,
+      }),
+      strict: false,
+    },
+    {
+      name: "prefixItems is not strict",
+      schema: nested({
+        type: "array",
+        prefixItems: [{ type: "string" }, { type: "number" }],
+      }),
+      strict: false,
+    },
+  ];
+
+  for (const c of cases) {
+    const label = `${section}: ${c.name}`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.openai.com/v1/chat/completions",
+            respond: {
+              status: 200,
+              json: openAIChatResponse(JSON.stringify({}), model),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          // The mocked answer is not guaranteed to satisfy every schema above,
+          // and a schema-invalid answer only triggers the prompt-side retry —
+          // the gate is read off the FIRST request, so the outcome is moot.
+          await nl
+            .generate({
+              provider: "openai",
+              model,
+              input: { text: "answer in the declared shape" },
+              schema: c.schema,
+              disableTools: true,
+            })
+            .catch(() => undefined);
+
+          expect(calls.length > 0, "a chat request was captured");
+          const body = calls[0].bodyJson as {
+            response_format?: {
+              type?: string;
+              json_schema?: { strict?: boolean; schema?: unknown };
+            };
+          };
+          expectEq(
+            body.response_format?.type,
+            "json_schema",
+            "first request carries a json_schema response_format",
+          );
+          if (c.expectKeyword) {
+            expect(
+              containsKey(
+                body.response_format?.json_schema?.schema,
+                c.expectKeyword,
+              ),
+              "wire schema lacks the construct under test",
+            );
+          }
+          expectEq(
+            body.response_format?.json_schema?.strict,
+            c.strict,
+            "response_format.json_schema.strict",
+          );
+          if (c.expectedSchema) {
+            expectEq(
+              JSON.stringify(body.response_format?.json_schema?.schema),
+              JSON.stringify(c.expectedSchema),
+              "non-strict schema stays unchanged",
+            );
+          }
+        },
+      );
+      record(results, label, true);
+    } catch (err) {
+      record(
+        results,
+        label,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: invalid-model fallback (anti-rot "survive" layer).
 //
 // Vendors retire models without warning. An InvalidModelError is classified
@@ -11342,12 +11913,37 @@ async function main(): Promise<void> {
   const { ProviderRegistry } = await import("../dist/index.js");
   await ProviderRegistry.registerAllProviders();
 
+  // Focused modes keep source-reversal proofs bounded; the default still
+  // runs the complete provider contract suite.
+  const FOCUSED_RUNS: Record<string, Array<() => Promise<void>>> = {
+    "--image-downloads-only": [runImageGenSection, runImageDnsRebindingSection],
+    "--openai-strict-gate-only": [runOpenAIStrictGateSection],
+  };
+  for (const [flag, sections] of Object.entries(FOCUSED_RUNS)) {
+    if (!process.argv.includes(flag)) {
+      continue;
+    }
+    try {
+      for (const runSection of sections) {
+        await runSection();
+      }
+    } finally {
+      restoreEnv();
+    }
+    const failed = results.filter((r) => !r.ok).length;
+    console.log(
+      `\n${results.length - failed} passed · ${failed} failed (of ${results.length})`,
+    );
+    process.exit(failed > 0 ? 1 : 0);
+  }
+
   try {
     await runOpenAICompatSection();
     await runLiteLLMSSESection();
     await runReplicateLLMSection();
     await runEmbeddingsSection();
     await runImageGenSection();
+    await runImageDnsRebindingSection();
     await runDecideSection();
     await runOpenAISection();
     await runAzureSection();
@@ -11357,6 +11953,7 @@ async function main(): Promise<void> {
     await runReasoningReplaySection();
     await runDeepSeekImageInputSection();
     await runSchemaRetryBillingSection();
+    await runOpenAIStrictGateSection();
     await runInvalidModelFallbackSection();
     await runVisionModelFallbackSection();
     await runVertexSection();
