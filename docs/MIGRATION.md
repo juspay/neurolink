@@ -7,16 +7,15 @@ by [`docs/guides/migration-guide.md`](./guides/migration-guide.md) and the
 auto-generated changelog (see the
 [GitHub releases page](https://github.com/juspay/neurolink/releases)).
 
-Three breaking changes shipped across 9.94.x–9.95.x, and a fourth is registered
-below before release. Each is intentional — this document exists so downstream
+Four breaking changes have shipped (three across 9.94.x–9.95.x, one in 11.0.0),
+and a fifth is registered below before release. Each is intentional — this document exists so downstream
 consumers know what changed and how to adapt.
 
 ## Policy
 
 Per this repository's `CLAUDE.md` (Critical Rule 5), the public SDK API must
-not break existing callers. The first three breaking changes below shipped in
-9.94.x–9.95.x without an accompanying migration path and are documented here
-retroactively. Going forward, any breaking change **must** ship its migration
+not break existing callers. The first four breaking changes below (9.94.x–9.95.x and 11.0.0) shipped
+without an accompanying migration path and are documented here retroactively. Going forward, any breaking change **must** ship its migration
 path in the same release that introduces it — not documented after the fact.
 
 ---
@@ -197,7 +196,69 @@ function handleBatch(argv: BatchCommandArgs) {
 
 ---
 
-## 4. `stream()` synthesizes whenever `tts.enabled` is set (unreleased)
+## 4. Unused provider-option types, `ParameterNormalizer` and `OpenRouterConfig` were removed (v11.0.0)
+
+**Who is affected:** code that imports any of the ten names below from
+`@juspay/neurolink`. Nothing in the SDK or the CLI read these shapes, so code
+that never imported them is unaffected and no `generate()`/`stream()` behavior
+changed.
+
+**What changed:** the Phase-1 "universal provider options" abstraction
+(`src/lib/types/universalProviderOptions.ts`) was deleted and `OpenRouterConfig`
+was removed from `src/lib/types/providers.ts`. The package root re-exports the
+whole types barrel (`export * from "./types/index.js"` in `src/lib/index.ts`), so
+all ten names were importable from `@juspay/neurolink` through v10.12.9. They are
+absent from v11.0.0 and from the current `release` branch. Importing one now
+fails: TS2305 in TypeScript, a missing named export in native ESM.
+
+| Removed export             | Kind                  | What it was                                                                                                                                                                |
+| -------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UniversalProviderOptions` | type                  | Optional `prompt`, `model`, `temperature`, `maxTokens`, `systemPrompt`, `enableAnalytics`, `enableEvaluation`, `context`, `contextConfig`, `metadata`, `extensionOptions`. |
+| `GenericProviderOptions`   | type                  | `UniversalProviderOptions` without `providerType`.                                                                                                                         |
+| `OpenAIProviderOptions`    | type                  | `UniversalProviderOptions` plus `providerType: "openai"`, `organization`, `seed`, `topP`.                                                                                  |
+| `GoogleAIProviderOptions`  | type                  | `UniversalProviderOptions` plus `providerType: "google-ai"`, `topK`, `candidateCount`, `stopSequences`.                                                                    |
+| `AnthropicProviderOptions` | type                  | `UniversalProviderOptions` plus `providerType: "anthropic"`, `topK`, `stopSequences`.                                                                                      |
+| `BedrockProviderOptions`   | type                  | `UniversalProviderOptions` plus `providerType: "bedrock"`, `inferenceProfileArn`, `region`.                                                                                |
+| `ProviderSpecificOptions`  | type                  | The union of the four provider-specific types above.                                                                                                                       |
+| `ProviderFactoryConfig`    | type                  | `{ providerName; modelName?; options?; enableMCP? }`.                                                                                                                      |
+| `ParameterNormalizer`      | class (runtime value) | Static helpers `normalizeToUniversal`, `extractProviderOptions` and `mergeWithDefaults`.                                                                                   |
+| `OpenRouterConfig`         | type                  | `{ apiKey: string; referer?: string; appName?: string }`.                                                                                                                  |
+
+**Why:** nothing used them. The abstraction was an abandoned design with no
+consumer in `src/`, and `OpenRouterConfig` was read only by a dead helper that
+was deleted with it. The removal landed in a single commit that described it as
+nominal and deliberately not breaking; its BREAKING CHANGE note was nevertheless
+parsed as a breaking change, so it shipped in the major release v11.0.0 (see its
+BREAKING CHANGES entry in `CHANGELOG.md`). Removing exported names is a
+breaking change whatever the number of consumers.
+
+**How to adapt:**
+
+- **The nine types.** There is no replacement and no automatic migration: no
+  provider ever accepted these shapes. Delete the import. If your own code still
+  needs one, copy the type alias into your own module. The exact definitions
+  are in `src/lib/types/universalProviderOptions.ts` and, for `OpenRouterConfig`,
+  `src/lib/types/providers.ts` at the `v10.12.9` tag.
+- **`ParameterNormalizer` is a runtime class, not just a type.** Copying a type
+  alias does not bring it back; if you called it, inline what you used.
+  `normalizeToUniversal(x)` was `typeof x === "string" ? { prompt: x } : x`.
+  `mergeWithDefaults(options, defaults)` spread `defaults` then `options` and
+  merged `context`, `contextConfig` and `metadata` one level deep with the same
+  rule. `extractProviderOptions(options, type)` returned `options` unchanged
+  when its `providerType` equalled `type`, and otherwise `options` without the
+  `providerType` key. Exact source: the same file at `v10.12.9`.
+- **`OpenRouterConfig`.** The SDK never read it. The OpenRouter provider takes
+  its key from `credentials.openrouter.apiKey` (per call or on the instance) or
+  the `OPENROUTER_API_KEY` environment variable, and its attribution headers
+  from `OPENROUTER_REFERER` and `OPENROUTER_APP_NAME`. Keep your own type if you
+  want one.
+
+Other files deleted in the same commit are not importable through the package's
+`exports` map and are not listed here.
+
+---
+
+## 5. `stream()` synthesizes whenever `tts.enabled` is set (unreleased)
 
 **Who is affected:** SDK callers using `stream()` with `tts.enabled: true`
 without setting `useAiResponse: true`.

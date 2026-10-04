@@ -17,6 +17,14 @@
  * is regenerated. Each anchor first checks that its source page still carries
  * the span, so an edited page fails as a stale anchor rather than passing.
  *
+ * Two groups of cases load a plugin helper (`headingId.js`, `truncate.js`)
+ * directly instead of reading the artifact. That is the determinism exception
+ * to CLAUDE.md rule 15: both are pure functions of a string, and the cases need
+ * inputs no docs page can be made to contain on demand (a sentence end exactly
+ * at the limit, a 100-character unbroken token, a surrogate pair astride the
+ * cut). They are dependency-free so the suite can load them without the docs
+ * site's packages.
+ *
  * Run: pnpm run test:docs-search-index
  */
 
@@ -240,6 +248,103 @@ await test("the plugin's heading-id parser agrees with Docusaurus's", () => {
       `"${line}": the plugin read id ${JSON.stringify(ours.id)}, Docusaurus read ${JSON.stringify(theirs.id)}`,
     );
   }
+});
+
+// The plugin caps each section's text at 2000 characters. A bare slice ended
+// the XOR guide's "Limits" record on "On t", half a word, so the index served
+// text that stopped mid-air. This reads the artifact the site serves.
+await test("a section the cap had to cut ends on a sentence, not mid-word", () => {
+  const docPath = "docs/getting-started/providers/xor.md";
+  const source = readFileSync(path.join(ROOT, docPath), "utf8");
+  assert(
+    source.includes("**A proxy may cap parallel requests.**"),
+    `precondition: ${docPath} no longer has the sentence the cut lands after; pick another section`,
+  );
+  const record = records.find(
+    (r) => r.url === "/docs/getting-started/providers/xor#limits",
+  );
+  if (record === undefined) {
+    throw new Error("the XOR Limits section has no record in the index");
+  }
+  assert(
+    record.content.length >= 1900,
+    "precondition: the XOR Limits record is no longer near the cap, so this case proves nothing; pick a longer section",
+  );
+  assert(
+    record.content.length <= 2000,
+    "a section record is longer than the 2000-character cap",
+  );
+  assert(
+    /[.!?]["')\]]*$/.test(record.content),
+    "the XOR Limits record still stops before the end of a sentence",
+  );
+});
+
+type SectionTruncator = (text: string, max?: number) => string;
+const loadTruncator = (): SectionTruncator => {
+  try {
+    return (
+      requireFromHere(
+        path.join(
+          ROOT,
+          "docs-site",
+          "plugins",
+          "docusaurus-plugin-search-index",
+          "truncate.js",
+        ),
+      ) as { truncateAtBoundary: SectionTruncator }
+    ).truncateAtBoundary;
+  } catch {
+    throw new Error("the plugin's truncation helper could not be loaded");
+  }
+};
+
+await test("the truncation helper cuts at a sentence, then a word, and bounds an unbroken run", () => {
+  const truncate = loadTruncator();
+  const cases: Array<[string, string, number, string]> = [
+    ["text within the limit is returned whole", "short text", 40, "short text"],
+    [
+      "a sentence end in the kept half is preferred",
+      "First sentence ends here. Second sentence is long.",
+      40,
+      "First sentence ends here.",
+    ],
+    [
+      "with no sentence end in the kept half the cut falls on a word",
+      "Ok. alpha beta gamma delta epsilon zeta eta theta iota",
+      40,
+      "Ok. alpha beta gamma delta epsilon zeta",
+    ],
+    [
+      "an unbroken run is cut at the limit",
+      "x".repeat(100),
+      40,
+      "x".repeat(40),
+    ],
+    [
+      "a surrogate pair is never split",
+      "x".repeat(39) + "\u{1F600}" + "tail",
+      40,
+      "x".repeat(39),
+    ],
+    [
+      "a sentence end exactly at the limit is kept",
+      "a".repeat(39) + ". more words follow here",
+      40,
+      "a".repeat(39) + ".",
+    ],
+  ];
+  for (const [label, input, max, expected] of cases) {
+    assert(
+      truncate(input, max) === expected,
+      `${label}: the helper returned a different cut than expected`,
+    );
+  }
+  const long = truncate("word ".repeat(1000));
+  assert(
+    long.length <= 2000 && long.length > 1900 && !/\s$/.test(long),
+    "the default limit should cap at 2000 and not end on whitespace",
+  );
 });
 
 await runSuite();

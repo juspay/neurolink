@@ -56,9 +56,6 @@
     "oauthToken": 1,
     "provider": 1
   },
-  "docs/features/guardrails.md": {
-    "middleware": 5
-  },
   "docs/features/mcp-tools-showcase.md": {
     "audit": 1
   },
@@ -188,14 +185,12 @@
   },
   "docs/guides/mcp/server-catalog.md": {
     "mcpServers": 7,
-    "middleware": 1,
     "providers": 6
   },
   "docs/guides/migration/from-langchain.md": {
     "fallbackProviders": 1,
-    "middleware": 1,
     "model": 3,
-    "provider": 18,
+    "provider": 17,
     "temperature": 1
   },
   "docs/guides/migration/from-vercel-ai-sdk.md": {
@@ -248,8 +243,7 @@
     "routing": 1
   },
   "docs/reference/analytics.md": {
-    "defaultOptions": 1,
-    "middleware": 1
+    "defaultOptions": 1
   },
   "docs/reference/configuration.md": {
     "timeout": 1

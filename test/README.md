@@ -7,7 +7,8 @@
 
 > **Every suite here is end-to-end.** A test must exercise a surface this
 > package ships: construct `NeuroLink` and call `generate()` / `stream()`,
-> or drive the built CLI through `runCLI`. Importing a module out of
+> drive the built CLI through `runCLI`, or exercise the package's public
+> exports from `dist/index.js`. Importing a module out of
 > `src/lib/` to assert on it directly is a unit test and does not belong in
 > this directory — see CLAUDE.md rule 15. (The `test:unit` tier keeps its
 > name for its cost profile: free, no live API calls. It is not a

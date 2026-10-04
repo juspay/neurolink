@@ -14,6 +14,7 @@ import "dotenv/config";
  *   scripts/commit-validation.ts      commit-msg hook / Single Commit Policy
  *   scripts/migration-symbol-diff.mjs review helper for refactors that move code
  *   scripts/codex-replay-listener.ts  local Codex Responses replay server
+ *   pre-commit.sh                    the git hook: what it re-stages after format:staged
  *
  * ## Why this does not go through NeuroLink (CLAUDE.md rule 15)
  *
@@ -35,6 +36,10 @@ import "dotenv/config";
  * script that exits non-zero for the banned-deps cases, so the `pnpm why`
  * probes (which need a registry and the real lockfile) are out of the picture;
  * only the source scan is under test there.
+ * `npm` is stubbed for the hook cases for the same reason: codegen, tsc and
+ * lint are not what is under test, and `format:staged` is replaced by a
+ * formatter that rewrites the working-tree copy of every staged file, which
+ * is what prettier does to a partially staged one.
  *
  * Run: npx tsx test/continuous-test-suite-tooling-scripts.ts
  *      pnpm run test:tooling-scripts
@@ -600,6 +605,178 @@ await runSuite(async () => {
       expected.join("|"),
       "the set of vanished calls differs from the expected one",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  logSection("pre-commit.sh: what it re-stages after formatting");
+  // -------------------------------------------------------------------------
+
+  // `npm` is stubbed, as `pnpm` is above. `format:staged` becomes a formatter
+  // that does to a partially staged file what prettier does: it rewrites the
+  // WORKING-TREE copy of every staged file, whole. That rewrite is the hazard:
+  // the hook's later `git add` stages the entire working-tree copy, unstaged
+  // hunks included.
+  const FORMAT_STUB = [
+    'const { execFileSync } = require("node:child_process");',
+    'const { readFileSync, writeFileSync } = require("node:fs");',
+    "const staged = execFileSync(",
+    '  "git",',
+    '  ["diff", "--cached", "--name-only", "--diff-filter=d", "-z"],',
+    '  { encoding: "utf8" },',
+    ")",
+    '  .split("\\0")',
+    "  .filter(Boolean);",
+    "for (const name of staged) {",
+    '  const text = readFileSync(name, "utf8");',
+    '  writeFileSync(name, text.replace(/[ \\t]+$/gm, ""));',
+    "}",
+    "",
+  ].join("\n");
+
+  const runPreCommit = (repo: string): Promise<ProcessResult> => {
+    const binDir = tempDir("tooling-pre-commit-bin-");
+    const stub = join(binDir, "format-staged.cjs");
+    writeFileSync(stub, FORMAT_STUB);
+    const npm = join(binDir, "npm");
+    writeFileSync(
+      npm,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "run" ] && [ "$2" = "format:staged" ]; then',
+        `  exec "${process.execPath}" "${stub}"`,
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(npm, 0o755);
+    return runCommand("bash", [join(REPO_ROOT, "pre-commit.sh")], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
+      },
+      timeoutMs: 60_000,
+    });
+  };
+
+  const seedRepo = async (
+    prefix: string,
+    files: Record<string, string>,
+  ): Promise<string> => {
+    const repo = tempDir(prefix);
+    assertEqual((await git(repo, "init", "-q")).exitCode, 0, "git init failed");
+    writeTree(repo, files);
+    assertEqual(
+      (await git(repo, "add", "--", ...Object.keys(files))).exitCode,
+      0,
+      "git add failed",
+    );
+    assertEqual(
+      (await git(repo, "commit", "-q", "-m", "seed")).exitCode,
+      0,
+      "git commit failed",
+    );
+    return repo;
+  };
+
+  const namesOf = (result: ProcessResult): string[] =>
+    result.stdout.split("\0").filter(Boolean);
+
+  await test("a partially staged file keeps its unstaged hunk out of the index", async () => {
+    const repo = await seedRepo("tooling-pre-commit-partial-", {
+      "a.txt": "alpha\nbeta\ngamma\n",
+      "b.txt": "one\ntwo\n",
+      "c.txt": "red\nblue\n",
+    });
+    // a.txt: a staged edit that needs formatting, then an unstaged edit.
+    writeTree(repo, { "a.txt": "ALPHA  \nbeta\ngamma\n" });
+    await git(repo, "add", "--", "a.txt");
+    writeTree(repo, {
+      "a.txt": "ALPHA  \nbeta\nGAMMA\n",
+      // b.txt: fully staged, needs formatting (the control).
+      "b.txt": "one  \ntwo\n",
+      // c.txt: edited, never staged.
+      "c.txt": "red  \nblue\n",
+    });
+    await git(repo, "add", "--", "b.txt");
+
+    const result = await runPreCommit(repo);
+    expectOutput(
+      "hook",
+      result,
+      result.exitCode === 0,
+      "the hook should pass on this fixture",
+    );
+    expectOutput(
+      "formatter",
+      result,
+      readFileSync(join(repo, "a.txt"), "utf8") === "ALPHA\nbeta\nGAMMA\n",
+      "the stub formatter should have rewritten the working-tree copy, or this case proves nothing",
+    );
+    expectOutput(
+      "control",
+      result,
+      (await git(repo, "show", ":b.txt")).stdout === "one\ntwo\n",
+      "a file staged in full should still be re-staged after formatting",
+    );
+    expectOutput(
+      "partial index",
+      result,
+      (await git(repo, "show", ":a.txt")).stdout === "ALPHA  \nbeta\ngamma\n",
+      "the index copy of a partially staged file should be exactly what was staged",
+    );
+    expectOutput(
+      "unstaged hunk",
+      result,
+      namesOf(await git(repo, "diff", "--name-only", "-z")).includes("a.txt"),
+      "the unstaged hunk of a partially staged file should still be unstaged",
+    );
+    expectOutput(
+      "never staged",
+      result,
+      !namesOf(
+        await git(repo, "diff", "--cached", "--name-only", "-z"),
+      ).includes("c.txt"),
+      "a file that was never staged should stay out of the commit",
+    );
+    expectOutput(
+      "warning",
+      result,
+      combined(result).includes("NOT staged") &&
+        combined(result).includes("a.txt"),
+      "the hook should say which file it left unstaged",
+    );
+  });
+
+  await test("a partially staged path with a space or a newline in its name is left alone too", async () => {
+    const names = ["sp ace.txt", "line\nbreak.txt"];
+    const repo = await seedRepo(
+      "tooling-pre-commit-names-",
+      Object.fromEntries(names.map((name) => [name, "x\ny\n"])),
+    );
+    for (const name of names) {
+      writeTree(repo, { [name]: "X  \ny\n" });
+      await git(repo, "add", "--", name);
+      writeTree(repo, { [name]: "X  \nY\n" });
+    }
+
+    const result = await runPreCommit(repo);
+    expectOutput(
+      "hook",
+      result,
+      result.exitCode === 0,
+      "the hook should pass on this fixture",
+    );
+    const unstaged = namesOf(await git(repo, "diff", "--name-only", "-z"));
+    for (const name of names) {
+      expectOutput(
+        "unstaged hunk",
+        result,
+        unstaged.includes(name),
+        "a path with a space or a newline in its name had its unstaged hunk staged",
+      );
+    }
   });
 
   // -------------------------------------------------------------------------

@@ -10,6 +10,7 @@ const path = require("path");
 const matter = require("gray-matter");
 const { createHash } = require("node:crypto");
 const { parseHeadingId } = require("./headingId");
+const { truncateAtBoundary } = require("./truncate");
 
 /** Simple glob matching for exclude patterns */
 function matchGlob(glob, filePath) {
@@ -105,7 +106,7 @@ function extractSections(content) {
           heading: currentHeading,
           id: currentId,
           level: currentLevel,
-          content: stripMarkdown(currentContent.join("\n")).slice(0, 2000),
+          content: truncateAtBoundary(stripMarkdown(currentContent.join("\n"))),
         });
       }
       currentLevel = headingMatch[1].length;
@@ -129,7 +130,7 @@ function extractSections(content) {
       heading: currentHeading,
       id: currentId,
       level: currentLevel,
-      content: stripMarkdown(currentContent.join("\n")).slice(0, 2000),
+      content: truncateAtBoundary(stripMarkdown(currentContent.join("\n"))),
     });
   }
 

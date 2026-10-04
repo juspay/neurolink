@@ -234,6 +234,15 @@ jobs:
           # resulting push. That has already happened once on `release`: the
           # merge ran no CI at all, and nothing reported it, because a skipped
           # run looks identical to a run that was never required.
+          #
+          # What this step can and cannot do. GitHub skips THIS WHOLE WORKFLOW
+          # when the head commit of a pull request holds a directive, so on
+          # that path no step runs, no check is reported, and the required
+          # checks stay Pending, which is what blocks the merge. This step can
+          # never print the remediation below for that case; it is a backstop
+          # for the cases GitHub does not skip. Do not move it to
+          # pull_request_target to close the gap: that trigger runs with the
+          # base repository's token, and this workflow checks out the PR head.
           FULL_MSG=$(git log -1 --pretty=format:%B "$COMMIT_HASH")
           SKIP_RE='\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'
 

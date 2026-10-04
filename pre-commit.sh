@@ -32,6 +32,20 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
   # `format:staged` still runs first and alone — it REWRITES staged files, and
   # linting them while they are being rewritten is a race.
   
+  # Files that already carry unstaged edits, recorded BEFORE `format:staged`
+  # rewrites anything: the re-add step below must not stage them. The list is
+  # NUL-delimited so a path with a space or a newline survives, and it goes
+  # through a file because a shell variable cannot hold NUL and a failed
+  # `git diff` inside `< <(...)` would be swallowed, silently restoring the
+  # old stage-everything behaviour.
+  unstaged_before_log="$(mktemp)"
+  git diff --name-only --diff-filter=d -z > "$unstaged_before_log"
+  unstaged_before=()
+  while IFS= read -r -d '' f; do
+    unstaged_before+=("$f")
+  done < "$unstaged_before_log"
+  rm -f "$unstaged_before_log"
+
   echo "🎨 Running format..."
   npm run format:staged
 
@@ -86,14 +100,13 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
   # reformatted on disk, but ALSO any unrelated file with in-progress edits
   # that were never staged for this commit. Re-adding that raw list sweeps
   # unrelated WIP into the commit. Only files that are BOTH just-reformatted
-  # AND already staged for this commit (index vs HEAD) should be re-added.
+  # AND already staged for this commit (index vs HEAD) are re-added.
   #
-  # This protects files you never staged. It does NOT give you partial
-  # staging: for a file with both staged and unstaged hunks, prettier
-  # formats the whole worktree copy and the `git add` below stages all of
-  # it, unstaged hunks included — exactly as before this change. Fixing
-  # that means formatting the staged blob in isolation and re-applying the
-  # unstaged patch, which is a larger change than this one.
+  # A file that is staged AND already carried unstaged edits before formatting
+  # (a partial stage, `git add -p`) is NOT re-added: prettier rewrote the whole
+  # working-tree copy, and `git add` would stage every unstaged hunk with it.
+  # Such a file keeps exactly the content that was staged; its formatting
+  # stays in the working tree, and the warning below says so.
   echo "📝 Adding formatted files to git stage..."
   staged_files=()
   while IFS= read -r -d '' f; do
@@ -102,10 +115,24 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
 
   if [[ ${#staged_files[@]} -gt 0 ]]; then
     files_to_add=()
+    left_unstaged=()
     while IFS= read -r -d '' f; do
       for s in "${staged_files[@]}"; do
         if [[ "$f" == "$s" ]]; then
-          files_to_add+=("$f")
+          is_partial=0
+          if [[ ${#unstaged_before[@]} -gt 0 ]]; then
+            for u in "${unstaged_before[@]}"; do
+              if [[ "$f" == "$u" ]]; then
+                is_partial=1
+                break
+              fi
+            done
+          fi
+          if [[ "$is_partial" -eq 1 ]]; then
+            left_unstaged+=("$f")
+          else
+            files_to_add+=("$f")
+          fi
           break
         fi
       done
@@ -113,6 +140,14 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
 
     if [[ ${#files_to_add[@]} -gt 0 ]]; then
       git add -- "${files_to_add[@]}"
+    fi
+
+    if [[ ${#left_unstaged[@]} -gt 0 ]]; then
+      echo "⚠️  Formatted in the working tree only, NOT staged: these files also have unstaged changes, and staging them would commit those too:"
+      for f in "${left_unstaged[@]}"; do
+        printf '    %s\n' "$f"
+      done
+      echo "    Stage them yourself (git add -p) if you want the formatted version committed."
     fi
   fi
 

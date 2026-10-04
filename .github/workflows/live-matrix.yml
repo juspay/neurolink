@@ -428,3 +428,64 @@ jobs:
         timeout-minutes: 15
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # A red nightly run reaches nobody on its own: this workflow is not a
+  # required check, so a provider that stops answering or a rotated-out secret
+  # fails here and nothing else notices. model-liveness.yml solves the same
+  # problem the same way: one rolling issue, commented on again rather than a
+  # new issue every night.
+  #
+  # `needs` MUST list every job above: a job missing from it can fail without
+  # this one running. `if: failure()`, not `always()`: a green run, and a run
+  # where every suite SKIPped for want of a key (those exit 0), stay silent.
+  # `issues: write` is granted to this job alone; the jobs above hold the
+  # provider secrets and keep read-only contents. There is no checkout, so
+  # `gh` is pointed at the repository with GH_REPO.
+  notify:
+    name: 🔔 Live Matrix Failure Notice
+    needs: [reasoning-parity, live-matrix, anthropic-live-suites]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REASONING_PARITY_RESULT: ${{ needs.reasoning-parity.result }}
+          LIVE_MATRIX_RESULT: ${{ needs.live-matrix.result }}
+          ANTHROPIC_SUITES_RESULT: ${{ needs.anthropic-live-suites.result }}
+        run: |
+          set -euo pipefail
+          LABEL="live-matrix-fail"
+          TITLE="Nightly live provider matrix is failing"
+          BODY_FILE=$(mktemp)
+          {
+            echo "The nightly live-matrix workflow has a failing job."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo "- Live Reasoning Parity: $REASONING_PARITY_RESULT"
+            echo "- Live Provider Matrix Sweep: $LIVE_MATRIX_RESULT"
+            echo "- Live Anthropic-Only Suites: $ANTHROPIC_SUITES_RESULT"
+            echo
+            echo "Open the run for the failing step's log."
+            echo
+            echo "_Filed automatically by \`.github/workflows/live-matrix.yml\`._"
+          } > "$BODY_FILE"
+
+          # One rolling issue, not one per night: comment on the open one so a
+          # flaky provider cannot spam the tracker into being muted.
+          EXISTING=$(gh issue list --state open --label "$LABEL" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+            echo "commented on #$EXISTING"
+          else
+            gh label create "$LABEL" \
+              --description "The nightly live provider matrix has a failing job" \
+              --color B60205 2>/dev/null || true
+            gh issue create --title "$TITLE" --label "$LABEL" --body-file "$BODY_FILE"
+          fi

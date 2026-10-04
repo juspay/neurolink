@@ -8,13 +8,7 @@
 
 **Tech Stack:** TypeScript (strict, ESM), pnpm, the `tsx`-based test harness (`test/helpers/harness.ts` — NOT vitest, despite `vitest.config.ts` existing), Node's built-in `http` module for an in-process fake local-runtime server in Task 5.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/02-sdk-entry-orchestration-src-lib-neurolink-ts-gener.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/05-local-runtime-aggregator-provider-family-ollama-li.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/07-cli-env-config-surface-for-ai-providers.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 
