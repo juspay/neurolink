@@ -846,6 +846,32 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       decide: true,
     },
   ],
+  [
+    "cloudflare-clef",
+    {
+      name: "cloudflare-clef",
+      defaultModel: "clef",
+      // Cloudflare's own API is the endpoint, but the path carries the account
+      // id, so both are needed. They are the same two variables the `cloudflare`
+      // Workers AI text provider reads.
+      envVars: ["CLOUDFLARE_API_KEY", "CLOUDFLARE_ACCOUNT_ID"],
+      // Serves only `decide`, like the other decision providers: every
+      // generation capability is false because it emits no text at all.
+      text: false,
+      streaming: false,
+      tools: false,
+      toolsWithStreaming: false,
+      structuredOutput: false,
+      structuredOutputWithTools: false,
+      vision: false,
+      embeddings: false,
+      thinking: false,
+      imageGeneration: false,
+      videoGeneration: false,
+      tts: false,
+      decide: true,
+    },
+  ],
 ];
 
 export const PROVIDERS: Record<string, ProviderEntry> =

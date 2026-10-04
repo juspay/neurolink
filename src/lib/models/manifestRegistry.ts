@@ -28,6 +28,7 @@ import { typesafeManifest } from "./manifests/typesafe.js";
 import { layaManifest } from "./manifests/laya.js";
 import { xorManifest } from "./manifests/xor.js";
 import { perplexityDeciderManifest } from "./manifests/perplexityDecider.js";
+import { cloudflareClefManifest } from "./manifests/cloudflareClef.js";
 import { cohereManifest } from "./manifests/cohere.js";
 import { togetherAiManifest } from "./manifests/together-ai.js";
 import { fireworksManifest } from "./manifests/fireworks.js";
@@ -138,6 +139,7 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   laya: layaManifest,
   xor: xorManifest,
   "perplexity-decider": perplexityDeciderManifest,
+  "cloudflare-clef": cloudflareClefManifest,
   cerebras: catalogManifest("cerebras"),
   sambanova: catalogManifest("sambanova"),
   cohere: cohereManifest,

@@ -112,6 +112,9 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Laya                 | `laya`              | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                        |
 | XOR                  | `xor`               | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/systemone`)            |
 | Perplexity Decisions | `perplexityDecider` | `apiKey`, `baseURL` (optional: defaults to `https://api.perplexity.ai`; calls `<base>/v1/decisions`) |
+| Cloudflare Clef      | `cloudflareClef`    | `apiKey`, `accountId`, `baseURL` (optional: defaults to `https://api.cloudflare.com/client/v4`)      |
+
+Cloudflare Clef needs both `apiKey` and `accountId`; the account id is part of the route (`<base>/accounts/<accountId>/ai/run/@cf/cloudflare/<model>`), so a token alone does not configure it. `credentials.cloudflare` is the Workers AI text provider's slice and does **not** configure `decide`: the two providers read the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` variables but take their own credentials; see [One token, two providers](../getting-started/providers/cloudflare-clef.md#one-token-two-providers).
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.
 

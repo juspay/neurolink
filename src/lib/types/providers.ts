@@ -371,6 +371,15 @@ export type NeurolinkCredentials = {
    * `<baseURL>/v1/decisions`.
    */
   perplexityDecider?: { apiKey?: string; baseURL?: string };
+  /**
+   * Cloudflare Clef — the `decide` inference type, reached through Workers AI.
+   * The token and account id are the ones the `cloudflare` text provider reads
+   * (`CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`), but this slice is separate
+   * so the two cannot be mixed up. Both are required. `baseURL` is optional and
+   * defaults to `https://api.cloudflare.com/client/v4`; requests go to
+   * `<baseURL>/accounts/<accountId>/ai/run/@cf/cloudflare/<model>`.
+   */
+  cloudflareClef?: { apiKey?: string; accountId?: string; baseURL?: string };
 };
 
 /**
@@ -2426,6 +2435,8 @@ export type ProviderDescriptor = {
     extraRequired?: readonly string[];
     /** Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g. Vertex's file-path-OR-individual-fields auth). Each entry is either a single env var name (satisfied alone) or a nested array of names that must ALL be present together (e.g. Vertex's GOOGLE_AUTH_CLIENT_EMAIL + GOOGLE_AUTH_PRIVATE_KEY pair, which is only valid as a pair). Evaluate with `satisfiesFallbacks()` (providerConfig.ts) rather than re-deriving this logic at each call site. */
     extraRequiredFallbacks?: readonly (string | readonly string[])[];
+    /** For an `extraRequired` name that can also be given in `credentials.<credentialsKey>`: the field of that slice that stands for it (e.g. `{ CLOUDFLARE_ACCOUNT_ID: "accountId" }`). A base URL needs no entry; it is matched through `baseURL` above. */
+    extraRequiredCredentialFields?: Readonly<Record<string, string>>;
     /** True when the provider is usable with zero configuration (local runtime with a documented default URL, or a documented non-secret default like LiteLLM's "sk-anything"). */
     optional?: boolean;
   };

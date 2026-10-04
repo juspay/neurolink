@@ -114,6 +114,12 @@ Additional env vars required alongside apiKey (e.g. AWS secret key, Azure endpoi
 
 Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g. Vertex's file-path-OR-individual-fields auth). Each entry is either a single env var name (satisfied alone) or a nested array of names that must ALL be present together (e.g. Vertex's GOOGLE_AUTH_CLIENT_EMAIL + GOOGLE_AUTH_PRIVATE_KEY pair, which is only valid as a pair). Evaluate with `satisfiesFallbacks()` (providerConfig.ts) rather than re-deriving this logic at each call site.
 
+#### extraRequiredCredentialFields?
+
+> `optional` **extraRequiredCredentialFields?**: `Readonly`\<`Record`\<`string`, `string`\>\>
+
+For an `extraRequired` name that can also be given in `credentials.<credentialsKey>`: the field of that slice that stands for it (e.g. `{ CLOUDFLARE_ACCOUNT_ID: "accountId" }`). A base URL needs no entry; it is matched through `baseURL` above.
+
 #### optional?
 
 > `optional` **optional?**: `boolean`

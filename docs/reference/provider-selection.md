@@ -173,7 +173,7 @@ Match provider capabilities to your feature needs:
 
 ‡ NVIDIA NIM thinking supported on Nemotron-Reasoning and DeepSeek-R1 hosted models via `thinkingLevel` option.
 
-Decision-only providers (TypeSafe Jev, Laya, XOR, Perplexity Decisions) generate no text, so they do not stream; use `decide()` with them.
+Decision-only providers (TypeSafe Jev, Laya, XOR, Perplexity Decisions, Cloudflare Clef) generate no text, so they do not stream; use `decide()` with them.
 
 ```typescript
 // Feature-specific provider selection

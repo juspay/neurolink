@@ -17,7 +17,8 @@ returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
 of prose. The decide providers are TypeSafe's **Jev**, Convai Innovations'
 open-weights **Laya**, Juspay's open-weights **XOR**, which also reads images and
-video, and Perplexity's hosted **Decisions** API, which also reads images.
+video, Perplexity's hosted **Decisions** API, which also reads images, and
+Cloudflare's **Clef** models on Workers AI, which also read images.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -110,7 +111,7 @@ provider, exactly as the environment does. On a LiteLLM proxy the key's team
 must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
 
 Built-in features use the first configured decision provider in the order
-TypeSafe, Laya, XOR, Perplexity. XOR counts as configured only with both its key
+TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef. XOR counts as configured only with both its key
 and its base URL, and runs where a caller names it (`provider: "xor"`) or when
 neither TypeSafe nor Laya is configured. It reads images and video; see
 [Images and video](#images-and-video) and the
@@ -153,9 +154,51 @@ and the
 [exact switches](../getting-started/providers/perplexity-decider.md#one-key-two-providers).
 It reads images but no video; see [Images and video](#images-and-video).
 
+### Cloudflare Clef, on Workers AI
+
+```bash
+export CLOUDFLARE_API_KEY=...                 # required; a Workers AI token, also the Workers AI text provider's key
+export CLOUDFLARE_ACCOUNT_ID=...              # required; also the Workers AI text provider's account id
+export CLOUDFLARE_CLEF_MODEL=clef-flash       # optional: clef (27B, the default) or clef-flash (9B)
+export CLOUDFLARE_CLEF_BASE_URL=https://api.cloudflare.com/client/v4   # optional
+```
+
+Cloudflare's `clef` and `clef-flash` are hosted on Workers AI at a public
+endpoint, so there is no base URL to set. The account id is part of the route, so
+Clef counts as configured only with both the token and the account id. They can
+equally come from the config passed to the SDK,
+`new NeuroLink({ credentials: { cloudflareClef: { apiKey, accountId } } })`
+(`baseURL` is optional), or per call; config set there counts when a `decide()`
+call picks the default decision provider, exactly as the environment does. The
+classifier router's `auto` gate is read differently: it looks at the
+constructor's credentials and the environment only, so a
+`credentials.cloudflareClef` passed on one call does not influence it. The
+provider id is `cloudflare-clef`: the `cloudflare` provider is the Workers AI text
+provider, which serves `generate()` and `stream()` and not `decide()`, and
+`credentials.cloudflare` does not configure `decide`.
+
+**The Workers AI endpoint ignores state text past about 2,048 tokens.**
+Cloudflare documents a 64K window; text past the observed boundary is ignored
+without an error (hosted service or model: unknown). NeuroLink refuses a state it estimates at more than 1,500
+tokens with `max_tokens_exceeded`, which every built-in consumer treats as "carry
+on as before"; see [Limits and gotchas](#limits-and-gotchas). Clef suits short
+decisions.
+
+**`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` are shared with that text
+provider.** A host that set them only to use Workers AI text has therefore also
+configured `decide`, and built-in features will use Clef whenever none of
+TypeSafe, Laya, XOR or Perplexity is configured. Clef comes last in the order, so
+it never displaces one that is. No switch turns it off while the two variables
+are set. The Clef provider guide explains
+[when NeuroLink uses it](../getting-started/providers/cloudflare-clef.md#when-neurolink-uses-it)
+and
+[how the two providers share the token](../getting-started/providers/cloudflare-clef.md#one-token-two-providers).
+It reads images but no video; see [Images and video](#images-and-video).
+
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider is configured (a key, plus a base URL for
-Laya and XOR), and `tryDecide()` returns `null` on any failure. There is no
+Laya and XOR, or an account id for Cloudflare Clef), and `tryDecide()` returns
+`null` on any failure. There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour — it only ever falls back to what it did
 before.
@@ -166,7 +209,11 @@ than paying a round trip on every later call to be told so again. An XOR 403 or
 or the budget, which an admin can fix, so the instance is not disabled. For
 Perplexity only a 401 is that case: a 413 or a 400 over the model's context length
 is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4xx
-is a non-retried `invalid_request`.
+is a non-retried `invalid_request`. For Cloudflare Clef only a 401 is that case
+(a 403 was never seen, and would be a non-retried `invalid_request`, so a
+permission fixed in the dashboard works at once), a 413 is `max_tokens_exceeded`,
+a 429 is `rate_limit` (retried), and a 400 or 422 is a non-retried
+`invalid_request`.
 
 ---
 
@@ -285,7 +332,7 @@ it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
 
 **More questions than a provider takes.** A provider that caps the questions in
-one request (Laya takes 64) refuses a longer map from `decide()` with
+one request (Laya and Cloudflare Clef take 64) refuses a longer map from `decide()` with
 `max_tokens_exceeded`. `tryDecide()`, which every built-in consumer calls,
 splits the map at the cap instead, keeps the questions in the order given, runs
 up to four batches at a time and joins the answers into one result: usage is
@@ -308,8 +355,8 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 ```
 
 To ask about an image or a video, add `--image <path>` (repeatable) or
-`--video <path>`. XOR reads both, Perplexity reads images only, and TypeSafe and
-Laya read neither:
+`--video <path>`. XOR reads both, Perplexity and Cloudflare Clef read images only,
+and TypeSafe and Laya read neither:
 
 ```bash
 npx @juspay/neurolink decide "A product photo from a listing." --provider xor \
@@ -332,11 +379,13 @@ single request. This is the basis for picking from a large catalogue.
 ## Images and video
 
 A decision provider whose descriptor declares media limits reads images, and
-possibly one video, alongside `state`. XOR does, and so does Perplexity, which
-declares images only and no video; TypeSafe and Laya do not. Two optional fields
-on the request carry them, for `decide()` and `tryDecide()` alike:
+possibly one video, alongside `state`. XOR does, and so do Perplexity and
+Cloudflare Clef, which declare images only and no video; TypeSafe and Laya do
+not. Two optional fields on the request carry them, for `decide()` and
+`tryDecide()` alike:
 
-- `images` — up to 8 images, the limit XOR and Perplexity each declare.
+- `images` — up to 8 images, the limit XOR and Perplexity each declare; Cloudflare
+  Clef takes up to 4.
 - `video` — one video, for a provider that declares video (XOR).
 
 Each image and the video takes the same three input forms:
@@ -364,8 +413,8 @@ console.log(result.mediaBytes); // encoded size of the images sent
 NeuroLink identifies a Buffer or a file from its bytes, not its extension — PNG,
 JPEG, WebP and GIF images, and MP4, MOV and WebM video —
 and sends it as a `data:` URL. A `data:` URL you pass yourself must hold base64
-image or video content, and is sent as given. Perplexity reads PNG, JPEG and
-WebP only, and refuses a GIF before any request.
+image or video content. Clef normalizes `image/jpg` to `image/jpeg`; other data URLs are sent as given. Perplexity and Cloudflare Clef read
+PNG, JPEG and WebP only, and refuse a GIF before any request.
 
 **What is refused.** Everything NeuroLink can check is refused before any
 request, as a non-retryable `invalid_request`:
@@ -376,14 +425,17 @@ request, as a non-retryable `invalid_request`:
   URL with another scheme;
 - a missing file, a directory, or an empty Buffer or file;
 - something that is not an image or a video;
-- more than 8 images;
-- a request body over the provider's limit: 8 MB for XOR, 32 MiB for Perplexity.
-  The limit applies to the encoded body, so the base64 form counts. A file over
-  it is refused from its size, before it is read;
-- a video sent to a provider that declares no video (Perplexity);
+- more than 8 images, or more than 4 for Cloudflare Clef;
+- a request body over the provider's limit: 8 MB for XOR, 32 MiB for Perplexity,
+  256,000 bytes for Cloudflare Clef. The limit applies to the encoded body, so
+  the base64 form counts, and a photo usually has to be resized to well under
+  190 KB before Clef will take it. A file over it is refused from its size,
+  before it is read;
+- a video sent to a provider that declares no video (Perplexity, Cloudflare Clef);
 - an image Perplexity cannot read: one of another type, or over 2,048 tiles of
   32 × 32 pixels, which the API would otherwise hold for about a minute before
   answering 504;
+- an image Cloudflare Clef cannot read: one that is not PNG, JPEG or WebP;
 - any media sent to a provider that declares no media capability (TypeSafe,
   Laya). The message names the providers that accept media.
 
@@ -417,6 +469,10 @@ API):
 > most 128), and an input time that grows faster than linearly with size: 3.9 s
 > at 65,000 tokens, 10 s at 146,000 and 22.9 s at 251,000. See
 > [its latency section](../getting-started/providers/perplexity-decider.md#latency-and-the-timeout).
+> `cloudflare-clef` takes 0.3 to 1.0 s for a small request and 1.1 to 1.3 s for
+> 64 questions (measured 2026-10-03). A 64-question request with the same
+> questions and a shorter state took 1.5 s on `clef-flash` and 2.3 s on `clef` on 2026-10-04; see
+> [its latency section](../getting-started/providers/cloudflare-clef.md#latency-and-the-timeout).
 
 On TypeSafe, 400 questions cost ~70 ms more than one. **Concurrent requests, by
 contrast, queue**: ten parallel calls take ~1.4 s wall with nine landing together
@@ -425,8 +481,8 @@ at the end, while the server's own upstream time stays flat at 64–169 ms.
 So on TypeSafe, 400 things in one request take ~465 ms; the same 400 as separate
 requests take roughly a minute. Add every question you _might_ need to the call
 you are already making — speculative questions are nearly free on TypeSafe (on
-Perplexity each costs about 65 ms, up to 128 in a request), and a second round
-trip is not.
+Perplexity each costs about 65 ms, up to 128 in a request; Cloudflare Clef takes
+up to 64), and a second round trip is not.
 
 ---
 
@@ -451,7 +507,10 @@ member to use — all at once, in ~400 ms on TypeSafe's Jev.
 
 The `jev` column is TypeSafe's figures; the
 [Perplexity guide](../getting-started/providers/perplexity-decider.md) gives its
-latency and the confidence it reports.
+latency and the confidence it reports. The
+[Cloudflare Clef guide](../getting-started/providers/cloudflare-clef.md) gives its
+latency; because Clef reads only about 2,048 tokens of state, a long prompt is
+refused there and routing falls back to the heuristic, as it does on any failure.
 
 Thresholds are **asymmetric**, because the two mistakes do not cost the same:
 `minUpgradeConfidence` defaults to 0.3 (spending more on a wrong guess costs
@@ -501,7 +560,8 @@ asks, per eligible message, whether the current request still needs it — at
 ~400 ms for the whole batch regardless of message count (on TypeSafe;
 `perplexity-decider` differs, taking about 0.3 to 1.1 s for one question and about
 65 ms for each further one, plus an input time that grows faster than linearly
-with size).
+with size; `cloudflare-clef` took 0.3 to 1.0 s for a small request on 2026-10-03, and its
+endpoint ignores state text past about 2,048 tokens).
 Only plain user/assistant text is eligible, the most recent messages are never
 touched, and a message is dropped only on a confident "no."
 
@@ -599,6 +659,32 @@ a larger window. Perplexity documents a request rate of 10 per second for the
 account's tier, and on the account tested 14 parallel requests got 10 answers and
 4 replies of 429.
 
+**The Workers AI endpoint ignores Clef state text past about 2,048 tokens,
+far less than the documented 64K (hosted service or model: unknown).** The
+original probe was on 2026-10-03; a follow-up of 133 probe calls on 2026-10-04
+still read the fact at the original `clef-flash` lower bound for logs, number
+lists, digit arrays and compact JSON on both models, and did not read it about
+2.5% further on. English prose
+and random CJK already matched. Natural Chinese, Japanese, Korean and Hindi
+prose and emoji-rich English on `clef`, and a many-key object on both models,
+also reached NeuroLink's local cap before their observed cuts.
+
+The estimator charges digits 1 token each, punctuation 0.75, astral characters
+3 and other non-ASCII characters 1.5, with other text about 4 characters a token.
+It refuses more than 1,500 estimated state tokens with `max_tokens_exceeded`,
+before any network call. No rates changed after the follow-up. These are
+conservative estimates for the measured samples; other object shapes and
+Unicode sequences may differ.
+
+A request takes at most 64 questions (`tryDecide()` splits larger maps) and
+four images. Exactly four succeeded and a fifth was refused on both models.
+NeuroLink retains a 256,000-byte cap for the encoded body, including base64
+images. Both models accepted 520,000 text characters and refused 525,000 with
+413/code 5021 on 2026-10-04; `clef-flash` had accepted 262,000 and refused
+270,000 on 2026-10-03.
+The reason for that change and the current image-byte boundary are unverified.
+See the [Clef guide's limits](../getting-started/providers/cloudflare-clef.md#limits).
+
 **Two separate size ceilings** (TypeSafe), both enforced:
 
 - `state` + the **single longest** question ≤ **~33 000 tokens** (measured
@@ -642,7 +728,9 @@ A timeout is retried once, so a request that stalls can take about twice the
 timeout. Pass a larger `timeoutMs` for any state of more than about 100,000 real
 tokens, which log lines and arrays of numbers reach well inside the window. The
 [provider guide](../getting-started/providers/perplexity-decider.md#latency-and-the-timeout)
-lists the timeout setting for each built-in consumer.
+lists the timeout setting for each built-in consumer. On 2026-10-03 Cloudflare Clef
+answered a small request in 0.3 to 1.0 s, and 64 questions in 1.1 s on `clef-flash`
+and 1.3 s on `clef` (1.5 s and 2.3 s on 2026-10-04); its default timeout is 5 s, and `timeoutMs` changes it for one call.
 
 **Privacy**: when enabled, the `state` you send leaves the machine. For model
 routing that is the prompt text; for compaction and tool routing it is earlier
@@ -651,9 +739,15 @@ A `PERPLEXITY_API_KEY` set for the Perplexity text provider counts as a decision
 provider's key, so with it set and none of TypeSafe, Laya or XOR configured, the
 state of a decision goes to Perplexity. The provider guide lists
 [what each consumer sends](../getting-started/providers/perplexity-decider.md#what-is-sent-to-perplexity).
+Likewise `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, set for the Workers AI
+text provider, counts as a decision provider's credentials: with them set and none
+of TypeSafe, Laya, XOR or Perplexity configured, the state of a decision goes to
+Cloudflare.
 
 **Cost**: TypeSafe, $0.042 per million input tokens, output free. Perplexity,
-$0.04 per million input tokens (image tokens included), output free.
+$0.04 per million input tokens (image tokens included), output free. Cloudflare
+Clef, $0.24 per million input tokens for `clef` and $0.09 for `clef-flash`;
+no output price is listed.
 
 ---
 

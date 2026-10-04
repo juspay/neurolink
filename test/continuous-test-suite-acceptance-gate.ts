@@ -333,6 +333,11 @@ const PROVIDERS_NOT_COVERED: Array<{ provider: string; reason: string }> = [
     reason:
       "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe, laya and xor) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
   },
+  {
+    provider: "cloudflare-clef",
+    reason:
+      "Decide-only inference (CloudflareClefProvider extends SystemOneDecisionProvider, like typesafe, laya, xor and perplexity-decider) — no text-generation surface for any of cells 1-9. Distinct from the cloudflare Workers AI text provider, though both read the same two variables.",
+  },
 ];
 
 for (const providerId of Object.keys(PROVIDERS)) {

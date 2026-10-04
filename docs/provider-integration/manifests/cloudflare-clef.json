@@ -1,0 +1,27 @@
+{
+  "provider": "cloudflare-clef",
+  "tier": 3,
+  "addedInPR": "pending",
+  "addedDate": "2026-10-03",
+  "mockedContractSection": "DECIDE cloudflare-clef",
+  "manualTestStatus": "verified-live",
+  "notes": "A provider of the `decide` inference type: Cloudflare's Clef decision models (clef, 27B, and clef-flash, 9B) on Workers AI, reached at https://api.cloudflare.com/client/v4 unless CLOUDFLARE_CLEF_BASE_URL or credentials.cloudflareClef.baseURL names another base, with the account id in the route. The token and account id are CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, shared with the `cloudflare` Workers AI text provider, which means an ambient pair from that provider also activates decide here. Tier 3 for the same reasons as typesafe, laya, xor and perplexity-decider (the catalog schema has no decide vocabulary and requires output-token fields), and distinct from the catalog's `cloudflare` provider. Extends SystemOneDecisionProvider, which gained a model argument on decisionEndpoint (the model is in the URL path), a readDecisionPayload hook (Cloudflare wraps every answer in a result envelope) and optional digit, symbol and astral rates on decisionLimits. Declares inferenceKinds [\"decide\"] and decisionLimits, and sits after perplexity-decider in HAND_DESCRIPTORS so the other four stay the default whenever their keys are set. Reads images (not video) in their own images array. The state limit is 1,500 estimated tokens because the Workers AI endpoint ignores text past about 2,048 tokens without an error (hosted service or model: unknown); the encoded request cap remains 256,000 bytes. Follow-up on 2026-10-04 used 133 serial probe calls: both models accepted 520,000 text characters and refused 525,000 with 413/code 5021, on 2026-10-03, clef-flash alone accepted 262,000 and refused 270,000. Refusal estimates match encoded body characters / 4, rounded up; the threshold moved from 65,527 accepted / 67,527 refused to 130,026 accepted / 131,276 refused (clef) and 130,027 / 131,277 (clef-flash). The error still prints 65,536; inference: the new interval contains 131,072, twice that figure. The reason is unknown. Four images and image/jpg were accepted; the alias is normalized to image/jpeg. Both models read facts at the original clef-flash lower bounds for logs, number lists, digit arrays and compact JSON, but not about 2.5% further on. Those checks, natural scripts on clef and a many-key object on both fit the existing rates. The object control failed three times and passed after an explicit field-name question and zero-padded keys were introduced together. Current image-byte limits remain unmeasured; the local 256,000-byte cap with images is not live-tested. Three live canaries (19.10, 19.10b and 19.11) detect changes in state or request behavior; 19.11 checks the text-only service ceiling on clef-flash.",
+  "filesTouched": [
+    "src/lib/constants/enums.ts",
+    "src/lib/providers/cloudflareClef.ts",
+    "src/lib/providers/systemOneDecision.ts",
+    "src/lib/factories/providerDescriptors.ts",
+    "src/lib/factories/providerRegistry.ts",
+    "src/lib/types/providers.ts",
+    "src/lib/types/decision.ts",
+    "src/lib/utils/providerConfig.ts",
+    "src/lib/utils/pricing.ts",
+    "src/lib/models/manifests/cloudflareClef.ts",
+    "src/lib/models/manifestRegistry.ts",
+    "src/lib/utils/modelChoices.ts",
+    "src/cli/commands/setup.ts",
+    "test/continuous-test-suite-providers-mocked.ts",
+    "test/continuous-test-suite-decide.ts",
+    "test/helpers/providerMatrix.ts"
+  ]
+}

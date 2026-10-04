@@ -24,6 +24,7 @@ import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlsInText } from "../utils/logSanitize.js";
 import {
+  CHARS_PER_TOKEN,
   estimateTokens,
   serializeForEstimate,
 } from "../utils/tokenEstimation.js";
@@ -219,16 +220,56 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
 function estimateDecisionStateTokens(
   text: string,
   nonAsciiTokensPerChar: number | undefined,
+  rates: {
+    digit?: number;
+    symbol?: number;
+    astral?: number;
+  } = {},
 ): number {
-  if (nonAsciiTokensPerChar === undefined) {
+  const { digit, symbol, astral } = rates;
+  if (
+    nonAsciiTokensPerChar === undefined &&
+    digit === undefined &&
+    symbol === undefined &&
+    astral === undefined
+  ) {
     return estimateTokens(text);
   }
-  const chars = [...text];
-  const isAscii = (c: string) => (c.codePointAt(0) ?? 0) <= 0x7f;
-  const ascii = chars.filter(isAscii).join("");
-  const nonAsciiCount = chars.length - ascii.length;
+  // Each class of character is counted once, at its own rate. A class with no
+  // declared rate stays in the ordinary four-characters-a-token estimate (or,
+  // for non-ASCII, at that estimate's per-character rate), so a provider that
+  // declares none of the extra rates is estimated exactly as before.
+  const isDigit = (c: string) => c >= "0" && c <= "9";
+  const isSymbol = (c: string) => /[!-/:-@[-`{-~]/.test(c);
+  let digits = 0;
+  let symbols = 0;
+  let astrals = 0;
+  let nonAscii = 0;
+  const rest: string[] = [];
+  for (const c of text) {
+    const code = c.codePointAt(0) ?? 0;
+    if (code > 0xffff && astral !== undefined) {
+      astrals += 1;
+    } else if (code > 0x7f) {
+      nonAscii += 1;
+    } else if (digit !== undefined && isDigit(c)) {
+      digits += 1;
+    } else if (symbol !== undefined && isSymbol(c)) {
+      symbols += 1;
+    } else {
+      rest.push(c);
+    }
+  }
+  // Digits, punctuation and astral characters (emoji) are charged separately
+  // only when the provider declares a rate for them: a tokenizer that reads each
+  // digit, and most punctuation, on its own makes a number-heavy or JSON-heavy
+  // state several times longer than four characters a token suggests.
   return (
-    estimateTokens(ascii) + Math.ceil(nonAsciiCount * nonAsciiTokensPerChar)
+    estimateTokens(rest.join("")) +
+    Math.ceil(digits * (digit ?? 0)) +
+    Math.ceil(symbols * (symbol ?? 0)) +
+    Math.ceil(astrals * (astral ?? 0)) +
+    Math.ceil(nonAscii * (nonAsciiTokensPerChar ?? 1 / CHARS_PER_TOKEN))
   );
 }
 
@@ -281,7 +322,11 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   protected missingConfigMessage(): string | undefined {
     return undefined;
   }
-  protected abstract decisionEndpoint(): string;
+  /**
+   * Where the request goes. The model asked for is passed in because one
+   * vendor names it in the URL path; every other provider ignores it.
+   */
+  protected abstract decisionEndpoint(model: string): string;
   protected abstract decisionHeaders(): Record<string, string>;
   protected abstract buildDecisionBody(
     state: DecisionState,
@@ -329,6 +374,16 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
    */
   protected defaultTimeoutMs(_questionCount: number): number | undefined {
     return this.getDescriptorDecideMs();
+  }
+
+  /**
+   * The part of a successful response that holds `answers`, `usage` and
+   * `model`. The default is the response itself; a vendor that wraps every
+   * answer in an envelope returns what is inside it. Errors are not passed
+   * through here: they are read from the whole response.
+   */
+  protected readDecisionPayload(payload: unknown): unknown {
+    return payload;
   }
 
   /** Per-question confidence a transport reports outside the answer objects. */
@@ -480,12 +535,15 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           ? AbortSignal.any([request.signal, timeout])
           : timeout;
 
-        const response = await this.proxyFetch(this.decisionEndpoint(), {
-          method: "POST",
-          headers: this.decisionHeaders(),
-          body,
-          signal,
-        });
+        const response = await this.proxyFetch(
+          this.decisionEndpoint(resolvedModel),
+          {
+            method: "POST",
+            headers: this.decisionHeaders(),
+            body,
+            signal,
+          },
+        );
 
         const latencyMs = Date.now() - startedAt;
         const requestId = this.readRequestId(response.headers);
@@ -535,7 +593,8 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           continue;
         }
 
-        if (!isRecord(payload) || !isRecord(payload.answers)) {
+        const decoded = this.readDecisionPayload(payload);
+        if (!isRecord(decoded) || !isRecord(decoded.answers)) {
           throw this.decisionError({
             kind: "server",
             message: `${label} returned a response without an answers map.`,
@@ -545,10 +604,10 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           });
         }
 
-        const reported = this.reportedConfidence(payload);
+        const reported = this.reportedConfidence(decoded);
 
         const answers: Record<string, DecisionAnswer> = {};
-        for (const [id, raw] of Object.entries(payload.answers)) {
+        for (const [id, raw] of Object.entries(decoded.answers)) {
           const parsed = parseDecisionAnswer(raw, reported[id]);
           if (parsed) {
             answers[id] = parsed;
@@ -559,13 +618,13 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           }
         }
 
-        const usage = isRecord(payload.usage) ? payload.usage : {};
+        const usage = isRecord(decoded.usage) ? decoded.usage : {};
         return {
           // `resolvedModel`, not `this.modelName`: when the caller pinned a
           // model for this one request and the response omits its own, the
           // instance default would be reported instead of the model actually
           // asked for.
-          model: this.resolveResponseModel(payload, resolvedModel),
+          model: this.resolveResponseModel(decoded, resolvedModel),
           provider: this.providerName,
           answers,
           // Two spellings for one field. The System One wire sends
@@ -650,8 +709,9 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
    * applies to.
    */
   private assertWithinRequestBytes(body: string): void {
-    const limit = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)
-      ?.decisionLimits?.media?.maxRequestBytes;
+    const media = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)
+      ?.decisionLimits?.media;
+    const limit = media?.maxRequestBytes;
     if (limit === undefined) {
       return;
     }
@@ -659,7 +719,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     if (bytes > limit) {
       throw this.decisionError({
         kind: "invalid_request",
-        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images, or a shorter video.`,
+        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images${media?.video ? ", or a shorter video" : ""}.`,
         retryable: false,
       });
     }
@@ -697,6 +757,11 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     const stateTokens = estimateDecisionStateTokens(
       serializeForEstimate(request.state),
       modelLimits?.nonAsciiTokensPerChar ?? limits.nonAsciiTokensPerChar,
+      {
+        digit: limits.digitTokensPerChar,
+        symbol: limits.symbolTokensPerChar,
+        astral: limits.astralTokensPerChar,
+      },
     );
     if (stateTokens > maxStateTokens) {
       throw this.decisionError({

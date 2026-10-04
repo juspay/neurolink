@@ -821,6 +821,18 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
     _default: { input: 0.04 / 1_000_000, output: 0 },
     "pplx-decider-v1-27b": { input: 0.04 / 1_000_000, output: 0 },
   },
+  "cloudflare-clef": {
+    // Workers AI bills Clef per million INPUT tokens ($0.24 for clef, $0.09 for
+    // clef-flash); no output price is listed. `output: 0` is a price, not a token
+    // count, so do not "correct" it from `usage.output_tokens`. The `cf-ai-neurons`
+    // response header was checked against the published neuron rates on
+    // 2026-10-03 and matched them exactly (21,818 and 8,182 neurons per million
+    // input tokens). Rates from Cloudflare's Workers AI pricing page. An unknown
+    // model name is priced as clef, the dearer of the two.
+    _default: { input: 0.24 / 1_000_000, output: 0 },
+    clef: { input: 0.24 / 1_000_000, output: 0 },
+    "clef-flash": { input: 0.09 / 1_000_000, output: 0 },
+  },
   stability: {
     // Stability AI bills per image; symbolic per-token rate.
     _default: { input: 0, output: 0.04 / 1_000 },

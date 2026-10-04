@@ -9,8 +9,9 @@ keywords: typesafe, jev, decide, decision model, calibrated confidence, routing,
 **One of the providers that serve `decide` rather than `generate`/`stream`** —
 it returns typed, calibrated judgments and emits no text at all. The others are
 [Laya](laya.md) and [XOR](xor.md), open-weights models served from an endpoint
-you configure, and [Perplexity](perplexity-decider.md), a hosted API. When more
-than one is configured, TypeSafe is tried before the others.
+you configure, and [Perplexity](perplexity-decider.md) and
+[Cloudflare Clef](cloudflare-clef.md), hosted APIs. When more than one is
+configured, TypeSafe is tried before the others.
 
 ---
 
@@ -36,8 +37,9 @@ unreachable in normal use.
 
 - **Provider id**: `typesafe` (aliases: `jev`, `typesafe-ai`)
 - **Inference kinds**: `decide` only — one of the providers that do (the others
-  are [Laya](laya.md), [XOR](xor.md) and [Perplexity](perplexity-decider.md));
-  TypeSafe is tried before them when more than one is configured
+  are [Laya](laya.md), [XOR](xor.md), [Perplexity](perplexity-decider.md) and
+  [Cloudflare Clef](cloudflare-clef.md)); TypeSafe is tried before them when
+  more than one is configured
 - **Tool calling**: none (`toolSupport: "none"`) — a decision model calls nothing
 - **Health check**: `env-only`; it is never probed with a live generation
 - **Default decide timeout**: 5000 ms (`timeouts.decideMs`)
@@ -125,7 +127,10 @@ routing, context budgeting, relevance compaction, tool routing and RAG planning
 all behave exactly as they did before. Note that Perplexity's key is shared with
 its text provider, so a `PERPLEXITY_API_KEY` set for that provider also counts as
 a configured decision provider; see
-[One key, two providers](perplexity-decider.md#one-key-two-providers). There is no
+[One key, two providers](perplexity-decider.md#one-key-two-providers). The same
+goes for `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, which the Workers AI
+text provider reads too: set together they configure Cloudflare Clef, the last
+fallback; see [One token, two providers](cloudflare-clef.md#one-token-two-providers). There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour.
 
@@ -217,4 +222,5 @@ not a substitute for the reported confidence, is in
 - [Laya Provider Guide](laya.md)
 - [XOR Provider Guide](xor.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
+- [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [Provider setup overview](/docs/getting-started/provider-setup)

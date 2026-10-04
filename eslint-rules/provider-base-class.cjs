@@ -13,7 +13,7 @@ const ALLOWED_SUPER_CLASSES = new Set([
   "BaseProvider",
   "OpenAIChatCompletionsProvider",
   "AnthropicBaseProvider",
-  // The abstract base of the `decide` providers (typesafe, laya, xor, perplexity-decider).
+  // The abstract base of the `decide` providers (typesafe, laya, xor, perplexity-decider, cloudflare-clef).
   "SystemOneDecisionProvider",
 ]);
 

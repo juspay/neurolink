@@ -455,8 +455,8 @@ Access multiple providers through unified interfaces:
 ## 🧠 Decision-Only Providers {#decision-only-providers}
 
 The providers that serve `decide` rather than `generate`/`stream`:
-[TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md) and
-[Perplexity](perplexity-decider.md). Each returns typed `boolean`/`choice`/`score`
+[TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md),
+[Perplexity](perplexity-decider.md) and [Cloudflare Clef](cloudflare-clef.md). Each returns typed `boolean`/`choice`/`score`
 answers and emits no text, so none appears in generation fallback chains or the
 health sweep.
 
@@ -510,6 +510,19 @@ health sweep.
 - 🔌 Hosted endpoint, so no base URL is needed; `PERPLEXITY_DECIDER_BASE_URL` (or `credentials.perplexityDecider.baseURL`) can name another origin
 
 [Setup Guide →](perplexity-decider.md)
+
+### [Cloudflare Clef](cloudflare-clef.md)
+
+**Hosted decision provider on Workers AI** — the same typed `boolean`/`choice`/`score` answers as Jev, from Cloudflare's `clef` (27B) and `clef-flash` (9B), at `https://api.cloudflare.com/client/v4`
+
+- 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR or Perplexity is — it comes last
+- 🔑 `CLOUDFLARE_API_KEY` (Workers AI permission) and `CLOUDFLARE_ACCOUNT_ID` configure it, and they are the same two variables the Cloudflare text provider reads, so a pair set for that provider also lets built-in features use it when no other decision provider is configured
+- 🖼️ Takes up to 4 PNG, JPEG or WebP images with a decision; no video
+- 💰 $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed on Cloudflare's pricing page
+- 📏 **The endpoint ignores state text past about 2,048 tokens** (hosted service or model: unknown), far less than the 64K Cloudflare documents, and says nothing when it does; NeuroLink refuses more than about 1,500 estimated tokens (digits count a token each, punctuation 0.75, emoji 3), more than 64 questions in a `decide()` call (`tryDecide()` splits them) and a request over 256,000 bytes, base64 image data included, before any network call. The state cut and the request ceiling were measured on a real account in October 2026, with the follow-up text cuts and API limits checked on both models; see the guide for the tested shapes and dates
+- 🔌 Hosted endpoint, so no base URL is needed; `CLOUDFLARE_CLEF_BASE_URL` (or `credentials.cloudflareClef.baseURL`) can name another base
+
+[Setup Guide →](cloudflare-clef.md)
 
 ## 🧩 Additional Catalog Providers
 

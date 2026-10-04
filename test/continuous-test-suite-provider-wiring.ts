@@ -83,6 +83,7 @@ const KNOWN_CREDENTIAL_KEYS = {
   laya: undefined,
   xor: undefined,
   perplexityDecider: undefined,
+  cloudflareClef: undefined,
 } satisfies Record<
   Exclude<keyof NeurolinkCredentials, CatalogCredentialKey>,
   undefined
@@ -518,10 +519,10 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
   // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
   // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
   // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor,
-  // perplexity-decider). Onboarding a new catalog provider grows
-  // CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
+  // perplexity-decider, cloudflare-clef). Onboarding a new catalog provider
+  // grows CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
   // hand-written provider bumps this literal.
-  const NON_CATALOG_PROVIDER_COUNT = 25;
+  const NON_CATALOG_PROVIDER_COUNT = 26;
   const totalProviderCount =
     CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
   assert(

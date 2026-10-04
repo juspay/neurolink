@@ -113,19 +113,22 @@ failure and is what every internal consumer uses — plus the CLI's
 **Decision providers; descriptor order is precedence.** TypeSafe (Jev,
 hosted), Laya (open weights, at a configured base URL — there is no default),
 XOR (open weights that also reads images and video, likewise at a configured base
-URL) and Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
+URL), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
 images, no video, at the public `https://api.perplexity.ai`, so a key alone
-configures it) all extend `SystemOneDecisionProvider` in
+configures it) and Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
+images, no video, at Cloudflare's own API, so a token and an account id configure
+it) all extend `SystemOneDecisionProvider` in
 `src/lib/providers/systemOneDecision.ts`,
 which owns the request loop, retries, the auth circuit breaker and answer
 parsing; each provider supplies only its endpoint, headers, body and error
 parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
 entry that is fully configured (a key, plus a base URL for Laya and XOR, which
 have no built-in endpoint), in descriptor order, so TypeSafe's entry sitting before
-Laya's, Laya's before XOR's, and XOR's before Perplexity's, is what makes TypeSafe
-win whenever either of its keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`) is set
-alongside `LAYA_API_KEY`, `XOR_API_KEY` or `PERPLEXITY_API_KEY`. Reordering them
-changes which model every built-in consumer uses.
+Laya's, Laya's before XOR's, XOR's before Perplexity's, and Perplexity's before Clef's, is
+what makes TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`,
+`AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY`, `XOR_API_KEY`,
+`PERPLEXITY_API_KEY` or `CLOUDFLARE_API_KEY`. Reordering them changes which model
+every built-in consumer uses.
 
 **Perplexity's key is shared with the `perplexity` text provider.** Both read
 `PERPLEXITY_API_KEY`, so an ambient key set only for Sonar also configures
@@ -133,6 +136,31 @@ changes which model every built-in consumer uses.
 "nothing configured" path must blank `PERPLEXITY_API_KEY` as well as the other
 decision keys, and docs must say so plainly. `credentials.perplexity` (the text
 provider's slice) does not configure it; `credentials.perplexityDecider` does.
+
+**Clef's token and account id are shared with the `cloudflare` text provider, and
+the Workers AI endpoint ignores state text past about 2,048 tokens (hosted
+service or model: unknown).** `CLOUDFLARE_API_KEY` and
+`CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as the last fallback; a test that
+asserts the "nothing configured" path must blank both (and `CLOUDFLARE_CLEF_*`).
+`credentials.cloudflare` does not configure it; `credentials.cloudflareClef` does,
+and its `accountId` stands in for `CLOUDFLARE_ACCOUNT_ID` through the descriptor's
+`extraRequiredCredentialFields`. Cloudflare documents a 64K context, but Workers AI
+ignores text past about 2,048 tokens without an error
+(measured on both models; hosted service or model: unknown), so the descriptor declares 1,500 estimated tokens,
+`digitTokensPerChar: 1` (the tokenizer reads every digit alone) and 1.5 tokens per
+non-ASCII character. The encoded request cap stays 256,000 bytes. On 2026-10-03,
+`clef-flash` accepted 262,000 text characters and refused 270,000. On 2026-10-04
+both models accepted 520,000 text characters and refused 525,000 with 413/code 5021. Refusal estimates match encoded body characters / 4, rounded up; what
+changed was the threshold, from between 65,527 accepted / 67,527 refused to
+130,026 / 131,276 (`clef`) and 130,027 / 131,277 (`clef-flash`). The error still
+prints 65,536. Inference:
+the new interval contains 131,072, twice that figure; the reason is unknown.
+Four images and `image/jpg` succeeded on both models; Clef normalizes the alias
+to `image/jpeg`. Natural-script and many-key-object cuts fit the existing rates. The decide
+suite's live canaries 19.10, 19.10b and 19.11 fail if Cloudflare changes either.
+Only a 401 trips Clef's auth breaker (a 403 was never seen and must not latch the
+instance), and a `credentials.cloudflareClef` slice that names its own `baseURL`
+never borrows `CLOUDFLARE_API_KEY`.
 
 **`decisionLimits` refuses what a model cannot read.** A descriptor may declare
 `decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an

@@ -57,10 +57,10 @@ await runSuite(async () => {
     // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
     // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
     // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor,
-    // perplexity-decider).
+    // perplexity-decider, cloudflare-clef).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 25;
+    const NON_CATALOG_PROVIDER_COUNT = 26;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -364,7 +364,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 25;
+    const NON_CATALOG_PROVIDER_COUNT = 26;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -826,6 +826,9 @@ await runSuite(async () => {
       // perplexity-decider is decide-only as well, and unrelated to the
       // `perplexity` text provider: no tools for the same reason.
       "perplexity-decider",
+      // cloudflare-clef is decide-only too, and unrelated to the `cloudflare`
+      // Workers AI text provider: no tools for the same reason.
+      "cloudflare-clef",
     ]);
     // A catalog entry whose capabilities.tools is anything but true derives a
     // non-native toolSupport (buildCatalogDescriptor): false gives "none"

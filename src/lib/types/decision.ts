@@ -180,6 +180,28 @@ export type DecisionLimits = {
    * estimate for every character.
    */
   nonAsciiTokensPerChar?: number;
+  /**
+   * Tokens charged per ASCII digit. A tokenizer that reads every digit as its
+   * own token makes numbers, ids and timestamps several times longer than the
+   * default estimate of four characters per token. Absent = digits are
+   * estimated like any other ASCII character.
+   */
+  digitTokensPerChar?: number;
+  /**
+   * Tokens charged per ASCII punctuation or symbol character (`,` `.` `{` `"`
+   * `:` and the like). The same tokenizers that read each digit alone read most
+   * punctuation alone too, so JSON, logs and lists of numbers run far above four
+   * characters a token. Absent = punctuation is estimated like any other ASCII
+   * character.
+   */
+  symbolTokensPerChar?: number;
+  /**
+   * Tokens charged per character outside the Basic Multilingual Plane (emoji
+   * and the like), which is counted separately from `nonAsciiTokensPerChar`
+   * because it costs about twice as much. Absent = charged at
+   * `nonAsciiTokensPerChar`.
+   */
+  astralTokensPerChar?: number;
   /** Per-model limits, keyed by model id; each field overrides the one above. */
   models?: Readonly<
     Record<string, { maxStateTokens: number; nonAsciiTokensPerChar?: number }>

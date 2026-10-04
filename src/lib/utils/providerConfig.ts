@@ -1590,3 +1590,24 @@ export function createPerplexityDeciderConfig(): ProviderConfigOptions {
     ],
   };
 }
+
+/**
+ * Cloudflare Clef — the `decide` inference type, reached through Workers AI,
+ * not the Workers AI text models. It reads the same CLOUDFLARE_API_KEY and
+ * CLOUDFLARE_ACCOUNT_ID as the `cloudflare` text provider; the endpoint is
+ * Cloudflare's own, so the two together configure it.
+ */
+export function createCloudflareClefConfig(): ProviderConfigOptions {
+  return {
+    providerName: "Cloudflare Clef",
+    envVarName: "CLOUDFLARE_API_KEY",
+    setupUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    description:
+      "API token (Workers AI scope) for Cloudflare's Clef decision models",
+    instructions: [
+      "1. Create an API token with the 'Workers AI: Read + Write' permission (https://dash.cloudflare.com/profile/api-tokens)",
+      "2. Set CLOUDFLARE_API_KEY to it, and CLOUDFLARE_ACCOUNT_ID to your account id (in the dashboard URL, or under 'Account ID'); they are the same settings the Cloudflare text provider reads, so setting them also lets decide() use Clef when no other decision provider is configured",
+      "3. The Clef endpoint ignores state text past about 2,048 tokens, so use it for short decisions",
+    ],
+  };
+}

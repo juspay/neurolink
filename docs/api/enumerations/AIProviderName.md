@@ -655,6 +655,16 @@ inference type only. Distinct from `PERPLEXITY`, the Sonar text provider.
 
 ---
 
+### CLOUDFLARE_CLEF
+
+> **CLOUDFLARE_CLEF**: `"cloudflare-clef"`
+
+Cloudflare Clef (`@cf/cloudflare/clef`, `@cf/cloudflare/clef-flash`) on
+Workers AI — serves the `decide` inference type only. Distinct from
+`CLOUDFLARE`, the Workers AI text provider.
+
+---
+
 ### AUTO
 
 > **AUTO**: `"auto"`

@@ -113,7 +113,8 @@ neurolink decide "We were billed twice for March." --provider xor \
 ## Images and video
 
 XOR reads images and one video alongside the `state`. TypeSafe and Laya do not
-read media, and [Perplexity](perplexity-decider.md) reads images but no video.
+read media, and [Perplexity](perplexity-decider.md) and
+[Cloudflare Clef](cloudflare-clef.md) read images but no video.
 
 ```typescript
 import { readFile } from "node:fs/promises";
@@ -181,7 +182,8 @@ The rules:
   cannot decode are sent, and the server's refusal comes back as a `server`
   error, retried once.
 - **TypeSafe and Laya refuse media too**, before any request, and the error
-  names the providers that accept it. Perplexity refuses a video.
+  names the providers that accept it. Perplexity and Cloudflare Clef refuse a
+  video.
 - **Images and a video can be sent together** (up to 8 images and one video),
   but the model does not reliably tell the two apart.
 - **The result carries `mediaBytes`**, the encoded size of the media sent. The
@@ -196,10 +198,13 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured, in the environment or in the
 `credentials` passed to the SDK, in the order TypeSafe, Laya, XOR,
-[Perplexity](perplexity-decider.md). TypeSafe counts with either of its keys,
+[Perplexity](perplexity-decider.md), then [Cloudflare Clef](cloudflare-clef.md).
+TypeSafe counts with either of its keys,
 `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR each count only with
 both their key and their base URL. Perplexity counts with its key alone, which is
-shared with Perplexity's text provider. A caller can always name XOR with
+shared with Perplexity's text provider. Cloudflare Clef counts only with both
+`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same two variables the
+Workers AI text provider reads. A caller can always name XOR with
 `provider: "xor"`. So:
 
 - **A TypeSafe key, or Laya's key and base URL, plus XOR's key and base URL:**
@@ -208,11 +213,14 @@ shared with Perplexity's text provider. A caller can always name XOR with
 - **XOR's key and base URL, plus a Perplexity key:** built-in features use XOR;
   Perplexity runs only where a caller asks for
   `provider: "perplexity-decider"`.
+- **XOR's key and base URL, plus `CLOUDFLARE_API_KEY` and
+  `CLOUDFLARE_ACCOUNT_ID`:** built-in features use XOR; Cloudflare Clef runs
+  only where a caller asks for `provider: "cloudflare-clef"`.
 - **Only XOR's key and base URL:** built-in features use XOR.
 - **An XOR key with no base URL:** XOR is not configured. Built-in features
   ignore it, and `provider: "xor"` fails with `XOR requires a base URL`.
-- **None of TypeSafe, Laya, XOR or Perplexity:** everything behaves exactly as
-  it did without a decision model.
+- **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef:** everything
+  behaves exactly as it did without a decision model.
 
 ---
 
@@ -333,5 +341,6 @@ key, long hex runs and embedded `data:` URLs.
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
 - [Laya Provider Guide](laya.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
+- [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [XOR on Hugging Face](https://huggingface.co/juspay/xor)

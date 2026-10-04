@@ -26,6 +26,7 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/laya",
             "getting-started/providers/xor",
             "getting-started/providers/perplexity-decider",
+            "getting-started/providers/cloudflare-clef",
             "getting-started/providers/openai",
             "getting-started/providers/anthropic",
             "getting-started/providers/google-ai",

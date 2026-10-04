@@ -7,7 +7,10 @@ include it. A [decision model](/docs/features/decide-inference-type) instead
 asks one calibrated yes/no question per server, in a single round trip of
 about 400ms and $0.00002 on TypeSafe (on Perplexity each further question adds
 about 65 ms, up to 128 in a request; see
-[its guide](../getting-started/providers/perplexity-decider.md#limits)), and each
+[its guide](../getting-started/providers/perplexity-decider.md#limits); on
+Cloudflare Clef a request takes up to 64 questions, and `tryDecide()` splits a
+larger set into batches of 64; see
+[its guide](../getting-started/providers/cloudflare-clef.md#limits)), and each
 answer comes back with a real probability rather than a name that either did or
 didn't make a list.
 
@@ -54,6 +57,11 @@ in one batch (`MAX_SERVERS`), and the query text sent as state is capped at
 **10,000** characters. Servers past the cap are never asked about and are
 therefore always kept — a server that was not offered to the model must
 never be silently dropped by its own absence from the question set.
+
+The Cloudflare Clef endpoint ignores state text past about 2,048 tokens, and
+NeuroLink refuses a state it estimates at more than 1,500 tokens with
+`max_tokens_exceeded`. A query long enough to be estimated above that is refused,
+and routing falls through to the generative router, as it does on any failure.
 
 ## The wording that made this work: a measured A/B result
 

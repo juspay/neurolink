@@ -12,7 +12,9 @@ calibrated confidence on each. This page is the strategy's own mechanics —
 falls back to `classifyHeuristic()`. Configuring a decision provider (for example `TYPESAFE_API_KEY` or
 `AI_GATEWAY_API_KEY`) upgrades routing; it cannot make routing worse than before
 the key existed. The same holds for `PERPLEXITY_API_KEY`, which is also the
-Perplexity text provider's key.
+Perplexity text provider's key, and for `CLOUDFLARE_API_KEY` with
+`CLOUDFLARE_ACCOUNT_ID`, which are also the Cloudflare Workers AI text provider's
+token and account id.
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
@@ -52,8 +54,15 @@ pool has more than one member, `model` (a `choice` over the pool, rendered by
 [the catalogue](/docs/features/classifier-router-catalog)). All of this rides in
 one request. On TypeSafe that takes ~400ms, because latency is flat in question
 count; on Perplexity each further question adds about 65 ms, up to 128 (see
-[its guide](../getting-started/providers/perplexity-decider.md#limits)). See
+[its guide](../getting-started/providers/perplexity-decider.md#limits)); on
+Cloudflare Clef a small request took 0.3 to 1.0 s on 2026-10-03 (see
+[its guide](../getting-started/providers/cloudflare-clef.md#latency-and-the-timeout)). See
 [the batching rule](/docs/features/decide-inference-type#the-one-rule-batch-never-fan-out).
+
+The Cloudflare Clef endpoint ignores state text past about 2,048 tokens, and
+NeuroLink refuses a state it estimates at more than 1,500 tokens with
+`max_tokens_exceeded`. A long request is therefore refused there, and the
+heuristic classifier's tier stands, as it does on any failure.
 
 ## The difficulty rubric
 

@@ -107,11 +107,14 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured — in the environment or in
 the `credentials` passed to the SDK — in the order TypeSafe, Laya,
-[XOR](xor.md), [Perplexity](perplexity-decider.md). TypeSafe has two keys,
+[XOR](xor.md), [Perplexity](perplexity-decider.md), then
+[Cloudflare Clef](cloudflare-clef.md). TypeSafe has two keys,
 `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and
 either one counts. Laya counts only with both its key and its base URL, and so
 does XOR. Perplexity counts with its key alone, and that key,
-`PERPLEXITY_API_KEY`, is shared with Perplexity's text provider. So:
+`PERPLEXITY_API_KEY`, is shared with Perplexity's text provider. Cloudflare Clef
+counts only with both `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same
+two variables the Workers AI text provider reads. So:
 
 - **A TypeSafe key, plus Laya's key and base URL:** built-in features use
   TypeSafe; Laya runs only where a caller asks for `provider: "laya"`.
@@ -123,8 +126,11 @@ does XOR. Perplexity counts with its key alone, and that key,
 - **Laya's key and base URL, plus a Perplexity key:** built-in features use
   Laya; Perplexity runs only where a caller asks for
   `provider: "perplexity-decider"`.
-- **None of TypeSafe, Laya, XOR or Perplexity:** everything behaves exactly as
-  it did without a decision model.
+- **Laya's key and base URL, plus `CLOUDFLARE_API_KEY` and
+  `CLOUDFLARE_ACCOUNT_ID`:** built-in features use Laya; Cloudflare Clef runs
+  only where a caller asks for `provider: "cloudflare-clef"`.
+- **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef:** everything
+  behaves exactly as it did without a decision model.
 
 ---
 
@@ -210,4 +216,5 @@ export LAYA_BASE_URL=http://127.0.0.1:8000
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
 - [XOR Provider Guide](xor.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
+- [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [Laya on GitHub](https://github.com/NandhaKishorM/laya)

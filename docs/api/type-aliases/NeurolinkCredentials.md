@@ -1612,3 +1612,28 @@ defaults to `https://api.perplexity.ai`; requests go to
 #### baseURL?
 
 > `optional` **baseURL?**: `string`
+
+---
+
+### cloudflareClef?
+
+> `optional` **cloudflareClef?**: `object`
+
+Cloudflare Clef — the `decide` inference type, reached through Workers AI.
+The token and account id are the ones the `cloudflare` text provider reads
+(`CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`), but this slice is separate
+so the two cannot be mixed up. Both are required. `baseURL` is optional and
+defaults to `https://api.cloudflare.com/client/v4`; requests go to
+`<baseURL>/accounts/<accountId>/ai/run/@cf/cloudflare/<model>`.
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### accountId?
+
+> `optional` **accountId?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`

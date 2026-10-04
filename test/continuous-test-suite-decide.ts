@@ -116,6 +116,20 @@ const HAS_PERPLEXITY_KEY =
 const REAL_PERPLEXITY_DECIDER_BASE_URL =
   process.env.PERPLEXITY_DECIDER_BASE_URL;
 const REAL_PERPLEXITY_DECIDER_MODEL = process.env.PERPLEXITY_DECIDER_MODEL;
+// Cloudflare Clef reads CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, the same
+// two the `cloudflare` Workers AI text provider reads, so an ambient pair from
+// a developer's .env configures a decision provider here too (last in the
+// order). Both are needed, and every "nothing is configured" test must blank
+// both.
+const REAL_CLOUDFLARE_KEY = process.env.CLOUDFLARE_API_KEY;
+const REAL_CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const HAS_CLOUDFLARE_CLEF =
+  typeof REAL_CLOUDFLARE_KEY === "string" &&
+  REAL_CLOUDFLARE_KEY.trim() !== "" &&
+  typeof REAL_CLOUDFLARE_ACCOUNT_ID === "string" &&
+  REAL_CLOUDFLARE_ACCOUNT_ID.trim() !== "";
+const REAL_CLOUDFLARE_CLEF_BASE_URL = process.env.CLOUDFLARE_CLEF_BASE_URL;
+const REAL_CLOUDFLARE_CLEF_MODEL = process.env.CLOUDFLARE_CLEF_MODEL;
 
 function restoreEnv(): void {
   if (HAS_KEY) {
@@ -163,6 +177,26 @@ function restoreEnv(): void {
   } else {
     delete process.env.PERPLEXITY_DECIDER_MODEL;
   }
+  if (REAL_CLOUDFLARE_KEY !== undefined) {
+    process.env.CLOUDFLARE_API_KEY = REAL_CLOUDFLARE_KEY;
+  } else {
+    delete process.env.CLOUDFLARE_API_KEY;
+  }
+  if (REAL_CLOUDFLARE_ACCOUNT_ID !== undefined) {
+    process.env.CLOUDFLARE_ACCOUNT_ID = REAL_CLOUDFLARE_ACCOUNT_ID;
+  } else {
+    delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  }
+  if (REAL_CLOUDFLARE_CLEF_BASE_URL !== undefined) {
+    process.env.CLOUDFLARE_CLEF_BASE_URL = REAL_CLOUDFLARE_CLEF_BASE_URL;
+  } else {
+    delete process.env.CLOUDFLARE_CLEF_BASE_URL;
+  }
+  if (REAL_CLOUDFLARE_CLEF_MODEL !== undefined) {
+    process.env.CLOUDFLARE_CLEF_MODEL = REAL_CLOUDFLARE_CLEF_MODEL;
+  } else {
+    delete process.env.CLOUDFLARE_CLEF_MODEL;
+  }
 }
 
 /**
@@ -182,6 +216,10 @@ function clearDecisionKeys(): void {
   delete process.env.PERPLEXITY_API_KEY;
   delete process.env.PERPLEXITY_DECIDER_BASE_URL;
   delete process.env.PERPLEXITY_DECIDER_MODEL;
+  delete process.env.CLOUDFLARE_API_KEY;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_CLEF_BASE_URL;
+  delete process.env.CLOUDFLARE_CLEF_MODEL;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -208,6 +246,14 @@ function requireXorKey(): void {
 function requirePerplexityKey(): void {
   if (!HAS_PERPLEXITY_KEY) {
     throw new Error("SKIP: PERPLEXITY_API_KEY not set");
+  }
+}
+
+function requireCloudflareClef(): void {
+  if (!HAS_CLOUDFLARE_CLEF) {
+    throw new Error(
+      "SKIP: CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID not set",
+    );
   }
 }
 
@@ -2032,6 +2078,10 @@ const NO_PROVIDER_ENV = {
   PERPLEXITY_API_KEY: "",
   PERPLEXITY_DECIDER_BASE_URL: "",
   PERPLEXITY_DECIDER_MODEL: "",
+  CLOUDFLARE_API_KEY: "",
+  CLOUDFLARE_ACCOUNT_ID: "",
+  CLOUDFLARE_CLEF_BASE_URL: "",
+  CLOUDFLARE_CLEF_MODEL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -2052,7 +2102,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or PERPLEXITY_API_KEY for perplexity-decider.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2465,6 +2515,10 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         PERPLEXITY_API_KEY: "",
         PERPLEXITY_DECIDER_BASE_URL: "",
         PERPLEXITY_DECIDER_MODEL: "",
+        CLOUDFLARE_API_KEY: "",
+        CLOUDFLARE_ACCOUNT_ID: "",
+        CLOUDFLARE_CLEF_BASE_URL: "",
+        CLOUDFLARE_CLEF_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2507,6 +2561,10 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         PERPLEXITY_API_KEY: "",
         PERPLEXITY_DECIDER_BASE_URL: "",
         PERPLEXITY_DECIDER_MODEL: "",
+        CLOUDFLARE_API_KEY: "",
+        CLOUDFLARE_ACCOUNT_ID: "",
+        CLOUDFLARE_CLEF_BASE_URL: "",
+        CLOUDFLARE_CLEF_MODEL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2551,6 +2609,10 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         PERPLEXITY_API_KEY: "",
         PERPLEXITY_DECIDER_BASE_URL: "",
         PERPLEXITY_DECIDER_MODEL: "",
+        CLOUDFLARE_API_KEY: "",
+        CLOUDFLARE_ACCOUNT_ID: "",
+        CLOUDFLARE_CLEF_BASE_URL: "",
+        CLOUDFLARE_CLEF_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -3209,22 +3271,24 @@ await test("18.3 — it declares the limits that were measured: a state window, 
   );
 });
 
-await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, and perplexity-decider last", async () => {
+await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, perplexity-decider, and cloudflare-clef last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   const index = (name: string) => names.indexOf(name);
   assert(
     index("typesafe") !== -1 &&
       index("typesafe") < index("laya") &&
       index("laya") < index("xor") &&
-      index("xor") < index("perplexity-decider"),
-    "the derived decision-provider list must read typesafe, laya, xor, perplexity-decider",
+      index("xor") < index("perplexity-decider") &&
+      index("perplexity-decider") < index("cloudflare-clef"),
+    "the derived decision-provider list must read typesafe, laya, xor, perplexity-decider, cloudflare-clef",
   );
-  // It shares an environment key with a text provider, so it must come after
-  // every provider a host sets up on purpose. A provider added after it would
-  // be displaced by an ambient key, which is a decision to make deliberately.
+  // Perplexity and Cloudflare Clef each share an environment key with a text
+  // provider, so they must come after every provider a host sets up on purpose.
+  // A provider added after them would be displaced by an ambient key, which is
+  // a decision to make deliberately.
   assert(
-    names[names.length - 1] === "perplexity-decider",
-    "perplexity-decider must be the last entry in the precedence order",
+    names[names.length - 1] === "cloudflare-clef",
+    "cloudflare-clef must be the last entry in the precedence order",
   );
 });
 
@@ -4497,6 +4561,557 @@ await test("18.34 — live: decide --provider perplexity-decider --image --forma
   const parsed: unknown = JSON.parse(result.stdout);
   assert(
     isRecordLike(parsed) && parsed.provider === "perplexity-decider",
+    "stdout must be the raw JSON result",
+  );
+  const answers = isRecordLike(parsed) ? parsed.answers : undefined;
+  const color = isRecordLike(answers) ? answers.color : undefined;
+  assert(
+    isRecordLike(color) && color.choice === "red",
+    "the image the CLI sent must be read as red",
+  );
+  assert(
+    !looksLikeStackTrace(result.stderr),
+    "stderr must not hold a stack trace",
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 19. Cloudflare Clef (decide-only), on Workers AI
+// ───────────────────────────────────────────────────────────────────────
+
+await test("19.1 — cloudflare-clef declares decide and only decide, and no generation rank", async () => {
+  const clef = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE_CLEF);
+  assert(clef !== undefined, "cloudflare-clef has no registered descriptor");
+  assert(
+    servesInferenceKind(clef!, "decide"),
+    "cloudflare-clef must declare decide",
+  );
+  assert(
+    !servesInferenceKind(clef!, "generate") &&
+      !servesInferenceKind(clef!, "stream"),
+    "a model that emits no text must not declare generate or stream",
+  );
+  assert(
+    clef!.autoSelectPriority === undefined &&
+      clef!.autoSelectPreference === undefined &&
+      clef!.defaultHealthSweepPriority === undefined,
+    "a decision provider must stay out of every generation fallback chain",
+  );
+  assert(
+    clef!.toolSupport === "none" && clef!.healthCheck !== "live-generate",
+    "a decision provider has no tools and cannot answer a live-generate probe",
+  );
+  assert(
+    clef!.credentialsKey === "cloudflareClef",
+    "the credentials slice must be Clef's own, not the text provider's",
+  );
+});
+
+await test("19.2 — it shares its token and account id with the cloudflare text provider, which stays a text provider", async () => {
+  const clef = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE_CLEF);
+  const text = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE);
+  assert(
+    clef !== undefined && text !== undefined,
+    "both cloudflare descriptors must be registered",
+  );
+  assert(
+    clef!.envVars.apiKey === "CLOUDFLARE_API_KEY" &&
+      text!.envVars.apiKey === clef!.envVars.apiKey,
+    "the two providers must read the same token variable",
+  );
+  assert(
+    servesInferenceKind(text!, "generate") &&
+      !servesInferenceKind(text!, "decide"),
+    "the text provider must keep generating and must not become a decision provider",
+  );
+  assert(
+    (clef!.envVars.extraRequired ?? []).join() === "CLOUDFLARE_ACCOUNT_ID",
+    "the route carries the account id, so it must be required beside the token",
+  );
+  assert(
+    clef!.envVars.extraRequiredCredentialFields?.CLOUDFLARE_ACCOUNT_ID ===
+      "accountId",
+    "credentials.cloudflareClef.accountId must stand in for CLOUDFLARE_ACCOUNT_ID",
+  );
+});
+
+await test("19.3 — it declares limits chosen from what was measured: a state window under the model's own cut, a question cap, four images and no video", async () => {
+  const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
+    AIProviderName.CLOUDFLARE_CLEF,
+  )?.decisionLimits;
+  assert(limits !== undefined, "cloudflare-clef must declare decisionLimits");
+  // 1,500 is a chosen figure, in the estimator's tokens, not a measured one:
+  // the measured cut is about 2,048 of the model's own tokens. The two are not
+  // the same unit, which is why the per-class rates below exist.
+  assert(
+    limits!.maxStateTokens === 1_500,
+    "the state window must stay at the chosen 1,500 estimated tokens",
+  );
+  assert(
+    limits!.maxStateTokens < 2_048,
+    "the local window must sit under the endpoint's silent cut at about 2,048 tokens",
+  );
+  assert(
+    limits!.digitTokensPerChar === 1,
+    "digits must be charged a token each: the tokenizer reads them one by one",
+  );
+  assert(
+    limits!.symbolTokensPerChar === 0.75,
+    "punctuation must be charged 0.75 a character: a JSON array of digits was cut after 2,043 characters",
+  );
+  assert(
+    limits!.astralTokensPerChar === 3,
+    "emoji must be charged 3 tokens each: measured 2.9",
+  );
+  assert(
+    limits!.nonAsciiTokensPerChar === 1.5,
+    "non-ASCII text must be charged 1.5 tokens per character",
+  );
+  assert(
+    limits!.maxQuestions === 64,
+    "the documented 64-question cap must be declared",
+  );
+  assert(
+    limits!.media !== undefined && limits!.media.maxImages === 4,
+    "up to 4 images per request must be declared",
+  );
+  assert(
+    limits!.media!.video === false,
+    "the API refuses video, so none may be declared",
+  );
+  assert(
+    limits!.media!.maxRequestBytes === 256_000,
+    "the request cap must stay under Cloudflare's measured 262,144-character estimate",
+  );
+});
+
+await test("19.4 — it is the last decision provider in the precedence order, after perplexity-decider", async () => {
+  const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
+  assert(
+    names.indexOf("perplexity-decider") !== -1 &&
+      names.indexOf("perplexity-decider") < names.indexOf("cloudflare-clef"),
+    "cloudflare-clef must come after perplexity-decider",
+  );
+  assert(
+    names[names.length - 1] === "cloudflare-clef",
+    "cloudflare-clef must be the last entry in the precedence order",
+  );
+});
+
+/** Cloudflare's own Workers AI example: one support request, three questions. */
+const CLEF_DOCS_STATE =
+  "Checkout has been failing for every customer for the last hour.";
+const CLEF_DOCS_QUESTIONS = {
+  urgent: {
+    type: "boolean",
+    instructions: "Is this support request urgent?",
+  },
+  team: {
+    type: "choice",
+    instructions: "Which team should handle this request?",
+    criteria: {
+      billing: "Payments, invoices, and refunds",
+      technical: "Outages, errors, and configuration",
+      sales: "Plans and upgrades",
+    },
+  },
+  severity: {
+    type: "score",
+    instructions: "How severe is the customer impact?",
+    criteria: ["No impact", "Minor", "Major", "Critical"],
+  },
+} as const;
+
+const CLEF_BASE = "https://api.cloudflare.com/client/v4";
+
+/** One real decision against Workers AI, skipping on a transient or refused-token reply. */
+async function decideClefLive(
+  options: Omit<DecideOptions, "provider">,
+): Promise<DecideResult> {
+  restoreEnv();
+  try {
+    return await new NeuroLink().decide({
+      provider: "cloudflare-clef",
+      ...options,
+    });
+  } catch (error) {
+    const failure = readDecisionFailure(error);
+    if (isTransientPerplexityFailure(failure)) {
+      throw new Error("SKIP: Cloudflare returned a transient reply", {
+        cause: error,
+      });
+    }
+    // Only a status of 401 is a refused token. A missing token or account id is
+    // also an `authentication` error, with no status, and must fail loudly
+    // here: skipping it would let a provider that stopped reading
+    // CLOUDFLARE_API_KEY pass every live case as a SKIP.
+    if (failure.kind === "authentication" && failure.status === 401) {
+      throw new Error("SKIP: Cloudflare refused the configured token", {
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
+
+/** A raw call that bypasses NeuroLink's local limits, to see what the service itself does. */
+async function clefRaw(model: string, body: unknown) {
+  const response = await fetch(
+    `${CLEF_BASE}/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID?.trim()}/ai/run/@cf/cloudflare/${model}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.CLOUDFLARE_API_KEY?.trim()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (response.status === 429 || response.status >= 500) {
+    throw new Error(`SKIP: Cloudflare answered ${response.status}`);
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("SKIP: Cloudflare refused the configured token");
+  }
+  return {
+    status: response.status,
+    json: (await response.json().catch(() => undefined)) as unknown,
+  };
+}
+
+const requestedClefModel = (): string =>
+  (process.env.CLOUDFLARE_CLEF_MODEL?.trim() || "clef").replace(
+    /^@cf\/cloudflare\//,
+    "",
+  );
+
+await test("19.5 — live: the documentation's example answers boolean, choice and score", async () => {
+  requireCloudflareClef();
+  const result = await decideClefLive({
+    state: CLEF_DOCS_STATE,
+    questions: CLEF_DOCS_QUESTIONS,
+  });
+  const { urgent, team, severity } = result.answers;
+  assert(
+    result.provider === "cloudflare-clef",
+    "the result must come from cloudflare-clef",
+  );
+  assert(
+    urgent?.type === "boolean" && urgent.probability > 0.5,
+    "a checkout outage for every customer must score above one half for urgent",
+  );
+  assert(
+    team?.type === "choice" && team.choice === "technical",
+    "an outage must be routed to the technical team",
+  );
+  assert(
+    Object.keys(team.probabilities).sort().join() === "billing,sales,technical",
+    "the distribution must cover exactly the options that were offered",
+  );
+  assert(
+    Math.abs(Object.values(team.probabilities).reduce((a, b) => a + b, 0) - 1) <
+      0.05,
+    "the probabilities must sum to about one",
+  );
+  assert(
+    severity?.type === "score" && severity.score >= 2 && severity.score <= 3,
+    "a total outage must score between major and critical",
+  );
+  assert(
+    severity.legend["0"] === "No impact" && severity.legend["3"] === "Critical",
+    "the legend must map each level back to the rubric",
+  );
+  assert(
+    result.model === requestedClefModel(),
+    "the reported model must be the one that was asked for",
+  );
+  assert(result.usage.inputTokens > 0, "usage must be reported");
+  assert(result.latencyMs > 0, "latency must be measured");
+  assert(
+    typeof result.requestId === "string" && result.requestId.length > 0,
+    "the request id header must be carried through",
+  );
+  assert(
+    result.mediaBytes === undefined,
+    "a request with no image must report no media",
+  );
+});
+
+await test("19.6 — live: clef-flash answers the same example when asked for it per call", async () => {
+  requireCloudflareClef();
+  const result = await decideClefLive({
+    state: CLEF_DOCS_STATE,
+    questions: CLEF_DOCS_QUESTIONS,
+    model: "clef-flash",
+  });
+  assert(result.model === "clef-flash", "the answer must come from clef-flash");
+  assert(
+    result.answers.team?.type === "choice" &&
+      result.answers.team.choice === "technical",
+    "the faster model must route an outage to the technical team too",
+  );
+});
+
+async function clefColour(
+  images: NonNullable<DecideOptions["images"]>,
+  model?: string,
+): Promise<string> {
+  const result = await decideClefLive({
+    state: "Look at the attached image.",
+    questions: PERPLEXITY_COLOR_QUESTION,
+    images,
+    ...(model ? { model } : {}),
+  });
+  const answer = result.answers.color;
+  assert(answer?.type === "choice", "color must be a choice answer");
+  assert((result.mediaBytes ?? 0) > 0, "the image must be reported as sent");
+  return answer.choice;
+}
+
+// The images are the same small fixtures the Perplexity cases use: each format
+// in a different form, so one run also shows that a file path, a Buffer and a
+// data: URL all reach the API as the image they hold.
+await test("19.7 — live: red and blue PNG images (file paths) are told apart", async () => {
+  requireCloudflareClef();
+  const red = await clefColour([`${PERPLEXITY_FIXTURE_DIR}red.png`]);
+  const blue = await clefColour([`${PERPLEXITY_FIXTURE_DIR}blue.png`]);
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+await test("19.8 — live: red and blue JPEG images (Buffers) are told apart", async () => {
+  requireCloudflareClef();
+  const red = await clefColour([readFixture("red.jpg")], "clef-flash");
+  const blue = await clefColour([readFixture("blue.jpg")], "clef-flash");
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+await test("19.9 — live: red and blue WebP images (data: URLs) are told apart", async () => {
+  requireCloudflareClef();
+  const dataUrl = (name: string) =>
+    `data:image/webp;base64,${readFixture(name).toString("base64")}`;
+  const red = await clefColour([dataUrl("red.webp")], "clef-flash");
+  const blue = await clefColour([dataUrl("blue.webp")], "clef-flash");
+  assert(red === "red", "the red image must answer red");
+  assert(blue === "blue", "the blue image must answer blue");
+});
+
+// The reason decisionLimits exists. Cloudflare documents a 65,536-token context
+// window, but on 2026-10-03 the endpoint ignored state text past about 2,048
+// tokens without an error (hosted service or model: unknown). This case goes around
+// NeuroLink's local limit to ask the service itself. If it fails, the service
+// has changed: re-measure, then raise maxStateTokens and the docs.
+await test("19.10 — live: clef-flash still ignores a fact placed far past the start of the state", async () => {
+  requireCloudflareClef();
+  restoreEnv();
+  const filler =
+    "The warehouse schedule was reviewed and nothing else of note was recorded. ";
+  const text = filler
+    .repeat(Math.ceil(60_000 / filler.length))
+    .slice(0, 60_000);
+  const fact = " The vault code colour is blue. ";
+  const blueAt = async (position: number): Promise<number> => {
+    const { status, json } = await clefRaw("clef-flash", {
+      model: "clef-flash",
+      state: text.slice(0, position) + fact + text.slice(position),
+      questions: {
+        v: {
+          type: "choice",
+          instructions: "What colour does the text say the vault code is?",
+          criteria: { red: "red", blue: "blue", green: "green" },
+        },
+      },
+    });
+    assert(status === 200, `Cloudflare must answer 200 (got ${status})`);
+    const answer = (
+      json as {
+        result?: {
+          answers?: { v?: { probabilities?: Record<string, number> } };
+        };
+      }
+    )?.result?.answers?.v;
+    return answer?.probabilities?.blue ?? 0;
+  };
+  const near = await blueAt(5_000);
+  const far = await blueAt(30_000);
+  assert(
+    near >= 0.8,
+    `control: a fact inside the window must be used (blue ${near})`,
+  );
+  assert(
+    far < 0.8,
+    `Cloudflare now reads text far past 2,048 tokens (blue ${far}): re-measure, then raise decisionLimits.maxStateTokens for cloudflare-clef and the docs`,
+  );
+});
+
+// The rates behind decisionLimits rest on where the cut falls for dense text, not
+// just prose: on 2026-10-03 a JSON array of single digits was cut after 2,043
+// characters (one token each, commas included). This asks the service itself,
+// with a fact placed before and after that point. It is what keeps
+// symbolTokensPerChar and digitTokensPerChar honest; if it fails, re-measure.
+await test("19.10b — live: a JSON array of digits is still cut at about one token a character, and the local estimate refuses it first", async () => {
+  requireCloudflareClef();
+  restoreEnv();
+  const fact = " The vault code colour is blue. ";
+  const digits = Array.from({ length: 2_000 }, (_, i) => String(i % 10));
+  const stateAt = (count: number) =>
+    `[${digits.slice(0, count).join(",")}${fact}${digits.slice(count).join(",")}]`;
+  const blueAt = async (count: number): Promise<number> => {
+    const { status, json } = await clefRaw("clef-flash", {
+      model: "clef-flash",
+      state: stateAt(count),
+      questions: {
+        v: {
+          type: "choice",
+          instructions: "What colour does the text say the vault code is?",
+          criteria: { red: "red", blue: "blue", green: "green" },
+        },
+      },
+    });
+    assert(status === 200, `Cloudflare must answer 200 (got ${status})`);
+    const answer = (
+      json as {
+        result?: {
+          answers?: { v?: { probabilities?: Record<string, number> } };
+        };
+      }
+    )?.result?.answers?.v;
+    return answer?.probabilities?.blue ?? 0;
+  };
+  // 500 digits are about 1,000 characters: well inside the cut. 1,500 digits are
+  // about 3,000 characters: well past it.
+  const inside = await blueAt(500);
+  const past = await blueAt(1_500);
+  assert(
+    inside >= 0.8,
+    `control: a fact among the first 500 digits must be used (blue ${inside})`,
+  );
+  assert(
+    past < 0.8,
+    `Cloudflare now reads a digit array past 2,043 characters (blue ${past}): re-measure, then revisit digitTokensPerChar and symbolTokensPerChar`,
+  );
+  // And the provider refuses what the model would cut, before sending it.
+  const refused = await failureOf(() =>
+    new NeuroLink().decide({
+      provider: "cloudflare-clef",
+      state: stateAt(1_500),
+      questions: { v: { type: "boolean", instructions: "Is it blue?" } },
+    }),
+  );
+  assert(
+    refused?.kind === "max_tokens_exceeded",
+    "NeuroLink must refuse a state of that shape before the endpoint silently ignores part of it",
+  );
+});
+
+// Text-only canary on clef-flash: 520,000 state characters accepted and
+// 525,000 refused with 413/code 5021 on 2026-10-04. This does not live-test
+// the 256,000-byte local cap with images. A changed result requires remeasurement.
+await test("19.11 — live: clef-flash text-only service ceiling accepts 520,000 and refuses 525,000 with 413/code 5021", async () => {
+  requireCloudflareClef();
+  restoreEnv();
+  const questions = {
+    q: { type: "noul", instructions: "Is this about checkout?" },
+  };
+  const inside = await clefRaw("clef-flash", {
+    model: "clef-flash",
+    state: "a".repeat(520_000),
+    questions,
+  });
+  assert(
+    inside.status === 200,
+    `a 520,000-character request must be accepted (got ${inside.status}): the observed service ceiling changed; re-measure before changing NeuroLink's conservative 256,000-byte cap`,
+  );
+  const { status, json } = await clefRaw("clef-flash", {
+    model: "clef-flash",
+    state: "a".repeat(525_000),
+    questions,
+  });
+  const code = (json as { errors?: Array<{ code?: number }> })?.errors?.[0]
+    ?.code;
+  assert(
+    status === 413 && code === 5021,
+    `an over-long request must be refused with 413 and code 5021 (got ${status}, ${code}): Cloudflare may have raised its cap; re-measure the request limit`,
+  );
+});
+
+await test("19.12 — live: a rejected token reaches the real API and comes back as authentication, sent once", async () => {
+  requireCloudflareClef();
+  restoreEnv();
+  // Read before the environment is cleared: the account id is real, the token
+  // is not, so only the token is what is being refused.
+  const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
+  let failure: DecisionFailure | undefined;
+  try {
+    clearDecisionKeys();
+    fetchCapture.reset();
+    failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: {
+          cloudflareClef: {
+            apiKey: "definitely-not-a-valid-token-0123456789",
+            accountId,
+          },
+        },
+      }).decide({
+        provider: "cloudflare-clef",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+  } finally {
+    restoreEnv();
+  }
+  assert(failure !== undefined, "a rejected token must not produce an answer");
+  if (isTransientPerplexityFailure(failure)) {
+    throw new Error("SKIP: the Cloudflare API was unreachable or throttled");
+  }
+  assert(
+    failure.kind === "authentication" && failure.status === 401,
+    "a rejected token must come back as authentication, with the API's own status",
+  );
+  assert(failure.retryable === false, "a rejected token must not be retried");
+  assert(
+    fetchCapture
+      .list()
+      .filter(
+        (c) =>
+          c.url ===
+          `${CLEF_BASE}/accounts/${accountId}/ai/run/@cf/cloudflare/clef`,
+      ).length === 1,
+    "a rejected token must be sent exactly once, to the account's route",
+  );
+});
+
+await test("19.13 — live: decide --provider cloudflare-clef --image --format json is clean JSON", async () => {
+  requireCloudflareClef();
+  restoreEnv();
+  const result = await runCLI(
+    [
+      "decide",
+      "Look at the attached image.",
+      "--provider",
+      "cloudflare-clef",
+      "--image",
+      `${PERPLEXITY_FIXTURE_DIR}red.png`,
+      "--format",
+      "json",
+      "--questions",
+      JSON.stringify(PERPLEXITY_COLOR_QUESTION),
+    ],
+    { timeoutMs: 60_000 },
+  );
+  if (result.exitCode > 0 && isTransientPerplexityCliFailure(result.stderr)) {
+    throw new Error("SKIP: cloudflare returned a transient reply");
+  }
+  if (result.exitCode > 0 && isRefusedPerplexityCliKey(result.stderr)) {
+    throw new Error("SKIP: cloudflare refused the configured token");
+  }
+  assert(result.exitCode === 0, "the live CLI call must succeed");
+  const parsed: unknown = JSON.parse(result.stdout);
+  assert(
+    isRecordLike(parsed) && parsed.provider === "cloudflare-clef",
     "stdout must be the raw JSON result",
   );
   const answers = isRecordLike(parsed) ? parsed.answers : undefined;

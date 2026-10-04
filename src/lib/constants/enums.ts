@@ -121,6 +121,12 @@ export enum AIProviderName {
    * inference type only. Distinct from `PERPLEXITY`, the Sonar text provider.
    */
   PERPLEXITY_DECIDER = "perplexity-decider",
+  /**
+   * Cloudflare Clef (`@cf/cloudflare/clef`, `@cf/cloudflare/clef-flash`) on
+   * Workers AI — serves the `decide` inference type only. Distinct from
+   * `CLOUDFLARE`, the Workers AI text provider.
+   */
+  CLOUDFLARE_CLEF = "cloudflare-clef",
   AUTO = "auto",
 }
 
@@ -2241,4 +2247,15 @@ export enum XorModels {
  */
 export enum PerplexityDeciderModels {
   PPLX_DECIDER_V1_27B = "pplx-decider-v1-27b",
+}
+
+/**
+ * Cloudflare Clef decision models, named as the Workers AI API names them in
+ * the request body (the path adds the `@cf/cloudflare/` prefix). Hand-written:
+ * Clef is a Tier-3 provider, so it is not in the provider catalog and codegen
+ * never touches this. `CLEF` is the 27B model, `CLEF_FLASH` the 9B one.
+ */
+export enum CloudflareClefModels {
+  CLEF = "clef",
+  CLEF_FLASH = "clef-flash",
 }

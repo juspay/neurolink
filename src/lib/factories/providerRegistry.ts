@@ -29,6 +29,7 @@ import {
   LayaModels,
   XorModels,
   PerplexityDeciderModels,
+  CloudflareClefModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
@@ -706,6 +707,35 @@ export class ProviderRegistry {
           PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
         [],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.PERPLEXITY_DECIDER),
+      );
+
+      // Register Cloudflare Clef — a `decide` provider reached through the
+      // Workers AI REST API. Its descriptor declares inferenceKinds:
+      // ["decide"], so nothing in the generation fallback chain can reach it,
+      // and it is registered apart from the `cloudflare` text provider.
+      ProviderFactory.registerProvider(
+        AIProviderName.CLOUDFLARE_CLEF,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: NeuroLink,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const cloudflareClefCreds =
+            credentials as NeurolinkCredentials["cloudflareClef"];
+          const { CloudflareClefProvider } =
+            await import("../providers/cloudflareClef.js");
+          return new CloudflareClefProvider(
+            modelName,
+            sdk,
+            undefined,
+            cloudflareClefCreds,
+          );
+        },
+        process.env.CLOUDFLARE_CLEF_MODEL || CloudflareClefModels.CLEF,
+        [],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE_CLEF),
       );
 
       logger.debug("All AI providers registered successfully");

@@ -44,6 +44,7 @@ import {
   createLayaConfig,
   createXorConfig,
   createPerplexityDeciderConfig,
+  createCloudflareClefConfig,
   satisfiesFallbacks,
 } from "../../lib/utils/providerConfig.js";
 import {
@@ -202,6 +203,7 @@ export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   laya: createLayaConfig(),
   xor: createXorConfig(),
   "perplexity-decider": createPerplexityDeciderConfig(),
+  "cloudflare-clef": createCloudflareClefConfig(),
   ...Object.fromEntries(
     getCatalogJsonEntries()
       .filter((e) => e.id !== "mistral")

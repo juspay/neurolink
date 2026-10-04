@@ -26,6 +26,7 @@ import {
   LayaModels,
   XorModels,
   PerplexityDeciderModels,
+  CloudflareClefModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
@@ -441,6 +442,18 @@ const TOP_MODELS_CONFIG: Record<
         "Recommended - Perplexity decision model that also reads images",
     },
   ],
+  [AIProviderName.CLOUDFLARE_CLEF]: [
+    {
+      model: CloudflareClefModels.CLEF,
+      description:
+        "Recommended - Cloudflare Clef 27B decision model that also reads images (state limited to ~2,000 tokens)",
+    },
+    {
+      model: CloudflareClefModels.CLEF_FLASH,
+      description:
+        "Clef-flash 9B - the faster, cheaper Cloudflare decision model (same ~2,000-token state limit)",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -488,6 +501,7 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.XOR]: XorModels.XOR_1_1,
   [AIProviderName.PERPLEXITY_DECIDER]:
     PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
+  [AIProviderName.CLOUDFLARE_CLEF]: CloudflareClefModels.CLEF,
 };
 
 /**
@@ -527,6 +541,7 @@ const MODEL_ENUMS: Record<
   [AIProviderName.LAYA]: LayaModels,
   [AIProviderName.XOR]: XorModels,
   [AIProviderName.PERPLEXITY_DECIDER]: PerplexityDeciderModels,
+  [AIProviderName.CLOUDFLARE_CLEF]: CloudflareClefModels,
   [AIProviderName.AUTO]: null,
 };
 

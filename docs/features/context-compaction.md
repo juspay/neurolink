@@ -368,7 +368,12 @@ _for_ — one boolean per message ("is this needed to answer the current
 request?") in a single batch. On TypeSafe that costs the same for 200 messages
 as for one because decision latency is flat in question count; on Perplexity each
 further question adds about 65 ms and a request takes at most 128 (see
-[its guide](../getting-started/providers/perplexity-decider.md#limits)).
+[its guide](../getting-started/providers/perplexity-decider.md#limits)); on
+Cloudflare Clef a request takes at most 64 questions, which `tryDecide()` splits
+into batches of 64 (see [its guide](../getting-started/providers/cloudflare-clef.md#limits)).
+The Clef endpoint also ignores state text past about 2,048 tokens, and NeuroLink
+refuses a state it estimates at more than 1,500 tokens, so a longer set of
+eligible messages gets a refusal and the stage is skipped, as on any failure.
 
 It is **strictly additive**. With no decision provider configured the stage
 does not run, `stagesUsed` omits `relevance`, and the pipeline behaves exactly

@@ -14,6 +14,7 @@ import {
   LayaModels,
   XorModels,
   PerplexityDeciderModels,
+  CloudflareClefModels,
   JinaModels,
   StabilityModels,
   IdeogramModels,
@@ -481,7 +482,8 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { decideMs: 5000 },
     setupUrl: "https://console.typesafe.ai/keys",
   },
-  // Laya MUST stay after TypeSafe, XOR after Laya, and Perplexity after XOR.
+  // Laya MUST stay after TypeSafe, XOR after Laya, Perplexity after XOR, and
+  // Cloudflare Clef after Perplexity.
   // resolveDefaultDecisionProvider() returns the first configured
   // DECISION_PROVIDERS entry, in this order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
@@ -636,6 +638,79 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     },
     setupUrl: "https://console.perplexity.ai",
   },
+  {
+    name: AIProviderName.CLOUDFLARE_CLEF,
+    aliases: [],
+    credentialsKey: "cloudflareClef",
+    envVars: {
+      // The same token and account id the `cloudflare` text provider reads, so
+      // ambient Workers AI settings configure this provider too. It sits last
+      // in this list, which is what keeps that from displacing any other
+      // decision provider a host has configured.
+      apiKey: "CLOUDFLARE_API_KEY",
+      // Cloudflare's own API is the endpoint, so a base URL is optional; but
+      // the path carries the account id, so a token alone is useless. Both are
+      // required for it to count as configured, from the environment or from
+      // credentials.cloudflareClef.
+      extraRequired: ["CLOUDFLARE_ACCOUNT_ID"],
+      extraRequiredCredentialFields: { CLOUDFLARE_ACCOUNT_ID: "accountId" },
+      baseURL: "CLOUDFLARE_CLEF_BASE_URL",
+      model: "CLOUDFLARE_CLEF_MODEL",
+    },
+    defaultModel: CloudflareClefModels.CLEF,
+    // Serves only `decide`, like the other decision providers — the one
+    // declaration that keeps it out of every generation code path, and out of
+    // the way of the `cloudflare` text provider.
+    inferenceKinds: ["decide"],
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    // Deliberately NO autoSelectPriority / autoSelectPreference /
+    // defaultHealthSweepPriority, for the same reason as TypeSafe above.
+    //
+    // Measured 2026-10-03: 0.3 to 1.0 s for a small request, 1.1 s for 64 questions on
+    // clef-flash and 1.3 s on clef, and 2.2 s at most for any of 60 requests
+    // sent at once. On 2026-10-04, 64 questions took 1.5 s (flash) / 2.3 s (clef).
+    // 5s covers those observations and keeps a fail-open consumer
+    // from waiting on a stuck call.
+    timeouts: { decideMs: 5_000 },
+    // The Workers AI endpoint ignores state text past about 2,048 tokens
+    // (hosted service or model: unknown), despite the documented 64K. The local
+    // 1,500-token estimate refuses before every measured cut. On 2026-10-04,
+    // both models read facts at the original clef-flash lower bounds for logs,
+    // number lists, digit arrays and compact JSON, but not about 2.5% further on;
+    // English prose and random CJK already matched on both. Digits cost 1,
+    // ASCII symbols 0.75, BMP non-ASCII 1.5 and astral characters 3 tokens.
+    // Natural Chinese, Japanese, Korean and Hindi prose and emoji-rich English
+    // were also safe under those rates on clef. A many-key object cut between
+    // 128 and 134 preceding keys on both models: its lower bound was 4,883
+    // compact-JSON characters, estimated at 2,299 tokens. The probe used an
+    // explicit field-name question and zero-padded keys together after the
+    // control failed three times. It then passed; necessity was not established.
+    // Other object shapes and Unicode sequences may differ.
+    decisionLimits: {
+      maxStateTokens: 1_500,
+      maxQuestions: 64,
+      nonAsciiTokensPerChar: 1.5,
+      digitTokensPerChar: 1,
+      symbolTokensPerChar: 0.75,
+      astralTokensPerChar: 3,
+      // Images only. Exactly four tiny images succeeded and five were refused
+      // on both models. image/jpg also succeeded and is normalized to JPEG.
+      // Retain the conservative 256,000-byte encoded-body cap: on 2026-10-04
+      // both models accepted 520,000 text characters and refused 525,000 with
+      // 413/code 5021. On 2026-10-03, clef-flash accepted 262,000 and refused
+      // 270,000. Estimates match encoded body characters / 4, rounded up. The
+      // threshold moved from 65,527 accepted / 67,527 refused to 130,026 /
+      // 131,276 (clef) and 130,027 / 131,277 (flash); errors still print 65,536.
+      // Inference: the new interval contains 131,072 (twice the printed
+      // figure); reason unknown.
+      // The new image-byte ceiling was not measured; the old 195/202 KB PNG boundary
+      // is historical. See the guide for exact model and date coverage.
+      media: { maxImages: 4, video: false, maxRequestBytes: 256_000 },
+    },
+    setupUrl: "https://dash.cloudflare.com/profile/api-tokens",
+  },
 ];
 
 /**
@@ -788,12 +863,16 @@ function isDecisionProviderConfigured(
     ) ||
     isSet(slice?.apiKey) ||
     isSet(slice?.gatewayApiKey);
-  // A required base URL can also come from credentials.<key>.baseURL.
-  const hasRequired = (descriptor.envVars.extraRequired ?? []).every(
-    (name) =>
+  // A required base URL can also come from credentials.<key>.baseURL, and any
+  // other required value the descriptor maps to a field of that slice.
+  const hasRequired = (descriptor.envVars.extraRequired ?? []).every((name) => {
+    const field = descriptor.envVars.extraRequiredCredentialFields?.[name];
+    return (
       inEnv(name) ||
-      (name === descriptor.envVars.baseURL && isSet(slice?.baseURL)),
-  );
+      (name === descriptor.envVars.baseURL && isSet(slice?.baseURL)) ||
+      (field !== undefined && isSet(slice?.[field]))
+    );
+  });
   return hasKey && hasRequired;
 }
 

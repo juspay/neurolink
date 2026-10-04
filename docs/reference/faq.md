@@ -32,7 +32,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **Groq, Cerebras, SambaNova, Together AI, Fireworks AI, Perplexity, Cloudflare Workers AI, xAI, Baseten, GMI Cloud, Inception Labs, io.net Intelligence, Mancer, Upstage, API Route** (zero-quirk OpenAI-wire-compatible catalog providers)
 - **Cohere** (chat, plus `embed()` and reranking)
 - **Voyage AI**, **Jina AI** (embedding and/or reranking only — no chat completions)
-- **TypeSafe Jev**, **Laya**, **XOR**, **Perplexity Decisions** (decision-only — serve `decide()`, not `generate()`/`stream()`; tried in the order TypeSafe, Laya, XOR, Perplexity when several are configured)
+- **TypeSafe Jev**, **Laya**, **XOR**, **Perplexity Decisions**, **Cloudflare Clef** (decision-only — serve `decide()`, not `generate()`/`stream()`; tried in the order TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef when several are configured; Clef is configured by the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` as the Cloudflare Workers AI text provider)
 
 See [Provider Setup](../getting-started/provider-setup.md) for the complete roster with setup guides.
 

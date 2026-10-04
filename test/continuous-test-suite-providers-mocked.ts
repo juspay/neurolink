@@ -8486,12 +8486,2000 @@ async function runPerplexityDecide(): Promise<void> {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: Cloudflare Clef (decide-only)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Clef follows the System One wire, so the `boolean`↔`noul` translation and the
+ * answer parser are shared. What this section pins is Cloudflare's own: the
+ * account-scoped route with the model in the path, the `{ result, success,
+ * errors }` envelope around every answer, the separate `images` array, the error
+ * codes Workers AI uses, and the local limits for a state longer than the
+ * endpoint reads (it ignores text past about 2,048 tokens without saying so).
+ *
+ * The 200 body has the shape a live probe saw on 2026-10-03 (the probe used
+ * `clef-flash`; the model name and the figures are spliced for `clef`). The 401,
+ * 400, 413, 422 and 429 bodies are ones that probe provoked. A 403, a 500, a 503
+ * and an HTML 504 were never seen from Cloudflare: those rows are stand-ins for
+ * the status classes, and each says so where it is.
+ */
+const CLEF_SPEC = {
+  provider: "cloudflare-clef",
+  keyEnv: "CLOUDFLARE_API_KEY",
+  accountEnv: "CLOUDFLARE_ACCOUNT_ID",
+  baseURLEnvVar: "CLOUDFLARE_CLEF_BASE_URL",
+  key: "test-fake-cloudflare-clef-credential",
+  account: "0123456789abcdef0123456789abcdef",
+  base: "https://api.cloudflare.com/client/v4",
+  urlMatch: "/ai/run/@cf/cloudflare/",
+  model: "clef",
+};
+
+const clefEndpoint = (
+  model: string = CLEF_SPEC.model,
+  base: string = CLEF_SPEC.base,
+  account: string = CLEF_SPEC.account,
+): string => `${base}/accounts/${account}/ai/run/@cf/cloudflare/${model}`;
+
+const CLEF_REQUEST_ID = "bffacf9d-fa14-4008-a450-756c441d91fa";
+const CLEF_TICKET =
+  "Checkout has been failing for every customer for the last hour.";
+
+// Cloudflare's own example request, in the SDK's spelling: `boolean` is the
+// SDK's name for the wire's `noul`.
+const CLEF_QUESTIONS = {
+  urgent: {
+    type: "boolean",
+    instructions: "Is this support request urgent?",
+  },
+  team: {
+    type: "choice",
+    instructions: "Which team should handle this request?",
+    criteria: {
+      billing: "Payments, invoices, and refunds",
+      technical: "Outages, errors, and configuration",
+      sales: "Plans and upgrades",
+    },
+  },
+  severity: {
+    type: "score",
+    instructions: "How severe is the customer impact?",
+    criteria: ["No impact", "Minor", "Major", "Critical"],
+  },
+} satisfies DecisionQuestionMap;
+
+const CLEF_ONE_QUESTION = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+} satisfies DecisionQuestionMap;
+
+/** What CLEF_QUESTIONS must look like on the wire: only `boolean` is renamed. */
+const CLEF_WIRE_REQUEST = {
+  model: "clef",
+  state: CLEF_TICKET,
+  questions: {
+    urgent: { type: "noul", instructions: "Is this support request urgent?" },
+    team: CLEF_QUESTIONS.team,
+    severity: CLEF_QUESTIONS.severity,
+  },
+};
+
+/** The 200 body of the documented example, as a live probe returned it. */
+function clefLiveBody(model: string = CLEF_SPEC.model) {
+  return {
+    result: {
+      model,
+      answers: {
+        urgent: { type: "noul", noul: 0.9551 },
+        team: {
+          type: "choice",
+          choice: "technical",
+          probabilities: { billing: 0.0505, technical: 0.9355, sales: 0.014 },
+          confidence: 0.817,
+        },
+        severity: {
+          type: "score",
+          score: 2.7182,
+          legend: {
+            "0": "No impact",
+            "1": "Minor",
+            "2": "Major",
+            "3": "Critical",
+          },
+          probabilities: { "0": 0.0151, "1": 0.0144, "2": 0.2077, "3": 0.7628 },
+          confidence: 0.5005,
+        },
+      },
+      usage: { input_tokens: 346, output_tokens: 0 },
+    },
+    success: true,
+    errors: [],
+    messages: [],
+  };
+}
+
+const clefEnvelope = (code: number, message: string) => ({
+  success: false,
+  errors: [{ code, message }],
+  messages: [],
+  result: {},
+});
+
+// The error envelopes a live probe provoked. Which layer answered decides the
+// shape: Cloudflare's edge answers with a bare message, the model server nests
+// a second envelope inside `message` with a trailing request id.
+const CLEF_ERRORS = {
+  // 401, seen with a deliberately wrong token.
+  authentication: {
+    result: null,
+    success: false,
+    errors: [{ code: 10000, message: "Authentication error" }],
+    messages: [],
+  },
+  // 400, seen with a model path that does not exist.
+  noRoute: {
+    success: false,
+    errors: [{ code: 7000, message: "No route for that URI" }],
+    messages: [],
+    result: null,
+  },
+  // 400, seen with a body that is not JSON.
+  notJson: clefEnvelope(6003, "Request body is not valid json"),
+  // 400, seen with zero questions and with an unknown question type.
+  badInput: clefEnvelope(
+    5006,
+    "AiError: Bad input: Error: required properties at '/' are 'model,state,questions' (13e20fc4-ca60-4532-a069-9cc39aa7225a)",
+  ),
+  // 422, seen with 65 questions.
+  validation: clefEnvelope(
+    5012,
+    'AiError: AiError: {"error":{"type":"invalid_request","message":"Request body failed validation","details":{"formErrors":[],"fieldErrors":{"questions":["Dictionary should have at most 64 items after validation, not 65"]}}}} (89a2b860-f03c-4fd3-9af2-9413f199f0d1)',
+  ),
+  // 422, seen with a 17.6-megapixel image (probe I11).
+  imageDimensions: clefEnvelope(
+    5012,
+    'AiError: AiError: {"error":{"type":"invalid_request","message":"Request body failed validation","details":{"formErrors":[],"fieldErrors":{"images":["image dimensions are too large"]}}}} (dc5f2387-6df1-411b-a84f-497e3450dddd)',
+  ),
+  // 413, seen with a 450,000-character state.
+  overLength: clefEnvelope(
+    5021,
+    "AiError: Ai: The estimated number of input and maximum output tokens (112556) exceeded this model context window limit (65536). (17060c92-1b60-48d5-b8ab-016882863c15)",
+  ),
+  // 429, seen with 4 of 60 requests sent at once; no Retry-After came with it.
+  capacity: clefEnvelope(
+    3040,
+    "AiError: AiError: Capacity temporarily exceeded, please try again.",
+  ),
+};
+
+/** An HTML page of the kind an edge answers a timeout with. */
+const CLEF_GATEWAY_PAGE =
+  "<html><head><title>504 Gateway Time-out</title></head><body><h1>504 Gateway Time-out</h1><p>edge-page-marker</p></body></html>";
+
+type ClefReply = {
+  status: number;
+  json?: unknown;
+  text?: string;
+  contentType?: string;
+  headers?: Record<string, string>;
+};
+type ClefRespond = ClefReply | ((call: { bodyJson: unknown }) => ClefReply);
+
+function clefRoute(
+  respond: ClefRespond = { status: 200, json: clefLiveBody() },
+) {
+  return { method: "POST", url: CLEF_SPEC.urlMatch, respond };
+}
+
+async function createClef(model?: string) {
+  const { ProviderFactory } = await import("../dist/index.js");
+  return ProviderFactory.createProvider(CLEF_SPEC.provider, model);
+}
+
+/** One decision on a single question, for tests that only care what was sent. */
+async function clefDecideOne(
+  provider: Awaited<ReturnType<typeof createClef>>,
+  overrides: Partial<DecisionRequest> = {},
+) {
+  return provider.decide!({
+    state: "short",
+    questions: CLEF_ONE_QUESTION,
+    ...overrides,
+  });
+}
+
+type ClefBody = {
+  model?: string;
+  state?: unknown;
+  questions?: Record<string, unknown>;
+  images?: string[];
+};
+
+const clefBodyOf = (call: { bodyJson: unknown } | undefined): ClefBody =>
+  (call?.bodyJson ?? {}) as ClefBody;
+
+/** The failure shape is the same for every decision provider. */
+const captureClefFailure = capturePerplexityFailure;
+const clefCase = perplexityCase;
+
+/** Run one decision against a canned reply; report how it was classified. */
+async function clefOutcome(
+  respond: ClefRespond,
+  request: Partial<DecisionRequest> = {},
+) {
+  return withMocks([clefRoute(respond)], async ({ calls }) => {
+    const failure = await captureClefFailure(async () =>
+      clefDecideOne(await createClef(), request),
+    );
+    return { ...failure, calls: calls.length };
+  });
+}
+
+/** Every variable that can make a decision provider the default one. */
+const CLEF_DECISION_ENV = [
+  "TYPESAFE_API_KEY",
+  "AI_GATEWAY_API_KEY",
+  "LAYA_API_KEY",
+  "LAYA_BASE_URL",
+  "XOR_API_KEY",
+  "XOR_BASE_URL",
+  "PERPLEXITY_API_KEY",
+  "PERPLEXITY_DECIDER_BASE_URL",
+  "PERPLEXITY_DECIDER_MODEL",
+  "CLOUDFLARE_API_KEY",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "CLOUDFLARE_CLEF_BASE_URL",
+  "CLOUDFLARE_CLEF_MODEL",
+];
+
+/** No decision provider configured at all. */
+function clearClefEnv(): void {
+  for (const name of CLEF_DECISION_ENV) {
+    setEnv(name, undefined);
+  }
+}
+
+/** Only the Clef token and account set: no other decision provider is configured. */
+function resetClefEnv(): void {
+  clearClefEnv();
+  setEnv(CLEF_SPEC.keyEnv, CLEF_SPEC.key);
+  setEnv(CLEF_SPEC.accountEnv, CLEF_SPEC.account);
+}
+
+const clefQuestionsOf = (count: number): DecisionQuestionMap =>
+  Object.fromEntries(
+    Array.from({ length: count }, (_, i) => [
+      `q${i}`,
+      { type: "boolean", instructions: `Question ${i}?` } as const,
+    ]),
+  );
+
+async function runClefWire(): Promise<void> {
+  const { keyEnv, accountEnv, key } = CLEF_SPEC;
+
+  await clefCase("DECIDE cloudflare-clef: no key, no request", async () => {
+    try {
+      for (const blank of [undefined, "   "]) {
+        setEnv(keyEnv, blank);
+        await withMocks([clefRoute()], async ({ calls }) => {
+          const failure = await captureClefFailure(async () =>
+            clefDecideOne(await createClef()),
+          );
+          expectEq(failure.kind, "authentication", "missing key classified");
+          expect(
+            failure.message.includes("CLOUDFLARE_API_KEY") &&
+              failure.message.includes("credentials.cloudflareClef.apiKey"),
+            "names both ways to set it",
+          );
+          expect(failure.retryable === false, "a missing key is not retried");
+          expectEq(calls.length, 0, "no network call without a key");
+        });
+      }
+    } finally {
+      setEnv(keyEnv, key);
+    }
+  });
+
+  await clefCase(
+    "DECIDE cloudflare-clef: no account id, or a malformed one, no request",
+    async () => {
+      const rows: Array<[string, string | undefined]> = [
+        ["unset", undefined],
+        ["blank", "   "],
+        ["a path", "../other"],
+        ["a query", "abc?x=1"],
+        ["a space", "ab cd"],
+      ];
+      try {
+        for (const [label, value] of rows) {
+          setEnv(accountEnv, value);
+          await withMocks([clefRoute()], async ({ calls }) => {
+            const failure = await captureClefFailure(async () =>
+              clefDecideOne(await createClef()),
+            );
+            expectEq(
+              failure.kind,
+              "invalid_request",
+              `${label}: refused as a request problem`,
+            );
+            expectEq(calls.length, 0, `${label}: nothing is sent`);
+            const missing = value === undefined || value.trim() === "";
+            expect(
+              missing
+                ? failure.message.includes("CLOUDFLARE_ACCOUNT_ID") &&
+                    failure.message.includes(
+                      "credentials.cloudflareClef.accountId",
+                    )
+                : failure.message.includes("letters, digits"),
+              `${label}: the message says what to fix`,
+            );
+          });
+        }
+      } finally {
+        setEnv(accountEnv, CLEF_SPEC.account);
+      }
+    },
+  );
+
+  await clefCase("DECIDE cloudflare-clef: wire contract", async () => {
+    await withMocks([clefRoute()], async ({ calls }) => {
+      await (
+        await createClef()
+      ).decide!({ state: CLEF_TICKET, questions: CLEF_QUESTIONS });
+      expectEq(calls.length, 1, "single POST");
+      const call = calls[0];
+      expectEq(call.method, "POST", "method");
+      expectEq(
+        call.url,
+        clefEndpoint(),
+        "route: the account and the model are in the path",
+      );
+      expectEq(
+        call.headers.authorization,
+        `Bearer ${key}`,
+        "bearer credential",
+      );
+      expect(
+        (call.headers["content-type"] ?? "").includes("application/json"),
+        "JSON content type",
+      );
+      expect(
+        !("x-api-key" in call.headers),
+        "the token travels only as a bearer token",
+      );
+      const body = call.bodyJson as Record<string, unknown>;
+      expectEq(
+        Object.keys(body).sort().join(","),
+        "model,questions,state",
+        "exactly three body keys when no image is sent",
+      );
+      expect(
+        sameJson(body, CLEF_WIRE_REQUEST),
+        "the body is the documented request, with boolean spelled noul",
+      );
+    });
+  });
+
+  await clefCase(
+    "DECIDE cloudflare-clef: the model is in the path and the body, in either spelling",
+    async () => {
+      await withMocks([clefRoute()], async ({ calls }) => {
+        await clefDecideOne(await createClef());
+        await clefDecideOne(await createClef("clef-flash"));
+        await clefDecideOne(await createClef("@cf/cloudflare/clef-flash"));
+        await clefDecideOne(await createClef("clef-flash"), { model: "clef" });
+        await clefDecideOne(await createClef(), {
+          model: "@cf/cloudflare/clef-flash",
+        });
+        expect(
+          sameJson(
+            calls.map((c) => [c.url, clefBodyOf(c).model]),
+            [
+              [clefEndpoint("clef"), "clef"],
+              [clefEndpoint("clef-flash"), "clef-flash"],
+              [clefEndpoint("clef-flash"), "clef-flash"],
+              [clefEndpoint("clef"), "clef"],
+              [clefEndpoint("clef-flash"), "clef-flash"],
+            ],
+          ),
+          "default, construction, prefixed and per-call models all reach path and body alike",
+        );
+      });
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a model name that could reach another route is refused",
+    async () => {
+      const rows: Array<[string, string]> = [
+        ["a path", "clef/../other"],
+        ["a query", "clef?x=1"],
+        ["another vendor's prefix", "@cf/meta/llama-3"],
+        ["blank", "   "],
+      ];
+      await withMocks([clefRoute()], async ({ calls }) => {
+        for (const [label, model] of rows) {
+          const failure = await captureClefFailure(async () =>
+            clefDecideOne(await createClef(), { model }),
+          );
+          expectEq(
+            failure.kind,
+            "invalid_request",
+            `${label}: refused as a request problem`,
+          );
+          expect(
+            failure.message.includes('"clef" or "clef-flash"'),
+            `${label}: the message names the two models`,
+          );
+        }
+        expectEq(calls.length, 0, "nothing was sent for any of them");
+      });
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a boolean keeps its criteria as a noul",
+    async () => {
+      const criteria = {
+        true: "Customers are blocked.",
+        false: "Nobody is blocked.",
+      };
+      await withMocks([clefRoute()], async ({ calls }) => {
+        await clefDecideOne(await createClef(), {
+          questions: {
+            urgent: {
+              type: "boolean",
+              instructions: "Is this support request urgent?",
+              criteria,
+            },
+          },
+        });
+        expect(
+          sameJson(clefBodyOf(calls[0]).questions, {
+            urgent: {
+              type: "noul",
+              instructions: "Is this support request urgent?",
+              criteria,
+            },
+          }),
+          "type renamed, instructions and criteria untouched",
+        );
+      });
+    },
+  );
+}
+
+async function runClefAnswers(): Promise<void> {
+  await clefCase(
+    "DECIDE cloudflare-clef: the answers come out of the result envelope",
+    async () => {
+      await withMocks(
+        [
+          clefRoute({
+            status: 200,
+            json: clefLiveBody("clef-flash"),
+            headers: {
+              "cf-ai-req-id": CLEF_REQUEST_ID,
+              "cf-ray": "a44ae20419e54454-BOM",
+            },
+          }),
+        ],
+        async () => {
+          const result = await (
+            await createClef()
+          ).decide!({ state: CLEF_TICKET, questions: CLEF_QUESTIONS });
+          const urgent = result.answers.urgent;
+          expectEq(urgent.type, "boolean", "a noul answer is a boolean");
+          expectEq(
+            urgent.type === "boolean" ? urgent.probability : -1,
+            0.9551,
+            "noul mapped to probability",
+          );
+          const team = result.answers.team;
+          expectEq(
+            team.type === "choice" ? team.choice : "",
+            "technical",
+            "choice",
+          );
+          expectEq(
+            team.type === "choice" ? team.confidence : -1,
+            0.817,
+            "the reported confidence",
+          );
+          expect(
+            team.type === "choice" &&
+              sameJson(team.probabilities, {
+                billing: 0.0505,
+                technical: 0.9355,
+                sales: 0.014,
+              }),
+            "the whole distribution is kept",
+          );
+          const severity = result.answers.severity;
+          expectEq(
+            severity.type === "score" ? severity.score : -1,
+            2.7182,
+            "score",
+          );
+          expect(
+            severity.type === "score" &&
+              sameJson(severity.legend, {
+                "0": "No impact",
+                "1": "Minor",
+                "2": "Major",
+                "3": "Critical",
+              }),
+            "the legend is kept",
+          );
+          expectEq(Object.keys(result.answers).length, 3, "one answer each");
+          expectEq(
+            result.model,
+            "clef-flash",
+            "API echo differs from the clef request",
+          );
+          expectEq(result.provider, CLEF_SPEC.provider, "provider name");
+          expectEq(result.usage.inputTokens, 346, "usage.input_tokens mapped");
+          expectEq(result.usage.outputTokens, 0, "usage.output_tokens mapped");
+          expectEq(
+            result.requestId,
+            CLEF_REQUEST_ID,
+            "the request id is cf-ai-req-id, not the edge's cf-ray",
+          );
+          expect(
+            !("mediaBytes" in result),
+            "a text-only request reports no media bytes",
+          );
+        },
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: the request id falls back to cf-ray",
+    async () => {
+      await withMocks(
+        [
+          clefRoute({
+            status: 200,
+            json: clefLiveBody(),
+            headers: { "cf-ray": "a44ae20419e54454-BOM" },
+          }),
+        ],
+        async () => {
+          const result = await clefDecideOne(await createClef());
+          expectEq(result.requestId, "a44ae20419e54454-BOM", "cf-ray");
+        },
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a 200 without the envelope is still read",
+    async () => {
+      await withMocks(
+        [clefRoute({ status: 200, json: clefLiveBody().result })],
+        async () => {
+          const result = await (
+            await createClef()
+          ).decide!({ state: CLEF_TICKET, questions: CLEF_QUESTIONS });
+          expectEq(Object.keys(result.answers).length, 3, "answers read");
+          expectEq(result.usage.inputTokens, 346, "usage read");
+        },
+      );
+    },
+  );
+}
+
+async function runClefMedia(): Promise<void> {
+  const pixel = syntheticPng(64, 64);
+  const pixelUrl = dataUrl("image/png", pixel);
+
+  await clefCase(
+    "DECIDE cloudflare-clef: PNG, JPEG and WebP go in the images array",
+    async () => {
+      await withMocks([clefRoute()], async ({ calls }) => {
+        for (const layout of SYNTHETIC_IMAGE_LAYOUTS) {
+          const image = layout.build(64, 64);
+          const url = dataUrl(layout.mime, image);
+          const result = await clefDecideOne(await createClef(), {
+            state: "Which colour is the square?",
+            images: [image],
+          });
+          const body = clefBodyOf(calls[calls.length - 1]);
+          expect(
+            sameJson(body.images, [url]),
+            `${layout.label}: one data URL in images`,
+          );
+          expectEq(
+            body.state,
+            "Which colour is the square?",
+            `${layout.label}: the caller's state is left alone`,
+          );
+          expectEq(
+            Object.keys(body).sort().join(","),
+            "images,model,questions,state",
+            `${layout.label}: a separate images field`,
+          );
+          expectEq(
+            result.mediaBytes,
+            url.length,
+            `${layout.label}: media bytes reported`,
+          );
+        }
+      });
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: images from a Buffer, a path and a data URL",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "clef-media-"));
+      try {
+        const path = join(dir, "pixel.png");
+        writeFileSync(path, pixel);
+        await withMocks([clefRoute()], async ({ calls }) => {
+          await clefDecideOne(await createClef(), {
+            state: "",
+            images: [pixel, path, pixelUrl],
+          });
+          const body = clefBodyOf(calls[0]);
+          expect(
+            sameJson(body.images, [pixelUrl, pixelUrl, pixelUrl]),
+            "every form encodes identically",
+          );
+          expectEq(body.state, "", "an empty state is sent as it is");
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: four images are sent, five and a video are refused",
+    async () => {
+      await withMocks([clefRoute()], async ({ calls }) => {
+        await clefDecideOne(await createClef(), {
+          images: [pixel, pixel, pixel, pixel],
+        });
+        expectEq(calls.length, 1, "four images go out");
+        expectEq(
+          clefBodyOf(calls[0]).images?.length,
+          4,
+          "all four are in the body",
+        );
+        const five = await captureClefFailure(async () =>
+          clefDecideOne(await createClef(), {
+            images: [pixel, pixel, pixel, pixel, pixel],
+          }),
+        );
+        expectEq(five.kind, "invalid_request", "a fifth image is refused");
+        const video = await captureClefFailure(async () =>
+          clefDecideOne(await createClef(), { video: pixel }),
+        );
+        expectEq(video.kind, "invalid_request", "a video is refused");
+        expectEq(calls.length, 1, "neither refusal reached the network");
+      });
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a format Cloudflare does not read is refused",
+    async () => {
+      const gif = dataUrl(
+        "image/gif",
+        Buffer.from("GIF89a\u0001\u0000\u0001\u0000"),
+      );
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const failure = await captureClefFailure(async () =>
+          clefDecideOne(await createClef(), { images: [gif] }),
+        );
+        expectEq(failure.kind, "invalid_request", "refused");
+        expectEq(calls.length, 0, "nothing is sent");
+      });
+    },
+  );
+}
+
+async function runClefErrors(): Promise<void> {
+  const edgeHeaders = { "cf-ray": "a44ae21b18bb45ed-BOM" };
+  const modelHeaders = { ...edgeHeaders, "cf-ai-req-id": CLEF_REQUEST_ID };
+
+  type Row = {
+    label: string;
+    reply: ClefReply;
+    kind: string;
+    retryable: boolean;
+    includes?: string[];
+    excludes?: string[];
+    requestId?: string;
+  };
+  const rows: Row[] = [
+    {
+      label: "401 a token Cloudflare does not know",
+      reply: {
+        status: 401,
+        json: CLEF_ERRORS.authentication,
+        headers: edgeHeaders,
+      },
+      kind: "authentication",
+      retryable: false,
+      includes: ["Authentication error"],
+      requestId: "a44ae21b18bb45ed-BOM",
+    },
+    {
+      // Never seen: no token without Workers AI permission was available. The
+      // body is the 401's, as a stand-in. A 403 is deliberately NOT
+      // `authentication` (see `cloudflareErrorKind`): that would latch the
+      // instance for the life of the process even after the permission is fixed.
+      label: "403 stand-in: not authentication, so it never latches",
+      reply: {
+        status: 403,
+        json: CLEF_ERRORS.authentication,
+        headers: edgeHeaders,
+      },
+      kind: "invalid_request",
+      retryable: false,
+      includes: ["Authentication error"],
+    },
+    {
+      label: "400 bad input, with the request id inside the message",
+      reply: { status: 400, json: CLEF_ERRORS.badInput },
+      kind: "invalid_request",
+      retryable: false,
+      includes: ["required properties"],
+      excludes: ["AiError", "13e20fc4"],
+      requestId: "13e20fc4-ca60-4532-a069-9cc39aa7225a",
+    },
+    {
+      label: "400 no route: the hint names the two models",
+      reply: { status: 400, json: CLEF_ERRORS.noRoute, headers: edgeHeaders },
+      kind: "invalid_request",
+      retryable: false,
+      includes: [
+        "No route for that URI",
+        '"clef" and "clef-flash"',
+        "/client/v4",
+      ],
+    },
+    {
+      label: "400 a body that is not JSON",
+      reply: { status: 400, json: CLEF_ERRORS.notJson, headers: edgeHeaders },
+      kind: "invalid_request",
+      retryable: false,
+      includes: ["not valid json"],
+    },
+    {
+      label: "422 validation: the nested envelope is flattened",
+      reply: {
+        status: 422,
+        json: CLEF_ERRORS.validation,
+        headers: { "cf-ai-req-id": "89a2b860-f03c-4fd3-9af2-9413f199f0d1" },
+      },
+      kind: "invalid_request",
+      retryable: false,
+      includes: [
+        "Request body failed validation",
+        "questions: Dictionary should have at most 64 items",
+      ],
+      excludes: ["AiError", "{", "89a2b860"],
+      // Real 422s carry the same uuid in the header and in the message.
+      requestId: "89a2b860-f03c-4fd3-9af2-9413f199f0d1",
+    },
+    {
+      // The 422 a 17.6-megapixel image drew (probe I11): the field is `images`.
+      label: "422 an image over 16 megapixels",
+      reply: {
+        status: 422,
+        json: CLEF_ERRORS.imageDimensions,
+        headers: { "cf-ai-req-id": "dc5f2387-6df1-411b-a84f-497e3450dddd" },
+      },
+      kind: "invalid_request",
+      retryable: false,
+      includes: ["images: image dimensions are too large"],
+      excludes: ["AiError", "{"],
+      requestId: "dc5f2387-6df1-411b-a84f-497e3450dddd",
+    },
+    {
+      label: "413 past the context window: the hint explains the count",
+      reply: {
+        status: 413,
+        json: CLEF_ERRORS.overLength,
+        headers: { "cf-ai-req-id": "17060c92-1b60-48d5-b8ab-016882863c15" },
+      },
+      kind: "max_tokens_exceeded",
+      retryable: false,
+      includes: [
+        "estimated number of input and maximum output tokens (112556)",
+        "about four characters per token",
+      ],
+    },
+    {
+      label: "429 capacity exceeded",
+      reply: { status: 429, json: CLEF_ERRORS.capacity, headers: modelHeaders },
+      kind: "rate_limit",
+      retryable: true,
+      includes: ["Capacity temporarily exceeded"],
+    },
+    {
+      // A stand-in: Cloudflare never answered a 5xx during the probe.
+      label: "500 stand-in",
+      reply: {
+        status: 500,
+        json: clefEnvelope(5000, "AiError: boom"),
+        headers: modelHeaders,
+      },
+      kind: "server",
+      retryable: true,
+    },
+    {
+      // Never observed from Cloudflare: HTTP classification stand-in.
+      label: "502 stand-in: Bad Gateway is a retried server error",
+      reply: { status: 502, json: clefEnvelope(5000, "Bad Gateway stand-in") },
+      kind: "server",
+      retryable: true,
+      includes: ["Bad Gateway stand-in"],
+    },
+    {
+      // A stand-in, as above.
+      label: "503 stand-in",
+      reply: {
+        status: 503,
+        json: clefEnvelope(5000, "AiError: down"),
+        headers: modelHeaders,
+      },
+      kind: "overloaded",
+      retryable: true,
+    },
+    {
+      // A stand-in. The HTML page is the kind an edge answers a timeout with,
+      // seen from Perplexity's gateway; Cloudflare was never seen to send one.
+      label: "504 stand-in: an HTML page, not an envelope",
+      reply: { status: 504, text: CLEF_GATEWAY_PAGE, contentType: "text/html" },
+      kind: "server",
+      retryable: true,
+      includes: ["Cloudflare request failed with HTTP 504"],
+      excludes: ["edge-page-marker", "<html"],
+    },
+  ];
+
+  await clefCase(
+    "DECIDE cloudflare-clef: every error Workers AI answers with is classified",
+    async () => {
+      for (const row of rows) {
+        const outcome = await clefOutcome(row.reply);
+        expectEq(outcome.kind, row.kind, `${row.label}: kind`);
+        expect(
+          outcome.retryable === row.retryable,
+          `${row.label}: retryable is ${row.retryable}`,
+        );
+        expectEq(
+          outcome.status,
+          row.reply.status,
+          `${row.label}: the status is kept`,
+        );
+        for (const text of row.includes ?? []) {
+          expect(
+            outcome.message.includes(text),
+            `${row.label}: the message keeps "${text}" (got: ${outcome.message})`,
+          );
+        }
+        for (const text of row.excludes ?? []) {
+          expect(
+            !outcome.message.includes(text),
+            `${row.label}: the message drops "${text}"`,
+          );
+        }
+        if (row.requestId) {
+          expectEq(
+            outcome.requestId,
+            row.requestId,
+            `${row.label}: request id`,
+          );
+        }
+        const attempts = row.retryable
+          ? outcome.calls > 1
+          : outcome.calls === 1;
+        expect(
+          attempts,
+          `${row.label}: ${row.retryable ? "retried" : "sent once"} (${outcome.calls} calls)`,
+        );
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a rejected token disables the instance",
+    async () => {
+      await withMocks(
+        [
+          clefRoute({
+            status: 401,
+            json: CLEF_ERRORS.authentication,
+            headers: edgeHeaders,
+          }),
+        ],
+        async ({ calls }) => {
+          const provider = await createClef();
+          const first = await captureClefFailure(async () =>
+            clefDecideOne(provider),
+          );
+          expectEq(first.kind, "authentication", "the 401 is classified");
+          expectEq(calls.length, 1, "one request reached the network");
+          const second = await captureClefFailure(async () =>
+            clefDecideOne(provider),
+          );
+          expectEq(second.kind, "authentication", "the next call is refused");
+          expectEq(calls.length, 1, "without sending anything");
+        },
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a 403 does not disable the instance, so a fixed permission works at once",
+    async () => {
+      let status = 403;
+      await withMocks(
+        [
+          clefRoute(() =>
+            status === 403
+              ? {
+                  status: 403,
+                  json: CLEF_ERRORS.authentication,
+                  headers: edgeHeaders,
+                }
+              : { status: 200, json: clefLiveBody(), headers: modelHeaders },
+          ),
+        ],
+        async ({ calls }) => {
+          const provider = await createClef();
+          const first = await captureClefFailure(async () =>
+            clefDecideOne(provider),
+          );
+          expectEq(first.kind, "invalid_request", "the 403 is not latching");
+          expectEq(calls.length, 1, "sent once, not retried");
+          // The permission is granted in the dashboard; nothing is rebuilt.
+          status = 200;
+          const second = await clefDecideOne(provider);
+          expectEq(
+            second.provider,
+            CLEF_SPEC.provider,
+            "the same instance works",
+          );
+          expectEq(calls.length, 2, "and reaches the network again");
+        },
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a hostile error body is parsed in bounded time",
+    async () => {
+      const spaces = " ".repeat(200_000);
+      const startedAt = Date.now();
+      const outcome = await clefOutcome({
+        status: 400,
+        json: clefEnvelope(5012, `AiError: bad input${spaces}(not-a-uuid)`),
+      });
+      const elapsed = Date.now() - startedAt;
+      expectEq(outcome.kind, "invalid_request", "still classified");
+      expect(
+        elapsed < 2_000,
+        `a 200,000-space message did not hold the event loop (${elapsed} ms)`,
+      );
+      expect(
+        outcome.message.length <= 500,
+        `the message is capped (${outcome.message.length} chars)`,
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: an error that echoes the token is redacted",
+    async () => {
+      const echoed = clefEnvelope(
+        5012,
+        `AiError: bad credential ${CLEF_SPEC.key} supplied`,
+      );
+      const outcome = await clefOutcome({ status: 400, json: echoed });
+      expect(
+        !outcome.message.includes(CLEF_SPEC.key),
+        "the configured token does not reach the message",
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a 429 with no Retry-After is retried after the default backoff",
+    async () => {
+      const stamps: number[] = [];
+      const replies: ClefReply[] = [
+        { status: 429, json: CLEF_ERRORS.capacity, headers: modelHeaders },
+        { status: 200, json: clefLiveBody(), headers: modelHeaders },
+      ];
+      await withMocks(
+        [
+          clefRoute(() => {
+            stamps.push(Date.now());
+            return replies[Math.min(stamps.length - 1, replies.length - 1)];
+          }),
+        ],
+        async ({ calls }) => {
+          const outcome = await captureClefFailure(async () =>
+            clefDecideOne(await createClef()),
+          );
+          expect(!outcome.threw, "the retry succeeded");
+          expectEq(calls.length, 2, "exactly one retry");
+          expect(
+            stamps.length === 2 && stamps[1] - stamps[0] >= 240,
+            `the retry waited the default backoff (${stamps[1] - stamps[0]} ms)`,
+          );
+          expect(
+            calls[0].bodyText === calls[1].bodyText,
+            "the retry resends the same body",
+          );
+        },
+      );
+    },
+  );
+}
+
+async function runClefLimits(): Promise<void> {
+  // The endpoint ignores state text past about 2,048 tokens without an error
+  // (hosted service or model: unknown), so a state the estimate puts over the descriptor's
+  // limit is refused before anything is sent.
+  const refusedLocally = async (request: Partial<DecisionRequest>) =>
+    withMocks([clefRoute()], async ({ calls }) => {
+      const failure = await captureClefFailure(async () =>
+        clefDecideOne(await createClef(), request),
+      );
+      return { failure, calls: calls.length };
+    });
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a state over the window is refused before it is sent",
+    async () => {
+      // 8,000 letters estimate at 2,100 tokens, well clear of the limit, so the
+      // case does not hinge on the global 5% safety margin of the estimate.
+      const over = await refusedLocally({ state: "a".repeat(8_000) });
+      expectEq(over.failure.kind, "max_tokens_exceeded", "refused");
+      expect(
+        over.failure.message.includes("reads at most 1500"),
+        `the message gives the limit (got: ${over.failure.message})`,
+      );
+      expectEq(over.calls, 0, "nothing was sent");
+      const under = await refusedLocally({ state: "a".repeat(5_000) });
+      expect(!under.failure.threw, "a state inside the window is sent");
+      expectEq(under.calls, 1, "and reaches the network");
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: digits are charged a token each, because the tokenizer reads them one by one",
+    async () => {
+      // The same length: letters are cheap, digits are not.
+      const letters = await refusedLocally({ state: "a".repeat(1_600) });
+      expect(!letters.failure.threw, "1,600 letters are inside the window");
+      const digits = await refusedLocally({ state: "7".repeat(1_600) });
+      expectEq(
+        digits.failure.kind,
+        "max_tokens_exceeded",
+        "1,600 digits are not",
+      );
+      expectEq(digits.calls, 0, "refused before it was sent");
+      const fewer = await refusedLocally({ state: "7".repeat(1_400) });
+      expect(!fewer.failure.threw, "1,400 digits still fit");
+      const object = await refusedLocally({
+        state: { amounts: Array.from({ length: 400 }, (_, i) => 1000 + i) },
+      });
+      expectEq(
+        object.failure.kind,
+        "max_tokens_exceeded",
+        "a number-heavy object is counted the same way",
+      );
+    },
+  );
+
+  // Measured on 2026-10-03 (probe 5): a JSON array of single digits was cut after
+  // 2,043 characters, one token each, commas included; four-digit numbers
+  // separated by spaces after 2,039. A digit rate alone let such an array through
+  // to about 2,370 characters, 15% past the cut.
+  await clefCase(
+    "DECIDE cloudflare-clef: punctuation is charged too, so a JSON array of digits is not let through",
+    async () => {
+      const array = (n: number) =>
+        `[${Array.from({ length: n }, (_, i) => String(i % 10)).join(",")}]`;
+      const over = await refusedLocally({ state: array(1_000) });
+      expectEq(
+        over.failure.kind,
+        "max_tokens_exceeded",
+        "1,000 digits (2,001 characters, at the model's cut) are refused",
+      );
+      expectEq(over.calls, 0, "refused before it was sent");
+      const fits = await refusedLocally({ state: array(600) });
+      expect(!fits.failure.threw, "600 digits (1,201 characters) still fit");
+      // Pretty-printed JSON was cut at half the records of the compact form.
+      const pretty = JSON.stringify(
+        Array.from({ length: 49 }, (_, i) => ({
+          id: i,
+          name: `item-${i}`,
+          status: i % 3 === 0 ? "ok" : "pending",
+          qty: (i * 13) % 97,
+        })),
+        null,
+        2,
+      );
+      const prettyOutcome = await refusedLocally({ state: pretty });
+      expectEq(
+        prettyOutcome.failure.kind,
+        "max_tokens_exceeded",
+        "49 pretty-printed records, where the model cut, are refused",
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: emoji are charged 3 tokens each, so a state of emoji is not let through",
+    async () => {
+      const emoji = (n: number) =>
+        Array.from({ length: n }, (_, i) =>
+          String.fromCodePoint(0x1f300 + ((i * 37) % 700)),
+        ).join("");
+      // Measured: the model cut after 707 emoji, 2.9 tokens each.
+      const over = await refusedLocally({ state: emoji(707) });
+      expectEq(
+        over.failure.kind,
+        "max_tokens_exceeded",
+        "707 emoji, the model's cut, are refused",
+      );
+      const fits = await refusedLocally({ state: emoji(400) });
+      expect(!fits.failure.threw, "400 emoji still fit");
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: non-ASCII text is charged 1.5 tokens a character",
+    async () => {
+      const fits = await refusedLocally({ state: "漢".repeat(900) });
+      expect(!fits.failure.threw, "900 CJK characters fit");
+      const over = await refusedLocally({ state: "漢".repeat(1_100) });
+      expectEq(over.failure.kind, "max_tokens_exceeded", "1,100 do not");
+      expectEq(over.calls, 0, "refused before it was sent");
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: 64 questions are sent, 65 are refused",
+    async () => {
+      const ok = await refusedLocally({ questions: clefQuestionsOf(64) });
+      expect(!ok.failure.threw, "64 are sent");
+      const over = await refusedLocally({ questions: clefQuestionsOf(65) });
+      expectEq(over.failure.kind, "max_tokens_exceeded", "65 are refused");
+      expect(
+        over.failure.message.includes("at most 64 questions"),
+        "the message gives the cap",
+      );
+      expectEq(over.calls, 0, "nothing was sent");
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a request past 256,000 bytes is refused, base64 image data included",
+    async () => {
+      const png = (extra: number) =>
+        Buffer.concat([syntheticPng(10, 10), Buffer.alloc(extra, 7)]);
+      // The client caps the full encoded body at 256,000 bytes. The live
+      // 195/202 KB PNG boundary is historical (2026-10-03, clef-flash);
+      // the service threshold changed on 2026-10-04 and is not this local cap.
+      const ok = await refusedLocally({ state: "", images: [png(150_000)] });
+      expect(!ok.failure.threw, "a 150 KB image is sent");
+      const over = await refusedLocally({ state: "", images: [png(200_000)] });
+      expectEq(over.failure.kind, "invalid_request", "a 200 KB image is not");
+      expect(
+        over.failure.message.includes("at most 256000"),
+        `the message gives the limit (got: ${over.failure.message})`,
+      );
+      expectEq(over.calls, 0, "nothing was sent");
+    },
+  );
+
+  // The case batching exists for: relevance compaction asks about up to 300
+  // messages, and Clef takes 64. decide() refuses that (above); tryDecide is what
+  // every built-in consumer calls, and splits it.
+  await clefCase(
+    "DECIDE cloudflare-clef: tryDecide splits 150 questions into 64, 64 and 22",
+    async () => {
+      let served = 0;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: CLEF_SPEC.urlMatch,
+            respond: (call) => {
+              served += 1;
+              const ids = Object.keys(clefBodyOf(call).questions ?? {});
+              return {
+                status: 200,
+                headers: { "cf-ai-req-id": `req-${served}` },
+                json: {
+                  result: {
+                    model: "clef",
+                    answers: Object.fromEntries(
+                      ids.map((id) => [id, { type: "noul", noul: 0.5 }]),
+                    ),
+                    usage: { input_tokens: 100, output_tokens: 0 },
+                  },
+                  success: true,
+                  errors: [],
+                  messages: [],
+                },
+              };
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const { NeuroLink } = await import("../dist/index.js");
+          const result = await new NeuroLink().tryDecide({
+            provider: CLEF_SPEC.provider,
+            state: "short",
+            questions: clefQuestionsOf(150),
+          });
+          const sizes = calls
+            .filter((c) => c.method === "POST")
+            .map((c) => Object.keys(clefBodyOf(c).questions ?? {}).length)
+            .sort((a, b) => b - a);
+          expectEq(sizes.join(","), "64,64,22", "three requests, none over 64");
+          expectEq(
+            Object.keys(result?.answers ?? {}).length,
+            150,
+            "every question was answered",
+          );
+          expectEq(result?.usage.inputTokens, 300, "usage is summed");
+          expectEq(
+            (result?.requestId ?? "").split(",").length,
+            3,
+            "every batch's request id is listed",
+          );
+        },
+      );
+    },
+  );
+}
+
+async function runClefCredentials(): Promise<void> {
+  const { provider, keyEnv, accountEnv, baseURLEnvVar, key, account } =
+    CLEF_SPEC;
+  const { NeuroLink, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const decideOnSdk = (nl: InstanceType<typeof NeuroLink>) =>
+    nl.decide({ provider, state: "short", questions: CLEF_ONE_QUESTION });
+
+  await clefCase(
+    "DECIDE cloudflare-clef: SDK credentials beat the environment",
+    async () => {
+      try {
+        setEnv(keyEnv, "test-fake-env-credential");
+        setEnv(accountEnv, "00000000000000000000000000000000");
+        setEnv(baseURLEnvVar, "https://cf.env.example/other");
+        await withMocks([clefRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({
+            credentials: {
+              cloudflareClef: {
+                apiKey: "test-fake-config-credential",
+                accountId: "fedcba98765432100123456789abcdef",
+                baseURL: "https://cf.config.example/gw/v4/",
+              },
+            },
+          });
+          await decideOnSdk(nl);
+          // A NeuroLink instance may also fetch its model config in the
+          // background; only the decision is a POST.
+          const post = calls.find((c) => c.method === "POST");
+          expectEq(
+            post?.url,
+            clefEndpoint(
+              "clef",
+              "https://cf.config.example/gw/v4",
+              "fedcba98765432100123456789abcdef",
+            ),
+            "endpoint from credentials.cloudflareClef",
+          );
+          expectEq(
+            post?.headers.authorization,
+            "Bearer test-fake-config-credential",
+            "token from credentials.cloudflareClef.apiKey",
+          );
+        });
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: CLOUDFLARE_CLEF_BASE_URL replaces the origin, and a trailing slash is dropped",
+    async () => {
+      try {
+        setEnv(baseURLEnvVar, "https://cf.proxy.example/v4/");
+        await withMocks([clefRoute()], async ({ calls }) => {
+          await clefDecideOne(await createClef());
+          expectEq(
+            calls[0].url,
+            clefEndpoint("clef", "https://cf.proxy.example/v4"),
+            "the override carries the route",
+          );
+        });
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a base URL that cannot work is refused and never repeated",
+    async () => {
+      const rows: Array<[string, string]> = [
+        ["userinfo", "https://ops:hunter2-basic@cf.internal.test/proxy"],
+        ["query token", "https://cf.internal.test/proxy?token=hunter2-query"],
+        // Empty to `new URL()`, but the route would still land after the `?`
+        // or the `#`.
+        ["bare question mark", "https://cf.internal.test/proxy?"],
+        ["bare hash", "https://cf.internal.test/proxy#"],
+        ["no scheme", "cf.internal:8080 hunter2-noscheme"],
+        ["file scheme", "file:///tmp/hunter2-file"],
+      ];
+      try {
+        for (const [label, url] of rows) {
+          setEnv(baseURLEnvVar, url);
+          await withMocks([clefRoute()], async ({ calls }) => {
+            const failure = await captureClefFailure(async () =>
+              clefDecideOne(await createClef()),
+            );
+            expectEq(failure.kind, "invalid_request", `${label}: refused`);
+            expectEq(calls.length, 0, `${label}: nothing is sent`);
+            expect(
+              !failure.message.includes("hunter2"),
+              `${label}: the URL's text stays out of the message`,
+            );
+          });
+        }
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: a slice with its own base URL never borrows the shared token",
+    async () => {
+      // CLOUDFLARE_API_KEY also runs the host's Workers AI text provider; it
+      // must not be sent as a bearer token to an endpoint a caller chose.
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const nl = new NeuroLink({
+          credentials: {
+            cloudflareClef: { baseURL: "https://cf.caller-chosen.example/v4" },
+          },
+        });
+        const failure = await captureClefFailure(async () => decideOnSdk(nl));
+        expectEq(failure.kind, "authentication", "refused for want of a token");
+        expect(
+          failure.message.includes("credentials.cloudflareClef.apiKey"),
+          "the message names where to put it",
+        );
+        expectEq(
+          calls.filter((c) => c.method === "POST").length,
+          0,
+          "nothing, and so no token, was sent to that host",
+        );
+      });
+      // With its own token the same slice works, and only that token is sent.
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const nl = new NeuroLink({
+          credentials: {
+            cloudflareClef: {
+              apiKey: "test-fake-own-credential",
+              baseURL: "https://cf.caller-chosen.example/v4",
+            },
+          },
+        });
+        await decideOnSdk(nl);
+        const post = calls.find((c) => c.method === "POST");
+        expectEq(
+          post?.headers.authorization,
+          "Bearer test-fake-own-credential",
+          "only the slice's own token goes out",
+        );
+        expect(
+          post?.url.startsWith(
+            "https://cf.caller-chosen.example/v4/accounts/",
+          ) === true,
+          "to the endpoint it named",
+        );
+      });
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: CLOUDFLARE_CLEF_MODEL names the default model",
+    async () => {
+      // The registry reads the variable once, when providers register, and main()
+      // clears it first, so only the instance's own read of it can be shown here:
+      // a provider built with no model argument and none in the registry default.
+      const { CloudflareClefProvider } =
+        await import("../dist/providers/cloudflareClef.js");
+      try {
+        setEnv("CLOUDFLARE_CLEF_MODEL", "clef-flash");
+        await withMocks([clefRoute()], async ({ calls }) => {
+          await clefDecideOne(new CloudflareClefProvider());
+          expectEq(
+            calls[0].url,
+            clefEndpoint("clef-flash"),
+            "the variable picks the model in the path",
+          );
+          expectEq(clefBodyOf(calls[0]).model, "clef-flash", "and in the body");
+        });
+      } finally {
+        setEnv("CLOUDFLARE_CLEF_MODEL", undefined);
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: credentials.cloudflare does not configure decide",
+    async () => {
+      const textSlice = {
+        cloudflare: { apiKey: "test-fake-text-credential", accountId: account },
+      };
+      try {
+        clearClefEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(textSlice),
+          undefined,
+          "the Workers AI text provider's slice selects nothing",
+        );
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: it needs both the token and the account id to count as configured",
+    async () => {
+      try {
+        clearClefEnv();
+        expectEq(
+          resolveDefaultDecisionProvider({ cloudflareClef: { apiKey: key } }),
+          undefined,
+          "a token alone is not configured",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider({
+            cloudflareClef: { accountId: account },
+          }),
+          undefined,
+          "an account id alone is not configured",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider({
+            cloudflareClef: { apiKey: key, accountId: account },
+          }),
+          provider,
+          "SDK credentials with both make it the default",
+        );
+        setEnv(keyEnv, key);
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "an environment token without an account id is not configured",
+        );
+        setEnv(accountEnv, account);
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "both in the environment make it the default",
+        );
+        setEnv("TYPESAFE_API_KEY", "test-fake-typesafe-credential");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "typesafe",
+          "it comes last: TypeSafe, Laya, XOR and Perplexity all outrank it",
+        );
+        setEnv("TYPESAFE_API_KEY", undefined);
+        setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "perplexity-decider",
+          "and Perplexity outranks it",
+        );
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: SDK credentials alone make it the default for decide()",
+    async () => {
+      try {
+        clearClefEnv();
+        await withMocks([clefRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({
+            credentials: {
+              cloudflareClef: { apiKey: key, accountId: account },
+            },
+          });
+          const result = await nl.decide({
+            state: "short",
+            questions: CLEF_ONE_QUESTION,
+          });
+          expectEq(result.provider, provider, "routed to Clef");
+          const post = calls.find((c) => c.method === "POST");
+          expectEq(post?.url, clefEndpoint(), "to the account's route");
+        });
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+}
+
+async function runClefMediaHints(): Promise<void> {
+  const { PROVIDER_DESCRIPTORS_BY_NAME } =
+    await import("../dist/factories/providerDescriptors.js");
+  const { ProviderFactory } = await import("../dist/index.js");
+  const descriptors = [...PROVIDER_DESCRIPTORS_BY_NAME.values()].filter(
+    (d) => d.inferenceKinds?.includes("decide") && d.decisionLimits?.media,
+  );
+  const coveredVideo = new Set<boolean>();
+  for (const descriptor of descriptors) {
+    const media = descriptor.decisionLimits!.media!;
+    coveredVideo.add(media.video);
+    await clefCase(
+      "DECIDE media limits: request byte hint respects video for " +
+        descriptor.name,
+      async () => {
+        setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
+        setEnv("XOR_API_KEY", "test-fake-xor-credential");
+        setEnv("XOR_BASE_URL", "https://xor.internal.test");
+        const cap = media.maxRequestBytes;
+        try {
+          media.maxRequestBytes = 1_000;
+          await withMocks([clefRoute()], async ({ calls }) => {
+            const provider = await ProviderFactory.createProvider(
+              descriptor.name,
+            );
+            const failure = await captureClefFailure(() =>
+              provider.decide!({
+                state: "short",
+                questions: {
+                  urgent: {
+                    type: "boolean",
+                    instructions: "question ".repeat(300),
+                  },
+                },
+              }),
+            );
+            expectEq(failure.kind, "invalid_request", "request bytes refused");
+            expectEq(
+              failure.message.includes("a shorter video"),
+              media.video,
+              "hint follows media.video",
+            );
+            expect(
+              failure.message.includes("Send fewer or smaller images"),
+              "image hint retained",
+            );
+            expectEq(calls.length, 0, "refused locally");
+          });
+        } finally {
+          media.maxRequestBytes = cap;
+          resetClefEnv();
+        }
+      },
+    );
+  }
+  await clefCase(
+    "DECIDE media limits: byte hints cover video and image-only providers",
+    async () => {
+      expect(coveredVideo.has(true), "loop covered a video provider");
+      expect(coveredVideo.has(false), "loop covered an image-only provider");
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: image/jpg is normalized to image/jpeg",
+    async () => {
+      const jpeg = readFileSync(
+        fileURLToPath(
+          new URL(
+            "./fixtures/decide/perplexity-decider/red.jpg",
+            import.meta.url,
+          ),
+        ),
+      );
+      const url = dataUrl("image/jpg", jpeg);
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const result = await clefDecideOne(await createClef(), {
+          images: [url],
+        });
+        expectEq(
+          clefBodyOf(calls.find((c) => c.method === "POST")).images?.[0],
+          url.replace("image/jpg", "image/jpeg"),
+          "alias normalized without changing payload",
+        );
+        expectEq(
+          result.mediaBytes,
+          Buffer.byteLength(url.replace("image/jpg", "image/jpeg")),
+          "mediaBytes counts the normalized MIME prefix",
+        );
+      });
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: uppercase JPG data URL is normalized to image/jpeg",
+    async () => {
+      const jpeg = readFileSync(
+        fileURLToPath(
+          new URL(
+            "./fixtures/decide/perplexity-decider/red.jpg",
+            import.meta.url,
+          ),
+        ),
+      );
+      const canonical = dataUrl("image/jpeg", jpeg);
+      const uppercase = `DATA:IMAGE/JPG;BASE64,${jpeg.toString("base64")}`;
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const result = await clefDecideOne(await createClef(), {
+          images: [uppercase],
+        });
+        expectEq(
+          clefBodyOf(calls.find((c) => c.method === "POST")).images?.[0],
+          canonical,
+          "uppercase prefix canonicalized without changing payload",
+        );
+        expectEq(
+          result.mediaBytes,
+          Buffer.byteLength(canonical),
+          "uppercase alias bytes match wire data",
+        );
+      });
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: mixed PNG and JPG images report the normalized byte sum",
+    async () => {
+      const jpeg = readFileSync(
+        fileURLToPath(
+          new URL(
+            "./fixtures/decide/perplexity-decider/red.jpg",
+            import.meta.url,
+          ),
+        ),
+      );
+      const png = readFileSync(
+        fileURLToPath(
+          new URL(
+            "./fixtures/decide/perplexity-decider/red.png",
+            import.meta.url,
+          ),
+        ),
+      );
+      const images = [dataUrl("image/png", png), dataUrl("image/jpg", jpeg)];
+      const expected = [images[0], dataUrl("image/jpeg", jpeg)];
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const result = await clefDecideOne(await createClef(), { images });
+        expectEq(
+          JSON.stringify(
+            clefBodyOf(calls.find((c) => c.method === "POST")).images,
+          ),
+          JSON.stringify(expected),
+          "both images retain order and payload",
+        );
+        expectEq(
+          result.mediaBytes,
+          expected.reduce((sum, image) => sum + Buffer.byteLength(image), 0),
+          "mediaBytes sums both canonical images",
+        );
+      });
+    },
+  );
+}
+
+async function runClefHardening(): Promise<void> {
+  const { NeuroLink, resolveDefaultDecisionProvider, logger } =
+    await import("../dist/index.js");
+  const { PROVIDER_DESCRIPTORS_BY_NAME } =
+    await import("../dist/factories/providerDescriptors.js");
+  await clefCase(
+    "DECIDE cloudflare-clef: default timeout is 5000ms",
+    async () => {
+      expectEq(
+        [...PROVIDER_DESCRIPTORS_BY_NAME.values()].find(
+          (d) => d.name === CLEF_SPEC.provider,
+        )?.timeouts?.decideMs,
+        5_000,
+        "default timeout",
+      );
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: Laya and XOR outrank Clef",
+    async () => {
+      try {
+        resetClefEnv();
+        setEnv("LAYA_API_KEY", "test-fake-laya-credential");
+        setEnv("LAYA_BASE_URL", "https://laya.internal.test");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "laya",
+          "Laya outranks Clef",
+        );
+        setEnv("LAYA_API_KEY", undefined);
+        setEnv("LAYA_BASE_URL", undefined);
+        setEnv("XOR_API_KEY", "test-fake-xor-credential");
+        setEnv("XOR_BASE_URL", "https://xor.internal.test");
+        expectEq(resolveDefaultDecisionProvider(), "xor", "XOR outranks Clef");
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: SDK and environment credentials can be mixed",
+    async () => {
+      try {
+        for (const fromSdk of ["key", "account"]) {
+          clearClefEnv();
+          const credentials =
+            fromSdk === "key"
+              ? { apiKey: "test-fake-sdk-clef-credential" }
+              : { accountId: "test-fake-sdk-account" };
+          setEnv(
+            fromSdk === "key" ? CLEF_SPEC.accountEnv : CLEF_SPEC.keyEnv,
+            fromSdk === "key" ? CLEF_SPEC.account : CLEF_SPEC.key,
+          );
+          expectEq(
+            resolveDefaultDecisionProvider({ cloudflareClef: credentials }),
+            CLEF_SPEC.provider,
+            "mixed sources configure Clef",
+          );
+          await withMocks([clefRoute()], async ({ calls }) => {
+            const result = await new NeuroLink({
+              credentials: { cloudflareClef: credentials },
+            }).decide({
+              state: "short",
+              questions: CLEF_ONE_QUESTION,
+            });
+            expectEq(
+              result.provider,
+              CLEF_SPEC.provider,
+              "resolved default provider",
+            );
+            const post = calls.find((c) => c.method === "POST");
+            expectEq(
+              post?.headers.authorization,
+              "Bearer " +
+                (fromSdk === "key" ? credentials.apiKey : CLEF_SPEC.key),
+              "token source",
+            );
+            expectEq(
+              post?.url,
+              clefEndpoint(
+                "clef",
+                CLEF_SPEC.base,
+                fromSdk === "account"
+                  ? credentials.accountId
+                  : CLEF_SPEC.account,
+              ),
+              "account source",
+            );
+          });
+        }
+      } finally {
+        resetClefEnv();
+      }
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: base URL credentials stay out of the debug log",
+    async () => {
+      const priorDebug = console.debug;
+      const priorFlag = process.env.NEUROLINK_DEBUG;
+      const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+      const priorLevel =
+        loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+          ? loadLevel
+          : "info";
+      const lines: string[] = [];
+      try {
+        setEnv("NEUROLINK_DEBUG", "true");
+        logger.setLogLevel("debug");
+        console.debug = (...args: unknown[]) => {
+          lines.push(
+            args
+              .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+              .join(" "),
+          );
+        };
+        for (const base of [
+          "https://ops:hunter2-basic@cf.internal.test/proxy",
+          "https://cf.internal.test/proxy?token=hunter2-query",
+        ]) {
+          lines.length = 0;
+          setEnv(CLEF_SPEC.baseURLEnvVar, base);
+          await createClef();
+          expect(
+            lines.some((l) =>
+              l.includes("Cloudflare Clef decision provider initialized"),
+            ),
+            "construction log observed",
+          );
+          expect(
+            !lines.some((l) => l.includes("hunter2") || l.includes("ops:")),
+            "userinfo and query secrets absent",
+          );
+        }
+      } finally {
+        console.debug = priorDebug;
+        logger.setLogLevel(priorLevel);
+        setEnv("NEUROLINK_DEBUG", priorFlag);
+        resetClefEnv();
+      }
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: uppercase CLEF is lower-cased in path and body",
+    async () => {
+      await withMocks([clefRoute()], async ({ calls }) => {
+        await clefDecideOne(await createClef("CLEF"));
+        const post = calls.find((c) => c.method === "POST");
+        expectEq(post?.url, clefEndpoint(), "lower-case path");
+        expectEq(clefBodyOf(post).model, "clef", "lower-case body");
+      });
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: a GIF Buffer is refused locally",
+    async () => {
+      const gif = Buffer.concat([
+        Buffer.from("GIF89a", "ascii"),
+        Buffer.from([1, 0, 1, 0, 0, 0, 0]),
+      ]);
+      await withMocks([clefRoute()], async ({ calls }) => {
+        const failure = await captureClefFailure(async () =>
+          clefDecideOne(await createClef(), { images: [gif] }),
+        );
+        expectEq(failure.kind, "invalid_request", "GIF refused");
+        expect(
+          failure.message.includes("PNG, JPEG or WebP"),
+          "accepted types named",
+        );
+        expectEq(calls.length, 0, "no network request");
+      });
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: tryDecide preserves answers when one batch fails",
+    async () => {
+      await withMocks(
+        [
+          clefRoute((call) => {
+            const ids = Object.keys(clefBodyOf(call).questions ?? {});
+            return ids.includes("q64")
+              ? { status: 422, json: CLEF_ERRORS.validation }
+              : {
+                  status: 200,
+                  json: {
+                    result: {
+                      model: "clef",
+                      answers: Object.fromEntries(
+                        ids.map((id) => [id, { type: "noul", noul: 0.5 }]),
+                      ),
+                      usage: { input_tokens: 100, output_tokens: 0 },
+                    },
+                    success: true,
+                  },
+                };
+          }),
+        ],
+        async ({ calls }) => {
+          const result = await new NeuroLink().tryDecide({
+            provider: CLEF_SPEC.provider,
+            state: "short",
+            questions: clefQuestionsOf(150),
+          });
+          expectEq(
+            calls.filter((c) => c.method === "POST").length,
+            3,
+            "all batches attempted",
+          );
+          expectEq(
+            Object.keys(result?.answers ?? {}).length,
+            86,
+            "64 plus 22 surviving answers",
+          );
+          expect(
+            result?.answers.q0 !== undefined &&
+              result.answers.q149 !== undefined,
+            "first and last batches retained",
+          );
+          expect(
+            result?.answers.q64 === undefined &&
+              result?.answers.q127 === undefined,
+            "failed batch absent",
+          );
+          expectEq(
+            result?.usage.inputTokens,
+            200,
+            "only successful usage counted",
+          );
+        },
+      );
+    },
+  );
+  await clefCase(
+    "DECIDE cloudflare-clef: a 32-hex id in an error message is redacted",
+    async () => {
+      const outcome = await clefOutcome({
+        status: 400,
+        json: clefEnvelope(5006, "Rejected account " + CLEF_SPEC.account),
+      });
+      expectEq(outcome.kind, "invalid_request", "classification unchanged");
+      expect(!outcome.message.includes(CLEF_SPEC.account), "account id absent");
+      expect(
+        outcome.message.includes("[redacted]"),
+        "redaction marker present",
+      );
+    },
+  );
+}
+
+async function runCloudflareClefDecide(): Promise<void> {
+  // Sections before this one leave their own fake keys behind, and a developer's
+  // .env can hold real ones, Cloudflare's included. Everything is cleared first
+  // and put back after.
+  const prior = CLEF_DECISION_ENV.map((name) => process.env[name]);
+  try {
+    resetClefEnv();
+    await runClefWire();
+    await runClefAnswers();
+    await runClefMedia();
+    await runClefErrors();
+    await runClefLimits();
+    await runClefCredentials();
+    await runClefMediaHints();
+    await runClefHardening();
+  } finally {
+    CLEF_DECISION_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
 async function runDecideSection(): Promise<void> {
-  console.log("\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity) ===");
-  await runTypeSafeDecide();
-  await runLayaDecide();
-  await runXorDecide();
-  await runPerplexityDecide();
+  console.log(
+    "\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef) ===",
+  );
+  // A developer's .env can hold a real Cloudflare token and account id, which
+  // would make Clef the default decision provider in every section above it
+  // that expects none. They are cleared for the whole section and put back
+  // after; the Clef section sets what it needs itself.
+  const cloudflareEnv = [
+    "CLOUDFLARE_API_KEY",
+    "CLOUDFLARE_ACCOUNT_ID",
+    "CLOUDFLARE_CLEF_BASE_URL",
+    "CLOUDFLARE_CLEF_MODEL",
+  ];
+  const ambient = cloudflareEnv.map((name) => process.env[name]);
+  try {
+    cloudflareEnv.forEach((name) => setEnv(name, undefined));
+    await runTypeSafeDecide();
+    await runLayaDecide();
+    await runXorDecide();
+    await runPerplexityDecide();
+    await runCloudflareClefDecide();
+  } finally {
+    cloudflareEnv.forEach((name, i) => setEnv(name, ambient[i]));
+  }
 }
 
 async function runImageGenSection(): Promise<void> {
@@ -11336,6 +13324,7 @@ async function main(): Promise<void> {
   setEnv("PERPLEXITY_API_KEY", undefined);
   setEnv("PERPLEXITY_DECIDER_BASE_URL", undefined);
   setEnv("PERPLEXITY_DECIDER_MODEL", undefined);
+  setEnv("CLOUDFLARE_CLEF_MODEL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

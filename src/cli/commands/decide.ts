@@ -233,7 +233,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         array: true,
         nargs: 1,
         describe:
-          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR and Perplexity take up to 8)",
+          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR and Perplexity take up to 8, Cloudflare Clef up to 4)",
       })
       .option("video", {
         type: "string",
@@ -268,7 +268,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       )
       .example(
         '$0 decide "What color is this?" --provider xor --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
-        "Ask about an image (XOR and Perplexity read images)",
+        "Ask about an image (XOR, Perplexity and Cloudflare Clef read images)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {

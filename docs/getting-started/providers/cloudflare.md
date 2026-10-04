@@ -98,7 +98,27 @@ pnpm run cli generate "..." --provider cloudflare
 
 ---
 
+## Also configures decisions
+
+`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` also configure a separate
+provider, the [Cloudflare Clef provider](cloudflare-clef.md) (`cloudflare-clef`),
+which serves `decide()` and emits no text. It is the last decision provider
+NeuroLink falls back to: built-in features that call `decide()` use the first one
+configured, in the order TypeSafe, Laya, XOR, Perplexity, then Clef. So a host
+that set these two variables only for this text provider, and has no other
+decision provider configured, has Clef as its default decision provider, and no
+switch turns that off while they are set.
+
+`credentials.cloudflare` does **not** configure `decide`; Clef reads its own
+slice, `credentials.cloudflareClef`. The text provider itself is unchanged: it
+still serves `generate()` and `stream()` with the same variables, models and base
+URL. See
+[One token, two providers](cloudflare-clef.md#one-token-two-providers).
+
+---
+
 ## See Also
 
+- [Cloudflare Clef Provider](cloudflare-clef.md) — typed `decide()` judgments on the same token and account id
 - [Together AI Provider](/docs/getting-started/providers/together-ai)
 - [Fireworks Provider](/docs/getting-started/providers/fireworks)

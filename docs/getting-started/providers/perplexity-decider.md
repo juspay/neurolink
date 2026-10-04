@@ -7,9 +7,9 @@ keywords: perplexity, perplexity-decider, pplx-decider-v1-27b, decide, decision 
 # Perplexity Decisions Provider Guide
 
 **A provider of `decide`** — the same typed `boolean` / `choice` / `score`
-answers as [TypeSafe's Jev](typesafe.md), [Laya](laya.md) and [XOR](xor.md),
-from Perplexity's hosted Decisions API, and it also reads images. It emits no
-text at all.
+answers as [TypeSafe's Jev](typesafe.md), [Laya](laya.md), [XOR](xor.md) and
+[Cloudflare Clef](cloudflare-clef.md), from Perplexity's hosted Decisions API,
+and it also reads images. It emits no text at all.
 
 > This is not the [Perplexity text provider](perplexity.md) (`perplexity`, the
 > Sonar models), which serves `generate()` and `stream()`. The two share one API
@@ -174,9 +174,10 @@ reports.
 ## Images
 
 Perplexity reads images alongside the `state`. TypeSafe and Laya do not read
-media. XOR reads images and a video; Perplexity reads images only. In the probe
-the model did read an image: asked red versus blue about one, it answered
-correctly at about 0.98 confidence.
+media. XOR reads images and a video; Perplexity reads images only, and so does
+[Cloudflare Clef](cloudflare-clef.md), up to 4 of them. In the probe of
+Perplexity's model it did read an image: asked red versus blue about one, it
+answered correctly at about 0.98 confidence.
 
 ```typescript
 import { readFile } from "node:fs/promises";
@@ -286,23 +287,28 @@ length (…)` above when images are in the request, and NeuroLink reports both a
 
 Every built-in consumer of `decide` asks for the default decision provider. That
 is the first one that is configured, in the environment or in the `credentials`
-passed to the SDK, in the order TypeSafe, Laya, XOR, Perplexity. TypeSafe counts
+passed to the SDK, in the order TypeSafe, Laya, XOR, Perplexity, then
+[Cloudflare Clef](cloudflare-clef.md). TypeSafe counts
 with either of its keys, `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR
 each count only with both their key and their base URL. Perplexity counts with
 its key alone, a non-blank `PERPLEXITY_API_KEY` or
-`credentials.perplexityDecider.apiKey`. A caller can always name it with
-`provider: "perplexity-decider"`. So:
+`credentials.perplexityDecider.apiKey`. Cloudflare Clef counts only with both
+`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`. A caller can always name
+Perplexity with `provider: "perplexity-decider"`. So:
 
 - **Only a Perplexity key:** built-in features use Perplexity.
 - **A Perplexity key, plus TypeSafe's key, or Laya's or XOR's key and base
   URL:** built-in features use TypeSafe, Laya or XOR, in that order, whichever
   is configured. Perplexity runs only where a caller asks for
   `provider: "perplexity-decider"`.
+- **A Perplexity key, plus `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`:**
+  built-in features use Perplexity; Cloudflare Clef runs only where a caller
+  asks for `provider: "cloudflare-clef"`.
 - **A key for the text provider only:** the same as the first case. The key is
   shared, so the text provider's key also configures this one. See
   [One key, two providers](#one-key-two-providers).
-- **None of TypeSafe, Laya, XOR or Perplexity configured:** everything behaves
-  exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef configured:**
+  everything behaves exactly as it did without a decision model.
 
 The classifier router's `auto` gate reads the credentials given to the
 `NeuroLink` constructor and the environment, not credentials passed on a single
@@ -751,5 +757,6 @@ to its scheme, host and path.
 - [TypeSafe (Jev) Provider Guide](typesafe.md)
 - [Laya Provider Guide](laya.md)
 - [XOR Provider Guide](xor.md)
+- [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [Perplexity text provider](perplexity.md)
 - [Perplexity Decisions API reference](https://docs.perplexity.ai/api-reference/decisions-post)
