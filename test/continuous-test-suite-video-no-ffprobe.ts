@@ -21,6 +21,14 @@
  * needs no ffprobe, so it separates "the environment is broken" from "the
  * AVI cannot be read".
  *
+ * Two further cases cover ffmpeg's metadata read when it exits non-zero. One
+ * retags an AVI's codec so ffmpeg opens the container, prints its input report
+ * and then fails to decode: the report must still be used. The other feeds it
+ * a file it cannot open at all: the no-metadata warning must keep ffmpeg's own
+ * reason. Both assert on the CLI's output, and the first has a hard
+ * precondition (the retagged stream must make this ffmpeg exit non-zero), so a
+ * build that behaves differently fails the suite instead of skipping it.
+ *
  * Frames go to a local OpenAI-wire stand-in, so no credentials are involved.
  * Frame extraction needs ffmpeg, so this suite skips without it.
  *
@@ -36,7 +44,9 @@ import {
   constants,
   existsSync,
   mkdirSync,
+  readFileSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import * as path from "node:path";
 import {
@@ -115,7 +125,7 @@ async function framesReachingTheModel(
   clip: string,
   toolPath: string,
   ffmpeg: string,
-): Promise<{ extracted: number | null; imageParts: number }> {
+): Promise<{ extracted: number | null; imageParts: number; output: string }> {
   const standIn = await startChatStandIn();
   try {
     const res = await runCLI(
@@ -157,6 +167,7 @@ async function framesReachingTheModel(
     return {
       extracted: extractedFrameCount(`${res.stdout}${res.stderr}`),
       imageParts: standIn.imagePartCount(),
+      output: `${res.stdout}${res.stderr}`,
     };
   } finally {
     await standIn.close();
@@ -205,6 +216,91 @@ await test("an MP4 yields keyframes in the same ffmpeg-only environment", async 
   assert(
     imageParts === 2,
     `both frames must reach the model (got ${imageParts})`,
+  );
+});
+
+await test("an AVI that ffmpeg opens but cannot decode still has its metadata read from ffmpeg's report", async () => {
+  const { toolPath, ffmpeg } = await ffmpegOnlyPath();
+  const dir = tempDir("neurolink-avi-undecodable-");
+  const clip = await makeVideoFile(dir, "clip.avi", 4, [
+    "-c:v",
+    "mpeg4",
+    "-c:a",
+    "pcm_s16le",
+  ]);
+  // Rewrite the video stream's codec tag (the `vids` stream header's handler
+  // and the format chunk's compression field, both "FMP4") to one no decoder
+  // claims. The container still opens and still prints its full input report
+  // with the duration, but ffmpeg then exits non-zero because the stream
+  // cannot be decoded. Nothing in the clip is truncated or damaged otherwise.
+  const bytes = readFileSync(clip);
+  const handler = bytes.indexOf("vids") + 4;
+  const compression = bytes.indexOf("FMP4", handler + 4);
+  assert(
+    handler >= 4 && compression > handler,
+    "the fixture did not carry the codec tags this case rewrites",
+  );
+  bytes.write("ZZZZ", handler, "latin1");
+  bytes.write("ZZZZ", compression, "latin1");
+  writeFileSync(clip, bytes);
+
+  let reportedInputOnFailure = false;
+  try {
+    execFileSync(
+      ffmpeg,
+      ["-hide_banner", "-i", clip, "-t", "0", "-f", "null", "-"],
+      { stdio: "pipe" },
+    );
+  } catch (error) {
+    const failure = error as { status?: number; stderr?: Buffer };
+    reportedInputOnFailure = Boolean(
+      failure.status && failure.stderr?.toString().includes("Duration:"),
+    );
+  }
+  assert(
+    reportedInputOnFailure,
+    "the fixture did not produce an input report on a failing probe",
+  );
+  const { output, extracted } = await framesReachingTheModel(
+    clip,
+    toolPath,
+    ffmpeg,
+  );
+  assert(extracted !== null, "the CLI never processed the video fixture");
+
+  // The metadata read is the thing under test, not the frames: no decoder
+  // exists for this stream, so no frame can be extracted either way. What is
+  // observable is whether the warning that nothing at all could be read
+  // fires. It fires when the report on a failed exit is thrown away.
+  assert(
+    !/No metadata could be read/.test(output),
+    "ffmpeg's input report was discarded because the probe exited non-zero",
+  );
+});
+
+await test("a file ffmpeg cannot read at all keeps ffmpeg's own reason in the no-metadata warning", async () => {
+  const { toolPath, ffmpeg } = await ffmpegOnlyPath();
+  const clip = path.join(
+    tempDir("neurolink-unreadable-video-"),
+    "not-a-video.mp4",
+  );
+  writeFileSync(clip, Buffer.alloc(64 * 1024, 0x42));
+  const { output, extracted } = await framesReachingTheModel(
+    clip,
+    toolPath,
+    ffmpeg,
+  );
+  assert(extracted !== null, "the CLI never processed the unreadable fixture");
+  assert(
+    /No metadata could be read/.test(output),
+    "the no-metadata warning did not appear for an unreadable file",
+  );
+  // ffmpeg exits non-zero and prints output but no duration. Handing that
+  // output back on the error (so a valid report can be recovered) must not
+  // cost the warning the reason the probe failed.
+  assert(
+    /ffmpeg reported no duration: \S/.test(output),
+    "the warning dropped ffmpeg's reason for failing",
   );
 });
 

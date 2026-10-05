@@ -42,6 +42,20 @@ export function resolveCredentialKey(providerName: string): string {
 }
 
 /**
+ * registerProvider() takes a class as well as a factory (ProviderConstructor),
+ * and calling a class without `new` throws. A prototype test cannot tell them
+ * apart, because every non-arrow function's prototype points back at itself,
+ * so the source text decides. A factory is therefore never constructed and
+ * never retried after it throws.
+ */
+function isClassConstructor(candidate: unknown): boolean {
+  return (
+    typeof candidate === "function" &&
+    /^class[\s{]/.test(Function.prototype.toString.call(candidate))
+  );
+}
+
+/**
  * True Factory Pattern implementation for AI Providers
  * Uses registration-based approach to eliminate switch statements
  * and enable dynamic provider registration
@@ -168,15 +182,31 @@ export class ProviderFactory {
         );
       }
 
-      const factoryResult = (
-        registration.constructor as (
-          modelName?: string,
-          providerName?: string,
-          sdk?: NeuroLink,
-          region?: string,
-          credentials?: Record<string, unknown>,
-        ) => Promise<AIProvider> | AIProvider
-      )(model, resolvedProviderName, sdk, region, scopedCredentials);
+      // A factory keeps being called as a method of the registration, as it
+      // always was; only a class is constructed.
+      const factoryResult = isClassConstructor(registration.constructor)
+        ? new (registration.constructor as new (
+            modelName?: string,
+            providerName?: string,
+            sdk?: NeuroLink,
+            region?: string,
+            credentials?: Record<string, unknown>,
+          ) => AIProvider)(
+            model,
+            resolvedProviderName,
+            sdk,
+            region,
+            scopedCredentials,
+          )
+        : (
+            registration.constructor as (
+              modelName?: string,
+              providerName?: string,
+              sdk?: NeuroLink,
+              region?: string,
+              credentials?: Record<string, unknown>,
+            ) => Promise<AIProvider> | AIProvider
+          )(model, resolvedProviderName, sdk, region, scopedCredentials);
 
       const result =
         factoryResult instanceof Promise ? await factoryResult : factoryResult;

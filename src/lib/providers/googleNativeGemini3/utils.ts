@@ -520,6 +520,15 @@ export function buildDedupedEngineTools(
   return engineTools;
 }
 
+/**
+ * Mid-turn tool sync for the native Gemini loops that build their snapshot
+ * via buildNativeToolDeclarations. `search_tools` (tools.discovery) hydrates
+ * discovered tools into the live record between steps; without this refresh
+ * they stay invisible to the rest of the turn and every call dies as
+ * TOOL_NOT_FOUND. Mutates the snapshot in place — the request config holds
+ * `toolsConfig` by reference — and returns the original names of the tools it
+ * added (empty when nothing was added).
+ */
 export function refreshNativeToolDeclarations(
   liveTools: Record<string, Tool> | undefined,
   current: NativeToolDeclarationsResult,

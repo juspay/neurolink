@@ -16,15 +16,7 @@ import { raceWithAbort, withTimeout } from "../utils/async/index.js";
 import type { Tool, ToolExecutionGuards } from "../types/index.js";
 
 /**
- * Mid-turn tool sync for the native Gemini loops that build their snapshot
- * via buildNativeToolDeclarations. `search_tools` (tools.discovery) hydrates
- * discovered tools into the live record between steps; without this refresh
- * they stay invisible to the rest of the turn and every call dies as
- * TOOL_NOT_FOUND. Mutates the snapshot in place — the request config holds
- * `toolsConfig` by reference — and returns true when anything was added.
- */
-/**
- * Everything a native Gemini loop wraps around a tool call that the shared
+ * Everything a native provider loop wraps around a tool call that the shared
  * engine does not do itself.
  *
  * Order matters. `raceWithAbort` sits INSIDE `withTimeout` so a turn-level

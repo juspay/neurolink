@@ -28,7 +28,11 @@
  * behaviours worth pinning — refusing to write for an absent CLI, refusing to
  * restore without a snapshot — are precisely the ones a live `proxy start`
  * never exercises. `Analyze: exact rates…` and `Analyze: prefix-priced…` are
- * the exception: they drive the built CLI end to end.
+ * the exception: they drive the built CLI end to end. `Copilot only counts a
+ * profile line that really sources its script` buys the same thing for shell
+ * profiles: it writes arbitrary profile texts under a throwaway HOME (a
+ * commented-out line, an `echo`, a `.bak` name), which `proxy start` cannot be
+ * pointed at.
  *
  * `Attribution: every configured client…` takes the exception too. It also
  * imports `getMappedClientNames` from `src/lib/proxy/clientAttribution.ts`, and
@@ -5732,6 +5736,117 @@ async function testCopilotReportsWhenItsScriptIsNotSourced(): Promise<boolean> {
       delete process.env.XDG_CONFIG_HOME;
     } else {
       process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * `isEnvScriptSourced()` decides whether the "add this line to your profile"
+ * note is printed. It used to count any profile that merely contained the
+ * script's file name, so a commented-out line, an `echo`, a `[ -f ... ]` test
+ * with no source, or `copilot-env.sh.bak` suppressed the note while Copilot
+ * got no proxy environment. This pins what does and does not count. The scan
+ * is line-based: heredocs, multi-line strings and line continuations are not
+ * modelled (a source line inside one is still counted), and `eval` and fish
+ * syntax are missed. Run under this file's determinism exception, like its
+ * siblings.
+ */
+async function testCopilotOnlyCountsAProfileThatSourcesItsScript(): Promise<boolean> {
+  const { __copilotTestHooks } =
+    await import("../src/cli/proxy-clients/copilot.js");
+  const guarded =
+    "[ -f ~/.neurolink/copilot-env.sh ] && . ~/.neurolink/copilot-env.sh\n";
+  const cases: Array<{
+    files: Record<string, string>;
+    expected: boolean;
+  }> = [
+    // 0-5: mentions that are not a source command
+    {
+      files: { ".zshrc": "# . ~/.neurolink/copilot-env.sh\n" },
+      expected: false,
+    },
+    {
+      files: { ".zshrc": "[ -f ~/.neurolink/copilot-env.sh ]\n" },
+      expected: false,
+    },
+    {
+      files: { ".zshrc": "echo ready # source ~/.neurolink/copilot-env.sh\n" },
+      expected: false,
+    },
+    {
+      files: { ".zshrc": "echo source ~/.neurolink/copilot-env.sh\n" },
+      expected: false,
+    },
+    {
+      files: { ".zshrc": ". ~/.neurolink/copilot-env.sh.bak\n" },
+      expected: false,
+    },
+    {
+      files: { ".zshrc": 'echo "x; . ~/.neurolink/copilot-env.sh"\n' },
+      expected: false,
+    },
+    // 6-10: real source commands
+    { files: { ".zshrc": guarded }, expected: true },
+    {
+      files: { ".zshrc": 'source "$HOME/.neurolink/copilot-env.sh"\n' },
+      expected: true,
+    },
+    {
+      files: {
+        ".zshrc":
+          "if [ -f ~/.neurolink/copilot-env.sh ]; then . ~/.neurolink/copilot-env.sh; fi\n",
+      },
+      expected: true,
+    },
+    {
+      files: { ".zshrc": "  export X=1; . ~/.neurolink/copilot-env.sh\n" },
+      expected: true,
+    },
+    // a comment in one profile must not stop the scan of the next
+    {
+      files: {
+        ".zshrc": "# . ~/.neurolink/copilot-env.sh\n",
+        ".bashrc": guarded,
+      },
+      expected: true,
+    },
+    // 11: no profile at all
+    { files: {}, expected: false },
+  ];
+  const profiles = [
+    ".zshrc",
+    ".zprofile",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
+  ];
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cop-source-"));
+  try {
+    process.env.HOME = root;
+    for (const [index, { files, expected }] of cases.entries()) {
+      for (const name of profiles) {
+        fs.rmSync(path.join(root, name), { force: true });
+      }
+      for (const [name, text] of Object.entries(files)) {
+        fs.writeFileSync(path.join(root, name), text);
+      }
+      const got = await __copilotTestHooks.isEnvScriptSourced();
+      if (got !== expected) {
+        log(
+          `Copilot source detection was wrong for profile case ${index}`,
+          "red",
+        );
+        return false;
+      }
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
     }
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -15531,6 +15646,11 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Copilot reports when its script is not sourced",
     fn: testCopilotReportsWhenItsScriptIsNotSourced,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Copilot only counts a profile line that really sources its script",
+    fn: testCopilotOnlyCountsAProfileThatSourcesItsScript,
     category: "proxy-config",
   },
   {

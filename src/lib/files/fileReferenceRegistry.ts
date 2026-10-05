@@ -1087,7 +1087,7 @@ export class FileReferenceRegistry {
           extractedText = await this.extractWordText(buffer, ref);
           break;
         case "pptx":
-          extractedText = await this.extractPptxText(buffer);
+          extractedText = await this.extractPptxText(buffer, ref.filename);
           break;
         case "video":
           extractedText = await this.extractVideoContent(buffer, ref);
@@ -1276,14 +1276,17 @@ export class FileReferenceRegistry {
   /**
    * Extract text from a PowerPoint file using PptxProcessor.
    */
-  private async extractPptxText(buffer: Buffer): Promise<string | null> {
+  private async extractPptxText(
+    buffer: Buffer,
+    filename: string,
+  ): Promise<string | null> {
     try {
       const { PptxProcessor } =
         await import("../processors/document/PptxProcessor.js");
       return await PptxProcessor.extractText(buffer);
     } catch (err) {
       logger.warn(
-        `[FileReferenceRegistry] PPTX extraction failed: ${err instanceof Error ? err.message : String(err)}`,
+        `[FileReferenceRegistry] PPTX extraction failed for "${filename}": ${err instanceof Error ? err.message : String(err)}`,
       );
       return null;
     }

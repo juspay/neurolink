@@ -27,7 +27,10 @@ import type {
   SetupArgs,
   SetupProviderInfo,
 } from "../../lib/types/index.js";
-import type { AIProviderName } from "../../lib/constants/enums.js";
+import {
+  type AIProviderName,
+  OpenRouterModels,
+} from "../../lib/constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "../../lib/factories/providerDescriptors.js";
 import {
   createCohereConfig,
@@ -715,15 +718,19 @@ async function handleOpenRouterSetup(): Promise<void> {
   logger.always(chalk.yellow("Step 3: Test the configuration"));
   logger.always(
     chalk.cyan(
-      '  neurolink generate "Hello!" --provider openrouter --model google/gemini-2.0-flash-exp:free',
+      `  neurolink generate "Hello!" --provider openrouter --model ${OpenRouterModels.GEMINI_2_5_FLASH}`,
     ),
   );
   logger.always("");
   logger.always(chalk.green("Available models include:"));
-  logger.always("  • anthropic/claude-3.5-sonnet - Best for analysis");
-  logger.always("  • openai/gpt-4o - Industry standard");
-  logger.always("  • google/gemini-2.0-flash-exp:free - Free tier");
-  logger.always("  • meta-llama/llama-3.1-70b-instruct - Open source");
+  logger.always(
+    `  • ${OpenRouterModels.CLAUDE_SONNET_4_6} - Best for analysis`,
+  );
+  logger.always(`  • ${OpenRouterModels.GPT_4O} - Industry standard`);
+  logger.always(
+    `  • ${OpenRouterModels.GEMINI_2_5_FLASH} - Fast and efficient`,
+  );
+  logger.always(`  • ${OpenRouterModels.LLAMA_3_1_70B} - Open source`);
   logger.always("");
   logger.always(chalk.gray("See all models at: https://openrouter.ai/models"));
 }

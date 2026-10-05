@@ -137,6 +137,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "claude-fable-5-1": 1_000_000,
     // Claude 5 (mid 2026) — 1M context window
     "claude-sonnet-5": 1_000_000,
+    "claude-opus-5": 1_000_000,
+    "claude-fable-5": 1_000_000,
+    // Claude 4.7 / 4.8 — 1M context window (platform.claude.com/docs/en/models)
+    "claude-opus-4-8": 1_000_000,
+    "claude-opus-4-7": 1_000_000,
     // Claude 4.6 (Feb 2026) — 1M context window
     "claude-opus-4-6": 1_000_000,
     "claude-sonnet-4-6": 1_000_000,
@@ -235,6 +240,13 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "claude-sonnet-5-5": 1_000_000,
     "claude-fable-5-1": 1_000_000,
     "claude-sonnet-5": 1_000_000,
+    // Placed before the 200K `claude-opus-4` prefix key below: the lookup takes
+    // the first prefix that matches, so a dated `claude-opus-4-8@...` id would
+    // otherwise land on 200K.
+    "claude-opus-5": 1_000_000,
+    "claude-fable-5": 1_000_000,
+    "claude-opus-4-8": 1_000_000,
+    "claude-opus-4-7": 1_000_000,
     "claude-opus-4-6": 1_000_000,
     "claude-sonnet-4-6": 1_000_000,
     "claude-sonnet-4-5": 200_000,

@@ -191,7 +191,9 @@ export async function getFfmpegPath(): Promise<string> {
  * @param args - FFmpeg CLI arguments (without the binary path)
  * @param options - Timeout and buffer size overrides
  * @returns stdout and stderr from the process
- * @throws Error if the process exits with a non-zero code or times out
+ * @throws Error if the process exits with a non-zero code or times out. When
+ *   the process wrote any output the error also carries it as `stdout` and
+ *   `stderr`.
  */
 export async function runFfmpeg(
   args: string[],
@@ -218,7 +220,18 @@ export async function runFfmpeg(
       { timeout: timeoutMs, maxBuffer },
       (error, stdout, stderr) => {
         if (error) {
-          reject(error);
+          // execFile's callback error carries no output, but ffmpeg prints a
+          // stream's input report before it exits non-zero on a stream it
+          // cannot decode, and a metadata probe needs that report. A spawn
+          // failure printed nothing and keeps the bare error.
+          reject(
+            stdout || stderr
+              ? Object.assign(error, {
+                  stdout: stdout || "",
+                  stderr: stderr || "",
+                })
+              : error,
+          );
         } else {
           resolve({ stdout: stdout || "", stderr: stderr || "" });
         }

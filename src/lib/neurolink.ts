@@ -11682,15 +11682,28 @@ Current user's request: ${currentInput}`;
         yield fallbackChunk;
       }
 
+      // Read after the drain: a background-loop provider (native Vertex+Claude)
+      // fills these while the stream is consumed, so the values taken before
+      // the loop are still empty for it. Without this, a fallback that ran
+      // tools reports none on the result and in the end-of-turn events, and
+      // the 0-output gate below counts tool calls that had not appeared yet.
+      const finalToolCalls = fallbackResult.toolCalls ?? [];
+      const finalToolResults = fallbackResult.toolResults ?? [];
+
       if (
         fallbackRealOutputChunks === 0 &&
-        fallbackToolCalls.length === 0 &&
-        fallbackToolResults.length === 0
+        finalToolCalls.length === 0 &&
+        finalToolResults.length === 0
       ) {
         throw new Error(
           `Fallback provider ${fallbackRoute.provider} also returned 0 real output chunks (chunkCount=${fallbackChunkCount}, sentinel-only or empty)`,
         );
       }
+
+      streamState.toolCalls = finalToolCalls;
+      streamState.toolResults = finalToolResults;
+      streamState.finishReason =
+        fallbackResult.finishReason ?? streamState.finishReason;
 
       // Fallback succeeded - likely guardrails blocked primary
       metadata.fallbackProvider = fallbackRoute.provider;

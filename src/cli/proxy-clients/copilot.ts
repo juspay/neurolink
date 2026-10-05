@@ -54,12 +54,76 @@ function getProfileCandidates(): string[] {
   );
 }
 
+/** A command that is `source`/`.` of a path ending in exactly `copilot-env.sh`, optionally after `then`/`else`/`do`. */
+const ENV_SCRIPT_SOURCE_COMMAND =
+  /^\s*(?:(?:then|else|do)\s+)?(?:source|\.)\s+(["']?)(?:[^\s"']*\/)?copilot-env\.sh\1(?:\s|$)/;
+
+/**
+ * One profile line as the commands it runs, comment dropped. Quote-aware, so a
+ * `;` or `#` inside quotes neither splits nor starts a comment. Heredocs,
+ * multi-line strings and line continuations are not modelled, so a source line
+ * inside one is still counted, and a source built with `eval` is missed. Both
+ * are rare; this guards against the common mentions (a comment, an `echo`, a
+ * file-existence test, a `.bak` name) that suppressed the note before.
+ */
+function splitProfileCommands(line: string): string[] {
+  const commands: string[] = [];
+  let current = "";
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (quote) {
+      current += char;
+      if (quote === '"' && char === "\\") {
+        current += line[i + 1] ?? "";
+        i++;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === "\\") {
+      current += char + (line[i + 1] ?? "");
+      i++;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (
+      char === "#" &&
+      (current === "" || /\s/.test(current[current.length - 1]))
+    ) {
+      break;
+    }
+    if (char === ";" || char === "&" || char === "|") {
+      commands.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  commands.push(current);
+  return commands;
+}
+
 /** Whether any shell profile already sources the generated script. */
 async function isEnvScriptSourced(): Promise<boolean> {
   const fs = await import("fs");
   for (const profile of getProfileCandidates()) {
     try {
-      if (fs.readFileSync(profile, "utf8").includes("copilot-env.sh")) {
+      if (
+        fs
+          .readFileSync(profile, "utf8")
+          .split(/\r?\n/)
+          .some((line) =>
+            splitProfileCommands(line).some((command) =>
+              ENV_SCRIPT_SOURCE_COMMAND.test(command),
+            ),
+          )
+      ) {
         return true;
       }
     } catch {

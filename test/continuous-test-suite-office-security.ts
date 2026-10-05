@@ -53,6 +53,15 @@
  * credentials. Nothing replaces them, so a regression that reintroduces an
  * unbounded inflate will not be caught here.
  *
+ * ## One case that is not driven through generate()
+ *
+ * "a failed on-demand PowerPoint extraction names the file in its warning"
+ * drives the package's `./files` export (`FileReferenceRegistry`). The
+ * registry's lazy PowerPoint path cannot be reached from `generate()`, because
+ * a `.pptx` attachment is processed eagerly and never registered for on-demand
+ * extraction. Determinism buys a fixture no real deck can be: a ZIP signature
+ * with no central directory, which makes the extractor fail every time.
+ *
  * Run: npx tsx test/continuous-test-suite-office-security.ts
  */
 
@@ -70,7 +79,7 @@ import {
   startMockChatServer,
   mockOpenAICredentials,
 } from "./helpers/mockChatServer.js";
-import { NeuroLink } from "../dist/index.js";
+import { NeuroLink, logger } from "../dist/index.js";
 
 /** Rejects if `promise` has not settled within `ms`, as a defensive backstop. */
 function withTimeoutMs<T>(
@@ -339,6 +348,55 @@ await test("an xlsx billion-laughs payload does not hang and does not expand int
   } finally {
     await server.close();
   }
+});
+
+await test("a failed on-demand PowerPoint extraction names the file in its warning", async () => {
+  // Surface: the package's `./files` export. generate() cannot reach this path:
+  // a .pptx attachment is processed eagerly (messageBuilder.ts isEagerType), so
+  // it is never registered for lazy extraction and the registry is only
+  // reachable through this export.
+  const { FileReferenceRegistry } = await import("../dist/files/index.js");
+  const filename = "unreadable-presentation.pptx";
+  // ZIP signature and nothing else (no central directory), above the registry's
+  // tiny-file limit so it is written to disk and read back for on-demand work.
+  const fixture = Buffer.alloc(20 * 1024, 0x42);
+  fixture.writeUInt32LE(0x04034b50, 0);
+  const registry = new FileReferenceRegistry({
+    tempDir: tempDir("neurolink-pptx-registry-"),
+  });
+  const warnings: string[] = [];
+  const originalWarn = logger.warn;
+  logger.warn = ((...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  }) as typeof logger.warn;
+  let threw = false;
+  let detectedType: string | undefined;
+  try {
+    const ref = await registry.register(fixture, "buffer", { filename });
+    detectedType = ref.detectedType;
+    await registry.ensureProcessed(ref.id);
+  } catch {
+    threw = true;
+  } finally {
+    logger.warn = originalWarn;
+    await registry.clear();
+  }
+  assert(!threw, "registering and processing the fixture threw");
+  assert(
+    detectedType === "pptx",
+    "the registry did not classify the fixture as a presentation",
+  );
+  const failure = warnings.find((line) =>
+    line.includes("PPTX extraction failed"),
+  );
+  assert(
+    failure !== undefined,
+    "the lazy PowerPoint extraction path never ran",
+  );
+  assert(
+    failure?.includes(filename) === true,
+    "the PowerPoint failure warning omitted the file name",
+  );
 });
 
 try {

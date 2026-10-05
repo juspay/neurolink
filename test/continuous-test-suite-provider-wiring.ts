@@ -28,7 +28,7 @@ import "dotenv/config";
  *      pnpm run test:provider-wiring
  */
 import { createServer, type Server } from "node:http";
-import { defineSuite, assert, Skip } from "./helpers/harness.js";
+import { defineSuite, assert, Skip, runCLI } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
 import type {
@@ -183,6 +183,75 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
     internal.neurolink === fakeSdk,
     "expected the huggingface provider to forward the sdk instance to BaseProvider",
   );
+});
+
+await test("createProvider resolves an alias to the provider's scoped credentials (hf -> huggingFace)", async () => {
+  const { ProviderRegistry } = await import("../dist/index.js");
+  await ProviderRegistry.registerAllProviders();
+  const { ProviderFactory } = await import("../dist/index.js");
+
+  // Every other key source is cleared, so the only way the token below can
+  // reach the Authorization header is through `credentials.huggingFace` —
+  // which `createProvider("hf", ...)` can only find by resolving the alias.
+  const isolated = ["HUGGINGFACE_API_KEY", "HF_TOKEN", "HUGGINGFACE_BASE_URL"];
+  const saved = new Map(isolated.map((name) => [name, process.env[name]]));
+  const token = "hf_aliasScopedCredentialForWiringSuite00000";
+  isolated.forEach((name) => delete process.env[name]);
+  const { unset, calls } = installMockFetch([
+    {
+      method: "POST",
+      url: "router.huggingface.co/v1/chat/completions",
+      respond: {
+        status: 200,
+        json: {
+          id: "wiring-hf-alias",
+          object: "chat.completion",
+          created: 0,
+          model: "some-model",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "pong" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        },
+      },
+    },
+  ]);
+  try {
+    // Caught and asserted on a boolean: a propagated provider error would be
+    // classified as a SKIP by defineSuite, hiding the regression.
+    let threw = false;
+    try {
+      const provider = await ProviderFactory.createProvider(
+        "hf",
+        "some-model",
+        undefined,
+        undefined,
+        { huggingFace: { apiKey: token } },
+      );
+      await provider.generate({ input: { text: "ping" }, disableTools: true });
+    } catch {
+      threw = true;
+    }
+    assert(!threw, "an alias-built provider did not return a result");
+    assert(calls.length > 0, "expected a captured HuggingFace request");
+    assert(
+      calls[0].headers["authorization"] === `Bearer ${token}`,
+      "expected the alias-built provider to send the scoped huggingFace credential",
+    );
+  } finally {
+    unset();
+    saved.forEach((value, name) => {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    });
+  }
 });
 
 await test("providerMatrix's row-selection treats a catalog key fallback as an alternative, not a second requirement", async () => {
@@ -1443,6 +1512,340 @@ await test("a Vertex model-unavailable error never suggests the model that just 
   } finally {
     await nl.shutdown?.().catch(() => {});
   }
+});
+
+// The registry has no per-entry removal and clearRegistrations() would drop every
+// provider the rest of the suite relies on, so each case below registers its own
+// unique lowercase name and these cases stay at the end of the file.
+async function loadProviderFactory() {
+  const { ProviderFactory } = await import("../dist/index.js");
+  return ProviderFactory;
+}
+
+// A registered class or factory only has to be what createProvider hands back
+// by identity, so the stand-ins skip the full AIProvider surface.
+function asProviderConstructor(
+  value: unknown,
+): Parameters<
+  Awaited<ReturnType<typeof loadProviderFactory>>["registerProvider"]
+>[1] {
+  return value as never;
+}
+
+await test("a class registered with registerProvider is constructed with new, once, with the factory arguments", async () => {
+  const ProviderFactory = await loadProviderFactory();
+  const name = "wiring-class-built-with-new";
+  const received: unknown[][] = [];
+  class ClassRegisteredProvider {
+    constructor(...args: unknown[]) {
+      received.push(args);
+    }
+  }
+  ProviderFactory.registerProvider(
+    name,
+    asProviderConstructor(ClassRegisteredProvider),
+    "default-model",
+  );
+  // Opaque placeholder, forwarded by reference (see the HuggingFace sdk case).
+  const sdkMarker: NeuroLink = Object.create(null);
+
+  let threw = false;
+  let built: unknown;
+  try {
+    built = await ProviderFactory.createProvider(
+      name,
+      "explicit-model",
+      sdkMarker,
+      "region-x",
+      { [name]: { apiKey: "class-scoped" } } as never,
+    );
+  } catch {
+    threw = true;
+  }
+  assert(!threw, "createProvider threw for a registered class");
+  assert(
+    built instanceof ClassRegisteredProvider,
+    "createProvider did not return an instance of the registered class",
+  );
+  assert(received.length === 1, "the class was not constructed exactly once");
+  const [model, providerName, sdk, region, credentials] = received[0] ?? [];
+  assert(model === "explicit-model", "the class did not receive the model");
+  assert(providerName === name, "the class did not receive the provider name");
+  assert(sdk === sdkMarker, "the class did not receive the sdk instance");
+  assert(region === "region-x", "the class did not receive the region");
+  assert(
+    (credentials as { apiKey?: string } | undefined)?.apiKey === "class-scoped",
+    "the class did not receive its scoped credentials",
+  );
+});
+
+await test("a factory function registered with registerProvider is called once and never constructed with new, sync and async", async () => {
+  const ProviderFactory = await loadProviderFactory();
+  const syncName = "wiring-factory-sync";
+  const asyncName = "wiring-factory-async";
+  const stubs = {
+    sync: { marker: "sync-stub" },
+    async: { marker: "async-stub" },
+  };
+  const seen = {
+    sync: 0,
+    async: 0,
+    syncConstructed: false,
+    asyncConstructed: false,
+  };
+  // Plain `function` factories, not arrows: a plain function's prototype points
+  // back at itself, which is why a prototype test could not tell it from a class.
+  // (The async one has no prototype; it only checks that `new` is never used.)
+  function syncFactory() {
+    seen.sync++;
+    seen.syncConstructed = new.target !== undefined;
+    return stubs.sync;
+  }
+  async function asyncFactory() {
+    seen.async++;
+    seen.asyncConstructed = new.target !== undefined;
+    return stubs.async;
+  }
+  ProviderFactory.registerProvider(
+    syncName,
+    asProviderConstructor(syncFactory),
+    "default-model",
+  );
+  ProviderFactory.registerProvider(
+    asyncName,
+    asProviderConstructor(asyncFactory),
+    "default-model",
+  );
+
+  let threw = false;
+  let syncBuilt: unknown;
+  let asyncBuilt: unknown;
+  try {
+    syncBuilt = await ProviderFactory.createProvider(syncName);
+    asyncBuilt = await ProviderFactory.createProvider(asyncName);
+  } catch {
+    threw = true;
+  }
+  assert(!threw, "createProvider threw for a registered factory");
+  assert(
+    seen.sync === 1 && seen.async === 1,
+    "a factory was not called exactly once",
+  );
+  assert(
+    !seen.syncConstructed && !seen.asyncConstructed,
+    "a factory was constructed with new",
+  );
+  assert(
+    syncBuilt === stubs.sync && asyncBuilt === stubs.async,
+    "createProvider did not hand back what the factory returned",
+  );
+});
+
+await test("a registered class whose constructor throws is attempted exactly once", async () => {
+  const ProviderFactory = await loadProviderFactory();
+  const name = "wiring-class-throws";
+  let attempts = 0;
+  class ThrowingProvider {
+    constructor() {
+      attempts++;
+      throw new Error("constructor failed");
+    }
+  }
+  ProviderFactory.registerProvider(
+    name,
+    asProviderConstructor(ThrowingProvider),
+    "default-model",
+  );
+  let message = "";
+  let threw = false;
+  try {
+    await ProviderFactory.createProvider(name);
+  } catch (error) {
+    threw = true;
+    message = error instanceof Error ? error.message : "";
+  }
+  assert(threw, "createProvider did not reject for a throwing class");
+  assert(
+    message.startsWith(`Failed to create provider ${name}`),
+    "the rejection was not wrapped as a provider creation failure",
+  );
+  // Before the fix the class was called without new, so its body never ran.
+  assert(attempts === 1, "the throwing class was not attempted exactly once");
+});
+
+await test("a registered factory that throws or rejects is attempted exactly once and never retried with new", async () => {
+  const ProviderFactory = await loadProviderFactory();
+  const syncName = "wiring-factory-throws";
+  const asyncName = "wiring-factory-rejects";
+  const attempts = { sync: 0, async: 0 };
+  function throwingFactory() {
+    attempts.sync++;
+    throw new Error("factory failed");
+  }
+  async function rejectingFactory() {
+    attempts.async++;
+    throw new Error("factory rejected");
+  }
+  ProviderFactory.registerProvider(
+    syncName,
+    asProviderConstructor(throwingFactory),
+    "default-model",
+  );
+  ProviderFactory.registerProvider(
+    asyncName,
+    asProviderConstructor(rejectingFactory),
+    "default-model",
+  );
+  const outcomes: Array<{ threw: boolean; wrapped: boolean }> = [];
+  for (const name of [syncName, asyncName]) {
+    try {
+      await ProviderFactory.createProvider(name);
+      outcomes.push({ threw: false, wrapped: false });
+    } catch (error) {
+      outcomes.push({
+        threw: true,
+        wrapped:
+          error instanceof Error &&
+          error.message.startsWith(`Failed to create provider ${name}`),
+      });
+    }
+  }
+  assert(
+    outcomes.every((o) => o.threw && o.wrapped),
+    "a failing factory was not wrapped as a provider creation failure",
+  );
+  // A plain function's prototype.constructor is itself, so a retry-with-new
+  // fallback would run the sync factory twice (`new` on an async function
+  // throws before its body runs, so the async one only pins the wrapping and
+  // the single attempt). This pins that neither is retried.
+  assert(
+    attempts.sync === 1 && attempts.async === 1,
+    "a failing factory was attempted more than once",
+  );
+});
+
+await test("a class registered with registerProvider can hand back a real provider that generates", async () => {
+  const { ProviderRegistry } = await import("../dist/index.js");
+  await ProviderRegistry.registerAllProviders();
+  const ProviderFactory = await loadProviderFactory();
+
+  const isolated = ["HUGGINGFACE_API_KEY", "HF_TOKEN", "HUGGINGFACE_BASE_URL"];
+  const saved = new Map(isolated.map((n) => [n, process.env[n]]));
+  const token = "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0000000";
+  isolated.forEach((n) => delete process.env[n]);
+  const { unset, calls } = installMockFetch([
+    {
+      method: "POST",
+      url: "router.huggingface.co/v1/chat/completions",
+      respond: {
+        status: 200,
+        json: {
+          id: "wiring-class-real",
+          object: "chat.completion",
+          created: 0,
+          model: "some-model",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "pong" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        },
+      },
+    },
+  ]);
+  try {
+    const name = "wiring-class-returns-real";
+    let threw = false;
+    let sameInstance = false;
+    let content: unknown;
+    try {
+      const real = await ProviderFactory.createProvider(
+        "huggingface",
+        "some-model",
+        undefined,
+        undefined,
+        { huggingFace: { apiKey: token } },
+      );
+      // A constructor that returns an object hands that object back from `new`.
+      class RealProviderHolder {
+        constructor() {
+          return real;
+        }
+      }
+      ProviderFactory.registerProvider(
+        name,
+        asProviderConstructor(RealProviderHolder),
+        "some-model",
+      );
+      const built = await ProviderFactory.createProvider(name);
+      sameInstance = built === real;
+      const result = await built.generate({
+        input: { text: "ping" },
+        disableTools: true,
+      });
+      content = result?.content;
+    } catch {
+      threw = true;
+    }
+    assert(!threw, "a class that returns a real provider did not work");
+    assert(
+      sameInstance,
+      "createProvider did not return the instance the class returned",
+    );
+    assert(
+      content === "pong",
+      "the provider built through the class did not generate",
+    );
+    assert(calls.length === 1, "expected exactly one captured request");
+    assert(
+      calls[0]?.headers["authorization"] === `Bearer ${token}`,
+      "the provider built through the class did not send its scoped credential",
+    );
+  } finally {
+    unset();
+    saved.forEach((value, n) => {
+      if (value === undefined) {
+        delete process.env[n];
+      } else {
+        process.env[n] = value;
+      }
+    });
+  }
+});
+
+await test("the built OpenRouter setup guide prints supported model examples", async () => {
+  const result = await runCLI(
+    ["setup", "--provider", "openrouter", "--non-interactive"],
+    {
+      timeoutMs: 60_000,
+      env: { NO_COLOR: "1" },
+    },
+  );
+  assert(result.exitCode === 0, "the setup guide did not exit successfully");
+  const output = result.stdout + result.stderr;
+  // The ids the guide is allowed to print: the OpenRouterModels catalog entries
+  // it is built from, not a live roster check.
+  const known = new Set([
+    "google/gemini-2.5-flash",
+    "anthropic/claude-sonnet-4.6",
+    "openai/gpt-4o",
+    "meta-llama/llama-3.1-70b-instruct",
+  ]);
+  const commandModel = /--provider openrouter --model (\S+)/.exec(output)?.[1];
+  const examples = [...output.matchAll(/^\s*•\s+(\S+\/\S+)\s+-/gm)].map(
+    (m) => m[1],
+  );
+  assert(
+    commandModel !== undefined && known.has(commandModel),
+    "the test command names an unsupported model",
+  );
+  assert(
+    examples.length >= 3 && examples.every((id) => known.has(id)),
+    "the model examples include unsupported IDs",
+  );
 });
 
 await runSuite();

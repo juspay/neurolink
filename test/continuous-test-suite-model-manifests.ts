@@ -352,6 +352,59 @@ await test("getContextWindowSize agrees with the manifest for every priced model
   );
 });
 
+await test("public session context stats use the 1M window for Claude 5 and Opus 4.7/4.8 on Anthropic and Vertex", async () => {
+  const { NeuroLink } = await import("../dist/index.js");
+  const sdk = new NeuroLink({ conversationMemory: { enabled: true } });
+  try {
+    await sdk.setSessionMessages("claude-window", [
+      {
+        id: "claude-window-1",
+        role: "user",
+        content: "Remember this message.",
+      },
+      { id: "claude-window-2", role: "assistant", content: "Remembered." },
+    ]);
+    // A 1M window keeps the default output reserve at its 64K cap (35% of the
+    // window would be larger), so the usable input budget is the difference.
+    // The literal encodes that reserve policy, not just the window size.
+    const expectedInputBudget = 1_000_000 - 64_000;
+    const wrong: string[] = [];
+    // claude-sonnet-5 already had a row: it is the control and must stay right.
+    for (const model of [
+      "claude-sonnet-5",
+      "claude-opus-5",
+      "claude-fable-5",
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+    ]) {
+      for (const provider of ["anthropic", "vertex"]) {
+        const stats = await sdk.getContextStats(
+          "claude-window",
+          provider,
+          model,
+        );
+        assertNotNull(
+          stats,
+          "the seeded session returned no context statistics",
+        );
+        assert(
+          stats.messageCount === 2,
+          "context statistics did not read the seeded session",
+        );
+        if (stats.availableInputTokens !== expectedInputBudget) {
+          wrong.push(`${provider}/${model}`);
+        }
+      }
+    }
+    assert(
+      wrong.length === 0,
+      `session input budget was not the 1M window's for: ${wrong.join(", ")}`,
+    );
+  } finally {
+    await sdk.shutdown();
+  }
+});
+
 await test("PROVIDER_MAX_TOKENS agrees with the manifest's maxOutputTokens for every priced model", async () => {
   const sample = collectPricedManifestSample();
   const failures: string[] = [];

@@ -812,6 +812,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     error?: string;
   }> {
     let report: string;
+    let exitFailure: string | undefined;
     try {
       const { stderr } = await runFfmpeg(
         ["-hide_banner", "-i", filePath, "-t", "0", "-f", "null", "-"],
@@ -822,19 +823,30 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
       // A non-zero exit still carries the stream report when the failure came
       // after the input was opened.
       const stderr = (error as { stderr?: unknown }).stderr;
+      const message = error instanceof Error ? error.message : String(error);
       if (typeof stderr !== "string") {
         return {
           success: false,
-          error: `ffmpeg probe failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `ffmpeg probe failed: ${message}`,
         };
       }
       report = stderr;
+      exitFailure = message;
     }
 
     const data = this.parseFfmpegInputReport(report);
-    return data
-      ? { success: true, data }
-      : { success: false, error: "ffmpeg reported no duration" };
+    if (data) {
+      return { success: true, data };
+    }
+    // Keep ffmpeg's own words when it failed as well as found no duration:
+    // a file it cannot read at all is the common case, and the reason is the
+    // only thing the warning that follows can tell the reader.
+    return {
+      success: false,
+      error: exitFailure
+        ? `ffmpeg reported no duration: ${exitFailure}`
+        : "ffmpeg reported no duration",
+    };
   }
 
   /**

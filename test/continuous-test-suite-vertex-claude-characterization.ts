@@ -1603,4 +1603,108 @@ await test("stream().toolCalls includes the executed tool after the caller drain
   );
 });
 
+section("toolCalls after a stream fallback (#1819)");
+
+for (const finalText of ["done", ""]) {
+  await test(`stream fallback exposes the tool calls the fallback ran after draining (${finalText ? "text" : "tool-only"})`, async () => {
+    // The primary answers with an empty turn, so the stream has zero real
+    // chunks and handleStreamFallback re-runs the request on the fallback route
+    // (the same Vertex stand-in here, which is enough to exercise the path).
+    // The fallback here is native Claude-on-Vertex, whose `toolCalls` is a live
+    // getter over a background loop: at the instant the fallback's stream() call
+    // returns it is still empty, and it fills as the stream is drained. A
+    // snapshot taken only before the drain leaves the primary's empty array in
+    // place, so a caller who reads `toolCalls` afterwards is told that no tool
+    // ran although the fallback executed one.
+    const server = await startStandIn((i) => {
+      if (i === 0) {
+        return [
+          sse("message_start", {
+            message: {
+              id: "msg_empty",
+              type: "message",
+              role: "assistant",
+              model: MODEL,
+              content: [],
+              stop_reason: null,
+              stop_sequence: null,
+              usage: { input_tokens: 5, output_tokens: 0 },
+            },
+          }),
+          sse("message_delta", {
+            delta: { stop_reason: "end_turn" },
+            usage: { output_tokens: 0 },
+          }),
+          sse("message_stop", {}),
+        ];
+      }
+      return i === 1
+        ? toolTurn("lookup", { q: "fallback" })
+        : textTurn(finalText);
+    });
+    const restore = withVertexEnv();
+    const counter = { calls: 0 };
+    let nl: InstanceType<typeof NeuroLink> | undefined;
+    let toolCallNamesAfterDrain: string[] = [];
+    let text = "";
+    let toolResultCount = -1;
+    let completed = false;
+    try {
+      nl = new NeuroLink();
+      const result = await nl.stream({
+        input: { text: "look something up" },
+        provider: "vertex",
+        model: MODEL,
+        fallbackProvider: "vertex",
+        fallbackModel: MODEL,
+        maxTokens: 32,
+        maxSteps: 3,
+        disableTools: false,
+        tools: customTool(counter),
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        text += (chunk as { content?: string })?.content ?? "";
+      }
+      toolCallNamesAfterDrain = (result.toolCalls ?? []).map((t) => t.toolName);
+      toolResultCount = result.toolResults?.length ?? 0;
+      completed = true;
+    } catch {
+      // Assert below without echoing provider errors that the harness could skip.
+    } finally {
+      await nl?.shutdown();
+      restore();
+      await server.close();
+    }
+    console.log(
+      `    [diagnostic] vertex-claude fallback toolCalls: standInCalls=${server.calls.length} executed=${counter.calls} chars=${text.length} names=${toolCallNamesAfterDrain.length} toolResults=${toolResultCount}`,
+    );
+    // result.toolResults is not asserted: the native Vertex+Claude stream
+    // result defines no toolResults accessor, so it stays empty either way.
+    assert(completed, "the fallback stream did not complete successfully");
+    // A non-empty final turn is returned as is. For the empty one the loop
+    // answers with its own step-limit note, so no text is pinned there, and
+    // the 0-output gate is not what this case exercises: the post-drain
+    // toolCalls read below is what separates fixed from unfixed.
+    assert(
+      finalText === "" || text === finalText,
+      "the fallback stream returned unexpected text",
+    );
+    // Preconditions: the fallback ran and its tool executed. Without both, an
+    // empty toolCalls below would prove nothing about the post-drain read.
+    assert(
+      server.calls.length >= 2,
+      `the empty primary turn did not trigger a fallback request (${server.calls.length} stand-in requests)`,
+    );
+    assert(
+      counter.calls === 1,
+      "the fallback's tool did not execute once, so this run cannot discriminate the pre-drain snapshot",
+    );
+    assert(
+      toolCallNamesAfterDrain.includes("lookup"),
+      "result.toolCalls read after draining did not name the tool the fallback executed",
+    );
+  });
+}
+
 await runSuite();
