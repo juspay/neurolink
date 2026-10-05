@@ -1405,6 +1405,121 @@ async function main(): Promise<void> {
     });
 
     // =========================================================================
+    // SECTION: a status number in the message text (NIM, Anthropic, Azure)
+    // -------------------------------------------------------------------------
+    // These providers' own rules once tested the bare digits ("429", "401",
+    // "404", "403") against the message, so an unrelated number in a vendor
+    // text ("(429)" in a validation message, an id, a count) classified a 400
+    // as a rate limit, an auth failure, a missing model or a quota stop. The
+    // rules now accept a number only in a status-shaped position, so:
+    //   - every "unrelated number" case below answers a 400 and must fall
+    //     through to the generic error, not to the provider's own override;
+    //   - every "named status" case answers a 400 whose TEXT names the
+    //     status (a relay wrapping an upstream reply: "HTTP 429", "status code
+    //     401", a leading "403 ..."), which the override still has to catch.
+    //     The structured status is 400 there, so only the text rule can
+    //     produce the override message these cases look for.
+    // Every case here answers 400, which is not retried, so each is one
+    // request and the classified message is the thrown one. Google Vertex has
+    // the same rule change but no case here: it cannot be driven through a
+    // local server (see its section below).
+    // =========================================================================
+    {
+      setEnv("NVIDIA_NIM_API_KEY", "test-fake-nvidia-nim-credential");
+      setEnv("NVIDIA_NIM_BASE_URL", mockOrigin);
+      setEnv("ANTHROPIC_API_KEY", "test-fake-anthropic-credential");
+      setEnv("ANTHROPIC_BASE_URL", mockOrigin);
+      setEnv("AZURE_OPENAI_API_KEY", "test-fake-azure-credential");
+      setEnv("AZURE_OPENAI_ENDPOINT", mockOrigin);
+      setEnv("AZURE_API_VERSION", undefined);
+      setEnv("AZURE_OPENAI_MODEL", undefined);
+      setEnv("AZURE_OPENAI_DEPLOYMENT", undefined);
+      setEnv("AZURE_OPENAI_DEPLOYMENT_ID", undefined);
+
+      const nimModel = "meta/llama-3.1-8b-instruct";
+      const nimCases = [
+        {
+          code: 429,
+          label: "rate limit",
+          override: "NVIDIA NIM rate limit exceeded",
+          named: "relay failed with status code 429",
+        },
+        {
+          code: 401,
+          label: "invalid key",
+          override: "build.nvidia.com/settings/api-keys",
+          named: "401 key rejected by the model host",
+        },
+        {
+          code: 404,
+          label: "model not available",
+          override: "build.nvidia.com/models",
+          named: "upstream returned error 404",
+        },
+        {
+          code: 403,
+          label: "quota",
+          override: "NVIDIA NIM quota exceeded",
+          named: "upstream HTTP 403 relayed",
+        },
+      ];
+      for (const c of nimCases) {
+        setHandler(
+          jsonError(400, `the offset value (${c.code}) is not accepted here`),
+        );
+        await expectGenerateError({
+          name: `nvidia-nim: an unrelated ${c.code} in a 400's text is not read as ${c.label}`,
+          run: () => gen({ provider: "nvidia-nim", model: nimModel }),
+          messageIncludes: ["nvidia-nim error:"],
+          messageExcludes: [c.override],
+        });
+        setHandler(jsonError(400, c.named));
+        await expectGenerateError({
+          name: `nvidia-nim: a 400 whose text names status ${c.code} is still read as ${c.label}`,
+          run: () => gen({ provider: "nvidia-nim", model: nimModel }),
+          messageIncludes: [c.override],
+        });
+      }
+
+      const anthropicModel = "claude-3-5-sonnet-20241022";
+      setHandler(jsonError(400, "the offset value (429) is not accepted here"));
+      await expectGenerateError({
+        name: "anthropic: an unrelated 429 in a 400's text is not read as a rate limit",
+        run: () => gen({ provider: "anthropic", model: anthropicModel }),
+        messageIncludes: ["Anthropic error:"],
+        messageExcludes: ["Anthropic rate limit exceeded"],
+      });
+      setHandler(jsonError(400, "upstream HTTP 429 relayed by the gateway"));
+      await expectGenerateError({
+        name: "anthropic: a 400 whose text names HTTP 429 is still read as a rate limit",
+        run: () => gen({ provider: "anthropic", model: anthropicModel }),
+        messageIncludes: ["Anthropic rate limit exceeded"],
+      });
+
+      setHandler(jsonError(400, "the offset value (401) is not accepted here"));
+      await expectGenerateError({
+        name: "azure: an unrelated 401 in a 400's text is not read as an auth failure",
+        run: () => gen({ provider: "azure", model: "gpt-4o" }),
+        messageIncludes: ["azure error:"],
+        messageExcludes: ["Invalid Azure OpenAI API key or endpoint."],
+      });
+      setHandler(jsonError(400, "401 key rejected by the gateway"));
+      await expectGenerateError({
+        name: "azure: a 400 whose text starts with 401 is still read as an auth failure",
+        run: () => gen({ provider: "azure", model: "gpt-4o" }),
+        expectClass: AuthenticationError,
+        messageIncludes: ["Invalid Azure OpenAI API key or endpoint."],
+      });
+      setHandler(jsonError(400, "gateway answered HTTP 401 for this call"));
+      await expectGenerateError({
+        name: "azure: a 400 whose text names HTTP 401 is still read as an auth failure",
+        run: () => gen({ provider: "azure", model: "gpt-4o" }),
+        expectClass: AuthenticationError,
+        messageIncludes: ["Invalid Azure OpenAI API key or endpoint."],
+      });
+    }
+
+    // =========================================================================
     // SECTION: Google Vertex (old File3 #8-11) — VERTEX EXCEPTION
     // -------------------------------------------------------------------------
     // Real ADC OAuth makes true e2e impossible for Vertex (scout-2 #21): a

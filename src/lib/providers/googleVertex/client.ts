@@ -78,7 +78,10 @@ import {
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
-import { classifyProviderError } from "../../utils/errorClassifier.js";
+import {
+  classifyProviderError,
+  messageNamesStatus,
+} from "../../utils/errorClassifier.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
 import { FileDetector } from "../../utils/fileDetector.js";
@@ -8429,9 +8432,8 @@ export class GoogleVertexProvider extends BaseProvider {
         // operational meaning as a 429, so classify it here instead of the
         // generic 5xx branch below.
         match: (ctx) =>
-          /QUOTA_EXCEEDED|RATE_LIMIT_EXCEEDED|rate limit|429/i.test(
-            ctx.message,
-          ) ||
+          /QUOTA_EXCEEDED|RATE_LIMIT_EXCEEDED|rate limit/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429) ||
           statusCode === 429 ||
           statusCode === 529 ||
           /overloaded/i.test(ctx.message),
@@ -8483,8 +8485,11 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       {
         match: (ctx) =>
-          /500|502|503|504|server error|Internal Server Error|INTERNAL|UNAVAILABLE/i.test(
+          /server error|Internal Server Error|INTERNAL|UNAVAILABLE/i.test(
             ctx.message,
+          ) ||
+          [500, 502, 503, 504].some((code) =>
+            messageNamesStatus(ctx.message, code),
           ) ||
           (statusCode !== undefined && statusCode >= 500 && statusCode < 600),
         errorClass: ProviderError,

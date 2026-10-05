@@ -15,6 +15,7 @@ import {
 import {
   classifyProviderError,
   DEFAULT_ERROR_RULES,
+  messageNamesStatus,
 } from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
@@ -337,13 +338,17 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
       // parameter retry (K5) need the original "Bad Request" message to
       // surface.
       {
-        match: (ctx) => /Invalid API key|401|Unauthorized/.test(ctx.message),
+        match: (ctx) =>
+          /Invalid API key|Unauthorized/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 401),
         errorClass: AuthenticationError,
         message:
           "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys",
       },
       {
-        match: (ctx) => /rate limit|429/.test(ctx.message),
+        match: (ctx) =>
+          /rate limit/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
         errorClass: RateLimitError,
         message: "NVIDIA NIM rate limit exceeded",
       },
@@ -351,13 +356,16 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
         // NIM answers most of its roster with a 404 whose text ("Function …
         // not found for account …") names no model, so the status decides.
         match: (ctx) =>
-          ctx.statusCode === 404 || /404|model_not_found/.test(ctx.message),
+          ctx.statusCode === 404 ||
+          /model_not_found/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 404),
         errorClass: InvalidModelError,
         message: () =>
           `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
       },
       {
-        match: (ctx) => /quota|403/.test(ctx.message),
+        match: (ctx) =>
+          /quota/.test(ctx.message) || messageNamesStatus(ctx.message, 403),
         errorClass: ProviderError,
         message: "NVIDIA NIM quota exceeded for your account",
       },

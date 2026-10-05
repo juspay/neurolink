@@ -9,6 +9,7 @@ import { logger } from "../utils/logger.js";
 import {
   classifyProviderError,
   DEFAULT_ERROR_RULES,
+  messageNamesStatus,
 } from "../utils/errorClassifier.js";
 import {
   createAzureAPIKeyConfig,
@@ -205,15 +206,20 @@ export class AzureOpenAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    // RULING 1 fix: previously only a raw "401" substring was special-cased —
-    // everything else (429, 404, network errors, 5xx) fell through to one
-    // generic ProviderError. The 401 branch below is preserved byte-for-byte
-    // (message text + the raw-substring match style); DEFAULT_ERROR_RULES now
-    // gives 429/404/network/5xx their correct classifications instead of the
-    // old undifferentiated catch-all.
+    // RULING 1 fix: previously only a "401" in the message text was
+    // special-cased — everything else (429, 404, network errors, 5xx) fell
+    // through to one generic ProviderError. The 401 branch below keeps its
+    // message text byte-for-byte; DEFAULT_ERROR_RULES now gives
+    // 429/404/network/5xx their correct classifications instead of the old
+    // undifferentiated catch-all. The branch still reads the text, not the
+    // structured status, so a 401 whose message names no status still falls
+    // through to DEFAULT_ERROR_RULES as before. What changed is the match: a
+    // status-shaped "401" ("status code 401", a leading "401 ...") rather than
+    // any three digits, so a request id or token count no longer reads as an
+    // auth failure.
     const rules: ProviderErrorRule[] = [
       {
-        match: (ctx) => /401/.test(ctx.message),
+        match: (ctx) => messageNamesStatus(ctx.message, 401),
         errorClass: AuthenticationError,
         message: "Invalid Azure OpenAI API key or endpoint.",
       },

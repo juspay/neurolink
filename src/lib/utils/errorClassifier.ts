@@ -169,6 +169,37 @@ const MODEL_404_TEXT = new RegExp(
 );
 
 /**
+ * True when `status` is written in `message` as an HTTP status, as opposed to
+ * an unrelated number that happens to have the same digits ("max_tokens (429)
+ * exceeds the model limit", a request id, a token count). Provider rules that
+ * once tested the bare digits (`/429/`) classified such a 400 as a rate limit.
+ *
+ * Status-shaped means one of:
+ *  - the text starts with it, the way some SDKs format an API error
+ *    ("429 {...}", "401 Unauthorized");
+ *  - it follows "status", "status code" or "HTTP" ("Request failed with status
+ *    code 429", "HTTP/1.1 429");
+ *  - it sits next to the word "error" in either order ("error 429", "429 error",
+ *    and the nested JSON body `{"error":{"code":429`).
+ *
+ * The gap between the word and the number is bounded and holds no digit, so
+ * unrelated digits further along cannot bridge the match. This is the shape the
+ * shared 5xx rule in `DEFAULT_ERROR_RULES` already uses, so the two stay in
+ * step. It is a heuristic over text: a rule that can read the structured
+ * status should still check `ctx.statusCode` first.
+ */
+export function messageNamesStatus(message: string, status: number): boolean {
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    return false;
+  }
+  const code = String(status);
+  return new RegExp(
+    `^\\s*${code}\\b|\\b(?:error|status(?:\\s*code)?)\\b\\D{0,12}\\b${code}\\b|\\bhttp(?:/\\d(?:\\.\\d)?)?[\\s:-]{0,3}${code}\\b|\\b${code}\\b\\D{0,12}\\berror\\b`,
+    "i",
+  ).test(message);
+}
+
+/**
  * Generic fallback rule table covering the five categories every
  * OpenAI-compatible provider already hand-rolled near-identically:
  * auth (401), rate limit (429), model-not-found, network/connection

@@ -66,7 +66,10 @@ import {
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
-import { classifyProviderError } from "../../utils/errorClassifier.js";
+import {
+  classifyProviderError,
+  messageNamesStatus,
+} from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import {
@@ -1834,7 +1837,8 @@ export class AnthropicProvider extends BaseProvider {
       {
         match: (ctx) =>
           ctx.statusCode === 429 ||
-          /rate limit|too_many_requests|429/i.test(ctx.message),
+          /rate limit|too_many_requests/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
         errorClass: RateLimitError,
         message: "Anthropic rate limit exceeded. Please try again later.",
       },
