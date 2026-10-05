@@ -39,6 +39,8 @@ import { ProviderFactory } from "../dist/factories/providerFactory.js";
 import { ProviderRegistry } from "../dist/factories/providerRegistry.js";
 
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "fs";
+import { createServer } from "http";
+import type { AddressInfo } from "net";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execFileSync } from "child_process";
@@ -857,6 +859,212 @@ if (HAS_OPENAI_KEY) {
 // SECTION 6: Regression — the implicit .env load is suppressible (issue #1744)
 // =============================================================================
 
+// =============================================================================
+// SECTION 7: Anthropic credentials.baseURL (no API key, no network)
+// =============================================================================
+
+/**
+ * A fake Anthropic endpoint: records every request it receives and answers
+ * like a gateway that needs no auth would when it cannot serve the model, so
+ * the call returns an error the harness can inspect instead of hanging. What
+ * matters is where the request LANDED, not what came back.
+ */
+async function withFakeAnthropicEndpoint<T>(
+  run: (
+    baseURL: string,
+    seen: Array<{ path: string; apiKey: string | undefined }>,
+  ) => Promise<T>,
+): Promise<T> {
+  const seen: Array<{ path: string; apiKey: string | undefined }> = [];
+  const server = createServer((req, res) => {
+    const header = req.headers["x-api-key"];
+    seen.push({
+      path: req.url ?? "",
+      apiKey: Array.isArray(header) ? header[0] : header,
+    });
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "not_found_error",
+            message: "fake gateway: no such model",
+          },
+        }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await run(`http://127.0.0.1:${port}`, seen);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+/** Runs `work` with ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY as given (unset when undefined) and restores both after. */
+async function withAnthropicEnv<T>(
+  values: { baseURL?: string; apiKey?: string },
+  work: () => Promise<T>,
+): Promise<T> {
+  const previous = {
+    baseURL: process.env.ANTHROPIC_BASE_URL,
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  };
+  const apply = (name: string, value: string | undefined): void => {
+    if (value === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = value;
+    }
+  };
+  apply("ANTHROPIC_BASE_URL", values.baseURL);
+  apply("ANTHROPIC_API_KEY", values.apiKey);
+  try {
+    return await work();
+  } finally {
+    apply("ANTHROPIC_BASE_URL", previous.baseURL);
+    apply("ANTHROPIC_API_KEY", previous.apiKey);
+  }
+}
+
+async function testAnthropicBaseURLCredential(): Promise<void> {
+  logSection("SECTION 7: Anthropic credentials.baseURL");
+
+  await test("7.1 credentials.anthropic.baseURL routes the request there, with no ANTHROPIC_BASE_URL in the environment", async () => {
+    await withFakeAnthropicEndpoint(async (baseURL, seen) => {
+      await withAnthropicEnv({}, async () => {
+        const neurolink = new NeuroLink({
+          credentials: {
+            anthropic: { apiKey: "any-key-the-gateway-ignores", baseURL },
+          },
+        });
+        const outcome = await neurolink
+          .generate({
+            input: { text: "ping" },
+            provider: "anthropic",
+            model: "claude-sonnet-4-6",
+            maxTokens: 8,
+            disableTools: true,
+          })
+          .then(() => "answered")
+          .catch((err: Error) => err.message);
+        assert(
+          seen.length > 0,
+          `the request never reached the gateway named in the credentials (outcome: ${String(outcome).slice(0, 120)})`,
+        );
+        assertEqual(
+          seen[0]!.path,
+          "/v1/messages",
+          "the SDK appends /v1/messages to the base URL",
+        );
+        assertEqual(
+          seen[0]!.apiKey,
+          "any-key-the-gateway-ignores",
+          "the credentials' key travels with the request",
+        );
+      });
+    });
+  });
+
+  await test("7.2 a /v1-suffixed credentials base URL is normalized (no /v1/v1), and per-call credentials win over the instance", async () => {
+    await withFakeAnthropicEndpoint(async (baseURL, seen) => {
+      await withAnthropicEnv({}, async () => {
+        const neurolink = new NeuroLink({
+          credentials: {
+            anthropic: {
+              apiKey: "instance-key",
+              baseURL: "http://127.0.0.1:9/v1",
+            },
+          },
+        });
+        await neurolink
+          .generate({
+            input: { text: "ping" },
+            provider: "anthropic",
+            model: "claude-sonnet-4-6",
+            maxTokens: 8,
+            disableTools: true,
+            credentials: {
+              anthropic: { apiKey: "call-key", baseURL: `${baseURL}/v1/` },
+            },
+          })
+          .catch(() => undefined);
+        assert(seen.length > 0, "the per-call base URL was not used");
+        assertEqual(seen[0]!.path, "/v1/messages", "no doubled /v1 segment");
+        assertEqual(
+          seen[0]!.apiKey,
+          "call-key",
+          "per-call key wins over the instance key",
+        );
+      });
+    });
+  });
+
+  await test("7.3 the credentials base URL wins when ANTHROPIC_BASE_URL names a different one", async () => {
+    await withFakeAnthropicEndpoint(async (baseURL, seen) => {
+      await withAnthropicEnv({ baseURL: "http://127.0.0.1:9" }, async () => {
+        const neurolink = new NeuroLink({
+          credentials: {
+            anthropic: { apiKey: "credentials-key", baseURL },
+          },
+        });
+        await neurolink
+          .generate({
+            input: { text: "ping" },
+            provider: "anthropic",
+            model: "claude-sonnet-4-6",
+            maxTokens: 8,
+            disableTools: true,
+          })
+          .catch(() => undefined);
+        assert(
+          seen.length > 0,
+          "the environment base URL took precedence over the credentials",
+        );
+        assertEqual(
+          seen[0]!.path,
+          "/v1/messages",
+          "the SDK appends /v1/messages",
+        );
+        assertEqual(
+          seen[0]!.apiKey,
+          "credentials-key",
+          "the credentials' key travels with the request",
+        );
+      });
+    });
+  });
+
+  await test("7.4 ANTHROPIC_BASE_URL still applies when the credentials carry no base URL", async () => {
+    await withFakeAnthropicEndpoint(async (baseURL, seen) => {
+      await withAnthropicEnv({ baseURL }, async () => {
+        const neurolink = new NeuroLink({
+          credentials: { anthropic: { apiKey: "env-routed-key" } },
+        });
+        await neurolink
+          .generate({
+            input: { text: "ping" },
+            provider: "anthropic",
+            model: "claude-sonnet-4-6",
+            maxTokens: 8,
+            disableTools: true,
+          })
+          .catch(() => undefined);
+        assert(seen.length > 0, "the environment base URL was not used");
+        assertEqual(
+          seen[0]!.path,
+          "/v1/messages",
+          "the SDK appends /v1/messages",
+        );
+      });
+    });
+  });
+}
+
 async function testDotenvStripIsHonoured(): Promise<void> {
   logSection("SECTION 6: Implicit .env load honours DOTENV_CONFIG_PATH");
 
@@ -980,5 +1188,6 @@ await runSuite(async () => {
   await testProviderScopedCredentials();
   await testConcurrentCallsWithDifferentCredentials();
   await testIssue01ModelAccess();
+  await testAnthropicBaseURLCredential();
   await testDotenvStripIsHonoured();
 });

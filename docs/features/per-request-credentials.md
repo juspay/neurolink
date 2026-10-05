@@ -94,7 +94,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Provider             | Key                 | Fields                                                                                               |
 | -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
 | OpenAI               | `openai`            | `apiKey`, `baseURL`                                                                                  |
-| Anthropic            | `anthropic`         | `apiKey`, `oauthToken`                                                                               |
+| Anthropic            | `anthropic`         | `apiKey`, `oauthToken`, `baseURL`                                                                    |
 | Google AI Studio     | `googleAiStudio`    | `apiKey`, `baseURL`                                                                                  |
 | Google Vertex AI     | `vertex`            | `projectId`, `location`, `apiKey` (Express Mode), `serviceAccountKey`, `clientEmail`, `privateKey`   |
 | Amazon Bedrock       | `bedrock`           | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`                                           |
@@ -160,6 +160,14 @@ OAuth token (Anthropic Claude subscription):
 ```typescript
 credentials: {
   anthropic: { oauthToken: "eyJ..." },
+}
+```
+
+A gateway or proxy in front of Anthropic (`baseURL` wins over `ANTHROPIC_BASE_URL`, with or without a trailing `/v1`; a gateway that does its own auth accepts any `apiKey`):
+
+```typescript
+credentials: {
+  anthropic: { apiKey: "any-key-the-gateway-accepts", baseURL: "https://claude-gw.example.com" },
 }
 ```
 

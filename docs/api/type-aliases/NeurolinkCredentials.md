@@ -37,6 +37,11 @@ Unset providers fall through to environment variables (existing behaviour).
 
 > `optional` **anthropic?**: `object`
 
+Anthropic. `baseURL` points the official SDK client at a gateway or proxy
+instead of `api.anthropic.com` (with or without a trailing `/v1`); it
+takes precedence over `ANTHROPIC_BASE_URL`, exactly as `apiKey` does over
+`ANTHROPIC_API_KEY`.
+
 #### apiKey?
 
 > `optional` **apiKey?**: `string`
@@ -44,6 +49,10 @@ Unset providers fall through to environment variables (existing behaviour).
 #### oauthToken?
 
 > `optional` **oauthToken?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
 
 ---
 

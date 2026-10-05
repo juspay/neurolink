@@ -169,6 +169,37 @@ const getDefaultAnthropicModel = (): string => {
   return getProviderModel("ANTHROPIC_MODEL", AnthropicModels.CLAUDE_SONNET_4_6);
 };
 
+/**
+ * The official Anthropic SDK builds `${baseURL}/v1/messages` itself, so a
+ * version-suffixed base URL — the form the previous @ai-sdk/anthropic
+ * implementation REQUIRED (`https://api.anthropic.com/v1`) — would double up
+ * as `/v1/v1/messages`. Normalize the inverse way: strip trailing slashes and
+ * a trailing `/vN` segment, so both historical forms keep working whether the
+ * URL comes from the credentials, the config or `ANTHROPIC_BASE_URL`. Blank
+ * means "the vendor's endpoint".
+ */
+function normalizeAnthropicBaseURL(
+  raw: string | undefined,
+): string | undefined {
+  const value = raw?.trim();
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.replace(/\/+$/, "");
+  const stripped = trimmed.replace(/\/v\d+$/, "");
+  if (stripped !== trimmed) {
+    logger.debug(
+      "[AnthropicProvider] Stripping the version suffix from the base URL — " +
+        "the official Anthropic SDK appends /v1 to the base URL itself.",
+      {
+        baseURL: redactUrlCredentials(value),
+        rewrittenTo: redactUrlCredentials(stripped),
+      },
+    );
+  }
+  return stripped;
+}
+
 const streamTracer = trace.getTracer("neurolink.provider.anthropic");
 
 /**
@@ -680,6 +711,15 @@ export class AnthropicProvider extends BaseProvider {
   private readonly authMethod: AnthropicAuthMethod;
   private readonly subscriptionTier: ClaudeSubscriptionTier;
   private readonly enableBetaFeatures: boolean;
+  /**
+   * Where requests go when not to `api.anthropic.com`: the credentials'
+   * `baseURL`, else the config's, else `ANTHROPIC_BASE_URL` — normalized once
+   * (no trailing slash, no `/vN` suffix: the SDK appends `/v1` itself).
+   * Undefined means the vendor's own endpoint; every "proxy in use" decision
+   * reads this, never the environment directly, so a per-instance gateway is
+   * honoured the same way the environment one always was.
+   */
+  private readonly baseURL: string | undefined;
   private oauthToken: OAuthToken | null;
   private lastResponseMetadata: AnthropicResponseMetadata | null = null;
   private usageInfo: ClaudeUsageInfo | null = null;
@@ -696,7 +736,7 @@ export class AnthropicProvider extends BaseProvider {
     modelName?: string,
     sdk?: unknown,
     config?: AnthropicProviderConfig,
-    credentials?: { apiKey?: string; oauthToken?: string },
+    credentials?: { apiKey?: string; oauthToken?: string; baseURL?: string },
   ) {
     // Pre-compute effective model with tier validation before calling super.
     //
@@ -723,12 +763,19 @@ export class AnthropicProvider extends BaseProvider {
       (authMethod === "oauth" ? detectSubscriptionTier(oauthToken) : "api");
     const targetModel = modelName || getDefaultAnthropicModel();
 
+    // Resolved before super(): the tier check below needs it, and the
+    // credentials win over the config, which wins over the environment —
+    // the same precedence `apiKey` has.
+    const baseURL = normalizeAnthropicBaseURL(
+      credentials?.baseURL ?? config?.baseURL ?? process.env.ANTHROPIC_BASE_URL,
+    );
+
     // Determine effective model based on tier access.
-    // Skip tier validation when a proxy is in use (ANTHROPIC_BASE_URL is set)
-    // — the proxy handles model access and auth, so the SDK should pass
-    // the requested model through without downgrading.
+    // Skip tier validation when a proxy is in use (a base URL is set) — the
+    // proxy handles model access and auth, so the SDK should pass the
+    // requested model through without downgrading.
     let effectiveModel = targetModel;
-    const usingProxy = !!process.env.ANTHROPIC_BASE_URL;
+    const usingProxy = baseURL !== undefined;
     if (
       !usingProxy &&
       subscriptionTier !== "api" &&
@@ -757,6 +804,7 @@ export class AnthropicProvider extends BaseProvider {
     // Store computed values
     this.oauthToken = oauthToken;
     this.subscriptionTier = subscriptionTier;
+    this.baseURL = baseURL;
 
     // Use the auth method already resolved above (before tier computation)
     this.authMethod = authMethod;
@@ -804,6 +852,9 @@ export class AnthropicProvider extends BaseProvider {
       // The claude-code-20250219 beta header triggers "credential only for Claude Code" error
       client = new Anthropic({
         apiKey: "oauth-authenticated", // Placeholder, actual auth is in fetch wrapper
+        // The same gateway the API-key branch honours: without it, OAuth
+        // credentials that also name a base URL would still reach the vendor.
+        ...(this.baseURL && { baseURL: this.baseURL }),
         // Note: No headers passed - fetch wrapper sets oauth-2025-04-20 beta header
         // Limit capture wraps the OAuth fetch so subscription quota headers
         // (anthropic-ratelimit-unified-*) are recorded on every request —
@@ -837,37 +888,10 @@ export class AnthropicProvider extends BaseProvider {
       const apiKeyToUse =
         credentials?.apiKey ?? config?.apiKey ?? getAnthropicApiKey();
 
-      // The official Anthropic SDK builds `${baseURL}/v1/messages` itself, so
-      // a version-suffixed base URL — the form the previous @ai-sdk/anthropic
-      // implementation REQUIRED (`https://api.anthropic.com/v1`) — would
-      // double up as `/v1/v1/messages`. Normalize the inverse way now: strip
-      // a trailing `/vN` segment when present so both historical forms of
-      // ANTHROPIC_BASE_URL keep working.
-      const normalizedBaseURL = (() => {
-        const raw = process.env.ANTHROPIC_BASE_URL;
-        if (!raw) {
-          return undefined;
-        }
-        const trimmed = raw.replace(/\/+$/, "");
-        const stripped = trimmed.replace(/\/v\d+$/, "");
-        if (stripped !== trimmed) {
-          logger.debug(
-            "[AnthropicProvider] Stripping the version suffix from " +
-              "ANTHROPIC_BASE_URL — the official Anthropic SDK appends /v1 " +
-              "to the base URL itself.",
-            {
-              baseURL: redactUrlCredentials(raw),
-              rewrittenTo: redactUrlCredentials(stripped),
-            },
-          );
-        }
-        return stripped;
-      })();
-
       client = new Anthropic({
         apiKey: apiKeyToUse,
         defaultHeaders: headers,
-        ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
+        ...(this.baseURL && { baseURL: this.baseURL }),
         // Same capture as the OAuth branch: works for direct API-key traffic
         // (legacy requests/tokens counters) and for the NeuroLink Claude proxy
         // (verbatim unified quota plus x-neurolink-* account/pool state).
@@ -924,10 +948,11 @@ export class AnthropicProvider extends BaseProvider {
   public getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // When routing through proxy (ANTHROPIC_BASE_URL set), use the full
-    // OAuth beta set so the proxy forwards them upstream. Without these,
-    // Anthropic treats the request with tighter non-subscription rate limits.
-    const usingProxy = !!process.env.ANTHROPIC_BASE_URL;
+    // When routing through a proxy (a base URL is set — per instance or
+    // ANTHROPIC_BASE_URL), use the full OAuth beta set so the proxy forwards
+    // them upstream. Without these, Anthropic treats the request with tighter
+    // non-subscription rate limits.
+    const usingProxy = this.baseURL !== undefined;
 
     if (this.enableBetaFeatures) {
       if (usingProxy) {
@@ -955,9 +980,9 @@ export class AnthropicProvider extends BaseProvider {
     }
 
     if (usingProxy) {
-      // WAFs in front of ANTHROPIC_BASE_URL proxies commonly block the bare
-      // SDK UA ("Anthropic/JS x.y.z"); send the claude-cli UA the OAuth path
-      // already uses. Direct-to-Anthropic traffic keeps the honest SDK UA.
+      // WAFs in front of Anthropic proxies commonly block the bare SDK UA
+      // ("Anthropic/JS x.y.z"); send the claude-cli UA the OAuth path already
+      // uses. Direct-to-Anthropic traffic keeps the honest SDK UA.
       headers["User-Agent"] = CLAUDE_CLI_USER_AGENT;
     }
 
@@ -989,9 +1014,9 @@ export class AnthropicProvider extends BaseProvider {
     // Proxy mode: bypass tier validation entirely — the proxy handles model
     // access. Log at debug level so users can tell why an unknown model name
     // "validated" when their proxy may not actually expose it.
-    if (process.env.ANTHROPIC_BASE_URL) {
+    if (this.baseURL !== undefined) {
       logger.debug(
-        "[validateModelAccess] Bypassing tier check (ANTHROPIC_BASE_URL set — proxy enforces access)",
+        "[validateModelAccess] Bypassing tier check (a base URL is set — the proxy enforces access)",
         { model },
       );
       return true;

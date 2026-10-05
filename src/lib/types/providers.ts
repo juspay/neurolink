@@ -183,7 +183,13 @@ export type AWSCredentialConfig = {
  */
 export type NeurolinkCredentials = {
   openai?: { apiKey?: string; baseURL?: string };
-  anthropic?: { apiKey?: string; oauthToken?: string };
+  /**
+   * Anthropic. `baseURL` points the official SDK client at a gateway or proxy
+   * instead of `api.anthropic.com` (with or without a trailing `/v1`); it
+   * takes precedence over `ANTHROPIC_BASE_URL`, exactly as `apiKey` does over
+   * `ANTHROPIC_API_KEY`.
+   */
+  anthropic?: { apiKey?: string; oauthToken?: string; baseURL?: string };
   googleAiStudio?: { apiKey?: string; baseURL?: string };
   vertex?: {
     projectId?: string;
