@@ -453,11 +453,34 @@ async function main(): Promise<void> {
         messageIncludes: ["returned HTTP 404", "gateway route is missing"],
       });
 
+      // The same route answer with the absence word first, the model or
+      // deployment word being only a modifier of the route. None of these may
+      // read as a missing model, and none may walk the fallback models.
+      for (const text of [
+        "Not found: model gateway route",
+        "Does not exist: deployment endpoint for this resource",
+        "The model gateway route does not exist",
+      ]) {
+        setHandler(jsonError(404, text));
+        await expectGenerateError({
+          name: `DEFAULT_ERROR_RULES via mistral: a 404 saying "${text}" is a route answer, not a missing model`,
+          run: () => gen({ provider: "mistral", model: "mistral-ghost-model" }),
+          notClasses: [InvalidModelError],
+          messageIncludes: ["mistral returned HTTP 404", text],
+        });
+        record(
+          `DEFAULT_ERROR_RULES via mistral: a route 404 saying "${text}" is sent once, not once per fallback model`,
+          hitCount === 1,
+          hitCount === 1 ? undefined : `server saw ${hitCount} requests`,
+        );
+      }
+
       // Other ways a vendor says a model is missing at 404, none of which uses
       // the "does not exist" wording above.
       for (const text of [
         "Invalid model: mistral-ghost-model",
         "No such model: mistral-ghost-model",
+        "Not found: model mistral-ghost-model",
         "The requested model is not supported for this account",
       ]) {
         setHandler(jsonError(404, text));

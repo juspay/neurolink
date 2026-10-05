@@ -696,27 +696,31 @@ await runSuite(async () => {
     const { getBestProvider } = await import("../dist/utils/providerUtils.js");
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
-    // Only one provider has a secret, and Ollama is pointed at a port nothing
-    // listens on, so no preferred provider is healthy and the choice falls to
-    // the first healthy one in sweep order. LM Studio and llama.cpp read as
-    // healthy there because they need no configuration, and they come before
-    // every catalog provider in that order.
+    // Only one provider has a secret, and Ollama and LiteLLM are pointed at a
+    // port nothing listens on, so no preferred provider is healthy and the
+    // choice falls to the first healthy one in sweep order. LM Studio and
+    // llama.cpp read as healthy there because they need no configuration, and
+    // they come before every catalog provider in that order. Ollama and LiteLLM
+    // are the two providers that probe a local default address when no base URL
+    // is set (:11434 and :4000), so clearing their variables would let a proxy
+    // running on a developer machine win; they are pinned to a dead address
+    // instead.
     const names = Object.keys(process.env).filter((name) =>
       /(_API_KEY|_TOKEN|_BASE_URL|_ENDPOINT|^AWS_|^GOOGLE_|^AZURE_|^OLLAMA|^LITELLM|^LM_STUDIO|^LLAMACPP|^OPENAI|^ANTHROPIC|^DEFAULT_PROVIDER)/i.test(
         name,
       ),
     );
     const saved = new Map<string, string | undefined>(
-      [...names, "GROQ_API_KEY", "OLLAMA_BASE_URL"].map((name) => [
-        name,
-        process.env[name],
-      ]),
+      [...names, "GROQ_API_KEY", "OLLAMA_BASE_URL", "LITELLM_BASE_URL"].map(
+        (name) => [name, process.env[name]],
+      ),
     );
     names.forEach((name) => {
       delete process.env[name];
     });
     process.env.GROQ_API_KEY = "test-credential-not-real";
     process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
+    process.env.LITELLM_BASE_URL = "http://127.0.0.1:1";
     // Health results are cached per provider, and earlier cases filled the
     // cache under other environments, so the choice would not see this one.
     ProviderHealthChecker.clearHealthCache();
