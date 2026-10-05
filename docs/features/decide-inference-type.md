@@ -212,7 +212,8 @@ is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4x
 is a non-retried `invalid_request`. For Cloudflare Clef only a 401 is that case
 (a 403 was never seen, and would be a non-retried `invalid_request`, so a
 permission fixed in the dashboard works at once), a 413 is `max_tokens_exceeded`,
-a 429 is `rate_limit` (retried), and a 400 or 422 is a non-retried
+a 429 is `rate_limit` (retried, except the Free plan's daily-allocation 429 with
+code 4006, which a few seconds of backoff do not clear), and a 400 or 422 is a non-retried
 `invalid_request`.
 
 ---
@@ -804,8 +805,8 @@ account's tier, and on the account tested 14 parallel requests got 10 answers an
 far less than the documented 64K (hosted service or model: unknown).** The
 original probe was on 2026-10-03; a follow-up of 133 probe calls on 2026-10-04
 still read the fact at the original `clef-flash` lower bound for logs, number
-lists, digit arrays and compact JSON on both models, and did not read it about
-2.5% further on. English prose
+lists, digit arrays and compact JSON on both models, and did not read it
+2.5% to 3.1% further on. English prose
 and random CJK already matched. Natural Chinese, Japanese, Korean and Hindi
 prose and emoji-rich English on `clef`, and a many-key object on both models,
 also reached NeuroLink's local cap before their observed cuts.

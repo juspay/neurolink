@@ -44,6 +44,13 @@ const TRAILING_REQUEST_ID =
 const MAX_ERROR_MESSAGE_CHARS = 500;
 
 /**
+ * The code on the 429 an account gets once it has used its daily free
+ * allocation of 10,000 neurons (seen 2026-10-05). Unlike the capacity 429
+ * (3040), nothing changes within a retry's backoff, so it is not retried.
+ */
+const DAILY_ALLOCATION_CODE = 4006;
+
+/**
  * An error message is cut to this before any pattern runs on it, so a hostile or
  * garbled body cannot hold the event loop. Cloudflare's own messages are far
  * shorter (the longest seen was about 350 characters).
@@ -388,7 +395,9 @@ export class CloudflareClefProvider extends SystemOneDecisionProvider {
       status,
       requestId: requestId ?? parsed?.requestId,
       retryable:
-        kind === "rate_limit" || kind === "overloaded" || kind === "server",
+        (kind === "rate_limit" && parsed?.code !== DAILY_ALLOCATION_CODE) ||
+        kind === "overloaded" ||
+        kind === "server",
     };
   }
 

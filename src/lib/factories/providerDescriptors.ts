@@ -693,7 +693,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // (hosted service or model: unknown), despite the documented 64K. The local
     // 1,500-token estimate refuses before every measured cut. On 2026-10-04,
     // both models read facts at the original clef-flash lower bounds for logs,
-    // number lists, digit arrays and compact JSON, but not about 2.5% further on;
+    // number lists, digit arrays and compact JSON, but not 2.5% to 3.1% further on;
     // English prose and random CJK already matched on both. Digits cost 1,
     // ASCII symbols 0.75, BMP non-ASCII 1.5 and astral characters 3 tokens.
     // Natural Chinese, Japanese, Korean and Hindi prose and emoji-rich English
@@ -715,13 +715,14 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
       // Retain the conservative 256,000-byte encoded-body cap: on 2026-10-04
       // both models accepted 520,000 text characters and refused 525,000 with
       // 413/code 5021. On 2026-10-03, clef-flash accepted 262,000 and refused
-      // 270,000. Estimates match encoded body characters / 4, rounded up. The
+      // 270,000. Estimates are the encoded body bytes / 4, give or take one. The
       // threshold moved from 65,527 accepted / 67,527 refused to 130,026 /
       // 131,276 (clef) and 130,027 / 131,277 (flash); errors still print 65,536.
       // Inference: the new interval contains 131,072 (twice the printed
       // figure); reason unknown.
-      // The new image-byte ceiling was not measured; the old 195/202 KB PNG boundary
-      // is historical. See the guide for exact model and date coverage.
+      // On 2026-10-05 both models accepted PNG bodies up to 492,485 bytes and
+      // refused 532,505 (flash) and 532,499 (clef) with the same 413; the old 195/202 KB boundary is
+      // historical. See the guide for exact model and date coverage.
       media: { maxImages: 4, video: false, maxRequestBytes: 256_000 },
     },
     setupUrl: "https://dash.cloudflare.com/profile/api-tokens",

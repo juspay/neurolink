@@ -152,14 +152,17 @@ ignores text past about 2,048 tokens without an error
 `digitTokensPerChar: 1` (the tokenizer reads every digit alone) and 1.5 tokens per
 non-ASCII character. The encoded request cap stays 256,000 bytes. On 2026-10-03,
 `clef-flash` accepted 262,000 text characters and refused 270,000. On 2026-10-04
-both models accepted 520,000 text characters and refused 525,000 with 413/code 5021. Refusal estimates match encoded body characters / 4, rounded up; what
+both models accepted 520,000 text characters and refused 525,000 with 413/code 5021. Refusal estimates are the encoded body bytes / 4 (rounded up in seven of eight refusals, one lower in the eighth); what
 changed was the threshold, from between 65,527 accepted / 67,527 refused to
 130,026 / 131,276 (`clef`) and 130,027 / 131,277 (`clef-flash`). The error still
 prints 65,536. Inference:
 the new interval contains 131,072, twice that figure; the reason is unknown.
 Four images and `image/jpg` succeeded on both models; Clef normalizes the alias
 to `image/jpeg`. Natural-script and many-key-object cuts fit the existing rates. The decide
-suite's live canaries 19.10, 19.10b and 19.11 fail if Cloudflare changes either.
+suite's live canaries 19.10 and 19.10b fail if the service stops reading a state just under
+NeuroLink's own limit on either model, and 19.11 if the text-only request ceiling moves. On
+2026-10-07 the endpoint read states of at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`),
+which the 1,500-token limit above does not yet reflect.
 Only a 401 trips Clef's auth breaker (a 403 was never seen and must not latch the
 instance), and a `credentials.cloudflareClef` slice that names its own `baseURL`
 never borrows `CLOUDFLARE_API_KEY`.

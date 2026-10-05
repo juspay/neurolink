@@ -170,8 +170,10 @@ await neurolink.decide({
   including base64 image data. A 195 KB PNG encodes to about 260,000 characters
   and is refused locally. **Resize or compress a photo to well under 190 KB first.**
   The 2026-10-03 API probe accepted a 195 KB PNG and refused a 202 KB one.
-  On 2026-10-04 the text-only request ceiling moved (see below); the current
-  image-byte ceiling was not remeasured, so those image figures are historical.
+  That boundary has since moved: on 2026-10-05 both models accepted PNG
+  requests with encoded bodies up to 492,485 bytes and refused 532,505 bytes
+  (`clef-flash`) and 532,499 (`clef`) (see below), so the 195/202 KB figures are historical and NeuroLink's cap is
+  the stricter limit.
 
 ## When NeuroLink uses it
 
@@ -256,10 +258,11 @@ used 133 probe calls on 2026-10-04, with one request at a time.
 
 **Which model:** on both `clef-flash` and `clef`, the follow-up still read the
 fact at the 2026-10-03 `clef-flash` lower bound for logs, number lists, digit
-arrays and compact JSON, and did not read it about 2.5% further on. English prose and
-random CJK had already matched on both models. It also checked the question,
-id, option, score-level, PNG/JPEG/WebP, pixel and four/five-image boundaries on
-`clef`, and the four-image and `image/jpg` cases on both models. Natural-script
+arrays and compact JSON, and did not read it 2.5% to 3.1% further on. English prose and
+random CJK had already matched on both models. It also checked the question
+count, pixel and four/five-image boundaries on both models, the id, option,
+score-level and PNG/JPEG/WebP boundaries on `clef`, and the `image/jpg` case on
+both models. Natural-script
 prose was measured on `clef`; a reworked many-key object probe matched on both.
 TypeScript, minified JSON and synthetic Devanagari/emoji cuts remain 9B-only
 measurements. Historical latency, billing and burst figures retain their dates.
@@ -275,7 +278,7 @@ measurements. Historical latency, billing and burst figures retain their dates.
 | Video              | the model page says it reads video                                                                                  | refused: no field, and not accepted in `images`                                                                                       |
 | Rate               | not documented on the model page; the pricing page links a limits page and a free allowance of 10,000 neurons a day | 60 requests sent at once: 56 answered, 4 refused with a 429                                                                           |
 
-**The state window.** A fact placed past about 2,048 tokens of state was ignored
+**The state window (2026-10-03 and 2026-10-04; see [the change of 2026-10-07](#the-state-window-changed-on-2026-10-07)).** A fact placed past about 2,048 tokens of state was ignored
 (a 75-character sentence repeated for 60,000 characters: the fact was used at
 10,500 characters and ignored from 12,000), a question about the end of a long
 text was answered from its beginning, and the reported input tokens stayed at
@@ -301,7 +304,7 @@ text in those scripts may tokenise differently:
 
 An array of records passed as `state` was cut at the same place as compact
 JSON text. On both models, the follow-up still read the fact at the
-2026-10-03 `clef-flash` lower bound and did not read it about 2.5% further on:
+2026-10-03 `clef-flash` lower bound and did not read it 2.5% to 3.1% further on:
 2,863–2,935 characters for logs, 2,040–2,091 for number lists, 2,043–2,095 for
 digit arrays, and 97–100 records for compact JSON. These two-point checks
 do not establish exact tokenizer boundaries.
@@ -335,19 +338,76 @@ one refused. The 250,000-character request was first tested on 2026-10-04.
 On that date both models accepted 270,000, 500,000, 510,000 and 520,000 text
 characters, then refused 525,000, 530,000 and 1,000,000 with 413/code 5021.
 
-The refusal estimate agrees with the encoded body characters / 4, rounded up.
-What changed was the refusal threshold: on 2026-10-03, `clef-flash` accepted an
+The refusal estimate is the encoded body bytes / 4: it equals that figure rounded
+up in seven of the eight refusals measured on 2026-10-04 and 2026-10-05, and is one
+lower in the eighth (a 532,505-byte body gave 133,126). What changed was the refusal threshold: on 2026-10-03, `clef-flash` accepted an
 estimate of 65,527 and refused 67,527; on 2026-10-04, both models accepted
 130,026 (`clef`) / 130,027 (`clef-flash`) and refused 131,276 / 131,277. The error still
 prints a 65,536-token context. **Inference:** the new interval contains 131,072,
 twice the printed figure; the reason is unknown. The observed text ceiling is
-between 520,000 and 525,000 characters, not a stable API guarantee. The
-image-byte boundary was not repeated on this date.
+between 520,000 and 525,000 characters, not a stable API guarantee.
+
+**Images, 2026-10-05.** The image boundary was measured with one request at a time
+and incompressible PNGs. `clef-flash` accepted bodies of 252,365, 268,377, 400,441
+and 492,485 bytes (one image of about 190, 202, 300 and 370 KB) and refused 532,505
+bytes (about 400 KB) with 413/code 5021, estimate 133,126. `clef` accepted a 300 KB
+image (400,435 bytes) and four 75 KB images together (400,758 bytes), and refused
+the 400 KB image (532,499 bytes, estimate 133,125). Text and images therefore reach
+a refusal at about the same body size, between 520,108 and 525,102 bytes for text
+and between 492,485 and 532,499 for images. **Inference:** both intervals contain
+524,288 bytes (131,072 x 4); the reason the limit moved is unknown.
 
 NeuroLink keeps the 256,000-byte encoded-body cap. It remains below the accepted
-request sizes and preserves the conservative image-size behavior. The
-256,000-byte cap with images has mocked coverage but is not live-tested.
-Live canary 19.11 checks the text-only service ceiling on `clef-flash`.
+request sizes, text and images alike. Live case 19.14 sends an image request just
+under the cap through NeuroLink; live canary 19.11 checks the text-only service
+ceiling on `clef-flash`.
+
+### The state window changed on 2026-10-07
+
+> **The window described above no longer applies.** On 2026-10-07 the Workers AI
+> endpoint read the whole state. This section records what was measured; the
+> numbers above stay as the record of 2026-10-03 and 2026-10-04.
+
+Measured with one request at a time between 07:24 and 08:12 UTC, with a fact
+placed at the end of the state (the part a cut would drop) and the question "what
+colour does the text say the vault code is?". A fact counts as read when the
+answer's probability for its colour is at least 0.8.
+
+| State                             | Model        | Characters | Input tokens billed | Fact read (probability) | Time   |
+| --------------------------------- | ------------ | ---------- | ------------------- | ----------------------- | ------ |
+| Prose, fact at 55,000             | `clef-flash` | 60,032     | 10,555              | yes (0.980)             | 0.8 s  |
+| Prose, fact at 55,000             | `clef`       | 60,032     | 10,555              | yes (0.996)             | 2.0 s  |
+| Prose, no fact (control)          | `clef-flash` | 60,000     | 10,547              | no (0.297)              | 1.1 s  |
+| Prose, no fact (control)          | `clef`       | 60,000     | 10,547              | no (0.170)              | 2.0 s  |
+| Prose, fact at 200,000            | `clef-flash` | 240,032    | 41,755              | yes (0.978)             | 3.0 s  |
+| Prose, fact at the end            | `clef-flash` | 300,031    | 52,154              | yes (0.984)             | 4.9 s  |
+| Prose, fact at the end            | `clef`       | 300,031    | 52,154              | yes (0.996)             | 11.8 s |
+| Prose, fact at the end            | `clef-flash` | 500,031    | 86,819              | yes (0.985)             | 19.2 s |
+| JSON array of digits, fact at end | `clef-flash` | 115,031    | 115,153             | yes (0.986)             | 11.3 s |
+| JSON array of digits, fact at end | `clef-flash` | 158,031    | 158,153             | yes (0.987)             | 30.9 s |
+| JSON array of digits, fact at end | `clef-flash` | 190,031    | 190,153             | yes (0.986)             | 39.0 s |
+| JSON array of digits, fact at end | `clef`       | 190,031    | none                | HTTP 529, code 5012     | 15.2 s |
+
+The billed input tokens now follow the text (on 2026-10-03 and 2026-10-04 they
+stayed at about 2,190 for any longer state), and the largest states tried on
+`clef-flash` were read in full: no upper bound was found below 190,153 tokens,
+past the 65,536-token context the model page documents. The `clef` (27B) model
+read a 52,154-token state, and answered **HTTP 529, code 5012, "Clef inference
+failed"** after 15 s for the 190,153-token array; it was not tried between those
+sizes. That 529 is the first server-side error seen from this API.
+
+Latency grows with the input: 1.7 to 1.9 s for 20,954 tokens on `clef-flash`,
+about 0.2 s per 1,000 input tokens from 50,000 tokens up on both models (11.8 s
+for 52,154 tokens on `clef`), and the first request after a pause can be much
+slower (19.7 s for 30,153 tokens). Another session reported, from its own saved
+benchmark, that `clef` answered 22 of 2,000 short questions differently on
+2026-10-07 than on 2026-10-05; that was not verified here.
+
+This is one day of data, from a service whose behaviour changed between 2026-10-03,
+2026-10-04, 2026-10-05 and 2026-10-07. Cloudflare was not asked why. NeuroLink's
+local limit is unchanged by this section (see [What NeuroLink refuses before any
+request](#what-neurolink-refuses-before-any-request)): it now refuses states the
+service would read.
 
 ### What NeuroLink refuses before any request
 
@@ -383,20 +443,29 @@ than a guarantee for every script or emoji sequence.
   such token was available. A 403 is treated as an ordinary `invalid_request`,
   not `authentication`, so that if it does mean a missing permission, fixing it
   in the dashboard works at once, without restarting the process.
-- Any 5xx. Cloudflare answered none during the probe, so the retry and
-  classification of 500, 502, 503 and 504 rest on ordinary HTTP conventions.
-- What happens to an account that has run out of credit.
-- The 27B TypeScript, minified-JSON and synthetic Devanagari/emoji cuts, and
-  the image-byte ceiling after the observed request-size change; see the model
-  coverage above.
+- Any 5xx other than one 529. Cloudflare answered a single server error, HTTP 529
+  with code 5012 ("Clef inference failed"), to a 190,153-token state on `clef` on
+  2026-10-07; the retry and classification of 500, 502, 503 and 504 rest on
+  ordinary HTTP conventions.
+- What a Workers Paid account that has run out of credit gets. Only the Free plan's
+  daily allocation running out was seen (HTTP 429, code 4006, 2026-10-05); it is
+  not retried. Cloudflare documents a reset at 00:00 UTC, but this account was
+  still refused at 02:38 and 04:12 UTC on 2026-10-06 and answered again at
+  07:24 UTC on 2026-10-07, so when the allowance returns here is not verified.
+- The 27B TypeScript, minified-JSON and synthetic Devanagari/emoji cuts; see the
+  model coverage above.
 - The rate limit. Only a burst of 60 was tried.
 - Whether Cloudflare's service is generally available or in beta.
-- Whether the 2,048-token state window and the changing request-size limit belong
-  to the hosted service or to the model itself. The open weights on Hugging Face
+- Whether the state window (about 2,048 tokens until 2026-10-04, none found by
+  2026-10-07) and the changing request-size limit belong to the hosted service or
+  to the model itself. The open weights on Hugging Face
   were not run.
-- Whether either limit changes. The live decide suite carries three canary cases
-  (19.10, 19.10b and 19.11) that fail with an instruction to re-measure if it
-  does; 19.11 checks both sides of the text-only request ceiling on `clef-flash`.
+- Whether either limit changes again. The live decide suite carries three canary
+  cases that fail with an instruction to re-measure: 19.10 and 19.10b send a
+  prose state and a digit array just under NeuroLink's own limit, with a fact at
+  the very end, to both models, and fail if the service stops reading below that
+  limit; 19.11 checks both sides of the text-only request ceiling on `clef-flash`.
+  None of them notices a service that reads more than the limit allows.
 
 ### Latency and the timeout
 
@@ -423,7 +492,9 @@ takes the request id out of the text.
 | 422    | 5012  | a validation failure: 65 questions, a fifth image, an unknown field, an empty instruction | `invalid_request`                   | no                             |
 | 413    | 5021  | a request past the estimate above                                                         | `max_tokens_exceeded`               | no                             |
 | 429    | 3040  | "Capacity temporarily exceeded"; no `Retry-After`                                         | `rate_limit`                        | yes, after the default backoff |
-| 5xx    |       | never seen from Cloudflare                                                                | `server`, or `overloaded` for a 503 | yes, once                      |
+| 429    | 4006  | "you have used up your daily free allocation of 10,000 neurons"; no `Retry-After`         | `rate_limit`                        | no                             |
+| 529    | 5012  | "Clef inference failed", seen once (`clef`, a 190,153-token state, after 15 s)            | `server`                            | yes, once                      |
+| 5xx    |       | any other 5xx: never seen from Cloudflare                                                 | `server`, or `overloaded` for a 503 | yes, once                      |
 
 Only a 401 is `authentication`. After one, that provider instance refuses further
 calls without sending anything; construct a new one with a working token. "Yes"
@@ -440,6 +511,11 @@ means one retry, after about 250 to 500 ms; the base class retries once.
   served as `clef` and `clef-flash`, and the base URL must end in `/client/v4`.
 - **A 429 "Capacity temporarily exceeded"** — retried for you; if it keeps
   happening, send fewer requests at once.
+- **A 429 "you have used up your daily free allocation of 10,000 neurons"** — the
+  Free plan's allowance for the day is gone. It is not retried, because nothing
+  changes until the allowance returns (Cloudflare documents a reset at 00:00 UTC; on
+  this account it came back later, see "What is not verified"); upgrade to Workers Paid or wait.
+  Built-in features that use Clef as their default fall back as on any failure.
 - **An image is refused as "The request is N bytes; Cloudflare accepts at most
   256000"** — Cloudflare counts the base64 text of the image, so NeuroLink
   refuses it locally under the retained conservative cap. Resize or compress it

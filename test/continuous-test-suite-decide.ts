@@ -41,6 +41,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 import {
   AIProviderName,
   buildModelCatalog,
@@ -4925,112 +4926,96 @@ await test("19.9 — live: red and blue WebP images (data: URLs) are told apart"
   assert(blue === "blue", "the blue image must answer blue");
 });
 
-// The reason decisionLimits exists. Cloudflare documents a 65,536-token context
-// window, but on 2026-10-03 the endpoint ignored state text past about 2,048
-// tokens without an error (hosted service or model: unknown). This case goes around
-// NeuroLink's local limit to ask the service itself. If it fails, the service
-// has changed: re-measure, then raise maxStateTokens and the docs.
-await test("19.10 — live: clef-flash still ignores a fact placed far past the start of the state", async () => {
+// What keeps decisionLimits honest. The state limit is a local refusal, correct
+// only while the service reads everything NeuroLink admits. On 2026-10-03 and
+// 2026-10-04 it did not (about 2,048 tokens were read, whatever the length); on
+// 2026-10-07 it read states of at least 190,153 tokens. These two cases send,
+// through NeuroLink, a state just under its own limit with a fact at the very end,
+// to both models: if the service starts ignoring text again below the limit, they
+// fail with an instruction to re-measure and lower maxStateTokens. They do not
+// notice a service that reads more than the limit allows; the bracketing probe
+// kept with the 2026-10-07 evidence does.
+const CLEF_CANARY_FACT = " The vault code colour is blue.";
+// Estimated tokens per character of the two states below, measured against the
+// estimator on 2026-10-07: prose 0.2692, a JSON array of digits 0.8749.
+const CLEF_PROSE_ESTIMATE_PER_CHAR = 0.2692;
+const CLEF_DIGITS_ESTIMATE_PER_CHAR = 0.8749;
+
+function clefLocalLimit(): number {
+  const limit = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE_CLEF)
+    ?.decisionLimits?.maxStateTokens;
+  assert(limit !== undefined, "cloudflare-clef must declare maxStateTokens");
+  return limit!;
+}
+
+async function clefEndFactRead(
+  state: string,
+  model: string,
+): Promise<{ blue: number; inputTokens: number }> {
+  const result = await decideClefLive({
+    state,
+    questions: {
+      v: {
+        type: "choice",
+        instructions: "What colour does the text say the vault code is?",
+        criteria: { red: "red", blue: "blue", green: "green" },
+      },
+    },
+    model,
+  });
+  const answer = result.answers.v;
+  assert(
+    answer?.type === "choice",
+    "the question must be answered as a choice",
+  );
+  return {
+    blue: answer.probabilities.blue ?? 0,
+    inputTokens: result.usage.inputTokens,
+  };
+}
+
+await test("19.10 — live: a prose state just under NeuroLink's limit is read to its last sentence by both models", async () => {
   requireCloudflareClef();
-  restoreEnv();
+  const limit = clefLocalLimit();
   const filler =
     "The warehouse schedule was reviewed and nothing else of note was recorded. ";
-  const text = filler
-    .repeat(Math.ceil(60_000 / filler.length))
-    .slice(0, 60_000);
-  const fact = " The vault code colour is blue. ";
-  const blueAt = async (position: number): Promise<number> => {
-    const { status, json } = await clefRaw("clef-flash", {
-      model: "clef-flash",
-      state: text.slice(0, position) + fact + text.slice(position),
-      questions: {
-        v: {
-          type: "choice",
-          instructions: "What colour does the text say the vault code is?",
-          criteria: { red: "red", blue: "blue", green: "green" },
-        },
-      },
-    });
-    assert(status === 200, `Cloudflare must answer 200 (got ${status})`);
-    const answer = (
-      json as {
-        result?: {
-          answers?: { v?: { probabilities?: Record<string, number> } };
-        };
-      }
-    )?.result?.answers?.v;
-    return answer?.probabilities?.blue ?? 0;
-  };
-  const near = await blueAt(5_000);
-  const far = await blueAt(30_000);
-  assert(
-    near >= 0.8,
-    `control: a fact inside the window must be used (blue ${near})`,
-  );
-  assert(
-    far < 0.8,
-    `Cloudflare now reads text far past 2,048 tokens (blue ${far}): re-measure, then raise decisionLimits.maxStateTokens for cloudflare-clef and the docs`,
-  );
+  const chars = Math.floor((limit * 0.95) / CLEF_PROSE_ESTIMATE_PER_CHAR);
+  const state =
+    filler.repeat(Math.ceil(chars / filler.length)).slice(0, chars) +
+    CLEF_CANARY_FACT;
+  for (const model of ["clef-flash", "clef"]) {
+    const { blue, inputTokens } = await clefEndFactRead(state, model);
+    assert(
+      blue >= 0.8,
+      `${model} did not read a fact at the end of a ${chars}-character state that NeuroLink admits (blue ${blue}): the service ignores text again below the local limit; re-measure, then lower maxStateTokens for cloudflare-clef and the docs`,
+    );
+    assert(
+      inputTokens >= limit * 0.5,
+      `${model} billed ${inputTokens} input tokens for a state estimated near ${Math.round(limit * 0.95)}: the state was not read in full`,
+    );
+  }
 });
 
-// The rates behind decisionLimits rest on where the cut falls for dense text, not
-// just prose: on 2026-10-03 a JSON array of single digits was cut after 2,043
-// characters (one token each, commas included). This asks the service itself,
-// with a fact placed before and after that point. It is what keeps
-// symbolTokensPerChar and digitTokensPerChar honest; if it fails, re-measure.
-await test("19.10b — live: a JSON array of digits is still cut at about one token a character, and the local estimate refuses it first", async () => {
+await test("19.10b — live: a JSON array of digits just under NeuroLink's limit is read to its end by both models", async () => {
   requireCloudflareClef();
-  restoreEnv();
-  const fact = " The vault code colour is blue. ";
-  const digits = Array.from({ length: 2_000 }, (_, i) => String(i % 10));
-  const stateAt = (count: number) =>
-    `[${digits.slice(0, count).join(",")}${fact}${digits.slice(count).join(",")}]`;
-  const blueAt = async (count: number): Promise<number> => {
-    const { status, json } = await clefRaw("clef-flash", {
-      model: "clef-flash",
-      state: stateAt(count),
-      questions: {
-        v: {
-          type: "choice",
-          instructions: "What colour does the text say the vault code is?",
-          criteria: { red: "red", blue: "blue", green: "green" },
-        },
-      },
-    });
-    assert(status === 200, `Cloudflare must answer 200 (got ${status})`);
-    const answer = (
-      json as {
-        result?: {
-          answers?: { v?: { probabilities?: Record<string, number> } };
-        };
-      }
-    )?.result?.answers?.v;
-    return answer?.probabilities?.blue ?? 0;
-  };
-  // 500 digits are about 1,000 characters: well inside the cut. 1,500 digits are
-  // about 3,000 characters: well past it.
-  const inside = await blueAt(500);
-  const past = await blueAt(1_500);
-  assert(
-    inside >= 0.8,
-    `control: a fact among the first 500 digits must be used (blue ${inside})`,
-  );
-  assert(
-    past < 0.8,
-    `Cloudflare now reads a digit array past 2,043 characters (blue ${past}): re-measure, then revisit digitTokensPerChar and symbolTokensPerChar`,
-  );
-  // And the provider refuses what the model would cut, before sending it.
-  const refused = await failureOf(() =>
-    new NeuroLink().decide({
-      provider: "cloudflare-clef",
-      state: stateAt(1_500),
-      questions: { v: { type: "boolean", instructions: "Is it blue?" } },
-    }),
-  );
-  assert(
-    refused?.kind === "max_tokens_exceeded",
-    "NeuroLink must refuse a state of that shape before the endpoint silently ignores part of it",
-  );
+  const limit = clefLocalLimit();
+  const chars = Math.floor((limit * 0.95) / CLEF_DIGITS_ESTIMATE_PER_CHAR);
+  let array = "[";
+  for (let i = 0; array.length < chars; i++) {
+    array += `${i % 10},`;
+  }
+  const state = array.slice(0, chars) + CLEF_CANARY_FACT;
+  for (const model of ["clef-flash", "clef"]) {
+    const { blue, inputTokens } = await clefEndFactRead(state, model);
+    assert(
+      blue >= 0.8,
+      `${model} did not read a fact at the end of a ${chars}-character digit array that NeuroLink admits (blue ${blue}): the service ignores text again below the local limit; re-measure, then lower maxStateTokens and revisit digitTokensPerChar and symbolTokensPerChar`,
+    );
+    assert(
+      inputTokens >= limit * 0.9,
+      `${model} billed ${inputTokens} input tokens for a digit array estimated near ${Math.round(limit * 0.95)}: the state was not read in full`,
+    );
+  }
 });
 
 // Text-only canary on clef-flash: 520,000 state characters accepted and
@@ -5151,6 +5136,82 @@ await test("19.13 — live: decide --provider cloudflare-clef --image --format j
   assert(
     !looksLikeStackTrace(result.stderr),
     "stderr must not hold a stack trace",
+  );
+});
+
+// A valid RGB PNG of about `targetBytes` file bytes whose pixels do not
+// compress, so the encoded request is as large as the image is.
+function noisePng(targetBytes: number): Buffer {
+  const width = 1000;
+  const rowBytes = 1 + width * 3;
+  const height = Math.max(1, Math.round(targetBytes / rowBytes));
+  const raw = Buffer.alloc(height * rowBytes);
+  let seed = 12345;
+  for (let y = 0; y < height; y++) {
+    for (let i = 1; i < rowBytes; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      raw[y * rowBytes + i] = (seed >>> 16) & 0xff;
+    }
+  }
+  const crc32 = (bytes: Buffer): number => {
+    let crc = ~0;
+    for (const byte of bytes) {
+      let c = (crc ^ byte) & 0xff;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      crc = (crc >>> 8) ^ c;
+    }
+    return ~crc >>> 0;
+  };
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(raw, { level: 0 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+// NeuroLink caps an encoded request at 256,000 bytes, image data included.
+// On 2026-10-05 both models accepted PNG request bodies of 400,000 to 492,000
+// bytes, so a request just under the cap must pass NeuroLink's own check and
+// be answered. If this case fails with a 413, the service limit has dropped
+// below the local cap: re-measure and lower maxRequestBytes.
+await test("19.14 — live: an image request just under NeuroLink's 256,000-byte cap is accepted by the service", async () => {
+  requireCloudflareClef();
+  const image = noisePng(190_000);
+  const result = await decideClefLive({
+    state: "Checkout is down.",
+    questions: {
+      checkout: {
+        type: "boolean",
+        instructions: "Is this about checkout?",
+      },
+    },
+    images: [image],
+    model: "clef-flash",
+  });
+  const mediaBytes = result.mediaBytes ?? 0;
+  assert(
+    mediaBytes > 240_000 && mediaBytes < 256_000,
+    `the image must be reported just under the local cap (got ${mediaBytes} bytes)`,
+  );
+  assert(
+    result.answers.checkout?.type === "boolean",
+    "the question must be answered",
   );
 });
 

@@ -8926,6 +8926,18 @@ const CLEF_ERRORS = {
     3040,
     "AiError: AiError: Capacity temporarily exceeded, please try again.",
   ),
+  // 529, seen once on 2026-10-07: `clef`, a 190,153-token digit array, after 15 s.
+  // The message nests an error object as text, as every AiError here does.
+  inferenceFailed: clefEnvelope(
+    5012,
+    'AiError: AiError: {"error":{"type":"inference_error","message":"Clef inference failed"}}',
+  ),
+  // 429, seen 2026-10-05 once the account had used its free daily allocation;
+  // no Retry-After came with it.
+  dailyAllocation: clefEnvelope(
+    4006,
+    "AiError: AiError: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.",
+  ),
 };
 
 /** An HTML page of the kind an edge answers a timeout with. */
@@ -9578,6 +9590,17 @@ async function runClefErrors(): Promise<void> {
       includes: ["Capacity temporarily exceeded"],
     },
     {
+      label: "429 daily free allocation used up is not retried",
+      reply: {
+        status: 429,
+        json: CLEF_ERRORS.dailyAllocation,
+        headers: modelHeaders,
+      },
+      kind: "rate_limit",
+      retryable: false,
+      includes: ["daily free allocation"],
+    },
+    {
       // A stand-in: Cloudflare never answered a 5xx during the probe.
       label: "500 stand-in",
       reply: {
@@ -9587,6 +9610,19 @@ async function runClefErrors(): Promise<void> {
       },
       kind: "server",
       retryable: true,
+    },
+    {
+      // The one 5xx ever observed from Cloudflare.
+      label:
+        "529 inference failed (seen once, 2026-10-07) is a retried server error",
+      reply: {
+        status: 529,
+        json: CLEF_ERRORS.inferenceFailed,
+        headers: modelHeaders,
+      },
+      kind: "server",
+      retryable: true,
+      includes: ["Clef inference failed"],
     },
     {
       // Never observed from Cloudflare: HTTP classification stand-in.
