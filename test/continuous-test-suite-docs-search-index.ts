@@ -391,6 +391,24 @@ await test("the truncation helper does not end a section on an abbreviation", ()
       " Then more words follow",
     ),
     endingOn(
+      "etc. before an opening quote and a capital still ends a sentence",
+      "Use a, b, etc.",
+      `${lead} Use a, b, etc.`,
+      " “Then more words follow",
+    ),
+    endingOn(
+      "etc. before an opening bracket and a capital still ends a sentence",
+      "Use a, b, etc.",
+      `${lead} Use a, b, etc.`,
+      " (Then more words follow",
+    ),
+    endingOn(
+      "etc. before an opening quote and a lowercase word does not end a sentence",
+      "Use a, b, etc.",
+      lead,
+      " “and more words follow",
+    ),
+    endingOn(
       "etc. before a lowercase word does not end a sentence",
       "Use a, b, etc.",
       lead,

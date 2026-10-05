@@ -35,7 +35,9 @@ const SECTION_CONTENT_LIMIT = 2000;
 const NEVER_ENDS_SENTENCE =
   /(?:^|[^\p{L}\p{N}_])(?:e\.g|i\.e|cf|vs|approx|incl|resp)$/iu;
 const ETC = /(?:^|[^\p{L}\p{N}_])etc$/iu;
-const STARTS_A_SENTENCE = /^\s*(?:\p{Lu}|$)/u;
+// Opening quotes and brackets (\p{Pi}, \p{Ps}, and the ASCII quotes) may sit between
+// "etc." and the capital that starts the next sentence: etc. “Next ...
+const STARTS_A_SENTENCE = /^\s*["'\p{Pi}\p{Ps}]*(?:\p{Lu}|$)/u;
 // "approx", the longest token, is 6 characters; one more must precede it.
 const TOKEN_LOOKBEHIND = 8;
 
