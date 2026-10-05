@@ -261,6 +261,7 @@
     "test:multimodal:sdk": "pnpm exec tsx test/continuous-test-suite-multimodal-sdk.ts",
     "test:video-frames": "pnpm exec tsx test/continuous-test-suite-video-frames.ts",
     "test:video-no-ffprobe": "pnpm exec tsx test/continuous-test-suite-video-no-ffprobe.ts",
+    "test:model-default-resolution": "pnpm exec tsx test/continuous-test-suite-model-default-resolution.ts",
     "test:video-native": "pnpm exec tsx test/continuous-test-suite-video-native.ts",
     "test:mcp-result-cache": "pnpm exec tsx test/continuous-test-suite-mcp-result-cache.ts",
     "test:mcp-breaker-resolved-errors": "pnpm exec tsx test/continuous-test-suite-mcp-breaker-resolved-errors.ts",

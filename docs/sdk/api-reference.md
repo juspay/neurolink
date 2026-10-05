@@ -1189,8 +1189,8 @@ type McpRegistry = {
 
 ```typescript
 type OpenAIModel =
-  | "gpt-4o" // Default - Latest multimodal model
-  | "gpt-4o-mini" // Cost-effective variant
+  | "gpt-4o" // Previous generation multimodal model
+  | "gpt-4o-mini" // Default - cost-effective variant
   | "gpt-4-turbo"; // High-performance model
 ```
 

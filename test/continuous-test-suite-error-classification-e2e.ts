@@ -420,14 +420,53 @@ async function main(): Promise<void> {
         messageIncludes: ["mistral rate limit exceeded"],
       });
 
-      // File1 #4: 404 statusCode -> InvalidModelError (with model interpolation)
-      setHandler(jsonError(404, "nope"));
+      // File1 #4: a model-specific not-found message -> InvalidModelError.
+      setHandler(jsonError(404, "The model does not exist or is unavailable"));
       await expectGenerateError({
-        name: "DEFAULT_ERROR_RULES via mistral: 404 statusCode -> InvalidModelError naming the model",
+        name: "DEFAULT_ERROR_RULES via mistral: 404 naming a model -> InvalidModelError naming the model",
         run: () => gen({ provider: "mistral", model: "mistral-ghost-model" }),
         expectClass: InvalidModelError,
         messageIncludes: ["mistral-ghost-model"],
       });
+
+      // A 404 that names no model is what a wrong base URL answers. It must
+      // stay visible as an HTTP 404 and must not walk the fallback models:
+      // each fallback would repeat the same misdirected request.
+      setHandler(jsonError(404, "nope"));
+      await expectGenerateError({
+        name: "DEFAULT_ERROR_RULES via mistral: 404 naming no model -> ProviderError carrying the vendor text",
+        run: () => gen({ provider: "mistral", model: "mistral-ghost-model" }),
+        notClasses: [InvalidModelError],
+        messageIncludes: ["mistral returned HTTP 404", "nope"],
+      });
+      record(
+        "DEFAULT_ERROR_RULES via mistral: a 404 naming no model is sent once, not once per fallback model",
+        hitCount === 1,
+        hitCount === 1 ? undefined : `server saw ${hitCount} requests`,
+      );
+
+      setHandler(jsonError(404, "The model gateway route is missing"));
+      await expectGenerateError({
+        name: "DEFAULT_ERROR_RULES via mistral: mentioning a model alone does not prove a missing model",
+        run: () => gen({ provider: "mistral", model: "mistral-ghost-model" }),
+        notClasses: [InvalidModelError],
+        messageIncludes: ["returned HTTP 404", "gateway route is missing"],
+      });
+
+      // Other ways a vendor says a model is missing at 404, none of which uses
+      // the "does not exist" wording above.
+      for (const text of [
+        "Invalid model: mistral-ghost-model",
+        "No such model: mistral-ghost-model",
+        "The requested model is not supported for this account",
+      ]) {
+        setHandler(jsonError(404, text));
+        await expectGenerateError({
+          name: `DEFAULT_ERROR_RULES via mistral: a 404 saying "${text.split(":")[0]}" -> InvalidModelError`,
+          run: () => gen({ provider: "mistral", model: "mistral-ghost-model" }),
+          expectClass: InvalidModelError,
+        });
+      }
 
       // File1 #5: 5xx statusCode -> generic ProviderError (not a subclass).
       // 5xx is retryable by status -> wrapped, same as the 429 case above.
@@ -976,6 +1015,19 @@ async function main(): Promise<void> {
       run: () =>
         gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
       notClasses: [AuthenticationError],
+    });
+
+    // NIM answers most of its roster with a 404 whose text names no model and
+    // does not contain "404". Its own rule keys on the status for exactly this,
+    // so the stale-model fallback keeps working for it.
+    setHandler(
+      jsonError(404, "Function 'ghost-id': Not found for account 'acct-id'"),
+    );
+    await expectGenerateError({
+      name: "nvidia-nim: a 404 naming no model (not found for account) -> InvalidModelError",
+      run: () =>
+        gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
+      expectClass: InvalidModelError,
     });
 
     setHandler(jsonError(403, "403 account has hit its usage ceiling"));

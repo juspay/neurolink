@@ -83,16 +83,8 @@ export async function getBestProvider(
     }
   }
 
-  /**
-   * Provider priority order rationale:
-   * - LiteLLM and Ollama are prioritized first for local/self-hosted deployments,
-   *   avoiding unnecessary dependence on external providers during fallback scenarios.
-   * - Vertex (Google Cloud AI) follows for enterprise-grade reliability.
-   * - Google AI follows as second cloud priority for comprehensive Google AI ecosystem support.
-   * - OpenAI maintains high priority due to its consistent reliability and broad model support.
-   * - Other providers are ordered based on a combination of reliability, feature set, and historical performance.
-   * Please update this comment if the order is changed in the future, and document the rationale for maintainability.
-   */
+  // Order comes from ProviderDescriptor.autoSelectPriority (lower = tried
+  // first); see providerDescriptors.ts and the catalog JSON.
   const providers = PROVIDER_DESCRIPTORS.filter(
     (d) => d.autoSelectPriority !== undefined,
   )

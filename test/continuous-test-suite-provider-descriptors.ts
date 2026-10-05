@@ -655,6 +655,112 @@ await runSuite(async () => {
     );
   });
 
+  await test("a local runtime whose descriptor names no secret variable is healthy without one", async () => {
+    const { NeuroLink, AIProviderName } = await import("../dist/index.js");
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    try {
+      // These two have no secret variable at all, so the check used to look up
+      // an empty variable name and report the provider unhealthy over it.
+      for (const name of [
+        AIProviderName.LM_STUDIO,
+        AIProviderName.LLAMACPP,
+      ] as const) {
+        const status = await nl.checkProviderHealth(name, {
+          cacheResults: false,
+          includeConnectivityTest: false,
+        });
+        assertEqual(
+          status.hasApiKey,
+          true,
+          `${name} must not be reported as lacking a secret it has no variable for`,
+        );
+        assertEqual(
+          status.configurationIssues.filter((issue) =>
+            issue.toLowerCase().includes("not found in"),
+          ).length,
+          0,
+          `${name} must not carry a missing-variable issue naming nothing`,
+        );
+        assertEqual(
+          status.isHealthy,
+          true,
+          `${name} needs no configuration, so it must read as healthy`,
+        );
+      }
+    } finally {
+      await nl.shutdown();
+    }
+  });
+
+  await test("an unprobed local runtime does not outrank the provider the caller configured", async () => {
+    const { getBestProvider } = await import("../dist/utils/providerUtils.js");
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    // Only one provider has a secret, and Ollama is pointed at a port nothing
+    // listens on, so no preferred provider is healthy and the choice falls to
+    // the first healthy one in sweep order. LM Studio and llama.cpp read as
+    // healthy there because they need no configuration, and they come before
+    // every catalog provider in that order.
+    const names = Object.keys(process.env).filter((name) =>
+      /(_API_KEY|_TOKEN|_BASE_URL|_ENDPOINT|^AWS_|^GOOGLE_|^AZURE_|^OLLAMA|^LITELLM|^LM_STUDIO|^LLAMACPP|^OPENAI|^ANTHROPIC|^DEFAULT_PROVIDER)/i.test(
+        name,
+      ),
+    );
+    const saved = new Map<string, string | undefined>(
+      [...names, "GROQ_API_KEY", "OLLAMA_BASE_URL"].map((name) => [
+        name,
+        process.env[name],
+      ]),
+    );
+    names.forEach((name) => {
+      delete process.env[name];
+    });
+    process.env.GROQ_API_KEY = "test-credential-not-real";
+    process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
+    // Health results are cached per provider, and earlier cases filled the
+    // cache under other environments, so the choice would not see this one.
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      const chosen = await getBestProvider().catch(() => "");
+      assertEqual(
+        chosen,
+        "groq",
+        "auto-selection must prefer the configured provider over an unprobed local runtime",
+      );
+    } finally {
+      saved.forEach((value, name) => {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
+      });
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
+
+  await test("OpenAI health recommendations lead with the direct provider's current defaults", async () => {
+    const { NeuroLink } = await import("../dist/index.js");
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    try {
+      const status = await nl.checkProviderHealth("openai", {
+        cacheResults: false,
+        includeConnectivityTest: false,
+        includeModelValidation: true,
+      });
+      assert(
+        status.recommendations.some((recommendation) =>
+          recommendation.startsWith(
+            "Common models for openai: gpt-5.4, gpt-5.4-mini",
+          ),
+        ),
+        "OpenAI recommendations must start with the current flagship and mini models",
+      );
+    } finally {
+      await nl.shutdown();
+    }
+  });
+
   await test("huggingface format check accepts a token shaped like a real one", async () => {
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");

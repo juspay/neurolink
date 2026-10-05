@@ -1329,6 +1329,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
               call,
               trace.getActiveSpan() ?? undefined,
               `${this.providerName} generate`,
+              undefined,
+              options.abortSignal,
             ).catch((err) => {
               throw this.handleProviderError(err);
             }),
@@ -2838,6 +2840,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         doFetch,
         trace.getActiveSpan() ?? undefined,
         `${this.providerName} stream`,
+        undefined,
+        args.abortSignal,
       );
     } catch (err) {
       // The one-shot 400 context-overflow fallback lives outside

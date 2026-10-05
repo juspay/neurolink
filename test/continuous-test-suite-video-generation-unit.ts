@@ -335,22 +335,13 @@ await test("a handler failure surfaces through generate() with the reason preser
 // clearHandlers() — observed by dispatch failing, then succeeding again
 // ---------------------------------------------------------------------------
 
-await test("clearHandlers removes every registered provider from dispatch; re-registering restores it", async () => {
-  // clearHandlers() wipes the whole process-wide static registry, not just
-  // this test's own provider — every provider every earlier test in this
-  // file (and the real vertex/kling/runway/replicate handlers that
-  // ProviderRegistry auto-registers on first use) goes with it. Snapshot
-  // the pre-clear names here purely as restore bookkeeping (never asserted
-  // on directly — VideoProcessor.listProviders() is a processor static, and
-  // per rule 15 only generate()'s own return/throw is asserted on below).
-  const preClearProviders = VideoProcessor.listProviders();
-
+await test("clearHandlers removes a registered provider from dispatch; re-registering restores it", async () => {
+  // This is the last test and the process exits after it. Do not replay stubs
+  // under real provider names: that would replace their original handlers.
   const clearProvider = "e2e-test-video-clear-target";
   VideoProcessor.registerHandler(clearProvider, makeStubHandler().handler);
 
-  // Sanity: dispatch works before clearing.
   await generateVideo(clearProvider);
-
   VideoProcessor.clearHandlers();
 
   const afterClearMessage = await expectGenerateVideoError(clearProvider, {});
@@ -360,24 +351,12 @@ await test("clearHandlers removes every registered provider from dispatch; re-re
     "clearHandlers() makes a previously-dispatchable provider unreachable",
   );
 
-  // getHandler is private on VideoProcessor (unlike the other five media
-  // processors), so the original handler instances can't be read back —
-  // restore each pre-clear name with a fresh always-succeeding stub instead.
-  // Nothing here depends on handler identity, only on the name being
-  // dispatchable again — and this process exits at the end of this suite,
-  // so it never leaves the real vertex/kling/runway/replicate handlers
-  // permanently swapped for stubs in a shared process.
-  for (const name of preClearProviders) {
-    VideoProcessor.registerHandler(name, makeStubHandler().handler);
-  }
-
-  for (const name of preClearProviders) {
-    const result = await generateVideo(name);
-    assert(
-      Buffer.isBuffer(result.video?.data),
-      "every pre-clear provider dispatches successfully again after restore",
-    );
-  }
+  VideoProcessor.registerHandler(clearProvider, makeStubHandler().handler);
+  const result = await generateVideo(clearProvider);
+  assert(
+    Buffer.isBuffer(result.video?.data),
+    "re-registering the test provider restores dispatch",
+  );
 });
 
 await runSuite();

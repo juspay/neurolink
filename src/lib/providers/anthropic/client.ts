@@ -2079,6 +2079,8 @@ export class AnthropicProvider extends BaseProvider {
             call,
             trace.getActiveSpan() ?? undefined,
             "anthropic generate",
+            undefined,
+            options.abortSignal,
           ).catch((err: unknown) => {
             throw this.handleProviderError(err);
           }),

@@ -85,13 +85,18 @@ const TOP_MODELS_CONFIG: Record<
 > = {
   [AIProviderName.OPENAI]: [
     {
+      model: OpenAIModels.GPT_5_4,
+      description: "Recommended - Direct OpenAI GPT-5.4 model",
+    },
+    { model: OpenAIModels.GPT_5_4_MINI, description: "Cost-effective, fast" },
+    {
       model: OpenAIModels.GPT_4O,
-      description: "Recommended - Latest multimodal model",
+      description: "Previous generation multimodal model",
     },
     { model: OpenAIModels.GPT_4O_MINI, description: "Cost-effective, fast" },
     {
       model: OpenAIModels.GPT_5_2,
-      description: "Latest flagship with deep reasoning",
+      description: "Previous flagship with deep reasoning",
     },
     { model: OpenAIModels.O3, description: "Advanced reasoning model" },
     { model: OpenAIModels.GPT_4_TURBO, description: "Previous generation" },
@@ -468,12 +473,19 @@ const TOP_MODELS_CONFIG: Record<
  *
  * AUTO is also excluded — it never had an entry here either (matches
  * pre-existing behavior: `getDefaultModel(AUTO)` returns `undefined`).
+ *
+ * This table is not what a call with no model uses. The runtime order is the
+ * explicit model, then the provider's environment variable, then the default in
+ * the dynamic model configuration, then the registry default
+ * (`providerRegistry.ts`); the OpenAI row mirrors that registry default. Only
+ * an `OpenAIProvider` constructed directly with none of those falls back to
+ * `gpt-5.4` (`openAI/client.ts`).
  */
 export const DEFAULT_MODELS: Record<
   Exclude<AIProviderName, CatalogProviderName | AIProviderName.AUTO>,
   string
 > = {
-  [AIProviderName.OPENAI]: OpenAIModels.GPT_4O,
+  [AIProviderName.OPENAI]: OpenAIModels.GPT_4O_MINI,
   [AIProviderName.ANTHROPIC]: AnthropicModels.CLAUDE_SONNET_4_5,
   [AIProviderName.GOOGLE_AI]: GoogleAIModels.GEMINI_2_5_FLASH,
   [AIProviderName.VERTEX]: VertexModels.GEMINI_2_5_FLASH,
@@ -640,6 +652,9 @@ export function getAllProviderChoices(): string[] {
 
 /**
  * Get the default model for a provider
+ *
+ * Reads `DEFAULT_MODELS`, which mirrors the registry default rather than the
+ * runtime resolution order (see the note on that table).
  *
  * @param provider - The AI provider
  * @returns Default model string for the provider

@@ -282,9 +282,9 @@ export type ModelRoutingOptions = {
 /**
  * A single model's metadata inside a provider's manifest. This is the one
  * canonical shape every model-metadata consumer (context windows, pricing,
- * MODEL_REGISTRY, vision capability, output-token ceilings) is intended to
- * migrate onto — this PR is purely additive and does not yet move any
- * consumer over.
+ * MODEL_REGISTRY, vision capability, output-token ceilings) reads from —
+ * contextWindows.ts, pricing.ts, modelRegistry.ts, providerImageAdapter.ts and
+ * core/constants.ts.
  *
  * `pricingPerMTok` is optional by design: a model with no verified price
  * (e.g. a just-announced model pricing.ts hasn't priced yet) must not report
@@ -321,9 +321,10 @@ export type ProviderModelManifestEntry = {
    * forward verbatim for the ids that already had a MODEL_REGISTRY entry
    * before this migration. Absent for every id that never had one — those
    * get performance/useCases/category derived mechanically instead (see
-   * Task 9's buildModelRegistryFromManifests). Never populate this for a
-   * genuinely new model: mechanical derivation is the correct default, and
-   * a fabricated "curated" value would be worse than an honestly-derived one.
+   * buildManifestDerivedEntries in src/lib/models/modelRegistry.ts). Never
+   * populate this for a genuinely new model: mechanical derivation is the
+   * correct default, and a fabricated "curated" value would be worse than an
+   * honestly-derived one.
    */
   curated?: {
     performance?: ModelPerformance;

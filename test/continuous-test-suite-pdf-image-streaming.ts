@@ -37,6 +37,9 @@
  * unrelated allocations) to serve as a reliable pass/fail signal in this
  * suite. Output equivalence — not the memory delta — is this suite's proof.
  *
+ * A scanned PDF (no text layer) also gets an inline note, and that note has to
+ * agree with whether page images follow it — covered at the end of the file.
+ *
  * Run: npx tsx test/continuous-test-suite-pdf-image-streaming.ts
  */
 import { readFileSync } from "node:fs";
@@ -105,6 +108,47 @@ function imagePartsOf(body: unknown): WireContentPart[] {
     return [];
   }
   return content.filter((p) => p.type === "image_url");
+}
+
+/** The user message's text parts, joined — where the inline PDF notes land. */
+function textPartsOf(body: unknown): string {
+  const messages = (body as WireBody | undefined)?.messages ?? [];
+  const content = messages.find((m) => m.role === "user")?.content;
+  if (typeof content === "string") {
+    return content;
+  }
+  return (content ?? [])
+    .filter((p) => p.type === "text")
+    .map((p) => p.text ?? "")
+    .join("\n");
+}
+
+/**
+ * A one-page PDF that draws a filled rectangle and no text, so it has no text
+ * layer to extract — the shape of a scanned document. Built with real xref
+ * offsets rather than checked in as a fixture.
+ */
+function buildTextlessPdf(): Buffer {
+  const content = "0 0 150 150 re f";
+  const objects = [
+    "<</Type/Catalog/Pages 2 0 R>>",
+    "<</Type/Pages/Kids[3 0 R]/Count 1>>",
+    "<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R>>",
+    `<</Length ${content.length}>>\nstream\n${content}\nendstream`,
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefAt = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) {
+    out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  }
+  out += `trailer\n<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xrefAt}\n%%EOF\n`;
+  return Buffer.from(out, "latin1");
 }
 
 function decodeDataUrl(url: string | undefined): Buffer {
@@ -230,6 +274,108 @@ await test("generate() with one corrupted page still sends the 2 good page image
       parts.length,
       2,
       "page 3 failed to render, so only the 2 good pages must reach the request",
+    );
+  } finally {
+    handle.unset();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 3. A scanned PDF's inline note must agree with whether images follow it.
+//
+// Only the vision-provider wording is asserted: the multimodal builder rejects
+// a provider that cannot see images before it converts any PDF, so the
+// "unavailable to this text-only model" wording has no generate() call that
+// reaches it.
+// ---------------------------------------------------------------------------
+
+await test("a scanned PDF sent to a vision provider is described as having page images attached, not as unavailable", async () => {
+  const handle = installMockFetch([
+    {
+      method: "POST",
+      url: MOCK_HOST,
+      respond: {
+        status: 200,
+        json: openAIChatResponse("described", "openai/gpt-4o-mini"),
+      },
+    },
+  ]);
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: { text: "Describe this document", pdfFiles: [buildTextlessPdf()] },
+      provider: "litellm",
+      model: "openai/gpt-4o-mini",
+      disableTools: true,
+      credentials: CREDENTIALS,
+    });
+    const chatCalls = handle.calls.filter((c) =>
+      c.url.includes("/chat/completions"),
+    );
+    assertEqual(chatCalls.length, 1, "exactly one chat-completions request");
+
+    assertEqual(
+      imagePartsOf(chatCalls[0].bodyJson).length,
+      1,
+      "the page image is what carries the scanned content, so it must be sent",
+    );
+    const text = textPartsOf(chatCalls[0].bodyJson);
+    assert(
+      text.includes("no extractable text layer"),
+      "the note must still say the PDF has no text layer",
+    );
+    assert(
+      text.includes("page images are attached below"),
+      "the note must point the model at the page images that follow it",
+    );
+    assert(
+      !text.includes("text-only model"),
+      "a model that is being sent the page images must not be told it is text-only",
+    );
+    assert(
+      !text.includes("-- 1 of 1 --"),
+      "the page-marker block alone must not stand in for the missing text",
+    );
+  } finally {
+    handle.unset();
+  }
+});
+
+await test("a PDF with a text layer is not labelled as scanned", async () => {
+  const handle = installMockFetch([
+    {
+      method: "POST",
+      url: MOCK_HOST,
+      respond: {
+        status: 200,
+        json: openAIChatResponse("described", "openai/gpt-4o-mini"),
+      },
+    },
+  ]);
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: {
+        text: "Describe this document",
+        pdfFiles: [readFileSync("test/fixtures/multi-page.pdf")],
+      },
+      provider: "litellm",
+      model: "openai/gpt-4o-mini",
+      disableTools: true,
+      credentials: CREDENTIALS,
+    });
+    const chatCalls = handle.calls.filter((c) =>
+      c.url.includes("/chat/completions"),
+    );
+    assertEqual(chatCalls.length, 1, "exactly one chat-completions request");
+    const text = textPartsOf(chatCalls[0].bodyJson);
+    assert(
+      text.includes("Q1 Sales Report"),
+      "the extracted text must still reach the model",
+    );
+    assert(
+      !text.includes("no extractable text layer"),
+      "a PDF that has text must not be reported as having none",
     );
   } finally {
     handle.unset();

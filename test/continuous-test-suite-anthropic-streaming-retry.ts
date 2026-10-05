@@ -22,6 +22,11 @@ import "dotenv/config";
  * SSE-shaped Messages API stream, and asserts the call eventually
  * succeeds instead of throwing on the first 429.
  *
+ * It also covers cancellation during the retry wait: a 429 with a long
+ * Retry-After is answered, the caller's abort signal fires shortly after, and
+ * both `stream()` and `generate()` must settle then rather than when the wait
+ * would have expired.
+ *
  * No external API keys.
  *
  * Hermeticity: the auth-method / OAuth env vars are pinned and neutralized
@@ -174,6 +179,149 @@ void runSuite(async () => {
         "final successful chunk was not surfaced after retry",
       );
     } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("cancelling a native-loop retry backoff promptly ends the stream without another request", async () => {
+    const envSnapshot = snapshotEnv();
+    const controller = new AbortController();
+    let attempts = 0;
+    let abortedAt = 0;
+    let cancelTimer: ReturnType<typeof setTimeout> | undefined;
+    const server = createServer((_req, res) => {
+      attempts++;
+      res.writeHead(429, {
+        "content-type": "application/json",
+        "retry-after": "20",
+      });
+      res.end(
+        JSON.stringify({
+          error: {
+            type: "rate_limit_error",
+            message: "synthetic throttle fixture",
+          },
+        }),
+      );
+      if (attempts === 1) {
+        cancelTimer = setTimeout(() => {
+          abortedAt = Date.now();
+          controller.abort();
+        }, 300);
+      }
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const safety = setTimeout(() => controller.abort(), 45_000);
+    try {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+      delete process.env.ANTHROPIC_OAUTH_TOKEN;
+      delete process.env.CLAUDE_OAUTH_TOKEN;
+      try {
+        const result = await nl().stream({
+          provider: "anthropic",
+          model: "claude-sonnet-4-5",
+          input: { text: "hi" },
+          maxSteps: 1,
+          disableTools: true,
+          disableInternalFallback: true,
+          abortSignal: controller.signal,
+        });
+        for await (const _chunk of result.stream) {
+          // Drain the public stream to observe cancellation.
+        }
+      } catch {
+        // Caller cancellation may throw or close the public stream. Both
+        // must settle promptly without sending another provider request.
+      }
+      assert(abortedAt > 0, "the first request must reach the local server");
+      assert(
+        Date.now() - abortedAt < 5_000,
+        "the stream must settle promptly after cancellation",
+      );
+      assert(
+        attempts === 1,
+        "a cancelled backoff must not send another request",
+      );
+    } finally {
+      clearTimeout(safety);
+      clearTimeout(cancelTimer);
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("cancelling a generate() retry backoff promptly ends the call without another request", async () => {
+    const envSnapshot = snapshotEnv();
+    const controller = new AbortController();
+    let attempts = 0;
+    let abortedAt = 0;
+    let cancelTimer: ReturnType<typeof setTimeout> | undefined;
+    const server = createServer((_req, res) => {
+      attempts++;
+      res.writeHead(429, {
+        "content-type": "application/json",
+        "retry-after": "20",
+      });
+      res.end(
+        JSON.stringify({
+          error: {
+            type: "rate_limit_error",
+            message: "synthetic throttle fixture",
+          },
+        }),
+      );
+      if (attempts === 1) {
+        cancelTimer = setTimeout(() => {
+          abortedAt = Date.now();
+          controller.abort();
+        }, 300);
+      }
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const safety = setTimeout(() => controller.abort(), 45_000);
+    try {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+      delete process.env.ANTHROPIC_OAUTH_TOKEN;
+      delete process.env.CLAUDE_OAUTH_TOKEN;
+      try {
+        await nl().generate({
+          provider: "anthropic",
+          model: "claude-sonnet-4-5",
+          input: { text: "hi" },
+          maxSteps: 1,
+          disableTools: true,
+          disableInternalFallback: true,
+          abortSignal: controller.signal,
+        });
+      } catch {
+        // Caller cancellation may throw or resolve with what the call had.
+        // Either way it must settle promptly without another provider request.
+      }
+      assert(abortedAt > 0, "the first request must reach the local server");
+      assert(
+        Date.now() - abortedAt < 5_000,
+        "generate() must settle promptly after cancellation",
+      );
+      assert(
+        attempts === 1,
+        "a cancelled backoff must not send another request",
+      );
+    } finally {
+      clearTimeout(safety);
+      clearTimeout(cancelTimer);
       server.close();
       restoreEnv(envSnapshot);
     }

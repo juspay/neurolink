@@ -331,6 +331,8 @@ export class AmazonSageMakerProvider extends BaseProvider {
             call,
             undefined,
             "sagemaker generate",
+            undefined,
+            options.abortSignal,
           ).catch((err: unknown) => {
             throw this.handleProviderError(err);
           }),

@@ -159,14 +159,19 @@ export OPENAI_API_KEY="sk-your-openai-api-key"
 ### Optional Configuration
 
 ```bash
-export OPENAI_MODEL="gpt-4o"  # Default model to use
+# Optional: override the default model (default: gpt-4o-mini)
+export OPENAI_MODEL="gpt-5.4"
 ```
 
 ### Supported Models
 
-- `gpt-4o` (default) - Latest multimodal model
-- `gpt-4o-mini` - Cost-effective variant
+- `gpt-5.4` - GPT-5.4 model
+- `gpt-5.4-mini` - Cost-effective GPT-5.4 variant
+- `gpt-4o-mini` (default) - Cost-effective variant
+- `gpt-4o` - Previous generation multimodal model
 - `gpt-4-turbo` - High-performance model
+
+See the [environment variables guide](environment-variables.md) for the order in which the model is chosen when none is set.
 
 ### Usage Example
 

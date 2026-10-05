@@ -7,7 +7,10 @@
 import { createServer } from "node:http";
 
 export async function startChatStandIn() {
-  const bodies: Array<{ messages?: Array<{ content?: unknown }> }> = [];
+  const bodies: Array<{
+    model?: string;
+    messages?: Array<{ content?: unknown }>;
+  }> = [];
   const server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -62,6 +65,10 @@ export async function startChatStandIn() {
         )
         .filter((part) => (part as { type?: string }).type === "image_url")
         .length,
+    requestedModels: (): string[] =>
+      bodies.flatMap((body) =>
+        typeof body.model === "string" ? [body.model] : [],
+      ),
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }

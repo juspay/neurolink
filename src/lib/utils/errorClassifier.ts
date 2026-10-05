@@ -149,13 +149,22 @@ export function classifyProviderError(
   return new rule.errorClass(message, provider);
 }
 
+// A 404 alone is a route answer (a wrong base URL gives the same reply): it only
+// means "missing model" when the text names a model or deployment as absent.
+// The gap is bounded rather than "no dot" because real model ids contain dots.
+const MODEL_404_TEXT =
+  /model[_ ]?not[_ ]?found|unknown model|no such model|invalid model|unsupported model|\b(?:model|deployment)\b.{0,120}\b(?:does not exist|not found|unavailable|not (?:available|supported))\b|\b(?:does not exist|not found)\b.{0,120}\b(?:model|deployment)\b|unable to access.{0,60}\bmodel\b/i;
+
 /**
  * Generic fallback rule table covering the five categories every
  * OpenAI-compatible provider already hand-rolled near-identically:
- * auth (401), rate limit (429), model-not-found (404), network/connection
- * errors, and 5xx server errors. Providers with a provider-specific auth
- * message (naming the exact env var) prepend one override rule and spread
- * this table after it — see errorClassifier usage in any migrated
+ * auth (401), rate limit (429), model-not-found, network/connection
+ * errors, and 5xx server errors. Model-not-found is a 404 whose text names
+ * the model or deployment as missing, or the old "model not found" message
+ * text at any status; any other 404 stays a plain `ProviderError` carrying
+ * the status and the vendor's message. Providers with a provider-specific
+ * auth message (naming the exact env var) prepend one override rule and
+ * spread this table after it — see errorClassifier usage in any migrated
  * provider's formatProviderError for the pattern.
  */
 export const DEFAULT_ERROR_RULES: ProviderErrorRule[] = [
@@ -177,13 +186,18 @@ export const DEFAULT_ERROR_RULES: ProviderErrorRule[] = [
   },
   {
     match: (ctx) =>
-      ctx.statusCode === 404 ||
-      /model_not_found|model not found/i.test(ctx.message),
+      /model_not_found|model not found/i.test(ctx.message) ||
+      (ctx.statusCode === 404 && MODEL_404_TEXT.test(ctx.message)),
     errorClass: InvalidModelError,
     message: (ctx) =>
       ctx.modelName
         ? `${ctx.provider} model '${ctx.modelName}' not found.`
         : `${ctx.provider} model not found.`,
+  },
+  {
+    match: (ctx) => ctx.statusCode === 404,
+    errorClass: ProviderError,
+    message: (ctx) => `${ctx.provider} returned HTTP 404: ${ctx.message}`,
   },
   {
     // Message regex covers providers/SDKs that surface a code as text

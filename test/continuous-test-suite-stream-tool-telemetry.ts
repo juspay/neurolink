@@ -406,8 +406,8 @@ function startMidStreamFailoverServer(toolName: string) {
  * reconnect in neurolink.ts), while this one fails the request before any
  * content streams at all (drives the CROSS-MODEL invalid-model retry this
  * suite targets). `DEFAULT_ERROR_RULES` (src/lib/utils/errorClassifier.ts)
- * classifies any bare `statusCode === 404` as `InvalidModelError` — the
- * message text doesn't matter, only the status.
+ * classifies a `statusCode === 404` as `InvalidModelError` only when its text
+ * names a model or deployment as missing, which is why the 404 below says so.
  */
 function startInvalidModelFallbackServer() {
   let requestCount = 0;

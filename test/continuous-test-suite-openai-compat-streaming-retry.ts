@@ -43,6 +43,11 @@ import "dotenv/config";
  * test, instead of a discovery-probe coincidence — the `attempt === 2` and
  * final-success assertions are unchanged.
  *
+ * It also covers cancellation during the retry wait: a 429 with a long
+ * Retry-After is answered, the caller's abort signal fires shortly after, and
+ * both `stream()` and `generate()` must settle then rather than when the wait
+ * would have expired.
+ *
  * No external API keys — points the provider at a local test server via
  * OPENAI_COMPATIBLE_BASE_URL.
  *
@@ -163,6 +168,182 @@ void runSuite(async () => {
         "final successful chunk was not surfaced after retry",
       );
     } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  section(
+    "a cancel during the retry wait ends the call instead of waiting it out",
+  );
+
+  await test("aborting while streamOneStep waits out a long Retry-After ends the stream promptly", async () => {
+    const envSnapshot = snapshotEnv();
+    const controller = new AbortController();
+    let attempt = 0;
+    let abortedAt = 0;
+    let requestSeen = false;
+    let endedWith = "clean end";
+    const server = createServer((req, res) => {
+      attempt++;
+      if (attempt === 1) {
+        requestSeen = true;
+        // A 20s hint, under the 60s cap, so the retry layer chooses to wait.
+        res.writeHead(429, {
+          "content-type": "application/json",
+          "retry-after": "20",
+        });
+        res.end(
+          JSON.stringify({ error: { message: "synthetic throttle fixture" } }),
+        );
+        // The cancel is timed from the first response rather than from the
+        // call, so request setup time cannot land it before the wait begins.
+        setTimeout(() => {
+          abortedAt = Date.now();
+          controller.abort();
+        }, 300);
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(sseChunk("late"));
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    // Ends a call whose first request never arrives; abortedAt stays 0 then,
+    // which the assertion below reports.
+    const safety = setTimeout(() => controller.abort(), 45_000);
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      try {
+        // Distinct model id: see the metadata tests below for why ids are
+        // not shared across this file's tests.
+        const result = await nl().stream({
+          provider: "openai-compatible",
+          model: "gpt-4o-mini-abort-during-backoff",
+          input: { text: "hi" },
+          maxSteps: 1,
+          disableInternalFallback: true,
+          abortSignal: controller.signal,
+        } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+        for await (const _chunk of result.stream) {
+          // draining is all this test needs from the stream itself
+        }
+      } catch (error) {
+        // A cancelled call may surface as a thrown error or as a clean end;
+        // either is fine, what matters is when it happens. What ended it is
+        // kept for the diagnostic below, not for an assertion message.
+        endedWith = error instanceof Error ? error.name : "non-error value";
+      }
+      const settledAt = Date.now();
+
+      console.log(
+        `    [diagnostic] cancel case: requestSeen=${requestSeen} abortScheduled=${abortedAt > 0} attempts=${attempt} endedWith=${endedWith}`,
+      );
+      assert(requestSeen, "the first request never reached the server");
+      assert(
+        abortedAt > 0,
+        "the call ended before the scheduled cancel fired, so the wait was never entered",
+      );
+      assert(
+        settledAt - abortedAt < 5_000,
+        "the call must end when the cancel lands, not when the wait expires",
+      );
+      assert(
+        attempt === 1,
+        "a cancelled call must not send the request again after the wait",
+      );
+    } finally {
+      clearTimeout(safety);
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("aborting while generate() waits out a long Retry-After ends the call promptly", async () => {
+    const envSnapshot = snapshotEnv();
+    const controller = new AbortController();
+    let attempt = 0;
+    let abortedAt = 0;
+    let requestSeen = false;
+    let endedWith = "clean end";
+    const server = createServer((req, res) => {
+      attempt++;
+      if (attempt === 1) {
+        requestSeen = true;
+        res.writeHead(429, {
+          "content-type": "application/json",
+          "retry-after": "20",
+        });
+        res.end(
+          JSON.stringify({ error: { message: "synthetic throttle fixture" } }),
+        );
+        setTimeout(() => {
+          abortedAt = Date.now();
+          controller.abort();
+        }, 300);
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: { role: "assistant", content: "late" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const safety = setTimeout(() => controller.abort(), 45_000);
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      try {
+        await nl().generate({
+          provider: "openai-compatible",
+          model: "gpt-4o-mini-abort-during-generate-backoff",
+          input: { text: "hi" },
+          maxSteps: 1,
+          disableTools: true,
+          disableInternalFallback: true,
+          abortSignal: controller.signal,
+        });
+      } catch (error) {
+        // A cancelled call may throw or resolve with what it had; what
+        // matters is when it settles. What ended it is kept for the
+        // diagnostic below, not for an assertion message.
+        endedWith = error instanceof Error ? error.name : "non-error value";
+      }
+      const settledAt = Date.now();
+
+      console.log(
+        `    [diagnostic] cancel case: requestSeen=${requestSeen} abortScheduled=${abortedAt > 0} attempts=${attempt} endedWith=${endedWith}`,
+      );
+      assert(requestSeen, "the first request never reached the server");
+      assert(
+        abortedAt > 0,
+        "the call ended before the scheduled cancel fired, so the wait was never entered",
+      );
+      assert(
+        settledAt - abortedAt < 5_000,
+        "generate() must settle when the cancel lands, not when the wait expires",
+      );
+      assert(attempt === 1, "a cancelled call must not send the request again");
+    } finally {
+      clearTimeout(safety);
       server.close();
       restoreEnv(envSnapshot);
     }

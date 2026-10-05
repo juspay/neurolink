@@ -348,7 +348,10 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
         message: "NVIDIA NIM rate limit exceeded",
       },
       {
-        match: (ctx) => /404|model_not_found/.test(ctx.message),
+        // NIM answers most of its roster with a 404 whose text ("Function …
+        // not found for account …") names no model, so the status decides.
+        match: (ctx) =>
+          ctx.statusCode === 404 || /404|model_not_found/.test(ctx.message),
         errorClass: InvalidModelError,
         message: () =>
           `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,

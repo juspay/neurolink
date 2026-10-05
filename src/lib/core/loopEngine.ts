@@ -443,6 +443,8 @@ export function runAgenticLoop<TConversation>(
             // span before it moved onto this engine keeps emitting it.
             options.span,
             `${adapter.providerLabel}.step`,
+            undefined,
+            internalAbort.signal,
           );
         } catch (err) {
           throw err instanceof PostEmissionStepError ? err.cause : err;

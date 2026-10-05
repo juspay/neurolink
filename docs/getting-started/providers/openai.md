@@ -151,7 +151,7 @@ Context window sizes are sourced from `src/lib/constants/contextWindows.ts`. Mod
 
 The default model when no model is specified is **`gpt-4o-mini`** (set via `OpenAIModels.GPT_4O_MINI` in the provider registry). This can be overridden with the `OPENAI_MODEL` environment variable.
 
-> **Note:** When using NeuroLink SDK/CLI, the default is `gpt-4o-mini`. When instantiating `OpenAIProvider` directly without setting `OPENAI_MODEL`, the internal fallback is `gpt-4o`.
+> **Note:** When using NeuroLink SDK/CLI, the default is `gpt-4o-mini`. When instantiating `OpenAIProvider` directly without setting `OPENAI_MODEL`, the internal fallback is `gpt-5.4`.
 
 ### Model Selection by Use Case
 

@@ -419,11 +419,19 @@ export class ProviderHealthChecker {
       return;
     }
 
+    // A descriptor with no apiKey variable at all (LM Studio, llama.cpp) would
+    // otherwise read process.env[""] below and report a missing key named by
+    // nothing; hasProviderEnvVars already treats these as usable with defaults.
+    const providerDescriptor = ProviderFactory.getDescriptor(providerName);
+
     // Providers that don't use API keys directly
     if (
       providerName === AIProviderName.OLLAMA ||
       providerName === AIProviderName.BEDROCK ||
-      providerName === AIProviderName.LITELLM
+      providerName === AIProviderName.LITELLM ||
+      providerDescriptor?.localRuntime === true ||
+      (providerDescriptor?.envVars.optional === true &&
+        !providerDescriptor.envVars.apiKey)
     ) {
       healthStatus.hasApiKey = true;
       return;
@@ -1343,8 +1351,10 @@ export class ProviderHealthChecker {
         ];
       case AIProviderName.OPENAI:
         return [
-          OpenAIModels.GPT_4O,
+          OpenAIModels.GPT_5_4,
+          OpenAIModels.GPT_5_4_MINI,
           OpenAIModels.GPT_4O_MINI,
+          OpenAIModels.GPT_4O,
           OpenAIModels.GPT_3_5_TURBO,
         ];
       case AIProviderName.GOOGLE_AI:
@@ -2099,8 +2109,20 @@ export class ProviderHealthChecker {
       }
     }
 
-    // Fallback to first healthy provider
-    const firstHealthyProvider = healthStatuses.find((h) => h.isHealthy);
+    // Fallback to first healthy provider. A local runtime that nothing probes
+    // (LM Studio, llama.cpp) is "healthy" only in that it needs no
+    // configuration, which says nothing about whether it is running, so it
+    // must not outrank a provider the caller actually configured.
+    const firstHealthyProvider = healthStatuses.find((h) => {
+      if (!h.isHealthy) {
+        return false;
+      }
+      const descriptor = ProviderFactory.getDescriptor(h.provider);
+      return !(
+        descriptor?.localRuntime === true &&
+        descriptor.healthCheck === "env-only"
+      );
+    });
     if (firstHealthyProvider) {
       logger.info(
         `Using fallback healthy provider: ${firstHealthyProvider.provider}`,

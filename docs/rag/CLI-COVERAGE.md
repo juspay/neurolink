@@ -457,7 +457,7 @@ The following environment variables can be used to configure default behavior:
 | Variable             | Description                    | Default            |
 | -------------------- | ------------------------------ | ------------------ |
 | `VERTEX_MODEL`       | Default model for Vertex AI    | `gemini-2.5-flash` |
-| `OPENAI_MODEL`       | Default model for OpenAI       | `gpt-4o`           |
+| `OPENAI_MODEL`       | Default model for OpenAI       | `gpt-4o-mini`      |
 | `AZURE_OPENAI_MODEL` | Default model for Azure OpenAI | Deployment-based   |
 | `BEDROCK_MODEL`      | Default model for AWS Bedrock  | Provider-specific  |
 

@@ -245,7 +245,12 @@ checks to its own server (TypeSafe). See [DecisionLimits](DecisionLimits.md).
 
 > `optional` **autoSelectPriority?**: `number`
 
-Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain.
+Ascending priority (1 = tried first) in the auto-select fallback chain
+used by getBestProvider(). Undefined = not part of the auto-select chain.
+
+Priorities favor local and self-hosted deployments first to avoid an
+external dependency during fallback, then cloud providers according to
+reliability, feature set and model coverage.
 
 ---
 

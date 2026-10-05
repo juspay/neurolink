@@ -535,7 +535,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
             }
           }
 
-          if (!metadata) {
+          // mediabunny reports a duration of 0 for a clip it can open but not
+          // time, and ffprobe's "N/A" parses to NaN: neither is a missing
+          // result, so both take the ffmpeg fallback.
+          if (!metadata || !(metadata.duration > 0)) {
             // ffmpeg-static ships ffmpeg only, so a host that relies on it has
             // no ffprobe. Without a duration no frame timestamps can be chosen.
             const ffmpegProbe = await this.probeVideoWithFfmpeg(tempVideoPath);
@@ -546,7 +549,9 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
               // frames, the request still succeeds, and the model is simply
               // told nothing about the video.
               logger.warn(
-                `[NEUROLINK] No metadata could be read for ${filename} (mediabunny, ffprobe and ffmpeg all failed), so no keyframes will be extracted: ${ffmpegProbe.error}`,
+                metadata
+                  ? `[NEUROLINK] No positive duration could be read for ${filename} (the first reader gave none and ffmpeg could not supply one), so frame times cannot be chosen: ${ffmpegProbe.error}`
+                  : `[NEUROLINK] No metadata could be read for ${filename} (mediabunny, ffprobe and ffmpeg all failed), so no keyframes will be extracted: ${ffmpegProbe.error}`,
               );
             }
           }

@@ -3266,7 +3266,14 @@ async function convertMultimodalToProviderFormat(
         });
         try {
           const extracted = await parser.getText();
-          const pdfText = (extracted?.text ?? "").trim();
+          // pdf-parse appends a "-- n of N --" marker after every page, so
+          // extracted.text is never empty; a scan is detected from the
+          // per-page text instead.
+          const pageTexts = extracted?.pages?.map((page) => page.text) ?? [
+            extracted?.text ?? "",
+          ];
+          const hasTextLayer = pageTexts.some((text) => text.trim().length > 0);
+          const pdfText = hasTextLayer ? (extracted?.text ?? "").trim() : "";
           if (pdfText.length > 0) {
             content.push({
               type: "text" as const,
@@ -3274,6 +3281,14 @@ async function convertMultimodalToProviderFormat(
             });
             logger.info(
               `[PDF→Text] ✅ Extracted text for non-vision provider ${provider}: ${name} (${pdfText.length} chars)`,
+            );
+          } else if (providerCanSeeImages) {
+            content.push({
+              type: "text" as const,
+              text: `\n[Attached PDF: ${name} — no extractable text layer (likely a scanned document); page images are attached below.]`,
+            });
+            logger.warn(
+              `[PDF→Text] ${name} has no text layer; page images follow`,
             );
           } else {
             content.push({

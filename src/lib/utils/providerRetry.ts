@@ -40,8 +40,25 @@ export const NO_HINT_FLOOR_MS = 10_000;
  */
 export const MAX_RETRY_AFTER_MS = 60_000;
 
-const sleepWithTimeout = (delayMs: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, delayMs));
+const sleepWithTimeout = (
+  delayMs: number,
+  abortSignal?: AbortSignal,
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (abortSignal?.aborted) {
+      reject(abortSignal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortSignal?.reason);
+    };
+    const timer = setTimeout(() => {
+      abortSignal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, delayMs);
+    abortSignal?.addEventListener("abort", onAbort, { once: true });
+  });
 
 /**
  * Check whether an error thrown by the AI SDK is retryable.
@@ -285,15 +302,24 @@ function getRetryAfterMs(error: unknown): number | undefined {
  * @param operation  - The async operation to execute (should already use `maxRetries: 0`)
  * @param span       - The OTel span to annotate with retry events and attributes
  * @param label      - A human-readable label for log messages (e.g. "generateText", "streamText")
+ * @param sleep      - Wait between attempts; receives the delay and the caller's abort signal
+ * @param abortSignal - The caller's cancellation. An abort during the wait ends the call with the
+ *                     signal's reason instead of waiting out the delay and running the operation
+ *                     again, and an already-aborted signal is checked before every attempt.
  * @returns The result of the operation
  */
 export async function withProviderRetry<T>(
   operation: () => Promise<T>,
   span: Span | undefined,
   label: string,
-  sleep: (delayMs: number) => Promise<void> = sleepWithTimeout,
+  sleep: (
+    delayMs: number,
+    abortSignal?: AbortSignal,
+  ) => Promise<void> = sleepWithTimeout,
+  abortSignal?: AbortSignal,
 ): Promise<T> {
   for (let attempt = 0; attempt <= MAX_PROVIDER_RETRIES; attempt++) {
+    abortSignal?.throwIfAborted();
     try {
       const result = await operation();
 
@@ -381,7 +407,10 @@ export async function withProviderRetry<T>(
         },
       );
 
-      await sleep(delay);
+      await sleep(delay, abortSignal);
+      // A custom sleep may ignore the signal, and a signal can abort in the
+      // same tick the timer fires.
+      abortSignal?.throwIfAborted();
     }
   }
 

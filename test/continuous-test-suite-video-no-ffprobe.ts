@@ -13,6 +13,14 @@
  * a passing generation. So this suite counts the frames that reach the model
  * rather than checking that the request worked.
  *
+ * ## A container that opens but cannot be timed
+ *
+ * mediabunny also "succeeds" with a duration of 0 on a video-only MPEG-TS
+ * carrying MPEG-2 video. The ffmpeg fallback used to run only when no reader
+ * returned anything, so that zero was kept and no frame was ever scheduled.
+ * The MPEG-TS case below pins that the fallback also runs when the duration
+ * is missing, not only when the result is.
+ *
  * ## The environment
  *
  * The CLI runs with a PATH holding a single `ffmpeg` link and nothing else, and
@@ -196,6 +204,46 @@ await test("an AVI still yields keyframes when only ffmpeg is installed", async 
   assert(
     imageParts === 2,
     `both frames must reach the model, not just the file's metadata (got ${imageParts})`,
+  );
+});
+
+await test("a video-only MPEG-TS that mediabunny reads as zero-length still yields keyframes", async () => {
+  const { toolPath, ffmpeg } = await ffmpegOnlyPath();
+  const clip = path.join(tempDir("neurolink-ts-"), "clip.ts");
+  // No audio track: with one, mediabunny times the file from the audio and
+  // never reports the zero this case exists for.
+  execFileSync(
+    ffmpeg,
+    [
+      "-y",
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=320x240:rate=10:duration=4",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:v",
+      "mpeg2video",
+      clip,
+    ],
+    { stdio: "ignore" },
+  );
+
+  const { extracted, imageParts } = await framesReachingTheModel(
+    clip,
+    toolPath,
+    ffmpeg,
+  );
+
+  assert(
+    extracted === 2,
+    `a zero duration from the first reader must fall through to ffmpeg's (log said ${extracted})`,
+  );
+  assert(
+    imageParts === 2,
+    `both frames must reach the model (got ${imageParts})`,
   );
 });
 

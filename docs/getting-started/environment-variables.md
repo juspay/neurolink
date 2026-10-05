@@ -263,7 +263,7 @@ OPENAI_API_KEY="sk-proj-your-openai-api-key"
 #### Optional Variables
 
 ```bash
-OPENAI_MODEL="gpt-4o"                    # Default: gpt-4o
+OPENAI_MODEL="gpt-4o-mini"              # Default: gpt-4o-mini
 OPENAI_BASE_URL="https://api.openai.com" # Default: OpenAI API
 ```
 
@@ -278,10 +278,14 @@ OPENAI_BASE_URL="https://api.openai.com" # Default: OpenAI API
 
 #### Supported Models
 
-- `gpt-4o` (default) - Latest GPT-4 Optimized
-- `gpt-4o-mini` - Faster, cost-effective option
+- `gpt-5.4` - GPT-5.4 model
+- `gpt-5.4-mini` - Faster, cost-effective GPT-5.4 option
+- `gpt-4o-mini` (default) - Cost-effective, fast
+- `gpt-4o` - Previous generation multimodal model
 - `gpt-4-turbo` - High-performance model
 - `gpt-3.5-turbo` - Legacy cost-effective option
+
+With no model set, NeuroLink uses the explicit `model` option, then `OPENAI_MODEL`, then the default in the model configuration (`MODEL_CONFIG_URL`, otherwise the repository's `config/models.json`), then the registry default `gpt-4o-mini`. Constructing `OpenAIProvider` directly with none of these falls back to `gpt-5.4`.
 
 ---
 
