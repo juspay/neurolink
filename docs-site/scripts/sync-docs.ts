@@ -1571,8 +1571,17 @@ function transformImagePaths(content: string): string {
  * Fix internal links to use /docs prefix (since docs are served from /docs/)
  * and transform links to match the new file organization
  */
-function fixInternalLinks(content: string): string {
+function fixInternalLinks(content: string, relativePath: string): string {
   let result = content;
+
+  // The generic passes below drop the directory, so a README link reaches
+  // transformLinkPath as plain "README.md", which has no mapping and falls
+  // through to the nonexistent /docs/readme. A global README mapping would
+  // reroute every ../README.md link under docs/api, so this is scoped to the
+  // one directory that links back to its parent index.
+  if (relativePath.replace(/\\/g, "/").startsWith("provider-integration/tiers/")) {
+    result = result.replace(/\]\(\.\.\/README\.md(#[^)]*)?\)/g, "](/docs/provider-integration/readme$1)");
+  }
 
   // Links with /docs prefix should keep it (docs are served from /docs/)
   // IMPORTANT: Use negative lookbehind (?<!!) to exclude image syntax ![alt](/docs/...)
@@ -1691,7 +1700,7 @@ function transformContent(content: string, relativePath: string, allFiles?: stri
   transformed = convertGridCards(transformed);
   transformed = convertMaterialIcons(transformed);
   transformed = escapeJsxSyntax(transformed);
-  transformed = fixInternalLinks(transformed);
+  transformed = fixInternalLinks(transformed, relativePath);
   transformed = transformImagePaths(transformed);
 
   // Process frontmatter with allFiles for deterministic sidebar positioning

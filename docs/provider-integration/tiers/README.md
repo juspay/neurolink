@@ -6,6 +6,8 @@ OpenAI-wire-compatible but gets built as a bespoke Tier 3 subclass "to be
 safe" is exactly the copy-pasted-boilerplate problem this redesign
 exists to eliminate (see `../adr/0002-catalog-over-subclass-default.md`).
 
+[Provider Integration index](../README.md)
+
 ```text
 Is the model already served by an aggregator NeuroLink already speaks to
 (LiteLLM proxy, OpenRouter)?
