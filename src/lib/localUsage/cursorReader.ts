@@ -402,7 +402,7 @@ export async function createCursorReader(): Promise<LocalUsageReader> {
           filePath: chatsRoot(),
           message: `node:sqlite unavailable on this runtime: ${
             error instanceof Error ? error.message : String(error)
-          }`,
+          } (needs Node >=22.13.0; on 22.5-22.12 pass --experimental-sqlite)`,
         });
         return { cliId: CLI_ID, totals, filesScanned: 0, errors };
       }

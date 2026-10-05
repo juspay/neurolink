@@ -527,6 +527,83 @@ await test("a synthetic blocking stream with cache-inclusive usage bills the cac
   }
 });
 
+await test("a middleware stream's own finish reason reaches metadata.finishReason and result.finishReason unchanged", async () => {
+  // A blocking middleware supplies its own V3 finish part and nothing reaches
+  // the wire, so the only place the reason can come from is that part, which
+  // already carries the unified spelling. "stop" is the control: it must stay
+  // "stop", so the other two cases are not a stream that always reports the
+  // last thing it was told.
+  const server = await startMockChatServer();
+  const sdk = new NeuroLink();
+  const unifiedReasons = ["length", "content-filter", "stop"] as const;
+  try {
+    for (const [index, unified] of unifiedReasons.entries()) {
+      const id = `finish-reason-${index}`;
+      const middleware: NeuroLinkMiddleware = {
+        specificationVersion: "v3",
+        metadata: { id, name: `Finish reason ${index}` },
+        wrapStream: async () => ({
+          stream: new ReadableStream<LanguageModelV3StreamPart>({
+            start(controller) {
+              controller.enqueue({ type: "text-start", id: "blocked" });
+              controller.enqueue({
+                type: "text-delta",
+                id: "blocked",
+                delta: "BLOCKED",
+              });
+              controller.enqueue({ type: "text-end", id: "blocked" });
+              controller.enqueue({
+                type: "finish",
+                finishReason: { unified },
+                usage: {
+                  inputTokens: { total: 0 },
+                  outputTokens: { total: 0 },
+                },
+              });
+              controller.close();
+            },
+          }),
+        }),
+      };
+      const result = await sdk.stream({
+        input: { text: "block this" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: mockOpenAICredentials(server),
+        middleware: {
+          middleware: [middleware],
+          enabledMiddleware: [id],
+        },
+      });
+      assert.equal(
+        await bounded(readText(result)),
+        "BLOCKED",
+        `blocked content lost in finish case ${index}`,
+      );
+      assert.equal(
+        result.metadata?.finishReason,
+        unified,
+        `metadata.finishReason drifted from the middleware's finish part in finish case ${index}`,
+      );
+      assert.equal(
+        result.finishReason,
+        unified,
+        `result.finishReason drifted from the middleware's finish part in finish case ${index}`,
+      );
+    }
+    assert.equal(
+      server.getAllRequestBodies().length,
+      0,
+      "a synthetic stream reached the wire",
+    );
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
 for (const mode of ["generate", "stream"] as const) {
   await test(`guardrail bad-word filtering changes ${mode} content`, async () => {
     const server = await startMockChatServer();

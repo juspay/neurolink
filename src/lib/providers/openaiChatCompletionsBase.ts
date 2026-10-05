@@ -198,6 +198,31 @@ const resolveAgainstSchema = (
   return scalar.kind === "accepted" ? scalar.value : undefined;
 };
 
+/**
+ * The one place a finish reason becomes the unified spelling. Accepts the wire's
+ * `finish_reason` (`tool_calls`, `content_filter`) and the unified spelling a
+ * middleware's own finish part already carries (`tool-calls`, `content-filter`),
+ * since both reach the stream path. Anything else, including `stop`, `error` and
+ * an absent value, reads as `stop`.
+ */
+const toUnifiedFinishReason = (
+  reason: string | null | undefined,
+): "stop" | "length" | "tool-calls" | "content-filter" => {
+  switch (reason) {
+    case "length":
+      return "length";
+    case "tool_calls":
+    case "function_call":
+    case "tool-calls":
+      return "tool-calls";
+    case "content_filter":
+    case "content-filter":
+      return "content-filter";
+    default:
+      return "stop";
+  }
+};
+
 // Pull one native chunk at a time and forward cancellation to its iterator.
 const chunksToV3Stream = (
   source: AsyncIterable<OpenAICompatStreamChunk>,
@@ -1050,14 +1075,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           });
         }
         const rawFinish = choice?.finish_reason;
-        const unified =
-          rawFinish === "length"
-            ? "length"
-            : rawFinish === "tool_calls" || rawFinish === "function_call"
-              ? "tool-calls"
-              : rawFinish === "content_filter"
-                ? "content-filter"
-                : "stop";
+        const unified = toUnifiedFinishReason(rawFinish);
         return {
           content,
           finishReason: { unified, raw: rawFinish ?? "stop" },
@@ -2370,7 +2388,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         if (!loopPromise) {
           resolveFinish("stop");
         }
-        streamMetadata.rawFinishReason = await finishPromise;
+        const rawFinishReason = await finishPromise;
+        streamMetadata.rawFinishReason = rawFinishReason;
         // Structured output for a `stream({ schema })` turn. Runs HERE —
         // after the stream is fully drained — so a tool-free re-ask (when the
         // streamed answer isn't already schema-valid) never reaches
@@ -2420,9 +2439,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // Only reached once the structured-output re-ask above (when there
         // was one) has resolved without throwing. A caller abort during that
         // re-ask rejects `resolveStreamStructuredData` and skips this line
-        // entirely, so `metadata.finishReason` never claims "stop" for a
+        // entirely, so `metadata.finishReason` never claims a finish for a
         // turn that actually failed after the wire stream itself finished.
-        streamMetadata.finishReason = "stop";
+        // The reason is the turn's own (a token-limit cut reads "length"), not
+        // a blanket "stop" for every stream that drained without throwing.
+        streamMetadata.finishReason = toUnifiedFinishReason(rawFinishReason);
         // No-output path: stream completed normally but yielded zero text.
         // Build an enriched sentinel + stamp the active OTel span so
         // Pipeline B (ContextEnricher) surfaces a WARNING-level Langfuse

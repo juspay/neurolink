@@ -472,7 +472,7 @@ void runSuite(async () => {
     }
   });
 
-  await test("metadata.finishReason still mirrors result.finishReason on a max-tokens stop, while metadata.rawFinishReason keeps the vendor's own value", async () => {
+  await test('a max-tokens stop reports "length" in result.finishReason and metadata.finishReason, while metadata.rawFinishReason keeps the vendor\'s value', async () => {
     const envSnapshot = snapshotEnv();
     const server = createServer((req, res) => {
       res.writeHead(200, { "content-type": "text/event-stream" });
@@ -501,20 +501,152 @@ void runSuite(async () => {
       }
 
       assert(
-        result.metadata?.finishReason !== undefined,
-        "metadata.finishReason was not recorded",
+        result.metadata?.finishReason === "length",
+        "metadata.finishReason did not report the token-limit stop as length",
       );
       assert(
-        result.metadata?.finishReason === result.finishReason,
-        "metadata.finishReason does not mirror the top-level finishReason",
+        result.finishReason === "length",
+        "result.finishReason did not report the token-limit stop as length",
       );
       assert(
         result.metadata?.rawFinishReason === "length",
         "metadata.rawFinishReason did not carry the vendor's raw finish_reason",
       );
+    } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test('a content-filter stop reports "content-filter" in result.finishReason and metadata.finishReason, and rawFinishReason keeps the vendor\'s spelling', async () => {
+    const envSnapshot = snapshotEnv();
+    const server = createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(sseChunk("hello"));
+      res.write(sseFinalChunk("content_filter"));
+      res.end("data: [DONE]\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      const result = await nl().stream({
+        provider: "openai-compatible",
+        // Its own model id for the same reason as the sibling tests above.
+        model: "gpt-4o-mini-metadata-content-filter",
+        input: { text: "hi" },
+        maxSteps: 1,
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // draining is all this test needs from the stream itself
+      }
+
+      assert(
+        result.metadata?.finishReason === "content-filter",
+        "metadata.finishReason did not report the filtered stop as content-filter",
+      );
+      assert(
+        result.finishReason === "content-filter",
+        "result.finishReason did not report the filtered stop as content-filter",
+      );
+      // The one case where the vendor's spelling and the graded one differ, so
+      // it is where "raw stays raw" is actually discriminated.
+      assert(
+        result.metadata?.rawFinishReason === "content_filter",
+        "metadata.rawFinishReason did not keep the vendor's own spelling",
+      );
       assert(
         result.metadata?.rawFinishReason !== result.metadata?.finishReason,
-        "rawFinishReason should preserve the vendor's own value even when it differs from the graded finishReason",
+        "rawFinishReason and the graded finishReason should differ for a filtered stop",
+      );
+    } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test('a turn cut off at the step cap while the model still wants tools reports "tool-calls" in result.finishReason and metadata.finishReason', async () => {
+    const envSnapshot = snapshotEnv();
+    // One tool-call delta, then the vendor's own tool_calls finish. With
+    // maxSteps: 1 the loop runs the tool and stops, so the model never gets to
+    // answer — the turn ends while it still wants tools.
+    const server = createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_step_cap",
+                    type: "function",
+                    function: { name: "step_cap_probe", arguments: "{}" },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        })}\n\n`,
+      );
+      res.write(sseFinalChunk("tool_calls"));
+      res.end("data: [DONE]\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+
+      let toolRuns = 0;
+      const instance = nl();
+      instance.registerTools({
+        step_cap_probe: {
+          name: "step_cap_probe",
+          description: "Counts how many times the model called it",
+          execute: async () => {
+            toolRuns += 1;
+            return { ok: true };
+          },
+        },
+      });
+      const result = await instance.stream({
+        provider: "openai-compatible",
+        // Its own model id for the same reason as the sibling tests above.
+        model: "gpt-4o-mini-metadata-step-cap",
+        input: { text: "hi" },
+        maxSteps: 1,
+        disableInternalFallback: true,
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // draining is all this test needs from the stream itself
+      }
+
+      // A control that the turn really reached the tool phase: without it a
+      // text-only wire reply would also read as a pass for the wrong reason.
+      assert(
+        toolRuns === 1,
+        "the capped turn did not run the model's tool call exactly once",
+      );
+      assert(
+        result.metadata?.finishReason === "tool-calls",
+        "metadata.finishReason did not report the capped turn as tool-calls",
+      );
+      assert(
+        result.finishReason === "tool-calls",
+        "result.finishReason did not report the capped turn as tool-calls",
+      );
+      assert(
+        result.metadata?.rawFinishReason === "tool_calls",
+        "metadata.rawFinishReason did not keep the vendor's own spelling",
       );
     } finally {
       server.close();

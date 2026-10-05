@@ -582,6 +582,7 @@ routing:
   # Optional hard boundary for Anthropic credential discovery. Entries may be
   # labels/emails or full anthropic:<label> keys. An empty list denies all.
   # Hidden legacy/env credentials require explicit legacy-default/env entries.
+  # Omit the key to remove the restriction; an explicit null is rejected.
   # Accepts: account-allowlist (kebab) or accountAllowlist (camel).
   account-allowlist:
     - "alice@example.com"
@@ -693,7 +694,7 @@ cloaking:
 | `session-affinity` / `sessionAffinity`                      | `boolean`                            | `false`        | No       | Sticky sessions: a Claude Code session is bound to the Anthropic account that serves it and stays there while that account is usable and not session-saturated; a request that never tried the bound account (e.g. past `max-inflight-per-account`) keeps the binding. Otherwise, even if the bound account failed it, the session re-binds to the account that serves it; Codex/Vertex fallback or a peer borrow never re-binds. Ignored under `strategy: round-robin` and with one enabled account. Turning it off or on at runtime clears all bindings.  |
 | `session-affinity-idle-ttl-ms` / `sessionAffinityIdleTtlMs` | `integer`, 60000–86400000            | `3600000`      | No       | How long a session binding survives without a served request before it's dropped (the prompt cache is assumed cold by then). Only meaningful when `session-affinity` is on.                                                                                                                                                                                                                                                                                                                                                                                 |
 | `spill-inflight` / `spillInflight`                          | `integer`, 0–100                     | `0` (off)      | No       | For a request with no active session-affinity binding: if the account that would otherwise be tried first already has this many requests in flight, try the next account below that count that is usable and not session-saturated instead. Only affects unbound requests; never splits a bound session. Effective only below `max-inflight-per-account`'s cap (or when no cap is set) — that cap applies to every account regardless of `spill-inflight`. Ignored under `strategy: round-robin`.                                                           |
-| `account-allowlist` / `accountAllowlist`                    | `string[]`                           | _(none)_       | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. Special fallback labels are `legacy-default` and `env`.                                                                                                                                                                                                                                                                                                     |
+| `account-allowlist` / `accountAllowlist`                    | `string[]`                           | _(none)_       | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. An explicit `null` is rejected; omit the key to remove the restriction. Special fallback labels are `legacy-default` and `env`.                                                                                                                                                                                                                             |
 | `model-mappings` / `modelMappings`                          | `ModelMapping[]`                     | `[]`           | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `fallback-chain` / `fallbackChain`                          | `FallbackEntry[]`                    | `[]`           | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `auto-fallback` / `autoFallback`                            | `boolean`                            | `false`        | No       | Allows a translation-layer-selected fallback provider after configured fallbacks fail. Keep disabled to restrict requests to explicit accounts and fallback entries.                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -704,9 +705,9 @@ cloaking:
 | `session-reset-tolerance-ms` / `sessionResetToleranceMs`    | `integer`                            | `900000`       | No       | Positive reset-time bucket width used when session reset time breaks a weekly-expiry tie and when saturated accounts are ordered by recovery time.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `use-overage` / `useOverage`                                | `"auto" \| "always" \| "never"`      | `auto`         | No       | Whether an account may keep serving on paid extra usage once its subscription window is spent. `auto` follows what Anthropic reports per account; `never` parks the account at the subscription limit so the pool never spends credits; `always` keeps serving whenever the provider permits it. Only `never` overrides the provider — nothing here enables extra usage Anthropic has disabled. Manage via `neurolink auth overage`.                                                                                                                        |
 
-For `fallback-chain`/`fallbackChain`, `account-allowlist`/`accountAllowlist`,
-`quota-routing`/`quotaRouting`, `use-overage`/`useOverage`,
-`auto-fallback`/`autoFallback`, `max-inflight-per-account`/`maxInflightPerAccount`,
+For `fallback-chain`/`fallbackChain`, `quota-routing`/`quotaRouting`,
+`use-overage`/`useOverage`, `auto-fallback`/`autoFallback`,
+`max-inflight-per-account`/`maxInflightPerAccount`,
 `session-soft-limit`/`sessionSoftLimit`, and
 `session-reset-tolerance-ms`/`sessionResetToleranceMs`: an explicit `null`
 under either spelling means "unset" — the field's default applies as if the
@@ -715,6 +716,11 @@ key were omitted, but a warning is logged. An empty YAML value
 used even when the other spelling is `null`. The five newer routing policy
 keys (`account-ranking` through `spill-inflight`) differ on purpose: an
 explicit `null` there is rejected — see [Validation Rules](#validation-rules).
+
+`account-allowlist`/`accountAllowlist` is the exception: an explicit `null`
+under either spelling is rejected, because a reload must never silently turn
+a restricted allowlist into an unrestricted one. This includes an empty YAML
+value (`account-allowlist:`). Omit the key to remove the restriction.
 
 #### ModelMapping Fields
 
@@ -751,7 +757,7 @@ The config loader validates the following:
 - Each provider key in `accounts` must map to an array.
 - Each account must have a non-empty string `apiKey`.
 - If `version` is present, it must be a number.
-- `routing.account-allowlist` must be an array of non-empty strings when present.
+- `routing.account-allowlist` must be an array of non-empty strings when present. An explicit `null` counts as present and is rejected, whichever spelling carries it, including when the other spelling holds an array.
 - `routing.quota-routing` must be a boolean when present.
 - `routing.auto-fallback` must be a boolean when present.
 - `routing.max-inflight-per-account` must be an integer from 1 through 20 when present.

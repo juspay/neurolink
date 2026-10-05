@@ -1,7 +1,10 @@
 /**
- * Shared provider-error classification. Every provider's
- * `formatProviderError(error)` delegates here instead of hand-rolling its
+ * Shared provider-error classification. Migrated providers'
+ * `formatProviderError(error)` delegate here instead of hand-rolling their
  * own TimeoutError-check → .includes()-chain → `new XError(...)` ladder.
+ * Not yet migrated (they do not call it): Google AI Studio, SageMaker, the
+ * media and embedding providers (Ideogram, Recraft, Stability, Replicate,
+ * Jina, Voyage) and the System One decision provider.
  *
  * `classifyProviderError` picks the Error subclass + message; it does NOT
  * stamp statusCode/isRetryable/retryAfterMs onto the result — that

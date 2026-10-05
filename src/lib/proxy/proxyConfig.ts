@@ -304,6 +304,10 @@ function kebabToCamelRoutingKey(kebabKey: string): string {
  * *because* one of the spellings was explicitly `null` — never merely
  * because both were absent — so callers can warn once per null key without
  * warning on ordinary omission.
+ *
+ * `account-allowlist` is the one key whose `null` `validateProxyConfig`
+ * rejects before this runs, so for it the `null` branch is only reachable
+ * through a direct `parseRoutingConfig` call.
  */
 function readLegacyRoutingKey(
   routing: Record<string, unknown>,
@@ -395,6 +399,17 @@ export function validateProxyConfig(config: unknown): string[] {
           errors.push(`${field} is only supported for provider codex`);
         }
       });
+    }
+    // A `null` allowlist must not read as "unset": a reload that loses a
+    // restriction this way would silently open the proxy to every account.
+    // Checked per spelling, before the legacy read coalesces them.
+    if (
+      routing["account-allowlist"] === null ||
+      routing[kebabToCamelRoutingKey("account-allowlist")] === null
+    ) {
+      errors.push(
+        "routing.account-allowlist must be an array of non-empty strings (null is not allowed; omit the key to remove the restriction)",
+      );
     }
     const rawAccountAllowlist = readLegacyRoutingKey(
       routing,

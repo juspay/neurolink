@@ -12092,10 +12092,16 @@ async function testParseRoutingPrimaryViaLoad(): Promise<boolean | null> {
 // ============================================================================
 
 /**
- * The eight routing keys that predate #1787's five newer policy keys. Each
- * is read under two spellings; a `null` under either one must mean "unset"
- * rather than fail validation. See `readLegacyRoutingKey` in
- * src/lib/proxy/proxyConfig.ts.
+ * The seven routing keys that predate #1787's five newer policy keys and
+ * still treat `null` as unset. Each is read under two spellings; a `null`
+ * under either one must mean "unset" rather than fail validation. See
+ * `readLegacyRoutingKey` in src/lib/proxy/proxyConfig.ts.
+ *
+ * `account-allowlist` is the eighth legacy key and is deliberately absent:
+ * a `null` there is rejected, because a reload that read it as "unset" would
+ * turn a restricted allowlist into an unrestricted one. The
+ * `proxyConfig: rejects null account-allowlist ...` case and the two
+ * `CLI: a reload ... account-allowlist` cases cover it.
  *
  * `expected` is the value `sample` becomes once parsed (normalization such
  * as trimming/dedup for arrays), used by the precedence test below.
@@ -12111,12 +12117,6 @@ const LEGACY_ROUTING_KEYS: Array<{
     camel: "fallbackChain",
     sample: [{ provider: "codex", model: "gpt-5" }],
     expected: [{ provider: "codex", model: "gpt-5" }],
-  },
-  {
-    kebab: "account-allowlist",
-    camel: "accountAllowlist",
-    sample: ["user@example.com"],
-    expected: ["user@example.com"],
   },
   {
     kebab: "quota-routing",
@@ -12185,11 +12185,11 @@ async function loadRoutingFromConfig(
 }
 
 /**
- * For each of the eight legacy routing keys: a `null` under either spelling
+ * For each of the seven legacy routing keys: a `null` under either spelling
  * must not fail validation, and the parsed routing config must hold the
  * key's default (the field stays unset) rather than a literal `null`.
  *
- * RED on `release`: for seven of the eight keys, a camelCase-only `null`
+ * RED on `release`: for six of the seven keys, a camelCase-only `null`
  * makes `validateProxyConfig` report an error (so `loadProxyConfig` throws
  * and the whole config is rejected) because `??` only treats `null` as
  * "fall through" when it is the left operand. `fallback-chain` happens not
@@ -12320,11 +12320,11 @@ async function testLegacyRoutingKebabWinsOverDifferentCamelValue(): Promise<
 
 /**
  * Exactly one warning per null key per load, logged only from the parse
- * path (never from validate). Sets all eight keys to `null` in a single
+ * path (never from validate). Sets all seven keys to `null` in a single
  * config, alternating which spelling carries the `null`, and loads it once.
  *
- * RED on `release`: no warning exists yet for any of the eight keys, and for
- * the seven keys landing on their camelCase spelling here, the load throws
+ * RED on `release`: no warning exists yet for any of the seven keys, and for
+ * the keys landing on their camelCase spelling here, the load throws
  * before any warning could be captured — both are legitimate failures of
  * this assertion pre-fix.
  */
@@ -12376,7 +12376,7 @@ async function testLegacyRoutingNullKeyLogsWarning(): Promise<boolean | null> {
  * Both spellings of the same key set to `null` must still log exactly one
  * warning, not two — the warning is per key, not per null-valued spelling
  * encountered. Runs each key in its own load (rather than combining all
- * eight into one config) so a key's count can't be inflated by another
+ * seven into one config) so a key's count can't be inflated by another
  * key's warning matching the same substring.
  */
 async function testLegacyRoutingBothSpellingsNullWarnsOnce(): Promise<
@@ -12616,6 +12616,77 @@ async function testValidateProxyConfigRejectsNullUnderEitherSpelling(): Promise<
         log(`expected routing.${key} set to null to be rejected`, "red");
         return false;
       }
+    }
+  }
+  return true;
+}
+
+// `account-allowlist: null` is a hot-reload hazard rather than a typo: read as
+// "unset" it would turn a restricted allowlist into an unrestricted one on the
+// next reload. Unlike the seven legacy keys in LEGACY_ROUTING_KEYS, it is
+// rejected under either spelling, also while the other spelling holds an array.
+async function testValidateProxyConfigRejectsNullAccountAllowlist(): Promise<boolean> {
+  const { validateProxyConfig } =
+    await import("../src/lib/proxy/proxyConfig.js");
+  const hasAllowlistError = (routing: Record<string, unknown>): boolean =>
+    validateProxyConfig({ routing }).some((e) =>
+      e.includes("routing.account-allowlist"),
+    );
+
+  const rejected: ReadonlyArray<Record<string, unknown>> = [
+    { "account-allowlist": null },
+    { accountAllowlist: null },
+    { "account-allowlist": null, accountAllowlist: null },
+    { "account-allowlist": ["a@example.com"], accountAllowlist: null },
+    { "account-allowlist": null, accountAllowlist: ["a@example.com"] },
+  ];
+  for (const [index, routing] of rejected.entries()) {
+    if (!hasAllowlistError(routing)) {
+      log(
+        `expected a routing.account-allowlist validation error for null shape #${index}`,
+        "red",
+      );
+      return false;
+    }
+  }
+
+  // Controls: these must stay accepted, so the case cannot pass merely because
+  // every allowlist value is rejected.
+  const accepted: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ["omitted", {}],
+    ["empty list (denies all)", { "account-allowlist": [] }],
+    ["kebab list", { "account-allowlist": ["a@example.com"] }],
+    ["camel list", { accountAllowlist: ["a@example.com"] }],
+  ];
+  for (const [label, routing] of accepted) {
+    if (hasAllowlistError(routing)) {
+      log(
+        `expected no routing.account-allowlist validation error for control: ${label}`,
+        "red",
+      );
+      return false;
+    }
+  }
+
+  // The loader runs the same validation, so a config file carrying the null
+  // must not load at all, whichever spelling it uses.
+  for (const key of ["account-allowlist", "accountAllowlist"]) {
+    let message: string | undefined;
+    try {
+      await loadRoutingFromConfig({ [key]: null });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    if (
+      message === undefined ||
+      !message.includes("Invalid proxy config") ||
+      !message.includes("routing.account-allowlist")
+    ) {
+      log(
+        `expected loadProxyConfig to reject a config with ${key} set to null`,
+        "red",
+      );
+      return false;
     }
   }
   return true;
@@ -13052,6 +13123,7 @@ type ProxyTestStatusBody = {
     lastReloadSource?: unknown;
     lastReloadError?: unknown;
     consecutiveFailures?: unknown;
+    accountAllowlist?: unknown;
   } | null;
 };
 
@@ -13184,6 +13256,155 @@ async function testInvalidRoutingPolicyValueRejectsWholeReload(): Promise<boolea
     if (changed.length > 0) {
       log(
         `expected the rejected reload to leave the last known-good policy active; mismatched: ${changed.join(", ")}`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
+  }
+}
+
+/**
+ * A reload that sets `account-allowlist` to `null` must be rejected whichever
+ * spelling carries it, and the allowlist the proxy was started with must stay
+ * active. Read as "unset", the null would be applied and /status would report
+ * no restriction. The rejection is proved from the /status reload markers
+ * first, because an unchanged allowlist alone would also pass if no reload had
+ * run.
+ */
+async function testNullAccountAllowlistReloadKeepsPreviousRestriction(): Promise<boolean> {
+  const port = await findFreeProxyTestPort();
+  const configPath = await writeThrowawayProxyConfig({
+    routing: { "account-allowlist": ["alice@example.com"] },
+  });
+  const proxy = await startProxyForTests({ port, configPath });
+  try {
+    const edits: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+      ["kebab null", { "account-allowlist": null }],
+      ["camel null", { accountAllowlist: null }],
+      [
+        "kebab list with camel null",
+        { "account-allowlist": ["alice@example.com"], accountAllowlist: null },
+      ],
+    ];
+    let startingAllowlist: unknown;
+    for (const [label, routing] of edits) {
+      const reload = await triggerProxyReloadForTests(proxy, { routing });
+      if (!reload) {
+        log(
+          `expected /status to show a finished reload after the ${label} edit`,
+          "red",
+        );
+        return false;
+      }
+      const { before, after } = reload;
+      if (startingAllowlist === undefined) {
+        startingAllowlist = before.config?.accountAllowlist;
+        if (
+          !Array.isArray(startingAllowlist) ||
+          startingAllowlist.length !== 1
+        ) {
+          log(
+            "precondition failed: the starting allowlist was not active before the first edit",
+            "red",
+          );
+          return false;
+        }
+      }
+      const was = before.config ?? {};
+      const now = after.config ?? {};
+      const rejection: ReadonlyArray<readonly [string, boolean]> = [
+        ["config.lastReloadSource", now.lastReloadSource === "watch"],
+        [
+          "config.consecutiveFailures",
+          typeof was.consecutiveFailures === "number" &&
+            now.consecutiveFailures === was.consecutiveFailures + 1,
+        ],
+        [
+          "config.lastReloadError",
+          typeof now.lastReloadError === "string" &&
+            now.lastReloadError.includes("account-allowlist"),
+        ],
+        [
+          "config.generation",
+          typeof was.generation === "number" &&
+            now.generation === was.generation,
+        ],
+        [
+          "config.accountAllowlist",
+          JSON.stringify(now.accountAllowlist) ===
+            JSON.stringify(startingAllowlist),
+        ],
+      ];
+      const notRejected = rejection.filter(([, ok]) => !ok).map(([f]) => f);
+      if (notRejected.length > 0) {
+        log(
+          `expected the ${label} reload to be rejected with the allowlist kept; mismatched: ${notRejected.join(", ")}`,
+          "red",
+        );
+        return false;
+      }
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
+  }
+}
+
+/**
+ * Positive control for the case above: omitting `account-allowlist` is still
+ * the way to remove the restriction. It proves a reload is observable through
+ * /status, so the rejections above are not an artefact of a reload that never
+ * applies anything.
+ */
+async function testOmittedAccountAllowlistReloadRemovesRestriction(): Promise<boolean> {
+  const port = await findFreeProxyTestPort();
+  const configPath = await writeThrowawayProxyConfig({
+    routing: { "account-allowlist": ["alice@example.com"] },
+  });
+  const proxy = await startProxyForTests({ port, configPath });
+  try {
+    const reload = await triggerProxyReloadForTests(proxy, { routing: {} });
+    if (!reload) {
+      log(
+        "expected /status to show a finished reload after the config edit",
+        "red",
+      );
+      return false;
+    }
+    const { before, after } = reload;
+    if (
+      !Array.isArray(before.config?.accountAllowlist) ||
+      before.config.accountAllowlist.length !== 1
+    ) {
+      log(
+        "precondition failed: the starting allowlist was not active before the edit",
+        "red",
+      );
+      return false;
+    }
+    const was = before.config ?? {};
+    const now = after.config ?? {};
+    const applied: ReadonlyArray<readonly [string, boolean]> = [
+      [
+        "config.lastReloadAt",
+        now.lastReloadAt !== null &&
+          now.lastReloadAt === now.lastReloadAttemptAt,
+      ],
+      [
+        "config.generation",
+        typeof was.generation === "number" &&
+          now.generation === was.generation + 1,
+      ],
+      ["config.consecutiveFailures", now.consecutiveFailures === 0],
+      ["config.accountAllowlist", now.accountAllowlist === null],
+    ];
+    const notApplied = applied.filter(([, ok]) => !ok).map(([f]) => f);
+    if (notApplied.length > 0) {
+      log(
+        `expected the reload that omits the allowlist to be applied and lift the restriction; mismatched: ${notApplied.join(", ")}`,
         "red",
       );
       return false;
@@ -15894,6 +16115,16 @@ const tests: TestFunction[] = [
     category: "proxy-infra",
   },
   {
+    name: "CLI: a reload with a null account-allowlist keeps the previous restriction, under both spellings",
+    fn: testNullAccountAllowlistReloadKeepsPreviousRestriction,
+    category: "proxy-infra",
+  },
+  {
+    name: "CLI: a reload that omits account-allowlist removes the restriction",
+    fn: testOmittedAccountAllowlistReloadRemovesRestriction,
+    category: "proxy-infra",
+  },
+  {
     name: "CLI: hot reload updates the active policy",
     fn: testHotReloadUpdatesActivePolicy,
     category: "proxy-infra",
@@ -15982,6 +16213,11 @@ const tests: TestFunction[] = [
   {
     name: "proxyConfig: rejects null routing policy keys under either spelling",
     fn: testValidateProxyConfigRejectsNullUnderEitherSpelling,
+    category: "proxy-config",
+  },
+  {
+    name: "proxyConfig: rejects null account-allowlist under either spelling, also with the other spelling populated",
+    fn: testValidateProxyConfigRejectsNullAccountAllowlist,
     category: "proxy-config",
   },
 

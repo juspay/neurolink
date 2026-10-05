@@ -10,6 +10,9 @@ import "dotenv/config";
  *   Part 3 — ITEM C: ToolRoutingCache (8 tests)
  *   Part 4 — ITEM C: End-to-end cache-hit skips router (2 tests)
  *   Part 5 — LIVE-gated: NeuroLink.generate() wiring (1 test, skips without keys)
+ *   Part 6 — a nested internal generate() (tool-routing router, classifier
+ *            router) keeps the outer turn's repeat-call cache bypass; driven
+ *            through a scripted OpenAI-wire server (3 tests, offline)
  *
  * Run: pnpm run build && npx tsx test/continuous-test-suite-tool-routing.ts
  *      pnpm run test:tool-routing
@@ -39,6 +42,18 @@ import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  startScriptedChatServer,
+  chatCompletion,
+  mockOpenAICredentials,
+  type ScriptedReply,
+} from "./helpers/mockChatServer.js";
+
+// The repo's tracked .mcp-config.json declares a `filesystem` server started
+// via `npx -y`, with autoDiscovery and autoRegister on, so every NeuroLink this
+// suite builds would otherwise wait the full MCP client timeout when it cannot
+// start it. test:agent-delegation measured 356 s against 41 s for that stall.
+process.env.NEUROLINK_SKIP_MCP = "true";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -993,6 +1008,175 @@ await test("no sessionId: the router runs every call rather than sharing a cache
       "the second call must still be narrowed",
     );
   });
+});
+
+// ============================================================================
+// Part 6 — a nested internal generate() keeps the outer turn's repeat-call
+// cache bypass
+// ============================================================================
+//
+// generate() resets the turn-scoped tool-cache fields in its own `finally`. The
+// tool-routing router and the classifier router each call the public generate()
+// from inside a turn, so without a save/restore around them the outer turn's
+// "an identical call repeated within one turn re-executes" rule stops applying
+// the moment the nested call returns, and the repeat is served from the result
+// cache instead. Only generate() is driven here: a scripted server that answers
+// whole JSON bodies cannot serve the router's call from a stream() turn.
+
+const toolCallReply = (id: string): ScriptedReply =>
+  chatCompletion({
+    content: null,
+    finishReason: "tool_calls",
+    toolCalls: [
+      {
+        id,
+        type: "function",
+        function: { name: "analytics_tick", arguments: "{}" },
+      },
+    ],
+  });
+
+// The same call twice with identical arguments inside one turn, then an answer.
+const repeatedToolTurn = (): ScriptedReply[] => [
+  toolCallReply("call_1"),
+  toolCallReply("call_2"),
+  chatCompletion({ content: "done" }),
+];
+
+type RepeatedToolTurn = { runs: number; requests: number };
+
+/**
+ * Runs one generate() turn whose model asks for `analytics_tick` twice with
+ * identical arguments. `prefix` holds the replies a nested router call consumes
+ * first, so the main model's three replies always come last. The instance-level
+ * credentials matter: a nested call does not receive per-call credentials.
+ */
+async function runRepeatedToolTurn(setup: {
+  prefix?: ScriptedReply[];
+  config?: ConstructorParameters<typeof NeuroLink>[0];
+  prepare?: (instance: InstanceType<typeof NeuroLink>) => void;
+  callOptions?: Record<string, unknown>;
+}): Promise<RepeatedToolTurn> {
+  const server = await startScriptedChatServer([
+    ...(setup.prefix ?? []),
+    ...repeatedToolTurn(),
+  ]);
+  let runs = 0;
+  const instance = new NeuroLink({
+    conversationMemory: { enabled: false },
+    credentials: mockOpenAICredentials(server),
+    ...setup.config,
+  });
+  try {
+    const noop = async () => ({ ok: true });
+    instance.registerTools({
+      analytics_tick: {
+        name: "analytics_tick",
+        description: "Counts how many times it has run",
+        execute: async () => {
+          runs += 1;
+          return { count: runs };
+        },
+      },
+      shipping_track: {
+        name: "shipping_track",
+        description: "Track shipment",
+        execute: noop,
+      },
+      utility_echo: {
+        name: "utility_echo",
+        description: "Echo",
+        execute: noop,
+      },
+    });
+    setup.prepare?.(instance);
+    await instance.generate({
+      input: { text: "tick the counter twice" },
+      disableInternalFallback: true,
+      ...setup.callOptions,
+    } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+    return { runs, requests: server.requestCount() };
+  } finally {
+    try {
+      await instance.dispose();
+    } catch {
+      /* swallow */
+    }
+    await server.close();
+  }
+}
+
+await test("an identical tool call repeated inside one turn re-executes when no router runs", async () => {
+  // Positive control: the harness reaches the repeat-call bypass at all. If
+  // this reports one run, the two cases below measure nothing.
+  const outcome = await runRepeatedToolTurn({
+    callOptions: { provider: "openai", model: "gpt-4o-mini" },
+  });
+  assertEqual(
+    outcome.requests,
+    3,
+    "the control turn should make exactly three model requests",
+  );
+  assertEqual(
+    outcome.runs,
+    2,
+    "the repeated call should re-execute with no router involved",
+  );
+});
+
+await test("a nested tool-routing router call does not end the outer turn's repeat-call cache bypass", async () => {
+  const outcome = await runRepeatedToolTurn({
+    prefix: [chatCompletion({ content: '{"servers":["analytics"]}' })],
+    config: {
+      toolRouting: { enabled: true, alwaysIncludeServerIds: ["utility"] },
+    },
+    prepare: (instance) =>
+      instance.setToolRoutingServers([
+        { id: "analytics", description: "Sales analytics" },
+        { id: "shipping", description: "Shipment tracking" },
+        { id: "utility", description: "Always-on utilities" },
+      ]),
+    callOptions: { provider: "openai", model: "gpt-4o-mini" },
+  });
+  // Checked first, so a drifting request order reads as drift rather than as a
+  // cache failure: router reply, then the three main-model replies.
+  assertEqual(
+    outcome.requests,
+    4,
+    "the routed turn should make one router request plus three model requests",
+  );
+  assertEqual(
+    outcome.runs,
+    2,
+    "the repeated call was served from the cache after the router's nested generate()",
+  );
+});
+
+await test("a nested classifier-router LLM call does not end the outer turn's repeat-call cache bypass", async () => {
+  // Neither provider nor model is passed: pinning both makes the router stand
+  // down, and pinning only the provider leaves the model unset. The pool member
+  // supplies both.
+  const outcome = await runRepeatedToolTurn({
+    prefix: [chatCompletion({ content: '{"difficulty":"simple"}' })],
+    config: {
+      classifierRouter: {
+        enabled: true,
+        classifier: "llm",
+        classifierModel: { provider: "openai", model: "gpt-4o-mini" },
+        pool: [{ provider: "openai", model: "gpt-4o-mini" }],
+      },
+    },
+  });
+  assertEqual(
+    outcome.requests,
+    4,
+    "the classified turn should make one classifier request plus three model requests",
+  );
+  assertEqual(
+    outcome.runs,
+    2,
+    "the repeated call was served from the cache after the classifier's nested generate()",
+  );
 });
 
 await runSuite();

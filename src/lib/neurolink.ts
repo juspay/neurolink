@@ -792,7 +792,7 @@ export class NeuroLink {
    * request dedup — BZ-664's actual goal — is untouched: the first
    * occurrence in a request may still be served from cache. Request-scoped
    * like _disableToolCacheForCurrentRequest above (assigned a fresh Set at
-   * request start so the router's save/restore-by-reference pattern works).
+   * request start so `preservingTurnState`'s save/restore-by-reference works).
    */
   private _toolCacheKeysServedThisRequest = new Set<string>();
   /** True only while a generate()/stream() turn is executing — the
@@ -1514,9 +1514,11 @@ export class NeuroLink {
     this.classifierRouter = config?.classifierRouter?.enabled
       ? new ClassifierRouter(config.classifierRouter, {
           generate: (genOptions) =>
-            this.generate({
-              ...genOptions,
-            }),
+            this.preservingTurnState(() =>
+              this.generate({
+                ...genOptions,
+              }),
+            ),
           // Fail-open by construction: tryDecide returns null rather than
           // throwing, so an absent or broken decision provider leaves routing
           // exactly as it was.
@@ -9867,6 +9869,30 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Runs an internal call that re-enters the public generate() (the tool-routing
+   * router, the classifier router) without ending the outer turn's tool-cache
+   * state. generate()'s own `finally` resets these fields, so the outer turn
+   * would otherwise lose its repeat-call cache bypass for every later tool
+   * call. Restored by reference: the nested call assigns a new Set rather than
+   * mutating the outer one.
+   *
+   * Covers one turn re-entering itself. Two concurrent turns on one instance
+   * still share these fields.
+   */
+  private async preservingTurnState<T>(run: () => Promise<T>): Promise<T> {
+    const disableToolCache = this._disableToolCacheForCurrentRequest;
+    const keysServed = this._toolCacheKeysServedThisRequest;
+    const turnActive = this._generationTurnActive;
+    try {
+      return await run();
+    } finally {
+      this._disableToolCacheForCurrentRequest = disableToolCache;
+      this._toolCacheKeysServedThisRequest = keysServed;
+      this._generationTurnActive = turnActive;
+    }
+  }
+
+  /**
    * Pre-call tool routing for both stream() and generate() turns: runs the
    * router LLM once per turn and appends the unpicked servers' registered tool
    * names to `options.excludeTools` — the per-call denylist enforced by
@@ -10073,128 +10099,118 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // The router call below re-enters the public generate(), whose finally
-      // block resets _disableToolCacheForCurrentRequest to false. That flag is
-      // turn-scoped (set at the top of this turn) and read by the main tool
-      // execution path that runs after routing, so save it before the router
-      // call and restore it afterward to keep the turn's cache setting intact.
-      const cacheDisabledForCurrentRequest =
-        this._disableToolCacheForCurrentRequest;
       let routedExcludeTools: string[];
       let resolvedDecision: ToolRoutingDecision | undefined;
-      try {
-        // Intercept the decision so we can store it in the cache.
-        const captureDecision = (decision: ToolRoutingDecision): void => {
-          resolvedDecision = decision;
-          emitDecision(decision);
-        };
+      // Intercept the decision so we can store it in the cache.
+      const captureDecision = (decision: ToolRoutingDecision): void => {
+        resolvedDecision = decision;
+        emitDecision(decision);
+      };
 
-        // --- ITEM B: build the embedFn for the L2 embedding fast-path ---
-        // The vector cache is persisted at the NeuroLink instance level so
-        // tool embedding vectors are computed once and reused across turns
-        // (Finding 1 fix). It is cleared by setToolRoutingServers() when the
-        // catalog changes so stale vectors are never used after an update.
-        let routingEmbedFn:
-          | ((texts: string[]) => Promise<number[][]>)
-          | undefined;
-        const embeddingCfg = routingConfig.embedding;
-        if (embeddingCfg?.enabled === true) {
-          try {
-            // Resolve the embedding provider: use the explicitly configured one
-            // if present, otherwise fall back to the stream/generate call's
-            // provider. The factory call is wrapped in try/catch so a provider
-            // that doesn't support embedMany (it throws at call time, not
-            // construction time) fails open when routingEmbedFn is invoked.
-            const embProviderName =
-              embeddingCfg.provider ??
-              ((options.provider && options.provider !== "auto"
-                ? options.provider
-                : undefined) as string | undefined) ??
-              routingConfig.routerModel?.provider;
-            if (embProviderName) {
-              const embProvider = await AIProviderFactory.createProvider(
-                embProviderName,
-                embeddingCfg.model,
-                true,
-                this,
-                undefined,
-                this.resolveCredentials(options.credentials),
-              );
-              // Bind embedMany with the configured model (may be undefined —
-              // the provider uses its default embedding model in that case).
-              routingEmbedFn = (texts: string[]) =>
-                withTimeout(
-                  embProvider.embedMany(texts, embeddingCfg.model),
-                  embeddingCfg.timeoutMs ?? 10000,
-                );
-
-              // Lazy-init the persistent vector cache for this instance.
-              // Subsequent turns reuse the same Map so text→vector lookups
-              // already populated from earlier turns are served from memory.
-              if (!this.toolRoutingVectorCache) {
-                this.toolRoutingVectorCache = new Map<string, number[]>();
-              }
-            }
-          } catch (embSetupError) {
-            logger.debug(
-              "[ToolRouting] Embedding provider setup failed, L2 path disabled for this turn",
-              {
-                error:
-                  embSetupError instanceof Error
-                    ? embSetupError.message
-                    : String(embSetupError),
-              },
+      // --- ITEM B: build the embedFn for the L2 embedding fast-path ---
+      // The vector cache is persisted at the NeuroLink instance level so
+      // tool embedding vectors are computed once and reused across turns
+      // (Finding 1 fix). It is cleared by setToolRoutingServers() when the
+      // catalog changes so stale vectors are never used after an update.
+      let routingEmbedFn:
+        | ((texts: string[]) => Promise<number[][]>)
+        | undefined;
+      const embeddingCfg = routingConfig.embedding;
+      if (embeddingCfg?.enabled === true) {
+        try {
+          // Resolve the embedding provider: use the explicitly configured one
+          // if present, otherwise fall back to the stream/generate call's
+          // provider. The factory call is wrapped in try/catch so a provider
+          // that doesn't support embedMany (it throws at call time, not
+          // construction time) fails open when routingEmbedFn is invoked.
+          const embProviderName =
+            embeddingCfg.provider ??
+            ((options.provider && options.provider !== "auto"
+              ? options.provider
+              : undefined) as string | undefined) ??
+            routingConfig.routerModel?.provider;
+          if (embProviderName) {
+            const embProvider = await AIProviderFactory.createProvider(
+              embProviderName,
+              embeddingCfg.model,
+              true,
+              this,
+              undefined,
+              this.resolveCredentials(options.credentials),
             );
-            // routingEmbedFn remains undefined — fast-path is skipped.
-          }
-        }
+            // Bind embedMany with the configured model (may be undefined —
+            // the provider uses its default embedding model in that case).
+            routingEmbedFn = (texts: string[]) =>
+              withTimeout(
+                embProvider.embedMany(texts, embeddingCfg.model),
+                embeddingCfg.timeoutMs ?? 10000,
+              );
 
-        routedExcludeTools = await resolveToolRoutingExclusions({
-          catalog,
-          alwaysIncludeServerIds: routingConfig.alwaysIncludeServerIds ?? [],
-          userQuery: routingQuery,
-          routerPromptPrefix: routingConfig.routerPromptPrefix,
-          routerModel: {
-            provider:
-              routingConfig.routerModel?.provider ??
-              (options.provider as string | undefined),
-            model: routingConfig.routerModel?.model ?? options.model,
-            region: routingConfig.routerModel?.region ?? options.region,
-            temperature: routingConfig.routerModel?.temperature,
-          },
-          timeoutMs: routingConfig.timeoutMs ?? DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
-          // Forward the abort signal so a cancelled turn aborts the router
-          // call promptly instead of waiting out the routing timeout.
-          generateFn: (generateOptions) =>
+            // Lazy-init the persistent vector cache for this instance.
+            // Subsequent turns reuse the same Map so text→vector lookups
+            // already populated from earlier turns are served from memory.
+            if (!this.toolRoutingVectorCache) {
+              this.toolRoutingVectorCache = new Map<string, number[]>();
+            }
+          }
+        } catch (embSetupError) {
+          logger.debug(
+            "[ToolRouting] Embedding provider setup failed, L2 path disabled for this turn",
+            {
+              error:
+                embSetupError instanceof Error
+                  ? embSetupError.message
+                  : String(embSetupError),
+            },
+          );
+          // routingEmbedFn remains undefined — fast-path is skipped.
+        }
+      }
+
+      routedExcludeTools = await resolveToolRoutingExclusions({
+        catalog,
+        alwaysIncludeServerIds: routingConfig.alwaysIncludeServerIds ?? [],
+        userQuery: routingQuery,
+        routerPromptPrefix: routingConfig.routerPromptPrefix,
+        routerModel: {
+          provider:
+            routingConfig.routerModel?.provider ??
+            (options.provider as string | undefined),
+          model: routingConfig.routerModel?.model ?? options.model,
+          region: routingConfig.routerModel?.region ?? options.region,
+          temperature: routingConfig.routerModel?.temperature,
+        },
+        timeoutMs: routingConfig.timeoutMs ?? DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+        // Forward the abort signal so a cancelled turn aborts the router
+        // call promptly instead of waiting out the routing timeout.
+        generateFn: (generateOptions) =>
+          this.preservingTurnState(() =>
             this.generate({
               ...generateOptions,
               abortSignal: options.abortSignal,
             }),
-          // Calibrated per-server routing when a decision provider is
-          // configured. tryDecide returns null without one, so the resolver
-          // falls straight through to the generative router as before.
-          decideFn: (decisionOptions) =>
-            this.tryDecide({
-              ...decisionOptions,
-              signal: options.abortSignal,
-            }),
-          decisionMinDropConfidence: routingConfig.minDropConfidence,
-          emitDecision: captureDecision,
-          // L2 / ITEM D — only populated when embedding is configured.
-          embedFn: routingEmbedFn,
-          embeddingConfig: embeddingCfg,
-          granularity: routingConfig.granularity ?? "server",
-          // Pass the persistent vector cache so tool embeddings are reused
-          // across turns (Finding 1).
-          embeddingVectorCache:
-            routingEmbedFn !== undefined
-              ? this.toolRoutingVectorCache
-              : undefined,
-        });
-      } finally {
-        this._disableToolCacheForCurrentRequest =
-          cacheDisabledForCurrentRequest;
-      }
+          ),
+        // Calibrated per-server routing when a decision provider is
+        // configured. tryDecide returns null without one, so the resolver
+        // falls straight through to the generative router as before.
+        decideFn: (decisionOptions) =>
+          this.tryDecide({
+            ...decisionOptions,
+            signal: options.abortSignal,
+          }),
+        decisionMinDropConfidence: routingConfig.minDropConfidence,
+        emitDecision: captureDecision,
+        // L2 / ITEM D — only populated when embedding is configured.
+        embedFn: routingEmbedFn,
+        embeddingConfig: embeddingCfg,
+        granularity: routingConfig.granularity ?? "server",
+        // Pass the persistent vector cache so tool embeddings are reused
+        // across turns (Finding 1).
+        embeddingVectorCache:
+          routingEmbedFn !== undefined
+            ? this.toolRoutingVectorCache
+            : undefined,
+      });
 
       // Aborted during the router call — skip applying now-stale exclusions;
       // the main generation path enforces the abort itself.
@@ -10805,6 +10821,23 @@ Current user's request: ${currentInput}`;
 
           ttsResolver?.(streamedTTSResult);
 
+          // `streamState.finishReason` starts as a "stop" placeholder, before a
+          // single chunk exists. A provider that records how the turn really
+          // ended in metadata (a token-limit cut, a content filter, a step cap
+          // that left tool calls pending) has that adopted here, once the drain
+          // is done. Only the three unified values count: a raw vendor string
+          // or "stop" leaves the graded reason alone, and a fallback's own
+          // value is never overwritten.
+          const drainedFinishReason = mcpStreamOutcome.metadata?.finishReason;
+          if (
+            !metadata.fallbackAttempted &&
+            (drainedFinishReason === "length" ||
+              drainedFinishReason === "tool-calls" ||
+              drainedFinishReason === "content-filter")
+          ) {
+            streamState.finishReason = drainedFinishReason;
+          }
+
           resolvedUsage = mcpStreamOutcome.usage;
           if (!resolvedUsage && mcpStreamOutcome.analytics) {
             try {
@@ -11028,8 +11061,19 @@ Current user's request: ${currentInput}`;
         enhancedOptions,
         factoryResult,
       );
-      streamResult.finishReason =
+      streamState.finishReason =
         streamState.finishReason || streamResult.finishReason;
+      // Live, like toolCalls/toolResults below: the reason a stream ends with is
+      // only known after it drains, so a plain copy would stay the creation-time
+      // placeholder for every truncated or capped turn.
+      Object.defineProperty(streamResult, "finishReason", {
+        enumerable: true,
+        configurable: true,
+        get: () => streamState.finishReason,
+        set: (value: string) => {
+          streamState.finishReason = value;
+        },
+      });
       // #1819 / E1b: a top-level cross-provider fallback (handleStreamFallback,
       // inside `processedStream` above) only reassigns
       // `streamState.toolCalls`/`toolResults` once the caller starts draining
@@ -12502,13 +12546,21 @@ Current user's request: ${currentInput}`;
     if (toolResultsDescriptor) {
       Object.defineProperty(response, "toolResults", toolResultsDescriptor);
     }
+    const finishReasonDescriptor = Object.getOwnPropertyDescriptor(
+      streamResult,
+      "finishReason",
+    );
+    if (finishReasonDescriptor) {
+      Object.defineProperty(response, "finishReason", finishReasonDescriptor);
+    }
     if (!source) {
       return response;
     }
     // NeuroLink grades the turn's terminal state itself (a normalized
     // finishReason, stopReason for aborts and time limits), so those fields
-    // stay plain values here. Copying the provider's getter for them would
-    // report the raw vendor reason, e.g. Anthropic's end_turn, instead.
+    // keep NeuroLink's own value here (finishReason through the descriptor
+    // copied above). Copying the provider's getter for them would report the
+    // raw vendor reason, e.g. Anthropic's end_turn, instead.
     //
     // toolCalls/toolResults are excluded for a different reason: `source`
     // (the PRIMARY provider's own result) may itself define them as live

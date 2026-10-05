@@ -99,10 +99,11 @@ export async function createOpenCodeReader(): Promise<LocalUsageReader> {
       const models = new Set<string>();
       const dbPath = databasePath();
 
-      // `node:sqlite` is built in from Node 22 but still flagged experimental,
-      // so it can be absent or change shape. Imported lazily and behind a
-      // try/catch: a runtime without it must degrade to a reported failure for
-      // this one reader, not take down a scan of all the others.
+      // `node:sqlite` arrived in Node 22.5.0 behind `--experimental-sqlite`, was
+      // unflagged in 22.13.0 and is still marked experimental, so it can be
+      // absent or change shape. Imported lazily and behind a try/catch: a
+      // runtime without it must degrade to a reported failure for this one
+      // reader, not take down a scan of all the others.
       let DatabaseSync: LocalUsageSqliteDatabaseCtor | undefined;
       try {
         const sqlite: unknown = await import("node:sqlite");
@@ -126,7 +127,7 @@ export async function createOpenCodeReader(): Promise<LocalUsageReader> {
           filePath: dbPath,
           message: `node:sqlite unavailable on this runtime: ${
             error instanceof Error ? error.message : String(error)
-          }`,
+          } (needs Node >=22.13.0; on 22.5-22.12 pass --experimental-sqlite)`,
         });
         return { cliId: CLI_ID, totals, filesScanned: 0, errors };
       }
