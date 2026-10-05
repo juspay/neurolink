@@ -155,8 +155,18 @@ export function classifyProviderError(
 // A 404 alone is a route answer (a wrong base URL gives the same reply): it only
 // means "missing model" when the text names a model or deployment as absent.
 // The gap is bounded rather than "no dot" because real model ids contain dots.
-const MODEL_404_TEXT =
-  /model[_ ]?not[_ ]?found|unknown model|no such model|invalid model|unsupported model|\b(?:model|deployment)\b.{0,120}\b(?:does not exist|not found|unavailable|not (?:available|supported))\b|\b(?:does not exist|not found)\b.{0,120}\b(?:model|deployment)\b|unable to access.{0,60}\bmodel\b/i;
+// "model" or "deployment" followed by a route noun ("model gateway route") is a
+// modifier of that route, not the subject of the 404, in either word order, and
+// that holds for the named phrases ("unknown model gateway route") as well.
+const NOT_A_ROUTE_MODIFIER =
+  "(?![\\s-]+(?:route|gateway|endpoint|url|path|proxy|server|service|api|host)s?(?![\\w-]))";
+const MODEL_WORD = `\\bmodel\\b${NOT_A_ROUTE_MODIFIER}`;
+const MODEL_OR_DEPLOYMENT = `\\b(?:model|deployment)\\b${NOT_A_ROUTE_MODIFIER}`;
+const NAMED_MODEL_ERROR = `(?:unknown|no such|invalid|unsupported) model${NOT_A_ROUTE_MODIFIER}`;
+const MODEL_404_TEXT = new RegExp(
+  `model[_ ]?not[_ ]?found|${NAMED_MODEL_ERROR}|${MODEL_OR_DEPLOYMENT}.{0,120}\\b(?:does not exist|not found|unavailable|not (?:available|supported))\\b|\\b(?:does not exist|not found)\\b.{0,120}${MODEL_OR_DEPLOYMENT}|unable to access.{0,60}${MODEL_WORD}`,
+  "i",
+);
 
 /**
  * Generic fallback rule table covering the five categories every

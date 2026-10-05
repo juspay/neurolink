@@ -165,6 +165,8 @@ export OPENAI_MODEL="gpt-5.4"
 
 ### Supported Models
 
+Examples, not the full list. The [OpenAI guide](providers/openai.md) lists every model the SDK names, including the GPT-6 and `gpt-5.4-nano` models.
+
 - `gpt-5.4` - GPT-5.4 model
 - `gpt-5.4-mini` - Cost-effective GPT-5.4 variant
 - `gpt-4o-mini` (default) - Cost-effective variant
