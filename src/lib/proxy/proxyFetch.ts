@@ -10,6 +10,7 @@ import { tracers } from "../telemetry/tracers.js";
 import type { ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
 import type {
+  GoogleGenAIHttpOptions,
   LangfuseContext,
   ParsedProxyConfig,
   ProxyEnvironmentSnapshot,
@@ -855,34 +856,19 @@ export function getProxyStatus() {
 }
 
 /**
- * One-time warning that the @google/genai SDK cannot honour a configured
- * proxy.
+ * `httpOptions` fragment that routes the @google/genai SDK through the
+ * configured proxy, or nothing when none is configured.
  *
- * Both Google providers passed `httpOptions: { fetch: createProxyFetch() }`,
- * which does nothing. `HttpOptions` in @google/genai 1.46.0 declares only
- * baseUrl, baseUrlResourceScope, apiVersion, headers, timeout, extraBody and
- * retryOptions — there is no `fetch` on it. That property belongs to a
- * different interface (`ClientOptions`), which `GoogleGenAIOptions` does not
- * accept, and the SDK's request path calls global `fetch`. The option was
- * silently dropped and requests went direct.
+ * The SDK calls global `fetch` unless `HttpOptions.fetch` is set (declared and
+ * used from 2.23.0), and global `fetch` does not read HTTP_PROXY / HTTPS_PROXY
+ * unless Node itself was started with env-proxy support. The proxy-aware fetch
+ * is passed only when a proxy is configured: with none, the SDK keeps its own
+ * request path instead of gaining this module's trace headers and retries.
  *
- * It type-checked only because those constructors are reached through a
- * loosely-typed local alias, which turns off excess-property checking.
- *
- * This SDK version offers no supported injection point, so rather than keep a
- * line that reads like working proxy support, the situation is reported once
- * per process — and only to someone who actually configured a proxy. Silent
- * bypass is the worst outcome available: a corporate user believes their
- * traffic is proxied when it is not.
+ * Covers the SDK's `generateContent`, `generateContentStream` and
+ * `embedContent` requests. It does not reach Gemini Live websockets or the
+ * Application Default Credentials token requests.
  */
-let proxyUnsupportedWarned = false;
-
-export function warnGoogleSdkIgnoresProxy(providerLabel: string): void {
-  if (proxyUnsupportedWarned || !getProxyStatus().enabled) {
-    return;
-  }
-  proxyUnsupportedWarned = true;
-  logger.warn(
-    `[${providerLabel}] A proxy is configured, but the @google/genai SDK provides no way to route its requests through it (HttpOptions has no 'fetch', and GoogleGenAIOptions accepts none). Requests from this provider go direct.`,
-  );
+export function googleSdkProxyHttpOptions(): GoogleGenAIHttpOptions {
+  return getProxyStatus().enabled ? { fetch: createProxyFetch() } : {};
 }

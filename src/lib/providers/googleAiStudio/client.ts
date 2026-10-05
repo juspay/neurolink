@@ -95,7 +95,7 @@ import {
 } from "../googleNativeGemini3/index.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
-import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
+import { googleSdkProxyHttpOptions } from "../../proxy/proxyFetch.js";
 import type {
   LanguageModel,
   LanguageModelV3,
@@ -245,21 +245,19 @@ async function createGoogleGenAIClient(
     });
   }
   const Ctor = ctor as GoogleGenAIClass;
-  // httpOptions carries the endpoint override and nothing else. It used to
-  // also pass a proxy fetch, which the SDK silently ignored — see
-  // warnGoogleSdkIgnoresProxy for why that is not fixable here.
+  // httpOptions carries the endpoint override and, when a proxy is configured,
+  // the proxy-aware fetch the SDK sends its requests through.
   //
   // baseUrl is only included when resolved — verified against
   // @google/genai's ApiClient (dist/node/index.cjs) that it falls back to
   // its own default whenever httpOptions.baseUrl is undefined, so omitting
   // the key and passing `baseUrl: undefined` behave identically; the key is
   // still omitted outright for a cleaner outbound config object.
-  warnGoogleSdkIgnoresProxy("GoogleAIStudio");
-
   return new Ctor({
     apiKey,
     httpOptions: {
       ...(baseURL ? { baseUrl: baseURL } : {}),
+      ...googleSdkProxyHttpOptions(),
     },
   });
 }
@@ -2875,7 +2873,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
       queue.push(item);
     };
 
-    const session = await client.live.connect({
+    // @google/genai 2.x waits inside connect() for the server's setupComplete
+    // message and does not reject when the socket errors or closes first, so a
+    // refused key or model would leave this await pending forever. Fail on the
+    // first error or close that arrives before the session is up. Once it is
+    // up, the callbacks below end the stream as they always did.
+    let sessionOpen = false;
+    let failConnect: (error: Error) => void = () => undefined;
+    const connectFailed = new Promise<never>((_resolve, reject) => {
+      failConnect = reject;
+    });
+
+    const connecting = client.live.connect({
       model,
       callbacks: {
         onopen: () => {
@@ -2903,9 +2912,19 @@ export class GoogleAIStudioProvider extends BaseProvider {
           }
         },
         onerror: (e: { message?: string }) => {
+          if (!sessionOpen) {
+            failConnect(
+              new Error("Gemini Live connection failed before setup completed"),
+            );
+          }
           push({ type: "error", error: e });
         },
         onclose: (_e: { code?: number; reason?: string }) => {
+          if (!sessionOpen) {
+            failConnect(
+              new Error("Gemini Live connection closed before setup completed"),
+            );
+          }
           push({ type: "end" });
         },
       },
@@ -2916,6 +2935,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
         },
       },
     });
+    const session = await Promise.race([connecting, connectFailed]);
+    sessionOpen = true;
 
     // Feed upstream audio frames concurrently
     (async () => {
@@ -3114,14 +3135,45 @@ export class GoogleAIStudioProvider extends BaseProvider {
       const apiKey = this.getApiKey();
       const client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
 
-      const result = await client.models.embedContent({
-        model: embeddingModelName,
-        contents: texts,
-      });
+      const embeddings: number[][] = [];
+      if (embeddingModelName.includes("gemini-embedding-2")) {
+        // @google/genai 2.x reads an array of strings for these models as ONE
+        // content with several parts, so a batch would come back as a single
+        // vector. Embed each text on its own, a few at a time, in order.
+        const concurrency = 8;
+        for (let start = 0; start < texts.length; start += concurrency) {
+          const group = texts.slice(start, start + concurrency);
+          const results = await Promise.all(
+            group.map((text) =>
+              client.models.embedContent({
+                model: embeddingModelName,
+                contents: [text],
+              }),
+            ),
+          );
+          for (const result of results) {
+            embeddings.push(result.embeddings?.[0]?.values || []);
+          }
+        }
+      } else {
+        const result = await client.models.embedContent({
+          model: embeddingModelName,
+          contents: texts,
+        });
+        embeddings.push(
+          ...(result.embeddings || []).map(
+            (e: { values?: number[] }) => e.values || [],
+          ),
+        );
+      }
 
-      const embeddings = (result.embeddings || []).map(
-        (e: { values?: number[] }) => e.values || [],
-      );
+      // One vector per text, or fail: a silent mismatch would pair texts with
+      // the wrong vectors downstream.
+      if (embeddings.length !== texts.length) {
+        throw new Error(
+          `Embedding response held ${embeddings.length} vectors for ${texts.length} texts`,
+        );
+      }
 
       logger.debug("Batch embeddings generated successfully", {
         provider: this.providerName,

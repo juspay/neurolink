@@ -33,7 +33,7 @@ import {
   stringifyContentSafe,
 } from "../../utils/logSanitize.js";
 import type { NeuroLink } from "../../neurolink.js";
-import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
+import { googleSdkProxyHttpOptions } from "../../proxy/proxyFetch.js";
 import type {
   AgenticLoopOptions,
   GeminiTurnContent,
@@ -1524,8 +1524,6 @@ export class GoogleVertexProvider extends BaseProvider {
   private async createVertexGenAIClient(
     regionOverride?: string,
   ): Promise<GenAIClient> {
-    warnGoogleSdkIgnoresProxy("GoogleVertex");
-
     const expressApiKey = this.resolveExpressApiKey();
     // Resolved only on the ADC path, and from the per-instance projectId the
     // constructor already settled (credentials.projectId if supplied, else
@@ -1553,14 +1551,14 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const baseUrl = this.resolveBaseURL();
     const httpOptions = {
-      // The endpoint override and nothing else. This object used to also pass
-      // a proxy fetch, which the SDK silently ignored — see
-      // warnGoogleSdkIgnoresProxy for why that is not fixable here.
+      // The endpoint override and, when a proxy is configured, the
+      // proxy-aware fetch the SDK sends its requests through.
       //
-      // Only set when resolved: the SDK falls back to its own default
-      // whenever httpOptions.baseUrl is undefined, so omitting the key and
-      // passing undefined behave identically.
+      // baseUrl is only set when resolved: the SDK falls back to its own
+      // default whenever httpOptions.baseUrl is undefined, so omitting the key
+      // and passing undefined behave identically.
       ...(baseUrl ? { baseUrl } : {}),
+      ...googleSdkProxyHttpOptions(),
     };
 
     if (expressApiKey) {
