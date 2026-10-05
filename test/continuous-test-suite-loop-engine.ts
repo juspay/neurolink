@@ -685,26 +685,27 @@ await test("runAgenticLoop: retries a pre-first-chunk 429 once and succeeds on t
 
 await test("runAgenticLoop: does NOT retry a 429 that arrives after this step already streamed a chunk", async () => {
   let calls = 0;
+  const thrown = Object.assign(new Error("rate limited mid-step"), {
+    statusCode: 429,
+    retryAfterMs: 0,
+  });
   const adapter: AgenticLoopAdapter<FakeConversation> = {
     ...fakeAdapter([]),
     executeStep: async (_request, channel) => {
       calls++;
       channel.push({ content: "partial" });
-      throw Object.assign(new Error("rate limited mid-step"), {
-        statusCode: 429,
-        retryAfterMs: 0,
-      });
+      throw thrown;
     },
   };
   const { stream, resultPromise } = runAgenticLoop(adapter, { turns: [] }, {});
   const drainOutcome = drainChunks(stream).catch((err) => err);
   let rejected = false;
-  let rejectionMessage = "";
+  let caught: unknown;
   try {
     await resultPromise;
   } catch (err) {
     rejected = true;
-    rejectionMessage = err instanceof Error ? err.message : String(err);
+    caught = err;
   }
   await drainOutcome;
   assert(
@@ -716,10 +717,12 @@ await test("runAgenticLoop: does NOT retry a 429 that arrives after this step al
     1,
     "executeStep was called exactly once — no retry once a chunk had already reached the consumer",
   );
-  assertEqual(
-    rejectionMessage,
-    "rate limited mid-step",
-    "the original error surfaces unwrapped, not the internal PostEmissionStepError sentinel",
+  // Identity, not the message: PostEmissionStepError copies its cause's
+  // message, so a comparison on the message alone passes even when the wrapper
+  // leaks to the caller and the original's statusCode and retryAfterMs are lost.
+  assert(
+    caught === thrown,
+    "the original error object surfaces unwrapped, not the internal PostEmissionStepError sentinel",
   );
 });
 

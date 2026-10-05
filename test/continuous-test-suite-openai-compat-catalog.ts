@@ -1268,6 +1268,10 @@ async function testCatalogStructuralInvariants(): Promise<void> {
     await runCase(
       `${section}: '${check.alias}' routes to its own host and succeeds`,
       async () => {
+        // Clear every catalog credential first. setEnv only adds, so without
+        // this a key left by an earlier row (aliases share a provider's env
+        // var) would mask a row whose envVar names the wrong variable.
+        neutralizeCatalogEnv();
         setEnv(check.envVar, `test-fake-${check.alias}-credential`);
         if (check.extraEnv) {
           for (const [k, v] of Object.entries(check.extraEnv)) {

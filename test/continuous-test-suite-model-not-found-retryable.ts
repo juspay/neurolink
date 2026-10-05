@@ -85,9 +85,11 @@ await test("REGRESSION: a member naming a missing model fails over instead of st
     (result.content ?? "").length > 0,
     "the surviving member must serve the request — member#1's 404 must not stop the pool",
   );
+  // Positive match: `provider` is optional on GenerateResult, so a `!==`
+  // against member#1 would also pass a result that names no provider at all.
   assert(
-    result.provider !== "anthropic",
-    "the response must have come from member#2, not the member naming a missing model",
+    result.provider === M2.provider,
+    "the response must have come from member#2 (openai), not the member naming a missing model",
   );
 });
 

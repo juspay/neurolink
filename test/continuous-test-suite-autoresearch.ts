@@ -8,11 +8,16 @@
  *
  * ## Determinism exception (CLAUDE.md rule 15)
  *
- * Autoresearch is a background task system, not something a caller reaches
- * through `generate()` / `stream()`, so there is no public surface to drive.
- * `ResearchWorker` and `executeAutoresearchTick` are imported directly and run
- * against a fixture git repo, which is what makes branch creation, state files
- * and tick behaviour observable at all.
+ * The E2E half and Group 1 of the live half import `ResearchWorker` from
+ * `src/lib` and call its tools directly against a fixture git repo with
+ * scripted inputs. No model can be made to emit the exact edits that make the
+ * accept/revert flow, branch creation and state files reproducible, so only
+ * this determinism makes them observable.
+ *
+ * Group 2 drives `nl.tasks.create()` and `nl.tasks.run()` in a child process
+ * importing only the built entry. Its events come from `nl.getEventEmitter()`.
+ * Process isolation keeps the source worker and built SDK graphs separate;
+ * without credentials the child uses a recorded model response.
  *
  * No AI provider needed. Uses a deterministic fixture repo where
  * we simulate what the AI does (read file, write fix, commit, run experiment).
@@ -31,12 +36,13 @@
  *      pnpm run test:autoresearch
  *
  * The suite has two halves: an E2E half (no AI, runs unconditionally) and
- * a LIVE half (real provider, gated on HAS_PROVIDER — skips cleanly when
- * no provider keys are set). Originally split across
- * continuous-test-suite-autoresearch-e2e.ts + -live.ts; merged in May 2026.
+ * a LIVE half (ResearchWorker cases skip without credentials; the TaskManager
+ * cases use a recorded response when no provider keys are set). Originally
+ * split across continuous-test-suite-autoresearch-e2e.ts + -live.ts; merged in
+ * May 2026.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -103,10 +109,8 @@ function skip(name: string, detail = ""): void {
 // fs / path / child_process imports already declared above for the e2e
 // half; only the live-specific additions appear here.
 // ---------------------------------------------------------------
-import { EventEmitter } from "node:events";
 import { cpSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Task } from "../src/lib/types/index.js";
 
 // PROVIDER DETECTION (from autoresearch-live)
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -1347,119 +1351,63 @@ let g2EmittedEvents: string[] = [];
 
 async function testG2ExecuteAutoresearchTick(): Promise<boolean | null> {
   harnessLog(
-    "\n--- Group 2.1: Create autoresearch task via TaskManager-like structure ---",
+    "\n--- Group 2.1: Create and run an autoresearch task through nl.tasks ---",
     "bright",
   );
-  logTest("executeAutoresearchTick with real NeuroLink instance", "TESTING");
-
-  if (!HAS_PROVIDER) {
-    logTest("Execute tick", "SKIP", "No API key");
-    return null;
-  }
-
-  // Skip MCP server discovery — we only need the generate() path with
-  // research tools, not external MCP servers (GitHub etc.) that may
-  // fail auth and cause long timeouts. Restore is in the finally below
-  // so the env-mutation cleans up regardless of success/failure/return.
-  const prevSkipMCP = process.env.NEUROLINK_SKIP_MCP;
-  process.env.NEUROLINK_SKIP_MCP = "true";
-
+  logTest("nl.tasks.run() of an autoresearch task", "TESTING");
   try {
-    const { executeAutoresearchTick } =
-      await import("../src/lib/tasks/autoresearchTaskExecutor.js");
-    const { NeuroLink } = await import("../dist/index.js");
-
-    const nl = new NeuroLink();
-
-    const now = new Date().toISOString();
-    const task: Task = {
-      id: "test_live_001",
-      name: "live-test",
-      prompt: "Run autonomous ML experiments",
-      schedule: { type: "interval", every: 60_000 },
-      mode: "isolated",
-      type: "autoresearch",
-      status: "active",
-      autoresearch: {
-        repoPath: REPO_DIR,
-        mutablePaths: ["train.py"],
-        runCommand: "python3 train.py",
-        metric: {
-          name: "val_bpb",
-          direction: "lower" as const,
-          pattern: "val_bpb:\\s+([\\d.]+)",
+    // No src object crosses into the child's built SDK graph. The child owns
+    // its task store and shuts down the manager before returning this JSON.
+    const stdout = await new Promise<string>((resolveOutput, reject) => {
+      execFile(
+        process.execPath,
+        [
+          "--import",
+          "tsx",
+          join(__dirname, "helpers", "autoresearchTaskRunner.ts"),
+          JSON.stringify({
+            repoPath: REPO_DIR,
+            provider: PROVIDER,
+            model: MODEL,
+            offline: !HAS_PROVIDER,
+          }),
+        ],
+        { timeout: 180_000, killSignal: "SIGKILL", maxBuffer: 4 * 1024 * 1024 },
+        (error, output) => {
+          if (error) {
+            reject(
+              new Error("the public TaskManager child failed", {
+                cause: error,
+              }),
+            );
+          } else {
+            resolveOutput(output);
+          }
         },
-        provider: PROVIDER,
-        model: MODEL,
-      },
-      tools: true,
-      timeout: 120_000,
-      retry: { maxAttempts: 1, backoffMs: [1000] },
-      runCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Create emitter to track events
-    const emitter = new EventEmitter();
-    g2EmittedEvents = [];
-    const trackEvent = (event: string) => {
-      emitter.on(event, () => {
-        g2EmittedEvents.push(event);
-      });
-    };
-    trackEvent("autoresearch:initialized");
-    trackEvent("autoresearch:resumed");
-    trackEvent("autoresearch:experiment-started");
-    trackEvent("autoresearch:experiment-completed");
-    trackEvent("autoresearch:phase-changed");
-    trackEvent("autoresearch:state-updated");
-    trackEvent("autoresearch:error");
-
-    // The leading `_signal` is intentionally unused: executeAutoresearchTick
-    // does not currently honour abort propagation, so wiring it through would
-    // be misleading. The withTestTimeout deadline still fires correctly via
-    // its own race; matches the runExperimentCycle pattern at ~lines 1037-1039.
-    const result = await withTestTimeout(
-      (_signal) => executeAutoresearchTick(task, nl, emitter),
-      180_000,
-    );
-
-    g2TaskResult = result;
-
-    // Both "success" and "error" are valid — the AI might not produce valid changes
-    const validStatuses = ["success", "error"];
-    if (!validStatuses.includes(result.status)) {
-      logTest(
-        "Execute tick",
-        "FAIL",
-        `status=${result.status}, expected success or error`,
       );
-      return false;
+    });
+    const line = stdout
+      .split("\n")
+      .find((entry) => entry.startsWith("TASK_MANAGER_RESULT="));
+    if (!line) {
+      throw new Error("the public TaskManager child returned no result");
     }
-
+    const payload = JSON.parse(line.slice("TASK_MANAGER_RESULT=".length)) as {
+      result: import("../src/lib/types/index.js").TaskRunResult;
+      events: string[];
+    };
+    g2TaskResult = payload.result;
+    g2EmittedEvents = payload.events;
     logTest(
-      "executeAutoresearchTick with real NeuroLink instance",
+      "nl.tasks.run() of an autoresearch task",
       "PASS",
-      `status=${result.status}, duration=${result.durationMs}ms`,
+      `status=${payload.result.status}`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
-      logTest("Execute tick", "SKIP", msg.slice(0, 120));
-      return null;
-    }
     logTest("Execute tick", "FAIL", msg);
     return false;
-  } finally {
-    // Single restore path — covers the happy path, the catch, and any
-    // future early-return that might be added inside the try.
-    if (prevSkipMCP === undefined) {
-      delete process.env.NEUROLINK_SKIP_MCP;
-    } else {
-      process.env.NEUROLINK_SKIP_MCP = prevSkipMCP;
-    }
   }
 }
 
@@ -1469,11 +1417,6 @@ async function testG2TaskRunResultFields(): Promise<boolean | null> {
     "bright",
   );
   logTest("TaskRunResult has taskId, runId, durationMs, timestamp", "TESTING");
-
-  if (!HAS_PROVIDER) {
-    logTest("Result fields", "SKIP", "No API key");
-    return null;
-  }
 
   if (!g2TaskResult) {
     logTest("Result fields", "FAIL", "No task result from previous test");
@@ -1550,11 +1493,6 @@ async function testG2EventsEmitted(): Promise<boolean | null> {
     "TESTING",
   );
 
-  if (!HAS_PROVIDER) {
-    logTest("Events emitted", "SKIP", "No API key");
-    return null;
-  }
-
   try {
     const hasInitOrResume =
       g2EmittedEvents.includes("autoresearch:initialized") ||
@@ -1583,7 +1521,7 @@ async function testG2EventsEmitted(): Promise<boolean | null> {
 }
 
 async function group2_taskManagerPath(): Promise<void> {
-  logSection("GROUP 2: TaskManager Path with Real Provider");
+  logSection("GROUP 2: Public TaskManager Path");
 
   const tests: Array<{ name: string; fn: () => Promise<boolean | null> }> = [
     { name: "Execute tick", fn: testG2ExecuteAutoresearchTick },

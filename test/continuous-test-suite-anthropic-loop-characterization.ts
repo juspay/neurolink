@@ -41,6 +41,7 @@ import "dotenv/config";
 
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
+import { trace } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
 import {
   InMemorySpanExporter,
@@ -562,21 +563,34 @@ await test("a native loop turn records the provider attempt count on the active 
   const restore = withAnthropicEnv(server.port);
   const counter = { calls: 0 };
   spanExporter.reset();
+  // The turn runs under a span of the caller's own, so the assertions below
+  // can tell this turn's `neurolink.stream` span from any other span that
+  // happens to share the name.
+  let callerSpanId = "";
   try {
     const nl = new NeuroLink();
-    const result = await nl.stream({
-      input: { text: "look something up" },
-      provider: "anthropic",
-      disableInternalFallback: true,
-      model: MODEL,
-      maxTokens: 32,
-      maxSteps: 3,
-      disableTools: false,
-      tools: customTool(counter),
-    });
-    for await (const chunk of result.stream) {
-      void chunk;
-    }
+    await trace
+      .getTracer("anthropic-loop-characterization")
+      .startActiveSpan("caller-turn", async (callerSpan) => {
+        callerSpanId = callerSpan.spanContext().spanId;
+        try {
+          const result = await nl.stream({
+            input: { text: "look something up" },
+            provider: "anthropic",
+            disableInternalFallback: true,
+            model: MODEL,
+            maxTokens: 32,
+            maxSteps: 3,
+            disableTools: false,
+            tools: customTool(counter),
+          });
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        } finally {
+          callerSpan.end();
+        }
+      });
   } finally {
     restore();
     await server.close();
@@ -604,14 +618,19 @@ await test("a native loop turn records the provider attempt count on the active 
   // to the loop. Pinning the name is what stops this passing on an attribute
   // some unrelated provider path wrote on a different span.
   //
-  // It cannot be pinned by wrapping this call in the test's own
-  // `startActiveSpan` and asserting on that wrapper: the SDK opens
-  // `neurolink.stream` beneath it, so the attribute lands on the child and the
-  // wrapper stays bare. Verified by printing the carrying span's name rather
-  // than assumed.
+  // The call is wrapped in the test's own `startActiveSpan`, but the attribute
+  // does not land on that wrapper: the SDK opens `neurolink.stream` beneath it
+  // and the loop is handed that child, so the wrapper stays bare. Parentage is
+  // therefore what ties the carrying span to THIS turn: it must be the one
+  // `neurolink.stream` span whose parent is the caller's span, not merely any
+  // span of that name.
   assert(
-    carrying.every((span: ReadableSpan) => span.name === "neurolink.stream"),
+    carrying.length === 1 && carrying[0].name === "neurolink.stream",
     "the attempt count was recorded on some span other than the turn's own",
+  );
+  assert(
+    carrying[0].parentSpanContext?.spanId === callerSpanId,
+    "the span carrying the attempt count is not this caller's turn span",
   );
   // Every step of a clean turn succeeds first try, so each recorded count is 1.
   // Asserting the VALUE and not merely the key's presence keeps a broken
@@ -1118,6 +1137,10 @@ await test("a turn that outlives turnTimeoutMs is reported as a time limit, not 
   assert(
     finishReason === "other",
     `a timed-out turn must report finishReason "other", reported ${String(finishReason)}`,
+  );
+  assert(
+    finishes.length === 1 && finishes[0] === "other",
+    "the provider span did not record exactly one finish reason of other for the timed-out turn",
   );
 });
 

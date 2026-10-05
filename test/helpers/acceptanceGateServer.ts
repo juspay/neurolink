@@ -151,6 +151,12 @@ export type AcceptanceGateServer = {
   getAllRequests(): CapturedGateRequest[];
   /** Total requests handled, including any rejected for exceeding the ceiling. */
   requestCount(): number;
+  /**
+   * The requests answered with `GATE_BUDGET_EXCEEDED_MESSAGE`. Cell 8 reads
+   * this so a call that failed for some unrelated reason (network, timeout,
+   * provider validation) cannot pass as "the ceiling rejected it".
+   */
+  budgetRejections(): CapturedGateRequest[];
   /** The ceiling this instance enforces. */
   readonly ceiling: number;
   close(): Promise<void>;
@@ -691,6 +697,7 @@ export function startAcceptanceGateServer(
   ceiling: number,
 ): Promise<AcceptanceGateServer> {
   const requests: CapturedGateRequest[] = [];
+  const rejections: CapturedGateRequest[] = [];
 
   const server: Server = createServer((req, res) => {
     readBody(req)
@@ -711,9 +718,11 @@ export function startAcceptanceGateServer(
         } catch {
           bodyJson = undefined;
         }
-        requests.push({ path: url, protocol, bodyJson });
+        const captured: CapturedGateRequest = { path: url, protocol, bodyJson };
+        requests.push(captured);
 
         if (requests.length > ceiling) {
+          rejections.push(captured);
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
@@ -766,6 +775,7 @@ export function startAcceptanceGateServer(
         origin,
         getAllRequests: () => [...requests],
         requestCount: () => requests.length,
+        budgetRejections: () => [...rejections],
         ceiling,
         close: () => new Promise((r) => server.close(() => r())),
       });

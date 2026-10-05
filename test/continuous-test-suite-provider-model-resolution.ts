@@ -202,6 +202,43 @@ await test("the recognised-but-unregistered message lists only providers actuall
   );
 });
 
+await test("a provider whose factory throws surfaces a 'Failed to create provider' error that keeps the original as its cause", async () => {
+  // A registered factory is where a provider's dynamic import and constructor
+  // run, so a throw from it stands for either failing. The name is its own,
+  // nothing else here resolves to it, and the registry is only ever added to.
+  const failingName = "acme-failing-9183";
+  const boom = new Error("boom-9183");
+  ProviderFactory.registerProvider(failingName, async () => {
+    throw boom;
+  });
+
+  let caught: unknown;
+  try {
+    await ProviderFactory.createProvider(failingName);
+  } catch (error) {
+    caught = error;
+  }
+  if (!(caught instanceof Error)) {
+    throw new Error(
+      "createProvider must reject when the registered factory throws",
+    );
+  }
+  assertIncludes(
+    caught.message,
+    `Failed to create provider ${failingName}`,
+    "the failure names the provider that could not be built",
+  );
+  assertIncludes(
+    caught.message,
+    "boom-9183",
+    "the factory's own message is carried into the wrapper",
+  );
+  assert(
+    caught.cause === boom,
+    "the original error must stay reachable as the wrapper's cause",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // #354 — provider name validation
 // ---------------------------------------------------------------------------

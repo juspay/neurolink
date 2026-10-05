@@ -28,8 +28,7 @@
  * Registry hygiene: `MusicProcessor`'s handler map is a process-wide static.
  * The suite snapshots it before running and restores it verbatim afterward
  * (register-only; the registry exposes no delete, so a full clear + replay
- * is the only way to guarantee no synthetic provider leaks into later
- * suites sharing the process).
+ * is the only way to guarantee no synthetic provider stays registered).
  *
  * Coverage note vs. the prior unit suite: two cases are dropped because
  * they are not reachable through any public call — `registerHandler("",
@@ -98,8 +97,8 @@ function makeStubHandler(overrides: Partial<MusicHandler> = {}): {
 await runSuite(async () => {
   const nl = new NeuroLink({ conversationMemory: { enabled: false } });
 
-  // Snapshot the pre-suite registry so teardown can restore it exactly,
-  // regardless of what any individual test below registers.
+  // Snapshot the registry so teardown can restore it exactly, regardless of
+  // what any individual test below registers.
   const preSuiteProviders = MusicProcessor.listProviders();
   const preSuiteSnapshot = preSuiteProviders.map(
     (name) => [name, MusicProcessor.getHandler(name)!] as const,
@@ -412,8 +411,8 @@ await runSuite(async () => {
   } finally {
     // Restore the process-wide static registry exactly as found. There is
     // no per-key delete on MusicProcessor, so a full clear + replay of the
-    // pre-suite snapshot is the only way to guarantee none of this file's
-    // synthetic providers leak into a later suite sharing the process.
+    // snapshot is the only way to guarantee none of this file's synthetic
+    // providers stay registered.
     MusicProcessor.clearHandlers();
     for (const [name, handler] of preSuiteSnapshot) {
       MusicProcessor.registerHandler(name, handler);

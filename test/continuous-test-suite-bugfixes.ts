@@ -35,6 +35,9 @@
  * under test never touches, with a clean typecheck. See CLAUDE.md rule 15,
  * "One module graph per suite".
  *
+ * Public streaming regressions live in continuous-test-suite-provider-wiring.ts
+ * so this process keeps one source module graph.
+ *
  * Run with: npx tsx test/continuous-test-suite-bugfixes.ts
  */
 
@@ -70,7 +73,12 @@ import { htmlToMarkdown } from "../src/lib/utils/htmlToMarkdown.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
-import { ErrorCategory } from "../src/lib/constants/enums.js";
+import {
+  AIProviderName,
+  OpenRouterModels,
+  ErrorCategory,
+} from "../src/lib/constants/enums.js";
+import { PROVIDER_DESCRIPTORS_BY_NAME } from "../src/lib/factories/providerDescriptors.js";
 // `NeuroLinkError` is NOT a runtime export of the package — `dist/index.d.ts`
 // only mentions it as the source of `NeuroLinkError as ClientNeuroLinkError`,
 // which is a different class from `client/errors.js`. This one stays on the
@@ -5641,116 +5649,6 @@ exit 127
     },
   },
   {
-    name: "openai-compatible.executeStream emits tool:start and tool:end events on NeuroLink event bus",
-    category: "openai-compatible",
-    fn: async () => {
-      const originalFetch = globalThis.fetch;
-      let call = 0;
-      try {
-        globalThis.fetch = (async () => {
-          call++;
-          if (call === 1) {
-            const stream = new ReadableStream<Uint8Array>({
-              start(controller) {
-                const enc = new TextEncoder();
-                controller.enqueue(
-                  enc.encode(
-                    `data: ${JSON.stringify({
-                      choices: [
-                        {
-                          index: 0,
-                          delta: {
-                            tool_calls: [
-                              {
-                                index: 0,
-                                id: "tc1",
-                                type: "function",
-                                function: { name: "ping", arguments: "{}" },
-                              },
-                            ],
-                          },
-                          finish_reason: null,
-                        },
-                      ],
-                    })}\n\n`,
-                  ),
-                );
-                controller.enqueue(
-                  enc.encode(
-                    `data: ${JSON.stringify({
-                      choices: [
-                        { index: 0, delta: {}, finish_reason: "tool_calls" },
-                      ],
-                    })}\n\n`,
-                  ),
-                );
-                controller.enqueue(enc.encode("data: [DONE]\n\n"));
-                controller.close();
-              },
-            });
-            return new Response(stream, {
-              status: 200,
-              headers: { "content-type": "text/event-stream" },
-            });
-          }
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              const enc = new TextEncoder();
-              controller.enqueue(
-                enc.encode(
-                  `data: ${JSON.stringify({
-                    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-                  })}\n\n`,
-                ),
-              );
-              controller.enqueue(enc.encode("data: [DONE]\n\n"));
-              controller.close();
-            },
-          });
-          return new Response(stream, {
-            status: 200,
-            headers: { "content-type": "text/event-stream" },
-          });
-        }) as typeof fetch;
-        const { NeuroLink } = await import("../dist/index.js");
-        const nl = new NeuroLink();
-        const events: string[] = [];
-        const emitter = nl.getEventEmitter();
-        emitter.on("tool:start", () => events.push("start"));
-        emitter.on("tool:end", () => events.push("end"));
-        const provider = new OpenAICompatibleProvider(
-          "test-model",
-          nl as unknown,
-          undefined,
-          { apiKey: "k", baseURL: "http://fake.local/v1" },
-        );
-        const result = await (
-          provider as unknown as {
-            executeStream: (opts: Record<string, unknown>) => Promise<{
-              stream: AsyncIterable<unknown>;
-            }>;
-          }
-        ).executeStream({
-          input: { text: "ping" },
-          disableTools: false,
-          tools: {
-            ping: {
-              description: "p",
-              inputSchema: { type: "object", properties: {}, required: [] },
-              execute: async () => "pong",
-            },
-          },
-        });
-        for await (const _ of result.stream) {
-          void _;
-        }
-        return events.includes("start") && events.includes("end");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    },
-  },
-  {
     name: "openai-compatible.doGenerate forwards responseFormat: json_object",
     category: "openai-compatible",
     fn: async () => {
@@ -6153,82 +6051,6 @@ exit 127
         allowed.includes("openai/gpt-4o") &&
         allowed.includes("google/gemini-2.5-flash")
       );
-    },
-  },
-  {
-    name: "litellm.executeStream streams text deltas via SSE",
-    category: "litellm",
-    fn: async () => {
-      const originalFetch = globalThis.fetch;
-      try {
-        globalThis.fetch = (async () => {
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              const enc = new TextEncoder();
-              controller.enqueue(
-                enc.encode(
-                  `data: ${JSON.stringify({
-                    choices: [
-                      {
-                        index: 0,
-                        delta: { content: "hello " },
-                        finish_reason: null,
-                      },
-                    ],
-                  })}\n\n`,
-                ),
-              );
-              controller.enqueue(
-                enc.encode(
-                  `data: ${JSON.stringify({
-                    choices: [
-                      {
-                        index: 0,
-                        delta: { content: "world" },
-                        finish_reason: "stop",
-                      },
-                    ],
-                  })}\n\n`,
-                ),
-              );
-              controller.enqueue(enc.encode("data: [DONE]\n\n"));
-              controller.close();
-            },
-          });
-          return new Response(stream, {
-            status: 200,
-            headers: { "content-type": "text/event-stream" },
-          });
-        }) as typeof fetch;
-        const { NeuroLink } = await import("../dist/index.js");
-        const nl = new NeuroLink();
-        const provider = new LiteLLMProvider(
-          "openai/gpt-4o-mini",
-          nl as unknown,
-          undefined,
-          { apiKey: "k", baseURL: "http://fake.local" },
-        );
-        const result = await (
-          provider as unknown as {
-            executeStream: (opts: Record<string, unknown>) => Promise<{
-              stream: AsyncIterable<unknown>;
-            }>;
-          }
-        ).executeStream({
-          input: { text: "hi" },
-          disableTools: true,
-        });
-        let collected = "";
-        for await (const chunk of result.stream) {
-          const c = chunk as { content?: string };
-          if (typeof c.content === "string") {
-            collected += c.content;
-          }
-        }
-        return collected === "hello world";
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
     },
   },
   {
@@ -11132,6 +10954,178 @@ exit 127
         !/Do you want to reconfigure/.test(combined) &&
         !/force closed/.test(combined)
       );
+    },
+  },
+  // ---------- setup command: delegateToProviderSetup routing ----------
+  // `setup --provider <id>` hands the id to delegateToProviderSetup(), a
+  // switch with one case per provider. Each case below is told apart by the
+  // banner its own handler prints, so a case that called a neighbour's
+  // handler (a copy-paste slip in the switch) or fell through to the generic
+  // branch changes the banner and fails here. The check-only path reads env
+  // vars and makes no network call. The env is hand-built and the cwd a
+  // temp dir so no ambient credential or repo `.env` can reach the child.
+  {
+    name: "CLI setup: --provider <p> --check routes every provider id to its own setup handler",
+    category: "cli",
+    fn: async () => {
+      const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error("Build the CLI before running setup routing coverage");
+      }
+      const { spawnSync } = await import("node:child_process");
+      const fill = (length: number) => "a".repeat(length);
+      const routes: ReadonlyArray<{
+        id: string;
+        env: Record<string, string>;
+        banner: RegExp;
+      }> = [
+        {
+          id: "google-ai",
+          env: { GOOGLE_AI_API_KEY: `AIza${fill(35)}` },
+          banner: /Google AI Studio setup complete/,
+        },
+        {
+          id: "anthropic",
+          env: { ANTHROPIC_API_KEY: `sk-ant-${fill(30)}` },
+          banner: /Anthropic setup complete/,
+        },
+        {
+          id: "azure",
+          env: {
+            AZURE_OPENAI_API_KEY: fill(32),
+            AZURE_OPENAI_ENDPOINT: "https://fake.openai.azure.com",
+          },
+          banner: /Azure OpenAI setup complete/,
+        },
+        {
+          id: "bedrock",
+          env: {
+            AWS_ACCESS_KEY_ID: `AKIA${fill(16)}`,
+            AWS_SECRET_ACCESS_KEY: fill(40),
+            AWS_REGION: "us-east-1",
+          },
+          banner: /Configuration check complete/,
+        },
+        {
+          id: "vertex",
+          env: {
+            GOOGLE_VERTEX_PROJECT: "fake-project",
+            GOOGLE_VERTEX_LOCATION: "us-central1",
+            GOOGLE_APPLICATION_CREDENTIALS: "/nonexistent/fake-sa.json",
+          },
+          banner: /Google Vertex setup complete/,
+        },
+        {
+          id: "huggingface",
+          env: { HUGGINGFACE_API_KEY: `hf_${fill(30)}` },
+          banner: /Hugging Face is properly configured/,
+        },
+        {
+          id: "mistral",
+          env: { MISTRAL_API_KEY: `sk-${fill(30)}` },
+          banner: /Mistral AI is properly configured/,
+        },
+      ];
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-routes-"));
+      const misrouted: string[] = [];
+      try {
+        for (const route of routes) {
+          const r = spawnSync(
+            process.execPath,
+            [CLI_DIST_PATH, "setup", "--provider", route.id, "--check"],
+            {
+              encoding: "utf8",
+              cwd: dir,
+              env: {
+                PATH: process.env.PATH ?? "",
+                HOME: dir,
+                NO_COLOR: "1",
+                ...route.env,
+              },
+              stdio: ["ignore", "pipe", "pipe"],
+              timeout: 20_000,
+              // SIGKILL for the reason given on the first setup case above.
+              killSignal: "SIGKILL" as const,
+            },
+          );
+          const combined = `${r.stdout}${r.stderr}`;
+          const completionHint = `--provider ${route.id}`;
+          if (
+            r.status !== 0 ||
+            r.signal !== null ||
+            !route.banner.test(combined) ||
+            !combined.includes(completionHint) ||
+            /force closed/.test(combined)
+          ) {
+            misrouted.push(route.id);
+          }
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+      if (misrouted.length > 0) {
+        console.log(
+          `    [diagnostic] setup routing mismatch for: ${misrouted.join(", ")}`,
+        );
+      }
+      return misrouted.length === 0;
+    },
+  },
+  {
+    name: "CLI setup: --provider openrouter prints its instructions with the env var and URL the provider uses",
+    category: "cli",
+    fn: async () => {
+      const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error(
+          "Build the CLI before running OpenRouter setup coverage",
+        );
+      }
+      const { spawnSync } = await import("node:child_process");
+      // handleOpenRouterSetup() is instructions-only: it takes no flags and
+      // needs no credential, so the env holds none. The names it prints are
+      // checked against the provider's own descriptor rather than a second
+      // hand-typed copy, so the instructions cannot drift from what the
+      // provider actually reads.
+      const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(
+        AIProviderName.OPENROUTER,
+      );
+      const apiKeyVar = descriptor?.envVars.apiKey;
+      const keysUrl = descriptor?.setupUrl;
+      if (!apiKeyVar || !keysUrl) {
+        return false;
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-openrouter-"));
+      try {
+        const r = spawnSync(
+          process.execPath,
+          [CLI_DIST_PATH, "setup", "--provider", "openrouter"],
+          {
+            encoding: "utf8",
+            cwd: dir,
+            env: { PATH: process.env.PATH ?? "", HOME: dir, NO_COLOR: "1" },
+            stdio: ["ignore", "pipe", "pipe"],
+            timeout: 20_000,
+            killSignal: "SIGKILL" as const,
+          },
+        );
+        const combined = `${r.stdout}${r.stderr}`;
+        return (
+          r.status === 0 &&
+          r.signal === null &&
+          /OpenRouter Setup/.test(combined) &&
+          combined.includes(`export ${apiKeyVar}=`) &&
+          combined.includes(keysUrl) &&
+          combined.includes(`--model ${OpenRouterModels.GEMINI_2_5_FLASH}`) &&
+          combined.includes(OpenRouterModels.CLAUDE_SONNET_4_6) &&
+          !combined.includes("claude-3.5-sonnet") &&
+          !combined.includes("gemini-2.0-flash-exp:free") &&
+          combined.includes("--provider openrouter") &&
+          !/force closed/.test(combined)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     },
   },
   // `setup --list`/`setup --status` are documented (setupCommandFactory.ts

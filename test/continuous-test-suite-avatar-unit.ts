@@ -111,10 +111,9 @@ function generateAvatar(provider: string, avatar: Record<string, unknown>) {
 }
 
 await runSuite(async () => {
-  // Snapshot whatever was registered before this suite ran (normally
-  // nothing, in this suite's own process) so teardown can restore it
-  // exactly, rather than leaving the process-wide registry in whatever
-  // state our own tests (including the clearHandlers() test) left it in.
+  // Snapshot what is registered so teardown can restore it exactly, rather
+  // than leaving the process-wide registry in whatever state our own tests
+  // (including the clearHandlers() test) left it in.
   const registrySnapshot = AvatarProcessor.listProviders().map(
     (name) => [name, AvatarProcessor.getHandler(name)!] as const,
   );
@@ -390,8 +389,7 @@ await runSuite(async () => {
   } finally {
     // clearHandlers() above wipes the whole process-wide registry, not just
     // this suite's own providers — restore exactly what was there when the
-    // suite started so nothing real (or belonging to another suite sharing
-    // this process) is left disturbed.
+    // suite started, including every pre-existing entry.
     AvatarProcessor.clearHandlers();
     for (const [name, handler] of registrySnapshot) {
       AvatarProcessor.registerHandler(name, handler);

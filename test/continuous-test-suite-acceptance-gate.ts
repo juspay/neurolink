@@ -809,6 +809,23 @@ async function main(): Promise<void> {
                     ceilingServer.requestCount() >= ceiling + 1,
                     `cell8 budget ceiling: the dedicated server did not observe the second call's request`,
                   );
+                  // The throw above proves only that something failed; a
+                  // network error or a provider validation error would pass
+                  // it. The server's own rejection log proves the ceiling was
+                  // what refused the call.
+                  const rejections = ceilingServer.budgetRejections();
+                  assert(
+                    rejections.length >= 1,
+                    `cell8 budget ceiling: the failure was not the server's ceiling rejection`,
+                  );
+                  assert(
+                    rejections.some(
+                      (r) =>
+                        r.path.endsWith("/chat/completions") ||
+                        r.path.endsWith("/messages"),
+                    ),
+                    `cell8 budget ceiling: no generation request was rejected, only discovery routes`,
+                  );
                 });
               } finally {
                 await ceilingServer.close();

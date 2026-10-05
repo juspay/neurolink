@@ -106,6 +106,31 @@ function requiredListsIn(body: string): string[][] {
   }
   return out;
 }
+/**
+ * How many captured request bodies carry BOTH a non-empty `tools` array and a
+ * `response_format` JSON schema. OpenAI and Azure are the two providers that do
+ * not suppress `response_format` when tools ride along, so this pair on one
+ * request is what proves their tools-plus-schema branch was the one taken —
+ * a turn that dropped the tools would still carry a schema and pass without it.
+ */
+function bodiesWithToolsAndSchema(bodies: readonly string[]): number {
+  return bodies.filter((body) => {
+    try {
+      const parsed = JSON.parse(body) as {
+        tools?: unknown;
+        response_format?: { json_schema?: unknown };
+      };
+      return (
+        Array.isArray(parsed.tools) &&
+        parsed.tools.length > 0 &&
+        parsed.response_format?.json_schema !== undefined
+      );
+    } catch {
+      return false;
+    }
+  }).length;
+}
+
 import "dotenv/config";
 import { z } from "zod";
 import { tool } from "../dist/index.js";
@@ -732,6 +757,10 @@ await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is 
       provider: "openai",
       model: "gpt-4o-mini",
       maxTokens: 200,
+      // Explicit, so the tools-plus-schema branch is the one under test rather
+      // than whichever the ambient MCP config happens to produce.
+      tools: pingTool,
+      disableTools: false,
       schema: z.object({
         capital: z.string(),
         population: z.number().optional(),
@@ -766,6 +795,13 @@ await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is 
   assert(
     forced.length === 0,
     `the optional property was promoted into the schema's required list (${forced.length} of ${schemaRequireds.length} schema(s) on the wire)`,
+  );
+  // OpenAI keeps `response_format` when tools are present, so the schema and
+  // the tools must arrive on the same request. If the tools were dropped, or
+  // the schema suppressed as it is for every other family member, this fails.
+  assert(
+    bodiesWithToolsAndSchema(capturedBodies) > 0,
+    "no outbound request carried both tools and a response_format json_schema",
   );
 
   const data = res.structuredData as Record<string, unknown> | undefined;
@@ -804,6 +840,8 @@ await test("azure — an optional field survives on a second family member", asy
   if (!azureModel) {
     throw new Skip("no azure deployment configured");
   }
+  capturedBodies.length = 0;
+  captureRequests = true;
   let res: SchemaResult;
   try {
     res = (await nl.generate({
@@ -813,6 +851,8 @@ await test("azure — an optional field survives on a second family member", asy
       provider: "azure",
       model: azureModel,
       maxTokens: 200,
+      tools: pingTool,
+      disableTools: false,
       schema: z.object({
         capital: z.string(),
         population: z.number().optional(),
@@ -825,7 +865,13 @@ await test("azure — an optional field survives on a second family member", asy
     throw new Error("optional-field schema failed on a second provider", {
       cause: e,
     });
+  } finally {
+    captureRequests = false;
   }
+  assert(
+    bodiesWithToolsAndSchema(capturedBodies) > 0,
+    "no outbound request carried both tools and a response_format json_schema",
+  );
   const data = res.structuredData as Record<string, unknown> | undefined;
   assert(
     !!data && typeof data === "object",

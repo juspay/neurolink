@@ -1440,6 +1440,68 @@ await test("Bedrock does not report a tool the model asked for but never ran", a
       result.enhancedWithTools !== true,
       "enhancedWithTools reports true for a turn whose only tool dispatch failed",
     );
+
+    // The provider-level half. The assertion above reads a value
+    // `NeuroLink.generate()` recomputes from `toolsUsed`, so it would still
+    // pass if the provider itself went back to deriving the flag from the
+    // dispatch list. A handle taken straight from the factory has no facade
+    // above it, so this one reads what the provider set. The endpoint scripts
+    // the tool call on its FIRST Converse request only, which the turn above
+    // has used, so this handle gets an endpoint of its own.
+    const localDirect = await startLocalBedrock("Done.", {
+      toolUse: { name: INVENTED_TOOL, input: {} },
+    });
+    try {
+      process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = localDirect.endpoint;
+      const { ProviderRegistry, ProviderFactory, jsonSchema } =
+        await import("../dist/index.js");
+      await ProviderRegistry.registerAllProviders();
+      const provider = await ProviderFactory.createProvider(
+        "bedrock",
+        MODEL,
+        undefined,
+        undefined,
+        {
+          bedrock: {
+            accessKeyId: PLACEHOLDER_AWS_ENV.AWS_ACCESS_KEY_ID,
+            secretAccessKey: PLACEHOLDER_AWS_ENV.AWS_SECRET_ACCESS_KEY,
+            region: PLACEHOLDER_AWS_ENV.AWS_REGION,
+          },
+        },
+      );
+      let executedDirect = 0;
+      const direct = await provider.generate({
+        input: { text: "Call the tool, then report the code." },
+        tools: {
+          [REAL_TOOL]: {
+            description: "Return the secret vault code.",
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {},
+              required: [],
+            }),
+            execute: async () => {
+              executedDirect += 1;
+              return { vault_code: "VLT4QX9R2K" };
+            },
+          },
+        },
+      });
+      assert(
+        (direct?.toolExecutions ?? []).length > 0,
+        "precondition failed: the direct handle recorded no dispatch, so the failed lookup never happened",
+      );
+      assert(
+        executedDirect === 0,
+        `precondition failed: the registered tool ran on a handle turn that never called it (runs: ${executedDirect})`,
+      );
+      assert(
+        direct?.enhancedWithTools === false,
+        "a provider handle reports enhancedWithTools true for a turn whose only tool dispatch failed",
+      );
+    } finally {
+      await localDirect.close();
+    }
   } finally {
     await local.close();
     for (const key of Object.keys(process.env)) {
@@ -1846,6 +1908,406 @@ await test("the built OpenRouter setup guide prints supported model examples", a
     examples.length >= 3 && examples.every((id) => known.has(id)),
     "the model examples include unsupported IDs",
   );
+});
+
+await test("NeuroLink.stream (openai-compatible) emits tool:start and tool:end events on the event bus", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousSkipMCP = process.env.NEUROLINK_SKIP_MCP;
+  process.env.NEUROLINK_SKIP_MCP = "true";
+  let call = 0;
+  try {
+    globalThis.fetch = (async () => {
+      call++;
+      if (call === 1) {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            const enc = new TextEncoder();
+            controller.enqueue(
+              enc.encode(
+                `data: ${JSON.stringify({
+                  choices: [
+                    {
+                      index: 0,
+                      delta: {
+                        tool_calls: [
+                          {
+                            index: 0,
+                            id: "tc1",
+                            type: "function",
+                            function: { name: "ping", arguments: "{}" },
+                          },
+                        ],
+                      },
+                      finish_reason: null,
+                    },
+                  ],
+                })}\n\n`,
+              ),
+            );
+            controller.enqueue(
+              enc.encode(
+                `data: ${JSON.stringify({
+                  choices: [
+                    { index: 0, delta: {}, finish_reason: "tool_calls" },
+                  ],
+                })}\n\n`,
+              ),
+            );
+            controller.enqueue(enc.encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      }
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const enc = new TextEncoder();
+          controller.enqueue(
+            enc.encode(
+              `data: ${JSON.stringify({
+                choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+              })}\n\n`,
+            ),
+          );
+          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }) as typeof fetch;
+    // The public surface, not a provider handed a NeuroLink: the fetch
+    // stub is global, so it reaches the dist bundle's provider too.
+    const { NeuroLink, jsonSchema } = await import("../dist/index.js");
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    const events: string[] = [];
+    const emitter = nl.getEventEmitter();
+    emitter.on("tool:start", () => events.push("start"));
+    emitter.on("tool:end", () => events.push("end"));
+    let toolRuns = 0;
+    const result = await nl.stream({
+      input: { text: "ping" },
+      provider: "openai-compatible",
+      model: "test-model",
+      disableInternalFallback: true,
+      credentials: {
+        openaiCompatible: { apiKey: "k", baseURL: "http://fake.local/v1" },
+      },
+      disableTools: false,
+      tools: {
+        ping: {
+          description: "p",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: {},
+            required: [],
+          }),
+          execute: async () => {
+            toolRuns++;
+            return "pong";
+          },
+        },
+      },
+    });
+    for await (const _ of result.stream) {
+      void _;
+    }
+    assert(
+      events.includes("start") && events.includes("end") && toolRuns === 1,
+      "the public stream must execute the tool once and emit both lifecycle events",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousSkipMCP === undefined) {
+      delete process.env.NEUROLINK_SKIP_MCP;
+    } else {
+      process.env.NEUROLINK_SKIP_MCP = previousSkipMCP;
+    }
+  }
+});
+
+await test("NeuroLink.stream (litellm) streams text deltas via SSE", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousSkipMCP = process.env.NEUROLINK_SKIP_MCP;
+  process.env.NEUROLINK_SKIP_MCP = "true";
+  try {
+    globalThis.fetch = (async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const enc = new TextEncoder();
+          controller.enqueue(
+            enc.encode(
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: "hello " },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`,
+            ),
+          );
+          controller.enqueue(
+            enc.encode(
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: "world" },
+                    finish_reason: "stop",
+                  },
+                ],
+              })}\n\n`,
+            ),
+          );
+          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }) as typeof fetch;
+    const { NeuroLink } = await import("../dist/index.js");
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "litellm",
+      model: "openai/gpt-4o-mini",
+      disableInternalFallback: true,
+      credentials: {
+        litellm: { apiKey: "k", baseURL: "http://fake.local" },
+      },
+      disableTools: true,
+    });
+    let collected = "";
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        collected += chunk.content;
+      }
+    }
+    assert(
+      collected === "hello world",
+      "the public stream must preserve all text deltas",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousSkipMCP === undefined) {
+      delete process.env.NEUROLINK_SKIP_MCP;
+    } else {
+      process.env.NEUROLINK_SKIP_MCP = previousSkipMCP;
+    }
+  }
+});
+
+await test("OpenAI sends tools together with an optional-field schema", async () => {
+  const { startLocalOpenAICompatible, toolNamesOnWire, responseFormatOnWire } =
+    await import("./helpers/openaiCompatibleLocalEndpoint.js");
+  const { NeuroLink, jsonSchema } = await import("../dist/index.js");
+  const { z } = await import("zod");
+  const local = await startLocalOpenAICompatible();
+  const savedEnv = { ...process.env };
+  process.env.NEUROLINK_SKIP_MCP = "true";
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+
+    const before = local.requests.length;
+    await nl.generate({
+      input: { text: "Return the capital of France." },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableInternalFallback: true,
+      credentials: { openai: { apiKey: "fixture", baseURL: local.baseURL } },
+      schema: z.object({
+        capital: z.string(),
+        population: z.number().optional(),
+      }),
+      disableTools: false,
+      tools: {
+        ping: {
+          description: "Return pong",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => "pong",
+        },
+      },
+    });
+    const sent = local.requests[before];
+    assert(
+      !!sent && toolNamesOnWire(sent).includes("ping"),
+      "the explicit tool must reach the endpoint",
+    );
+    const format = responseFormatOnWire(sent) as {
+      json_schema?: { schema?: { required?: string[] } };
+    } | null;
+    assert(
+      !!format?.json_schema?.schema,
+      "the tool-bearing request must also contain a JSON schema",
+    );
+    assert(
+      !format!.json_schema!.schema!.required?.includes("population"),
+      "the optional field must stay outside the required list",
+    );
+  } finally {
+    await local.close();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+});
+
+// Shared by the two redirect cases below. One local server plays the image
+// host (`/start.png` answers 302 to `/final.png`) and the OpenAI-compatible
+// provider (any POST). Each call binds a fresh port, so a URL cache cannot hide
+// a download that was never made.
+async function expectRedirectedImageDownload(): Promise<void> {
+  const { NeuroLink } = await import("../dist/index.js");
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const savedEnv = { ...process.env };
+  process.env.NEUROLINK_SKIP_MCP = "true";
+  let finalDownloads = 0;
+  const bodies: string[] = [];
+  const server = createServer((req, res) => {
+    if (req.url === "/start.png") {
+      res.writeHead(302, { location: "/final.png" });
+      res.end();
+    } else if (req.url === "/final.png") {
+      if (req.method === "GET") {
+        finalDownloads++;
+      }
+      res.writeHead(200, {
+        "content-type": "image/png",
+        "content-length": png.length,
+      });
+      res.end(req.method === "HEAD" ? undefined : png);
+    } else if (req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += String(chunk);
+      });
+      req.on("end", () => {
+        bodies.push(body);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            id: "image-fixture",
+            object: "chat.completion",
+            created: 1,
+            model: "gpt-4o-mini",
+            choices: [
+              {
+                index: 0,
+                message: { role: "assistant", content: "image received" },
+                finish_reason: "stop",
+              },
+            ],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 2,
+              total_tokens: 12,
+            },
+          }),
+        );
+      });
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(
+      !!address && typeof address === "object",
+      "the fixture must bind a port",
+    );
+    const origin = `http://127.0.0.1:${(address as { port: number }).port}`;
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    const result = await nl.generate({
+      input: {
+        text: "Describe the image.",
+        images: [`${origin}/start.png`],
+      },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: {
+        openai: { apiKey: "fixture", baseURL: `${origin}/v1` },
+      },
+    });
+    assert(
+      result.content === "image received",
+      "the generation must reach the fixture",
+    );
+    assert(finalDownloads > 0, "the redirect must reach the final image route");
+    assert(
+      bodies.some((body) => body.includes(png.toString("base64"))),
+      "the downloaded image bytes must reach the provider request",
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+}
+
+await test("NeuroLink.generate downloads a redirecting image URL on this runtime's native undici branch", async () => {
+  // redirectFollowingDispatcher() composes onto Node's global dispatcher only
+  // when the built-in undici major equals the package's own (7, see
+  // NPM_UNDICI_MAJOR in redirectDispatcher.ts); otherwise onto a fresh Agent.
+  // Which one this run takes depends on the runtime, so say so: on a major-6
+  // runtime this case and the next both take the mismatch branch and the
+  // matching branch is not exercised at all.
+  const nativeMajor = Number.parseInt(
+    process.versions.undici?.split(".")[0] ?? "",
+    10,
+  );
+  assert(
+    Number.isFinite(nativeMajor),
+    "the runtime must report a built-in undici version",
+  );
+  console.log(
+    `    [diagnostic] undici native major ${nativeMajor}: redirect branch = ${nativeMajor === 7 ? "matching (global dispatcher)" : "mismatch (fresh Agent)"}`,
+  );
+  await expectRedirectedImageDownload();
+});
+
+await test("NeuroLink.generate downloads a redirecting image URL on the mismatched-undici branch (process.versions.undici forced to 6.28.0)", async () => {
+  // Forcing major 6 makes the dispatcher pick its own fresh Agent, which is the
+  // branch a real major-6 runtime takes. It does not make a major-6 dispatcher
+  // pass for major 7: only the version string the function reads is changed.
+  const original = Object.getOwnPropertyDescriptor(process.versions, "undici");
+  Object.defineProperty(process.versions, "undici", {
+    value: "6.28.0",
+    configurable: true,
+  });
+  try {
+    await expectRedirectedImageDownload();
+  } finally {
+    if (original) {
+      Object.defineProperty(process.versions, "undici", original);
+    } else {
+      Reflect.deleteProperty(process.versions, "undici");
+    }
+  }
 });
 
 await runSuite();

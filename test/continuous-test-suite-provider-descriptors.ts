@@ -1738,12 +1738,12 @@ await runSuite(async () => {
     assertEqual(
       mistral?.isConfigured,
       true,
-      "mistral must be reported configured once its API key env var is set",
+      "mistral must be reported configured once its env var is set",
     );
     assertEqual(
       mistral?.hasApiKey,
       true,
-      "mistral must be reported as having a validly formatted API key",
+      "mistral hasApiKey must be true once its env var is set",
     );
     assertEqual(
       mistral?.isHealthy,
@@ -2394,7 +2394,7 @@ await runSuite(async () => {
       assertEqual(
         status.isConfigured,
         false,
-        "anthropic without its API key must report isConfigured false, same as before this change",
+        "anthropic with its env var unset must report isConfigured false, same as before this change",
       );
       assert(
         typeof status.responseTime === "number",

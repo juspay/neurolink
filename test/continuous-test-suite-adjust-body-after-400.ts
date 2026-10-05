@@ -32,12 +32,18 @@ import "dotenv/config";
  *
  * No external API keys — points NVIDIA_NIM_BASE_URL at a local test server.
  *
+ * Requires `pnpm run build` first (imports ../dist/index.js).
+ *
  * Run: npx tsx test/continuous-test-suite-adjust-body-after-400.ts
  *      pnpm run test:adjust-body-after-400
  */
 
 import { createServer, type IncomingMessage } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
 
 const { test, runSuite, section } = defineSuite(
   "adjustBodyAfter400 composition fix",
