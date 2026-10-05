@@ -39,6 +39,9 @@ import "dotenv/config";
  *      kinds is an unpinned regression this suite exists to catch.
  *   4. Every kind's `defaultProviderFor()` result is itself a member of that
  *      kind's own `providerChoicesFor()` list.
+ *   5. Registrations are isolated per kind: a name registered on one processor
+ *      is invisible to every other processor, and the same name can hold a
+ *      different handler in two of them.
  *
  * Run: npx tsx test/continuous-test-suite-media-registry-collisions.ts
  *      pnpm run test:media-registry-collisions
@@ -50,6 +53,7 @@ import {
   assertEqual,
 } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { AvatarHandler, MusicHandler } from "../dist/index.js";
 
 assertDistFresh();
 
@@ -309,6 +313,108 @@ await runSuite(async () => {
     assert(
       typeof avatarSupports === "boolean",
       "AvatarProcessor.supports('replicate') did not return a boolean",
+    );
+  });
+
+  await test("a handler registered on one media registry is invisible to every other, and one name can hold different handlers in two of them", async () => {
+    const {
+      MusicProcessor,
+      AvatarProcessor,
+      TTSProcessor,
+      STTProcessor,
+      RealtimeProcessor,
+      VideoProcessor,
+    } = await import("../dist/index.js");
+    const NAME = "isolation-probe-not-in-any-catalog";
+    const musicHandler: MusicHandler = {
+      generate: async () => {
+        throw new Error("not called");
+      },
+      isConfigured: () => true,
+    };
+    const avatarHandler: AvatarHandler = {
+      generate: async () => {
+        throw new Error("not called");
+      },
+      isConfigured: () => true,
+    };
+    // No removal API exists and the registries are process-wide: snapshot,
+    // clear and restore (Video is left alone: its getHandler is private).
+    const musicBefore = MusicProcessor.listProviders().flatMap((n) => {
+      const h = MusicProcessor.getHandler(n);
+      return h ? [[n, h] as const] : [];
+    });
+    const avatarBefore = AvatarProcessor.listProviders().flatMap((n) => {
+      const h = AvatarProcessor.getHandler(n);
+      return h ? [[n, h] as const] : [];
+    });
+    try {
+      MusicProcessor.registerHandler(NAME, musicHandler);
+      assert(
+        MusicProcessor.supports(NAME) &&
+          MusicProcessor.getHandler(NAME) === musicHandler,
+        "the name did not resolve in the registry it was registered on",
+      );
+      assert(
+        !AvatarProcessor.supports(NAME) &&
+          AvatarProcessor.getHandler(NAME) === undefined,
+        "a Music registration leaked into the Avatar registry",
+      );
+      assert(
+        !VideoProcessor.supports(NAME),
+        "a Music registration leaked into the Video registry",
+      );
+      assert(
+        !TTSProcessor.supports(NAME),
+        "a Music registration leaked into the TTS registry",
+      );
+      assert(
+        !STTProcessor.supports(NAME),
+        "a Music registration leaked into the STT registry",
+      );
+      assert(
+        !RealtimeProcessor.supports(NAME),
+        "a Music registration leaked into the Realtime registry",
+      );
+      AvatarProcessor.registerHandler(NAME, avatarHandler);
+      assert(
+        AvatarProcessor.getHandler(NAME) === avatarHandler,
+        "the Avatar registry did not keep its own handler for the shared name",
+      );
+      assert(
+        MusicProcessor.getHandler(NAME) === musicHandler,
+        "registering the same name in Avatar replaced the Music handler",
+      );
+      assertEqual(
+        MusicProcessor.listProviders().filter((n) => n === NAME).length,
+        1,
+        "Music lists the probe name exactly once",
+      );
+    } finally {
+      MusicProcessor.clearHandlers();
+      for (const [n, h] of musicBefore) {
+        MusicProcessor.registerHandler(n, h);
+      }
+      AvatarProcessor.clearHandlers();
+      for (const [n, h] of avatarBefore) {
+        AvatarProcessor.registerHandler(n, h);
+      }
+    }
+    assertEqual(
+      MusicProcessor.listProviders().slice().sort().join(","),
+      musicBefore
+        .map(([n]) => n)
+        .sort()
+        .join(","),
+      "the Music registry was not restored",
+    );
+    assertEqual(
+      AvatarProcessor.listProviders().slice().sort().join(","),
+      avatarBefore
+        .map(([n]) => n)
+        .sort()
+        .join(","),
+      "the Avatar registry was not restored",
     );
   });
 });

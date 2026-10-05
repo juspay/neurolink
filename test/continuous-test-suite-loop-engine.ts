@@ -7,18 +7,20 @@ import "dotenv/config";
  *
  * ALL-SRC module graph (rule 15): every import below resolves to
  * `../src/...`. This is the deliberate, documented exception to rule 15's
- * "one module graph per suite, end-to-end tests only" mandate. The three
- * modules under test — `src/lib/core/streamChannel.ts`,
- * `src/lib/core/nativeToolFormat.ts` (added by Task 2),
- * `src/lib/core/loopEngine.ts` (added by Task 3), and `BaseProvider`'s
- * default `executeStream` (added by Task 5) — have no exported surface
- * at all: none of them is reachable through package.json's `exports` map
+ * "one module graph per suite, end-to-end tests only" mandate. The modules
+ * under test — `src/lib/core/streamChannel.ts`,
+ * `src/lib/core/nativeToolFormat.ts`, `src/lib/core/loopEngine.ts`, and
+ * `BaseProvider`'s default `executeStream` — have no exported surface at
+ * all: none of them is reachable through package.json's `exports` map
  * (`.`, `./client`, `./types`, `./cli`, `./server`, `./browser`, ... — no
- * entry resolves into `src/lib/core/`), and as of this PR nothing outside
- * their own tests imports them either — no provider is migrated onto the
- * engine yet (that is Tasks 4-9, later PRs). Concretely, this suite asserts
- * facts no live or mocked `generate()`/`stream()` call can deterministically
- * produce:
+ * entry resolves into `src/lib/core/`). The Anthropic, Bedrock, AI Studio
+ * and Vertex clients (`src/lib/providers/anthropic/client.ts`,
+ * `amazonBedrock/client.ts`, `googleAiStudio/client.ts` and
+ * `googleVertex/client.ts`) now run their turns on `runAgenticLoop`, so a
+ * live call does reach the engine; a hand-written fake adapter is what gives
+ * deterministic control of what this suite asserts. Concretely, it asserts
+ * facts no live or mocked `generate()`/`stream()` call can be made to
+ * produce on demand:
  *
  *   - `streamChannel`'s exact push/drain/close/error ordering, including
  *     producer-ahead-of-consumer and consumer-ahead-of-producer interleaving
@@ -32,14 +34,15 @@ import "dotenv/config";
  *     unwrap-in-both-directions behavior (a retryable error before any chunk
  *     is emitted DOES retry; the identical error after a chunk has already
  *     been pushed to the channel does NOT retry and surfaces the original,
- *     unwrapped error). No provider is wired to the engine yet, so there is
- *     no live call that could exercise this at all.
+ *     unwrapped error). A real provider only produces this sequence when a
+ *     429 arrives after its first streamed chunk, which no live call can be
+ *     made to do on demand; the fake adapter throws it deterministically.
  *   - `BaseProvider`'s default `executeStream`, which only exists for
- *     subclasses that implement the optional `doStream` hook. `BaseProvider`
- *     is abstract and never constructed by callers, so there is no shipped
- *     surface that reaches the default at all until a provider adopts it
- *     (Task 6, SageMaker). This suite builds minimal fake subclasses so the
- *     contract is pinned before anything depends on it.
+ *     subclasses that implement the optional `doStream` hook (today
+ *     `AmazonSageMakerProvider` is the one that does). `BaseProvider` is
+ *     abstract and never constructed by callers, and a live call reaches the
+ *     default only through a real SageMaker endpoint. This suite builds
+ *     minimal fake subclasses so the contract is pinned deterministically.
  *
  * No API keys, no network, no LLM.
  *

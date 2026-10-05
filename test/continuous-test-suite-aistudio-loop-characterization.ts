@@ -904,10 +904,14 @@ await test("an abort mid-step stops the loop from dispatching the rest of the ba
     secondCalls === 0,
     "the rest of the batch was dispatched after the turn was aborted",
   );
-  // And the turn stopped rather than issuing another request: a partial
-  // tool-result turn must never be written back, since an unanswered tool
-  // call in history is rejected outright by Anthropic and carried forward by
-  // Gemini.
+  // And the loop issued no further request. That is all this pins: one HTTP
+  // call in total. It says nothing about what the loop did with the partial
+  // tool-result turn, because AI Studio's client never reads the engine's
+  // conversation (it reads usage, stop reason, the aborted flag, tool calls
+  // and text), so a build that wrote the partial turn back but still stopped
+  // would pass. History after an abort is not covered by any suite; the
+  // engine's guard against writing it is the `abortedMidBatch` break in
+  // core/loopEngine.ts.
   assert(
     server.calls.length === 1,
     `the loop issued ${server.calls.length} requests, so it continued past the abort`,

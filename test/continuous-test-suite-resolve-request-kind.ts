@@ -14,8 +14,7 @@
  * shipped surface a live `generate()`/`stream()` call could isolate this
  * decision through without also depending on real provider behavior. This
  * file is listed in the `neurolink/e2e-tests-only` `allow` array in
- * eslint.config.js for that reason (same justification as
- * `continuous-test-suite-handler-registry.ts`: "no public surface at all").
+ * eslint.config.js for that reason.
  *
  * Run: npx tsx test/continuous-test-suite-resolve-request-kind.ts
  */

@@ -509,11 +509,12 @@ await test("a bytes-plus-name upload keeps the name detection routes on", async 
   );
 });
 
-// Cleanup must precede runSuite(): it prints the summary and then calls
 // The gzip-bomb bound used to be asserted here, by running ArchiveProcessor
 // directly and sampling RSS. It went with the unit suites (CLAUDE.md rule 15):
-// measuring one processor's peak memory means importing that processor.
+// measuring one processor's peak memory means importing that processor out of
+// src/lib/. No suite measures the memory spent inflating a bomb any more.
 
+// Cleanup must precede runSuite(): it prints the summary and then calls
 // process.exit, so anything after it never runs.
 try {
   fs.rmSync(dir, { recursive: true, force: true });

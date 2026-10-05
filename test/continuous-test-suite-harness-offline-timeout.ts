@@ -18,10 +18,7 @@
  * from any package entry point — so this file needs no entry in the
  * `neurolink/e2e-tests-only` `allow` list: it imports only from
  * `./helpers/harness.js`, which the rule does not flag in the first place
- * (same reasoning as `continuous-test-suite-handler-registry.ts`'s header,
- * one level further in: that file gets an allow-list entry because it also
- * imports `HandlerRegistry` from `src/lib/`; this one imports nothing from
- * `src/` or `dist/` at all).
+ * (it imports nothing from `src/` or `dist/` at all).
  *
  * `runSuite()` calls `process.exit()`, so the *inner* `defineSuite()`
  * instances built below to provoke a timeout are driven through `test()`

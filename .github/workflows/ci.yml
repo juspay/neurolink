@@ -1183,7 +1183,6 @@ jobs:
             test:autoresearch@2
             test:loop-engine@2
             test:stream-middleware@5
-            test:handler-registry@1
             test:vendor-recovery@5
             test:browser-bundle@5
             test:tools-manager-truncation@3

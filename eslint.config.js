@@ -360,10 +360,6 @@ export default [
             // them. Only those groups need the exception; the TaskManager
             // group drives nl.tasks on a dist NeuroLink in an isolated child.
             "test/continuous-test-suite-autoresearch.ts",
-            // HandlerRegistry<THandler> is internal composition plumbing
-            // never exported from any package entry point — no public
-            // surface at all.
-            "test/continuous-test-suite-handler-registry.ts",
             // TelemetryService (src/lib/telemetry/telemetryService.ts) is not
             // re-exported from any package entry point, and whether a resolved
             // `{ isError: true }` tool result is recorded as success=true or
@@ -377,16 +373,15 @@ export default [
             // MEDIA_HANDLER_CATALOG / providerChoicesFor / defaultProviderFor
             // (src/lib/factories/mediaHandlerCatalog.ts) are never re-exported
             // from src/lib/index.ts — no package entry point resolves them,
-            // same "no public surface at all" reasoning as HandlerRegistry
-            // above. The suite's live-registration assertions (TTSProcessor.
-            // listProviders() etc.) still go through the real public surface
-            // via ../dist/index.js; only the catalog-internals reads need
-            // this exception.
+            // so the catalog reads have no public surface. The suite's
+            // live-registration assertions (TTSProcessor.listProviders()
+            // etc.) still go through the real public surface via
+            // ../dist/index.js; only the catalog-internals reads need this
+            // exception.
             "test/continuous-test-suite-media-registry-collisions.ts",
             // resolveRequestKind() is internal dispatch plumbing consumed
             // only by neurolink.ts/baseProvider.ts — never exported from any
-            // package entry point, no public surface at all (same reasoning
-            // as handler-registry above).
+            // package entry point, no public surface at all.
             "test/continuous-test-suite-resolve-request-kind.ts",
             // Filter-dialect translation no live generate() could emit.
             "test/continuous-test-suite-vector-chroma.ts",
@@ -472,17 +467,16 @@ export default [
             // isolation helper blocks every provider host.
             "test/continuous-test-suite-proxy-connect-retry.ts",
             // Internal agentic-loop-engine primitives (streamChannel,
-            // nativeToolFormat, loopEngine) have no exported surface at all
-            // — none of src/lib/core/{streamChannel,nativeToolFormat,
-            // loopEngine}.ts is reachable via package.json's `exports` map,
-            // and nothing outside their own tests imports them yet (Tasks
-            // 1-3 add the engine core only; no provider is migrated onto it
-            // in this PR). Exact push/close/error ordering, per-adapter
+            // nativeToolFormat, loopEngine) have no exported surface: none of
+            // src/lib/core/{streamChannel,nativeToolFormat,loopEngine}.ts is
+            // reachable via package.json's `exports` map. The Anthropic,
+            // Bedrock, AI Studio and Vertex clients now run their turns on
+            // the engine, but exact push/close/error ordering, per-adapter
             // retry-call counts against a hand-written fake adapter, and
             // PostEmissionStepError's unwrap-in-both-directions behavior are
-            // facts about the primitives' own contracts, not about any
-            // provider's wire format — no live or mocked generate()/stream()
-            // call can deterministically produce them. Its header states the
+            // facts about the primitives' own contracts that a fake adapter
+            // controls exactly and no live or mocked generate()/stream() call
+            // can be made to produce on demand. Its header states the
             // exception in full.
             "test/continuous-test-suite-loop-engine.ts",
             // ToolsManager (src/lib/core/modules/ToolsManager.ts) is a
@@ -501,14 +495,16 @@ export default [
             // internals — not observable by inspecting a live model's output.
             // Its header states the exception in full.
             "test/continuous-test-suite-tools-manager-truncation.ts",
-            // manifestRegistry has no consumer yet — this PR series adds the
-            // manifest as an additive metadata source and migrates nothing
-            // onto it, so no generate()/stream()/CLI path reaches the
-            // resolver. The alias-resolution bug the suite exists to catch (a
-            // bare model name silently losing its real contextWindow to the
-            // provider default) is unreachable from any public surface until
-            // a consumer migrates. Its header states this in full, including
-            // that the suite should be converted or retired once one does.
+            // manifestRegistry feeds four modules (contextWindows, pricing,
+            // modelRegistry, providerImageAdapter), and core/constants.ts
+            // derives PROVIDER_MAX_TOKENS from the same manifest files
+            // directly (it cannot import the aggregator without an import
+            // cycle). Only calculateCost/hasPricing are exported from
+            // dist/index.js; getContextWindowSize, MODEL_REGISTRY,
+            // ProviderImageAdapter and PROVIDER_MAX_TOKENS are not, so a
+            // per-model check that every consumer agrees with the manifest
+            // can only read the compiled tables directly. Its header states
+            // this in full.
             "test/continuous-test-suite-model-manifests.ts",
             // Direct `synthesizeStream` access covers only the
             // handler-synthesis seam: provider/default text caps,

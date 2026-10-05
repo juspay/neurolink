@@ -496,4 +496,54 @@ await test("clearHandlers removes every registered Realtime handler", () => {
   RealtimeProcessor.registerHandler(PROVIDER, handler);
 });
 
+// ---------------------------------------------------------------------------
+// getProviders() / clearHandlers() — exact enumeration
+// ---------------------------------------------------------------------------
+
+await test("getProviders lists exactly the names registered on an emptied registry, and clearHandlers empties it again", () => {
+  // Same snapshot-and-restore pattern as the two clearHandlers tests above.
+  const preClearProviders = RealtimeProcessor.getProviders();
+  const snapshot = preClearProviders.map(
+    (name) => [name, RealtimeProcessor.getHandler(name)!] as const,
+  );
+  const nameA = "unit-test-realtime-enum-a";
+  const nameB = "unit-test-realtime-enum-b";
+  try {
+    RealtimeProcessor.clearHandlers();
+    assertEqual(
+      RealtimeProcessor.getProviders().length,
+      0,
+      "clearHandlers() leaves nothing listed",
+    );
+    RealtimeProcessor.registerHandler(nameA, makeStubHandler().handler);
+    RealtimeProcessor.registerHandler(nameB, makeStubHandler().handler);
+    assertEqual(
+      RealtimeProcessor.getProviders().slice().sort().join(","),
+      [nameA, nameB].join(","),
+      "getProviders() lists exactly the two registered names, no more and no fewer",
+    );
+    RealtimeProcessor.clearHandlers();
+    assertEqual(
+      RealtimeProcessor.getProviders().length,
+      0,
+      "a second clearHandlers() leaves nothing listed",
+    );
+    assertEqual(
+      RealtimeProcessor.supports(nameA),
+      false,
+      "a cleared name is no longer supported",
+    );
+  } finally {
+    RealtimeProcessor.clearHandlers();
+    for (const [name, handler] of snapshot) {
+      RealtimeProcessor.registerHandler(name, handler);
+    }
+  }
+  assertEqual(
+    RealtimeProcessor.getProviders().slice().sort().join(","),
+    preClearProviders.slice().sort().join(","),
+    "every pre-test registration is restored",
+  );
+});
+
 await runSuite();

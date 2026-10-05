@@ -20,8 +20,10 @@ import "dotenv/config";
  * ## Why this reaches into `dist/` directly (CLAUDE.md rule 15)
  *
  * manifestRegistry.ts is no longer "no consumer yet" — contextWindows.ts,
- * pricing.ts, modelRegistry.ts, providerImageAdapter.ts, and core/constants.ts
- * all resolve against it now. But of those five consumer surfaces only
+ * pricing.ts, modelRegistry.ts and providerImageAdapter.ts resolve against it,
+ * and core/constants.ts derives PROVIDER_MAX_TOKENS from the same manifest
+ * files directly (importing the aggregator there would form an import
+ * cycle). But of those five consumer surfaces only
  * `calculateCost`/`hasPricing` are re-exported from `dist/index.js`;
  * `getContextWindowSize`, `MODEL_REGISTRY`, `ProviderImageAdapter`, and
  * `PROVIDER_MAX_TOKENS` are internal to their own modules and never reach
@@ -37,11 +39,14 @@ import "dotenv/config";
  * dist/index.js" pattern already used by continuous-test-suite.ts
  * (AccountPool, ModelRouter, the cloaking plugins), -credentials.ts
  * (ProviderFactory/ProviderRegistry), -provider-structure.ts
- * (providerRegistry.js) and others, none of which are on the `allow` list.
+ * (providerRegistry.js) and others. The three named suites sit in the closed
+ * "Grandfathered" block of the `allow` list.
  * Every import below resolves under `../dist/...` — the compiled
  * artifact, not raw TypeScript source — so it stays a single module graph
  * per rule 15's "one module graph per suite" mandate, it just isn't the
- * top-level public one.
+ * top-level public one. This suite itself is in the determinism block of the
+ * `neurolink/e2e-tests-only` `allow` list in eslint.config.js for that
+ * reason.
  *
  * Run: npx tsx test/continuous-test-suite-model-manifests.ts
  *      pnpm run test:model-manifests

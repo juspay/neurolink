@@ -11220,6 +11220,173 @@ exit 127
       }
     },
   },
+  // `neurolink setup` with no flags runs the wizard. Before its first prompt
+  // it prints the "Current Status:" block (which providers the environment
+  // already configures) and the "Available Providers:" box table. Stdin is
+  // closed on purpose: the first inquirer prompt aborts at EOF, handleSetup's
+  // catch prints the "Setup failed" banner and exits 1, so the case sees
+  // everything printed ahead of the prompt without a TTY. That exit status is
+  // today's behaviour, pinned so a hang or a timeout kill is told apart from
+  // it. The env is hand-built (one fake provider key, no ambient credential,
+  // no repo `.env`); the status block reads env vars only, so no network call
+  // is made before the prompt.
+  {
+    name: "CLI setup: the bare wizard prints Current Status and the provider table before its first prompt",
+    category: "cli",
+    fn: async () => {
+      const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error(
+          "Build the CLI before running the setup wizard coverage",
+        );
+      }
+      const { spawnSync } = await import("node:child_process");
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-wizard-"));
+      try {
+        const r = spawnSync(process.execPath, [CLI_DIST_PATH, "setup"], {
+          encoding: "utf8",
+          cwd: dir,
+          env: {
+            PATH: process.env.PATH ?? "",
+            HOME: dir,
+            NO_COLOR: "1",
+            OPENAI_API_KEY: "sk-test-fake-key-for-wizard-status-check",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 30_000,
+          killSignal: "SIGKILL" as const,
+        });
+        const combined = `${r.stdout}${r.stderr}`;
+        const lines = combined.split("\n");
+        const rows = [
+          {
+            name: "Google AI Studio",
+            time: "2 min",
+            cost: "Free tier",
+            best: "General tasks",
+          },
+          {
+            name: "OpenAI",
+            time: "2 min",
+            cost: "Pay-per-use",
+            best: "Code & reasoning",
+          },
+          {
+            name: "Anthropic Claude",
+            time: "3 min",
+            cost: "Pay-per-use",
+            best: "Analysis & chat",
+          },
+          {
+            name: "Azure OpenAI",
+            time: "5 min",
+            cost: "Enterprise",
+            best: "Business use",
+          },
+          {
+            name: "AWS Bedrock",
+            time: "10 min",
+            cost: "AWS pricing",
+            best: "Cloud native",
+          },
+          {
+            name: "Google Cloud",
+            time: "10 min",
+            cost: "GCP pricing",
+            best: "Advanced ML",
+          },
+          {
+            name: "Hugging Face",
+            time: "3 min",
+            cost: "Free tier",
+            best: "Open source",
+          },
+          {
+            name: "Mistral",
+            time: "2 min",
+            cost: "Free tier",
+            best: "European privacy",
+          },
+          {
+            name: "OpenRouter",
+            time: "2 min",
+            cost: "Pay-per-use",
+            best: "Model variety",
+          },
+        ];
+        const failed: string[] = [];
+        const check = (label: string, ok: boolean) => {
+          if (!ok) {
+            failed.push(label);
+          }
+        };
+        check(
+          "ended on its own, not killed by the timeout",
+          r.error === undefined && r.signal === null,
+        );
+        check(
+          "closed stdin ends the wizard with exit 1 and the setup-failed banner",
+          r.status === 1 && /Setup failed/.test(combined),
+        );
+        check("status heading", /^Current Status:$/m.test(combined));
+        check(
+          "one provider configured",
+          combined.includes("1 provider(s) configured:"),
+        );
+        check("configured provider line", /^ {3}\S+ OpenAI$/m.test(combined));
+        check("comparison heading", /^Available Providers:$/m.test(combined));
+        check(
+          "table top border",
+          combined.includes(
+            "┌─────────────────┬──────────────┬─────────────┬─────────────────┐",
+          ),
+        );
+        check(
+          "table header row",
+          combined.includes(
+            "│ Provider        │ Setup Time   │ Cost        │ Best For        │",
+          ),
+        );
+        check(
+          "table separator",
+          combined.includes(
+            "├─────────────────┼──────────────┼─────────────┼─────────────────┤",
+          ),
+        );
+        check(
+          "table bottom border",
+          combined.includes(
+            "└─────────────────┴──────────────┴─────────────┴─────────────────┘",
+          ),
+        );
+        check(
+          "status is printed before the table",
+          combined.includes("Current Status:") &&
+            combined.indexOf("Current Status:") <
+              combined.indexOf("Available Providers:"),
+        );
+        for (const row of rows) {
+          const hits = lines.filter(
+            (l) =>
+              l.startsWith("│ ") &&
+              l.includes(row.name) &&
+              l.includes(row.time) &&
+              l.includes(row.cost) &&
+              l.includes(row.best),
+          );
+          check(`table row for ${row.name}`, hits.length === 1);
+        }
+        if (failed.length > 0) {
+          console.log(
+            `    [diagnostic] setup wizard output mismatch in: ${failed.join("; ")}`,
+          );
+        }
+        return failed.length === 0;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   {
     name: "htmlToMarkdown: a closing tag unwinds to the innermost matching element, not the outermost",
     category: "html-to-markdown",
