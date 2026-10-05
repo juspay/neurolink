@@ -11223,8 +11223,9 @@ exit 127
   // `neurolink setup` with no flags runs the wizard. Before its first prompt
   // it prints the "Current Status:" block (which providers the environment
   // already configures) and the "Available Providers:" box table. Stdin is
-  // closed on purpose: the first inquirer prompt aborts at EOF, handleSetup's
-  // catch prints the "Setup failed" banner and exits 1, so the case sees
+  // closed on purpose: the first inquirer prompt aborts at EOF ("User force
+  // closed the prompt"), handleSetup's catch prints the "Setup failed" banner
+  // and exits 1, so the case sees
   // everything printed ahead of the prompt without a TTY. That exit status is
   // today's behaviour, pinned so a hang or a timeout kill is told apart from
   // it. The env is hand-built (one fake provider key, no ambient credential,
@@ -11327,6 +11328,17 @@ exit 127
         check(
           "closed stdin ends the wizard with exit 1 and the setup-failed banner",
           r.status === 1 && /Setup failed/.test(combined),
+        );
+        // The same banner and exit status would also come from a wizard that
+        // threw before it asked anything, so require the first prompt on screen
+        // and the closed-prompt error as the cause.
+        check(
+          "the first prompt was shown",
+          combined.includes("What would you like to do?"),
+        );
+        check(
+          "the exit was caused by the closed prompt",
+          /User force closed the prompt/.test(combined),
         );
         check("status heading", /^Current Status:$/m.test(combined));
         check(
