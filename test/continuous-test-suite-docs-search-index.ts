@@ -21,9 +21,9 @@
  * directly instead of reading the artifact. That is the determinism exception
  * to CLAUDE.md rule 15: both are pure functions of a string, and the cases need
  * inputs no docs page can be made to contain on demand (a sentence end exactly
- * at the limit, a 100-character unbroken token, a surrogate pair astride the
- * cut). They are dependency-free so the suite can load them without the docs
- * site's packages.
+ * at the limit, an abbreviation's dot as the last sentence end that fits, a
+ * 100-character unbroken token, a surrogate pair astride the cut). They are
+ * dependency-free so the suite can load them without the docs site's packages.
  *
  * Run: pnpm run test:docs-search-index
  */
@@ -345,6 +345,87 @@ await test("the truncation helper cuts at a sentence, then a word, and bounds an
     long.length <= 2000 && long.length > 1900 && !/\s$/.test(long),
     "the default limit should cap at 2000 and not end on whitespace",
   );
+});
+
+// The cut prefers the last sentence end that fits. The dot that closes "e.g."
+// or "vs." is followed by a space like a real one, so it used to win and leave a
+// section ending on "... for example, e.g." with the example cut off.
+await test("the truncation helper does not end a section on an abbreviation", () => {
+  const truncate = loadTruncator();
+  const lead = "Alpha beta gamma delta epsilon.";
+  // Each input ends its kept part on the abbreviation, with the limit set to
+  // that exact length, so the abbreviation's dot is the last candidate that fits.
+  const endingOn = (
+    label: string,
+    clause: string,
+    expected: string,
+    tail = " the fast one here",
+  ): [string, string, number, string] => {
+    const kept = `${lead} ${clause}`;
+    return [label, kept + tail, kept.length, expected];
+  };
+  const cases: Array<[string, string, number, string]> = [
+    endingOn("e.g. is not a sentence end", "Use it, e.g.", lead),
+    endingOn("i.e. is not a sentence end", "Use it, i.e.", lead),
+    endingOn("a capitalised E.g. is not a sentence end", "Use it, E.g.", lead),
+    endingOn(
+      "e.g. inside brackets is not a sentence end",
+      "Use it (e.g.)",
+      lead,
+    ),
+    endingOn("cf. is not a sentence end", "Compare it, cf.", lead),
+    endingOn("vs. is not a sentence end", "Slow vs.", lead),
+    endingOn("approx. is not a sentence end", "It takes approx.", lead),
+    endingOn("incl. is not a sentence end", "All of them incl.", lead),
+    endingOn("resp. is not a sentence end", "Slow and fast, resp.", lead),
+    [
+      "with no earlier sentence end the cut falls on a word, not after e.g.",
+      "Alpha beta gamma delta epsilon zeta eta, e.g. theta iota kappa lambda mu nu",
+      56,
+      "Alpha beta gamma delta epsilon zeta eta, e.g. theta iota",
+    ],
+    endingOn(
+      "etc. before a capitalised word still ends a sentence",
+      "Use a, b, etc.",
+      `${lead} Use a, b, etc.`,
+      " Then more words follow",
+    ),
+    endingOn(
+      "etc. before a lowercase word does not end a sentence",
+      "Use a, b, etc.",
+      lead,
+      " and more words follow",
+    ),
+    endingOn(
+      "etc. at the end of the text still ends a sentence",
+      "Use a, b, etc.",
+      `${lead} Use a, b, etc.`,
+      " ".repeat(20),
+    ),
+    endingOn(
+      "etc inside a longer word is not the abbreviation",
+      "Use a, fetc.",
+      `${lead} Use a, fetc.`,
+      " and more words follow",
+    ),
+    endingOn(
+      "vs at the end of a longer word is not the abbreviation",
+      "Read the CSVs.",
+      `${lead} Read the CSVs.`,
+    ),
+    endingOn(
+      "a dot inside 5.6 or v1.2 is never a sentence end",
+      "Use v5.6 or v1.",
+      lead,
+      "2 here today",
+    ),
+  ];
+  for (const [label, input, max, expected] of cases) {
+    assert(
+      truncate(input, max) === expected,
+      `${label}: the helper returned a different cut than expected`,
+    );
+  }
 });
 
 await runSuite();

@@ -7,7 +7,13 @@
  * in this order, on
  *
  *   1. the end of the last sentence that fits, if that keeps at least half the
- *      limit;
+ *      limit. A dot inside "5.6" or "v1.2" is never a sentence end, and neither
+ *      is the dot that closes "e.g.", "i.e.", "cf.", "vs.", "approx.", "incl."
+ *      or "resp." (case-insensitive, as a whole word): the example or the
+ *      second term comes next, so a cut there would leave "... for example,
+ *      e.g." with the example missing. "etc." can close a real sentence, so it
+ *      counts as one only when the next word starts with an uppercase letter
+ *      or the text ends;
  *   2. else the last whitespace that fits, if that keeps at least half;
  *   3. else the limit itself, backed off by one if it would split a surrogate
  *      pair. That is an unbroken run (a URL, a hash, text with no spaces);
@@ -26,6 +32,35 @@
  */
 const SECTION_CONTENT_LIMIT = 2000;
 
+const NEVER_ENDS_SENTENCE =
+  /(?:^|[^\p{L}\p{N}_])(?:e\.g|i\.e|cf|vs|approx|incl|resp)$/iu;
+const ETC = /(?:^|[^\p{L}\p{N}_])etc$/iu;
+const STARTS_A_SENTENCE = /^\s*(?:\p{Lu}|$)/u;
+// "approx", the longest token, is 6 characters; one more must precede it.
+const TOKEN_LOOKBEHIND = 8;
+
+/**
+ * Whether the dot at `dotIndex` closes an abbreviation, so what follows is the
+ * same sentence going on rather than a new one.
+ *
+ * @param {string} text the whole text, not only the window being cut
+ * @param {number} dotIndex index of the sentence-ending character; anything
+ *   but a dot (`!`, `?`) is never an abbreviation
+ * @param {number} afterIndex index just past the dot and any closing quote or
+ *   bracket
+ * @returns {boolean}
+ */
+function closesAbbreviation(text, dotIndex, afterIndex) {
+  if (text[dotIndex] !== ".") {
+    return false;
+  }
+  const before = text.slice(Math.max(0, dotIndex - TOKEN_LOOKBEHIND), dotIndex);
+  if (NEVER_ENDS_SENTENCE.test(before)) {
+    return true;
+  }
+  return ETC.test(before) && !STARTS_A_SENTENCE.test(text.slice(afterIndex));
+}
+
 function truncateAtBoundary(text, max = SECTION_CONTENT_LIMIT) {
   if (text.length <= max) {
     return text;
@@ -38,6 +73,7 @@ function truncateAtBoundary(text, max = SECTION_CONTENT_LIMIT) {
 
   // `.`, `!` or `?`, optionally closed by a quote or bracket, then whitespace.
   // A dot inside "5.6" or "v1.2" is followed by a non-space and never matches.
+  // The dot of an abbreviation does match, so `closesAbbreviation` rules it out.
   const sentenceEnd = /[.!?]["'\u2019\u201d)\]]*(?=\s)/g;
   let sentenceCut = -1;
   for (
@@ -46,7 +82,7 @@ function truncateAtBoundary(text, max = SECTION_CONTENT_LIMIT) {
     match = sentenceEnd.exec(window)
   ) {
     const end = match.index + match[0].length;
-    if (end <= max) {
+    if (end <= max && !closesAbbreviation(text, match.index, end)) {
       sentenceCut = end;
     }
   }
