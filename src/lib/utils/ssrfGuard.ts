@@ -404,6 +404,72 @@ async function resolveAndValidateHost(
 }
 
 /**
+ * Host-name endings that can only name a local or private target: the
+ * special-use domains of RFC 6761 and RFC 8375 plus the common internal
+ * suffix. `.invalid` and `.test` are deliberately absent: they never resolve
+ * on the public internet and test fixtures use them.
+ */
+const INTERNAL_HOST_SUFFIXES: readonly string[] = [
+  "localhost",
+  "local",
+  "localdomain",
+  "internal",
+  "home.arpa",
+];
+
+/**
+ * Validate `url` for a download that goes through an HTTP proxy.
+ *
+ * The proxy, not this process, resolves the host name and opens the
+ * connection, so there is no local DNS answer to check or to pin. What can be
+ * judged from the URL alone is judged: HTTPS only, blocked IP literals in any
+ * encoding, and host names that can only mean something local or private (a
+ * single-label name such as `intranet`, and the internal suffixes above).
+ * What the proxy resolves any other name to is the proxy's egress policy to
+ * enforce; that is the trade for using a proxy at all, and why this is only
+ * used when one applies. Without a proxy {@link validateAndResolveUrl} runs
+ * instead and the connection is pinned to the addresses it cleared.
+ *
+ * Same throw semantics as {@link assertSafeUrl}.
+ */
+export function assertSafeUrlForProxy(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid URL: "${url}"`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(
+      `Only HTTPS URLs are permitted; got "${parsed.protocol}//" in "${url}"`,
+    );
+  }
+  const host = stripBrackets(parsed.hostname).toLowerCase();
+  const literalCheck = checkHostLiteral(host);
+  if (literalCheck === null) {
+    return; // routable IP literal
+  }
+  if (literalCheck !== "not-an-ip") {
+    throw new Error(`URL "${url}" rejected: ${literalCheck}`);
+  }
+  const name = host.endsWith(".") ? host.slice(0, -1) : host;
+  if (!name.includes(".")) {
+    throw new Error(
+      `URL "${url}" rejected: "${name}" is a single-label host name`,
+    );
+  }
+  if (
+    INTERNAL_HOST_SUFFIXES.some(
+      (suffix) => name === suffix || name.endsWith(`.${suffix}`),
+    )
+  ) {
+    throw new Error(
+      `URL "${url}" rejected: "${name}" is an internal host name`,
+    );
+  }
+}
+
+/**
  * Validate `url` and return the resolved address set that should be used for
  * the actual fetch (companion to `safeFetch.ts:safeDownload`).
  *

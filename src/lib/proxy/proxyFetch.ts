@@ -442,6 +442,46 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
   }
 }
 
+/**
+ * One ProxyAgent per proxy URL for the whole process, so connections to the
+ * proxy are pooled and an agent is not rebuilt per request. The cache key is
+ * a hash of the masked URL: credentials never sit in the map.
+ */
+async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
+  const globalWithCache = globalThis as {
+    __NL_PROXY_AGENT_CACHE__?: Map<string, ProxyAgent>;
+  };
+  if (!globalWithCache.__NL_PROXY_AGENT_CACHE__) {
+    globalWithCache.__NL_PROXY_AGENT_CACHE__ = new Map();
+  }
+  const agentCache: Map<string, ProxyAgent> =
+    globalWithCache.__NL_PROXY_AGENT_CACHE__;
+  const cacheKey = createHash("sha256")
+    .update(maskProxyUrl(proxyUrl) ?? proxyUrl)
+    .digest("hex");
+  const dispatcher =
+    agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl));
+  agentCache.set(cacheKey, dispatcher);
+  return dispatcher;
+}
+
+/**
+ * The dispatcher a request to `targetUrl` must use to go through the proxy the
+ * environment configures, or `null` when none applies (no proxy variable for
+ * the URL's scheme, or the host is listed in NO_PROXY).
+ *
+ * Unlike the fetch from {@link createProxyFetch}, a caller that needs a
+ * request to be proxied or refused (a download whose destination was vetted
+ * under proxy rules) gets no fallback to a direct connection from this: a proxy
+ * that cannot be used (an unsupported SOCKS URL, an unparsable URL) throws.
+ */
+export async function getProxyDispatcherForUrl(
+  targetUrl: string,
+): Promise<ProxyAgent | null> {
+  const proxyUrl = selectProxyUrl(targetUrl);
+  return proxyUrl ? getOrCreateProxyAgent(proxyUrl) : null;
+}
+
 function sanitizeProxyUrl(url: string | undefined): string {
   return maskProxyUrl(url) ?? "NOT_SET";
 }
@@ -573,20 +613,7 @@ async function executeProxiedFetch(
         timestamp: new Date().toISOString(),
       });
 
-      const globalWithCache = globalThis as {
-        __NL_PROXY_AGENT_CACHE__?: Map<string, ProxyAgent>;
-      };
-      if (!globalWithCache.__NL_PROXY_AGENT_CACHE__) {
-        globalWithCache.__NL_PROXY_AGENT_CACHE__ = new Map();
-      }
-      const agentCache: Map<string, ProxyAgent> =
-        globalWithCache.__NL_PROXY_AGENT_CACHE__;
-      const cacheKey = createHash("sha256")
-        .update(maskProxyUrl(proxyUrl) ?? proxyUrl)
-        .digest("hex");
-      const dispatcher =
-        agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl));
-      agentCache.set(cacheKey, dispatcher);
+      const dispatcher = await getOrCreateProxyAgent(proxyUrl);
 
       logger.debug(`[Proxy Fetch] ✅ ENHANCED PROXY AGENT CREATED`, {
         requestId,

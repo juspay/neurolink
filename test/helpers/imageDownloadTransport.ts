@@ -3,12 +3,17 @@
  * through the built SDK's guard, and the real undici connector must supply
  * the pinned lookup before its socket is redirected to this fixture server.
  * Fixture responses come from the suite's existing global fetch route table.
+ *
+ * The same fixture server also backs a local CONNECT proxy, for the downloads
+ * that go through HTTPS_PROXY instead of a pinned direct connection.
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:https";
+import { connect as netConnect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import tls from "node:tls";
@@ -20,13 +25,16 @@ const FIXTURE_HOSTS: readonly string[] = [
   RECRAFT_FIXTURE_HOST,
 ];
 
-export async function withImageDownloadTransport<T>(
-  fn: (probe: { pinnedLookups: number }) => Promise<T>,
-): Promise<T> {
+type Fixture = {
+  port: number;
+  certificatePem: Buffer;
+  close: () => Promise<void>;
+};
+
+/** Start the HTTPS fixture server; trust only its ephemeral certificate. */
+async function startFixture(): Promise<Fixture> {
   let dir: string | undefined;
   let server: ReturnType<typeof createServer> | undefined;
-  const probe = { pinnedLookups: 0 };
-  const originalConnect = tls.connect;
   try {
     dir = mkdtempSync(join(tmpdir(), "neurolink-image-tls-"));
     const key = join(dir, "fixture.key");
@@ -124,6 +132,42 @@ export async function withImageDownloadTransport<T>(
     await once(server, "listening");
     const address = server.address();
     assert(address && typeof address !== "string", "fixture listener missing");
+    const startedServer = server;
+    const startedDir = dir;
+    return {
+      port: address.port,
+      certificatePem,
+      close: async () => {
+        try {
+          startedServer.closeAllConnections();
+          await new Promise<void>((resolve) =>
+            startedServer.close(() => resolve()),
+          );
+        } finally {
+          rmSync(startedDir, { recursive: true, force: true });
+        }
+      },
+    };
+  } catch (error) {
+    try {
+      server?.closeAllConnections();
+      server?.close();
+    } finally {
+      if (dir !== undefined) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    throw error;
+  }
+}
+
+export async function withImageDownloadTransport<T>(
+  fn: (probe: { pinnedLookups: number }) => Promise<T>,
+): Promise<T> {
+  const fixture = await startFixture();
+  const probe = { pinnedLookups: 0 };
+  const originalConnect = tls.connect;
+  try {
     tls.connect = ((options: tls.ConnectionOptions) => {
       const host = options.host;
       assert(typeof host === "string", "download hostname missing");
@@ -142,27 +186,115 @@ export async function withImageDownloadTransport<T>(
       return originalConnect({
         ...options,
         host: "127.0.0.1",
-        port: address.port,
+        port: fixture.port,
         lookup: undefined,
-        ca: certificatePem,
+        ca: fixture.certificatePem,
         servername: host,
       });
     }) as typeof tls.connect;
     return await fn(probe);
   } finally {
     tls.connect = originalConnect;
+    await fixture.close();
+  }
+}
+
+/** A local forward proxy that records every CONNECT it is asked for. */
+export type RecordingProxy = {
+  /** `http://127.0.0.1:<port>`, for HTTPS_PROXY. */
+  url: string;
+  /** Each CONNECT target (`host:port`), in order. */
+  connects: string[];
+};
+
+async function startProxy(
+  tunnelPort: number | undefined,
+): Promise<{ proxy: RecordingProxy; close: () => Promise<void> }> {
+  const connects: string[] = [];
+  const server = createHttpServer((_req, res) => {
+    res.writeHead(405);
+    res.end();
+  });
+  server.on("connect", (req, clientSocket, head) => {
+    const target = req.url ?? "";
+    connects.push(target);
+    const host = target.split(":")[0] ?? "";
+    if (tunnelPort === undefined || !FIXTURE_HOSTS.includes(host)) {
+      clientSocket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
+      return;
+    }
+    const upstream = netConnect(tunnelPort, "127.0.0.1", () => {
+      clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (head.length > 0) {
+        upstream.write(head);
+      }
+      upstream.pipe(clientSocket);
+      clientSocket.pipe(upstream);
+    });
+    const drop = () => {
+      upstream.destroy();
+      clientSocket.destroy();
+    };
+    upstream.on("error", drop);
+    clientSocket.on("error", drop);
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert(address && typeof address !== "string", "proxy listener missing");
+  return {
+    proxy: { url: `http://127.0.0.1:${address.port}`, connects },
+    close: async () => {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+/** A proxy that refuses every CONNECT, so a download that reaches it fails. */
+export async function withRefusingProxy<T>(
+  fn: (proxy: RecordingProxy) => Promise<T>,
+): Promise<T> {
+  const started = await startProxy(undefined);
+  try {
+    return await fn(started.proxy);
+  } finally {
+    await started.close();
+  }
+}
+
+/**
+ * A proxy that tunnels the fixture hosts to the local TLS fixture, with the
+ * fixture certificate trusted for sockets that arrive through it. No lookup is
+ * pinned on this path: the proxy, not the SDK, resolves the name.
+ */
+export async function withImageDownloadProxy<T>(
+  fn: (proxy: RecordingProxy) => Promise<T>,
+): Promise<T> {
+  const fixture = await startFixture();
+  const started = await startProxy(fixture.port);
+  const originalConnect = tls.connect;
+  try {
+    tls.connect = ((options: tls.ConnectionOptions, ...rest: never[]) => {
+      const peer =
+        typeof options.servername === "string" ? options.servername : "";
+      // Only the fixture names are given the fixture certificate to trust;
+      // any other TLS connection in the process is left exactly as asked.
+      const patched = FIXTURE_HOSTS.includes(peer)
+        ? { ...options, ca: fixture.certificatePem }
+        : options;
+      return (originalConnect as (...args: unknown[]) => tls.TLSSocket)(
+        patched,
+        ...rest,
+      );
+    }) as typeof tls.connect;
+    return await fn(started.proxy);
+  } finally {
+    tls.connect = originalConnect;
     try {
-      const fixtureServer = server;
-      if (fixtureServer !== undefined) {
-        fixtureServer.closeAllConnections();
-        await new Promise<void>((resolve) =>
-          fixtureServer.close(() => resolve()),
-        );
-      }
+      await started.close();
     } finally {
-      if (dir !== undefined) {
-        rmSync(dir, { recursive: true, force: true });
-      }
+      await fixture.close();
     }
   }
 }

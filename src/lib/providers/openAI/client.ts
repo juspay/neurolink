@@ -29,8 +29,8 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../../utils/providerConfig.js";
-import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { safeDownload } from "../../utils/safeFetch.js";
+import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
@@ -594,35 +594,16 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
     // b64_json. If a hosted URL came back instead (e.g. older keys, or
     // url-mode), download it inline so callers always get base64.
     if (!base64 && first.url) {
-      // Guard the API-returned URL before fetching (provider-returned URLs
-      // carry the same SSRF risk as caller-supplied ones).
-      await assertSafeUrl(first.url);
-      const proxyFetch = createProxyFetch();
-      const dlController = new AbortController();
-      const dlTimeoutId = setTimeout(() => dlController.abort(), 60_000);
-      let imgResp: Response;
-      try {
-        imgResp = await proxyFetch(first.url, { signal: dlController.signal });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          throw new Error("OpenAI image URL download timed out after 60s", {
-            cause: err,
-          });
-        }
-        throw err;
-      } finally {
-        clearTimeout(dlTimeoutId);
-      }
-      if (!imgResp.ok) {
-        throw new Error(
-          `OpenAI image generation: failed to fetch hosted URL ${first.url} (${imgResp.status})`,
-        );
-      }
-      const buf = await readBoundedBuffer(
-        imgResp,
-        MAX_IMAGE_BYTES,
-        "OpenAI image fallback",
-      );
+      // The API-returned URL carries the same SSRF risk as a caller-supplied
+      // one, so it is fetched through `safeDownload`: vetted and pinned (or,
+      // when the environment configures a proxy, sent through it), no
+      // redirects, size-capped. Vetting and fetching in two separate steps
+      // left a DNS-rebinding window between them.
+      const buf = await safeDownload(first.url, {
+        maxBytes: MAX_IMAGE_BYTES,
+        label: "OpenAI image fallback",
+        timeoutMs: 60_000,
+      });
       base64 = buf.toString("base64");
     }
 

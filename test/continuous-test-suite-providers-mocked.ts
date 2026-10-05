@@ -19,7 +19,9 @@ import type { JSONSchema7 } from "json-schema";
 import {
   IDEOGRAM_FIXTURE_HOST,
   RECRAFT_FIXTURE_HOST,
+  withImageDownloadProxy,
   withImageDownloadTransport,
+  withRefusingProxy,
 } from "./helpers/imageDownloadTransport.js";
 
 /**
@@ -10756,11 +10758,254 @@ async function runDecideSection(): Promise<void> {
   }
 }
 
+// A provider-returned image URL is downloaded through the proxy the
+// environment configures, with no fallback to a direct connection. Ideogram is
+// the vehicle (its API call is routed around the proxy with NO_PROXY so the
+// suite's fetch mocks still answer it); Recraft and the other safeDownload
+// callers share the same download helper.
+const PROXY_ENV = [
+  "HTTPS_PROXY",
+  "https_proxy",
+  "HTTP_PROXY",
+  "http_proxy",
+  "ALL_PROXY",
+  "all_proxy",
+  "SOCKS_PROXY",
+  "socks_proxy",
+  "NO_PROXY",
+  "no_proxy",
+] as const;
+
+function setProxyEnv(proxyUrl: string, noProxy: string): void {
+  for (const name of PROXY_ENV) {
+    setEnv(name, undefined);
+  }
+  setEnv("HTTPS_PROXY", proxyUrl);
+  setEnv("NO_PROXY", noProxy);
+}
+
+// With a proxy the proxy resolves the name, so the SDK must not: answer any
+// local lookup with a failure and keep the names it was asked for.
+async function withRecordedDns<T>(
+  fn: (lookups: string[]) => Promise<T>,
+): Promise<T> {
+  const original = dnsPromises.lookup;
+  const lookups: string[] = [];
+  dnsPromises.lookup = (async (host: string) => {
+    lookups.push(host);
+    throw Object.assign(new Error("lookup refused by the test"), {
+      code: "ENOTFOUND",
+    });
+  }) as unknown as typeof dnsPromises.lookup;
+  syncBuiltinESMExports();
+  try {
+    return await fn(lookups);
+  } finally {
+    dnsPromises.lookup = original;
+    syncBuiltinESMExports();
+  }
+}
+
+async function runImageDownloadProxy(): Promise<void> {
+  const section = "IMG download via proxy";
+  setEnv("IDEOGRAM_API_KEY", "test-fake-ideogram-credential");
+  const ambient = Object.fromEntries(
+    PROXY_ENV.map((name) => [name, process.env[name]]),
+  );
+  const { NeuroLink } = await import("../dist/index.js");
+  const apiRoute = (imageUrl: string) => ({
+    method: "POST",
+    url: "api.ideogram.ai/v1/ideogram-v3/generate",
+    respond: { status: 200, json: { data: [{ url: imageUrl }] } },
+  });
+  const imageRoute = {
+    method: "GET",
+    url: `${IDEOGRAM_FIXTURE_HOST}/image.png`,
+    respond: {
+      status: 200,
+      bytes: FAKE_PNG_BYTES,
+      contentType: "image/png",
+    },
+  };
+  const generate = () =>
+    new NeuroLink({ conversationMemory: { enabled: false } }).generate({
+      provider: "ideogram",
+      model: "V_3",
+      input: { text: "A proxied poster" },
+      disableTools: true,
+    });
+  const failureOf = async (): Promise<string> => {
+    try {
+      await generate();
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+    return "";
+  };
+
+  // ── the download goes through the proxy ─────────────────────────────
+  try {
+    await withRecordedDns((lookups) =>
+      withImageDownloadProxy(async (proxy) => {
+        setProxyEnv(proxy.url, "api.ideogram.ai");
+        await withMocks(
+          [apiRoute(`https://${IDEOGRAM_FIXTURE_HOST}/image.png`), imageRoute],
+          async () => {
+            const result = await generate();
+            expectEq(
+              result.imageOutput?.base64,
+              FAKE_PNG_BASE64,
+              "imageOutput.base64 is the PNG that came through the proxy",
+            );
+            expectEq(
+              proxy.connects.join(","),
+              `${IDEOGRAM_FIXTURE_HOST}:443`,
+              "the proxy was asked for exactly one tunnel, to the CDN host",
+            );
+            expect(
+              !lookups.includes(IDEOGRAM_FIXTURE_HOST),
+              "the SDK did not resolve the CDN host itself",
+            );
+          },
+        );
+      }),
+    );
+    record(
+      results,
+      `${section}: download is tunnelled through HTTPS_PROXY`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: download is tunnelled through HTTPS_PROXY`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── a proxy that refuses is not bypassed ────────────────────────────
+  try {
+    await withPublicDns((probe) =>
+      withRefusingProxy(async (proxy) => {
+        setProxyEnv(proxy.url, "api.ideogram.ai");
+        await withMocks(
+          [apiRoute(`https://${IDEOGRAM_FIXTURE_HOST}/image.png`), imageRoute],
+          async () => {
+            const message = await failureOf();
+            expect(message.length > 0, "the download failed");
+            expectEq(
+              proxy.connects.length,
+              1,
+              "the proxy was asked for the download",
+            );
+            expectEq(
+              probe.pinnedLookups,
+              0,
+              "no direct connection was made after the proxy refused",
+            );
+          },
+        );
+      }),
+    );
+    record(
+      results,
+      `${section}: a refusing proxy fails the download, with no direct fallback`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a refusing proxy fails the download, with no direct fallback`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── NO_PROXY keeps the pinned direct path ───────────────────────────
+  try {
+    await withPublicDns((probe) =>
+      withRefusingProxy(async (proxy) => {
+        setProxyEnv(proxy.url, `api.ideogram.ai,${IDEOGRAM_FIXTURE_HOST}`);
+        await withMocks(
+          [apiRoute(`https://${IDEOGRAM_FIXTURE_HOST}/image.png`), imageRoute],
+          async () => {
+            const result = await generate();
+            expectEq(
+              result.imageOutput?.base64,
+              FAKE_PNG_BASE64,
+              "imageOutput.base64 is the PNG downloaded directly",
+            );
+            expectEq(
+              proxy.connects.length,
+              0,
+              "a NO_PROXY host is not sent through the proxy",
+            );
+            expect(
+              probe.pinnedLookups > 0,
+              "the direct download used the validated DNS lookup",
+            );
+          },
+        );
+      }),
+    );
+    record(
+      results,
+      `${section}: NO_PROXY keeps the pinned direct download`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: NO_PROXY keeps the pinned direct download`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── names that can only be internal are refused before the proxy ────
+  for (const target of [
+    "intranet",
+    "printer.local",
+    "metadata.internal",
+    "localhost",
+    "169.254.169.254",
+  ]) {
+    const label = `${section}: an internal download target is refused before any tunnel (${target})`;
+    try {
+      await withRefusingProxy(async (proxy) => {
+        setProxyEnv(proxy.url, "api.ideogram.ai");
+        await withMocks([apiRoute(`https://${target}/image.png`)], async () => {
+          const message = await failureOf();
+          expect(
+            /rejected|single-label|internal|blocked/i.test(message),
+            "the target was refused by the URL guard",
+          );
+          expectEq(proxy.connects.length, 0, "no tunnel was requested");
+        });
+      });
+      record(results, label, true);
+    } catch (err) {
+      record(
+        results,
+        label,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  for (const name of PROXY_ENV) {
+    setEnv(name, ambient[name]);
+  }
+}
+
 async function runImageGenSection(): Promise<void> {
   console.log("\n=== Image-gen providers (Stability / Ideogram / Recraft) ===");
   await runStabilityImageGen();
   await runIdeogramImageGen();
   await runRecraftImageGen();
+  await runImageDownloadProxy();
 }
 
 // ───────────────────────────────────────────────────────────────────────
