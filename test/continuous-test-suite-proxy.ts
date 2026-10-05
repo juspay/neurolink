@@ -17,10 +17,11 @@
  * Three further cases import `__openCodeTestHooks` from the proxy CLI command
  * to cover OpenCode client auto-configuration. Those writers resolve paths
  * from the environment and are reachable only from `proxy start` and
- * `proxy setup` — neither of which can be pointed at a throwaway HOME without
- * starting a real server and a launchd unit. Determinism here buys the one
- * thing an end-to-end run cannot: asserting what the writer does when the
- * target CLI is *absent*, which is the case that silently regressed.
+ * `proxy setup`, and both need a real server. A throwaway HOME is not the
+ * obstacle: `startProxyForTests` spawns the built CLI with one and sets
+ * `NEUROLINK_PROXY_IGNORE_LAUNCHD=1`, so no launchd unit is involved. What the
+ * direct call buys is asserting what the writer does when the target CLI is
+ * *absent*, which is the case that silently regressed.
  *
  * The `Proxy clients:` cases extend that same exception to the configurator
  * registry (`src/cli/proxy-clients/`). They import the configurators directly
@@ -28,11 +29,18 @@
  * behaviours worth pinning — refusing to write for an absent CLI, refusing to
  * restore without a snapshot — are precisely the ones a live `proxy start`
  * never exercises. `Analyze: exact rates…` and `Analyze: prefix-priced…` are
- * the exception: they drive the built CLI end to end. `Copilot only counts a
- * profile line that really sources its script` buys the same thing for shell
- * profiles: it writes arbitrary profile texts under a throwaway HOME (a
- * commented-out line, an `echo`, a `.bak` name), which `proxy start` cannot be
- * pointed at.
+ * the exception: they drive the built CLI end to end. So are the Copilot
+ * positive paths (`Copilot reports when its script is not sourced`, `Copilot
+ * env script sets a model id` and `the built CLI writes a sourceable Copilot
+ * env script`): the post-apply note, the model-id default and the env script
+ * content are read from what `proxy start` prints and writes in a throwaway
+ * HOME that `startProxyForTests({ seed })` stages, so a `dist` whose CLI stops
+ * doing this fails them. What stays on the exception for Copilot is what a live `proxy
+ * start` does not exercise (absent-CLI detection, restore removing the script)
+ * or would exercise only at one spawned proxy per input: `Copilot only counts a
+ * profile line that really sources its script` writes arbitrary profile texts
+ * under a throwaway HOME (a commented-out line, an `echo`, a `.bak` name) and
+ * asks the detector directly.
  *
  * `Attribution: every configured client…` takes the exception too. It also
  * imports `getMappedClientNames` from `src/lib/proxy/clientAttribution.ts`, and
@@ -5679,65 +5687,59 @@ async function testOpenCodeInterruptedMigrationKeepsTrueOriginal(): Promise<bool
  * they do, Copilot talks to GitHub while the proxy prints a green check. On
  * the machine this was developed against the script was sourced in no profile
  * at all, so that check had been wrong for its entire existence.
+ *
+ * Driven through the built CLI: `proxy start` runs in a throwaway HOME that
+ * holds a `.copilot` directory, and the note is read from what it prints. Two
+ * spawns, one with no profile and one with the documented profile line.
  */
 async function testCopilotReportsWhenItsScriptIsNotSourced(): Promise<boolean> {
-  const { applyAllClients, restoreAllClients } =
-    await import("../src/cli/proxy-clients/registry.js");
-  const prevHome = process.env.HOME;
-  const prevXdg = process.env.XDG_CONFIG_HOME;
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cop-note-"));
+  const unsourced = await startCopilotProxy();
+  if (unsourced === null) {
+    return false;
+  }
   try {
-    process.env.HOME = root;
-    // XDG_CONFIG_HOME too, not just HOME. This drives the whole roster, and
-    // OpenCode resolves its config dir through XDG_CONFIG_HOME first — leaving
-    // it unscoped means a developer who has it set gets their real
-    // opencode.json rewritten by a test. testApplyAllReportsPerClient one
-    // function away already scopes both; this diverged from it.
-    process.env.XDG_CONFIG_HOME = path.join(root, ".config");
-    fs.mkdirSync(path.join(root, ".copilot"), { recursive: true });
-
-    const before = (await applyAllClients("http://127.0.0.1:55669")).find(
-      (r) => r.id === "copilot",
-    );
-    if (before?.applied !== true) {
-      log("Copilot writer did not report a successful write", "red");
+    const output = unsourced.output();
+    if (!output.includes("Auto-configured Copilot CLI settings")) {
+      log("the built proxy did not configure Copilot in a seeded home", "red");
       return false;
     }
-    if (!before.note) {
+    if (!output.includes("Add this line to your shell profile")) {
       log(
-        "Copilot reported plain success for a script no profile sources",
+        "the built proxy did not report the missing Copilot profile line",
         "red",
       );
       return false;
     }
+  } finally {
+    await stopProxyForTests(unsourced);
+  }
 
-    // Once a profile sources it, the outstanding action is gone.
-    fs.writeFileSync(
-      path.join(root, ".zshrc"),
-      "[ -f ~/.neurolink/copilot-env.sh ] && . ~/.neurolink/copilot-env.sh\n",
-    );
-    const after = (await applyAllClients("http://127.0.0.1:55669")).find(
-      (r) => r.id === "copilot",
-    );
-    if (after?.note) {
-      log("Copilot still reported an outstanding action once sourced", "red");
+  // Once a profile sources it, the outstanding action is gone.
+  const sourced = await startCopilotProxy(
+    "[ -f ~/.neurolink/copilot-env.sh ] && . ~/.neurolink/copilot-env.sh\n",
+  );
+  if (sourced === null) {
+    return false;
+  }
+  try {
+    const output = sourced.output();
+    if (!output.includes("Auto-configured Copilot CLI settings")) {
+      log(
+        "the built proxy did not configure Copilot in a home with a profile",
+        "red",
+      );
       return false;
     }
-    // Leave nothing applied, matching testApplyAllReportsPerClient.
-    await restoreAllClients("http://127.0.0.1:55669");
+    if (output.includes("Add this line to your shell profile")) {
+      log(
+        "the built proxy still asked for the profile line once it was sourced",
+        "red",
+      );
+      return false;
+    }
     return true;
   } finally {
-    if (prevHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = prevHome;
-    }
-    if (prevXdg === undefined) {
-      delete process.env.XDG_CONFIG_HOME;
-    } else {
-      process.env.XDG_CONFIG_HOME = prevXdg;
-    }
-    fs.rmSync(root, { recursive: true, force: true });
+    await stopProxyForTests(sourced);
   }
 }
 
@@ -5859,42 +5861,33 @@ async function testCopilotOnlyCountsAProfileThatSourcesItsScript(): Promise<bool
  * providers require an explicit model".
  *
  * The default is written through `${VAR:-default}` so a user who exports their
- * own choice before sourcing keeps it.
+ * own choice before sourcing keeps it. Read from the script the built CLI wrote.
  */
 async function testCopilotEnvScriptSetsAModelId(): Promise<boolean> {
-  const { __copilotTestHooks } =
-    await import("../src/cli/proxy-clients/copilot.js");
-  const prevHome = process.env.HOME;
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cop-model-"));
+  const proxy = await startCopilotProxy();
+  if (proxy === null) {
+    return false;
+  }
   try {
-    process.env.HOME = root;
-    fs.mkdirSync(path.join(root, ".copilot"), { recursive: true });
-    await __copilotTestHooks.setCopilotProxySettings(
-      "http://127.0.0.1:55669/v1",
-    );
-    const script = fs.readFileSync(
-      __copilotTestHooks.getCopilotEnvPath(),
-      "utf8",
-    );
+    const script = readCopilotEnvScript(proxy);
+    if (script === null) {
+      log("the built proxy wrote no Copilot env script", "red");
+      return false;
+    }
     if (!script.includes("COPILOT_PROVIDER_MODEL_ID")) {
       log(
-        "Copilot env script sets no model id; BYOK refuses to start without one",
+        "built CLI wrote no model id for Copilot; BYOK refuses to start without one",
         "red",
       );
       return false;
     }
     if (!script.includes("COPILOT_PROVIDER_MODEL_ID:-")) {
-      log("Copilot model id is not user-overridable", "red");
+      log("built CLI wrote a model id the user cannot override", "red");
       return false;
     }
     return true;
   } finally {
-    if (prevHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = prevHome;
-    }
-    fs.rmSync(root, { recursive: true, force: true });
+    await stopProxyForTests(proxy);
   }
 }
 
@@ -6567,10 +6560,47 @@ async function testQwenConfiguratorRoundTrip(): Promise<boolean> {
 
 /**
  * Copilot CLI reads its provider config from the environment only — there is
- * no config file to write — so the configurator emits a sourceable script
- * inside the proxy's own directory rather than editing a shell profile.
+ * no config file to write — so `proxy start` emits a sourceable script inside
+ * the proxy's own directory rather than editing a shell profile. This reads
+ * the script the built CLI wrote, so a `dist` whose CLI stops writing it, or
+ * writes it without a required export, fails.
  */
-async function testCopilotConfiguratorWritesEnvFile(): Promise<boolean> {
+async function testBuiltCliWritesASourceableCopilotEnvScript(): Promise<boolean> {
+  const proxy = await startCopilotProxy();
+  if (proxy === null) {
+    return false;
+  }
+  try {
+    const script = readCopilotEnvScript(proxy);
+    if (script === null) {
+      log("the built proxy wrote no Copilot env script", "red");
+      return false;
+    }
+    for (const needle of [
+      "COPILOT_PROVIDER_TYPE",
+      "COPILOT_PROVIDER_BASE_URL",
+      "COPILOT_PROVIDER_API_KEY",
+      `http://127.0.0.1:${proxy.port}/v1`,
+    ]) {
+      if (!script.includes(needle)) {
+        log("built CLI script is missing a required Copilot export", "red");
+        return false;
+      }
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(proxy);
+  }
+}
+
+/**
+ * What the built-CLI cases above do not cover: `detect()` on a HOME with and
+ * without `~/.copilot`, and `restore()` removing the script. A proxy restores
+ * only on shutdown, through SIGINT or the fail-open guard, which is racy to
+ * assert from outside, so these stay direct calls under the file's determinism
+ * exception. The script's content is asserted through the built CLI above.
+ */
+async function testCopilotConfiguratorDetectsAndRestores(): Promise<boolean> {
   const { copilotConfigurator, __copilotTestHooks } =
     await import("../src/cli/proxy-clients/copilot.js");
   const prevHome = process.env.HOME;
@@ -6598,18 +6628,6 @@ async function testCopilotConfiguratorWritesEnvFile(): Promise<boolean> {
     if (!fs.existsSync(envPath)) {
       log("Copilot configurator did not write its env script", "red");
       return false;
-    }
-    const script = fs.readFileSync(envPath, "utf8");
-    for (const needle of [
-      "COPILOT_PROVIDER_TYPE",
-      "COPILOT_PROVIDER_BASE_URL",
-      "COPILOT_PROVIDER_API_KEY",
-      "http://127.0.0.1:55669/v1",
-    ]) {
-      if (!script.includes(needle)) {
-        log("Copilot env script is missing a required export", "red");
-        return false;
-      }
     }
 
     if (!(await copilotConfigurator.restore("http://127.0.0.1:55669"))) {
@@ -12677,6 +12695,8 @@ type ProxyTestInstance = {
   port: number;
   configPath: string;
   home: string;
+  /** The tail of what the child has printed so far (stdout and stderr). */
+  output: () => string;
 };
 
 async function findFreeProxyTestPort(): Promise<number> {
@@ -12807,8 +12827,16 @@ async function startProxyForTests(options: {
   port: number;
   configPath: string;
   env?: Record<string, string>;
+  /** Runs on the throwaway HOME before the child starts, to stage its files. */
+  seed?: (home: string) => void;
 }): Promise<ProxyTestInstance> {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-proxy-cli-home-"));
+  try {
+    options.seed?.(home);
+  } catch (error) {
+    fs.rmSync(home, { recursive: true, force: true });
+    throw error;
+  }
   const child = spawn(
     process.execPath,
     [
@@ -12831,6 +12859,10 @@ async function startProxyForTests(options: {
         HOME: home,
         USERPROFILE: home,
         XDG_CONFIG_HOME: path.join(home, ".config"),
+        // `proxy start` configures every client it finds, and Grok's config
+        // directory comes from this variable first, so an inherited value would
+        // point the spawned proxy at a real directory.
+        GROK_HOME: path.join(home, ".grok"),
         NEUROLINK_SKIP_MCP: "true",
         NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
         // Neither is under test. The share listener would bind a second port,
@@ -12841,16 +12873,17 @@ async function startProxyForTests(options: {
       },
     },
   );
+  // Drained so a chatty child cannot block on a full pipe, and kept short so a
+  // failed start can say why without the log growing unbounded.
+  let output = "";
   const proxy: ProxyTestInstance = {
     child,
     port: options.port,
     configPath: options.configPath,
     home,
+    output: () => output,
   };
 
-  // Drained so a chatty child cannot block on a full pipe, and kept short so a
-  // failed start can say why without the log growing unbounded.
-  let output = "";
   const keepTail = (chunk: Buffer): void => {
     output = (output + chunk.toString()).slice(-4096);
   };
@@ -12887,6 +12920,56 @@ async function startProxyForTests(options: {
   );
   await stopProxyForTests(proxy);
   throw new Error(`throwaway-config proxy failed to start: ${reason}`);
+}
+
+/**
+ * Start a proxy from the built CLI whose throwaway HOME holds a `.copilot`
+ * directory, so `proxy start` detects Copilot and writes its env script there.
+ * `profile`, when given, becomes the HOME's `.zshrc`. Resolves once the banner
+ * has printed the line that follows the post-apply note, because /health
+ * answers before the clients are configured. Null (after a red log, with the
+ * proxy stopped) when that line never appears.
+ */
+async function startCopilotProxy(
+  profile?: string,
+): Promise<ProxyTestInstance | null> {
+  const proxy = await startProxyForTests({
+    port: await findFreeProxyTestPort(),
+    configPath: await writeThrowawayProxyConfig({
+      routing: { "account-ranking": "headroom-first" },
+    }),
+    seed: (home) => {
+      fs.mkdirSync(path.join(home, ".copilot"));
+      if (profile !== undefined) {
+        fs.writeFileSync(path.join(home, ".zshrc"), profile);
+      }
+    },
+  });
+  const deadline = Date.now() + 30_000;
+  while (
+    !proxy.output().includes("Restart Copilot CLI") &&
+    Date.now() < deadline
+  ) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!proxy.output().includes("Restart Copilot CLI")) {
+    log("the built proxy never finished configuring Copilot", "red");
+    await stopProxyForTests(proxy);
+    return null;
+  }
+  return proxy;
+}
+
+/** The Copilot env script a `startCopilotProxy` proxy wrote, or null if none. */
+function readCopilotEnvScript(proxy: ProxyTestInstance): string | null {
+  try {
+    return fs.readFileSync(
+      path.join(proxy.home, ".neurolink", "copilot-env.sh"),
+      "utf8",
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -15646,7 +15729,9 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Copilot reports when its script is not sourced",
     fn: testCopilotReportsWhenItsScriptIsNotSourced,
-    category: "proxy-config",
+    // Spawns its own proxy from the built CLI, so like every case that needs a
+    // live proxy it stays outside IN_PROCESS_CATEGORIES.
+    category: "proxy-infra",
   },
   {
     name: "Proxy clients: Copilot only counts a profile line that really sources its script",
@@ -15656,11 +15741,16 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Copilot env script sets a model id",
     fn: testCopilotEnvScriptSetsAModelId,
-    category: "proxy-config",
+    category: "proxy-infra",
   },
   {
-    name: "Proxy clients: Copilot emits a sourceable env script",
-    fn: testCopilotConfiguratorWritesEnvFile,
+    name: "Proxy clients: the built CLI writes a sourceable Copilot env script",
+    fn: testBuiltCliWritesASourceableCopilotEnvScript,
+    category: "proxy-infra",
+  },
+  {
+    name: "Proxy clients: Copilot detects an absent CLI and restore removes the env script",
+    fn: testCopilotConfiguratorDetectsAndRestores,
     category: "proxy-config",
   },
   {
