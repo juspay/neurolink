@@ -17,7 +17,11 @@ export {
 export { attachEventBridge } from "./eventBridge.js";
 export { attachRealtimeEventBridge } from "./realtimeEventBridge.js";
 export { mintJoinToken } from "./tokens.js";
-export { createVoiceRoom, dispatchVoiceAgent } from "./roomDispatch.js";
+export {
+  createVoiceRoom,
+  deleteVoiceRoom,
+  dispatchVoiceAgent,
+} from "./roomDispatch.js";
 export { defineVoiceAgent } from "./voiceAgent.js";
 export { defineRealtimeVoiceAgent } from "./realtimeVoiceAgent.js";
 export {

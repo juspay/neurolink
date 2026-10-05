@@ -416,6 +416,14 @@ export type LiveKitServerCredentials = {
 };
 
 /**
+ * Input to `deleteVoiceRoom`: the room to remove and the LiveKit server it lives
+ * on. The caller decides when a room is worth deleting; nothing here schedules it.
+ */
+export type LiveKitDeleteRoomRequest = LiveKitServerCredentials & {
+  room: string;
+};
+
+/**
  * Realtime voice configuration resolved from the environment.
  *
  * In speech-to-speech mode one realtime model (Gemini Live on Vertex) does STT,

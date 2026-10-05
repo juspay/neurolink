@@ -311,6 +311,24 @@ export async function GET({ locals }) {
 }
 ```
 
+If the host created the room itself with `createVoiceRoom` and the request then
+fails, delete it rather than waiting for the empty timeout. The room is the
+input, so the host decides when cleanup is warranted:
+
+```ts
+import { deleteVoiceRoom } from "@juspay/neurolink/livekit";
+
+await deleteVoiceRoom({
+  url: process.env.LIVEKIT_URL!,
+  apiKey: process.env.LIVEKIT_API_KEY!,
+  apiSecret: process.env.LIVEKIT_API_SECRET!,
+  room,
+});
+```
+
+`deleteVoiceRoom` rejects when the server refuses or the room no longer exists,
+so record the outcome instead of assuming it.
+
 ### 3. Join from the browser
 
 ```ts

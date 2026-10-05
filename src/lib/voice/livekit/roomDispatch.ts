@@ -1,13 +1,16 @@
 /**
- * LiveKit server-side room operations: create a room with metadata, and
- * dispatch a named agent to a room.
+ * LiveKit server-side room operations: create a room with metadata, delete a
+ * room, and dispatch a named agent to a room.
  *
  * Wraps `livekit-server-sdk` (an optional dependency, imported dynamically) so
  * consumers route all LiveKit *server* calls through `@juspay/neurolink/livekit`
  * — they never depend on the SDK directly. Mirrors `mintJoinToken`.
  */
 
-import type { LiveKitServerCredentials } from "../../types/index.js";
+import type {
+  LiveKitDeleteRoomRequest,
+  LiveKitServerCredentials,
+} from "../../types/index.js";
 
 const toHttpUrl = (url: string): string => url.replace(/^ws/, "http");
 
@@ -31,6 +34,24 @@ export async function createVoiceRoom(
     emptyTimeout: req.emptyTimeoutSeconds ?? 300,
     departureTimeout: req.departureTimeoutSeconds ?? 20,
   });
+}
+
+/**
+ * Delete a room by name, disconnecting anyone still in it. The room is an input,
+ * so the host decides when cleanup is warranted (a start request that aborted
+ * after `createVoiceRoom`, a dispatch that failed). It rejects when the server
+ * refuses or the room does not exist, so the caller records the real outcome.
+ */
+export async function deleteVoiceRoom(
+  req: LiveKitDeleteRoomRequest,
+): Promise<void> {
+  const { RoomServiceClient } = await import("livekit-server-sdk");
+  const client = new RoomServiceClient(
+    toHttpUrl(req.url),
+    req.apiKey,
+    req.apiSecret,
+  );
+  await client.deleteRoom(req.room);
 }
 
 /**
