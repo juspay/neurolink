@@ -390,7 +390,7 @@ export async function createHermesReader(): Promise<LocalUsageReader> {
           filePath: hermesHome(),
           message: `node:sqlite unavailable on this runtime: ${
             error instanceof Error ? error.message : String(error)
-          } (needs Node >=22.13.0; on 22.5-22.12 pass --experimental-sqlite)`,
+          } (unflagged since Node 22.13.0 and 23.4.0; on 22.5.0 to 22.12.x and 23.0 to 23.3 pass --experimental-sqlite)`,
         });
         return { cliId: CLI_ID, totals, filesScanned: 0, errors };
       }
