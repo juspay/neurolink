@@ -113,6 +113,10 @@ const ACCEPTED_RISK_PACKAGES: Record<
     maxSeverity: "high",
     reason:
       "transitive via pptxgenjs — upstream has published no patched version yet",
+  },  "sprintf-js": {
+    maxSeverity: "moderate",
+    reason:
+      "transitive via the optional @livekit/agents-plugin-livekit onnxruntime-node chain (global-agent, roarr) — no patched version exists",
   },
 };
 
