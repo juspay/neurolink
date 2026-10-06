@@ -5622,12 +5622,13 @@ await test("20.6 — through generate(): the routing site runs the hooks, namesp
   }
 });
 
-await test("20.7 — host additions are capped at the provider's question limit, and warned about", async () => {
+await test("20.7 — host additions past the provider's question cap ride a second batch instead of being dropped", async () => {
   const fake = await startFakeLaya();
   const previousDebug = process.env.NEUROLINK_DEBUG;
   try {
     clearDecisionKeys();
-    // Warnings are hidden unless debugging; the cap warning is part of the contract.
+    // Warnings are hidden unless debugging; the absence of a drop warning is
+    // part of the contract.
     process.env.NEUROLINK_DEBUG = "true";
     const tooMany: Record<string, { type: "boolean"; instructions: string }> =
       {};
@@ -5663,32 +5664,37 @@ await test("20.7 — host additions are capped at the provider's question limit,
       );
     const limits = nl.decisionLimits({ provider: "laya" });
     assert(limits !== null, "no laya reading");
+    const cap = limits!.maxQuestions!;
     assert(
-      fake.requests.length === 1,
-      "the capped request must still be sent, once",
+      fake.requests.length === 2,
+      "the additions must split the decision into two requests",
     );
-    const wireIds = questionIdsOf(fake.requests[0]!);
+    const batches = fake.requests.map((request) => questionIdsOf(request));
     assert(
-      wireIds.length === limits!.maxQuestions,
-      "the request must carry exactly the provider's maximum, not one more",
+      batches.every((ids) => ids.length <= cap),
+      "no request may carry more than the provider's maximum",
     );
-    const ownCount = wireIds.filter((id) => !id.startsWith("host__")).length;
+    const wireIds = batches.flat();
+    const ownIds = wireIds.filter((id) => !id.startsWith("host__"));
     assert(
-      ownCount > 0 &&
-        wireIds.filter((id) => id.startsWith("host__")).length ===
-          limits!.maxQuestions - ownCount,
-      "every one of NeuroLink's own questions must survive; only host questions are dropped",
-    );
-    assert(
-      hostAnswerCount === limits!.maxQuestions - ownCount,
-      "the host must get an answer for every question that was sent",
+      ownIds.length > 0 &&
+        batches[0]!.slice(0, ownIds.length).every((id) => ownIds.includes(id)),
+      "NeuroLink's own questions must lead the first request",
     );
     assert(
-      warnings.some(
+      wireIds.filter((id) => id.startsWith("host__")).length === 100,
+      "every host question must reach the wire",
+    );
+    assert(
+      hostAnswerCount === 100,
+      "the host must get an answer for every question it added",
+    );
+    assert(
+      !warnings.some(
         (message) =>
           message.includes("dropped") && message.includes("host question"),
       ),
-      "dropping host questions must be warned about",
+      "nothing was dropped, so no drop warning may be logged",
     );
   } finally {
     if (previousDebug === undefined) {
@@ -6823,7 +6829,7 @@ await test("20.23 — decisionLimits({ provider: 'xor' }): a state window and me
   }
 });
 
-await test("20.24 — with no question cap, every well-formed host addition goes: 100 for xor, where laya would keep 63", async () => {
+await test("20.24 — with no question cap, every well-formed host addition goes in the one request: 100 for xor", async () => {
   const fake = await startFakeXor();
   const previousDebug = process.env.NEUROLINK_DEBUG;
   try {
@@ -6895,6 +6901,121 @@ await test("20.24 — with no question cap, every well-formed host addition goes
     }
     restoreEnv();
   }
+});
+
+logSection("21. tryDecide batch groups: wall-clock latency and abort");
+
+// Laya caps a request at 64 questions, so 321 questions are six batches: a
+// group of four that runs side by side, then a group of two. The instance's
+// decide() is patched — the documented seam every batch dispatches through —
+// so each batch's duration and the moment of the abort are the test's to set,
+// with nothing on the network.
+const SPLIT_QUESTION_COUNT = 321;
+const SPLIT_BATCH_COUNT = 6;
+
+function splitQuestions(): DecisionQuestionMap {
+  return Object.fromEntries(
+    Array.from({ length: SPLIT_QUESTION_COUNT }, (_, index) => [
+      `q${index}`,
+      { type: "boolean" as const, instructions: `Is statement ${index} true?` },
+    ]),
+  );
+}
+
+/** A patched decide() that answers each batch after `batchMs`. */
+function patchBatchDecide(
+  nl: InstanceType<typeof NeuroLink>,
+  batchMs: number,
+  onCall?: (call: number) => void,
+): () => number {
+  let calls = 0;
+  nl.decide = async (options) => {
+    calls += 1;
+    onCall?.(calls);
+    await delay(batchMs);
+    return {
+      model: "typed-decisions",
+      provider: "laya",
+      answers: Object.fromEntries(
+        Object.keys(options.questions).map((id) => [
+          id,
+          { type: "boolean" as const, probability: 0.5 },
+        ]),
+      ),
+      usage: { inputTokens: 10, outputTokens: 0 },
+      latencyMs: batchMs,
+    };
+  };
+  return () => calls;
+}
+
+await test("21.1 — a split request reports the wall-clock time of every group, not the slowest batch", async () => {
+  const nl = new NeuroLink();
+  const calls = patchBatchDecide(nl, 120);
+  const startedAt = Date.now();
+  const result = await nl.tryDecide({
+    provider: "laya",
+    state: "short",
+    questions: splitQuestions(),
+  });
+  const wallMs = Date.now() - startedAt;
+  assert(
+    calls() === SPLIT_BATCH_COUNT,
+    "precondition: the request must split into six batches",
+  );
+  assert(
+    result !== null &&
+      Object.keys(result.answers).length === SPLIT_QUESTION_COUNT,
+    "every question must be answered",
+  );
+  // Two groups ran one after the other, each about 120 ms.
+  assert(
+    result!.latencyMs >= 2 * 120 - 20,
+    "latencyMs must cover both groups, not just the slowest single batch",
+  );
+  assert(
+    result!.latencyMs <= wallMs,
+    "latencyMs must not exceed the time the caller actually waited",
+  );
+});
+
+await test("21.2 — once the signal aborts, no further group of batches starts", async () => {
+  const nl = new NeuroLink();
+  const controller = new AbortController();
+  // Aborted as the fourth batch — the last of the first group — starts.
+  const calls = patchBatchDecide(nl, 40, (call) => {
+    if (call === 4) {
+      controller.abort();
+    }
+  });
+  const result = await nl.tryDecide({
+    provider: "laya",
+    state: "short",
+    questions: splitQuestions(),
+    signal: controller.signal,
+  });
+  assert(calls() === 4, "the second group must not start after the abort");
+  assert(
+    result !== null && Object.keys(result.answers).length === 4 * 64,
+    "the first group's answers, already obtained, are still returned",
+  );
+  assert(
+    !("q256" in result!.answers),
+    "no answer may come from a batch that never ran",
+  );
+});
+
+await test("21.3 — a signal already aborted starts no batch, and tryDecide returns null", async () => {
+  const nl = new NeuroLink();
+  const calls = patchBatchDecide(nl, 10);
+  const result = await nl.tryDecide({
+    provider: "laya",
+    state: "short",
+    questions: splitQuestions(),
+    signal: AbortSignal.abort(),
+  });
+  assert(calls() === 0, "no batch may start on an aborted signal");
+  assert(result === null, "with no batch answered, tryDecide must return null");
 });
 
 restoreEnv();

@@ -1493,5 +1493,100 @@ void runSuite(async () => {
     );
   });
 
+  // Last in the suite on purpose: it initialises the process-wide
+  // OpenTelemetry provider, which shutdown() then tears down again.
+  await test("shutdown() exports the turn's spans while a stuck memory write drains, and still stores the write", async () => {
+    // A Langfuse-shaped collector: records when each trace export arrives.
+    const exportsAt: number[] = [];
+    const collector: Server = createServer((req, res) => {
+      req.resume();
+      req.on("end", () => {
+        if (req.method === "POST" && (req.url ?? "").includes("/otel/")) {
+          exportsAt.push(Date.now());
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end("{}");
+      });
+    });
+    await new Promise<void>((resolve) =>
+      collector.listen(0, "127.0.0.1", resolve),
+    );
+    const address = collector.address();
+    const collectorPort =
+      typeof address === "object" && address ? address.port : 0;
+    // An hour between scheduled exports: only an explicit flush exports.
+    const savedFlushInterval = process.env.LANGFUSE_FLUSH_INTERVAL;
+    process.env.LANGFUSE_FLUSH_INTERVAL = "3600";
+
+    let releaseWrite: () => void = () => {};
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let stored = false;
+    const stuck = new FakeHippocampus();
+    stuck.add = async (ownerId, content, options) => {
+      stuck.adds.push({ ownerId, content, options });
+      await writeGate;
+      stored = true;
+      return content;
+    };
+    const nl = new NeuroLink({
+      credentials: mockOpenAICredentials(server),
+      conversationMemory: {
+        enabled: true,
+        memory: { enabled: true, client: stuck },
+      },
+      observability: {
+        langfuse: {
+          enabled: true,
+          publicKey: "pk-lf-local",
+          secretKey: "sk-lf-local",
+          baseUrl: `http://127.0.0.1:${collectorPort}`,
+        },
+      },
+    });
+    try {
+      await nl.generate(generateArgs(undefined));
+      assert(
+        await waitFor(() => stuck.adds.length === 1),
+        "precondition: the turn's memory write must have started",
+      );
+      assertEqual(
+        exportsAt.length,
+        0,
+        "precondition: nothing may be exported before shutdown() flushes",
+      );
+
+      let shutdownSettled = false;
+      const shutdown = nl.shutdown().finally(() => {
+        shutdownSettled = true;
+      });
+      // The write is still held, so the drain is still waiting on it.
+      assert(
+        await waitFor(() => exportsAt.length > 0, 5_000),
+        "the turn's spans must be exported while the memory write is still draining",
+      );
+      assert(
+        !shutdownSettled && !stored,
+        "precondition: shutdown() must still be waiting on the stuck write",
+      );
+
+      releaseWrite();
+      await shutdown;
+      assert(stored, "the memory write must still complete within the bound");
+    } finally {
+      releaseWrite();
+      if (savedFlushInterval === undefined) {
+        delete process.env.LANGFUSE_FLUSH_INTERVAL;
+      } else {
+        process.env.LANGFUSE_FLUSH_INTERVAL = savedFlushInterval;
+      }
+      await new Promise<void>((resolve) => {
+        collector.closeAllConnections?.();
+        collector.close(() => resolve());
+      });
+    }
+  });
+
   await server.close();
 });

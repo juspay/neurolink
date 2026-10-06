@@ -7,6 +7,8 @@ import type { StructuredError } from "../types/index.js";
 import { logger } from "./logger.js";
 import { CircuitBreakerOpenError } from "../types/index.js";
 import { HITLTimeoutError } from "../hitl/hitlErrors.js";
+import { messageNamesStatus } from "./errorClassifier.js";
+import { getErrorStatusCode } from "./providerRetry.js";
 
 // Error codes for different scenarios
 export const ERROR_CODES = {
@@ -1463,12 +1465,36 @@ export function isRetriableError(error: Error): boolean {
     /temporary/i,
     /rate limit/i,
     /quota/i,
-    /503/i, // Service unavailable
-    /502/i, // Bad gateway
-    /504/i, // Gateway timeout
   ];
 
-  return retriablePatterns.some((pattern) => pattern.test(error.message));
+  return (
+    retriablePatterns.some((pattern) => pattern.test(error.message)) ||
+    namesHttpStatus(error, TRANSIENT_GATEWAY_STATUSES)
+  );
+}
+
+/** Service unavailable, bad gateway, gateway timeout. */
+const TRANSIENT_GATEWAY_STATUSES = [502, 503, 504] as const;
+
+/** Internal server error plus the three gateway statuses. */
+const RECOVERABLE_SERVER_STATUSES = [500, 502, 503, 504] as const;
+
+/**
+ * True when the error carries one of `statuses` as its HTTP status: the
+ * structured `status` / `statusCode` an HTTP client sets, else the status
+ * written status-shaped in the message ("HTTP 503", "status code 502",
+ * "error 504"). The bare digits are not enough — "limit 503 exceeds the
+ * maximum" or a request id containing 502 is not a gateway error, and
+ * retrying a non-transient failure only repeats it (and, for a tool, its side
+ * effects).
+ */
+function namesHttpStatus(error: Error, statuses: readonly number[]): boolean {
+  const status = getErrorStatusCode(error);
+  if (status !== undefined) {
+    return statuses.includes(status);
+  }
+  const message = error.message ?? "";
+  return statuses.some((code) => messageNamesStatus(message, code));
 }
 
 /**
@@ -1491,7 +1517,7 @@ export function isRecoverableError(error: Error): boolean {
   if (message.includes("rate limit") || message.includes("too many requests")) {
     return true;
   }
-  if (/\b429\b/.test(message)) {
+  if (namesHttpStatus(error, [429])) {
     return true;
   }
 
@@ -1514,8 +1540,8 @@ export function isRecoverableError(error: Error): boolean {
     return true;
   }
 
-  // Server errors (use word boundaries to avoid false matches)
-  if (/\b50[0234]\b/.test(message)) {
+  // Server errors: the status itself, not any 50x digits in the text
+  if (namesHttpStatus(error, RECOVERABLE_SERVER_STATUSES)) {
     return true;
   }
 
