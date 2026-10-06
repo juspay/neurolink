@@ -101,7 +101,9 @@
       "esbuild@<0.28.1": ">=0.28.1",
       "ajv@>=6.0.0 <6.14.0": ">=6.14.0 <7.0.0",
       "serve-handler>minimatch": ">=9.0.7 <10",
-      "websocket-driver@<0.7.5": ">=0.7.5"
+      "websocket-driver@<0.7.5": ">=0.7.5",
+      "proxy-addr@<2.0.8": ">=2.0.8",
+      "tinypool@<2.1.2": ">=2.1.2"
     }
   }
 }
