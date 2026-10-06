@@ -14,6 +14,11 @@
  *    for the server's setup message and never rejects if the socket closes
  *    first, so a refused key or model left the stream pending forever.
  *
+ * The same suite pins how the AI Studio client treats an embedding that comes
+ * back without values (missing, or an empty array): the call rejects and names
+ * the text's index, rather than handing back an empty vector that downstream
+ * scoring would read as a zero.
+ *
  * Everything drives the shipped surface (`ProviderFactory`, `NeuroLink` from
  * `../dist/index.js`) against local stand-ins reached through the public
  * `credentials.googleAiStudio.baseURL`. No rule-15 exception: nothing is
@@ -84,8 +89,14 @@ async function listen(server: Server): Promise<number> {
   return typeof address === "object" && address ? address.port : 0;
 }
 
-/** Answers `:batchEmbedContents` with one vector per request, first character as its value. */
-async function startEmbeddingStandIn(): Promise<{
+type ValuelessEmbedding = { text: string; as: "missing" | "empty" };
+
+/**
+ * Answers `:batchEmbedContents` with one vector per request, first character as
+ * its value. The request whose text equals `valueless.text` gets an embedding
+ * with no `values` field, or an empty `values` array, instead.
+ */
+async function startEmbeddingStandIn(valueless?: ValuelessEmbedding): Promise<{
   origin: string;
   close: () => Promise<void>;
 }> {
@@ -107,9 +118,13 @@ async function startEmbeddingStandIn(): Promise<{
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
         JSON.stringify({
-          embeddings: requests.map((r) => ({
-            values: [(r.content?.parts?.[0]?.text ?? "?").charCodeAt(0)],
-          })),
+          embeddings: requests.map((r) => {
+            const text = r.content?.parts?.[0]?.text ?? "?";
+            if (valueless && text === valueless.text) {
+              return valueless.as === "empty" ? { values: [] } : {};
+            }
+            return { values: [text.charCodeAt(0)] };
+          }),
         }),
       );
     });
@@ -132,9 +147,10 @@ async function embedManyThroughAiStudio(
   origin: string,
   embeddingModel: string,
   texts: string[],
-): Promise<{ vectors: number[][] | undefined }> {
+): Promise<{ vectors: number[][] | undefined; message: string | undefined }> {
   await ProviderRegistry.registerAllProviders();
   let vectors: number[][] | undefined;
+  let message: string | undefined;
   try {
     const provider = await ProviderFactory.createProvider(
       "google-ai",
@@ -144,10 +160,35 @@ async function embedManyThroughAiStudio(
       { googleAiStudio: { apiKey: "k", baseURL: origin } },
     );
     vectors = await provider.embedMany?.(texts, embeddingModel);
-  } catch {
+  } catch (error) {
     vectors = undefined;
+    message = error instanceof Error ? error.message : String(error);
   }
-  return { vectors };
+  return { vectors, message };
+}
+
+async function embedThroughAiStudio(
+  origin: string,
+  embeddingModel: string,
+  text: string,
+): Promise<{ vector: number[] | undefined; message: string | undefined }> {
+  await ProviderRegistry.registerAllProviders();
+  let vector: number[] | undefined;
+  let message: string | undefined;
+  try {
+    const provider = await ProviderFactory.createProvider(
+      "google-ai",
+      "gemini-2.0-flash",
+      undefined,
+      undefined,
+      { googleAiStudio: { apiKey: "k", baseURL: origin } },
+    );
+    vector = await provider.embed?.(text, embeddingModel);
+  } catch (error) {
+    vector = undefined;
+    message = error instanceof Error ? error.message : String(error);
+  }
+  return { vector, message };
 }
 
 section("AI Studio embedMany returns one vector per text");
@@ -189,6 +230,140 @@ await test("embedMany with gemini-embedding-2-preview returns one vector per tex
       assert(
         got.map((v) => v[0]).join(",") === "97,98,99",
         "embedMany returned the vectors out of order",
+      );
+    } finally {
+      await standIn.close();
+    }
+  });
+});
+
+section("AI Studio embeddings that come back without values are rejected");
+
+const EMBEDDING_PATHS = [
+  { label: "batch path", model: "gemini-embedding-001" },
+  { label: "per-text path", model: "gemini-embedding-2-preview" },
+] as const;
+
+for (const path of EMBEDDING_PATHS) {
+  for (const shape of ["missing", "empty"] as const) {
+    await test(`embedMany rejects a ${shape} embedding and names its index (${path.label})`, async () => {
+      await withCleanEnv(async () => {
+        const standIn = await startEmbeddingStandIn({ text: "b", as: shape });
+        try {
+          const { vectors, message } = await embedManyThroughAiStudio(
+            standIn.origin,
+            path.model,
+            ["a", "b", "c"],
+          );
+          assert(
+            vectors === undefined,
+            "embedMany returned vectors although one embedding had no values",
+          );
+          assert(
+            message !== undefined,
+            "embedMany did not reject an embedding without values",
+          );
+          assert(
+            /\bindex 1\b/.test(message ?? ""),
+            "the rejection did not name the index of the embedding without values",
+          );
+          assert(
+            (message ?? "").includes("google-ai"),
+            "the rejection did not name the provider",
+          );
+        } finally {
+          await standIn.close();
+        }
+      });
+    });
+  }
+}
+
+await test("embedMany keeps the real index in the rejection for an index that looks like a status code", async () => {
+  await withCleanEnv(async () => {
+    const texts = Array.from({ length: 430 }, (_, i) => `t${i}`);
+    const standIn = await startEmbeddingStandIn({ text: "t429", as: "empty" });
+    try {
+      const { vectors, message } = await embedManyThroughAiStudio(
+        standIn.origin,
+        "gemini-embedding-001",
+        texts,
+      );
+      assert(
+        vectors === undefined && message !== undefined,
+        "embedMany did not reject an embedding without values in a large batch",
+      );
+      assert(
+        /\bindex 429\b/.test(message ?? ""),
+        "the rejection lost the index when it resembled a status code",
+      );
+      assert(
+        !/rate limit/i.test(message ?? ""),
+        "the rejection was reworded as a rate-limit error",
+      );
+    } finally {
+      await standIn.close();
+    }
+  });
+});
+
+for (const shape of ["missing", "empty"] as const) {
+  await test(`embed rejects a ${shape} embedding`, async () => {
+    await withCleanEnv(async () => {
+      const standIn = await startEmbeddingStandIn({ text: "b", as: shape });
+      try {
+        const { vector, message } = await embedThroughAiStudio(
+          standIn.origin,
+          "gemini-embedding-001",
+          "b",
+        );
+        assert(
+          vector === undefined,
+          "embed returned a vector although the embedding had no values",
+        );
+        assert(
+          message !== undefined,
+          "embed did not reject an embedding without values",
+        );
+      } finally {
+        await standIn.close();
+      }
+    });
+  });
+}
+
+await test("embed still returns the vector when the embedding has values", async () => {
+  await withCleanEnv(async () => {
+    const standIn = await startEmbeddingStandIn({ text: "b", as: "empty" });
+    try {
+      const { vector } = await embedThroughAiStudio(
+        standIn.origin,
+        "gemini-embedding-001",
+        "a",
+      );
+      assert(
+        vector !== undefined && vector.length === 1 && vector[0] === 97,
+        "embed did not return the vector for a healthy embedding",
+      );
+    } finally {
+      await standIn.close();
+    }
+  });
+});
+
+await test("embedMany still returns every vector when no embedding lacks values (stand-in set to reject another text)", async () => {
+  await withCleanEnv(async () => {
+    const standIn = await startEmbeddingStandIn({ text: "zzz", as: "missing" });
+    try {
+      const { vectors } = await embedManyThroughAiStudio(
+        standIn.origin,
+        "gemini-embedding-2-preview",
+        ["a", "b", "c"],
+      );
+      assert(
+        vectors !== undefined &&
+          vectors.map((v) => v[0]).join(",") === "97,98,99",
+        "embedMany did not return the healthy vectors in order",
       );
     } finally {
       await standIn.close();

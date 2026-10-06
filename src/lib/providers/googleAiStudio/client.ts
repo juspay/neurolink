@@ -3090,7 +3090,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       });
 
       const embedding = result.embeddings?.[0]?.values;
-      if (!embedding) {
+      if (!embedding || embedding.length === 0) {
         throw new ProviderError(
           "No embedding returned from Google AI",
           this.providerName,
@@ -3131,11 +3131,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
       count: texts.length,
     });
 
+    let rows: Array<number[] | undefined>;
     try {
       const apiKey = this.getApiKey();
       const client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
 
-      const embeddings: number[][] = [];
+      rows = [];
       if (embeddingModelName.includes("gemini-embedding-2")) {
         // @google/genai 2.x reads an array of strings for these models as ONE
         // content with several parts, so a batch would come back as a single
@@ -3152,7 +3153,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             ),
           );
           for (const result of results) {
-            embeddings.push(result.embeddings?.[0]?.values || []);
+            rows.push(result.embeddings?.[0]?.values);
           }
         }
       } else {
@@ -3160,29 +3161,20 @@ export class GoogleAIStudioProvider extends BaseProvider {
           model: embeddingModelName,
           contents: texts,
         });
-        embeddings.push(
+        rows.push(
           ...(result.embeddings || []).map(
-            (e: { values?: number[] }) => e.values || [],
+            (e: { values?: number[] }) => e.values,
           ),
         );
       }
 
       // One vector per text, or fail: a silent mismatch would pair texts with
       // the wrong vectors downstream.
-      if (embeddings.length !== texts.length) {
+      if (rows.length !== texts.length) {
         throw new Error(
-          `Embedding response held ${embeddings.length} vectors for ${texts.length} texts`,
+          `Embedding response held ${rows.length} vectors for ${texts.length} texts`,
         );
       }
-
-      logger.debug("Batch embeddings generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        count: embeddings.length,
-        embeddingDimension: embeddings[0]?.length,
-      });
-
-      return embeddings;
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -3192,6 +3184,32 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
       throw this.handleProviderError(error);
     }
+
+    // Checked after the try on purpose: a thrown error is re-worded by
+    // handleProviderError from keywords in its text, so an index such as 429
+    // or 502 would turn this into a rate-limit or server error.
+    const embeddings = rows.map((values, index) => {
+      if (!values || values.length === 0) {
+        logger.error("Batch embedding returned no values", {
+          model: embeddingModelName,
+          index,
+        });
+        throw new ProviderError(
+          `Embedding for the text at index ${index} came back without values`,
+          this.providerName,
+        );
+      }
+      return values;
+    });
+
+    logger.debug("Batch embeddings generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: embeddings.length,
+      embeddingDimension: embeddings[0]?.length,
+    });
+
+    return embeddings;
   }
 
   private getApiKey(): string {
