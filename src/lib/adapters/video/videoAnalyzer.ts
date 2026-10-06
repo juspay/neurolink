@@ -13,6 +13,7 @@ import {
   ErrorCategory,
 } from "../../constants/enums.js";
 import { logger } from "../../utils/logger.js";
+import { googleSdkProxyHttpOptions } from "../../proxy/proxyFetch.js";
 import { readFile } from "node:fs/promises";
 import { NeuroLinkError, ErrorFactory } from "../../utils/errorHandling.js";
 import type { ModelMessage } from "../../types/index.js";
@@ -162,7 +163,12 @@ export async function analyzeVideoWithVertexAI(
     model,
     frameCount,
   });
-  const ai = new GoogleGenAI({ vertexai: true, project, location });
+  const ai = new GoogleGenAI({
+    vertexai: true,
+    project,
+    location,
+    httpOptions: googleSdkProxyHttpOptions(),
+  });
   const response = await ai.models.generateContent({
     model,
     config: buildConfig(),
@@ -219,7 +225,10 @@ export async function analyzeVideoWithGeminiAPI(
     frameCount,
   });
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: googleSdkProxyHttpOptions(),
+  });
 
   logger.debug("[GeminiVideoAnalyzer] Generating analysis with frames");
 

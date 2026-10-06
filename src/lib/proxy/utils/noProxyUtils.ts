@@ -33,15 +33,125 @@ function isIpInCIDR(ip: string, cidr: string): boolean {
   }
 }
 
+const IPV4_LITERAL = /^\d{1,3}(\.\d{1,3}){3}$/;
+
 /**
- * Comprehensive NO_PROXY bypass check supporting multiple pattern types
+ * The form a URL gives an IPv6 literal (`[::1]`, lower-case, compressed), so
+ * `[0:0:0:0:0:0:0:1]` and `[::1]` compare equal. `null` when it is not one.
+ */
+function canonicalIpv6Host(address: string): string | null {
+  try {
+    return new URL(`http://[${address}]`).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * curl's rules for one list entry: an optional leading `.` or `*.` is ignored;
+ * the entry names that host and every subdomain of it, an IP literal only
+ * itself; and a `:port` restricts it to that port. IPv6 is written bare (`::1`)
+ * or bracketed (`[::1]:8080`), and only the bracketed form can carry a port.
+ */
+function matchesNoProxyEntry(
+  entry: string,
+  hostname: string,
+  port: string,
+): boolean {
+  let host = entry;
+  let entryPort: string | undefined;
+
+  if (entry.startsWith("[")) {
+    const close = entry.indexOf("]");
+    if (close === -1) {
+      return false;
+    }
+    host = entry.slice(0, close + 1);
+    const rest = entry.slice(close + 1);
+    if (rest !== "") {
+      if (!/^:\d+$/.test(rest)) {
+        return false;
+      }
+      entryPort = rest.slice(1);
+    }
+  } else {
+    const colons = entry.split(":").length - 1;
+    if (colons === 1) {
+      const separator = entry.indexOf(":");
+      host = entry.slice(0, separator);
+      entryPort = entry.slice(separator + 1);
+      if (!/^\d+$/.test(entryPort)) {
+        return false;
+      }
+    } else if (colons > 1) {
+      host = `[${entry}]`;
+    }
+  }
+
+  if (entryPort !== undefined && entryPort !== port) {
+    return false;
+  }
+
+  if (host.startsWith("[")) {
+    return canonicalIpv6Host(host.slice(1, -1)) === hostname;
+  }
+
+  host = host.replace(/^(\*\.|\.)/, "");
+  if (host === "" || /[\s*/]/.test(host)) {
+    return false;
+  }
+  if (IPV4_LITERAL.test(host)) {
+    return hostname === host;
+  }
+  return hostname === host || hostname.endsWith(`.${host}`);
+}
+
+/**
+ * The rules this function applied before it followed curl, unchanged and still
+ * consulted, so that a configuration that bypassed the proxy through them keeps
+ * doing so. That includes where they are looser than curl (`.example.com` also
+ * matches `notexample.com`) and an IPv4 CIDR range such as `192.168.1.0/24`,
+ * which curl-style entries do not express.
+ */
+function matchesLegacyNoProxyEntry(
+  lowerPattern: string,
+  hostname: string,
+  port: string,
+): boolean {
+  // Domain suffix match (.example.com)
+  if (lowerPattern.startsWith(".")) {
+    const suffix = lowerPattern.slice(1);
+    return hostname.endsWith(suffix) || hostname === suffix;
+  }
+
+  // Port-specific match (hostname:port)
+  if (lowerPattern.includes(":")) {
+    const [patternHost, patternPort] = lowerPattern.split(":");
+    return hostname === patternHost && port === patternPort;
+  }
+
+  // CIDR notation (192.168.1.0/24) - only for IP addresses
+  if (lowerPattern.includes("/")) {
+    // Only apply CIDR when target is an IP literal
+    return IPV4_LITERAL.test(hostname) && isIpInCIDR(hostname, lowerPattern);
+  }
+
+  // Exact hostname match
+  return hostname === lowerPattern;
+}
+
+/**
+ * NO_PROXY bypass check. The value is a comma- or space-separated list; each
+ * entry is matched case-insensitively.
  *
- * Supported patterns:
+ * Supported entries:
  * - "*" - bypass all requests
- * - "example.com" - exact hostname match
- * - ".example.com" - domain suffix match (matches example.com and subdomains)
- * - "localhost:8080" - hostname with specific port
- * - "192.168.1.0/24" - CIDR notation for IP ranges
+ * - "example.com", ".example.com", "*.example.com" - the host and any subdomain
+ * - "example.com:8443" - the same, on that port only; a URL without a port is
+ *   on the scheme's default (80 for http, 443 for https)
+ * - "192.168.1.10", "::1", "[::1]:8080" - an IP literal, exactly
+ * - "192.168.1.0/24" - an IPv4 CIDR range, for IPv4 literal targets (IPv6 CIDR
+ *   ranges are not supported)
  *
  * @param targetUrl - The URL to check for proxy bypass
  * @param noProxyEnv - Optional NO_PROXY environment variable value (if not provided, reads from process.env)
@@ -62,7 +172,7 @@ export function shouldBypassProxy(
     const port = url.port || (url.protocol === "https:" ? "443" : "80");
 
     const patterns = noProxy
-      .split(",")
+      .split(/[,\s]+/)
       .map((p) => p.trim())
       .filter(Boolean);
 
@@ -74,35 +184,10 @@ export function shouldBypassProxy(
         return true;
       }
 
-      // Domain suffix match (.example.com)
-      if (lowerPattern.startsWith(".")) {
-        const suffix = lowerPattern.slice(1);
-        if (hostname.endsWith(suffix) || hostname === suffix) {
-          return true;
-        }
-      }
-
-      // Port-specific match (hostname:port)
-      else if (lowerPattern.includes(":")) {
-        const [patternHost, patternPort] = lowerPattern.split(":");
-        if (hostname === patternHost && port === patternPort) {
-          return true;
-        }
-      }
-
-      // CIDR notation (192.168.1.0/24) - only for IP addresses
-      else if (lowerPattern.includes("/")) {
-        // Only apply CIDR when target is an IP literal
-        if (
-          /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) &&
-          isIpInCIDR(hostname, lowerPattern)
-        ) {
-          return true;
-        }
-      }
-
-      // Exact hostname match
-      else if (hostname === lowerPattern) {
+      if (
+        matchesNoProxyEntry(lowerPattern, hostname, port) ||
+        matchesLegacyNoProxyEntry(lowerPattern, hostname, port)
+      ) {
         return true;
       }
     }
