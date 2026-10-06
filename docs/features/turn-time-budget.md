@@ -109,6 +109,28 @@ map to unified `finishReason: "error"` (never `"tool-calls"`). A
 if it persists, the turn ends with `stopReason: "provider-error"` — usually
 worth a caller-side retry.
 
+## Other Gemini finish reasons
+
+The native Gemini loops (AI Studio and Vertex) map the SDK's finish reason onto
+the unified values below and keep the verbatim value in `rawFinishReason`.
+Vertex puts the unified value on `finishReason`; on AI Studio it is the
+`unified` field of the finish part that model middleware receives.
+
+| Gemini finish reason                                                                      | `finishReason`   |
+| ----------------------------------------------------------------------------------------- | ---------------- |
+| `MAX_TOKENS`, `CONTINUATION` (token limit reached before the model was done)              | `length`         |
+| `TOO_MANY_TOOL_CALLS` (the model called tools until the system cut the turn off)          | `tool-calls`     |
+| `MALFORMED_FUNCTION_CALL`, `UNEXPECTED_TOOL_CALL`                                         | `error`          |
+| `SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII`, `LANGUAGE`, `IMAGE_*`¹ | `content-filter` |
+| `STOP`, `OTHER`, `FINISH_REASON_UNSPECIFIED`, `IMAGE_OTHER`, `NO_IMAGE`                   | `stop`           |
+
+¹ `IMAGE_SAFETY`, `IMAGE_PROHIBITED_CONTENT` and `IMAGE_RECITATION`.
+
+`tool-calls` also marks a turn that ran out of `maxSteps`, so branch on
+`stopReason` to tell the two apart: `TOO_MANY_TOOL_CALLS` leaves
+`stopReason: "completed"`, a spent step budget reports `step-cap`. A value the
+SDK adds later reads `stop` until it is mapped.
+
 ## Telemetry
 
 - `result.analytics` (when `enableAnalytics` is on) carries `stepsUsed`,

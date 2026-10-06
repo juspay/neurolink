@@ -281,9 +281,15 @@ export function createGeminiLoopAdapter(
       hadToolCallsAtCap: boolean,
     ): string {
       const mapped = mapGeminiFinishReason(rawStopReason);
-      // A turn cut off at the step cap ended because of the cap, not because
-      // the last response said "STOP".
-      return hadToolCallsAtCap && mapped === "stop" ? "tool-calls" : mapped;
+      // "tool-calls" from this hook means the step cap cut the turn off with
+      // calls still pending, so a last response that said "STOP" does not make
+      // it a finished turn. Gemini's own tool-call limit (TOO_MANY_TOOL_CALLS)
+      // also maps to "tool-calls" on the turn's result, but it is not that
+      // cap, so it counts here only when the cap was actually hit.
+      if (mapped === "stop" || mapped === "tool-calls") {
+        return hadToolCallsAtCap ? "tool-calls" : "stop";
+      }
+      return mapped;
     },
   };
 }

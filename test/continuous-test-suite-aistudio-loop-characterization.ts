@@ -44,7 +44,11 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { jsonSchema } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
-import type { Tool } from "../src/lib/types/index.js";
+import type {
+  LanguageModelV3StreamPart,
+  NeuroLinkMiddleware,
+  Tool,
+} from "../src/lib/types/index.js";
 
 assertDistFresh();
 
@@ -1268,6 +1272,241 @@ await test("the generate path arms the same clock and reports the same reason", 
   assert(
     content.length > 0 && !/step limit/i.test(content),
     "the wedged generate turn answered with nothing, or claimed a step limit it never reached",
+  );
+});
+
+section("finish reasons");
+
+// Every member of @google/genai's `FinishReason`, and the unified value the
+// native loops report for it. `changed` marks the members that read "stop"
+// before the mapping was completed; the rest are controls that must read as
+// they always did.
+//
+// AI Studio's native loops do not put the unified value on
+// `result.finishReason` (it stays undefined on generate and the "stop"
+// placeholder on stream), so it is read where it does leave the provider: the
+// V3 finish part's `unified`, which a caller's middleware sees on both paths.
+const FINISH_REASON_CASES: ReadonlyArray<{
+  raw: string;
+  unified: string;
+  changed: boolean;
+}> = [
+  { raw: "STOP", unified: "stop", changed: false },
+  { raw: "MAX_TOKENS", unified: "length", changed: false },
+  { raw: "SAFETY", unified: "content-filter", changed: false },
+  { raw: "MALFORMED_FUNCTION_CALL", unified: "error", changed: false },
+  { raw: "OTHER", unified: "stop", changed: false },
+  { raw: "FINISH_REASON_UNSPECIFIED", unified: "stop", changed: false },
+  { raw: "IMAGE_OTHER", unified: "stop", changed: false },
+  { raw: "NO_IMAGE", unified: "stop", changed: false },
+  { raw: "CONTINUATION", unified: "length", changed: true },
+  { raw: "TOO_MANY_TOOL_CALLS", unified: "tool-calls", changed: true },
+  { raw: "LANGUAGE", unified: "content-filter", changed: true },
+  { raw: "IMAGE_PROHIBITED_CONTENT", unified: "content-filter", changed: true },
+  { raw: "IMAGE_RECITATION", unified: "content-filter", changed: true },
+];
+
+type ObservedFinish = { generate: string[]; stream: string[] };
+
+async function observeFinishReasons(raw: string): Promise<ObservedFinish> {
+  const observed: ObservedFinish = { generate: [], stream: [] };
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "finish-observer", name: "Finish observer" },
+    wrapGenerate: async ({ doGenerate }) => {
+      const result = await doGenerate();
+      observed.generate.push(result.finishReason.unified);
+      return result;
+    },
+    wrapStream: async ({ doStream }) => {
+      const result = await doStream();
+      return {
+        ...result,
+        stream: result.stream.pipeThrough(
+          new TransformStream<
+            LanguageModelV3StreamPart,
+            LanguageModelV3StreamPart
+          >({
+            transform(part, controller) {
+              if (part.type === "finish") {
+                observed.stream.push(part.finishReason.unified);
+              }
+              controller.enqueue(part);
+            },
+          }),
+        ),
+      };
+    },
+  };
+  const server = await startStandIn(() => sse([{ text: "the answer" }], raw));
+  const restore = withAiStudioEnv();
+  const base = {
+    input: { text: "hi" },
+    provider: "google-ai" as const,
+    model: MODEL,
+    maxTokens: 32,
+    disableInternalFallback: true,
+    credentials: credentialsFor(server.port),
+    middleware: {
+      middleware: [middleware],
+      enabledMiddleware: ["finish-observer"],
+    },
+  };
+  try {
+    const nl = new NeuroLink();
+    await nl.generate(base);
+    const streamed = await nl.stream(base);
+    for await (const chunk of streamed.stream) {
+      void chunk;
+    }
+    assert(
+      server.calls.length === 2,
+      `the generate and stream calls reached the stand-in ${server.calls.length} times, not twice`,
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+  return observed;
+}
+
+for (const [index, entry] of FINISH_REASON_CASES.entries()) {
+  await test(`a ${entry.raw} turn reaches middleware as ${entry.unified} on generate and stream${entry.changed ? "" : " (control)"}`, async () => {
+    const observed = await observeFinishReasons(entry.raw);
+    assert(
+      observed.generate.length === 1,
+      `finish case ${index}: generate showed middleware ${observed.generate.length} finish values, not one`,
+    );
+    assert(
+      observed.stream.length === 1,
+      `finish case ${index}: stream showed middleware ${observed.stream.length} finish parts, not one`,
+    );
+    assert(
+      observed.generate[0] === entry.unified,
+      `finish case ${index}: generate reported a different unified finish reason than expected`,
+    );
+    assert(
+      observed.stream[0] === entry.unified,
+      `finish case ${index}: stream reported a different unified finish reason than expected`,
+    );
+  });
+}
+
+await test("a turn whose last step ends TOO_MANY_TOOL_CALLS still delivers that step's text once and takes no extra step", async () => {
+  // "tool-calls" is what the loop reads to tell a turn the step cap cut off
+  // from one that finished. A provider-side tool-call limit now reports the
+  // same word on the turn's result, so this pins that the loop does not
+  // mistake it for the cap: the final text arrives exactly once (the cap
+  // fallback would deliver it a second time) and no further request is made.
+  const server = await startStandIn((i) =>
+    i === 0
+      ? toolTurn("lookup", {})
+      : sse([{ text: "the closing answer" }], "TOO_MANY_TOOL_CALLS"),
+  );
+  const restore = withAiStudioEnv();
+  const counter = { calls: 0 };
+  let streamed = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  assert(counter.calls === 1, "the caller's tool did not execute once");
+  assert(
+    server.calls.length === 2,
+    `the turn made ${server.calls.length} requests, not the 2 it needs`,
+  );
+  const occurrences = streamed.split("the closing answer").length - 1;
+  assert(
+    occurrences === 1,
+    `the final step's text reached the consumer ${occurrences} times, not once`,
+  );
+});
+
+async function streamAbortedAfterToolStep(raw: string): Promise<string> {
+  const server = await startStandIn(() =>
+    sse(
+      [{ text: "working" }, { functionCall: { name: "first", args: {} } }],
+      raw,
+    ),
+  );
+  const restore = withAiStudioEnv();
+  const controller = new AbortController();
+  let streamed = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call the tool" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      abortSignal: controller.signal,
+      credentials: credentialsFor(server.port),
+      tools: {
+        first: {
+          description: "aborts the turn",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          }),
+          execute: async () => {
+            controller.abort();
+            return { ok: true };
+          },
+        },
+      } satisfies Record<string, Tool>,
+    });
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
+    }
+  } catch {
+    // An aborted turn may surface as a throw; the text delivered before it is
+    // what is compared.
+  } finally {
+    restore();
+    await server.close();
+  }
+  return streamed;
+}
+
+await test("a turn aborted after a tool step reads the same whether that step ended STOP or TOO_MANY_TOOL_CALLS", async () => {
+  // The loop only adds its "ended mid-turn" message to an aborted turn it
+  // does not count as finished. Whether it counts a turn as finished is read
+  // from the finish reason the loop reports, so a label that moved for the
+  // result must not move the loop's own decision: the two runs are identical
+  // except for the raw reason the stand-in sends.
+  const afterStop = await streamAbortedAfterToolStep("STOP");
+  const afterLimit = await streamAbortedAfterToolStep("TOO_MANY_TOOL_CALLS");
+  assert(
+    afterStop.includes("working"),
+    "the aborted STOP turn delivered none of the step's text, so the comparison would prove nothing",
+  );
+  assert(
+    afterLimit === afterStop,
+    "an aborted turn delivered different text depending only on the raw finish reason of its tool step",
   );
 });
 
