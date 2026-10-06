@@ -1,0 +1,27 @@
+# Secrets: never copy local environment files into an image layer.
+.env
+.env.*
+!.env.example
+
+# VCS, dependencies and outputs are rebuilt inside the image.
+.git
+node_modules
+**/node_modules
+dist
+.svelte-kit
+coverage
+*.log
+
+# Not needed to build the package.
+docs-site/build
+docs-site/.docusaurus
+landing
+neurolink-demo
+benchmarks
+memory-bank
+test-output
+test-reports
+test-results*
+test-data
+test-directTools-temp
+todos

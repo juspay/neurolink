@@ -5,9 +5,15 @@
  */
 
 import type { Context as HonoContext, Hono, Next } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
-import { AlreadyRunningError, ServerStopError, wrapError } from "../errors.js";
+import {
+  AlreadyRunningError,
+  ServerAdapterError,
+  ServerStopError,
+  wrapError,
+} from "../errors.js";
 import { BaseServerAdapter } from "../abstract/baseServerAdapter.js";
 import type {
   MiddlewareDefinition,
@@ -233,17 +239,26 @@ export class HonoServerAdapter extends BaseServerAdapter {
       const requestId =
         c.req.header("X-Request-ID") || this.generateRequestId();
 
-      logger.error("[HonoAdapter] Request error", {
-        requestId,
-        error: error.message,
-        stack: error.stack,
-      });
+      this.logRequestError("HonoAdapter", requestId, error);
 
-      this.emit("error", {
+      this.emitRequestError({
         requestId,
         error,
         timestamp: new Date(),
-      } satisfies ServerAdapterEvents["error"]);
+      });
+
+      if (error instanceof ServerAdapterError) {
+        return c.json(
+          {
+            error: { code: error.code, message: error.message },
+            metadata: {
+              requestId,
+              timestamp: new Date().toISOString(),
+            },
+          },
+          error.getHttpStatus() as ContentfulStatusCode,
+        );
+      }
 
       if (error instanceof HTTPException) {
         return c.json(

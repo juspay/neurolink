@@ -54,6 +54,48 @@ CLI configuration is stored at:
 | Scope       | Global defaults               | Per-server instance              |
 | Use Case    | Development, quick changes    | Production, fine-grained control |
 
+### Running `neurolink serve` as a Service
+
+`neurolink serve` resolves each setting from, in order: its command-line flag, the
+`--config` JSON file, then the built-in default. The listen port additionally
+reads the `PORT` environment variable after the config file, which is what
+container platforms set:
+
+| Setting   | Order                                                 |
+| --------- | ----------------------------------------------------- |
+| Port      | `--port` → config `port` → `$PORT` → `3000`           |
+| Host      | `--host` → config `host` → `0.0.0.0`                  |
+| Framework | `--framework` → config `framework` → `hono`           |
+| Base path | `--basePath` → config `basePath` → `/api`             |
+| CORS      | `--cors` → config `cors.enabled` → enabled            |
+| Rate      | `--rate-limit` → config `rateLimit.maxRequests` → 100 |
+
+**API key.** Set `NEUROLINK_SERVER_API_KEY` to one key, or several separated by
+commas for rotation, and every route except `<basePath>/health*` requires one,
+sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Rejected requests get
+`401`. Without the variable the server is unauthenticated — keep it on a private
+network — and the startup banner says so. `neurolink server start` reads the
+same variable.
+
+```bash
+NEUROLINK_SERVER_API_KEY=change-me PORT=8080 neurolink serve
+curl -H "Authorization: Bearer change-me" http://localhost:8080/api/agent/providers
+```
+
+**Container image.** The repository's `Dockerfile` builds an image that runs
+`neurolink serve` as a non-root user, configured by environment only:
+
+```bash
+docker build --target production -t neurolink .
+docker run -p 3000:3000 \
+  -e NEUROLINK_SERVER_API_KEY=change-me \
+  -e OPENAI_API_KEY=sk-... \
+  neurolink
+```
+
+Use `GET /api/health/live` for the liveness probe and `GET /api/health/ready` for
+readiness; both stay open when an API key is set. `SIGTERM` drains and exits `0`.
+
 The CLI configuration provides default values that can be overridden programmatically:
 
 ```typescript

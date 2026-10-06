@@ -14,6 +14,7 @@ import type { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
 import {
   AlreadyRunningError,
+  ServerAdapterError,
   ServerStartError,
   ServerStopError,
   wrapError,
@@ -144,19 +145,26 @@ export class FastifyServerAdapter extends BaseServerAdapter {
       (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
         const requestId = request.id;
 
-        logger.error("[FastifyAdapter] Request error", {
-          requestId,
-          error: error.message,
-          stack: error.stack,
-        });
+        this.logRequestError("FastifyAdapter", requestId, error);
 
-        this.emit("error", {
+        this.emitRequestError({
           requestId,
           error,
           timestamp: new Date(),
-        } satisfies ServerAdapterEvents["error"]);
+        });
 
         // Handle different error types
+        if (error instanceof ServerAdapterError) {
+          reply.status(error.getHttpStatus()).send({
+            error: { code: error.code, message: error.message },
+            metadata: {
+              requestId,
+              timestamp: new Date().toISOString(),
+            },
+          });
+          return;
+        }
+
         if (error.statusCode) {
           reply.status(error.statusCode).send({
             error: {

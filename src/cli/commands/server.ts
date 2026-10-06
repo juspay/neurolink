@@ -16,6 +16,12 @@ import {
   formatUptime,
   ensureStateDir,
   getNeuroLinkDir,
+  clearStateOnExit,
+  createServerApiKeyMiddleware,
+  isOtherServerRunning,
+  readServerApiKeys,
+  resolveServerPort,
+  SERVER_API_KEY_ENV,
 } from "../utils/serverUtils.js";
 import type {
   CliServeFlatRoute,
@@ -227,8 +233,7 @@ export class ServerCommandFactory {
       .option("port", {
         type: "number",
         alias: "p",
-        default: 3000,
-        description: "Port to listen on",
+        description: "Port to listen on (default: $PORT, then 3000)",
       })
       .option("host", {
         type: "string",
@@ -434,7 +439,7 @@ export class ServerCommandFactory {
     try {
       // Check if server is already running
       const existingState = loadServerState();
-      if (existingState && isProcessRunning(existingState.pid)) {
+      if (existingState && isOtherServerRunning(existingState.pid)) {
         if (spinner) {
           spinner.fail(
             chalk.red(
@@ -455,6 +460,7 @@ export class ServerCommandFactory {
       const { createServer, registerAllRoutes } =
         await import("../../lib/server/index.js");
 
+      const port = resolveServerPort(argv.port);
       const framework = (argv.framework ?? "hono") as
         | "hono"
         | "express"
@@ -465,7 +471,7 @@ export class ServerCommandFactory {
       const server = await createServer(neurolink, {
         framework,
         config: {
-          port: argv.port ?? 3000,
+          port,
           host: argv.host ?? "0.0.0.0",
           basePath: argv.basePath ?? "/api",
           cors: {
@@ -477,6 +483,14 @@ export class ServerCommandFactory {
           disableBuiltInHealth: true, // We register health routes separately
         },
       });
+
+      // API key (if configured) must be registered ahead of the routes it guards
+      const apiKeys = readServerApiKeys();
+      if (apiKeys.length > 0) {
+        server.registerMiddleware(
+          createServerApiKeyMiddleware(apiKeys, argv.basePath ?? "/api"),
+        );
+      }
 
       // Register all routes
       registerAllRoutes(server, argv.basePath ?? "/api");
@@ -496,13 +510,14 @@ export class ServerCommandFactory {
       // Save state
       const state: ServerState = {
         pid: process.pid,
-        port: argv.port ?? 3000,
+        port,
         host: argv.host ?? "0.0.0.0",
         framework,
         startTime: new Date().toISOString(),
         basePath: argv.basePath ?? "/api",
       };
       saveServerState(state);
+      clearStateOnExit(clearServerState);
 
       if (spinner) {
         spinner.succeed(chalk.green("Server started successfully"));
@@ -514,6 +529,9 @@ export class ServerCommandFactory {
       logger.always(`  Framework: ${chalk.cyan(framework)}`);
       logger.always(`  Base Path: ${chalk.cyan(state.basePath)}`);
       logger.always(`  PID: ${chalk.cyan(state.pid)}`);
+      logger.always(
+        `  API Key: ${apiKeys.length > 0 ? chalk.green("required (health routes exempt)") : chalk.yellow(`disabled — set ${SERVER_API_KEY_ENV} before exposing this server`)}`,
+      );
 
       logger.always(chalk.bold("\nAvailable Endpoints:"));
       logger.always(`  ${chalk.green("GET")}  ${state.basePath}/health`);

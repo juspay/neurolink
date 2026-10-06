@@ -313,17 +313,13 @@ export class ExpressServerAdapter extends BaseServerAdapter {
       (error: Error, req: Request, res: Response, _next: NextFunction) => {
         const requestId = req.headers["x-request-id"] as string;
 
-        logger.error("[ExpressAdapter] Request error", {
-          requestId,
-          error: error.message,
-          stack: error.stack,
-        });
+        this.logRequestError("ExpressAdapter", requestId, error);
 
-        this.emit("error", {
+        this.emitRequestError({
           requestId,
           error,
           timestamp: new Date(),
-        } satisfies ServerAdapterEvents["error"]);
+        });
 
         // Use dynamic status code from ServerAdapterError if available
         const isServerAdapterError = error instanceof ServerAdapterError;

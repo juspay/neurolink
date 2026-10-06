@@ -9,7 +9,12 @@ import type Router from "@koa/router";
 import type { Socket } from "net";
 import type { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
-import { AlreadyRunningError, ServerStopError, wrapError } from "../errors.js";
+import {
+  AlreadyRunningError,
+  ServerAdapterError,
+  ServerStopError,
+  wrapError,
+} from "../errors.js";
 import { BaseServerAdapter } from "../abstract/baseServerAdapter.js";
 import type {
   MiddlewareDefinition,
@@ -33,6 +38,10 @@ export class KoaServerAdapter extends BaseServerAdapter {
   private rateLimitStore = new Map<string, KoaRateLimitEntry>();
   private rateLimitCleanupInterval?: ReturnType<typeof setInterval>;
   private sockets: Set<Socket> = new Set();
+  // Middleware from registerMiddleware(). It runs through one dispatcher that
+  // is mounted ahead of the router: app.use() after the router is mounted
+  // would only ever see requests no route matched.
+  private registeredMiddleware: Koa.Middleware[] = [];
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super(neurolink, config);
@@ -85,23 +94,24 @@ export class KoaServerAdapter extends BaseServerAdapter {
         const err = error as Error & { status?: number; statusCode?: number };
         const requestId = ctx.state.requestId;
 
-        logger.error("[KoaAdapter] Request error", {
-          requestId,
-          error: err.message,
-          stack: err.stack,
-        });
+        this.logRequestError("KoaAdapter", requestId, err);
 
-        this.emit("error", {
+        this.emitRequestError({
           requestId,
           error: err,
           timestamp: new Date(),
-        } satisfies ServerAdapterEvents["error"]);
+        });
 
-        const statusCode = err.status || err.statusCode || 500;
+        const adapterError =
+          error instanceof ServerAdapterError ? error : undefined;
+        const statusCode =
+          adapterError?.getHttpStatus() || err.status || err.statusCode || 500;
         ctx.status = statusCode;
         ctx.body = {
           error: {
-            code: statusCode === 500 ? "INTERNAL_ERROR" : `HTTP_${statusCode}`,
+            code:
+              adapterError?.code ??
+              (statusCode === 500 ? "INTERNAL_ERROR" : `HTTP_${statusCode}`),
             message:
               statusCode === 500 ? "An internal error occurred" : err.message,
           },
@@ -177,6 +187,10 @@ export class KoaServerAdapter extends BaseServerAdapter {
         });
       });
     }
+
+    this.app.use((ctx: Koa.ParameterizedContext, next: Koa.Next) =>
+      this.runRegisteredMiddleware(ctx, next),
+    );
 
     // Mount router
     this.app.use(this.router.routes());
@@ -451,52 +465,73 @@ export class KoaServerAdapter extends BaseServerAdapter {
   protected registerFrameworkMiddleware(
     middleware: MiddlewareDefinition,
   ): void {
-    this.app.use(async (ctx: Koa.ParameterizedContext, next: Koa.Next) => {
-      // Skip excluded paths
-      if (middleware.excludePaths?.some((p) => ctx.path.startsWith(p))) {
-        return next();
-      }
+    this.registeredMiddleware.push(
+      async (ctx: Koa.ParameterizedContext, next: Koa.Next) => {
+        // Skip excluded paths
+        if (middleware.excludePaths?.some((p) => ctx.path.startsWith(p))) {
+          return next();
+        }
 
-      // Check if path matches
-      const paths = middleware.paths || ["/"];
-      const matches = paths.some((p) => ctx.path.startsWith(p) || p === "*");
-      if (!matches) {
-        return next();
-      }
+        // Check if path matches
+        const paths = middleware.paths || ["/"];
+        const matches = paths.some((p) => ctx.path.startsWith(p) || p === "*");
+        if (!matches) {
+          return next();
+        }
 
-      // Initialize response headers storage in ctx.state if not present
-      if (!ctx.state.responseHeaders) {
-        ctx.state.responseHeaders = {};
-      }
+        // Initialize response headers storage in ctx.state if not present
+        if (!ctx.state.responseHeaders) {
+          ctx.state.responseHeaders = {};
+        }
 
-      // Create context with existing response headers from previous middleware
-      const serverCtx = this.createContext({
-        requestId: ctx.state.requestId,
-        method: ctx.method,
-        path: ctx.path,
-        headers: ctx.headers as Record<string, string>,
-        query: ctx.query as Record<string, string>,
-        params: ctx.params as Record<string, string>,
-        body: ctx.request.body,
-      });
+        // Create context with existing response headers from previous middleware
+        const serverCtx = this.createContext({
+          requestId: ctx.state.requestId,
+          method: ctx.method,
+          path: ctx.path,
+          headers: ctx.headers as Record<string, string>,
+          query: ctx.query as Record<string, string>,
+          params: ctx.params as Record<string, string>,
+          body: ctx.request.body,
+        });
 
-      // Copy existing response headers to context
-      serverCtx.responseHeaders = { ...ctx.state.responseHeaders };
+        // Copy existing response headers to context
+        serverCtx.responseHeaders = { ...ctx.state.responseHeaders };
 
-      // Execute middleware
-      await middleware.handler(serverCtx, async () => {
-        // After middleware execution, merge response headers back to ctx.state
+        // Execute middleware
+        await middleware.handler(serverCtx, async () => {
+          // After middleware execution, merge response headers back to ctx.state
+          if (serverCtx.responseHeaders) {
+            Object.assign(ctx.state.responseHeaders, serverCtx.responseHeaders);
+          }
+          return next();
+        });
+
+        // Also merge headers after handler returns (for middleware that set headers after next())
         if (serverCtx.responseHeaders) {
           Object.assign(ctx.state.responseHeaders, serverCtx.responseHeaders);
         }
-        return next();
-      });
+      },
+    );
+  }
 
-      // Also merge headers after handler returns (for middleware that set headers after next())
-      if (serverCtx.responseHeaders) {
-        Object.assign(ctx.state.responseHeaders, serverCtx.responseHeaders);
+  /**
+   * Run registered middleware in registration order, then continue to the
+   * router. Reads the list per request, so later registrations apply too.
+   */
+  private runRegisteredMiddleware(
+    ctx: Koa.ParameterizedContext,
+    next: Koa.Next,
+  ): Promise<void> {
+    const dispatch = async (index: number): Promise<void> => {
+      const middleware = this.registeredMiddleware[index];
+      if (!middleware) {
+        await next();
+        return;
       }
-    });
+      await middleware(ctx, () => dispatch(index + 1));
+    };
+    return dispatch(0);
   }
 
   /**

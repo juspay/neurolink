@@ -21,6 +21,7 @@ import {
   DrainTimeoutError,
   InvalidLifecycleStateError,
   MissingDependencyError,
+  ServerAdapterError,
   ShutdownTimeoutError,
 } from "../errors.js";
 import type {
@@ -51,6 +52,13 @@ export abstract class BaseServerAdapter extends EventEmitter {
   protected middlewares: MiddlewareDefinition[] = [];
   protected isRunning = false;
   protected startTime?: Date;
+
+  // Adapters build their framework app lazily in initialize(), so routes and
+  // middleware registered before that are queued here and replayed once the
+  // app exists — middleware first, so it still guards those routes.
+  private frameworkReady = false;
+  private pendingMiddlewares: MiddlewareDefinition[] = [];
+  private pendingRouteKeys: Set<string> = new Set();
 
   // Lifecycle management properties
   protected lifecycleState: ServerLifecycleState = "uninitialized";
@@ -259,9 +267,13 @@ export abstract class BaseServerAdapter extends EventEmitter {
     try {
       // Initialize framework-specific setup
       await this.initializeFramework();
+      this.frameworkReady = true;
 
       // Register built-in middleware
       this.registerBuiltInMiddleware();
+
+      // Replay what callers registered before the framework app existed
+      this.flushPendingRegistrations();
 
       // Register built-in routes
       await this.registerBuiltInRoutes();
@@ -306,7 +318,11 @@ export abstract class BaseServerAdapter extends EventEmitter {
     }
 
     this.routes.set(routeKey, route);
-    this.registerFrameworkRoute(route);
+    if (this.frameworkReady) {
+      this.registerFrameworkRoute(route);
+    } else {
+      this.pendingRouteKeys.add(routeKey);
+    }
 
     logger.debug(`[ServerAdapter] Registered route: ${routeKey}`, {
       description: route.description,
@@ -366,12 +382,73 @@ export abstract class BaseServerAdapter extends EventEmitter {
    */
   public registerMiddleware(middleware: MiddlewareDefinition): void {
     this.middlewares.push(middleware);
-    this.registerFrameworkMiddleware(middleware);
+    if (this.frameworkReady) {
+      this.registerFrameworkMiddleware(middleware);
+    } else {
+      this.pendingMiddlewares.push(middleware);
+    }
 
     logger.debug(`[ServerAdapter] Registered middleware: ${middleware.name}`, {
       order: middleware.order,
       paths: middleware.paths,
     });
+  }
+
+  /**
+   * Log a failed request. A client error (a rejected API key, a failed
+   * validation) is routine traffic, so it is a one-line warning rather than
+   * an error with a stack trace that anyone could flood the logs with.
+   */
+  protected logRequestError(
+    source: string,
+    requestId: string | undefined,
+    error: Error,
+  ): void {
+    if (error instanceof ServerAdapterError && error.getHttpStatus() < 500) {
+      logger.warn(`[${source}] Request rejected`, {
+        requestId,
+        code: error.code,
+        error: error.message,
+      });
+      return;
+    }
+    logger.error(`[${source}] Request error`, {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+
+  /**
+   * Notify "error" listeners about a failed request. EventEmitter throws when
+   * "error" has no listener, which inside a framework's error handler turns
+   * every failure into an empty 500, so emit only when someone is listening.
+   */
+  protected emitRequestError(payload: ServerAdapterEvents["error"]): void {
+    if (this.listenerCount("error") > 0) {
+      this.emit("error", payload);
+    }
+  }
+
+  /**
+   * Hand queued registrations to the framework. A route re-registered under
+   * the same key before initialize() is replayed once, in its final form.
+   */
+  private flushPendingRegistrations(): void {
+    const middlewares = this.pendingMiddlewares;
+    const routeKeys = this.pendingRouteKeys;
+    this.pendingMiddlewares = [];
+    this.pendingRouteKeys = new Set();
+
+    for (const middleware of middlewares) {
+      this.registerFrameworkMiddleware(middleware);
+    }
+    for (const routeKey of routeKeys) {
+      const route = this.routes.get(routeKey);
+      if (route) {
+        this.registerFrameworkRoute(route);
+      }
+    }
   }
 
   /**

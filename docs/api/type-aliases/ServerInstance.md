@@ -58,6 +58,22 @@ Minimal server instance contract used by `neurolink serve`.
 
 ---
 
+### registerMiddleware
+
+> **registerMiddleware**: (`middleware`) => `void`
+
+#### Parameters
+
+##### middleware
+
+[`MiddlewareDefinition`](MiddlewareDefinition.md)
+
+#### Returns
+
+`void`
+
+---
+
 ### listRoutes?
 
 > `optional` **listRoutes?**: () => [`RouteDefinition`](RouteDefinition.md)[]

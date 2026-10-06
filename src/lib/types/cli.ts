@@ -1704,6 +1704,9 @@ export type ServerInstance = {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   registerRouteGroup: (group: import("./server.js").RouteGroup) => void;
+  registerMiddleware: (
+    middleware: import("./server.js").MiddlewareDefinition,
+  ) => void;
   listRoutes?: () => import("./server.js").RouteDefinition[];
 };
 

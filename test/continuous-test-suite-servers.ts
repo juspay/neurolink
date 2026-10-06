@@ -14,8 +14,10 @@ import "dotenv/config";
  * Run with: npx tsx test/continuous-test-suite-servers.ts
  */
 
-import { spawn } from "child_process";
+import { type ChildProcess, spawn } from "child_process";
+import * as fs from "fs";
 import * as http from "http";
+import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
@@ -2593,6 +2595,407 @@ async function testLiveServer(): Promise<boolean | null> {
 }
 
 // ============================================
+// `neurolink serve` (built CLI) Tests
+// ============================================
+
+const CLI_ENTRY = path.join(__dirname, "..", "dist", "cli", "index.js");
+const SERVE_FRAMEWORKS = ["hono", "express", "fastify", "koa"] as const;
+
+type ServeProcess = {
+  proc: ChildProcess;
+  home: string;
+  exited: Promise<number | null>;
+};
+
+/**
+ * Run the built CLI's `serve` the way a container does. HOME is a fresh
+ * directory so the "already running" state file never collides with another
+ * case or the developer's own server, and so is cwd, so the repository's .env
+ * cannot leak a PORT or an API key into the run.
+ */
+function startServe(
+  args: string[],
+  env: Record<string, string> = {},
+  home: string = fs.mkdtempSync(path.join(os.tmpdir(), "nl-serve-test-")),
+): ServeProcess {
+  const inherited = { ...process.env };
+  delete inherited.PORT;
+  delete inherited.NEUROLINK_SERVER_API_KEY;
+  const proc = spawn("node", [CLI_ENTRY, "serve", "--quiet", ...args], {
+    cwd: home,
+    env: { ...inherited, HOME: home, NEUROLINK_SKIP_MCP: "true", ...env },
+    stdio: "ignore",
+  });
+  const exited = new Promise<number | null>((resolve) => {
+    proc.on("exit", (code) => resolve(code));
+  });
+  return { proc, home, exited };
+}
+
+/** Poll the liveness probe until it answers 200, or the process exits. */
+async function waitForServe(
+  serve: ServeProcess,
+  port: number,
+): Promise<boolean> {
+  let exited = false;
+  void serve.exited.then(() => {
+    exited = true;
+  });
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline && !exited) {
+    try {
+      const res = await httpRequest(
+        "GET",
+        `http://127.0.0.1:${port}/api/health/live`,
+      );
+      if (res.status === 200) {
+        return true;
+      }
+    } catch {
+      // Not listening yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+/** SIGTERM (what a container runtime sends) and return the exit code. */
+async function stopServe(serve: ServeProcess): Promise<number | null> {
+  if (serve.proc.exitCode === null && serve.proc.signalCode === null) {
+    serve.proc.kill("SIGTERM");
+  }
+  const forceKill = setTimeout(() => serve.proc.kill("SIGKILL"), 15000);
+  const code = await serve.exited;
+  clearTimeout(forceKill);
+  return code;
+}
+
+function serveStateFile(serve: ServeProcess): string {
+  return path.join(serve.home, ".neurolink", "serve-state.json");
+}
+
+/**
+ * Regression: since v12.35.3 `serve` registered its routes before the adapter
+ * had built its framework app, and crashed on startup with every framework.
+ * Also covers the API key, the 401 mapping (an unlistened "error" event used
+ * to turn every rejection into an empty 500) and clean SIGTERM shutdown.
+ */
+async function testServeCliEveryFramework(): Promise<boolean | null> {
+  logSection("Testing `neurolink serve` on every framework");
+  const failures: string[] = [];
+
+  for (const [index, framework] of SERVE_FRAMEWORKS.entries()) {
+    const port = 9120 + index;
+    const base = `http://127.0.0.1:${port}`;
+    const serve = startServe(["--framework", framework, "--port", `${port}`], {
+      NEUROLINK_SERVER_API_KEY: "key-one, key-two",
+    });
+    try {
+      if (!(await waitForServe(serve, port))) {
+        failures.push(`${framework}: never answered /api/health/live`);
+        continue;
+      }
+      const tools = `${base}/api/tools`;
+      const checks: Array<[string, () => Promise<HttpResponse>, number]> = [
+        [
+          "readiness without a key",
+          () => httpRequest("GET", `${base}/api/health/ready`),
+          200,
+        ],
+        ["no key", () => httpRequest("GET", tools), 401],
+        [
+          "wrong key",
+          () =>
+            httpRequest("GET", tools, undefined, {
+              Authorization: "Bearer wrong",
+            }),
+          401,
+        ],
+        [
+          "Bearer key",
+          () =>
+            httpRequest("GET", tools, undefined, {
+              Authorization: "Bearer key-two",
+            }),
+          200,
+        ],
+        [
+          "X-API-Key",
+          () =>
+            httpRequest("GET", tools, undefined, { "X-API-Key": "key-one" }),
+          200,
+        ],
+        [
+          "playground header",
+          () =>
+            httpRequest("GET", tools, undefined, {
+              "x-neurolink-playground": "true",
+            }),
+          401,
+        ],
+      ];
+      // One request at a time: a request that fails (the server died) must
+      // be recorded, not left as an unhandled rejection that ends the suite.
+      for (const [label, request, expected] of checks) {
+        try {
+          const res = await request();
+          if (res.status !== expected) {
+            failures.push(
+              `${framework}: ${label} returned ${res.status}, expected ${expected}`,
+            );
+          }
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code ?? "request error";
+          failures.push(`${framework}: ${label} request failed (${code})`);
+        }
+      }
+    } finally {
+      const code = await stopServe(serve);
+      if (code !== 0) {
+        failures.push(`${framework}: SIGTERM exit code ${code}, expected 0`);
+      }
+      if (fs.existsSync(serveStateFile(serve))) {
+        failures.push(`${framework}: serve-state.json left behind`);
+      }
+      fs.rmSync(serve.home, { recursive: true, force: true });
+    }
+    if (!failures.some((failure) => failure.startsWith(`${framework}:`))) {
+      logTest(`serve --framework ${framework}`, "PASS", "health, auth, stop");
+    }
+  }
+
+  for (const failure of failures) {
+    logTest("serve on every framework", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+/** Without NEUROLINK_SERVER_API_KEY the server stays open, as before. */
+async function testServeCliWithoutApiKey(): Promise<boolean | null> {
+  logSection("Testing `neurolink serve` without an API key");
+  const port = 9125;
+  const serve = startServe(["--port", `${port}`]);
+  try {
+    if (!(await waitForServe(serve, port))) {
+      logTest("serve without key", "FAIL", "never became healthy");
+      return false;
+    }
+    const res = await httpRequest("GET", `http://127.0.0.1:${port}/api/tools`);
+    if (res.status !== 200) {
+      logTest("serve without key", "FAIL", `/api/tools returned ${res.status}`);
+      return false;
+    }
+    logTest("serve without key", "PASS", "routes stay open (unchanged)");
+    return true;
+  } finally {
+    await stopServe(serve);
+    fs.rmSync(serve.home, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Port precedence is --port, then the config file, then $PORT, then 3000.
+ * The config file used to be ignored outright: every option carried a yargs
+ * default, which always won the `argv.port ?? fileConfig.port` merge.
+ */
+async function testServeCliPortResolution(): Promise<boolean | null> {
+  logSection("Testing `neurolink serve` port resolution");
+  const failures: string[] = [];
+
+  const expectListening = async (
+    label: string,
+    args: string[],
+    env: Record<string, string>,
+    port: number,
+    configPort?: number,
+  ): Promise<void> => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-serve-test-"));
+    const extraArgs = [...args];
+    if (configPort !== undefined) {
+      const configFile = path.join(home, "server.json");
+      fs.writeFileSync(configFile, JSON.stringify({ port: configPort }));
+      extraArgs.push("--config", configFile);
+    }
+    const serve = startServe(extraArgs, env, home);
+    try {
+      if (await waitForServe(serve, port)) {
+        logTest(`port: ${label}`, "PASS", `listening on ${port}`);
+      } else {
+        failures.push(`${label}: not listening on ${port}`);
+      }
+    } finally {
+      await stopServe(serve);
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  };
+
+  await expectListening("$PORT alone", [], { PORT: "9130" }, 9130);
+  await expectListening(
+    "config file over $PORT",
+    [],
+    { PORT: "9131" },
+    9132,
+    9132,
+  );
+  await expectListening(
+    "--port over config file",
+    ["--port", "9133"],
+    {},
+    9133,
+    9132,
+  );
+
+  const invalid = startServe([], { PORT: "not-a-port" });
+  const timer = setTimeout(() => invalid.proc.kill("SIGKILL"), 20000);
+  const code = await invalid.exited;
+  clearTimeout(timer);
+  fs.rmSync(invalid.home, { recursive: true, force: true });
+  if (code === 0 || code === null) {
+    failures.push(`invalid $PORT: exit code ${code}, expected a failure`);
+  } else {
+    logTest("port: invalid $PORT", "PASS", `refused to start (exit ${code})`);
+  }
+
+  for (const failure of failures) {
+    logTest("serve port resolution", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+/**
+ * The "already running" guard must refuse only a state file that names
+ * another live process. One naming a dead PID is stale and ignored.
+ */
+async function testServeCliStateGuard(): Promise<boolean | null> {
+  logSection("Testing `neurolink serve` already-running guard");
+  const failures: string[] = [];
+  const writeState = (home: string, pid: number): void => {
+    fs.mkdirSync(path.join(home, ".neurolink"), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, ".neurolink", "serve-state.json"),
+      JSON.stringify({ pid, port: 1, host: "x", framework: "hono" }),
+    );
+  };
+
+  const holder = spawn("sleep", ["60"], { stdio: "ignore" });
+  const holderPid = holder.pid ?? -1;
+  try {
+    const liveHome = fs.mkdtempSync(path.join(os.tmpdir(), "nl-serve-test-"));
+    writeState(liveHome, holderPid);
+    const blocked = startServe(["--port", "9135"], {}, liveHome);
+    const timer = setTimeout(() => blocked.proc.kill("SIGKILL"), 20000);
+    const code = await blocked.exited;
+    clearTimeout(timer);
+    fs.rmSync(liveHome, { recursive: true, force: true });
+    if (code === 1) {
+      logTest("guard: live owner", "PASS", "refused to start");
+    } else {
+      failures.push(`live owner: exit code ${code}, expected 1`);
+    }
+  } finally {
+    holder.kill("SIGKILL");
+  }
+  await new Promise<void>((resolve) => holder.on("exit", () => resolve()));
+
+  const staleHome = fs.mkdtempSync(path.join(os.tmpdir(), "nl-serve-test-"));
+  writeState(staleHome, holderPid);
+  const stale = startServe(["--port", "9136"], {}, staleHome);
+  try {
+    if (await waitForServe(stale, 9136)) {
+      logTest("guard: dead owner", "PASS", "stale state ignored");
+    } else {
+      failures.push("dead owner: did not start over a stale state file");
+    }
+  } finally {
+    await stopServe(stale);
+    fs.rmSync(staleHome, { recursive: true, force: true });
+  }
+
+  for (const failure of failures) {
+    logTest("serve state guard", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+/**
+ * The documented SDK pattern registers middleware and routes before
+ * initialize(). Adapters build their app inside initialize(), so the base
+ * class queues those registrations; middleware must still guard the routes
+ * (Koa used to mount its router ahead of every registered middleware).
+ */
+async function testSdkRegistrationBeforeInitialize(): Promise<boolean | null> {
+  logSection("Testing SDK registration before initialize()");
+  const mod = await getServerModule();
+  if (!mod) {
+    return skipTest("Register before initialize", getServerModuleError());
+  }
+  type Adapter = {
+    registerMiddleware: (middleware: unknown) => void;
+    registerRoute: (route: unknown) => void;
+    initialize: () => Promise<void>;
+    start: () => Promise<void>;
+    stop: () => Promise<void>;
+  };
+  const createServerFn = mod.createServer as (
+    neurolink: unknown,
+    options: { framework: string; config: { port: number; host: string } },
+  ) => Promise<Adapter>;
+  const createAuth = mod.createAuthMiddleware as (config: unknown) => unknown;
+  const { NeuroLink } = await import("../dist/index.js");
+  const failures: string[] = [];
+
+  for (const [index, framework] of SERVE_FRAMEWORKS.entries()) {
+    const port = 9140 + index;
+    const sdk = new NeuroLink();
+    const adapter = await createServerFn(sdk, {
+      framework,
+      config: { port, host: "127.0.0.1" },
+    });
+    adapter.registerMiddleware(
+      createAuth({
+        type: "api-key",
+        validate: async (token: string) =>
+          token === "sdk-key" ? { id: "sdk" } : null,
+        skipDevPlayground: false,
+      }),
+    );
+    adapter.registerRoute({
+      method: "GET",
+      path: "/api/probe",
+      handler: async () => ({ ok: true }),
+    });
+    try {
+      await adapter.initialize();
+      await adapter.start();
+      const url = `http://127.0.0.1:${port}/api/probe`;
+      const denied = await httpRequest("GET", url);
+      const allowed = await httpRequest("GET", url, undefined, {
+        "X-API-Key": "sdk-key",
+      });
+      if (denied.status !== 401 || allowed.status !== 200) {
+        failures.push(
+          `${framework}: without key ${denied.status} (want 401), with key ${allowed.status} (want 200)`,
+        );
+      } else {
+        logTest(`register before initialize: ${framework}`, "PASS");
+      }
+    } catch (error) {
+      failures.push(
+        `${framework}: ${error instanceof Error ? error.name : "error"} during startup`,
+      );
+    } finally {
+      await adapter.stop().catch(() => undefined);
+      await sdk.shutdown?.().catch(() => undefined);
+    }
+  }
+
+  for (const failure of failures) {
+    logTest("register before initialize", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+// ============================================
 // Main Test Runner
 // ============================================
 
@@ -2686,6 +3089,16 @@ async function runAllTests(): Promise<void> {
 
     // Live Server Integration
     { name: "Live Server Integration", fn: testLiveServer },
+    {
+      name: "SDK Registration Before Initialize",
+      fn: testSdkRegistrationBeforeInitialize,
+    },
+
+    // `neurolink serve` through the built CLI
+    { name: "Serve CLI - Every Framework", fn: testServeCliEveryFramework },
+    { name: "Serve CLI - Without API Key", fn: testServeCliWithoutApiKey },
+    { name: "Serve CLI - Port Resolution", fn: testServeCliPortResolution },
+    { name: "Serve CLI - State Guard", fn: testServeCliStateGuard },
   ];
 
   // Run all tests

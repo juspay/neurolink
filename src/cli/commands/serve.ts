@@ -30,8 +30,14 @@ import type {
 import { withTimeout } from "../../lib/utils/errorHandling.js";
 import { logger } from "../../lib/utils/logger.js";
 import {
+  clearStateOnExit,
+  createServerApiKeyMiddleware,
   formatUptime,
+  isOtherServerRunning,
   isProcessRunning,
+  readServerApiKeys,
+  resolveServerPort,
+  SERVER_API_KEY_ENV,
   StateFileManager,
 } from "../utils/serverUtils.js";
 // ============================================
@@ -189,6 +195,8 @@ export class ServeCommandFactory {
       command: "serve [subcommand]",
       describe: "Start NeuroLink HTTP server with server adapters",
       builder: (yargs) => {
+        // The server options carry no yargs defaults: a default would always
+        // win over the --config file. Defaults are applied after merging.
         return yargs
           .command(
             "status",
@@ -216,44 +224,39 @@ export class ServeCommandFactory {
           .option("port", {
             type: "number",
             alias: "p",
-            default: 3000,
-            description: "Port to listen on",
+            description:
+              "Port to listen on (default: config file, then $PORT, then 3000)",
           })
           .option("host", {
             type: "string",
             alias: "H",
-            default: "0.0.0.0",
-            description: "Host to bind to",
+            description: "Host to bind to (default: 0.0.0.0)",
           })
           .option("framework", {
             type: "string",
             alias: "f",
             choices: ["hono", "express", "fastify", "koa"] as ServerFramework[],
-            default: "hono" as ServerFramework,
-            description: "Web framework to use (hono recommended)",
+            description: "Web framework to use (default: hono, recommended)",
           })
           .option("basePath", {
             type: "string",
             alias: "b",
-            default: "/api",
-            description: "Base path for all routes",
+            description: "Base path for all routes (default: /api)",
           })
           .option("cors", {
             type: "boolean",
-            default: true,
-            description: "Enable CORS middleware",
+            description: "Enable CORS middleware (default: true)",
           })
           .option("rate-limit", {
             type: "number",
             alias: "rateLimit",
-            default: 100,
             description:
-              "Rate limit (requests per 15 min window, 0 to disable)",
+              "Rate limit (requests per 15 min window, 0 to disable; default: 100)",
           })
           .option("swagger", {
             type: "boolean",
-            default: false,
-            description: "Enable OpenAPI/Swagger documentation",
+            description:
+              "Enable OpenAPI/Swagger documentation (default: false)",
           })
           .option("config", {
             type: "string",
@@ -301,6 +304,10 @@ export class ServeCommandFactory {
           .example(
             "neurolink serve --watch",
             "Start server in watch mode (restart on changes)",
+          )
+          .example(
+            "NEUROLINK_SERVER_API_KEY=secret neurolink serve",
+            "Require 'Authorization: Bearer secret' (or X-API-Key) on every route except health",
           )
           .example("neurolink serve status", "Show server status")
           .help();
@@ -350,7 +357,7 @@ export class ServeCommandFactory {
       const fileConfig = ServeCommandFactory.loadFileConfig(argv, spinner);
 
       // Merge CLI args with file config (CLI takes precedence)
-      const port = argv.port ?? fileConfig.port ?? 3000;
+      const port = resolveServerPort(argv.port, fileConfig.port);
       const host = argv.host ?? fileConfig.host ?? "0.0.0.0";
       const framework = argv.framework ?? fileConfig.framework ?? "hono";
       const basePath = argv.basePath ?? fileConfig.basePath ?? "/api";
@@ -410,7 +417,7 @@ export class ServeCommandFactory {
     spinner: ReturnType<typeof ora> | null,
   ): void {
     const existingState = loadServeState();
-    if (existingState && isProcessRunning(existingState.pid)) {
+    if (existingState && isOtherServerRunning(existingState.pid)) {
       if (spinner) {
         spinner.fail(
           chalk.red(
@@ -533,6 +540,7 @@ export class ServeCommandFactory {
       }),
     };
 
+    ServeCommandFactory.applyApiKeyAuth(serverRef.current, opts.basePath);
     registerAllRoutes(serverRef.current, opts.basePath);
 
     if (spinner) {
@@ -564,6 +572,22 @@ export class ServeCommandFactory {
   }
 
   /**
+   * Put every route except health behind the API key(s) in
+   * NEUROLINK_SERVER_API_KEY. Must run before the routes are registered.
+   */
+  private static applyApiKeyAuth(
+    server: ServerInstance,
+    basePath: string,
+  ): void {
+    const apiKeys = readServerApiKeys();
+    if (apiKeys.length > 0) {
+      server.registerMiddleware(
+        createServerApiKeyMiddleware(apiKeys, basePath),
+      );
+    }
+  }
+
+  /**
    * Save server state and print the startup info banner.
    */
   private static saveAndPrintStartupInfo(
@@ -587,6 +611,7 @@ export class ServeCommandFactory {
       configFile: opts.argv.config,
     };
     saveServeState(state);
+    clearStateOnExit(clearServeState);
 
     if (spinner) {
       spinner.succeed(chalk.green("NeuroLink server started successfully"));
@@ -613,6 +638,7 @@ export class ServeCommandFactory {
       rateLimitValue,
       swaggerEnabled,
       watchEnabled: opts.argv.watch ?? false,
+      authEnabled: readServerApiKeys().length > 0,
     });
 
     return state;
@@ -632,6 +658,7 @@ export class ServeCommandFactory {
     rateLimitValue: number;
     swaggerEnabled: boolean;
     watchEnabled: boolean;
+    authEnabled: boolean;
   }): void {
     logger.always("");
     logger.always(chalk.bold.cyan("NeuroLink Server"));
@@ -665,6 +692,9 @@ export class ServeCommandFactory {
     if (info.watchEnabled) {
       logger.always(`  Watch Mode:  ${chalk.green("enabled")}`);
     }
+    logger.always(
+      `  API Key:     ${info.authEnabled ? chalk.green("required (health routes exempt)") : chalk.yellow(`disabled — set ${SERVER_API_KEY_ENV} before exposing this server`)}`,
+    );
     logger.always("");
 
     logger.always(chalk.bold("Available Endpoints:"));
@@ -754,6 +784,7 @@ export class ServeCommandFactory {
           config: ctx.serverConfig,
         });
 
+        ServeCommandFactory.applyApiKeyAuth(newServer, ctx.basePath);
         registerNewRoutes(newServer, ctx.basePath);
 
         // Initialize and start with timeouts

@@ -3,9 +3,81 @@
  * Shared utility functions for server management commands (serve.ts and server.ts)
  */
 
+import { timingSafeEqual } from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { ConfigurationError } from "../../lib/server/errors.js";
+import { createAuthMiddleware } from "../../lib/server/middleware/auth.js";
+import type { MiddlewareDefinition } from "../../lib/types/index.js";
+
+// ============================================
+// Listen Address & Access Control
+// ============================================
+
+export const DEFAULT_SERVER_PORT = 3000;
+
+/** Comma-separated API keys; when set, every route except health needs one. */
+export const SERVER_API_KEY_ENV = "NEUROLINK_SERVER_API_KEY";
+
+/**
+ * Resolve the listen port: --port, then the config file, then the PORT
+ * environment variable (what container platforms set), then 3000.
+ */
+export function resolveServerPort(cliPort?: number, filePort?: number): number {
+  const envPort = process.env.PORT?.trim();
+  const port =
+    cliPort ?? filePort ?? (envPort ? Number(envPort) : DEFAULT_SERVER_PORT);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new ConfigurationError(
+      `Invalid port "${cliPort ?? filePort ?? envPort}": expected an integer between 0 and 65535`,
+    );
+  }
+  return port;
+}
+
+export function readServerApiKeys(): string[] {
+  return (process.env[SERVER_API_KEY_ENV] ?? "")
+    .split(",")
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+}
+
+/**
+ * Constant-time for equal lengths; a length mismatch returns early, which
+ * reveals only the key's length, never its content.
+ */
+const matchesKey = (key: Buffer, token: Buffer): boolean =>
+  key.length === token.length && timingSafeEqual(key, token);
+
+/**
+ * Require one of `apiKeys` as `Authorization: Bearer <key>` or `X-API-Key`.
+ * Health probes stay open so orchestrators can reach them, and the dev
+ * playground header cannot bypass a key the operator configured.
+ */
+export function createServerApiKeyMiddleware(
+  apiKeys: string[],
+  basePath: string,
+): MiddlewareDefinition {
+  const keys = apiKeys.map((key) => Buffer.from(key, "utf8"));
+  return createAuthMiddleware({
+    type: "custom",
+    extractToken: (ctx) => {
+      const bearer = /^Bearer\s+(.+)$/i.exec(
+        ctx.headers["authorization"] ?? "",
+      );
+      return bearer?.[1] ?? ctx.headers["x-api-key"] ?? null;
+    },
+    validate: async (token) => {
+      const candidate = Buffer.from(token, "utf8");
+      return keys.some((key) => matchesKey(key, candidate))
+        ? { id: "api-key" }
+        : null;
+    },
+    skipPaths: [`${basePath.replace(/\/+$/, "")}/health`],
+    skipDevPlayground: false,
+  });
+}
 
 // ============================================
 // State Directory Management
@@ -60,6 +132,24 @@ export function isProcessRunning(pid: number): boolean {
     // EPERM means process exists but we lack permission to send signals to it
     return code === "EPERM";
   }
+}
+
+/**
+ * Whether a saved server state belongs to a different, still-running process.
+ * A state naming our own PID is stale: a restarted container is PID 1 again
+ * and would otherwise refuse to start, believing it is already running.
+ */
+export function isOtherServerRunning(pid: number): boolean {
+  return pid !== process.pid && isProcessRunning(pid);
+}
+
+/**
+ * Remove this process's state file however it exits. A graceful stop can end
+ * the process before its signal handler gets to clean up (once the listener
+ * closes, the event loop may drain), so this runs from the "exit" event.
+ */
+export function clearStateOnExit(clearState: () => void): void {
+  process.once("exit", clearState);
 }
 
 // ============================================

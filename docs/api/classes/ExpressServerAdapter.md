@@ -275,6 +275,72 @@ Register custom middleware
 
 ---
 
+### logRequestError()
+
+> `protected` **logRequestError**(`source`, `requestId`, `error`): `void`
+
+Log a failed request. A client error (a rejected API key, a failed
+validation) is routine traffic, so it is a one-line warning rather than
+an error with a stack trace that anyone could flood the logs with.
+
+#### Parameters
+
+##### source
+
+`string`
+
+##### requestId
+
+`string` \| `undefined`
+
+##### error
+
+`Error`
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`logRequestError`](BaseServerAdapter.md#logrequesterror)
+
+---
+
+### emitRequestError()
+
+> `protected` **emitRequestError**(`payload`): `void`
+
+Notify "error" listeners about a failed request. EventEmitter throws when
+"error" has no listener, which inside a framework's error handler turns
+every failure into an empty 500, so emit only when someone is listening.
+
+#### Parameters
+
+##### payload
+
+###### requestId?
+
+`string`
+
+###### error
+
+`Error`
+
+###### timestamp
+
+`Date`
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`emitRequestError`](BaseServerAdapter.md#emitrequesterror)
+
+---
+
 ### createContext()
 
 > `protected` **createContext**(`options`): [`ServerContext`](../type-aliases/ServerContext.md)
