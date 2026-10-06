@@ -1001,10 +1001,13 @@ const policyFreeTools = {
 
         const limitedResults = Math.min(Math.max(maxResults, 1), 5);
         const { GoogleGenAI } = await import("@google/genai");
+        const { googleSdkProxyHttpOptions } =
+          await import("../proxy/proxyFetch.js");
         const vertex_ai = new GoogleGenAI({
           vertexai: true,
           project: hasProjectId,
           location: projectLocation,
+          httpOptions: googleSdkProxyHttpOptions(),
         });
 
         const websearchModel = resolveWebsearchModel();

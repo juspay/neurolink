@@ -37,14 +37,37 @@
  *    rescued by a different provider that happens to have credentials.
  *  - No provider wording and no payload in assertion messages.
  *
- * Not covered, and not claimed: the GoogleGenAI clients built outside the two
- * providers (video analysis, direct tools), Gemini Live websockets, and the
- * Vertex ADC token requests. None of them goes through the SDK's fetch hook.
+ * The `websearchGrounding` direct tool builds its own Vertex client, outside
+ * the providers, and is driven here through `NeuroLink.executeTool()`. Its
+ * credentials are a throwaway service-account key whose universe domain is not
+ * googleapis.com: such a key signs its own JWT instead of asking Google's OAuth
+ * endpoint for a token, so no request leaves the machine for authentication
+ * (the token request is not part of what this suite, or the SDK's fetch hook,
+ * covers).
+ *
+ * NO_PROXY is matched against a Google host name. `dns.lookup` is replaced for
+ * the length of each case so `*.googleapis.com` resolves to the loopback
+ * stand-in and nothing here can reach the real service; every other lookup is
+ * left alone. That is a stand-in for the resolver, not for anything this
+ * package ships, so the suite is still driven only through `../dist`.
+ *
+ * Not covered, and not claimed: the two GoogleGenAI clients in the video
+ * analyzer (src/lib/adapters/video/videoAnalyzer.ts). Nothing reachable from
+ * `NeuroLink.generate()`, `stream()` or the CLI builds them in this release:
+ * the analyzer is called only from BaseProvider's video-frame route, every
+ * text provider overrides `generate()`, and the providers that do reach that
+ * route throw before it. They are changed the same way as the direct tool and
+ * are exercised only by that shared helper. Also not covered: Gemini Live
+ * websockets and the Vertex ADC token requests. Neither goes through the SDK's
+ * fetch hook.
  *
  * Run: npx tsx test/continuous-test-suite-google-genai-proxy.ts
  *      pnpm run test:google-genai-proxy
  */
 
+import { generateKeyPairSync } from "node:crypto";
+import dns from "node:dns";
+import { writeFileSync } from "node:fs";
 import {
   createServer,
   type IncomingMessage,
@@ -52,8 +75,9 @@ import {
   type ServerResponse,
 } from "node:http";
 import type { Socket } from "node:net";
+import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { assert, defineSuite } from "./helpers/harness.js";
+import { assert, defineSuite, tempDir } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
@@ -67,6 +91,7 @@ const { NeuroLink } = await import("../dist/index.js");
 const MODEL = "gemini-2.0-flash";
 const UPSTREAM_HOST = "genai-upstream.invalid";
 const UPSTREAM_ORIGIN = `http://${UPSTREAM_HOST}`;
+const GOOGLE_HOST = "generativelanguage.googleapis.com";
 const PROXY_MARKER = "PROXY_MARKER_7f3a";
 const DIRECT_MARKER = "DIRECT_MARKER_91c2";
 const EXPRESS_KEY = "express-key";
@@ -105,6 +130,7 @@ const TOUCHED_ENV_VARS = [
   "GOOGLE_GENERATIVE_AI_API_KEY",
   "GOOGLE_AI_BASE_URL",
   "GOOGLE_API_KEY",
+  "GOOGLE_GEMINI_BASE_URL",
   "GOOGLE_VERTEX_BASE_URL",
   "GOOGLE_VERTEX_API_KEY",
   "GOOGLE_CLOUD_PROJECT",
@@ -115,6 +141,8 @@ const TOUCHED_ENV_VARS = [
   "VERTEX_LOCATION",
   "GOOGLE_VERTEX_LOCATION",
   "GOOGLE_APPLICATION_CREDENTIALS",
+  "NEUROLINK_WEBSEARCH_LOCATION",
+  "NEUROLINK_WEBSEARCH_MODEL",
 ] as const;
 
 /** Clears every touched variable, applies `set`, and returns the restorer. */
@@ -140,8 +168,8 @@ function withEnv(set: Record<string, string> = {}): () => void {
   };
 }
 
-function sse(text: string): string {
-  const payload = {
+function generateContentPayload(text: string) {
+  return {
     candidates: [
       {
         content: { parts: [{ text }], role: "model" },
@@ -155,7 +183,10 @@ function sse(text: string): string {
       totalTokenCount: 9,
     },
   };
-  return `data: ${JSON.stringify(payload)}\r\n\r\n`;
+}
+
+function sse(text: string): string {
+  return `data: ${JSON.stringify(generateContentPayload(text))}\r\n\r\n`;
 }
 
 type ServedCall = {
@@ -168,6 +199,8 @@ type ServedCall = {
 
 type FakeServer = {
   calls: ServedCall[];
+  /** `host:port` of every CONNECT the server received (proxy only). */
+  connects: string[];
   port: number;
   close: () => Promise<void>;
 };
@@ -188,6 +221,11 @@ function answer(
       path,
       apiKeyHeader: Array.isArray(header) ? header[0] : header,
     });
+    if (path.endsWith(":generateContent")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(generateContentPayload(marker)));
+      return;
+    }
     res.writeHead(200, { "content-type": "text/event-stream" });
     res.end(sse(marker));
   });
@@ -231,7 +269,7 @@ async function startDirectStandIn(): Promise<FakeServer> {
     socket.on("close", () => sockets.delete(socket));
   });
   const port = await listen(server);
-  return { calls, port, close: closer(server, sockets) };
+  return { calls, connects: [], port, close: closer(server, sockets) };
 }
 
 /**
@@ -243,6 +281,7 @@ async function startDirectStandIn(): Promise<FakeServer> {
  */
 async function startForwardProxy(): Promise<FakeServer> {
   const calls: ServedCall[] = [];
+  const connects: string[] = [];
   const sockets = new Set<Socket>();
   const tunnelledHost = new WeakMap<Duplex, string>();
 
@@ -274,6 +313,7 @@ async function startForwardProxy(): Promise<FakeServer> {
     socket.on("close", () => sockets.delete(socket));
   });
   server.on("connect", (req, clientSocket, head) => {
+    connects.push(String(req.url ?? ""));
     tunnelledHost.set(clientSocket, String(req.url ?? ""));
     clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
     if (head.length > 0) {
@@ -286,6 +326,7 @@ async function startForwardProxy(): Promise<FakeServer> {
   const closeOuter = closer(server, sockets);
   return {
     calls,
+    connects,
     port,
     close: async () => {
       await closeOuter();
@@ -349,6 +390,98 @@ function streamFrom(
     disableInternalFallback: true,
     credentials,
   });
+}
+
+/**
+ * Resolves every `*.googleapis.com` name to the loopback address and leaves
+ * every other lookup to the real resolver. Node's connect path reads
+ * `dns.lookup` when it connects. Both call shapes (a single address, and
+ * `all: true`) are answered, because which one a Node version asks for is its
+ * own business. Returns the restorer.
+ */
+function withGoogleNamesOnLoopback(): () => void {
+  const original = dns.lookup;
+  const stand = (hostname: string, ...rest: unknown[]): unknown => {
+    const callback = rest[rest.length - 1];
+    if (
+      hostname.endsWith(".googleapis.com") &&
+      typeof callback === "function"
+    ) {
+      const options = rest.length > 1 ? rest[0] : undefined;
+      const all =
+        typeof options === "object" &&
+        options !== null &&
+        "all" in options &&
+        options.all === true;
+      process.nextTick(() => {
+        if (all) {
+          callback(null, [{ address: "127.0.0.1", family: 4 }]);
+        } else {
+          callback(null, "127.0.0.1", 4);
+        }
+      });
+      return undefined;
+    }
+    return Reflect.apply(original, dns, [hostname, ...rest]);
+  };
+  dns.lookup = stand as unknown as typeof dns.lookup;
+  return () => {
+    dns.lookup = original;
+  };
+}
+
+/**
+ * A service-account key file generated for this run. Its universe domain is not
+ * googleapis.com, so the auth library signs the JWT itself and never calls
+ * Google's OAuth endpoint (a key without it would send a token request to the
+ * real service).
+ */
+function writeServiceAccountKey(): string {
+  const { privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+  const file = join(tempDir("genai-proxy-"), "service-account.json");
+  writeFileSync(
+    file,
+    JSON.stringify({
+      type: "service_account",
+      project_id: "genai-proxy-test",
+      private_key_id: "test-key",
+      private_key: privateKey,
+      client_email: "tester@genai-proxy-test.iam.gserviceaccount.com",
+      client_id: "1",
+      universe_domain: "example.test",
+    }),
+  );
+  return file;
+}
+
+/**
+ * Runs the tool and returns what it resolved with. On ANY throw the error is
+ * discarded unread and a fixed message is raised, for the reason
+ * `drainOrFail` gives.
+ */
+async function toolOrFail(
+  run: () => Promise<unknown>,
+  failMessage: string,
+): Promise<unknown> {
+  try {
+    return await run();
+  } catch {
+    throw new Error(failMessage);
+  }
+}
+
+function toolSucceededWith(result: unknown, marker: string): boolean {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "success" in result &&
+    result.success === true &&
+    JSON.stringify(result).includes(marker)
+  );
 }
 
 function assertGlobalFetchDoesNotProxyItself(): void {
@@ -494,5 +627,201 @@ await test("Google GenAI proxy: with no proxy configured the request path is unc
     await direct.close();
   }
 });
+
+section("the websearchGrounding direct tool goes through the proxy");
+
+const SERVICE_ACCOUNT_KEY = writeServiceAccountKey();
+const WEBSEARCH_PROJECT = "genai-proxy-test";
+
+await test("Google GenAI proxy: websearchGrounding traffic goes through HTTP_PROXY", async () => {
+  assertGlobalFetchDoesNotProxyItself();
+  const proxy = await startForwardProxy();
+  const restore = withEnv({
+    HTTP_PROXY: `http://127.0.0.1:${proxy.port}`,
+    GOOGLE_APPLICATION_CREDENTIALS: SERVICE_ACCOUNT_KEY,
+    GOOGLE_VERTEX_PROJECT: WEBSEARCH_PROJECT,
+    GOOGLE_VERTEX_BASE_URL: UPSTREAM_ORIGIN,
+  });
+  try {
+    const result = await toolOrFail(
+      () =>
+        new NeuroLink().executeTool("websearchGrounding", {
+          query: "proxy routing",
+        }),
+      NO_ANSWER_VIA_PROXY,
+    );
+    assert(
+      toolSucceededWith(result, PROXY_MARKER),
+      "the web search answer did not come through the configured proxy",
+    );
+    assert(
+      proxy.calls.length >= 1,
+      "the proxy received no request from the web search tool",
+    );
+    assert(
+      (proxy.calls[0]?.host ?? "").startsWith(UPSTREAM_HOST),
+      "the proxy was asked for a different upstream than the configured endpoint",
+    );
+    assert(
+      (proxy.calls[0]?.path ?? "").includes(
+        `/projects/${WEBSEARCH_PROJECT}/`,
+      ) && (proxy.calls[0]?.path ?? "").endsWith(":generateContent"),
+      "the proxied request did not address the project's generateContent endpoint",
+    );
+  } finally {
+    restore();
+    await proxy.close();
+  }
+});
+
+await test("Google GenAI proxy: websearchGrounding with no proxy configured goes straight to its endpoint", async () => {
+  const proxy = await startForwardProxy();
+  const direct = await startDirectStandIn();
+  const restore = withEnv({
+    GOOGLE_APPLICATION_CREDENTIALS: SERVICE_ACCOUNT_KEY,
+    GOOGLE_VERTEX_PROJECT: WEBSEARCH_PROJECT,
+    GOOGLE_VERTEX_BASE_URL: `http://127.0.0.1:${direct.port}`,
+  });
+  try {
+    const result = await toolOrFail(
+      () =>
+        new NeuroLink().executeTool("websearchGrounding", {
+          query: "no proxy",
+        }),
+      NO_ANSWER_DIRECT,
+    );
+    assert(
+      toolSucceededWith(result, DIRECT_MARKER),
+      "the web search answer without a proxy did not come from the configured endpoint",
+    );
+    assert(
+      direct.calls.length >= 1,
+      "the configured endpoint received no request from the web search tool",
+    );
+    assert(
+      proxy.calls.length === 0,
+      `the web search tool used a proxy that was not configured (${proxy.calls.length} requests)`,
+    );
+  } finally {
+    restore();
+    await proxy.close();
+    await direct.close();
+  }
+});
+
+/**
+ * NO_PROXY entries, written the ways curl accepts them, against a Google host
+ * name. `port` is the direct stand-in's, so an entry with a port can name the
+ * one the request really uses (a real run would write :443).
+ */
+type NoProxyCase = { label: string; entry: (port: number) => string };
+
+const BYPASS_ENTRIES: NoProxyCase[] = [
+  { label: "a wildcard domain", entry: () => "*.googleapis.com" },
+  { label: "a bare domain", entry: () => "googleapis.com" },
+  {
+    label: "a leading-dot domain with its port",
+    entry: (port) => `.googleapis.com:${port}`,
+  },
+  {
+    label: "a space-separated mixed-case list",
+    entry: () => "localhost *.GoogleAPIs.com",
+  },
+];
+
+const PROXIED_ENTRIES: NoProxyCase[] = [
+  {
+    label: "a lookalike domain and an unrelated wildcard",
+    entry: () => "oogleapis.com,*.example.org",
+  },
+  {
+    label: "the right domain on another port",
+    entry: () => ".googleapis.com:1",
+  },
+  { label: "IP literals only", entry: () => "127.0.0.1,[::1]" },
+];
+
+section("NO_PROXY entries keep a Google host direct");
+
+for (const { label, entry } of BYPASS_ENTRIES) {
+  await test(`Google GenAI proxy: NO_PROXY as ${label} keeps a Google host direct`, async () => {
+    const proxy = await startForwardProxy();
+    const direct = await startDirectStandIn();
+    const restoreDns = withGoogleNamesOnLoopback();
+    const restore = withEnv({
+      HTTP_PROXY: `http://127.0.0.1:${proxy.port}`,
+      NO_PROXY: entry(direct.port),
+    });
+    try {
+      const text = await drainOrFail(
+        () =>
+          streamFrom(
+            "google-ai",
+            aiStudioCredentials(`http://${GOOGLE_HOST}:${direct.port}`),
+          ),
+        NO_ANSWER_DIRECT,
+      );
+      assert(
+        text.includes(DIRECT_MARKER),
+        "the answer for a NO_PROXY Google host did not come from the direct endpoint",
+      );
+      assert(
+        direct.calls[0]?.host === `${GOOGLE_HOST}:${direct.port}`,
+        "the direct endpoint was not reached under the Google host name",
+      );
+      assert(
+        proxy.calls.length === 0 && proxy.connects.length === 0,
+        `a NO_PROXY Google host was still sent to the proxy (${proxy.calls.length} requests, ${proxy.connects.length} tunnels)`,
+      );
+    } finally {
+      restore();
+      restoreDns();
+      await proxy.close();
+      await direct.close();
+    }
+  });
+}
+
+section("controls: NO_PROXY entries that do not name the host");
+
+for (const { label, entry } of PROXIED_ENTRIES) {
+  await test(`Google GenAI proxy: NO_PROXY as ${label} does not bypass the proxy`, async () => {
+    assertGlobalFetchDoesNotProxyItself();
+    const proxy = await startForwardProxy();
+    const direct = await startDirectStandIn();
+    const restoreDns = withGoogleNamesOnLoopback();
+    const restore = withEnv({
+      HTTP_PROXY: `http://127.0.0.1:${proxy.port}`,
+      NO_PROXY: entry(direct.port),
+    });
+    try {
+      const text = await drainOrFail(
+        () =>
+          streamFrom(
+            "google-ai",
+            aiStudioCredentials(`http://${GOOGLE_HOST}:${direct.port}`),
+          ),
+        NO_ANSWER_VIA_PROXY,
+      );
+      assert(
+        text.includes(PROXY_MARKER),
+        "the answer for a Google host that NO_PROXY does not name did not come through the proxy",
+      );
+      assert(
+        proxy.calls[0]?.host === `${GOOGLE_HOST}:${direct.port}`,
+        "the proxy was asked for a different upstream than the Google host",
+      );
+      assert(
+        direct.calls.length === 0,
+        `a Google host that NO_PROXY does not name was sent direct (${direct.calls.length} requests)`,
+      );
+    } finally {
+      restore();
+      restoreDns();
+      await proxy.close();
+      await direct.close();
+    }
+  });
+}
 
 await runSuite();
