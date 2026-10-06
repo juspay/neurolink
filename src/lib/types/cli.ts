@@ -11,6 +11,7 @@ import type { VideoGenerationResult } from "./multimodal.js";
 import type { PPTGenerationResult } from "./ppt.js";
 import type { AvatarResult } from "./avatar.js";
 import type { MusicResult } from "./music.js";
+import type { TranscribeStreamEvent } from "./transcribe.js";
 import type { OAuthTokens } from "./auth.js";
 import type { AccountQuota, ProxyPassthroughAccount } from "./proxy.js";
 import type { ClaudeSubscriptionTier } from "./subscription.js";
@@ -1364,6 +1365,8 @@ export type ServeCommandArgs = {
   framework?: ServerFramework;
   basePath?: string;
   cors?: boolean;
+  /** Browser origins allowed by CORS (`--cors-origin`, repeatable or comma-separated). */
+  corsOrigin?: string[];
   rateLimit?: number;
   swagger?: boolean;
   config?: string;
@@ -1576,6 +1579,50 @@ export type CliDecideArgs = {
 };
 
 // =============================================================================
+// TRANSCRIBE COMMAND (from cli/commands/transcribe.ts)
+// =============================================================================
+
+/** Arguments for `neurolink transcribe <file|->`. */
+export type CliTranscribeArgs = {
+  /** Audio file path, or `-` to read the audio from stdin. */
+  file?: string;
+  provider?: string;
+  model?: string;
+  /** ISO / BCP-47 code, or `auto` (the default) to let the engine detect it. */
+  language?: string;
+  diarize?: boolean;
+  wordTimestamps?: boolean;
+  prompt?: string;
+  /** Path to a JSON array of `{ term, heardAs, meaning }`. */
+  dictionary?: string;
+  /** Inline dictionary entries: `"Term|heard,as|meaning"`. */
+  term?: string[];
+  correct?: boolean;
+  rewriteProvider?: string;
+  rewriteModel?: string;
+  /** `--no-rewrite` sets this to `false`. */
+  rewrite?: boolean;
+  transliterate?: "latin" | "native";
+  secondOpinion?: string;
+  fallback?: string;
+  context?: string;
+  stream?: boolean;
+  format?: "text" | "json" | "srt" | "vtt";
+  timeout?: number;
+  quiet?: boolean;
+  debug?: boolean;
+};
+
+/** One subtitle cue built from segment or word timings (`--format srt|vtt`). */
+export type CliSubtitleCue = { start: number; end: number; text: string };
+
+/** Prints `transcribeStream()` events for one `--stream` run. */
+export type CliTranscribeStreamSink = {
+  event(event: TranscribeStreamEvent): void;
+  finish(): void;
+};
+
+// =============================================================================
 // EVALUATE COMMAND (from cli/commands/evaluate.ts)
 // =============================================================================
 
@@ -1708,6 +1755,8 @@ export type ServerInstance = {
     middleware: import("./server.js").MiddlewareDefinition,
   ) => void;
   listRoutes?: () => import("./server.js").RouteDefinition[];
+  /** The listening Node http.Server, when the adapter has one to attach WebSocket upgrades to. */
+  getNativeServer?: () => unknown;
 };
 
 /** Persisted state for a running `neurolink serve` process. */

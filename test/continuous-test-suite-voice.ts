@@ -15,7 +15,7 @@ import { withCaseTimeout, isCaseTimeout } from "./helpers/harness.js";
  * - Audio utilities (detectAudioFormat, createWavHeader, splitIntoChunks, resamplePcm)
  * - ChunkedAudioStream validation
  * - Barrel exports (error codes, constants, SpanType)
- * - Removed methods (synthesize, transcribe, startRealtimeVoice) do NOT exist
+ * - Removed methods (synthesize, startRealtimeVoice) do NOT exist; transcribe is back as an inference type
  *
  * Run: npx tsx test/continuous-test-suite-voice.ts --provider=vertex
  *
@@ -1613,8 +1613,10 @@ async function testRemovedMethods(): Promise<boolean | null> {
 
     const checks: Array<{ label: string; ok: boolean; detail: string }> = [];
 
-    // These methods must NOT exist
-    const mustBeAbsent = ["synthesize", "transcribe", "startRealtimeVoice"];
+    // These methods must NOT exist. `transcribe` is deliberately not in this
+    // list any more: it came back as the fourth inference type (next to
+    // generate / stream / decide), so it is asserted present below.
+    const mustBeAbsent = ["synthesize", "startRealtimeVoice"];
     for (const method of mustBeAbsent) {
       const exists = typeof sdkRecord[method] === "function";
       checks.push({
@@ -1627,7 +1629,7 @@ async function testRemovedMethods(): Promise<boolean | null> {
     }
 
     // These methods MUST still exist
-    const mustExist = ["generate", "stream"];
+    const mustExist = ["generate", "stream", "transcribe", "transcribeStream"];
     for (const method of mustExist) {
       const exists = typeof sdkRecord[method] === "function";
       checks.push({

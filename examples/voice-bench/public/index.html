@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Voice Bench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="mode-live">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-3.06A8 8 0 0 0 20 11h-2z"
+            /></svg
+        ></span>
+        <h1>Voice Bench<small>NeuroLink · speech demo</small></h1>
+      </div>
+      <nav class="nav" aria-label="Sections">
+        <button type="button" data-view="live" class="active">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3v18M7 8v8M17 8v8M3 11v2M21 11v2" /></svg
+          >Live
+        </button>
+        <button type="button" data-view="files">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M4 4h9l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"
+            />
+            <path d="M13 4v5h5" /></svg
+          >Files
+        </button>
+        <button type="button" data-view="dictionary">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z" />
+            <path d="M4 17a3 3 0 0 1 3-3h12" /></svg
+          >Dictionary<span class="count" id="dictCount">0</span>
+        </button>
+        <button type="button" data-view="speak">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 9v6h4l5 4V5L8 9z" />
+            <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /></svg
+          >Speak
+        </button>
+        <button type="button" data-view="settings">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+            /></svg
+          >Settings
+        </button>
+      </nav>
+      <div class="side-foot">
+        <h4>Engines</h4>
+        <div
+          class="conn"
+          id="connNeurolink"
+          title="Transport: NeuroLink server or direct engines"
+        >
+          <span class="dot"></span>NeuroLink server<span
+            class="detail"
+            id="connNeurolinkDetail"
+            >checking…</span
+          >
+        </div>
+        <div class="conn" id="connSpark">
+          <span class="dot"></span>Qwen3-ASR<span
+            class="detail"
+            id="connSparkDetail"
+            >checking…</span
+          >
+        </div>
+        <div class="conn" id="connIndic">
+          <span class="dot"></span>IndicConformer<span
+            class="detail"
+            id="connIndicDetail"
+            >checking…</span
+          >
+        </div>
+        <div class="conn" id="connWhistle">
+          <span class="dot"></span>Whistle<span
+            class="detail"
+            id="connWhistleDetail"
+            >on demand</span
+          >
+        </div>
+        <div class="conn" id="connScribe">
+          <span class="dot"></span>Scribe<span
+            class="detail"
+            id="connScribeDetail"
+          ></span>
+        </div>
+        <div class="conn" id="connGateway">
+          <span class="dot"></span>Corrector<span
+            class="detail"
+            id="connGatewayDetail"
+            >checking…</span
+          >
+        </div>
+        <button
+          class="theme"
+          id="theme"
+          type="button"
+          title="Toggle light / dark"
+        >
+          ◐ theme
+        </button>
+      </div>
+    </aside>
+
+    <main>
+      <!-- ===================================================== Live -->
+      <section class="view" id="viewLive">
+        <header class="toolbar">
+          <h2>Live</h2>
+          <div
+            class="segmented"
+            id="engineSeg"
+            role="group"
+            aria-label="Engine"
+          >
+            <button type="button" data-engine="local" class="active">
+              <span class="sw"></span>Spark · Qwen3-ASR
+            </button>
+            <button type="button" data-engine="indic">
+              <span class="sw"></span>IndicConformer
+            </button>
+            <button type="button" data-engine="whistle">
+              <span class="sw"></span>Whistle
+            </button>
+            <button type="button" data-engine="scribe">
+              <span class="sw"></span>Scribe
+            </button>
+          </div>
+          <select class="select" id="lang" aria-label="Language">
+            <option value="">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi · Hinglish</option>
+            <option value="ta">Tamil</option>
+            <option value="te">Telugu</option>
+            <option value="kn">Kannada</option>
+            <option value="ml">Malayalam</option>
+            <option value="bn">Bengali</option>
+            <option value="mr">Marathi</option>
+            <option value="gu">Gujarati</option>
+            <option value="pa">Punjabi</option>
+            <option value="ur">Urdu</option>
+            <option value="or">Odia</option>
+            <option value="as">Assamese</option>
+            <option value="ne">Nepali</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+            <option value="ar">Arabic</option>
+          </select>
+          <div
+            class="segmented"
+            id="modeSeg"
+            role="group"
+            aria-label="Capture mode"
+          >
+            <button type="button" data-mode="live" class="active">
+              Live captions
+            </button>
+            <button type="button" data-mode="ptt">Push to talk</button>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn quiet" id="copyAllLive" type="button">
+            Copy transcript
+          </button>
+          <button class="btn quiet" id="clearLive" type="button">Clear</button>
+          <button
+            class="btn"
+            id="panelToggle"
+            type="button"
+            aria-pressed="true"
+          >
+            Correction ▸
+          </button>
+        </header>
+
+        <div class="live-grid" id="liveGrid">
+          <div class="live-main">
+            <div class="doc-head">
+              <span class="tag local" id="docEngine">live</span>
+              <span class="doc-status" id="docStatus"
+                >click the mic to start</span
+              >
+              <span class="spacer"></span>
+              <button class="btn sm" id="docCopy" type="button">Copy</button>
+              <button class="btn sm" id="docClear" type="button">Clear</button>
+            </div>
+            <div
+              class="doc-body is-empty"
+              id="docBody"
+              contenteditable="true"
+              spellcheck="false"
+              aria-label="Live transcript"
+              data-placeholder="Click the mic and speak. Words appear as they are recognized; each sentence is corrected in place when you pause."
+            >
+              <span id="docText"></span><span class="tail" id="docTail"></span
+              ><span class="caret" id="docCaret"></span>
+            </div>
+            <details class="raw-strip" id="rawStrip" open>
+              <summary>
+                Before correction
+                <span class="hint"
+                  >raw engine text per sentence, and what changed</span
+                >
+              </summary>
+              <ol id="rawList"></ol>
+            </details>
+
+            <div class="feed" id="feed">
+              <p class="empty" id="empty">
+                <strong>Push to talk:</strong> hold the mic, or hold
+                <kbd>Space</kbd>, and speak. Release to transcribe. A quick tap
+                starts a longer recording; tap again to stop.
+              </p>
+            </div>
+          </div>
+
+          <aside class="panel" id="panel">
+            <section>
+              <h3>Correction</h3>
+              <label class="switch" for="correct"
+                ><input type="checkbox" id="correct" checked /><span
+                  class="track"
+                ></span
+                ><span class="lbl"
+                  ><b>Correct finals</b
+                  ><span
+                    >dictionary → decision-model guard → LLM rewrite on each
+                    finished sentence</span
+                  ></span
+                ></label
+              >
+              <label class="switch" for="dual"
+                ><input type="checkbox" id="dual" checked /><span
+                  class="track"
+                ></span
+                ><span class="lbl"
+                  ><b>Dual engine</b
+                  ><span
+                    >IndicConformer / Whistle finals also get a Spark pass; the
+                    rewrite reconciles both</span
+                  ></span
+                ></label
+              >
+              <label class="switch" for="romanize"
+                ><input type="checkbox" id="romanize" checked /><span
+                  class="track"
+                ></span
+                ><span class="lbl"
+                  ><b>Romanize Indic script</b
+                  ><span
+                    >Hinglish / Tanglish the way people type; never
+                    translated</span
+                  ></span
+                ></label
+              >
+              <label class="switch" for="cleanup"
+                ><input type="checkbox" id="cleanup" /><span
+                  class="track"
+                ></span
+                ><span class="lbl"
+                  ><b>Glossary cleanup (files)</b
+                  ><span
+                    >batched dictionary pass over long transcripts</span
+                  ></span
+                ></label
+              >
+            </section>
+            <section>
+              <h3>
+                Decisions
+                <span class="tag" id="decisionModel">decision model</span>
+              </h3>
+              <p class="empty-note" id="decisionsEmpty">
+                What the decision model answered for each sentence — language
+                detection and every dictionary candidate — appears here.
+              </p>
+              <div class="decisions" id="decisions"></div>
+            </section>
+          </aside>
+        </div>
+
+        <footer class="dock" id="dock">
+          <div class="mic-wrap">
+            <div class="ring" id="ring"></div>
+            <button
+              class="mic"
+              id="mic"
+              type="button"
+              aria-label="Start or stop live captions"
+              disabled
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-3.06A8 8 0 0 0 20 11h-2z"
+                />
+              </svg>
+            </button>
+          </div>
+          <div class="dock-text">
+            <div class="hint" id="hint">
+              <strong>Live captions</strong> · click the mic to start
+            </div>
+            <div class="timer" id="timer">0.0 s</div>
+            <div class="mode-note" id="modeNote"></div>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ===================================================== Files -->
+      <section class="view" id="viewFiles" hidden>
+        <header class="toolbar">
+          <h2>Files</h2>
+          <div class="engine-checks" role="group" aria-label="Engines to run">
+            <label class="chk"
+              ><input type="checkbox" data-fengine="local" checked /> Spark ·
+              diarized</label
+            >
+            <label class="chk"
+              ><input type="checkbox" data-fengine="scribe" checked /> Scribe
+              (cloud)</label
+            >
+            <label class="chk"
+              ><input type="checkbox" data-fengine="whistle" /> Whistle</label
+            >
+            <label class="chk"
+              ><input type="checkbox" data-fengine="indic" />
+              IndicConformer</label
+            >
+          </div>
+          <label
+            class="chk"
+            title="Expected number of speakers (Spark diarization only; blank = let the model decide)"
+            >speakers
+            <input
+              class="input num"
+              id="maxSpeakers"
+              type="number"
+              min="1"
+              max="8"
+              placeholder="auto"
+              style="width: 4.5em; padding: 3px 6px"
+          /></label>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size: 12.5px"
+            >Language, Romanize and Glossary cleanup follow the Live
+            settings.</span
+          >
+        </header>
+        <div class="scroll">
+          <div class="files">
+            <div class="drop" id="drop">
+              <input
+                type="file"
+                id="fileInput"
+                accept="audio/*,video/*,.mp4,.m4a,.mp3,.wav,.webm,.ogg,.flac"
+                hidden
+              />
+              <div class="drop-title">
+                Drop a meeting recording here, or
+                <button class="linklike" id="pick" type="button">
+                  choose a file
+                </button>
+              </div>
+              <div class="drop-sub">
+                MP4, M4A, MP3, WAV, WebM — any length. <b>Spark</b> = Nemotron-3
+                diarization + Qwen3-ASR with speaker labels · <b>Scribe</b> =
+                ElevenLabs Scribe v2 with speakers · <b>Whistle</b> = Cactus
+                16.9 MB in this tab, English + 6 European languages ·
+                <b>IndicConformer</b> = AI4Bharat 600M on this Mac, 22 Indian
+                languages, auto-detected.
+              </div>
+            </div>
+            <div class="job card" id="job" hidden>
+              <div class="card-head">
+                <div class="job-name" id="jobName"></div>
+                <div class="job-actions">
+                  <button class="btn sm" id="copyAll" type="button">
+                    Copy all
+                  </button>
+                  <button class="btn sm" id="downloadTxt" type="button">
+                    Download all
+                  </button>
+                  <button class="btn sm danger" id="cancelJob" type="button">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <div class="card-body results" id="results">
+                <section class="result" id="resLocal" hidden>
+                  <div class="result-head">
+                    <span class="tag local">Spark · Qwen3-ASR + Nemotron-3</span
+                    ><span class="job-stats" id="statsLocal"></span>
+                    <span class="result-actions"
+                      ><button class="btn sm" type="button" data-copy="local">
+                        Copy</button
+                      ><button
+                        class="btn sm"
+                        type="button"
+                        data-download="local"
+                      >
+                        .txt
+                      </button></span
+                    >
+                  </div>
+                  <div class="bar">
+                    <div class="bar-fill" id="barLocal"></div>
+                  </div>
+                  <ol class="segments" id="segments"></ol>
+                </section>
+                <section class="result" id="resCloud" hidden>
+                  <div class="result-head">
+                    <span class="tag cloud">Cloud · ElevenLabs Scribe v2</span
+                    ><span class="job-stats" id="statsCloud"></span>
+                    <span class="result-actions"
+                      ><button class="btn sm" type="button" data-copy="cloud">
+                        Copy</button
+                      ><button
+                        class="btn sm"
+                        type="button"
+                        data-download="cloud"
+                      >
+                        .txt
+                      </button></span
+                    >
+                  </div>
+                  <div class="bar">
+                    <div class="bar-fill" id="barCloud"></div>
+                  </div>
+                  <ol class="segments" id="cloudSegments"></ol>
+                </section>
+                <section class="result" id="resWhistle" hidden>
+                  <div class="result-head">
+                    <span class="tag browser">Browser · Whistle</span
+                    ><span class="job-stats" id="statsWhistle"></span>
+                    <span class="result-actions"
+                      ><button class="btn sm" type="button" data-copy="whistle">
+                        Copy</button
+                      ><button
+                        class="btn sm"
+                        type="button"
+                        data-download="whistle"
+                      >
+                        .txt
+                      </button></span
+                    >
+                  </div>
+                  <div class="bar">
+                    <div class="bar-fill" id="barWhistle"></div>
+                  </div>
+                  <ol class="segments" id="whistleSegments"></ol>
+                </section>
+                <section class="result" id="resIndic" hidden>
+                  <div class="result-head">
+                    <span class="tag indic">Mac · IndicConformer-600M</span
+                    ><span class="job-stats" id="statsIndic"></span>
+                    <span class="result-actions"
+                      ><button class="btn sm" type="button" data-copy="indic">
+                        Copy</button
+                      ><button
+                        class="btn sm"
+                        type="button"
+                        data-download="indic"
+                      >
+                        .txt
+                      </button></span
+                    >
+                  </div>
+                  <div class="bar">
+                    <div class="bar-fill" id="barIndic"></div>
+                  </div>
+                  <ol class="segments" id="indicSegments"></ol>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== Dictionary -->
+      <section class="view" id="viewDictionary" hidden>
+        <div class="scroll">
+          <div class="page">
+            <div class="page-head">
+              <h2>Dictionary</h2>
+              <p>
+                Names, products and jargon the engines keep mis-hearing. Each
+                term is sent to the ASR as context, used by the decision model
+                to judge every candidate replacement, and given to the rewrite
+                model with its meaning.
+              </p>
+            </div>
+            <form class="card" id="dictForm">
+              <div class="card-head">
+                <h3 id="dictFormTitle">Add a term</h3>
+                <span class="hint"
+                  >Enter adds a mis-hearing as a chip · the meaning helps the
+                  models decide</span
+                >
+              </div>
+              <div class="card-body dict-form">
+                <label class="field"
+                  >Term (correct spelling)<input
+                    class="input"
+                    id="dictTerm"
+                    placeholder="e.g. Kubernetes"
+                    autocomplete="off"
+                    required
+                /></label>
+                <label class="field"
+                  >Also heard as
+                  <div class="chips" id="dictChips">
+                    <input
+                      id="dictHeardInput"
+                      placeholder="type and press Enter · any script"
+                      autocomplete="off"
+                    /></div
+                ></label>
+                <label class="field"
+                  >Meaning / usage<input
+                    class="input"
+                    id="dictMeaning"
+                    placeholder="e.g. our company"
+                    autocomplete="off"
+                /></label>
+                <div style="display: flex; gap: 6px">
+                  <button class="btn primary" type="submit" id="dictSave">
+                    Add</button
+                  ><button class="btn" type="button" id="dictCancel" hidden>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </form>
+            <div class="card">
+              <div class="card-head">
+                <h3>Context</h3>
+                <span class="hint"
+                  >one sentence about who is talking and about what — sent to
+                  the ASR and the decision model</span
+                >
+              </div>
+              <div class="card-body">
+                <input
+                  class="input"
+                  id="meetingContext"
+                  placeholder="e.g. payments platform team, weekly engineering sync"
+                />
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h3>Terms <span class="tag" id="dictTotal">0</span></h3>
+                <span class="spacer"></span>
+                <input
+                  class="input"
+                  id="dictSearch"
+                  placeholder="filter…"
+                  style="width: 14em; padding: 5px 10px; font-size: 13px"
+                />
+                <button class="btn sm" id="dictExport" type="button">
+                  Export JSON
+                </button>
+                <button class="btn sm" id="dictImport" type="button">
+                  Import</button
+                ><input
+                  type="file"
+                  id="dictImportFile"
+                  accept="application/json,.json"
+                  hidden
+                />
+                <button
+                  class="btn sm danger"
+                  id="dictReset"
+                  type="button"
+                  title="Restore the sample dictionary"
+                >
+                  Reset to sample
+                </button>
+              </div>
+              <div class="dict-cols">
+                <span>Term</span><span>Also heard as</span><span>Meaning</span
+                ><span></span>
+              </div>
+              <div class="dict-list" id="dictList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== Speak -->
+      <section class="view" id="viewSpeak" hidden>
+        <div class="scroll">
+          <div class="page">
+            <div class="page-head">
+              <h2>Speak</h2>
+              <p>
+                Text to speech through the configured TTS model (Fish Audio
+                S2-Pro via LiteLLM in the reference setup). Inline tags change
+                delivery mid-sentence; clone a voice from your last push-to-talk
+                recording.
+              </p>
+            </div>
+            <form class="card tts-panel" id="ttsForm">
+              <div class="card-body tts-panel">
+                <textarea
+                  class="input"
+                  id="ttsText"
+                  rows="4"
+                  placeholder="Text for the TTS model to say…"
+                >
+Hello from the voice bench. [excited] Speech recognition and synthesis, all self-hosted! [whisper] And this part is a whisper.</textarea
+                >
+                <div class="tts-row">
+                  <select class="select" id="voice" aria-label="Voice">
+                    <option value="default">default</option>
+                  </select>
+                  <button class="btn primary" id="speak" type="submit">
+                    Speak
+                  </button>
+                  <span class="clone"
+                    ><input
+                      class="input"
+                      id="cloneName"
+                      placeholder="voice name"
+                      aria-label="Name for cloned voice"
+                    /><button
+                      class="btn"
+                      id="clone"
+                      type="button"
+                      title="Uses your last push-to-talk recording (3–30 s) and its transcript as the reference"
+                    >
+                      Clone last recording
+                    </button></span
+                  >
+                  <span class="tags"
+                    >tags: <b>[whisper]</b> <b>[excited]</b> <b>[laughing]</b>
+                    <b>[pause]</b> <b>[pitch up]</b></span
+                  >
+                </div>
+              </div>
+            </form>
+            <div class="card">
+              <div class="card-head"><h3>Spoken</h3></div>
+              <div
+                class="card-body feed"
+                id="ttsFeed"
+                style="max-height: 60vh"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== Settings -->
+      <section class="view" id="viewSettings" hidden>
+        <div class="scroll">
+          <div class="page">
+            <div class="page-head">
+              <h2>Settings</h2>
+              <p>
+                Endpoints come from <code>config.js</code> (copy
+                <code>config.example.js</code>). Tuning below is saved in this
+                browser.
+              </p>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h3>Transport</h3>
+                <span class="hint" id="transportHint"></span>
+              </div>
+              <div class="card-body">
+                <label class="switch" for="viaNeurolink"
+                  ><input type="checkbox" id="viaNeurolink" /><span
+                    class="track"
+                  ></span
+                  ><span class="lbl"
+                    ><b>Transcribe through NeuroLink server</b
+                    ><span
+                      >Push to talk, Files and Live captions go to
+                      <code>neurolinkBaseUrl</code>: the server runs the
+                      engines, the endpointing and the correction (dictionary →
+                      decision guard → rewrite). Off: the page calls the engines
+                      directly and corrects in the browser, as the comparison
+                      baseline. Scribe is always called directly.</span
+                    ></span
+                  ></label
+                >
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Endpoints</h3></div>
+              <div class="card-body"><dl class="kv" id="endpoints"></dl></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h3>Live captions tuning</h3>
+                <span class="hint"
+                  >endpointing runs on 20 ms blocks with a minimum-statistics
+                  noise floor</span
+                >
+              </div>
+              <div class="card-body settings-grid">
+                <label class="field"
+                  >End of sentence after silence (ms)<input
+                    class="input"
+                    type="number"
+                    id="setSilence"
+                    min="300"
+                    max="2000"
+                    step="50"
+                /></label>
+                <label class="field"
+                  >Interim pass interval — Spark (ms)<input
+                    class="input"
+                    type="number"
+                    id="setIntervalLocal"
+                    min="300"
+                    max="3000"
+                    step="50"
+                /></label>
+                <label class="field"
+                  >Interim pass interval — IndicConformer (ms)<input
+                    class="input"
+                    type="number"
+                    id="setIntervalIndic"
+                    min="300"
+                    max="3000"
+                    step="50"
+                /></label>
+                <label class="field"
+                  >Interim pass interval — Whistle (ms)<input
+                    class="input"
+                    type="number"
+                    id="setIntervalWhistle"
+                    min="300"
+                    max="3000"
+                    step="50"
+                /></label>
+                <label class="field"
+                  >Long turns end at a pause after (s)<input
+                    class="input"
+                    type="number"
+                    id="setSoftCut"
+                    min="6"
+                    max="30"
+                    step="1"
+                /></label>
+                <label class="field"
+                  >Speech onset floor (RMS)<input
+                    class="input"
+                    type="number"
+                    id="setOnset"
+                    min="0.002"
+                    max="0.05"
+                    step="0.001"
+                /></label>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>History</h3></div>
+              <div
+                class="card-body"
+                style="display: flex; gap: 8px; flex-wrap: wrap"
+              >
+                <button class="btn" id="clearHistory" type="button">
+                  Clear saved transcript cards</button
+                ><button class="btn" id="resetTuning" type="button">
+                  Reset tuning
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

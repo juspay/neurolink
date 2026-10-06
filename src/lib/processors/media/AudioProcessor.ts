@@ -41,8 +41,6 @@ import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
   AudioProcessorOptions,
   AudioTranscriptionOutcome,
-  AudioTranscriptionProvider,
-  AudioTranscriptionSelection,
   FileInfo,
   ProcessedAudio,
   ProcessorFileProcessingResult,
@@ -51,6 +49,15 @@ import type {
   STTResult,
   TTSAudioFormat,
 } from "../../types/index.js";
+import {
+  getSTTProviderDescriptor,
+  isSTTProviderConfigured,
+  resolveDefaultSTTProvider,
+  resolveSTTProviderName,
+  STT_PROVIDER_DESCRIPTORS,
+} from "../../factories/sttDescriptors.js";
+import { STTProcessor } from "../../utils/sttProcessor.js";
+import { freshEnvSTTCredentials } from "../../voice/sttEnvCredentials.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import {
   extensionsForModality,
@@ -94,18 +101,6 @@ const AUDIO_CONFIG = {
   WHISPER_MAX_SIZE_MB: 25,
   /** Transcription timeout in milliseconds (120 seconds for large files) */
   TRANSCRIPTION_TIMEOUT_MS: 120_000,
-  /** Whisper-supported audio formats */
-  WHISPER_SUPPORTED_FORMATS: [
-    "mp3",
-    "mp4",
-    "mpeg",
-    "mpga",
-    "m4a",
-    "wav",
-    "webm",
-    "flac",
-    "ogg",
-  ] as readonly string[],
 } as const;
 
 /**
@@ -136,71 +131,37 @@ const SUPPORTED_AUDIO_EXTENSIONS: readonly string[] =
   extensionsForModality("audio");
 
 /**
- * Transcription backends this processor can drive, in auto-selection order
- * (#413). OpenAI first because Whisper is the only one with a native path
- * here; Google and Azure are delegated to the STT handlers under
- * `src/lib/voice/providers/`, which already speak those wire formats.
- *
- * The order is the preference order and nothing else — a backend is only
- * chosen if `isProviderAvailable` says its credentials are present.
+ * Backend names this processor has always accepted in
+ * `AudioProcessorOptions.provider`, mapped onto STT provider names. Anything
+ * else is resolved through the STT descriptors (`whisper`, `deepgram`,
+ * `scribe`, `local`, …), so every shipped STT provider can be pinned here.
  */
-const TRANSCRIPTION_PROVIDER_ORDER: readonly AudioTranscriptionProvider[] = [
-  "openai",
-  "google",
-  "azure",
-];
-
-/**
- * Environment variables that make each backend usable, and the label used in
- * log lines and in `ProcessedAudio.transcriptionProvider`.
- *
- * Google accepts four credential vars: `.env.example` documents
- * `GOOGLE_AI_API_KEY`/`GEMINI_API_KEY` as aliases of `GOOGLE_API_KEY`, and
- * `GOOGLE_APPLICATION_CREDENTIALS` (a service-account key file) is a fourth,
- * independent credential `GoogleSTT` accepts on its own. All four are kept in
- * sync here so availability cannot disagree with what the handler will accept.
- */
-const TRANSCRIPTION_PROVIDER_CREDENTIALS: Record<
-  AudioTranscriptionProvider,
-  { label: string; envVars: readonly string[] }
-> = {
-  openai: { label: "openai-whisper", envVars: ["OPENAI_API_KEY"] },
-  google: {
-    label: "google-stt",
-    // GoogleSTT.isConfigured() also accepts a service-account file via
-    // GOOGLE_APPLICATION_CREDENTIALS (constructor in voice/providers/GoogleSTT.ts)
-    // — listed here too so availability cannot disagree with what the handler
-    // will actually accept.
-    envVars: [
-      "GOOGLE_API_KEY",
-      "GOOGLE_AI_API_KEY",
-      "GEMINI_API_KEY",
-      "GOOGLE_APPLICATION_CREDENTIALS",
-    ],
-  },
-  azure: { label: "azure-stt", envVars: ["AZURE_SPEECH_KEY"] },
+const LEGACY_TRANSCRIPTION_ALIASES: Readonly<Record<string, string>> = {
+  openai: "whisper",
+  "openai-whisper": "whisper",
+  google: "google-stt",
+  "google-speech": "google-stt",
+  azure: "azure-stt",
+  "azure-speech": "azure-stt",
 };
 
 /**
- * Caller-facing aliases for a backend name. `AudioProcessorOptions.provider`
- * is a free-form `string` on the public surface, so "whisper" and
- * "openai-whisper" have to land on the same backend as "openai" rather than
- * being rejected as unknown.
+ * The label reported in log lines and in `ProcessedAudio.transcriptionProvider`.
+ * Whisper keeps the label it has always had; every other provider reports its
+ * STT provider name.
  */
-const TRANSCRIPTION_PROVIDER_ALIASES: Record<
-  string,
-  AudioTranscriptionProvider
-> = {
-  openai: "openai",
-  whisper: "openai",
-  "openai-whisper": "openai",
-  google: "google",
-  "google-stt": "google",
-  "google-speech": "google",
-  azure: "azure",
-  "azure-stt": "azure",
-  "azure-speech": "azure",
-};
+function transcriptionLabel(provider: string): string {
+  return provider === "whisper" ? "openai-whisper" : provider;
+}
+
+/** The STT provider a caller's backend name means, if it means one. */
+function resolveTranscriptionProvider(requested: string): string | undefined {
+  const normalized = requested.trim().toLowerCase();
+  return (
+    LEGACY_TRANSCRIPTION_ALIASES[normalized] ??
+    resolveSTTProviderName(normalized)
+  );
+}
 
 /**
  * Map an audio mimetype/extension onto the format vocabulary the STT handlers
@@ -457,87 +418,88 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
   // ===========================================================================
 
   /**
-   * Whether a transcription backend has the credentials it needs (#413).
+   * Choose the transcription backend for this file (#413).
+   *
+   * With no `requested` backend, the STT default applies: the provider named
+   * by `NEUROLINK_STT_PROVIDER`, else the first configured STT provider in
+   * descriptor order, else the built-in local engine when it can run here.
+   * With one, it is resolved through the legacy names and the STT aliases and
+   * validated for availability — a backend the caller explicitly asked for is
+   * never silently swapped for a different one, because a caller who pinned
+   * Azure for a data-residency reason would not want OpenAI chosen behind
+   * their back. The mismatch is reported instead.
    *
    * Availability is decided from the environment only — no network call — so
    * selection stays cheap and cannot itself fail. A key that is present but
    * rejected upstream surfaces later, as a transcription failure with the
    * provider's own message, not as "unavailable".
    *
-   * @param provider - Backend to check
-   * @returns True when at least one of the backend's credential vars is set
-   */
-  private isProviderAvailable(provider: AudioTranscriptionProvider): boolean {
-    const { envVars } = TRANSCRIPTION_PROVIDER_CREDENTIALS[provider];
-    return envVars.some((name) => (process.env[name] ?? "").trim().length > 0);
-  }
-
-  /**
-   * Choose the transcription backend for this file (#413).
-   *
-   * With no `requested` backend, the first configured entry of
-   * {@link TRANSCRIPTION_PROVIDER_ORDER} wins (OpenAI, then Google, then
-   * Azure). With one, it is normalised through the alias table and validated
-   * for availability — a backend the caller explicitly asked for is never
-   * silently swapped for a different one, because a caller who pinned Azure
-   * for a data-residency reason would not want OpenAI chosen behind their
-   * back. The mismatch is reported instead.
-   *
    * @param requested - Caller's `AudioProcessorOptions.provider`, if any
    * @returns The chosen backend, or the reason no backend could be chosen
    */
-  private selectProvider(requested?: string): AudioTranscriptionSelection {
-    const normalized = requested?.trim().toLowerCase();
+  private async selectProvider(
+    requested?: string,
+  ): Promise<{ provider: string; label: string } | { reason: string }> {
+    const normalized = requested?.trim();
 
     if (normalized) {
-      const resolved = TRANSCRIPTION_PROVIDER_ALIASES[normalized];
+      const resolved = resolveTranscriptionProvider(normalized);
       if (!resolved) {
         return {
           reason:
             `transcription provider "${requested}" is not one this processor can drive — ` +
-            `supported: ${TRANSCRIPTION_PROVIDER_ORDER.join(", ")}`,
+            `supported: ${STT_PROVIDER_DESCRIPTORS.map((d) => d.name).join(", ")}`,
         };
       }
-      if (!this.isProviderAvailable(resolved)) {
-        const { envVars } = TRANSCRIPTION_PROVIDER_CREDENTIALS[resolved];
+      if (!isSTTProviderConfigured(resolved)) {
+        const envVars = getSTTProviderDescriptor(resolved)?.envVars ?? [];
         return {
           reason:
-            `transcription provider "${resolved}" was requested but is not configured — ` +
+            `transcription provider "${normalized}" was requested but is not configured — ` +
             `set one of: ${envVars.join(", ")}`,
         };
       }
-      const { label } = TRANSCRIPTION_PROVIDER_CREDENTIALS[resolved];
+      const label = transcriptionLabel(resolved);
       logger.debug(
         `[AudioProcessor] Using caller-selected transcription provider: ${label}`,
       );
       return { provider: resolved, label };
     }
 
-    for (const candidate of TRANSCRIPTION_PROVIDER_ORDER) {
-      if (this.isProviderAvailable(candidate)) {
-        const { label } = TRANSCRIPTION_PROVIDER_CREDENTIALS[candidate];
-        logger.debug(
-          `[AudioProcessor] Auto-selected transcription provider: ${label}`,
-        );
-        return { provider: candidate, label };
+    const provider = resolveDefaultSTTProvider();
+    const descriptor = getSTTProviderDescriptor(provider);
+    // The local engine is the default of last resort, but only when it can
+    // actually run on this machine; otherwise "nothing is configured" is the
+    // honest reason, and the hosted options are what fixes it.
+    if (descriptor?.capabilities.local) {
+      const handler = await STTProcessor.resolveHandler(
+        provider,
+        freshEnvSTTCredentials(descriptor.credentialsKey),
+      );
+      if (!handler?.isConfigured()) {
+        return {
+          reason: `no transcription backend is configured — set one of: ${STT_PROVIDER_DESCRIPTORS.flatMap((d) => d.envVars).join(", ")}`,
+        };
       }
     }
-
-    const allVars = TRANSCRIPTION_PROVIDER_ORDER.flatMap(
-      (candidate) => TRANSCRIPTION_PROVIDER_CREDENTIALS[candidate].envVars,
+    const label = transcriptionLabel(provider);
+    logger.debug(
+      `[AudioProcessor] Auto-selected transcription provider: ${label}`,
     );
-    return {
-      reason: `no transcription backend is configured — set one of: ${allVars.join(", ")}`,
-    };
+    return { provider, label };
   }
 
   /**
    * Attempt to transcribe audio with whichever backend is configured (#413).
    *
    * Transcription is attempted when:
-   * 1. A backend's credentials are present (see {@link selectProvider})
+   * 1. A backend is available (see {@link selectProvider})
    * 2. File size is within the 25MB ceiling
    * 3. The file format is one the backend accepts
+   *
+   * The call itself goes through `STTProcessor`, the same path as
+   * `transcribe()` and `generate({ stt })`, so `OPENAI_STT_*`, the default
+   * provider rule and every STT handler apply here too.
    *
    * Gracefully degrades: if transcription fails for any reason, metadata-only
    * output is returned (transcription is additive, never blocks processing).
@@ -565,10 +527,7 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
      * back passes its label through. `FileDetector` only writes
      * `transcriptionLength` when `transcriptionProvider` is set, precisely so
      * "a provider ran and reported no speech" (`transcriptionLength: 0`)
-     * stays distinguishable from "no provider ever ran" (field omitted) —
-     * clearing the label here for an empty-but-successful call collapsed that
-     * distinction back into the same "never attempted" shape it exists to
-     * avoid.
+     * stays distinguishable from "no provider ever ran" (field omitted).
      */
     const skipped = (
       reason: string,
@@ -588,274 +547,68 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       };
     };
 
-    const selection = this.selectProvider(options?.provider);
-    if (selection.provider === undefined) {
-      return skipped(selection.reason);
-    }
-
-    // Size ceiling. Whisper documents 25MB; the other backends' synchronous
-    // endpoints are lower still, so this is a floor on what is worth sending
-    // rather than a per-backend limit.
-    const fileSizeMB = buffer.length / (1024 * 1024);
-    if (fileSizeMB > AUDIO_CONFIG.WHISPER_MAX_SIZE_MB) {
-      return skipped(
-        `file is ${fileSizeMB.toFixed(1)}MB, over the ${AUDIO_CONFIG.WHISPER_MAX_SIZE_MB}MB transcription limit — split or compress it`,
-      );
-    }
-
-    const ext = filename.split(".").pop()?.toLowerCase();
-
-    if (selection.provider === "openai") {
-      // Format gate is Whisper's own accepted-extension list. The other
-      // backends have their own, enforced by their handlers.
-      const isFormatSupported =
-        ext && AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.includes(ext);
-      const isMimeSupported =
-        mimetype &&
-        (mimetype.startsWith("audio/mpeg") ||
-          mimetype.startsWith("audio/mp4") ||
-          mimetype.startsWith("audio/wav") ||
-          mimetype.startsWith("audio/x-wav") ||
-          mimetype.startsWith("audio/webm") ||
-          mimetype.startsWith("audio/flac") ||
-          mimetype.startsWith("audio/ogg") ||
-          mimetype.startsWith("audio/x-m4a"));
-
-      if (!isFormatSupported && !isMimeSupported) {
-        return skipped(
-          `format is not one Whisper accepts (extension "${ext ?? "none"}", mimetype "${mimetype ?? "none"}"); supported: ${AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.join(", ")}`,
-        );
-      }
-
-      return await this.transcribeWithOpenAI(
-        buffer,
-        filename,
-        mimetype,
-        options,
-        skipped,
-      );
-    }
-
-    return await this.transcribeWithHandler(
-      { provider: selection.provider, label: selection.label },
-      buffer,
-      filename,
-      mimetype,
-      options,
-      skipped,
-    );
-  }
-
-  /**
-   * Transcribe via OpenAI Whisper (#416).
-   *
-   * A native multipart POST to OpenAI's transcription endpoint. This used to
-   * go through @ai-sdk/openai's createOpenAI().transcription() plus the ai
-   * package's experimental_transcribe; both were dropped, and this is the
-   * only wire behaviour of theirs the processor ever depended on. The same
-   * request is already made natively by voice/providers/OpenAISTT.ts.
-   *
-   * `verbose_json` is requested for `language` and `duration` alongside the
-   * text — the response was previously parsed for `text` alone, so both were
-   * received and discarded, and `FileProcessingResult.metadata.language` had
-   * nothing to report (#409).
-   *
-   * @param buffer - Audio file content
-   * @param filename - Original filename, sent as the multipart part name
-   * @param mimetype - MIME type used for the upload blob
-   * @param options - Caller's language / model / prompt overrides
-   * @param skipped - Builds the "no transcript, and here is why" outcome
-   * @returns Transcription result, or the reason there is none
-   */
-  private async transcribeWithOpenAI(
-    buffer: Buffer,
-    filename: string,
-    mimetype: string | undefined,
-    options: AudioProcessorOptions | undefined,
-    skipped: (
-      reason: string,
-      transcriptionProvider?: string,
-    ) => AudioTranscriptionOutcome,
-  ): Promise<AudioTranscriptionOutcome> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      // Unreachable via selectProvider, which already proved the key is set.
-      // Kept so this method is safe to call directly.
-      return skipped("OPENAI_API_KEY is not set");
-    }
-
     try {
-      const baseUrl = (
-        process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
-      ).replace(/\/+$/, "");
-
-      const form = new FormData();
-      form.append(
-        "file",
-        new Blob([new Uint8Array(buffer)], {
-          type: mimetype || "audio/mpeg",
-        }),
-        filename,
-      );
-      form.append("model", options?.transcriptionModel ?? "whisper-1");
-      form.append("response_format", "verbose_json");
-      if (options?.language) {
-        form.append("language", options.language);
+      const selection = await this.selectProvider(options?.provider);
+      if (!("provider" in selection)) {
+        return skipped(selection.reason);
       }
-      if (options?.prompt) {
-        form.append("prompt", options.prompt);
-      }
+      const { provider, label } = selection;
 
-      // Wrap in withTimeout — large audio files can take a while, but a
-      // stalled request shouldn't block the processor forever. A TimeoutError
-      // lands in the same handler as other failures below, which reports it as
-      // the reason rather than discarding it.
-      // `withTimeout` only races the promise against a timer — it cannot
-      // cancel the operation. This code owns the raw fetch now, so without an
-      // abort the socket and its in-flight upload (up to 25MB) stay alive
-      // after the timeout has already resolved the caller.
-      const transcriptionAbort = new AbortController();
-      const transcriptionTimer = setTimeout(
-        () => transcriptionAbort.abort(),
-        AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
-      );
-      let response: Response;
-      try {
-        response = await withTimeout(
-          fetch(`${baseUrl}/audio/transcriptions`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}` },
-            body: form,
-            signal: transcriptionAbort.signal,
-          }),
-          AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
-          "openai-whisper",
-          "generate",
-        );
-      } finally {
-        clearTimeout(transcriptionTimer);
-      }
-
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        // Mirrors the old behaviour: a non-2xx used to surface as a thrown
-        // APICallError caught by the handler below and reported as the reason.
+      // Size ceiling. Whisper documents 25MB; the other backends' synchronous
+      // endpoints are lower still, so this is a floor on what is worth sending
+      // rather than a per-backend limit.
+      const fileSizeMB = buffer.length / (1024 * 1024);
+      if (fileSizeMB > AUDIO_CONFIG.WHISPER_MAX_SIZE_MB) {
         return skipped(
-          `transcription request failed — HTTP ${response.status}${
-            detail ? `: ${detail.slice(0, 200)}` : ""
-          }`,
+          `file is ${fileSizeMB.toFixed(1)}MB, over the ${AUDIO_CONFIG.WHISPER_MAX_SIZE_MB}MB transcription limit — split or compress it`,
         );
       }
 
-      const payload: unknown = await response.json();
-      const record =
-        typeof payload === "object" && payload !== null
-          ? (payload as {
-              text?: unknown;
-              language?: unknown;
-              duration?: unknown;
-            })
-          : {};
-      const rawText = typeof record.text === "string" ? record.text : "";
-      // `duration` comes back as a number, but some gateways stringify it.
-      const durationValue =
-        typeof record.duration === "number"
-          ? record.duration
-          : typeof record.duration === "string" &&
-              record.duration.trim().length > 0 &&
-              Number.isFinite(Number(record.duration))
-            ? Number(record.duration)
-            : undefined;
+      const descriptor = getSTTProviderDescriptor(provider);
+      const credentials = descriptor
+        ? freshEnvSTTCredentials(descriptor.credentialsKey)
+        : undefined;
+      const handler = await STTProcessor.resolveHandler(provider, credentials);
 
-      if (rawText.trim().length > 0) {
-        logger.debug(
-          `[AudioProcessor] Transcribed ${filename} via openai-whisper (${rawText.trim().length} chars)`,
+      // Format gate: the handler's own accepted list, checked before upload
+      // so an unreadable file is reported as such rather than as a failure.
+      const ext = filename.split(".").pop()?.toLowerCase();
+      const format = toSTTAudioFormat(ext, mimetype);
+      const supported = handler?.getSupportedFormats() ?? [];
+      if (!format || (supported.length > 0 && !supported.includes(format))) {
+        const displayName = provider === "whisper" ? "Whisper" : label;
+        return skipped(
+          `format is not one ${displayName} accepts (extension "${ext ?? "none"}", mimetype "${mimetype ?? "none"}"); supported: ${supported.join(", ")}`,
         );
-        return {
-          transcript: rawText.trim(),
-          hasTranscript: true,
-          transcriptionProvider: "openai-whisper",
-          transcriptionLanguage:
-            typeof record.language === "string" && record.language.length > 0
-              ? record.language
-              : options?.language,
-          transcriptionDuration: durationValue,
-          transcriptionSkippedReason: undefined,
-        };
       }
 
-      // A successful call that returned nothing is a legitimate outcome
-      // (silence, music, no speech) — distinct from a failure.
-      return skipped(
-        "Whisper returned an empty transcript for this audio",
-        "openai-whisper",
-      );
-    } catch (error) {
-      // Transcription stays best-effort — a failure must never kill the whole
-      // processing pipeline. But discarding the error outright, as this block
-      // used to, made a bad API key, a rate limit and a network blip all look
-      // identical to "this file has no speech in it".
-      const message = error instanceof Error ? error.message : String(error);
-      return skipped(`transcription request failed — ${message}`);
-    }
-  }
-
-  /**
-   * Transcribe via one of the non-OpenAI STT handlers (#413).
-   *
-   * Google and Azure already have working, tested implementations under
-   * `src/lib/voice/providers/`, reached here through a dynamic import so a
-   * file-processing run that never transcribes does not pay to load them —
-   * the same reason `music-metadata` is loaded lazily above.
-   *
-   * @param chosen - Backend and display label from {@link selectProvider}
-   * @param buffer - Audio file content
-   * @param filename - Original filename; its extension picks the wire format
-   * @param mimetype - MIME type, used as the fallback format signal
-   * @param options - Caller's language / model overrides
-   * @param skipped - Builds the "no transcript, and here is why" outcome
-   * @returns Transcription result, or the reason there is none
-   */
-  private async transcribeWithHandler(
-    chosen: {
-      provider: Exclude<AudioTranscriptionProvider, "openai">;
-      label: string;
-    },
-    buffer: Buffer,
-    filename: string,
-    mimetype: string | undefined,
-    options: AudioProcessorOptions | undefined,
-    skipped: (
-      reason: string,
-      transcriptionProvider?: string,
-    ) => AudioTranscriptionOutcome,
-  ): Promise<AudioTranscriptionOutcome> {
-    const { provider, label } = chosen;
-    try {
-      const extension = filename.split(".").pop()?.toLowerCase();
-      const format = toSTTAudioFormat(extension, mimetype);
       const sttOptions: STTOptions = {
+        format,
+        timeoutMs: AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+        maxAudioBytes: AUDIO_CONFIG.WHISPER_MAX_SIZE_MB * 1024 * 1024,
         ...(options?.language ? { language: options.language } : {}),
         ...(options?.transcriptionModel
           ? { model: options.transcriptionModel }
           : {}),
-        ...(format ? { format } : {}),
+        ...(options?.prompt ? { prompt: options.prompt } : {}),
       };
 
-      let result: STTResult;
-      if (provider === "google") {
-        const { GoogleSTT } =
-          await import("../../voice/providers/GoogleSTT.js");
-        result = await new GoogleSTT().transcribe(buffer, sttOptions);
-      } else {
-        const { AzureSTT } = await import("../../voice/providers/AzureSTT.js");
-        result = await new AzureSTT().transcribe(buffer, sttOptions);
-      }
+      // `withTimeout` bounds handlers that keep no timer of their own; the
+      // ones that do abort their request at the same deadline.
+      const result: STTResult = await withTimeout(
+        STTProcessor.transcribe(buffer, provider, sttOptions, credentials),
+        AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+        label,
+        "generate",
+      );
 
       const text = result.text.trim();
       if (text.length === 0) {
+        // A successful call that returned nothing is a legitimate outcome
+        // (silence, music, no speech) — distinct from a failure.
+        const displayName = provider === "whisper" ? "Whisper" : label;
         return skipped(
-          `${label} returned an empty transcript for this audio`,
+          `${displayName} returned an empty transcript for this audio`,
           label,
         );
       }
@@ -867,11 +620,18 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
         transcript: text,
         hasTranscript: true,
         transcriptionProvider: label,
-        transcriptionLanguage: result.language ?? options?.language,
+        transcriptionLanguage:
+          result.language && result.language.length > 0
+            ? result.language
+            : options?.language,
         transcriptionDuration: result.duration,
         transcriptionSkippedReason: undefined,
       };
     } catch (error) {
+      // Transcription stays best-effort — a failure must never kill the whole
+      // processing pipeline. But discarding the error outright made a bad API
+      // key, a rate limit and a network blip all look identical to "this
+      // file has no speech in it".
       const message = error instanceof Error ? error.message : String(error);
       return skipped(`transcription request failed — ${message}`);
     }

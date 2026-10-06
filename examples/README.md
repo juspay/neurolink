@@ -223,11 +223,12 @@ const result = await neurolink.generate({
 
 Complete, runnable example applications demonstrating NeuroLink integration patterns.
 
-| Project                                    | Description                             | Key Features                               |
-| ------------------------------------------ | --------------------------------------- | ------------------------------------------ |
-| [Chat Application](projects/chat-app/)     | Real-time chat with streaming responses | Streaming, Express, Provider selection     |
-| [MCP Tools Demo](projects/mcp-tools-demo/) | MCP tool integration examples           | Custom tools, External MCP, HTTP transport |
-| [Enterprise App](projects/enterprise-app/) | Production-ready enterprise patterns    | HITL, Redis memory, Audit logging, Docker  |
+| Project                                    | Description                             | Key Features                                                                  |
+| ------------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------- |
+| [Chat Application](projects/chat-app/)     | Real-time chat with streaming responses | Streaming, Express, Provider selection                                        |
+| [MCP Tools Demo](projects/mcp-tools-demo/) | MCP tool integration examples           | Custom tools, External MCP, HTTP transport                                    |
+| [Enterprise App](projects/enterprise-app/) | Production-ready enterprise patterns    | HITL, Redis memory, Audit logging, Docker                                     |
+| [Voice Bench](voice-bench/)                | Speech-to-text playground, no build     | Live captions, dictionary + decision guard, LLM rewrite, engines side by side |
 
 ### Running a Project
 

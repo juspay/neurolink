@@ -206,6 +206,21 @@ Get the underlying framework instance (for advanced usage)
 
 ---
 
+### getNativeServer()
+
+> **getNativeServer**(): `unknown`
+
+The listening Node `http.Server`, once `start()` has run and the runtime
+is Node (Bun and Deno serve without one). A WebSocket upgrade handler
+such as `attachTranscribeWebSocket` attaches to it; `undefined` means
+there is nothing to attach to.
+
+#### Returns
+
+`unknown`
+
+---
+
 ### stopAcceptingConnections()
 
 > `abstract` `protected` **stopAcceptingConnections**(): `Promise`\<`void`\>

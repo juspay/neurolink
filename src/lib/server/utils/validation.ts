@@ -194,6 +194,117 @@ export const SkillCreateRequestSchema = z.object({
  */
 export const SkillUpdateRequestSchema = SkillCreateRequestSchema.partial();
 
+/**
+ * One dictionary entry for transcription: correct spelling, mis-hearings, meaning.
+ */
+export const TranscribeDictionaryEntrySchema = z.object({
+  term: z.string().trim().min(1, "term is required"),
+  heardAs: z.array(z.string()).max(64).optional(),
+  meaning: z.string().max(2000).optional(),
+});
+
+const sttProviderName = z.string().min(1).max(100);
+
+/**
+ * Engine and correction settings shared by `POST /agent/transcribe`, the
+ * OpenAI-compatible route's extension fields and the transcribe WebSocket's
+ * config frame. Unknown keys (including `credentials`) are stripped: a caller
+ * cannot swap in its own key or point an engine at another host.
+ */
+export const TranscribeConfigSchema = z.object({
+  provider: sttProviderName.optional(),
+  model: z.string().min(1).max(200).optional(),
+  language: z.string().min(1).max(35).optional(),
+  prompt: z.string().max(4000).optional(),
+  dictionary: z.array(TranscribeDictionaryEntrySchema).max(500).optional(),
+  correction: z
+    .object({
+      enabled: z.boolean().optional(),
+      guard: z.enum(["decide", "none"]).optional(),
+      decideTimeoutMs: z.number().int().positive().max(60_000).optional(),
+      rewrite: z
+        .union([
+          z.literal(false),
+          z.object({
+            provider: z.string().min(1).max(100).optional(),
+            model: z.string().min(1).max(200).optional(),
+            timeoutMs: z.number().int().positive().max(120_000).optional(),
+          }),
+        ])
+        .optional(),
+      transliterate: z.enum(["latin", "native"]).optional(),
+      punctuate: z.boolean().optional(),
+      secondOpinion: z
+        .object({
+          provider: sttProviderName,
+          model: z.string().min(1).max(200).optional(),
+        })
+        .optional(),
+      context: z.string().max(1000).optional(),
+      maxDropRatio: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+  fallback: z
+    .object({
+      provider: sttProviderName,
+      model: z.string().min(1).max(200).optional(),
+      when: z.array(z.enum(["unsure", "empty", "error"])).optional(),
+    })
+    .optional(),
+  diarization: z.boolean().optional(),
+  wordTimestamps: z.boolean().optional(),
+  timeoutMs: z.number().int().positive().max(600_000).optional(),
+});
+
+/**
+ * `POST /agent/transcribe` body: the config plus exactly one audio source.
+ */
+export const TranscribeRequestSchema = TranscribeConfigSchema.extend({
+  audio: z.string().min(1).optional(),
+  audioUrl: z.string().url().optional(),
+  audioPath: z.string().min(1).optional(),
+  format: z
+    .enum([
+      "mp3",
+      "wav",
+      "ogg",
+      "opus",
+      "m4a",
+      "flac",
+      "webm",
+      "mp4",
+      "mpeg",
+      "mpga",
+      "pcm16",
+    ])
+    .optional(),
+}).refine(
+  (body) =>
+    [body.audio, body.audioUrl, body.audioPath].filter(
+      (source) => source !== undefined,
+    ).length === 1,
+  { message: "Pass exactly one of audio, audioUrl or audioPath" },
+);
+
+/**
+ * The transcribe WebSocket's first text frame: the config plus streaming tuning.
+ */
+export const TranscribeStreamConfigSchema = TranscribeConfigSchema.extend({
+  streaming: z
+    .object({
+      mode: z.enum(["auto", "native", "chunked"]).optional(),
+      sampleRate: z.number().int().min(8000).max(48000).optional(),
+      endSilenceMs: z.number().positive().optional(),
+      intervalMs: z.number().positive().optional(),
+      softCutSeconds: z.number().positive().optional(),
+      maxUtteranceSeconds: z.number().positive().optional(),
+      onsetRms: z.number().positive().optional(),
+      prerollMs: z.number().nonnegative().optional(),
+      minSpeechMs: z.number().nonnegative().optional(),
+    })
+    .optional(),
+});
+
 // ============================================
 // Error Response Type Guards / Helpers
 // ============================================

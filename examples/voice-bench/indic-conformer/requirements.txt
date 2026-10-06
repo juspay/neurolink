@@ -1,0 +1,10 @@
+torch
+torchaudio
+transformers
+onnxruntime
+soundfile
+numpy
+fastapi
+uvicorn
+python-multipart
+huggingface_hub

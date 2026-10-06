@@ -197,13 +197,13 @@ type CORSConfig = {
 | Option        | Type       | Default                                                | Description                        |
 | ------------- | ---------- | ------------------------------------------------------ | ---------------------------------- |
 | `enabled`     | `boolean`  | `true`                                                 | Enable CORS support                |
-| `origins`     | `string[]` | `["*"]`                                                | Allowed origins                    |
+| `origins`     | `string[]` | `[]`                                                   | Allowed origins (`["*"]` = any)    |
 | `methods`     | `string[]` | `["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]` | Allowed HTTP methods               |
 | `headers`     | `string[]` | `["Content-Type", "Authorization"]`                    | Allowed headers                    |
 | `credentials` | `boolean`  | `false`                                                | Allow credentials                  |
 | `maxAge`      | `number`   | `86400`                                                | Preflight cache max age in seconds |
 
-> **Security Warning:** The default wildcard origin `["*"]` allows requests from any domain. In production environments, always specify explicit allowed origins to prevent unauthorized cross-origin requests.
+> **Security note:** With no `origins` listed, no web page can call the server cross-origin. List the origins you serve pages from, or set `["*"]` explicitly to allow any domain (then also set an API key). `neurolink serve --cors-origin https://myapp.com` does the same from the command line.
 
 ### Example: Restrictive CORS
 

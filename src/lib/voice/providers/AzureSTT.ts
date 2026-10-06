@@ -12,11 +12,11 @@ import type {
   TTSAudioFormat,
   AzureRecognitionResult,
   AzureSTTOptions,
+  STTCredentials,
   STTHandler,
   STTLanguage,
   STTOptions,
   STTResult,
-  TranscriptionSegment,
 } from "../../types/index.js";
 
 /**
@@ -39,15 +39,36 @@ export class AzureSTT implements STTHandler {
   public readonly maxAudioDuration = 60;
 
   /**
-   * Azure STT implementation buffers chunks via REST — not true streaming
+   * REST short-audio recognition has no stream. `transcribeStream()` on the
+   * SDK streams this handler through the generic chunked adapter.
    */
   public readonly supportsStreaming = false;
 
-  constructor(apiKey?: string, region?: string) {
-    const resolvedKey = (apiKey ?? process.env.AZURE_SPEECH_KEY ?? "").trim();
+  /**
+   * @param apiKeyOrCredentials - The `credentials.stt.azure` slice (`apiKey`,
+   *   `region`), or an API key (the original positional form).
+   *   `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` fill whatever is left out.
+   * @param region - Region, positional form only.
+   */
+  constructor(
+    apiKeyOrCredentials?: string | STTCredentials["azure"],
+    region?: string,
+  ) {
+    // `typeof x === "string"` narrows the same way with and without
+    // strictNullChecks (the react-hooks build runs tsc without it); an
+    // `=== undefined` test does not.
+    const slice: NonNullable<STTCredentials["azure"]> =
+      typeof apiKeyOrCredentials === "string"
+        ? { apiKey: apiKeyOrCredentials, region }
+        : { region, ...(apiKeyOrCredentials ?? {}) };
+    const resolvedKey = (
+      slice.apiKey ??
+      process.env.AZURE_SPEECH_KEY ??
+      ""
+    ).trim();
     this.apiKey = resolvedKey.length > 0 ? resolvedKey : null;
     const resolvedRegion = (
-      region ??
+      slice.region ??
       process.env.AZURE_SPEECH_REGION ??
       ""
     ).trim();
@@ -176,7 +197,13 @@ export class AzureSTT implements STTHandler {
     try {
       // Build the URL with query parameters
       const params = new URLSearchParams();
-      params.set("language", options.language ?? "en-US");
+      // Azure needs a language; "auto" (no pin) falls back to the default.
+      params.set(
+        "language",
+        options.language && options.language.toLowerCase() !== "auto"
+          ? options.language
+          : "en-US",
+      );
 
       // Add detailed output format
       if (azureOptions.detailed || options.wordTimestamps) {
@@ -303,98 +330,6 @@ export class AzureSTT implements STTHandler {
         "azure-stt",
         err instanceof Error ? err : undefined,
       );
-    }
-  }
-
-  /**
-   * Streaming transcription (placeholder - requires SDK)
-   */
-  async *transcribeStream(
-    audioStream: AsyncIterable<Buffer>,
-    options: STTOptions,
-  ): AsyncIterable<TranscriptionSegment> {
-    // Azure streaming requires the Microsoft Speech SDK
-    // For now, buffer and transcribe in chunks
-    const chunks: Buffer[] = [];
-    let chunkIndex = 0;
-    // Track buffered byte count incrementally — `chunks.reduce()` per incoming
-    // chunk is O(n²) over long streams (Copilot/CodeRabbit review). Reset to 0
-    // every time we flush.
-    let bufferedBytes = 0;
-
-    for await (const chunk of audioStream) {
-      chunks.push(chunk);
-      bufferedBytes += chunk.length;
-
-      // Process every ~5 seconds of audio
-      const bytesPerSecond = (options.sampleRate ?? 16000) * 2;
-
-      if (bufferedBytes >= bytesPerSecond * 5) {
-        const audio = Buffer.concat(chunks);
-        chunks.length = 0;
-        bufferedBytes = 0;
-
-        try {
-          const result = await this.transcribe(audio, options);
-
-          yield {
-            index: chunkIndex++,
-            text: result.text,
-            isFinal: false,
-            confidence: result.confidence,
-          };
-        } catch (err) {
-          // M5: distinguish permanent (auth, schema, 4xx) from transient
-          // (5xx, 429, network) errors. Without this, an expired API key
-          // would silently retry every chunk for the entire stream.
-          const msg = err instanceof Error ? err.message : String(err);
-          const isPermanent =
-            /\b(401|403|404|Forbidden|Unauthorized|Invalid.*subscription|Invalid.*key|Wrong.*key|InvalidAudioFormat)\b/i.test(
-              msg,
-            );
-          if (isPermanent) {
-            logger.error(
-              `[AzureSTTHandler] Permanent chunk error — terminating stream: ${msg}`,
-            );
-            throw err;
-          }
-          logger.warn(
-            `[AzureSTTHandler] Transient chunk failure (skipping): ${msg}`,
-          );
-        }
-      }
-    }
-
-    // Process remaining audio
-    if (chunks.length > 0) {
-      const audio = Buffer.concat(chunks);
-      try {
-        const result = await this.transcribe(audio, options);
-        yield {
-          index: chunkIndex,
-          text: result.text,
-          isFinal: true,
-          confidence: result.confidence,
-        };
-      } catch (err) {
-        // Mirror the permanent-vs-transient split from the chunk loop above so
-        // auth/format failures don't masquerade as a successful empty
-        // transcription on short streams (≤5s buffer flush).
-        const msg = err instanceof Error ? err.message : String(err);
-        const isPermanent =
-          /\b(401|403|404|Forbidden|Unauthorized|Invalid.*subscription|Invalid.*key|Wrong.*key|InvalidAudioFormat)\b/i.test(
-            msg,
-          );
-        if (isPermanent) {
-          logger.error(
-            `[AzureSTTHandler] Permanent final-chunk error — surfacing: ${msg}`,
-          );
-          throw err;
-        }
-        logger.warn(
-          `[AzureSTTHandler] Final chunk transcription failed (transient): ${msg}`,
-        );
-      }
     }
   }
 

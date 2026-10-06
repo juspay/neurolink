@@ -100,6 +100,37 @@ Handler instance or undefined if not registered
 
 ---
 
+### resolveHandler()
+
+> `static` **resolveHandler**(`provider`, `credentials?`): `Promise`\<[`STTHandler`](../type-aliases/STTHandler.md) \| `undefined`\>
+
+The handler a call should use. A credentials slice for a shipped
+provider builds a fresh handler for this call; otherwise the registered
+one is used, and a shipped provider that was never registered (its key
+arrived after registration, or it is the local engine on a registry that
+was cleared) is built from the environment rather than reported as
+unsupported. Names that are neither registered nor shipped resolve to
+`undefined`.
+
+The handler classes are loaded lazily: `voice/index.ts` imports this
+module, so a static import back would be a cycle.
+
+#### Parameters
+
+##### provider
+
+`string`
+
+##### credentials?
+
+[`STTCredentials`](../type-aliases/STTCredentials.md)
+
+#### Returns
+
+`Promise`\<[`STTHandler`](../type-aliases/STTHandler.md) \| `undefined`\>
+
+---
+
 ### listProviders()
 
 > `static` **listProviders**(): `string`[]
@@ -157,7 +188,7 @@ if (STTProcessor.supports("whisper")) {
 
 ### transcribe()
 
-> `static` **transcribe**(`audio`, `provider`, `options`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
+> `static` **transcribe**(`audio`, `provider`, `options`, `credentials?`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
 
 Transcribe audio to text using a registered STT provider
 
@@ -188,6 +219,16 @@ Provider identifier
 [`STTOptions`](../type-aliases/STTOptions.md)
 
 STT configuration options
+
+##### credentials?
+
+[`STTCredentials`](../type-aliases/STTCredentials.md)
+
+Per-call credentials (`credentials.stt`). When it
+carries a slice for this provider — even an empty one — a fresh handler
+is built from that slice (environment as fallback) for this call alone,
+instead of the registry's shared instance: per-call beats instance
+beats environment, exactly as for text providers.
 
 #### Returns
 

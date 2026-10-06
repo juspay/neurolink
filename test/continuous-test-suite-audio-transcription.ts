@@ -126,16 +126,33 @@ function isAzureSttUrl(url: string): boolean {
 const TRANSCRIPT_TOKEN = "ZQ7X4M2K9WB3";
 const MOCK_TRANSCRIPT = `The access phrase for this recording is ${TRANSCRIPT_TOKEN}.`;
 
+/**
+ * An empty directory for the built-in local engine (Whistle). AudioProcessor
+ * routes through STTProcessor, where Whistle is the default of last resort and
+ * counts as configured whenever its files are present or it may download
+ * them — so "no backend configured" needs both an empty model dir (a machine
+ * that already fetched the files would otherwise transcribe locally) and
+ * auto-download off.
+ */
+const EMPTY_WHISTLE_DIR = tempDir("neurolink-whistle-empty-");
+
 /** Reset every credential the selector reads, so each case starts from zero. */
 function clearTranscriptionEnv(): void {
   delete process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_STT_API_KEY;
+  delete process.env.OPENAI_STT_BASE_URL;
   delete process.env.GOOGLE_API_KEY;
   delete process.env.GOOGLE_AI_API_KEY;
   delete process.env.GEMINI_API_KEY;
   delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
   delete process.env.AZURE_SPEECH_KEY;
   delete process.env.AZURE_SPEECH_REGION;
+  delete process.env.DEEPGRAM_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  delete process.env.NEUROLINK_STT_PROVIDER;
+  process.env.NEUROLINK_WHISTLE_AUTO_DOWNLOAD = "0";
+  process.env.NEUROLINK_WHISTLE_DIR = EMPTY_WHISTLE_DIR;
 }
 
 function openAIChatResponse(content: string, model: string): unknown {

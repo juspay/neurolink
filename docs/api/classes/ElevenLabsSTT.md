@@ -24,13 +24,19 @@ https://elevenlabs.io/docs/api-reference/speech-to-text/convert
 
 ### Constructor
 
-> **new ElevenLabsSTT**(`apiKey?`): `ElevenLabsSTT`
+> **new ElevenLabsSTT**(`apiKeyOrCredentials?`): `ElevenLabsSTT`
 
 #### Parameters
 
-##### apiKey?
+##### apiKeyOrCredentials?
 
-`string`
+`string` \| \{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; \}
+
+The `credentials.stt.elevenlabs` slice
+(`apiKey`, `baseURL`, `timeoutMs`), or an API key (the original
+positional form). The environment fills whatever is left out:
+`ELEVENLABS_API_KEY`, and `ELEVENLABS_STT_BASE_URL` before the
+account-wide `ELEVENLABS_BASE_URL`.
 
 #### Returns
 

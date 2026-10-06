@@ -513,6 +513,12 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "Audio language code for STT (e.g., en-US)",
     },
+    sttDiarize: {
+      type: "boolean" as const,
+      default: false,
+      description:
+        "Label speakers in the transcript (providers that diarize: deepgram, google-stt, elevenlabs-stt, a diarizing OpenAI-compatible endpoint)",
+    },
     inputAudio: {
       type: "string" as const,
       description: "Path to audio file for STT transcription",
@@ -961,6 +967,7 @@ export class CLICommandFactory {
         // --input-audio without --stt get an actionable error from yargs
         // instead of silently skipping STT.
         .implies("sttProvider", "stt")
+        .implies("sttDiarize", "stt")
         .implies("inputAudio", "stt")
     );
   }
@@ -1162,6 +1169,7 @@ export class CLICommandFactory {
       stt: argv.stt as boolean | undefined,
       sttProvider: argv.sttProvider as string | undefined,
       sttLanguage: argv.sttLanguage as string | undefined,
+      sttDiarize: argv.sttDiarize as boolean | undefined,
       inputAudio: argv.inputAudio as string | undefined,
       // Video generation options (Veo 3.1)
       outputMode: argv.outputMode as
@@ -3963,6 +3971,9 @@ export class CLICommandFactory {
                 enabled: true,
                 provider: enhancedOptions.sttProvider as string | undefined,
                 language: enhancedOptions.sttLanguage as string | undefined,
+                ...((enhancedOptions.sttDiarize as boolean | undefined)
+                  ? { speakerDiarization: true }
+                  : {}),
                 ...(inputAudioBuffer && { audio: inputAudioBuffer }),
                 ...(inputAudioFormat && { format: inputAudioFormat }),
               }
@@ -4336,6 +4347,9 @@ export class CLICommandFactory {
                 enabled: true as const,
                 provider: enhancedOptions.sttProvider as string | undefined,
                 language: enhancedOptions.sttLanguage as string | undefined,
+                ...((enhancedOptions.sttDiarize as boolean | undefined)
+                  ? { speakerDiarization: true }
+                  : {}),
                 ...(streamSttAudio && { audio: streamSttAudio }),
                 ...(streamSttFormat && { format: streamSttFormat }),
               };

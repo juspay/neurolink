@@ -6,7 +6,7 @@
 
 # Type Alias: InferenceKind
 
-> **InferenceKind** = `"generate"` \| `"stream"` \| `"decide"`
+> **InferenceKind** = `"generate"` \| `"stream"` \| `"decide"` \| `"transcribe"`
 
 The kinds of inference a provider can serve.
 

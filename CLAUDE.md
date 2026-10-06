@@ -16,7 +16,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps AI providers across three inference types (`generate`, `stream`, `decide`) (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
+NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps AI providers across four inference types (`generate`, `stream`, `decide`, `transcribe`) (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
 
 ---
 
@@ -83,12 +83,14 @@ Rule 15's determinism exception is the `allow` list on `neurolink/e2e-tests-only
 
 ## Architecture
 
-### Three inference types
+### Four inference types
 
-`generate`, `stream` and `decide` are peers. The first two assume the model
-emits text; `decide` does not — a decision model takes one `state` plus a map
-of named typed questions and returns one typed, calibrated answer each in a
-single parallel pass, with no text anywhere.
+`generate`, `stream`, `decide` and `transcribe` are peers. The first two assume
+the model emits text; `decide` does not — a decision model takes one `state`
+plus a map of named typed questions and returns one typed, calibrated answer
+each in a single parallel pass, with no text anywhere. `transcribe` starts from
+audio instead of text (see "The `transcribe` inference type" below); it has its
+own descriptor list and is not an `inferenceKinds` value.
 
 The discriminator is one field on `ProviderDescriptor`:
 
@@ -271,6 +273,70 @@ nonAsciiTokensPerChar: 1, media: { maxImages: 8, video: true,
 maxRequestBytes: 8 MiB }, enforcedLocally: true }` with no `maxQuestions` key
 at all — test for the key, never compare against `Infinity`.
 
+### The `transcribe` inference type
+
+`neurolink.transcribe()` (a whole recording: Buffer, path, `file://` or
+`http(s)://` URL) and `neurolink.transcribeStream()` (PCM16LE frames →
+`interim` / `final` / `corrected` / `silence` events), the CLI's
+`neurolink transcribe <file>` (`src/cli/commands/transcribe.ts`), and the
+server's `POST /api/agent/transcribe` and OpenAI-compatible
+`POST /v1/audio/transcriptions` (`server/routes/transcribeRoutes.ts`). Audio
+attached to `generate()` (`AudioProcessor` / `VideoProcessor`) picks its engine
+by the same rule.
+
+**STT providers; descriptor order is precedence.** `STT_PROVIDER_DESCRIPTORS`
+in `src/lib/factories/sttDescriptors.ts` is the single source of truth for
+every STT provider's name, aliases, credentials slice, env vars and
+capabilities, exactly as `DECISION_PROVIDERS` is for `decide`. With no
+provider named, `resolveDefaultSTTProvider()` returns `NEUROLINK_STT_PROVIDER`
+(a shipped name, alias, or a `NEUROLINK_STT_ENDPOINTS` endpoint), else the
+first configured descriptor — `whisper`, `deepgram`, `elevenlabs-stt`,
+`google-stt`, `azure-stt` — else **Whistle**, the built-in local engine.
+Reordering the list changes which engine every implicit transcription uses.
+Note that `OPENAI_API_KEY` configures `whisper` and the Google AI Studio keys
+configure `google-stt`, so an ambient text-provider key silently becomes the
+STT default; a test asserting the Whistle default must blank them.
+
+**Whistle is the zero-config default, and it ships with the package.**
+`voice/providers/WhistleSTT.ts` runs a 17 MB model in WebAssembly on this
+machine. Its three files are committed under `models/whistle/` (pinned
+Hugging Face revisions, Apache-2.0, verified by SHA-256 in
+`voice/whistle/assets.ts` before use) and listed in package.json `files`, so a
+fresh install transcribes with no network. The directory order is an explicit
+`credentials.stt.whistle.modelDir` / `NEUROLINK_WHISTLE_DIR`, then
+`NEUROLINK_MODEL_DIR/whistle`, then the bundled copy (found by walking up from
+the module to the package's own `package.json`), then
+`~/.neurolink/models/whistle`, the only directory a download ever writes to and
+now a fallback for installs that lost the bundled files. Whistle counts as
+configured whenever its files are present **or** it may download them, so "no
+STT backend configured" is only reachable with an **explicit, empty** model dir
+(`NEUROLINK_WHISTLE_DIR` / `modelDir`, which skips the bundled copy) **and**
+`NEUROLINK_WHISTLE_AUTO_DOWNLOAD=0` (or `credentials.stt.whistle.autoDownload:
+false`). Tests that assert "no backend" must set both.
+
+**The correction layer fails open through `tryDecide`.**
+`voice/correction/` finds dictionary aliases in the transcript, asks the
+decision provider per candidate whether the speaker meant the term or the
+literal word (a `choice`, never a leading yes/no), then optionally rewrites the
+text with a `generate`/`stream` call. With no decision provider, on the 4 s
+guard timeout, or on any error, the dictionary is applied as is and every
+`STTDecisionRecord` carries a `note` saying why — the same degradation contract
+as the five `decide` call sites above (the guard calls `tryDecide` directly, so
+it is not one of the `await decide(` sites).
+
+**Nothing may lose words.** Each layer keeps the text it was given when it
+fails: a rewrite that drops more than `maxDropRatio` (0.25) of the words, times
+out or errors is discarded; a correction that returns nothing keeps the engine
+text; a failed fallback or second opinion keeps the primary; a streamed final
+pass that comes back empty or with fewer than half the words already shown
+keeps the live text; LocalAgreement's committed prefix only grows while passes
+keep their words (it is capped at the newest pass's length); and an
+utterance no engine could read is reported as a `silence` event with its length
+rather than disappearing. `steps` on every result records which of these
+happened. Covered by `pnpm run test:transcribe` (public surface, stub engines,
+CLI, routes) and `pnpm run test:transcribe:stream` (the chunked adapter under
+the determinism exception).
+
 ### Pattern: Factory + Registry
 
 Every extensible system (providers, processors, chunkers, rerankers) follows the same pattern:
@@ -369,6 +435,11 @@ list: `relevance | prune | deduplicate | summarize | truncate`.
 | `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)                                                                         |
 | `src/lib/providers/catalog/`                       | One JSON per Tier-2 provider — the source of truth for its whole integration (`schema.ts` validates, `loader.ts` builds) |
 | `src/lib/providers/systemOneDecision.ts`           | Shared base for `decide` providers: request loop, retries, auth breaker, answer parsing, `decisionLimits`                |
+| `src/lib/factories/sttDescriptors.ts`              | `STT_PROVIDER_DESCRIPTORS` — STT provider metadata; order is default-provider precedence (Whistle last)                  |
+| `src/lib/voice/transcribe.ts`                      | `transcribe()` orchestration: audio loading, provider resolution, fallback, second opinion, correction                   |
+| `src/lib/voice/transcribeStream.ts`                | `transcribeStream()`: native handler streams, or the chunked adapter in `voice/streaming/` for batch engines             |
+| `src/lib/voice/correction/`                        | Dictionary candidates → `tryDecide` guard (fails open) → LLM rewrite; never returns fewer words than it was given        |
+| `src/lib/voice/providers/WhistleSTT.ts`            | Built-in local STT engine (WASM, zero-config default); files and download in `voice/whistle/assets.ts`                   |
 | `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge                                                           |
 | `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                                                                              |
 | `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map                                                               |
@@ -454,6 +525,8 @@ pnpm test                 # Main suite (test/continuous-test-suite.ts)
 pnpm run test:ci          # test + test:client
 pnpm run test:client      # SDK client suite
 pnpm run test:decide      # The decide inference type (live; gateway half skips without AI_GATEWAY_API_KEY)
+pnpm run test:transcribe  # The transcribe inference type: SDK, CLI and routes (no API; Whistle cases skip without its files or macOS `say`)
+pnpm run test:transcribe:stream  # Chunked streaming adapter: endpointer, LocalAgreement, takeover (no API; determinism exception)
 pnpm run test:context     # Context compaction + file handling
 pnpm run test:mcp         # MCP infrastructure (no-API; mcp-infra.ts)
 pnpm run test:mcp:http    # HTTP-transport suite (mcp-http.ts) — live

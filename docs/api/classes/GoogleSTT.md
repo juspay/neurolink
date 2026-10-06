@@ -22,17 +22,23 @@ https://cloud.google.com/speech-to-text/docs
 
 ### Constructor
 
-> **new GoogleSTT**(`apiKey?`, `credentialsPath?`): `GoogleSTT`
+> **new GoogleSTT**(`apiKeyOrCredentials?`, `credentialsPath?`): `GoogleSTT`
 
 #### Parameters
 
-##### apiKey?
+##### apiKeyOrCredentials?
 
-`string`
+`string` \| \{ `apiKey?`: `string`; `credentialsPath?`: `string`; \}
+
+The `credentials.stt.google` slice
+(`apiKey`, `credentialsPath`), or an API key (the original positional
+form). The environment fills whatever is left out.
 
 ##### credentialsPath?
 
 `string`
+
+Service-account file, positional form only.
 
 #### Returns
 
@@ -57,8 +63,8 @@ For longer audio, use the async longrunningrecognize endpoint (not yet implement
 
 > `readonly` **supportsStreaming**: `false` = `false`
 
-True streaming requires gRPC (not yet implemented).
-transcribeStream() uses a chunk-and-batch workaround.
+True streaming requires gRPC (not implemented). `transcribeStream()` on
+the SDK streams this handler through the generic chunked adapter.
 
 #### Implementation of
 
@@ -129,29 +135,3 @@ transcribeStream() uses a chunk-and-batch workaround.
 #### Implementation of
 
 `STTHandler.transcribe`
-
----
-
-### transcribeStream()
-
-> **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-Streaming transcription (placeholder - requires WebSocket/gRPC)
-
-#### Parameters
-
-##### audioStream
-
-`AsyncIterable`\<`Buffer`\<`ArrayBufferLike`\>\>
-
-##### options
-
-[`STTOptions`](../type-aliases/STTOptions.md)
-
-#### Returns
-
-`AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-#### Implementation of
-
-`STTHandler.transcribeStream`

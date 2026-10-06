@@ -45,6 +45,14 @@ export type STTOptions = {
   model?: string;
   /** Custom vocabulary/phrases */
   vocabulary?: string[];
+  /**
+   * Context prompt for engines that bias on one (Whisper and other
+   * OpenAI-compatible servers). Engines without a prompt ignore it;
+   * `vocabulary` terms are appended by the handlers that accept a prompt.
+   */
+  prompt?: string;
+  /** Per-request timeout in milliseconds, for handlers that honour one. */
+  timeoutMs?: number;
   /** Minimum confidence threshold */
   confidenceThreshold?: number;
   /**
@@ -185,6 +193,13 @@ export type STTHandler = {
   getSupportedLanguages?(): Promise<STTLanguage[]>;
   getSupportedFormats(): TTSAudioFormat[];
   isConfigured(): boolean;
+  /**
+   * What would make `isConfigured()` true, in the handler's own words — the
+   * env var or key for a hosted engine, the files and their download URLs for
+   * a local one. Appended to the "not configured" error so the caller is told
+   * what to do rather than "set the required API keys".
+   */
+  describeConfiguration?(): string;
   maxAudioDuration?: number;
   supportsStreaming?: boolean;
 };
@@ -398,7 +413,12 @@ export type GoogleSTTOptions = STTOptions & {
   keywords?: string[];
 };
 
-export type WhisperModel = "whisper-1";
+/**
+ * `whisper-1` is OpenAI's own model; any other string is passed through as-is,
+ * which is what a self-hosted OpenAI-compatible transcription server (vLLM,
+ * LiteLLM, a diarization sidecar) expects — e.g. `"qwen3-asr"`.
+ */
+export type WhisperModel = "whisper-1" | (string & NonNullable<unknown>);
 
 export type WhisperSTTOptions = STTOptions & {
   model?: WhisperModel;
@@ -407,6 +427,12 @@ export type WhisperSTTOptions = STTOptions & {
   prompt?: string;
   /** Translate audio to English instead of transcribing in original language */
   translate?: boolean;
+  /**
+   * Request timeout in milliseconds. Default 30_000, which suits OpenAI's
+   * hosted endpoint; a self-hosted server transcribing a whole meeting needs
+   * minutes, so raise it (or set `OPENAI_STT_TIMEOUT_MS`).
+   */
+  timeoutMs?: number;
 };
 
 // ============================================================================
@@ -479,6 +505,9 @@ export type DeepgramAlternative = {
 
 export type DeepgramChannel = {
   alternatives: DeepgramAlternative[];
+  /** Present when the request asked for `detect_language`. */
+  detected_language?: string;
+  language_confidence?: number;
 };
 
 export type DeepgramUtterance = {
@@ -588,15 +617,22 @@ export type WhisperTranscriptionWord = {
 
 export type WhisperTranscriptionSegment = {
   id: number;
-  seek: number;
+  /** OpenAI always sends these decoder stats; OpenAI-compatible servers may omit them. */
+  seek?: number;
   start: number;
   end: number;
   text: string;
-  tokens: number[];
-  temperature: number;
-  avg_logprob: number;
-  compression_ratio: number;
-  no_speech_prob: number;
+  tokens?: number[];
+  temperature?: number;
+  avg_logprob?: number;
+  compression_ratio?: number;
+  no_speech_prob?: number;
+  /**
+   * Not part of OpenAI's schema. Diarizing OpenAI-compatible servers (the
+   * NeuroLink diarization sidecar, Deepgram's compat endpoint, …) label each
+   * segment with a speaker; the handler surfaces it as `TranscriptionSegment.speaker`.
+   */
+  speaker?: string;
 };
 
 export type WhisperVerboseResponse = {
@@ -606,6 +642,17 @@ export type WhisperVerboseResponse = {
   text: string;
   segments?: WhisperTranscriptionSegment[];
   words?: WhisperTranscriptionWord[];
+  /** Extension: distinct speaker labels, in order of first appearance. */
+  speakers?: string[];
+  /**
+   * Extension: a self-hosted server that scores language identification may
+   * say whether it trusts its own detection. Read defensively; never required.
+   */
+  language_detected?: boolean;
+  /** Extension: candidate languages and the server's score for each. */
+  language_scores?: Array<{ language: string; score: number }>;
+  /** Extension: the server's confidence in `language`. */
+  language_confidence?: number;
 };
 
 export type WhisperSimpleResponse = {
@@ -852,3 +899,124 @@ export type GeminiResponse = {
     ids: string[];
   };
 };
+
+// ============================================================================
+// WHISTLE (BUILT-IN LOCAL STT) TYPES
+// ============================================================================
+
+/** The three files the built-in Whistle engine needs on disk. */
+export type WhistleAssetName = "needle.js" | "needle.wasm" | "whistle.cact";
+
+/** One pinned Whistle asset: where it comes from and what it must hash to. */
+export type WhistleAsset = {
+  name: WhistleAssetName;
+  url: string;
+  sha256: string;
+  /** Exact size in bytes, used for the download notice and a cheap pre-check. */
+  bytes: number;
+};
+
+/** Absolute paths of the three Whistle files once they are present and verified. */
+export type WhistleAssetPaths = Record<WhistleAssetName, string>;
+
+/** One word as the Whistle engine reports it (seconds from the start of the audio). */
+export type WhistleWord = {
+  word: string;
+  start: number;
+  end: number;
+  probability: number;
+};
+
+/** A finished batch transcription from the Whistle worker, all chunks joined. */
+export type WhistleEngineOutput = {
+  text: string;
+  language: string | null;
+  words: WhistleWord[];
+  /** Time to first token of the first chunk. */
+  ttftMs: number | null;
+  /** Mean decode speed over the chunks, tokens per second. */
+  decodeTps: number | null;
+  /** How many ≤30 s pieces the audio was cut into. */
+  chunks: number;
+};
+
+/** One step of the engine's native stream: what this chunk committed, and the unconfirmed tail. */
+export type WhistleStreamStep = {
+  text: string;
+  words: WhistleWord[];
+  pending: string;
+  language: string | null;
+  /** Seconds of audio received so far. */
+  received: number;
+  passMs: number;
+};
+
+/** Messages the handler sends to the Whistle worker thread. */
+export type WhistleWorkerRequest =
+  | {
+      id: number;
+      op: "transcribe";
+      pcm: Float32Array;
+      language: string | null;
+      keywords: string | null;
+      timestamps: boolean;
+    }
+  | {
+      id: number;
+      op: "streamProcess";
+      pcm: Float32Array;
+      language: string | null;
+      keywords: string | null;
+    }
+  | { id: number; op: "streamStop" };
+
+/** Messages the Whistle worker thread sends back. */
+export type WhistleWorkerResponse =
+  | { kind: "ready"; loadMs: number }
+  | { kind: "bootError"; error: string }
+  | { kind: "transcribed"; id: number; result: WhistleEngineOutput }
+  | { kind: "streamStep"; id: number; result: WhistleStreamStep }
+  | { kind: "failed"; id: number; error: string };
+
+/** `workerData` for the Whistle worker thread. */
+export type WhistleWorkerData = { paths: WhistleAssetPaths };
+
+/** The subset of the Emscripten "needle" module the Whistle worker calls. */
+export type WhistleNeedleModule = {
+  HEAPU8: Uint8Array;
+  _malloc(size: number): number;
+  _free(ptr: number): void;
+  _needle_load(ptr: number, length: bigint): number;
+  _needle_last_error(): number;
+  _needle_transcribe(
+    pcm: number,
+    samples: number,
+    language: number,
+    keywords: number,
+    timestamps: number,
+    out: number,
+    outCapacity: number,
+  ): number;
+  _needle_stream_transcribe_process(
+    pcm: number,
+    samples: number,
+    language: number,
+    keywords: number,
+    out: number,
+    outCapacity: number,
+  ): number;
+  _needle_stream_transcribe_stop(out: number, outCapacity: number): number;
+  UTF8ToString(ptr: number): string;
+};
+
+/** `createNeedle` — the factory `needle.js` exports. */
+export type WhistleNeedleFactory = (moduleArg: {
+  wasmBinary?: Uint8Array;
+  print?: (text: string) => void;
+  printErr?: (text: string) => void;
+}) => Promise<WhistleNeedleModule>;
+
+/** A worker request before the engine stamps its id (the `Omit` distributes over the union). */
+export type WhistleWorkerOutgoing<T = WhistleWorkerRequest> = T extends unknown
+  ? Omit<T, "id">
+  : never;

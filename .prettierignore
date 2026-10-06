@@ -75,3 +75,9 @@ fix/
 
 # SDD scratch workspaces (git-ignored agent working files)
 .superpowers/
+
+# Voice Bench: vendored WASM engine, local secrets, sample audio
+examples/voice-bench/public/whistle/needle.js
+examples/voice-bench/public/config.js
+examples/voice-bench/samples/
+models/whistle/

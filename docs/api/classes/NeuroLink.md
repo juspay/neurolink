@@ -3082,6 +3082,79 @@ the same treatment as NeuroLink's internal ones — also runs the host's
 
 ---
 
+#### transcribe()
+
+> **transcribe**(`options`): `Promise`\<[`TranscribeResult`](../type-aliases/TranscribeResult.md)\>
+
+Transcribe a recording to text through any STT provider, with the
+optional layers that make self-hosted engines usable: a dictionary of
+names and jargon (sent to the engine as context, then repaired after the
+fact behind a `tryDecide` guard), an LLM rewrite, a second-opinion
+engine, and a fallback engine for audio the primary cannot read.
+
+The provider defaults to `NEUROLINK_STT_PROVIDER`, then the first
+configured STT provider, then the built-in local engine, so an instance
+with no STT configuration still transcribes. Per-call
+`credentials.stt` beats the instance's, which beats the environment.
+
+##### Parameters
+
+###### options
+
+[`TranscribeOptions`](../type-aliases/TranscribeOptions.md)
+
+##### Returns
+
+`Promise`\<[`TranscribeResult`](../type-aliases/TranscribeResult.md)\>
+
+##### Example
+
+```typescript
+const result = await neurolink.transcribe({
+  audio: "./meeting.wav",
+  dictionary: [{ term: "NeuroLink", heardAs: ["neural link"] }],
+});
+console.log(result.text, result.engine.provider, result.steps);
+```
+
+##### Throws
+
+STTError when the audio cannot be read, the provider is unknown,
+or the engine fails with no fallback that covers errors
+
+---
+
+#### transcribeStream()
+
+> **transcribeStream**(`options`): `AsyncIterable`\<[`TranscribeStreamEvent`](../type-aliases/TranscribeStreamEvent.md)\>
+
+Transcribe a live stream of PCM16LE frames. Engines with a native stream
+use it; every other engine is streamed through the chunked adapter
+(energy-gated utterances, rolling re-transcription, LocalAgreement
+commits). Emits `interim`, `final`, `corrected` and the other
+[TranscribeStreamEvent](../type-aliases/TranscribeStreamEvent.md)s; the same correction, fallback and
+provider rules as [NeuroLink.transcribe](#transcribe) apply per utterance.
+
+##### Parameters
+
+###### options
+
+[`TranscribeStreamOptions`](../type-aliases/TranscribeStreamOptions.md)
+
+##### Returns
+
+`AsyncIterable`\<[`TranscribeStreamEvent`](../type-aliases/TranscribeStreamEvent.md)\>
+
+##### Example
+
+```typescript
+for await (const event of neurolink.transcribeStream({ audio: micFrames })) {
+  if (event.type === "final") console.log(event.text);
+}
+```
+
+---
+
 #### evaluate()
 
 > **evaluate**(`input`, `options?`): `Promise`\<[`PipelineResult`](../type-aliases/PipelineResult.md)\>

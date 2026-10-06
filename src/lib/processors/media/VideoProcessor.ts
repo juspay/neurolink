@@ -63,9 +63,18 @@ import type {
   ProcessedVideo,
   ProcessorFileProcessingResult,
   ProcessOptions,
+  STTCredentials,
+  STTHandler,
   VideoKeyframe,
   VideoProcessorOptions,
 } from "../../types/index.js";
+import {
+  getSTTProviderDescriptor,
+  resolveDefaultSTTProvider,
+  STT_PROVIDER_DESCRIPTORS,
+} from "../../factories/sttDescriptors.js";
+import { STTProcessor } from "../../utils/sttProcessor.js";
+import { freshEnvSTTCredentials } from "../../voice/sttEnvCredentials.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import {
   extensionsForModality,
@@ -256,10 +265,11 @@ const VIDEO_CONFIG = {
    * seeking to a handful of offsets, and a meeting recording is long.
    */
   AUDIO_EXTRACT_TIMEOUT_MS: 180_000,
-  /** Timeout for one Whisper transcription request in milliseconds */
+  /** Timeout for one transcription request in milliseconds */
   TRANSCRIPTION_TIMEOUT_MS: 120_000,
   /**
-   * Whisper's upload ceiling in MB. The extracted track is mono 16 kHz MP3,
+   * Transcription upload ceiling in MB (Whisper's documented limit, and a
+   * floor for the other engines). The extracted track is mono 16 kHz MP3,
    * so this is roughly six hours of speech — a clip that breaches it is
    * unusual enough to be worth saying so rather than silently truncating.
    */
@@ -1040,11 +1050,9 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    * working implementation of the same thing, and `--transcribe-audio` would
    * still do nothing.
    *
-   * The Whisper call is reproduced here rather than shared with
-   * `AudioProcessor`: extracting it into a common module is the better
-   * long-term shape, but that file is being edited concurrently, and a
-   * merge conflict in the audio pipeline is a worse outcome than fifty
-   * duplicated lines. The duplication is worth removing once both land.
+   * The call goes through `STTProcessor`, like `AudioProcessor` and
+   * `transcribe()`, so the default-provider rule, `OPENAI_STT_*` and every
+   * STT handler apply to video too.
    *
    * ## Failure behaviour
    *
@@ -1088,14 +1096,40 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
       return skipped("the video has no audio track");
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    // The same provider rule as every other transcription: the provider named
+    // by NEUROLINK_STT_PROVIDER, else the first configured one, else the
+    // built-in local engine when it can run here.
+    const provider = resolveDefaultSTTProvider();
+    const descriptor = getSTTProviderDescriptor(provider);
+    // Same slice AudioProcessor builds, from one shared helper, so audio
+    // attachments and video audio tracks can never resolve different endpoints.
+    const credentials: STTCredentials = descriptor
+      ? freshEnvSTTCredentials(descriptor.credentialsKey)
+      : {};
+    let handler: STTHandler | undefined;
+    try {
+      handler = await STTProcessor.resolveHandler(provider, credentials);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
       return skipped(
-        "OPENAI_API_KEY is not set, and Whisper is the only transcription backend wired up",
+        `the transcription backend could not be loaded — ${detail}`,
       );
     }
+    if (!handler?.isConfigured()) {
+      return skipped(
+        descriptor?.capabilities.local
+          ? `no transcription backend is configured — set one of: ${STT_PROVIDER_DESCRIPTORS.flatMap((d) => d.envVars).join(", ")}`
+          : `transcription provider "${provider}" is not configured`,
+      );
+    }
+    const label = provider === "whisper" ? "openai-whisper" : provider;
 
-    const audioPath = join(tempDir, "audio.mp3");
+    // MP3 keeps a long recording under the upload ceiling; an engine that
+    // does not read MP3 gets 16-bit PCM WAV instead.
+    const supported = handler.getSupportedFormats();
+    const audioFormat: "mp3" | "wav" =
+      supported.length === 0 || supported.includes("mp3") ? "mp3" : "wav";
+    const audioPath = join(tempDir, `audio.${audioFormat}`);
     try {
       await runFfmpeg(
         [
@@ -1107,16 +1141,15 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
           // Drop the video stream outright. Without -vn ffmpeg tries to carry
           // it into an MP3 container as cover art and fails on most inputs.
           "-vn",
-          // Mono at 16 kHz is what Whisper resamples to anyway, and it keeps
-          // an hour-long recording comfortably under the upload ceiling.
+          // Mono at 16 kHz is what speech engines resample to anyway, and it
+          // keeps an hour-long recording comfortably under the upload ceiling.
           "-ac",
           "1",
           "-ar",
           "16000",
-          "-c:a",
-          "libmp3lame",
-          "-q:a",
-          "4",
+          ...(audioFormat === "mp3"
+            ? ["-c:a", "libmp3lame", "-q:a", "4"]
+            : ["-c:a", "pcm_s16le"]),
           audioPath,
         ],
         { timeoutMs: VIDEO_CONFIG.AUDIO_EXTRACT_TIMEOUT_MS },
@@ -1140,73 +1173,42 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     const sizeMB = audioBuffer.length / (1024 * 1024);
     if (sizeMB > VIDEO_CONFIG.WHISPER_MAX_SIZE_MB) {
       return skipped(
-        `the extracted audio is ${sizeMB.toFixed(1)}MB, over Whisper's ` +
-          `${VIDEO_CONFIG.WHISPER_MAX_SIZE_MB}MB limit — split the recording`,
+        `the extracted audio is ${sizeMB.toFixed(1)}MB, over the ` +
+          `${VIDEO_CONFIG.WHISPER_MAX_SIZE_MB}MB transcription limit — split the recording`,
       );
     }
 
-    const baseUrl = (
-      process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
-    ).replace(/\/+$/, "");
-    const form = new FormData();
-    form.append(
-      "file",
-      new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }),
-      "audio.mp3",
-    );
-    form.append("model", "whisper-1");
-    form.append("response_format", "verbose_json");
-
-    // `withTimeout` only races a promise against a timer — it cannot cancel
-    // the request. Without the abort, a timed-out upload keeps its socket and
-    // its in-flight body alive after the caller has already moved on.
-    const abort = new AbortController();
-    const timer = setTimeout(
-      () => abort.abort(),
-      VIDEO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
-    );
     try {
-      const response = await withTimeout(
-        fetch(`${baseUrl}/audio/transcriptions`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: form,
-          signal: abort.signal,
-        }),
+      const result = await withTimeout(
+        STTProcessor.transcribe(
+          audioBuffer,
+          provider,
+          {
+            format: audioFormat,
+            timeoutMs: VIDEO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+            maxAudioBytes: VIDEO_CONFIG.WHISPER_MAX_SIZE_MB * 1024 * 1024,
+          },
+          credentials,
+        ),
         VIDEO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
       );
-
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        return skipped(
-          `the transcription request failed — HTTP ${response.status}` +
-            `${detail ? `: ${detail.slice(0, 200)}` : ""}`,
-        );
-      }
-
-      const payload: unknown = await response.json();
-      const text =
-        typeof payload === "object" &&
-        payload !== null &&
-        typeof (payload as { text?: unknown }).text === "string"
-          ? (payload as { text: string }).text.trim()
-          : "";
+      const text = result.text.trim();
 
       if (text.length === 0) {
         // A successful call returning nothing is a real outcome — silence,
         // music, no speech — and not the same as a failure.
-        return skipped("Whisper returned an empty transcript for this audio");
+        return skipped(
+          `${provider === "whisper" ? "Whisper" : label} returned an empty transcript for this audio`,
+        );
       }
 
       logger.debug(
-        `[VideoProcessor] Transcribed ${filename} via openai-whisper (${text.length} chars)`,
+        `[VideoProcessor] Transcribed ${filename} via ${label} (${text.length} chars)`,
       );
       return { transcript: text };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       return skipped(`the transcription request failed — ${detail}`);
-    } finally {
-      clearTimeout(timer);
     }
   }
 

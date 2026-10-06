@@ -24,6 +24,13 @@ import type {
   HonoRateLimitEntry,
 } from "../../types/index.js";
 import { isErrorResponse } from "../utils/validation.js";
+import {
+  isRawBodyContentType,
+  isWebResponse,
+  parseByteLimit,
+  RawBodyTooLargeError,
+  readRawBody,
+} from "../utils/rawBody.js";
 
 // Declare global for runtime detection
 declare const Bun: { serve: (options: unknown) => unknown } | undefined;
@@ -35,6 +42,30 @@ declare const Deno:
  * Hono-specific server adapter
  * Supports multiple runtimes: Bun, Deno, Node.js
  */
+
+/** Raw bodies already read for a request, so a second extraction never hits a consumed stream. */
+const rawBodies = new WeakMap<Request, Buffer | RawBodyTooLargeError>();
+
+/** A web `ReadableStream` of bytes as an async iterable of Buffers, releasing the reader on exit. */
+async function* webStreamChunks(
+  stream: ReadableStream<Uint8Array>,
+): AsyncIterable<Buffer> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) {
+        return;
+      }
+      if (value) {
+        yield Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export class HonoServerAdapter extends BaseServerAdapter {
   private app!: Hono;
   private server?: unknown;
@@ -206,7 +237,12 @@ export class HonoServerAdapter extends BaseServerAdapter {
       this.app.use(
         "*",
         cors({
-          origin: this.config.cors.origins,
+          // Hono matches a list of origins literally, so `["*"]` (the default)
+          // matches nothing and no CORS header is sent; the string "*" is the
+          // wildcard. Pass it as such when the list contains it.
+          origin: this.config.cors.origins.includes("*")
+            ? "*"
+            : this.config.cors.origins,
           allowMethods: this.config.cors.methods,
           allowHeaders: this.config.cors.headers,
           credentials: this.config.cors.credentials,
@@ -360,6 +396,24 @@ export class HonoServerAdapter extends BaseServerAdapter {
         // Execute handler
         const result = await route.handler(ctx);
         const duration = Date.now() - startTime;
+
+        // A route that answers in its own wire format returns a web Response.
+        if (isWebResponse(result)) {
+          this.emit("response", {
+            requestId,
+            statusCode: result.status,
+            duration,
+            timestamp: new Date(),
+          } satisfies ServerAdapterEvents["response"]);
+          for (const [key, value] of Object.entries(
+            ctx.responseHeaders ?? {},
+          )) {
+            if (!result.headers.has(key)) {
+              result.headers.set(key, value);
+            }
+          }
+          return result;
+        }
 
         // Check if result is an error response
         if (isErrorResponse(result)) {
@@ -786,6 +840,11 @@ export class HonoServerAdapter extends BaseServerAdapter {
     return this.app;
   }
 
+  public override getNativeServer(): unknown {
+    // @hono/node-server's serve() returns the http.Server; Bun/Deno do not.
+    return this.server;
+  }
+
   // ============================================
   // Helper Methods
   // ============================================
@@ -828,6 +887,43 @@ export class HonoServerAdapter extends BaseServerAdapter {
       } catch {
         return undefined;
       }
+    }
+
+    // Uploads (multipart, octet-stream, audio/*) reach the route as bytes.
+    // Over the size limit the body is the error itself rather than a throw:
+    // a throw from the middleware path would land in onError, which answers
+    // 500. The route answers 413 (or a validation error) from it.
+    if (isRawBodyContentType(contentType)) {
+      const limit = parseByteLimit(this.config.bodyParser.maxSize);
+      if (Number(c.req.header("Content-Length") ?? 0) > limit) {
+        return new RawBodyTooLargeError(limit);
+      }
+      // Read the web stream chunk by chunk and stop at the limit, so a
+      // chunked upload without a Content-Length cannot be buffered whole
+      // (and that before any route logic, including the API-key check, runs).
+      // The body is extracted more than once per request (middleware and
+      // route); a web stream can only be read once, so the outcome is kept
+      // per request the way Hono caches `arrayBuffer()`.
+      const cached = rawBodies.get(c.req.raw);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const stream = c.req.raw.body;
+      if (!stream) {
+        return Buffer.alloc(0);
+      }
+      let outcome: Buffer | RawBodyTooLargeError;
+      try {
+        outcome = await readRawBody(webStreamChunks(stream), limit);
+      } catch (error) {
+        if (!(error instanceof RawBodyTooLargeError)) {
+          throw error;
+        }
+        await stream.cancel().catch(() => undefined);
+        outcome = error;
+      }
+      rawBodies.set(c.req.raw, outcome);
+      return outcome;
     }
 
     return undefined;

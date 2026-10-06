@@ -81,3 +81,15 @@ Minimal server instance contract used by `neurolink serve`.
 #### Returns
 
 [`RouteDefinition`](RouteDefinition.md)[]
+
+---
+
+### getNativeServer?
+
+> `optional` **getNativeServer?**: () => `unknown`
+
+The listening Node http.Server, when the adapter has one to attach WebSocket upgrades to.
+
+#### Returns
+
+`unknown`

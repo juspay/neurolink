@@ -189,6 +189,7 @@ export {
   createMemoryRoutes,
   createOpenApiRoutes,
   createToolRoutes,
+  createTranscribeRoutes,
   registerAllRoutes,
   // The proxy doors. All were reachable only from the deep path
   // ./routes/index.js, which is not a package export — so a consumer of
@@ -241,6 +242,9 @@ export {
   ToolExecuteRequestSchema,
   ToolNameParamSchema,
   ToolSearchQuerySchema,
+  TranscribeConfigSchema,
+  TranscribeRequestSchema,
+  TranscribeStreamConfigSchema,
   validateParams,
   validateQuery,
   validateRequest,
@@ -253,3 +257,4 @@ export {
   WebSocketConnectionManager,
   WebSocketMessageRouter,
 } from "./websocket/index.js";
+export { attachTranscribeWebSocket } from "./websocket/transcribeWebSocket.js";

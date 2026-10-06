@@ -17,33 +17,34 @@ npm install @juspay/neurolink
 
 ## Command Map
 
-| Command               | Description                                                        | Example                                                                                                                      |
-| --------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `generate` / `gen`    | One-shot content generation with optional multimodal input.        | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png`                                                  |
-| `stream`              | Real-time streaming output with tool support.                      | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`                                                       |
-| `decide [state]`      | Typed, calibrated judgements from a decision model (no free text). | `npx @juspay/neurolink decide "Refund request" --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'` |
-| `batch`               | Process multiple prompts from a file.                              | `npx @juspay/neurolink batch prompts.txt --format json`                                                                      |
-| `loop`                | Interactive session with persistent variables & memory.            | `npx @juspay/neurolink loop --auto-redis`                                                                                    |
-| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).                 | `npx @juspay/neurolink auth login anthropic --method oauth`                                                                  |
-| `setup` / `s`         | Guided provider onboarding and validation.                         | `npx @juspay/neurolink setup --provider openai`                                                                              |
-| `status`              | Health check for configured providers.                             | `npx @juspay/neurolink status --verbose`                                                                                     |
-| `get-best-provider`   | Show the best available AI provider.                               | `npx @juspay/neurolink get-best-provider --format json`                                                                      |
-| `models list`         | Inspect available models and capabilities.                         | `npx @juspay/neurolink models list --capability vision`                                                                      |
-| `config <subcommand>` | Initialise, validate, export, or reset configuration.              | `npx @juspay/neurolink config validate`                                                                                      |
-| `memory <subcommand>` | View, export, or clear conversation history.                       | `npx @juspay/neurolink memory history NL_x3yr --format json`                                                                 |
-| `mcp <subcommand>`    | Manage Model Context Protocol servers/tools.                       | `npx @juspay/neurolink mcp list`                                                                                             |
-| `ollama <subcommand>` | Manage Ollama local AI models.                                     | `npx @juspay/neurolink ollama list-models`                                                                                   |
-| `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.                      | `npx @juspay/neurolink sagemaker status`                                                                                     |
-| `server <subcommand>` | Manage NeuroLink HTTP server                                       | `npx @juspay/neurolink server start --port 3000`                                                                             |
-| `serve`               | Start server in foreground mode                                    | `npx @juspay/neurolink serve --port 3000`                                                                                    |
-| `proxy <subcommand>`  | Manage the Claude multi-account proxy and its local telemetry.     | `npx @juspay/neurolink proxy telemetry setup`                                                                                |
-| `rag <subcommand>`    | RAG document processing (chunk, index, query).                     | `npx @juspay/neurolink rag chunk ./docs/guide.md`                                                                            |
-| `workflow <sub>`      | Manage and execute AI workflows.                                   | `npx @juspay/neurolink workflow list`                                                                                        |
-| `observability`       | Observability and telemetry management (aliases: `obs`, `otel`).   | `npx @juspay/neurolink observability status`                                                                                 |
-| `telemetry`           | Telemetry and exporter management (alias: `tel`).                  | `npx @juspay/neurolink telemetry status`                                                                                     |
-| `docs`                | Start the NeuroLink documentation MCP server.                      | `npx @juspay/neurolink docs --transport http --port 3001`                                                                    |
-| `validate`            | Alias for `config validate`.                                       | `npx @juspay/neurolink validate`                                                                                             |
-| `completion`          | Generate shell completion script.                                  | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`                                                              |
+| Command                | Description                                                        | Example                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `generate` / `gen`     | One-shot content generation with optional multimodal input.        | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png`                                                  |
+| `stream`               | Real-time streaming output with tool support.                      | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`                                                       |
+| `decide [state]`       | Typed, calibrated judgements from a decision model (no free text). | `npx @juspay/neurolink decide "Refund request" --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'` |
+| `transcribe <file\|->` | Audio to text; local engine by default, dictionary and correction. | `npx @juspay/neurolink transcribe meeting.wav --format srt`                                                                  |
+| `batch`                | Process multiple prompts from a file.                              | `npx @juspay/neurolink batch prompts.txt --format json`                                                                      |
+| `loop`                 | Interactive session with persistent variables & memory.            | `npx @juspay/neurolink loop --auto-redis`                                                                                    |
+| `auth <subcommand>`    | Manage provider authentication (API key or OAuth).                 | `npx @juspay/neurolink auth login anthropic --method oauth`                                                                  |
+| `setup` / `s`          | Guided provider onboarding and validation.                         | `npx @juspay/neurolink setup --provider openai`                                                                              |
+| `status`               | Health check for configured providers.                             | `npx @juspay/neurolink status --verbose`                                                                                     |
+| `get-best-provider`    | Show the best available AI provider.                               | `npx @juspay/neurolink get-best-provider --format json`                                                                      |
+| `models list`          | Inspect available models and capabilities.                         | `npx @juspay/neurolink models list --capability vision`                                                                      |
+| `config <subcommand>`  | Initialise, validate, export, or reset configuration.              | `npx @juspay/neurolink config validate`                                                                                      |
+| `memory <subcommand>`  | View, export, or clear conversation history.                       | `npx @juspay/neurolink memory history NL_x3yr --format json`                                                                 |
+| `mcp <subcommand>`     | Manage Model Context Protocol servers/tools.                       | `npx @juspay/neurolink mcp list`                                                                                             |
+| `ollama <subcommand>`  | Manage Ollama local AI models.                                     | `npx @juspay/neurolink ollama list-models`                                                                                   |
+| `sagemaker <command>`  | Manage Amazon SageMaker endpoints and models.                      | `npx @juspay/neurolink sagemaker status`                                                                                     |
+| `server <subcommand>`  | Manage NeuroLink HTTP server                                       | `npx @juspay/neurolink server start --port 3000`                                                                             |
+| `serve`                | Start server in foreground mode                                    | `npx @juspay/neurolink serve --port 3000`                                                                                    |
+| `proxy <subcommand>`   | Manage the Claude multi-account proxy and its local telemetry.     | `npx @juspay/neurolink proxy telemetry setup`                                                                                |
+| `rag <subcommand>`     | RAG document processing (chunk, index, query).                     | `npx @juspay/neurolink rag chunk ./docs/guide.md`                                                                            |
+| `workflow <sub>`       | Manage and execute AI workflows.                                   | `npx @juspay/neurolink workflow list`                                                                                        |
+| `observability`        | Observability and telemetry management (aliases: `obs`, `otel`).   | `npx @juspay/neurolink observability status`                                                                                 |
+| `telemetry`            | Telemetry and exporter management (alias: `tel`).                  | `npx @juspay/neurolink telemetry status`                                                                                     |
+| `docs`                 | Start the NeuroLink documentation MCP server.                      | `npx @juspay/neurolink docs --transport http --port 3001`                                                                    |
+| `validate`             | Alias for `config validate`.                                       | `npx @juspay/neurolink validate`                                                                                             |
+| `completion`           | Generate shell completion script.                                  | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`                                                              |
 
 ## Primary Commands
 
@@ -239,6 +240,56 @@ npx @juspay/neurolink decide "What color is this?" --provider xor \
 | `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                                                                                                                                          |
 
 Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command: TypeSafe reads `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route), Laya reads `LAYA_API_KEY` and `LAYA_BASE_URL` (required: Laya has no built-in endpoint), XOR reads `XOR_API_KEY` and `XOR_BASE_URL` (required: XOR has no built-in endpoint), and Perplexity reads `PERPLEXITY_API_KEY` alone (it has a hosted endpoint; `PERPLEXITY_DECIDER_BASE_URL` can name another origin), from the environment. `PERPLEXITY_API_KEY` is also the Perplexity text provider's key, so setting it for that provider configures `decide` too, tried after TypeSafe, Laya and XOR. Cloudflare Clef reads `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, both required (it has a hosted endpoint; `CLOUDFLARE_CLEF_BASE_URL` can name another base, and `CLOUDFLARE_CLEF_MODEL` picks `clef` or `clef-flash`). They are also the Cloudflare Workers AI text provider's variables, so setting them for that provider configures `decide` too, tried last, after TypeSafe, Laya, XOR and Perplexity. The Clef endpoint ignores state text past about 2,048 tokens without an error (hosted service or model: unknown), so a state it estimates at more than 1,500 tokens is refused with no network call; see [its guide](../getting-started/providers/cloudflare-clef.md#limits). Media is checked before any request: an `http(s)` URL, a missing or empty file, a file that is not an image or a video, more than 8 images (4 for Cloudflare Clef) and a request body over the provider's limit (8 MB for XOR, 32 MiB for Perplexity, 256,000 bytes for Cloudflare Clef) are refused with no network call, TypeSafe and Laya refuse media outright, Perplexity refuses `--video`, any image that is not PNG, JPEG or WebP, and any image over 2,048 tiles of 32 × 32 pixels (a larger one stalls the API for about a minute before it answers 504), and Cloudflare Clef refuses `--video` and any image that is not PNG, JPEG or WebP. Images and a video together are allowed, but the model does not reliably tell the two apart, so send one kind of media per request. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
+
+### `transcribe <file|->` {#transcribe}
+
+Turn audio into text — the `transcribe` inference type. Pass a file, or `-` to read the audio from stdin. With no STT provider configured, the built-in local engine (Whistle) runs on this machine with no key; set `NEUROLINK_STT_PROVIDER` (and that provider's key) to use another one.
+
+```bash
+# Plain transcription with the default engine
+npx @juspay/neurolink transcribe meeting.wav
+
+# Repair names the engine mis-hears, guarded by the decision model, then an LLM rewrite
+npx @juspay/neurolink transcribe call.mp3 \
+  --term "Acme|akmee,ack me|the company name" --correct
+
+# Dictionary from a file, rewrite on a chosen text model, Indic words in Latin letters
+npx @juspay/neurolink transcribe standup.m4a --dictionary terms.json \
+  --rewrite-provider <text-provider> --rewrite-model <fast-chat-model> --transliterate latin
+
+# Subtitles from word timings
+npx @juspay/neurolink transcribe talk.wav --word-timestamps --format srt > talk.srt
+
+# Live text from a file or a pipe, through transcribeStream()
+cat clip.wav | npx @juspay/neurolink transcribe - --stream
+```
+
+| Option                                | Description                                                                                                                                                |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file`                                | Audio file (WAV, MP3, M4A, OGG/Opus, WebM, FLAC, MP4, raw PCM16), or `-` for stdin.                                                                        |
+| `--provider <name>`                   | STT provider. Default: `NEUROLINK_STT_PROVIDER`, then the first configured one, then the local engine.                                                     |
+| `--model <name>`                      | Model of that provider. Default: `NEUROLINK_STT_MODEL` (only when the provider also came from the environment).                                            |
+| `--language <code>`                   | Language code, or `auto` to let the engine detect it. Default: `NEUROLINK_STT_LANGUAGE`, else `auto`.                                                      |
+| `--diarize`                           | Label speakers, on providers that diarize.                                                                                                                 |
+| `--word-timestamps`                   | Request word-level timings.                                                                                                                                |
+| `--prompt <text>`                     | Context prompt for engines that bias on one; dictionary terms are appended.                                                                                |
+| `--dictionary <file>`                 | JSON array of `{ "term", "heardAs", "meaning" }` entries.                                                                                                  |
+| `--term "Term\|heard,as\|meaning"`    | One dictionary entry inline; repeatable. Only the term is required.                                                                                        |
+| `--correct`                           | Run the correction layer: dictionary repairs (each one checked with the decision model when one is configured) and an LLM rewrite.                         |
+| `--rewrite-provider <name>`           | Text provider for the rewrite. Turns correction on.                                                                                                        |
+| `--rewrite-model <name>`              | Model for the rewrite. Turns correction on.                                                                                                                |
+| `--no-rewrite`                        | Dictionary-only correction, no LLM.                                                                                                                        |
+| `--transliterate latin\|native`       | How Indic-script words are written: `latin` the way people type them (the default), `native` keeps the script. Never a translation. Turns correction on.   |
+| `--second-opinion <provider>`         | A second STT engine on the same audio; the rewrite reconciles the two transcripts. Turns correction on.                                                    |
+| `--fallback <provider>`               | STT provider for audio the primary engine cannot read (an unsure language or no text).                                                                     |
+| `--context <sentence>`                | Who is talking and about what, for the engines, the guard and the rewrite.                                                                                 |
+| `--stream`                            | Decode the file to 16 kHz mono PCM16 and run it through `transcribeStream()`: live interim text, then finals and corrections. Non-WAV input needs ffmpeg.  |
+| `--format text\|json\|srt\|vtt`, `-f` | Output (default `text`). `json` prints the full result (one event per line with `--stream`); `srt`/`vtt` build cues from segments, else from word timings. |
+| `--timeout <ms>`                      | Whole-call timeout.                                                                                                                                        |
+| `--quiet`, `-q`                       | Print only the text.                                                                                                                                       |
+| `--debug`, `-v`                       | Debug logging; written to stderr when `--format json` is used.                                                                                             |
+
+The text output is the transcript followed by one dim line: the engine (and whether the fallback ran), the language and whether the engine was sure of it, the audio length, the time each layer took and what it did. In `--stream` mode a terminal shows the current utterance updating in place, and each final (and its correction) as its own line; when stdout is not a terminal, every event is a line. On failure the command exits 1 with the provider's message and the STT providers that are configured. Credentials are env-only, as for every other command. See [The `transcribe` inference type](../features/transcribe.md) for the SDK, the server routes and the correction layer.
 
 ### `batch <file>` {#batch}
 

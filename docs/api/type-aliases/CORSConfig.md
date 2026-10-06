@@ -24,7 +24,8 @@ Enable CORS (default: true)
 
 > `optional` **origins?**: `string`[]
 
-Allowed origins (default: ["*"])
+Allowed browser origins. Default `[]`: no cross-origin page may call the
+server until an origin is listed; `["*"]` opts in to any origin.
 
 ---
 

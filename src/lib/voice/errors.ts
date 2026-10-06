@@ -210,6 +210,61 @@ export class STTError extends VoiceError {
   }
 
   /**
+   * Create an error for a provider name that is neither a shipped STT
+   * provider nor a registered handler. Lists what is configured and what
+   * would configure the rest, so the caller can act on the message alone.
+   */
+  static unknownProvider(
+    provider: string,
+    configuredProviders: string[],
+    howToConfigure?: string,
+  ): STTError {
+    const configured =
+      configuredProviders.length > 0
+        ? `Configured: ${configuredProviders.join(", ")}.`
+        : "No STT provider is configured.";
+    return new STTError({
+      code: STT_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+      message:
+        `STT provider "${provider}" is not supported. ${configured}` +
+        (howToConfigure ? ` To configure another, set ${howToConfigure}.` : ""),
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: { provider, configuredProviders },
+    });
+  }
+
+  /**
+   * Create an error for audio that could not be read (a missing file, a URL
+   * that failed, an input of the wrong kind).
+   */
+  static audioLoadFailed(reason: string, originalError?: Error): STTError {
+    return new STTError({
+      code: STT_ERROR_CODES.INVALID_AUDIO_FORMAT,
+      message: `Could not load audio: ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      originalError,
+    });
+  }
+
+  /**
+   * Create an error for a stream of frames handed to a batch entry point.
+   */
+  static streamInputNotSupported(): STTError {
+    return new STTError({
+      code: STT_ERROR_CODES.STREAMING_NOT_SUPPORTED,
+      message:
+        "transcribe() takes a whole recording (bytes, a path or a URL); for an async stream of audio frames use transcribeStream()",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+    });
+  }
+
+  /**
    * Create an error for stream processing failure
    */
   static streamError(reason: string, provider?: string): STTError {

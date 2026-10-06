@@ -241,6 +241,17 @@ export { MUSIC_ERROR_CODES, MusicError } from "./utils/musicProcessor.js";
 
 // STT / Realtime processors (registries for speech-to-text + live voice)
 export { STTProcessor } from "./utils/sttProcessor.js";
+// The `transcribe` inference type: STT provider descriptors (precedence
+// order = default-provider order), provider-neutral speaker turns, and the
+// transcript correction layer `neurolink.transcribe()` runs.
+export {
+  describeSTTProviderKeys,
+  isSTTProviderConfigured,
+  resolveDefaultSTTProvider,
+  STT_PROVIDER_DESCRIPTORS,
+} from "./factories/sttDescriptors.js";
+export { buildSpeakerTurns, listSpeakers } from "./utils/speakerTurns.js";
+export { correctTranscript } from "./voice/correction/index.js";
 // STT_ERROR_CODES is surfaced via the types barrel (export * from "./types/index.js")
 // STTError is re-exported below from the voice/index.js barrel
 
@@ -281,6 +292,8 @@ export {
   OpenAISTTHandler,
   WhisperSTT,
   WhisperSTTHandler,
+  WhistleSTT,
+  WhistleSTTHandler,
   // Realtime
   BaseRealtimeHandler,
   GeminiLive,

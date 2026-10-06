@@ -21,10 +21,17 @@
 
 import type {
   RealtimeHandler,
+  STTCredentials,
+  STTEndpointConfig,
   STTHandler,
   TTSHandler,
 } from "../types/index.js";
 import { MEDIA_HANDLER_CATALOG } from "../factories/mediaHandlerCatalog.js";
+import {
+  resolveCallSTTEndpoints,
+  resolveSTTEndpoints,
+  resolveSTTProviderName,
+} from "../factories/sttDescriptors.js";
 import { logger } from "../utils/logger.js";
 import { STTProcessor } from "../utils/sttProcessor.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
@@ -54,6 +61,7 @@ export {
 // ============================================================================
 
 export { RealtimeError, STTError, VoiceError } from "./errors.js";
+import { STTError } from "./errors.js";
 
 // ============================================================================
 // REALTIME VOICE API
@@ -145,6 +153,10 @@ export {
   WhisperSTT,
   WhisperSTTHandler,
 } from "./providers/OpenAISTT.js";
+export {
+  WhistleSTT,
+  WhistleSTT as WhistleSTTHandler,
+} from "./providers/WhistleSTT.js";
 
 // ============================================================================
 // REALTIME PROVIDERS
@@ -175,6 +187,7 @@ import { DeepgramSTT } from "./providers/DeepgramSTT.js";
 import { ElevenLabsSTT } from "./providers/ElevenLabsSTT.js";
 import { GoogleSTT } from "./providers/GoogleSTT.js";
 import { OpenAISTT } from "./providers/OpenAISTT.js";
+import { WhistleSTT } from "./providers/WhistleSTT.js";
 
 import { GeminiLive } from "./providers/GeminiLive.js";
 import { OpenAIRealtime } from "./providers/OpenAIRealtime.js";
@@ -208,18 +221,29 @@ const TTS_HANDLER_CANDIDATES: ReadonlyArray<{
   },
 );
 
-const STT_HANDLER_FACTORIES: Readonly<Record<string, () => STTHandler>> = {
-  whisper: () => new OpenAISTT(),
-  deepgram: () => new DeepgramSTT(),
-  "google-stt": () => new GoogleSTT(),
-  "azure-stt": () => new AzureSTT(),
-  "elevenlabs-stt": () => new ElevenLabsSTT(),
+/**
+ * One factory per STT descriptor name. Each takes the request's (or
+ * instance's) `credentials.stt` and hands its own slice to the handler; the
+ * handler fills whatever the slice leaves out from the environment.
+ */
+const STT_HANDLER_FACTORIES: Readonly<
+  Record<string, (credentials?: STTCredentials) => STTHandler>
+> = {
+  whisper: (credentials) => new OpenAISTT(credentials?.whisper),
+  deepgram: (credentials) => new DeepgramSTT(credentials?.deepgram),
+  "elevenlabs-stt": (credentials) => new ElevenLabsSTT(credentials?.elevenlabs),
+  "google-stt": (credentials) => new GoogleSTT(credentials?.google),
+  "azure-stt": (credentials) => new AzureSTT(credentials?.azure),
+  whistle: (credentials) => new WhistleSTT(credentials?.whistle),
 };
+
+/** Registered even when `isConfigured()` is false: it is the no-config default. */
+const ALWAYS_REGISTERED_STT = new Set(["whistle"]);
 
 const STT_HANDLER_CANDIDATES: ReadonlyArray<{
   readonly name: string;
   readonly aliases?: readonly string[];
-  readonly factory: () => STTHandler;
+  readonly factory: (credentials?: STTCredentials) => STTHandler;
 }> = MEDIA_HANDLER_CATALOG.filter((entry) => entry.kind === "stt").map(
   (entry) => {
     const factory = STT_HANDLER_FACTORIES[entry.name];
@@ -231,6 +255,36 @@ const STT_HANDLER_CANDIDATES: ReadonlyArray<{
     return { name: entry.name, aliases: entry.aliases, factory };
   },
 );
+
+/**
+ * A fresh STT handler for a shipped provider name or alias, built from
+ * `credentials` with the environment as fallback. Used for per-call
+ * credentials, where the registry's shared instance (built from the
+ * environment at registration time) is the wrong one.
+ *
+ * @throws STTError when the name is not a shipped STT provider
+ */
+export function createSTTHandler(
+  provider: string,
+  credentials?: STTCredentials,
+): STTHandler {
+  // A named endpoint in the caller's credentials wins over everything and
+  // never touches the shared registry.
+  const endpoint =
+    resolveCallSTTEndpoints(credentials)[provider.trim().toLowerCase()];
+  if (endpoint) {
+    return endpointHandler(endpoint);
+  }
+  const canonical = resolveSTTProviderName(provider);
+  const factory = canonical ? STT_HANDLER_FACTORIES[canonical] : undefined;
+  if (!factory) {
+    throw STTError.providerNotSupported(
+      provider,
+      Object.keys(STT_HANDLER_FACTORIES),
+    );
+  }
+  return factory(credentials);
+}
 
 const REALTIME_HANDLER_FACTORIES: Readonly<
   Record<string, () => RealtimeHandler>
@@ -265,7 +319,7 @@ function registerCandidates<H extends { isConfigured(): boolean }>(
   getRegistered: (name: string) => H | undefined,
   register: (name: string, handler: H) => void,
   scope: string,
-  requireConfigured: boolean,
+  requireConfigured: boolean | ((name: string) => boolean),
 ): void {
   for (const { name, aliases, factory } of candidates) {
     // Compute missingName / missingAliases separately so a manually-
@@ -289,7 +343,11 @@ function registerCandidates<H extends { isConfigured(): boolean }>(
       }
       if (!handler) {
         handler = factory();
-        if (requireConfigured && !handler.isConfigured()) {
+        const mustBeConfigured =
+          typeof requireConfigured === "function"
+            ? requireConfigured(name)
+            : requireConfigured;
+        if (mustBeConfigured && !handler.isConfigured()) {
           continue;
         }
       }
@@ -323,18 +381,48 @@ export function registerDefaultTTSHandlers(): void {
 }
 
 /**
- * Register every shipped STT handler whose backing credentials are
- * present in the environment. Safe to call multiple times.
+ * Register every shipped STT handler whose backing credentials are present in
+ * the ENVIRONMENT, plus the built-in local engine (Whistle), which is always
+ * registered because it is what a transcription with nothing configured falls
+ * back to, plus the env-declared named endpoints (`NEUROLINK_STT_ENDPOINTS`).
+ * Safe to call multiple times; a name that is already registered is left
+ * alone. Deliberately takes no credentials: the registry is process-wide, so
+ * a handler built from one caller's keys or base URL would be served to every
+ * later caller — per-call and per-instance credentials are resolved at call
+ * time by `STTProcessor.resolveHandler` / `createSTTHandler` instead.
  */
 export function registerDefaultSTTHandlers(): void {
   registerCandidates(
-    STT_HANDLER_CANDIDATES,
+    STT_HANDLER_CANDIDATES.map((candidate) => ({
+      name: candidate.name,
+      aliases: candidate.aliases,
+      factory: () => candidate.factory(),
+    })),
     (name) => STTProcessor.supports(name),
     (name) => STTProcessor.getHandler(name),
     (name, handler) => STTProcessor.registerHandler(name, handler),
     "voice/stt",
-    true,
+    (name) => !ALWAYS_REGISTERED_STT.has(name),
   );
+  // Named OpenAI-compatible endpoints become providers of their own, so two
+  // self-hosted engines can be told apart and used as each other's fallback.
+  for (const [name, endpoint] of Object.entries(resolveSTTEndpoints())) {
+    if (!STTProcessor.supports(name)) {
+      STTProcessor.registerHandler(name, endpointHandler(endpoint));
+    }
+  }
+}
+
+/** The OpenAI-compatible handler for one named endpoint. */
+function endpointHandler(endpoint: STTEndpointConfig): OpenAISTT {
+  // A named endpoint sends its own key or none: it never borrows the
+  // `whisper` provider's env keys, which belong to a different host.
+  return new OpenAISTT({
+    apiKey: endpoint.apiKey ?? "",
+    baseURL: endpoint.baseURL,
+    timeoutMs: endpoint.timeoutMs,
+    model: endpoint.model,
+  });
 }
 
 /**

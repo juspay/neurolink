@@ -186,6 +186,65 @@ function createFileWatcher(
 /**
  * Serve CLI command factory
  */
+/** A Node `http.Server` (or `https.Server`): it can take an `upgrade` listener. */
+function isNodeHttpServer(value: unknown): value is import("node:http").Server {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { on?: unknown }).on === "function" &&
+    typeof (value as { listen?: unknown }).listen === "function"
+  );
+}
+
+/**
+ * Live transcription streams over a WebSocket upgrade, which the HTTP
+ * adapters cannot route; it attaches to the Node server once it listens, on
+ * the first start and on every watch-mode restart. Bun and Deno serve
+ * without one, and then the route is simply absent. Guarded by the same
+ * NEUROLINK_SERVER_API_KEY(s) as the HTTP routes.
+ */
+/** `--cors-origin` values, split on commas and trimmed; `undefined` when none were given. */
+function corsOriginsFromArgv(
+  values: readonly string[] | undefined,
+): string[] | undefined {
+  if (!values || values.length === 0) {
+    return undefined;
+  }
+  const origins = values
+    .flatMap((value) => String(value).split(","))
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  return origins.length > 0 ? origins : undefined;
+}
+
+async function attachTranscriptionWebSocket(
+  server: ServerInstance,
+  neurolink: NeuroLink,
+  serverConfig: ServerAdapterConfig,
+): Promise<void> {
+  const native = server.getNativeServer?.();
+  if (!isNodeHttpServer(native)) {
+    return;
+  }
+  const { attachTranscribeWebSocket } =
+    await import("../../lib/server/websocket/transcribeWebSocket.js");
+  const apiKeys = readServerApiKeys();
+  // The same origin allow-list as the HTTP routes: with CORS on and a list
+  // that is not "*", a page from an unlisted origin cannot open the stream.
+  const origins = serverConfig.cors?.origins;
+  const allowedOrigins =
+    serverConfig.cors?.enabled !== false && origins && !origins.includes("*")
+      ? origins
+      : undefined;
+  await attachTranscribeWebSocket(native, neurolink, {
+    ...(apiKeys.length > 0 ? { authToken: apiKeys } : {}),
+    ...(allowedOrigins ? { allowedOrigins } : {}),
+  });
+  logger.debug(
+    "[serve] transcription WebSocket attached at /v1/audio/transcriptions/stream",
+  );
+}
+
 export class ServeCommandFactory {
   /**
    * Create the main serve command
@@ -246,6 +305,14 @@ export class ServeCommandFactory {
           .option("cors", {
             type: "boolean",
             description: "Enable CORS middleware (default: true)",
+          })
+          .option("cors-origin", {
+            type: "array",
+            string: true,
+            alias: "corsOrigin",
+            description:
+              "Browser origin allowed by CORS (repeat or comma-separate; '*' for any). " +
+              "Default: none, so no web page can call the server cross-origin",
           })
           .option("rate-limit", {
             type: "number",
@@ -487,6 +554,9 @@ export class ServeCommandFactory {
           argv.cors !== undefined
             ? argv.cors
             : (fileConfig.cors?.enabled ?? defaultConfig.cors.enabled),
+        ...(corsOriginsFromArgv(argv.corsOrigin)
+          ? { origins: corsOriginsFromArgv(argv.corsOrigin) }
+          : {}),
       },
       rateLimit: {
         ...defaultConfig.rateLimit,
@@ -504,7 +574,14 @@ export class ServeCommandFactory {
       },
       bodyParser: fileConfig.bodyParser,
       logging: fileConfig.logging,
-      timeout: fileConfig.timeout,
+      // Transcription of a long recording through a remote engine can take
+      // longer than the 30 s default, so the request timeout is also
+      // settable from the environment (milliseconds); the config file wins.
+      timeout:
+        fileConfig.timeout ??
+        (Number(process.env.NEUROLINK_SERVER_TIMEOUT_MS) > 0
+          ? Number(process.env.NEUROLINK_SERVER_TIMEOUT_MS)
+          : undefined),
       enableMetrics: fileConfig.enableMetrics ?? true,
       enableSwagger:
         argv.swagger !== undefined
@@ -568,6 +645,12 @@ export class ServeCommandFactory {
       ),
     );
 
+    await attachTranscriptionWebSocket(
+      serverRef.current,
+      neurolink,
+      opts.serverConfig,
+    );
+
     return serverRef;
   }
 
@@ -621,6 +704,11 @@ export class ServeCommandFactory {
 
     const corsEnabled =
       opts.argv.cors ?? opts.serverConfig.cors?.enabled ?? true;
+    // The origin list and the API key together decide whether any browser
+    // page may call this server; the banner says which case this is.
+    const corsOrigins = opts.serverConfig.cors?.origins ?? [];
+    const corsWildcard = corsEnabled && corsOrigins.includes("*");
+    const corsNoOrigins = corsEnabled && corsOrigins.length === 0;
     const rateLimitValue =
       opts.argv.rateLimit ?? opts.serverConfig.rateLimit?.maxRequests ?? 100;
     const rateLimitEnabled = rateLimitValue > 0;
@@ -634,6 +722,8 @@ export class ServeCommandFactory {
       pid: state.pid,
       configFile: opts.argv.config,
       corsEnabled,
+      corsWildcard,
+      corsNoOrigins,
       rateLimitEnabled,
       rateLimitValue,
       swaggerEnabled,
@@ -654,6 +744,8 @@ export class ServeCommandFactory {
     pid: number;
     configFile?: string;
     corsEnabled: boolean;
+    corsWildcard: boolean;
+    corsNoOrigins: boolean;
     rateLimitEnabled: boolean;
     rateLimitValue: number;
     swaggerEnabled: boolean;
@@ -681,7 +773,22 @@ export class ServeCommandFactory {
 
     logger.always(chalk.bold("Middleware:"));
     logger.always(
-      `  CORS:        ${info.corsEnabled ? chalk.green("enabled") : chalk.yellow("disabled")}`,
+      `  CORS:        ${
+        !info.corsEnabled
+          ? chalk.yellow("disabled")
+          : info.corsWildcard
+            ? info.authEnabled
+              ? chalk.green("enabled (any origin; API key required)")
+              : chalk.yellow(
+                  "enabled for ANY origin and no API key — any web page can call this server; set " +
+                    SERVER_API_KEY_ENV,
+                )
+            : info.corsNoOrigins
+              ? chalk.yellow(
+                  "enabled, no origins listed — browsers cannot call this server; pass --cors-origin or set cors.origins",
+                )
+              : chalk.green("enabled (listed origins)")
+      }`,
     );
     logger.always(
       `  Rate Limit:  ${info.rateLimitEnabled ? chalk.green(`enabled (${info.rateLimitValue} req/15min)`) : chalk.yellow("disabled")}`,
@@ -779,7 +886,8 @@ export class ServeCommandFactory {
         } = await import(`../../lib/server/index.js?t=${timestamp}`);
 
         // Create new server
-        const newServer = await createNewServer(new NeuroLink(), {
+        const newNeurolink = new NeuroLink();
+        const newServer = await createNewServer(newNeurolink, {
           framework: ctx.framework as ServerFramework,
           config: ctx.serverConfig,
         });
@@ -807,6 +915,15 @@ export class ServeCommandFactory {
             ctx.port,
             ctx.host,
           ),
+        );
+
+        // The upgrade handler lives on the old adapter's http.Server; the
+        // restarted one needs its own, or the stream route is gone after the
+        // first file change.
+        await attachTranscriptionWebSocket(
+          newServer,
+          newNeurolink,
+          ctx.serverConfig,
         );
 
         // Update the reference so signal handlers use the new server instance

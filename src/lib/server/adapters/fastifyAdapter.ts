@@ -30,6 +30,11 @@ import type {
   FastifyRateLimitContext,
 } from "../../types/index.js";
 import { isErrorResponse } from "../utils/validation.js";
+import {
+  isRawBodyContentType,
+  isWebResponse,
+  readWebResponse,
+} from "../utils/rawBody.js";
 
 /**
  * Fastify-specific server adapter
@@ -77,13 +82,35 @@ export class FastifyServerAdapter extends BaseServerAdapter {
       bodyLimit: this.parseBodyLimit(this.config.bodyParser.maxSize),
     });
 
+    // Uploads (multipart, octet-stream, audio/*) reach the route as bytes;
+    // without a parser Fastify refuses these content types with a 415.
+    if (this.config.bodyParser.enabled) {
+      this.app.addContentTypeParser(
+        /^\s*(multipart\/form-data|application\/octet-stream|audio\/)/i,
+        { parseAs: "buffer" },
+        (request, body, done) => {
+          done(
+            null,
+            isRawBodyContentType(request.headers["content-type"])
+              ? body
+              : undefined,
+          );
+        },
+      );
+    }
+
     // Register CORS plugin if enabled
     if (this.config.cors.enabled) {
       const corsModule = await this.importFrameworkDependency<
         typeof import("@fastify/cors")
       >("@fastify/cors", "Fastify");
       await this.app.register(corsModule.default, {
-        origin: this.config.cors.origins,
+        // A list is matched literally, so the default `["*"]` would match
+        // nothing; the wildcard has to be the string "*" (Koa handles it in
+        // its origin callback).
+        origin: this.config.cors.origins.includes("*")
+          ? "*"
+          : this.config.cors.origins,
         methods: this.config.cors.methods,
         allowedHeaders: this.config.cors.headers,
         credentials: this.config.cors.credentials,
@@ -321,6 +348,25 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         // Execute handler
         const result = await route.handler(ctx);
         const duration = Date.now() - startTime;
+
+        // A route that answers in its own wire format returns a web Response.
+        if (isWebResponse(result)) {
+          const raw = await readWebResponse(result);
+          this.emit("response", {
+            requestId,
+            statusCode: raw.status,
+            duration,
+            timestamp: new Date(),
+          } satisfies ServerAdapterEvents["response"]);
+          for (const [key, value] of Object.entries({
+            ...ctx.responseHeaders,
+            ...raw.headers,
+          })) {
+            reply.header(key, value);
+          }
+          reply.status(raw.status);
+          return reply.send(raw.body);
+        }
 
         // Check if result is an error response
         if (isErrorResponse(result)) {
@@ -643,5 +689,10 @@ export class FastifyServerAdapter extends BaseServerAdapter {
    */
   public getFrameworkInstance(): unknown {
     return this.app;
+  }
+
+  public override getNativeServer(): unknown {
+    // Fastify owns its http.Server and exposes it as `app.server`.
+    return this.app?.server;
   }
 }

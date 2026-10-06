@@ -17,6 +17,7 @@ import type {
   ElevenLabsSTTResponse,
   ElevenLabsSTTWord,
   STTConfidenceSource,
+  STTCredentials,
   STTHandler,
   STTLanguage,
   STTOptions,
@@ -44,18 +45,44 @@ const DEFAULT_MODEL: ElevenLabsSTTModel = "scribe_v2";
 export class ElevenLabsSTT implements STTHandler {
   private readonly apiKey: string | null;
   private readonly baseUrl: string;
+  private readonly defaultTimeoutMs: number;
 
   /** Scribe accepts files up to 1 GB / ~4.5 hours; 2 hours is a conservative cap. */
   public readonly maxAudioDuration = 7200;
 
   public readonly supportsStreaming = false;
 
-  constructor(apiKey?: string) {
-    const resolvedKey = (apiKey ?? process.env.ELEVENLABS_API_KEY ?? "").trim();
+  /**
+   * @param apiKeyOrCredentials - The `credentials.stt.elevenlabs` slice
+   *   (`apiKey`, `baseURL`, `timeoutMs`), or an API key (the original
+   *   positional form). The environment fills whatever is left out:
+   *   `ELEVENLABS_API_KEY`, and `ELEVENLABS_STT_BASE_URL` before the
+   *   account-wide `ELEVENLABS_BASE_URL`.
+   */
+  constructor(apiKeyOrCredentials?: string | STTCredentials["elevenlabs"]) {
+    // `typeof x === "string"` narrows the same way with and without
+    // strictNullChecks (the react-hooks build runs tsc without it); an
+    // `=== undefined` test does not.
+    const slice: NonNullable<STTCredentials["elevenlabs"]> =
+      typeof apiKeyOrCredentials === "string"
+        ? { apiKey: apiKeyOrCredentials }
+        : (apiKeyOrCredentials ?? {});
+    const resolvedKey = (
+      slice.apiKey ??
+      process.env.ELEVENLABS_API_KEY ??
+      ""
+    ).trim();
     this.apiKey = resolvedKey.length > 0 ? resolvedKey : null;
     this.baseUrl = ElevenLabsSTT.normalizeBaseUrl(
-      process.env.ELEVENLABS_BASE_URL ?? DEFAULT_BASE_URL,
+      ("baseURL" in slice ? slice.baseURL : undefined) ??
+        process.env.ELEVENLABS_STT_BASE_URL ??
+        process.env.ELEVENLABS_BASE_URL ??
+        DEFAULT_BASE_URL,
     );
+    const sliceTimeout = "timeoutMs" in slice ? slice.timeoutMs : undefined;
+    this.defaultTimeoutMs = ElevenLabsSTT.validTimeout(sliceTimeout)
+      ? Math.min(sliceTimeout, MAX_TIMEOUT_MS)
+      : DEFAULT_TIMEOUT_MS;
   }
 
   isConfigured(): boolean {
@@ -181,7 +208,10 @@ export class ElevenLabsSTT implements STTHandler {
       // otherwise, and an injected default would pin every request to one
       // language. (STTProcessor passes options through untouched, so a caller
       // who leaves `language` unset reaches here with it unset.)
-      if (options.language) {
+      if (
+        options.language &&
+        options.language.trim().toLowerCase() !== "auto"
+      ) {
         formData.append(
           "language_code",
           this.toScribeLanguageCode(options.language),
@@ -203,12 +233,9 @@ export class ElevenLabsSTT implements STTHandler {
       const baseUrl = elevenOptions.baseUrl
         ? ElevenLabsSTT.normalizeBaseUrl(elevenOptions.baseUrl)
         : this.baseUrl;
-      const timeoutMs =
-        typeof elevenOptions.timeoutMs === "number" &&
-        Number.isFinite(elevenOptions.timeoutMs) &&
-        elevenOptions.timeoutMs > 0
-          ? Math.min(elevenOptions.timeoutMs, MAX_TIMEOUT_MS)
-          : DEFAULT_TIMEOUT_MS;
+      const timeoutMs = ElevenLabsSTT.validTimeout(elevenOptions.timeoutMs)
+        ? Math.min(elevenOptions.timeoutMs, MAX_TIMEOUT_MS)
+        : this.defaultTimeoutMs;
 
       // The timer covers the response headers AND the JSON body: a server
       // that stalls mid-body used to hold the transcription — and the
@@ -380,6 +407,11 @@ export class ElevenLabsSTT implements STTHandler {
     }
 
     return result;
+  }
+
+  /** A usable timeout: a finite, positive number of milliseconds. */
+  private static validTimeout(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value) && value > 0;
   }
 
   /** A finite number clamped to [0, 1]; `undefined` for anything else. */

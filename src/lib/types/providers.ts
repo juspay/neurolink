@@ -21,6 +21,7 @@ import {
   VertexModels,
 } from "../constants/enums.js";
 import type { ValidationSchema } from "./aliases.js";
+import type { STTCredentials } from "./transcribe.js";
 import type {
   DecisionLimits,
   DecisionRequest,
@@ -183,6 +184,11 @@ export type AWSCredentialConfig = {
  */
 export type NeurolinkCredentials = {
   openai?: { apiKey?: string; baseURL?: string };
+  /**
+   * Speech-to-text handlers (`transcribe()`, and `generate`/`stream` with
+   * `stt`). One slice per STT provider; see `STTCredentials`.
+   */
+  stt?: STTCredentials;
   /**
    * Anthropic. `baseURL` points the official SDK client at a gateway or proxy
    * instead of `api.anthropic.com` (with or without a trailing `/v1`); it
@@ -2384,7 +2390,7 @@ export type ProviderRegistration = {
  * calibrated judgements and no text at all — see src/lib/types/decision.ts.
  * They are peers: a provider may serve any subset.
  */
-export type InferenceKind = "generate" | "stream" | "decide";
+export type InferenceKind = "generate" | "stream" | "decide" | "transcribe";
 
 /** What a descriptor means when it declares no `inferenceKinds`. */
 export const DEFAULT_INFERENCE_KINDS: readonly InferenceKind[] = [

@@ -124,6 +124,24 @@ Custom vocabulary/phrases
 
 ---
 
+### prompt?
+
+> `optional` **prompt?**: `string`
+
+Context prompt for engines that bias on one (Whisper and other
+OpenAI-compatible servers). Engines without a prompt ignore it;
+`vocabulary` terms are appended by the handlers that accept a prompt.
+
+---
+
+### timeoutMs?
+
+> `optional` **timeoutMs?**: `number`
+
+Per-request timeout in milliseconds, for handlers that honour one.
+
+---
+
 ### confidenceThreshold?
 
 > `optional` **confidenceThreshold?**: `number`

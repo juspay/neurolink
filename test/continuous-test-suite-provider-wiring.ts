@@ -84,6 +84,9 @@ const KNOWN_CREDENTIAL_KEYS = {
   xor: undefined,
   perplexityDecider: undefined,
   cloudflareClef: undefined,
+  // Speech-to-text handlers' slices (credentials.stt.<provider>): not an
+  // AIProviderName, but a NeurolinkCredentials key all the same.
+  stt: undefined,
 } satisfies Record<
   Exclude<keyof NeurolinkCredentials, CatalogCredentialKey>,
   undefined

@@ -1036,6 +1036,9 @@ STT handler and `elevenlabs-music`.
 ```bash
 # API base URL including the /v1 prefix — for a proxy or a test stub.
 ELEVENLABS_BASE_URL="https://api.elevenlabs.io/v1"
+# Base URL for Scribe (speech-to-text) only; wins over ELEVENLABS_BASE_URL
+# for STT, so transcription can go through a different host than TTS.
+ELEVENLABS_STT_BASE_URL="https://api.elevenlabs.io/v1"
 ```
 
 #### How to Get ElevenLabs API Key
@@ -1068,6 +1071,14 @@ Scribe STT options.
 DEEPGRAM_API_KEY="your-deepgram-api-key"
 ```
 
+#### Optional Variables
+
+```bash
+# REST base URL (a proxy, a self-hosted Deepgram or a test stub). The live
+# stream uses the same host on the WebSocket scheme (https → wss).
+DEEPGRAM_BASE_URL="https://api.deepgram.com/v1"
+```
+
 #### How to Get Deepgram API Key
 
 1. Visit [Deepgram Console](https://console.deepgram.com)
@@ -1078,8 +1089,8 @@ DEEPGRAM_API_KEY="your-deepgram-api-key"
 
 #### Supported Models
 
-- `nova-3` (default) - Latest, highest accuracy
-- `nova-2` - High accuracy, broad language support
+- `nova-2` (default) - High accuracy, broad language support
+- `nova-3` - Latest, highest accuracy
 - `base` - Balanced accuracy and speed
 
 ---
@@ -1131,6 +1142,111 @@ GOOGLE_AI_API_KEY="AIza-your-google-ai-studio-key"   # canonical
 | `GOOGLE_API_KEY`      | ❌       | -       | Legacy alias for `GOOGLE_AI_API_KEY`                |
 | `ELEVENLABS_API_KEY`  | ❌       | -       | ElevenLabs key, if using ElevenLabs alongside       |
 | `DEEPGRAM_API_KEY`    | ❌       | -       | Deepgram key, if using Deepgram alongside           |
+
+---
+
+### 20. Speech-to-Text: `transcribe()` and the built-in Whistle engine
+
+`neurolink.transcribe()`, `neurolink.transcribeStream()`, the
+`neurolink transcribe` CLI command, the transcription server routes and audio
+attached to `generate()` all choose their engine the same way:
+
+1. `NEUROLINK_STT_PROVIDER`, when it names a known STT provider, alias or named
+   endpoint (an unknown name is logged and ignored);
+2. otherwise the first **configured** provider in descriptor order — `whisper`
+   (OpenAI-compatible), `deepgram`, `elevenlabs-stt`, `google-stt`,
+   `azure-stt` — configured by the keys in sections 1, 17, 18 and 19 above;
+3. otherwise **Whistle**, the built-in local engine, which needs no key.
+
+#### Engine selection
+
+```bash
+# Default STT provider (name or alias: whisper, deepgram, scribe, google-stt,
+# azure-stt, whistle, or a NEUROLINK_STT_ENDPOINTS name).
+NEUROLINK_STT_PROVIDER="deepgram"
+# Model for the provider NEUROLINK_STT_PROVIDER / the default rule picked.
+# Not applied to a provider named explicitly in a call or with --provider.
+NEUROLINK_STT_MODEL="nova-3"
+# Default language code; omit it, or set "auto", to let the engine detect it.
+NEUROLINK_STT_LANGUAGE="en"
+```
+
+#### OpenAI-compatible STT (`whisper`)
+
+```bash
+# Key for the /audio/transcriptions endpoint. Only the default base URL
+# (api.openai.com) falls back to OPENAI_API_KEY; a custom OPENAI_STT_BASE_URL
+# never receives it, and a NEUROLINK_STT_ENDPOINTS entry sends its own
+# "apiKey" or no key at all.
+OPENAI_STT_API_KEY="sk-..."
+# Any OpenAI-compatible /audio/transcriptions server (vLLM, LiteLLM, a
+# self-hosted Whisper / Qwen3-ASR wrapper). Default: https://api.openai.com/v1
+OPENAI_STT_BASE_URL="http://localhost:8004/v1"
+OPENAI_STT_MODEL="whisper-1"          # default model
+OPENAI_STT_TIMEOUT_MS="120000"        # request timeout for long recordings
+
+# Several self-hosted engines at once, each a provider of its own (usable as
+# each other's fallback or second opinion). Keys are the provider names; a
+# name that collides with a shipped provider is ignored.
+NEUROLINK_STT_ENDPOINTS='{"qwen-asr":{"baseURL":"http://gpu-box:8004/v1","model":"qwen3-asr"},"indic":{"baseURL":"http://gpu-box:8006/v1"}}'
+```
+
+#### Correction layer
+
+```bash
+# Text provider and model for the correction rewrite, when a request names
+# none (a request's correction.rewrite.provider/model still wins).
+NEUROLINK_STT_REWRITE_PROVIDER="openai"
+NEUROLINK_STT_REWRITE_MODEL="gpt-4o-mini"
+```
+
+The dictionary guard uses whichever `decide` provider is configured (see the
+decision providers at the top of this page) and fails open without one.
+
+#### Whistle (built-in local engine)
+
+Whistle runs on this machine in WebAssembly. Its three files (about 17 MB,
+pinned Hugging Face revisions verified by SHA-256) ship inside the package
+under `models/whistle/`, so nothing is downloaded. A download happens only
+when that copy is missing, into `~/.neurolink/models/whistle`.
+
+```bash
+# Where Whistle's files live. Precedence: credentials.stt.whistle.modelDir,
+# then NEUROLINK_WHISTLE_DIR, then $NEUROLINK_MODEL_DIR/whistle, then the
+# package's own models/whistle, then ~/.neurolink/models/whistle.
+NEUROLINK_WHISTLE_DIR="/opt/models/whistle"
+NEUROLINK_MODEL_DIR="/opt/models"       # root for local model files
+# 0 / false / off / no forbids the fallback download (air-gapped hosts, CI).
+# With no copy anywhere Whistle then reports itself unconfigured.
+NEUROLINK_WHISTLE_AUTO_DOWNLOAD="0"
+# 1 / true / on / yes sends the request's vocabulary (dictionary terms
+# included) to the engine as keywords. Off by default: the engine can loop
+# on long keyword lists. The model name "whistle-keywords" does the same per
+# request.
+NEUROLINK_WHISTLE_KEYWORDS="1"
+```
+
+| Variable                          | Default                                | Description                                                                                   |
+| --------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `NEUROLINK_STT_PROVIDER`          | first configured, else Whistle         | Default STT provider, alias or named endpoint                                                 |
+| `NEUROLINK_STT_MODEL`             | provider default                       | Model for the env-chosen provider                                                             |
+| `NEUROLINK_STT_LANGUAGE`          | `auto`                                 | Default language; `auto` lets the engine detect                                               |
+| `NEUROLINK_STT_ENDPOINTS`         | -                                      | JSON map of named OpenAI-compatible STT endpoints                                             |
+| `NEUROLINK_STT_REWRITE_PROVIDER`  | instance default                       | Text provider for the correction rewrite                                                      |
+| `NEUROLINK_STT_REWRITE_MODEL`     | provider default                       | Model for the correction rewrite                                                              |
+| `OPENAI_STT_API_KEY`              | `OPENAI_API_KEY` (api.openai.com only) | Key for the OpenAI-compatible STT endpoint; a custom base URL never receives `OPENAI_API_KEY` |
+| `OPENAI_STT_BASE_URL`             | `https://api.openai.com/v1`            | OpenAI-compatible `/audio/transcriptions` base URL                                            |
+| `OPENAI_STT_MODEL`                | `whisper-1`                            | Default model for `whisper`                                                                   |
+| `OPENAI_STT_TIMEOUT_MS`           | handler default                        | Request timeout for `whisper`                                                                 |
+| `DEEPGRAM_BASE_URL`               | `https://api.deepgram.com/v1`          | Deepgram REST base URL (stream uses the same host over `wss://`)                              |
+| `ELEVENLABS_STT_BASE_URL`         | `ELEVENLABS_BASE_URL`                  | ElevenLabs Scribe base URL                                                                    |
+| `NEUROLINK_WHISTLE_DIR`           | see precedence above                   | Directory holding Whistle's files (default: the bundled copy)                                 |
+| `NEUROLINK_MODEL_DIR`             | `~/.neurolink/models`                  | Root for local model files (`<root>/whistle`)                                                 |
+| `NEUROLINK_WHISTLE_AUTO_DOWNLOAD` | on                                     | `0`/`false`/`off`/`no` forbids the fallback download                                          |
+| `NEUROLINK_WHISTLE_KEYWORDS`      | off                                    | `1`/`true`/`on`/`yes` biases Whistle on the request's vocabulary                              |
+
+See [The transcribe inference type](/docs/features/transcribe) and
+[Whistle](/docs/getting-started/providers/whistle).
 
 ---
 

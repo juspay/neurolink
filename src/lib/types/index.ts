@@ -85,6 +85,7 @@ export * from "./tools.js";
 export * from "./vectorStoreChroma.js";
 export * from "./vectorStorePinecone.js";
 export * from "./voice.js";
+export * from "./transcribe.js";
 export * from "./utilities.js";
 export * from "./workflow.js";
 

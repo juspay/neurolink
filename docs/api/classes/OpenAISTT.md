@@ -6,14 +6,6 @@
 
 # Class: OpenAISTT
 
-OpenAI Whisper Speech-to-Text Handler
-
-Supports transcription and translation using OpenAI's Whisper model.
-
-## See
-
-https://platform.openai.com/docs/api-reference/audio
-
 ## Implements
 
 - [`STTHandler`](../type-aliases/STTHandler.md)
@@ -22,13 +14,53 @@ https://platform.openai.com/docs/api-reference/audio
 
 ### Constructor
 
-> **new OpenAISTT**(`apiKey?`): `OpenAISTT`
+> **new OpenAISTT**(`apiKeyOrCredentials?`, `baseUrl?`): `OpenAISTT`
 
 #### Parameters
 
-##### apiKey?
+##### apiKeyOrCredentials?
+
+`string` \| \{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; \}
+
+The `credentials.stt.whisper` slice
+(`apiKey`, `baseURL`, `timeoutMs`), or — the original positional form —
+an API key. Anything left out falls back to the environment.
 
 `string`
+
+---
+
+###### Type Literal
+
+\{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; \}
+
+The `credentials.stt.whisper` slice
+(`apiKey`, `baseURL`, `timeoutMs`), or — the original positional form —
+an API key. Anything left out falls back to the environment.
+
+###### apiKey?
+
+`string`
+
+###### baseURL?
+
+`string`
+
+###### timeoutMs?
+
+`number`
+
+###### model?
+
+`string`
+
+Default model name sent to the endpoint (`whisper-1` when omitted).
+
+##### baseUrl?
+
+`string`
+
+Base URL, positional form only.
 
 #### Returns
 
@@ -63,6 +95,10 @@ Whisper does not support streaming
 ### isConfigured()
 
 > **isConfigured**(): `boolean`
+
+OpenAI itself needs a key. A compatible server at another base URL may
+not (a self-hosted engine on the local network), so a base URL alone
+configures the handler and the request goes without an Authorization header.
 
 #### Returns
 

@@ -83,3 +83,13 @@ it). Enabling the feature with an `anthropic` target here logs one
 startup warning and then fails every such request at attempt time. A
 `vertex`-only configuration is unaffected. See
 docs/features/codex-proxy-support.md.
+
+---
+
+### transcribe?
+
+> `optional` **transcribe?**: [`ServerTranscribeRouteOptions`](ServerTranscribeRouteOptions.md)
+
+Options for the transcription routes (`POST <basePath>/agent/transcribe`
+and the OpenAI-compatible `POST /v1/audio/transcriptions`), which are
+always mounted.

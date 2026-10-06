@@ -33,6 +33,15 @@ Unset providers fall through to environment variables (existing behaviour).
 
 ---
 
+### stt?
+
+> `optional` **stt?**: [`STTCredentials`](STTCredentials.md)
+
+Speech-to-text handlers (`transcribe()`, and `generate`/`stream` with
+`stt`). One slice per STT provider; see `STTCredentials`.
+
+---
+
 ### anthropic?
 
 > `optional` **anthropic?**: `object`

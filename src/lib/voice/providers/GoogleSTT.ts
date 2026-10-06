@@ -15,11 +15,11 @@ import type {
   GoogleRecognizeResponse,
   GoogleSpeechRecognitionResult,
   GoogleSTTOptions,
+  STTCredentials,
   STTHandler,
   STTLanguage,
   STTOptions,
   STTResult,
-  TranscriptionSegment,
   WordTiming,
 } from "../../types/index.js";
 
@@ -42,17 +42,33 @@ export class GoogleSTT implements STTHandler {
   public readonly maxAudioDuration = 60;
 
   /**
-   * True streaming requires gRPC (not yet implemented).
-   * transcribeStream() uses a chunk-and-batch workaround.
+   * True streaming requires gRPC (not implemented). `transcribeStream()` on
+   * the SDK streams this handler through the generic chunked adapter.
    */
   public readonly supportsStreaming = false;
 
-  constructor(apiKey?: string, credentialsPath?: string) {
+  /**
+   * @param apiKeyOrCredentials - The `credentials.stt.google` slice
+   *   (`apiKey`, `credentialsPath`), or an API key (the original positional
+   *   form). The environment fills whatever is left out.
+   * @param credentialsPath - Service-account file, positional form only.
+   */
+  constructor(
+    apiKeyOrCredentials?: string | STTCredentials["google"],
+    credentialsPath?: string,
+  ) {
+    // `typeof x === "string"` narrows the same way with and without
+    // strictNullChecks (the react-hooks build runs tsc without it); an
+    // `=== undefined` test does not.
+    const slice: NonNullable<STTCredentials["google"]> =
+      typeof apiKeyOrCredentials === "string"
+        ? { apiKey: apiKeyOrCredentials, credentialsPath }
+        : { credentialsPath, ...(apiKeyOrCredentials ?? {}) };
     // Accept GOOGLE_AI_API_KEY / GEMINI_API_KEY as aliases since `.env.example`
     // documents those as the canonical Google credentials and forcing users to
     // also set GOOGLE_API_KEY just for STT was a footgun (Copilot review).
     const resolvedKey = (
-      apiKey ??
+      slice.apiKey ??
       process.env.GOOGLE_API_KEY ??
       process.env.GOOGLE_AI_API_KEY ??
       process.env.GEMINI_API_KEY ??
@@ -60,7 +76,7 @@ export class GoogleSTT implements STTHandler {
     ).trim();
     this.apiKey = resolvedKey.length > 0 ? resolvedKey : null;
     const resolvedCreds = (
-      credentialsPath ??
+      slice.credentialsPath ??
       process.env.GOOGLE_APPLICATION_CREDENTIALS ??
       ""
     ).trim();
@@ -200,7 +216,11 @@ export class GoogleSTT implements STTHandler {
           : options.sampleRate
             ? { sampleRateHertz: options.sampleRate }
             : {}),
-        languageCode: options.language ?? "en-US",
+        // Google needs a language; "auto" (no pin) falls back to the default.
+        languageCode:
+          options.language && options.language.toLowerCase() !== "auto"
+            ? options.language
+            : "en-US",
         enableAutomaticPunctuation: options.punctuation ?? true,
         enableWordTimeOffsets: options.wordTimestamps ?? false,
         enableWordConfidence: true,
@@ -373,97 +393,6 @@ export class GoogleSTT implements STTHandler {
         "google-stt",
         err instanceof Error ? err : undefined,
       );
-    }
-  }
-
-  /**
-   * Streaming transcription (placeholder - requires WebSocket/gRPC)
-   */
-  async *transcribeStream(
-    audioStream: AsyncIterable<Buffer>,
-    options: STTOptions,
-  ): AsyncIterable<TranscriptionSegment> {
-    // Google streaming STT requires gRPC or WebSocket connection
-    // For now, buffer and transcribe in chunks
-    const chunks: Buffer[] = [];
-    let chunkIndex = 0;
-
-    for await (const chunk of audioStream) {
-      chunks.push(chunk);
-
-      // Process every ~5 seconds of audio (assuming 16kHz, 16-bit)
-      const bytesPerSecond = 16000 * 2; // 16kHz * 2 bytes
-      const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
-
-      if (totalBytes >= bytesPerSecond * 5) {
-        const audio = Buffer.concat(chunks);
-        chunks.length = 0;
-
-        try {
-          const result = await this.transcribe(audio, options);
-
-          yield {
-            index: chunkIndex++,
-            text: result.text,
-            isFinal: false,
-            confidence: result.confidence,
-          };
-        } catch (err) {
-          // M5: distinguish permanent (auth, schema, 4xx) from transient
-          // (5xx, 429, network) errors. Permanent errors retry indefinitely
-          // and racks up failed API calls; rethrow to terminate the stream.
-          // Transient errors get logged and skipped so a multi-minute audio
-          // stream can recover from a transient hiccup.
-          const msg = err instanceof Error ? err.message : String(err);
-          const isPermanent =
-            /\b(401|403|404|UNAUTHENTICATED|PERMISSION_DENIED|INVALID_ARGUMENT|UNAUTHORIZED|FORBIDDEN|invalid.*credential|invalid.*key)\b/i.test(
-              msg,
-            );
-          if (isPermanent) {
-            logger.error(
-              `[GoogleSTTHandler] Permanent chunk error — terminating stream: ${msg}`,
-            );
-            throw err;
-          }
-          logger.warn(
-            `[GoogleSTTHandler] Transient chunk failure (skipping): ${msg}`,
-          );
-        }
-      }
-    }
-
-    // Process remaining audio
-    if (chunks.length > 0) {
-      const audio = Buffer.concat(chunks);
-      try {
-        const result = await this.transcribe(audio, options);
-        yield {
-          index: chunkIndex,
-          text: result.text,
-          isFinal: true,
-          confidence: result.confidence,
-        };
-      } catch (err) {
-        // Don't swallow the final chunk's terminal errors — auth/config/4xx
-        // failures here would otherwise look like a successful empty
-        // transcription, hiding the root cause from callers (CodeRabbit
-        // review). Mirror the permanent-vs-transient split used in the
-        // chunk loop above (Azure/Google share this taxonomy).
-        const msg = err instanceof Error ? err.message : String(err);
-        const isPermanent =
-          /\b(401|403|404|Forbidden|Unauthorized|Invalid.*credential|Invalid.*key|Permission|PERMISSION_DENIED|UNAUTHENTICATED|INVALID_ARGUMENT)\b/i.test(
-            msg,
-          );
-        if (isPermanent) {
-          logger.error(
-            `[GoogleSTTHandler] Permanent final-chunk error — surfacing: ${msg}`,
-          );
-          throw err;
-        }
-        logger.warn(
-          `[GoogleSTTHandler] Final chunk transcription failed (transient): ${msg}`,
-        );
-      }
     }
   }
 

@@ -6,8 +6,23 @@
 
 # Class: HonoServerAdapter
 
-Hono-specific server adapter
-Supports multiple runtimes: Bun, Deno, Node.js
+Server Adapters for exposing NeuroLink as HTTP APIs
+
+Supports multiple frameworks: Hono, Express, Fastify, Koa
+
+## Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import { createServer } from "@juspay/neurolink/server";
+
+const neurolink = new NeuroLink({ provider: "openai" });
+const server = await createServer(neurolink, {
+  framework: "hono",
+  config: { port: 3000 },
+});
+await server.start();
+```
 
 ## Extends
 
@@ -832,3 +847,22 @@ Get the Hono app instance
 #### Overrides
 
 [`BaseServerAdapter`](BaseServerAdapter.md).[`getFrameworkInstance`](BaseServerAdapter.md#getframeworkinstance)
+
+---
+
+### getNativeServer()
+
+> **getNativeServer**(): `unknown`
+
+The listening Node `http.Server`, once `start()` has run and the runtime
+is Node (Bun and Deno serve without one). A WebSocket upgrade handler
+such as `attachTranscribeWebSocket` attaches to it; `undefined` means
+there is nothing to attach to.
+
+#### Returns
+
+`unknown`
+
+#### Overrides
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`getNativeServer`](BaseServerAdapter.md#getnativeserver)

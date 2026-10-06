@@ -90,7 +90,10 @@ export abstract class BaseServerAdapter extends EventEmitter {
       basePath: config.basePath ?? "/api",
       cors: {
         enabled: config.cors?.enabled ?? true,
-        origins: config.cors?.origins ?? ["*"],
+        // No origin by default: a browser page may call this server only
+        // from an origin the operator listed, or from any origin with an
+        // explicit ["*"]. The adapters honour the wildcard, so it is opt-in.
+        origins: config.cors?.origins ?? [],
         methods: config.cors?.methods ?? [
           "GET",
           "POST",
@@ -176,6 +179,16 @@ export abstract class BaseServerAdapter extends EventEmitter {
    * Get the underlying framework instance (for advanced usage)
    */
   public abstract getFrameworkInstance(): unknown;
+
+  /**
+   * The listening Node `http.Server`, once `start()` has run and the runtime
+   * is Node (Bun and Deno serve without one). A WebSocket upgrade handler
+   * such as `attachTranscribeWebSocket` attaches to it; `undefined` means
+   * there is nothing to attach to.
+   */
+  public getNativeServer(): unknown {
+    return undefined;
+  }
 
   // ============================================
   // Abstract Lifecycle Methods (Framework-Specific)

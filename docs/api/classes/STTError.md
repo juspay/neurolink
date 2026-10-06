@@ -306,6 +306,69 @@ Create an error for unsupported provider
 
 ---
 
+### unknownProvider()
+
+> `static` **unknownProvider**(`provider`, `configuredProviders`, `howToConfigure?`): `STTError`
+
+Create an error for a provider name that is neither a shipped STT
+provider nor a registered handler. Lists what is configured and what
+would configure the rest, so the caller can act on the message alone.
+
+#### Parameters
+
+##### provider
+
+`string`
+
+##### configuredProviders
+
+`string`[]
+
+##### howToConfigure?
+
+`string`
+
+#### Returns
+
+`STTError`
+
+---
+
+### audioLoadFailed()
+
+> `static` **audioLoadFailed**(`reason`, `originalError?`): `STTError`
+
+Create an error for audio that could not be read (a missing file, a URL
+that failed, an input of the wrong kind).
+
+#### Parameters
+
+##### reason
+
+`string`
+
+##### originalError?
+
+`Error`
+
+#### Returns
+
+`STTError`
+
+---
+
+### streamInputNotSupported()
+
+> `static` **streamInputNotSupported**(): `STTError`
+
+Create an error for a stream of frames handed to a batch entry point.
+
+#### Returns
+
+`STTError`
+
+---
+
 ### streamError()
 
 > `static` **streamError**(`reason`, `provider?`): `STTError`

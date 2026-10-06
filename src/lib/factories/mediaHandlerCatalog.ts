@@ -2,6 +2,7 @@ import type {
   MediaHandlerDescriptor,
   MediaHandlerKind,
 } from "../types/index.js";
+import { STT_PROVIDER_DESCRIPTORS } from "./sttDescriptors.js";
 
 /**
  * Static catalog of every shipped media-handler provider, across all six
@@ -25,15 +26,18 @@ export const MEDIA_HANDLER_CATALOG: readonly MediaHandlerDescriptor[] = [
   { kind: "tts", name: "sixtydb" },
   { kind: "tts", name: "cartesia" },
   // --- STT ---
-  { kind: "stt", name: "whisper", aliases: ["openai-stt"] },
-  { kind: "stt", name: "deepgram" },
-  { kind: "stt", name: "google-stt" },
-  { kind: "stt", name: "azure-stt" },
-  // "elevenlabs" is reused across kinds on purpose — TTS primary, STT alias —
-  // the same way "vertex" is a TTS alias and the Video primary. Each kind has
-  // its own registry, so `stt: { provider: "elevenlabs" }` and
-  // `tts: { provider: "elevenlabs" }` resolve to different handlers.
-  { kind: "stt", name: "elevenlabs-stt", aliases: ["scribe", "elevenlabs"] },
+  // Derived from STT_PROVIDER_DESCRIPTORS (names, aliases and precedence
+  // order) so the catalog and the descriptors cannot drift. "elevenlabs" is
+  // reused across kinds on purpose — TTS primary, STT alias — the same way
+  // "vertex" is a TTS alias and the Video primary; each kind has its own
+  // registry.
+  ...STT_PROVIDER_DESCRIPTORS.map(
+    (descriptor): MediaHandlerDescriptor => ({
+      kind: "stt",
+      name: descriptor.name,
+      ...(descriptor.aliases ? { aliases: descriptor.aliases } : {}),
+    }),
+  ),
   // --- Realtime ---
   { kind: "realtime", name: "openai-realtime" },
   { kind: "realtime", name: "gemini-live" },
@@ -51,7 +55,7 @@ export const MEDIA_HANDLER_CATALOG: readonly MediaHandlerDescriptor[] = [
   { kind: "music", name: "replicate", aliases: ["musicgen"] },
   { kind: "music", name: "elevenlabs-music", aliases: ["elevenlabs-sound"] },
   { kind: "music", name: "lyria" },
-] as const;
+];
 
 /** Every selectable provider name for `kind`, primaries and aliases both. */
 export function providerChoicesFor(kind: MediaHandlerKind): string[] {

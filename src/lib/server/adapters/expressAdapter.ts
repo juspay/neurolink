@@ -23,6 +23,11 @@ import type {
   ServerContext,
 } from "../../types/index.js";
 import { isErrorResponse } from "../utils/validation.js";
+import {
+  isRawBodyContentType,
+  isWebResponse,
+  readWebResponse,
+} from "../utils/rawBody.js";
 
 /**
  * Express-specific server adapter
@@ -70,6 +75,13 @@ export class ExpressServerAdapter extends BaseServerAdapter {
         express.json({ limit: this.config.bodyParser.jsonLimit || bodyLimit }),
       );
       this.app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
+      // Uploads (multipart, octet-stream, audio/*) reach the route as bytes.
+      this.app.use(
+        express.raw({
+          type: (req) => isRawBodyContentType(req.headers["content-type"]),
+          limit: this.config.bodyParser.maxSize || "10mb",
+        }),
+      );
     }
 
     // CORS
@@ -80,7 +92,12 @@ export class ExpressServerAdapter extends BaseServerAdapter {
       const cors = corsModule.default;
       this.app.use(
         cors({
-          origin: this.config.cors.origins,
+          // A list is matched literally, so the default `["*"]` would match
+          // nothing; the wildcard has to be the string "*" (Koa handles it in
+          // its origin callback).
+          origin: this.config.cors.origins.includes("*")
+            ? "*"
+            : this.config.cors.origins,
           methods: this.config.cors.methods,
           allowedHeaders: this.config.cors.headers,
           credentials: this.config.cors.credentials,
@@ -233,6 +250,25 @@ export class ExpressServerAdapter extends BaseServerAdapter {
           const result = await route.handler(ctx);
           const duration = Date.now() - startTime;
 
+          // A route that answers in its own wire format returns a web Response.
+          if (isWebResponse(result)) {
+            const raw = await readWebResponse(result);
+            this.emit("response", {
+              requestId,
+              statusCode: raw.status,
+              duration,
+              timestamp: new Date(),
+            } satisfies ServerAdapterEvents["response"]);
+            for (const [key, value] of Object.entries({
+              ...ctx.responseHeaders,
+              ...raw.headers,
+            })) {
+              res.setHeader(key, value);
+            }
+            res.status(raw.status).send(raw.body);
+            return;
+          }
+
           // Check if result is an error response
           if (isErrorResponse(result)) {
             const statusCode = result.httpStatus ?? 500;
@@ -323,11 +359,25 @@ export class ExpressServerAdapter extends BaseServerAdapter {
 
         // Use dynamic status code from ServerAdapterError if available
         const isServerAdapterError = error instanceof ServerAdapterError;
-        const statusCode = isServerAdapterError ? error.getHttpStatus() : 500;
-        const errorCode = isServerAdapterError ? error.code : "INTERNAL_ERROR";
-        const errorMessage = isServerAdapterError
-          ? error.message
-          : "An internal error occurred";
+        // body-parser marks an over-limit body; it is the client's error.
+        const tooLarge =
+          !isServerAdapterError &&
+          "type" in error &&
+          error.type === "entity.too.large";
+        const statusCode = isServerAdapterError
+          ? error.getHttpStatus()
+          : tooLarge
+            ? 413
+            : 500;
+        const errorCode = isServerAdapterError
+          ? error.code
+          : tooLarge
+            ? "PAYLOAD_TOO_LARGE"
+            : "INTERNAL_ERROR";
+        const errorMessage =
+          isServerAdapterError || tooLarge
+            ? error.message
+            : "An internal error occurred";
 
         res.status(statusCode).json({
           error: {
@@ -618,5 +668,9 @@ export class ExpressServerAdapter extends BaseServerAdapter {
    */
   public getFrameworkInstance(): unknown {
     return this.app;
+  }
+
+  public override getNativeServer(): unknown {
+    return this.server;
   }
 }

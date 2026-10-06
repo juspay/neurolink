@@ -42,6 +42,14 @@ Serve command arguments
 
 ---
 
+### corsOrigin?
+
+> `optional` **corsOrigin?**: `string`[]
+
+Browser origins allowed by CORS (`--cors-origin`, repeatable or comma-separated).
+
+---
+
 ### rateLimit?
 
 > `optional` **rateLimit?**: `number`

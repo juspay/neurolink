@@ -39,6 +39,7 @@ import { proxyExposeCommand } from "./commands/proxyExpose.js";
 import { proxyReplayCommand } from "./commands/proxyReplay.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { DecideCommandFactory } from "./commands/decide.js";
+import { TranscribeCommandFactory } from "./commands/transcribe.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 import { voiceServerCommand } from "./commands/voiceServer.js";
@@ -204,6 +205,9 @@ export function initializeCliParser() {
 
       // Decide Command - typed, calibrated judgements (no free text)
       .command(DecideCommandFactory.createDecideCommand())
+
+      // Transcribe Command - audio in, text out (the transcribe inference type)
+      .command(TranscribeCommandFactory.createTranscribeCommand())
 
       // Batch Processing Command - Using CLICommandFactory
       .command(CLICommandFactory.createBatchCommand())

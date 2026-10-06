@@ -31,3 +31,11 @@
 > `optional` **translate?**: `boolean`
 
 Translate audio to English instead of transcribing in original language
+
+### timeoutMs?
+
+> `optional` **timeoutMs?**: `number`
+
+Request timeout in milliseconds. Default 30_000, which suits OpenAI's
+hosted endpoint; a self-hosted server transcribing a whole meeting needs
+minutes, so raise it (or set `OPENAI_STT_TIMEOUT_MS`).

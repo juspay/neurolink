@@ -33,16 +33,17 @@ The following features are planned for future releases:
 
 ## Provider Support Matrix
 
-| Provider             | Real-time Voice | TTS Output | Audio Transcription                | Status           |
-| -------------------- | --------------- | ---------- | ---------------------------------- | ---------------- |
-| **Google AI Studio** | Yes             | Yes        | Yes (via Google STT)               | Production Ready |
-| **Google Vertex AI** | Planned         | Yes        | Yes (via Google STT)               | Available        |
-| **OpenAI**           | Planned         | Yes        | Yes (via Whisper/OpenAI STT)       | Available        |
-| **Deepgram**         | Planned         | No         | Yes                                | Available        |
-| **ElevenLabs**       | Planned         | Yes        | Yes (via Scribe, `elevenlabs-stt`) | Available        |
-| **Azure**            | Planned         | Yes        | Yes (via Azure STT)                | Available        |
-| **Anthropic**        | Planned         | Planned    | Planned                            | Planned          |
-| **AWS Bedrock**      | Planned         | Planned    | Planned                            | Planned          |
+| Provider             | Real-time Voice | TTS Output | Audio Transcription          | Status           |
+| -------------------- | --------------- | ---------- | ---------------------------- | ---------------- |
+| **Google AI Studio** | Yes             | Yes        | Yes (via Google STT)         | Production Ready |
+| **Google Vertex AI** | Planned         | Yes        | Yes (via Google STT)         | Available        |
+| **OpenAI**           | Planned         | Yes        | Yes (via Whisper/OpenAI STT) | Available        |
+| **Deepgram**         | Planned         | No         | Yes (speaker labels)         | Available        |
+| **Azure**            | Planned         | Yes        | Yes (via Azure STT)          | Available        |
+| **ElevenLabs**       | No              | Yes        | Yes (Scribe, speaker labels) | Available        |
+| **Self-hosted**      | No              | No         | Yes (OpenAI-compatible)      | Available        |
+| **Anthropic**        | Planned         | Planned    | Planned                      | Planned          |
+| **AWS Bedrock**      | Planned         | Planned    | Planned                      | Planned          |
 
 **Supported Model for Real-time Voice:**
 
@@ -356,6 +357,89 @@ for await (const ev of streamResult.stream) {
 ```
 
 ---
+
+## Speaker Labels (Diarization)
+
+Ask for speaker labels with `speakerDiarization: true` (the documented alias
+`diarization: true` works too). Providers that diarize: `deepgram`,
+`google-stt`, `elevenlabs-stt` (Scribe), and any OpenAI-compatible endpoint
+that labels its segments (see the next section). Whatever the provider,
+the result has the same shape:
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "" },
+  stt: {
+    enabled: true,
+    audio: meetingBuffer,
+    provider: "elevenlabs-stt",
+    speakerDiarization: true,
+    speakerCount: 3, // optional hint
+  },
+});
+
+for (const turn of result.transcription?.segments ?? []) {
+  console.log(`[${turn.startTime}s] ${turn.speaker}: ${turn.text}`);
+}
+console.log(result.transcription?.speakers); // ["Speaker 0", "Speaker 1", "Speaker 2"]
+```
+
+- `segments[]` is a list of **speaker turns**: consecutive words from one
+  speaker, with `speaker`, `startTime`, `endTime` and `text`.
+- `speakers[]` lists the distinct labels in order of first appearance.
+- Providers that label words rather than segments (Deepgram, Google, Scribe)
+  have their turns derived by `STTProcessor`, so callers never see the
+  per-provider difference. A provider that returns its own speaker-labelled
+  segments (the diarization sidecar) is passed through untouched.
+- CLI: `neurolink generate --stt --input-audio meeting.wav --stt-provider elevenlabs-stt --stt-diarize`.
+
+**ElevenLabs Scribe** (`elevenlabs-stt`, alias `scribe`) shares
+`ELEVENLABS_API_KEY` with the TTS handler. It detects the language itself,
+transcribes code-switched speech (Hinglish comes back romanized unless a
+`language: "hi"` hint asks for Devanagari), and accepts audio or video
+containers. Options: `model` (`scribe_v2` default), `tagAudioEvents`.
+
+## Self-hosted STT (OpenAI-compatible endpoints)
+
+The `whisper` handler talks to any server that implements OpenAI's
+`/audio/transcriptions` — vLLM serving an ASR model such as Qwen3-ASR,
+LiteLLM, or NeuroLink's diarization sidecar (NVIDIA Nemotron-3 diarization in
+front of a local ASR). Point it at the server and pass the model name per
+call:
+
+```bash
+OPENAI_STT_BASE_URL=http://spark:8006/v1   # the server's /v1 root
+OPENAI_STT_API_KEY=dummy                   # keyless local server
+OPENAI_STT_TIMEOUT_MS=600000               # whole meetings take minutes
+```
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "" },
+  stt: {
+    enabled: true,
+    audio: meetingBuffer,
+    provider: "whisper",
+    model: "qwen3-asr-diarized",
+    speakerDiarization: true, // sent as diarize=true to compatible servers only
+    timeoutMs: 600_000,
+  },
+});
+```
+
+Or construct the handler directly when several endpoints coexist:
+
+```typescript
+import { OpenAISTT, STTProcessor } from "@juspay/neurolink";
+STTProcessor.registerHandler(
+  "spark-asr",
+  new OpenAISTT("dummy", "http://spark:8004/v1"),
+);
+```
+
+`diarize` and `max_speakers` (from `speakerCount`) are only sent to non-OpenAI
+endpoints, because OpenAI's own API rejects unknown fields. A `speaker` on a
+returned segment, and a top-level `speakers[]`, are surfaced as-is.
 
 ## Audio Specifications
 

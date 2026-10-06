@@ -1,0 +1,10 @@
+# per-machine secrets and large assets
+public/config.js
+public/whistle/needle.js
+public/whistle/needle.wasm
+public/whistle/whistle.cact
+samples/
+indic-conformer/.venv/
+indic-conformer/hf/
+*.log
+public/samples

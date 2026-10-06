@@ -22,13 +22,17 @@ https://developers.deepgram.com/docs
 
 ### Constructor
 
-> **new DeepgramSTT**(`apiKey?`): `DeepgramSTT`
+> **new DeepgramSTT**(`apiKeyOrCredentials?`): `DeepgramSTT`
 
 #### Parameters
 
-##### apiKey?
+##### apiKeyOrCredentials?
 
-`string`
+`string` \| \{ `apiKey?`: `string`; `baseURL?`: `string`; \}
+
+The `credentials.stt.deepgram` slice
+(`apiKey`, `baseURL`), or an API key (the original positional form).
+`DEEPGRAM_API_KEY` / `DEEPGRAM_BASE_URL` fill whatever is left out.
 
 #### Returns
 

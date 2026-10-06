@@ -19,6 +19,7 @@ import { createMCPRoutes } from "./mcpRoutes.js";
 import { createMemoryRoutes } from "./memoryRoutes.js";
 import { createOpenApiRoutes } from "./openApiRoutes.js";
 import { createToolRoutes } from "./toolRoutes.js";
+import { createTranscribeRoutes } from "./transcribeRoutes.js";
 
 // Re-export route builders from individual files
 export { createAgentRoutes } from "./agentRoutes.js";
@@ -32,6 +33,7 @@ export { createMCPRoutes } from "./mcpRoutes.js";
 export { createMemoryRoutes } from "./memoryRoutes.js";
 export { createOpenApiRoutes } from "./openApiRoutes.js";
 export { createToolRoutes } from "./toolRoutes.js";
+export { createTranscribeRoutes } from "./transcribeRoutes.js";
 
 /**
  * Create all standard routes
@@ -55,6 +57,7 @@ export function createAllRoutes(
     createMCPRoutes(basePath),
     createMemoryRoutes(basePath),
     createHealthRoutes(basePath),
+    createTranscribeRoutes(basePath, options?.transcribe),
   ];
 
   // Conditionally add OpenAPI/Swagger routes

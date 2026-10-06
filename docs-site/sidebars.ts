@@ -137,6 +137,7 @@ const sidebars: SidebarsConfig = {
               label: "Voice Providers",
               collapsed: true,
               items: [
+                "getting-started/providers/whistle",
                 "getting-started/providers/openai-tts",
                 "getting-started/providers/elevenlabs",
                 "getting-started/providers/deepgram",
@@ -218,6 +219,7 @@ const sidebars: SidebarsConfig = {
             "features/office-documents",
             "features/file-processors",
             "features/audio-input",
+            "features/transcribe",
             "features/tts",
             "features/real-time-services",
           ],

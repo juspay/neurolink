@@ -8,7 +8,17 @@
  */
 
 import { logger } from "./logger.js";
-import type { STTOptions, STTResult, STTHandler } from "../types/index.js";
+import { buildSpeakerTurns, listSpeakers } from "./speakerTurns.js";
+import type {
+  STTCredentials,
+  STTOptions,
+  STTResult,
+  STTHandler,
+} from "../types/index.js";
+import {
+  getSTTProviderDescriptor,
+  resolveCallSTTEndpoints,
+} from "../factories/sttDescriptors.js";
 import { STT_ERROR_CODES } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { STTError } from "../voice/errors.js";
@@ -101,6 +111,45 @@ export class STTProcessor {
   }
 
   /**
+   * The handler a call should use. A credentials slice for a shipped
+   * provider builds a fresh handler for this call; otherwise the registered
+   * one is used, and a shipped provider that was never registered (its key
+   * arrived after registration, or it is the local engine on a registry that
+   * was cleared) is built from the environment rather than reported as
+   * unsupported. Names that are neither registered nor shipped resolve to
+   * `undefined`.
+   *
+   * The handler classes are loaded lazily: `voice/index.ts` imports this
+   * module, so a static import back would be a cycle.
+   */
+  static async resolveHandler(
+    provider: string,
+    credentials?: STTCredentials,
+  ): Promise<STTHandler | undefined> {
+    const endpoint =
+      resolveCallSTTEndpoints(credentials)[provider.trim().toLowerCase()];
+    if (endpoint) {
+      // A per-call named endpoint: a fresh handler, never the registry's.
+      const { createSTTHandler } = await import("../voice/index.js");
+      return createSTTHandler(provider, credentials);
+    }
+    const descriptor = getSTTProviderDescriptor(provider);
+    const slice = descriptor
+      ? credentials?.[descriptor.credentialsKey]
+      : undefined;
+    if (descriptor && slice !== undefined) {
+      const { createSTTHandler } = await import("../voice/index.js");
+      return createSTTHandler(descriptor.name, credentials);
+    }
+    const registered = this.getHandler(provider);
+    if (registered || !descriptor) {
+      return registered;
+    }
+    const { createSTTHandler } = await import("../voice/index.js");
+    return createSTTHandler(descriptor.name, credentials);
+  }
+
+  /**
    * List the names of all registered providers.
    */
   static listProviders(): string[] {
@@ -158,6 +207,11 @@ export class STTProcessor {
    * @param audio - Audio data as Buffer or ArrayBuffer
    * @param provider - Provider identifier
    * @param options - STT configuration options
+   * @param credentials - Per-call credentials (`credentials.stt`). When it
+   *   carries a slice for this provider — even an empty one — a fresh handler
+   *   is built from that slice (environment as fallback) for this call alone,
+   *   instead of the registry's shared instance: per-call beats instance
+   *   beats environment, exactly as for text providers.
    * @returns Transcription result with text and metadata
    * @throws STTError if validation fails or provider not supported/configured
    *
@@ -176,6 +230,7 @@ export class STTProcessor {
     audio: Buffer | ArrayBuffer,
     provider: string,
     options: STTOptions,
+    credentials?: STTCredentials,
   ): Promise<STTResult> {
     // Create span early so preflight failures are captured
     const span = SpanSerializer.createSpan(SpanType.STT, "stt.transcribe", {
@@ -219,7 +274,7 @@ export class STTProcessor {
       }
 
       // 2. Handler lookup and error if provider not supported
-      const handler = this.getHandler(provider);
+      const handler = await this.resolveHandler(provider, credentials);
       if (!handler) {
         logger.error(`[STTProcessor] Provider "${provider}" is not registered`);
         throw new STTError({
@@ -271,9 +326,12 @@ export class STTProcessor {
         logger.warn(
           `[STTProcessor] Provider "${provider}" is not properly configured`,
         );
+        const hint = handler.describeConfiguration?.();
         throw new STTError({
           code: STT_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
-          message: `STT provider "${provider}" is not configured. Please set the required API keys.`,
+          message: hint
+            ? `STT provider "${provider}" is not configured. ${hint}`
+            : `STT provider "${provider}" is not configured. Please set the required API keys.`,
           category: ErrorCategory.CONFIGURATION,
           severity: ErrorSeverity.HIGH,
           retriable: false,
@@ -285,10 +343,23 @@ export class STTProcessor {
         `[STTProcessor] Starting transcription with provider: ${provider}`,
       );
 
-      // 5. Call handler.transcribe() - providers handle their own timeouts
-      const result = await handler.transcribe(audio, options);
+      // `diarization` is documented as an alias of `speakerDiarization`, but
+      // every handler reads only the latter; fold it in here so the alias
+      // works for all of them.
+      const handlerOptions: STTOptions =
+        options.diarization && options.speakerDiarization === undefined
+          ? { ...options, speakerDiarization: true }
+          : options;
 
-      // 6. Post-processing: enrich result with provider metadata
+      // 5. Call handler.transcribe() - providers handle their own timeouts
+      const result = await handler.transcribe(audio, handlerOptions);
+
+      // 6. Post-processing: enrich result with provider metadata, and give
+      // every diarizing provider the same shape. Providers label speakers in
+      // different places (per word, per segment); when a handler returned
+      // speaker-labelled words but no speaker-labelled segments, derive the
+      // turns here so callers can read `segments[].speaker` regardless of
+      // provider.
       const enrichedResult: STTResult = {
         ...result,
         metadata: {
@@ -297,6 +368,21 @@ export class STTProcessor {
           latency: result.metadata?.latency ?? 0,
         },
       };
+      const hasSpeakerSegments = enrichedResult.segments?.some(
+        (segment) => segment.speaker !== undefined,
+      );
+      if (!hasSpeakerSegments && enrichedResult.words) {
+        const turns = buildSpeakerTurns(enrichedResult.words);
+        if (turns.length > 0) {
+          enrichedResult.segments = turns;
+        }
+      }
+      if (!enrichedResult.speakers?.length && enrichedResult.segments) {
+        const speakers = listSpeakers(enrichedResult.segments);
+        if (speakers.length > 0) {
+          enrichedResult.speakers = speakers;
+        }
+      }
 
       // Don't log transcript content at INFO — voice transcriptions can carry
       // PII / health / financial data, and INFO is typically persisted in

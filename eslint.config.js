@@ -559,6 +559,16 @@ export default [
             // Asserts directly on the two functions' return values/output
             // shape instead. Its header states the exception in full.
             "test/continuous-test-suite-native-audio-model-aware.ts",
+            // The chunked streaming adapter's endpointer and LocalAgreement
+            // are pure functions of the PCM they are fed. Driving them with a
+            // generated 16 kHz signal (shaped noise bursts at known offsets)
+            // and a scripted engine pins utterance count, commit monotonicity,
+            // the never-shrink final, `silence` and the language takeover —
+            // sequences no live engine could be made to emit on demand.
+            // `chunkedTranscribeStream` / `runTranscribeStream` are not root
+            // exports, so the suite imports everything from `src`. Its header
+            // states the exception.
+            "test/continuous-test-suite-transcribe-stream.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`
@@ -683,6 +693,8 @@ export default [
       ".git_disabled/**",
       // Claude Code local scratch worktrees (agent/workflow isolation copies) - not source
       ".claude/worktrees/**",
+      // Vendored Whistle engine (emscripten output) and model, pinned from Hugging Face.
+      "models/whistle/**",
       "docs/cli-recordings/**",
       "docs/visual-content/**",
       "neurolink-demo/**",

@@ -2,3 +2,8 @@ action-dist/** linguist-generated=true
 
 # The committed Yama memory database is binary; keep diffs and merges quiet.
 .yama/memory/*.sqlite binary -diff
+
+# Whistle's bundled speech model and WASM engine (pinned Hugging Face files).
+models/whistle/needle.wasm binary -diff
+models/whistle/whistle.cact binary -diff
+models/whistle/needle.js -diff

@@ -830,3 +830,22 @@ Get the Fastify instance
 #### Overrides
 
 [`BaseServerAdapter`](BaseServerAdapter.md).[`getFrameworkInstance`](BaseServerAdapter.md#getframeworkinstance)
+
+---
+
+### getNativeServer()
+
+> **getNativeServer**(): `unknown`
+
+The listening Node `http.Server`, once `start()` has run and the runtime
+is Node (Bun and Deno serve without one). A WebSocket upgrade handler
+such as `attachTranscribeWebSocket` attaches to it; `undefined` means
+there is nothing to attach to.
+
+#### Returns
+
+`unknown`
+
+#### Overrides
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`getNativeServer`](BaseServerAdapter.md#getnativeserver)

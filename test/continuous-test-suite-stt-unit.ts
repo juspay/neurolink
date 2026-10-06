@@ -1174,6 +1174,131 @@ await test("ElevenLabs Scribe: the catalog registers elevenlabs-stt with scribe 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Diarization — provider-neutral speaker turns and the `diarization` alias.
+// Providers label speakers in different places (Deepgram/Google/Scribe on
+// every word, a diarizing OpenAI-compatible server on each segment). The
+// public contract is that `transcription.segments[].speaker` is populated
+// either way, and that the documented `diarization` alias reaches the
+// handler as `speakerDiarization`.
+// ---------------------------------------------------------------------------
+
+await test("speaker-labelled words come back as speaker turns on transcription.segments, with transcription.speakers listed", async () => {
+  const provider = `${NS}-diarize-words`;
+  const { handler } = makeStubHandler({
+    transcribe: async (): Promise<STTResult> => ({
+      text: "hello there. hi.",
+      confidence: 0.9,
+      words: [
+        { word: "hello", startTime: 0.0, endTime: 0.4, speaker: "Speaker 0" },
+        { word: "there.", startTime: 0.5, endTime: 0.9, speaker: "Speaker 0" },
+        { word: "hi.", startTime: 1.2, endTime: 1.5, speaker: "Speaker 1" },
+      ],
+    }),
+  });
+  STTProcessor.registerHandler(provider, handler);
+
+  await withMockedOpenAI(async (nl) => {
+    const outcome = (await dispatchViaGenerate(nl, {
+      provider,
+      speakerDiarization: true,
+    })) as { ok: boolean; result?: { transcription?: STTResult } };
+
+    assert(outcome.ok, "generate() resolved rather than throwing");
+    const segments = outcome.result?.transcription?.segments ?? [];
+    assertEqual(
+      segments.length,
+      2,
+      "two speaker turns were derived from the words",
+    );
+    assertEqual(
+      segments[0]?.speaker,
+      "Speaker 0",
+      "first turn belongs to Speaker 0",
+    );
+    assertEqual(
+      segments[0]?.text,
+      "hello there.",
+      "first turn joins its words",
+    );
+    assertEqual(
+      segments[0]?.startTime,
+      0.0,
+      "first turn starts at its first word",
+    );
+    assertEqual(segments[0]?.endTime, 0.9, "first turn ends at its last word");
+    assertEqual(
+      segments[1]?.speaker,
+      "Speaker 1",
+      "second turn belongs to Speaker 1",
+    );
+    assertEqual(
+      outcome.result?.transcription?.speakers?.join(","),
+      "Speaker 0,Speaker 1",
+      "speakers are listed in order of first appearance",
+    );
+  });
+});
+
+await test("segments that already carry speakers are left as the handler returned them", async () => {
+  const provider = `${NS}-diarize-segments`;
+  const { handler } = makeStubHandler({
+    transcribe: async (): Promise<STTResult> => ({
+      text: "a b",
+      confidence: 0.9,
+      words: [
+        { word: "a", speaker: "Speaker 0" },
+        { word: "b", speaker: "Speaker 1" },
+      ],
+      segments: [
+        { index: 0, text: "a b", isFinal: true, speaker: "SPEAKER_00" },
+      ],
+    }),
+  });
+  STTProcessor.registerHandler(provider, handler);
+
+  await withMockedOpenAI(async (nl) => {
+    const outcome = (await dispatchViaGenerate(nl, { provider })) as {
+      ok: boolean;
+      result?: { transcription?: STTResult };
+    };
+    assert(outcome.ok, "generate() resolved rather than throwing");
+    const segments = outcome.result?.transcription?.segments ?? [];
+    assertEqual(
+      segments.length,
+      1,
+      "the handler's own segment is kept, not re-derived from words",
+    );
+    assertEqual(
+      segments[0]?.speaker,
+      "SPEAKER_00",
+      "the handler's speaker label is preserved",
+    );
+  });
+});
+
+await test("the `diarization` alias reaches the handler as speakerDiarization", async () => {
+  const provider = `${NS}-diarize-alias`;
+  const { handler, calls } = makeStubHandler();
+  STTProcessor.registerHandler(provider, handler);
+
+  await withMockedOpenAI(async (nl) => {
+    const outcome = (await dispatchViaGenerate(nl, {
+      provider,
+      diarization: true,
+    })) as { ok: boolean };
+    assert(outcome.ok, "generate() resolved rather than throwing");
+    const seen = calls[0]?.options as
+      | { speakerDiarization?: boolean }
+      | undefined;
+    assertEqual(
+      seen?.speakerDiarization,
+      true,
+      "handler saw speakerDiarization=true from the alias",
+    );
+  });
+});
+
 // test() records a failure rather than throwing, so every test above has run
 // by here and this is the suite's finally.
 STTProcessor.clearHandlers();

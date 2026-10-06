@@ -89,3 +89,18 @@
 #### Returns
 
 `boolean`
+
+---
+
+### describeConfiguration()?
+
+> `optional` **describeConfiguration**(): `string`
+
+What would make `isConfigured()` true, in the handler's own words — the
+env var or key for a hosted engine, the files and their download URLs for
+a local one. Appended to the "not configured" error so the caller is told
+what to do rather than "set the required API keys".
+
+#### Returns
+
+`string`

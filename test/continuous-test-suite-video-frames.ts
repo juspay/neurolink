@@ -641,6 +641,15 @@ await test("a transcript that cannot be produced says why", async () => {
   // Asking for a transcript with no transcription backend configured. The
   // request must still succeed — transcription is additive — and the reason
   // must be stated rather than presenting as a clip with no speech in it.
+  //
+  // VideoProcessor routes through STTProcessor's provider rule: the provider
+  // NEUROLINK_STT_PROVIDER names, else the first configured one, else the
+  // built-in local engine (Whistle). GOOGLE_AI_API_KEY / GEMINI_API_KEY —
+  // which this request needs for its chat leg — also configure google-stt, so
+  // the backend is pinned to whisper with every OpenAI key blanked; Whistle is
+  // kept out with an empty model dir and auto-download off, so a machine that
+  // already fetched its files cannot answer for it.
+  const emptyWhistleDir = tempDir("neurolink-whistle-empty-");
   const res = await runCLI(
     [
       "generate",
@@ -653,7 +662,18 @@ await test("a transcript that cannot be produced says why", async () => {
       "--debug",
     ],
     {
-      env: { NEUROLINK_LOG_LEVEL: "debug", OPENAI_API_KEY: "" },
+      env: {
+        NEUROLINK_LOG_LEVEL: "debug",
+        OPENAI_API_KEY: "",
+        OPENAI_STT_API_KEY: "",
+        OPENAI_STT_BASE_URL: "",
+        OPENAI_BASE_URL: "",
+        DEEPGRAM_API_KEY: "",
+        ELEVENLABS_API_KEY: "",
+        NEUROLINK_STT_PROVIDER: "whisper",
+        NEUROLINK_WHISTLE_AUTO_DOWNLOAD: "0",
+        NEUROLINK_WHISTLE_DIR: emptyWhistleDir,
+      },
       timeoutMs: 240_000,
     },
   );
@@ -672,7 +692,7 @@ await test("a transcript that cannot be produced says why", async () => {
     "a skipped transcription must be reported, not silent",
   );
   assert(
-    /OPENAI_API_KEY is not set/.test(combined),
+    /transcription provider "whisper" is not configured/.test(combined),
     "the report must name the missing backend rather than the clip",
   );
 });

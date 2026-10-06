@@ -22,17 +22,23 @@ https://docs.microsoft.com/azure/cognitive-services/speech-service/
 
 ### Constructor
 
-> **new AzureSTT**(`apiKey?`, `region?`): `AzureSTT`
+> **new AzureSTT**(`apiKeyOrCredentials?`, `region?`): `AzureSTT`
 
 #### Parameters
 
-##### apiKey?
+##### apiKeyOrCredentials?
 
-`string`
+`string` \| \{ `apiKey?`: `string`; `region?`: `string`; \}
+
+The `credentials.stt.azure` slice (`apiKey`,
+`region`), or an API key (the original positional form).
+`AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` fill whatever is left out.
 
 ##### region?
 
 `string`
+
+Region, positional form only.
 
 #### Returns
 
@@ -59,7 +65,8 @@ pre-segment the input.
 
 > `readonly` **supportsStreaming**: `false` = `false`
 
-Azure STT implementation buffers chunks via REST — not true streaming
+REST short-audio recognition has no stream. `transcribeStream()` on the
+SDK streams this handler through the generic chunked adapter.
 
 #### Implementation of
 
@@ -130,29 +137,3 @@ Azure STT implementation buffers chunks via REST — not true streaming
 #### Implementation of
 
 `STTHandler.transcribe`
-
----
-
-### transcribeStream()
-
-> **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-Streaming transcription (placeholder - requires SDK)
-
-#### Parameters
-
-##### audioStream
-
-`AsyncIterable`\<`Buffer`\<`ArrayBufferLike`\>\>
-
-##### options
-
-[`STTOptions`](../type-aliases/STTOptions.md)
-
-#### Returns
-
-`AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
-
-#### Implementation of
-
-`STTHandler.transcribeStream`

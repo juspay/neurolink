@@ -199,6 +199,14 @@ import {
   resolveDefaultDecisionProvider,
 } from "./factories/providerDescriptors.js";
 import {
+  describeSTTProviderKeys,
+  getSTTProviderDescriptor,
+  listConfiguredSTTProviders,
+  resolveCallSTTEndpoints,
+  resolveDefaultSTTProvider,
+  resolveSTTProviderName,
+} from "./factories/sttDescriptors.js";
+import {
   MAX_PARALLEL_DECISION_BATCHES,
   mergeDecisionResults,
   splitDecisionRequest,
@@ -344,7 +352,14 @@ import { ATTR, spanJsonAttribute } from "./telemetry/attributes.js";
 import { tracers } from "./telemetry/tracers.js";
 // Voice integration imports
 import type {
+  STTCredentials,
+  STTCorrectionDeps,
   STTResult,
+  TranscribeDeps,
+  TranscribeOptions,
+  TranscribeResult,
+  TranscribeStreamEvent,
+  TranscribeStreamOptions,
   TTSMetadata,
   TTSResult,
   TTSOptions,
@@ -5789,11 +5804,18 @@ Current user's request: ${currentInput}`;
         // registration failed silently after AI providers were registered.
         await ProviderRegistry.registerAllProviders();
         const { STTProcessor } = await import("./utils/sttProcessor.js");
-        const sttProvider = options.stt.provider ?? "whisper";
+        const sttCredentials = this.resolveSTTCredentials(
+          options.credentials?.stt,
+        );
+        const sttProvider = this.resolveSTTProvider(
+          options.stt.provider,
+          sttCredentials,
+        );
         sttTranscription = await STTProcessor.transcribe(
           options.stt.audio,
           sttProvider,
           options.stt,
+          sttCredentials,
         );
         // Inject transcription into the LLM prompt
         if (sttTranscription.text) {
@@ -10326,11 +10348,18 @@ Current user's request: ${currentInput}`;
           // registerAllProviders() is idempotent; always call.
           await ProviderRegistry.registerAllProviders();
           const { STTProcessor } = await import("./utils/sttProcessor.js");
-          const sttProvider = sttOptions.provider ?? "whisper";
+          const sttCredentials = this.resolveSTTCredentials(
+            options.credentials?.stt,
+          );
+          const sttProvider = this.resolveSTTProvider(
+            sttOptions.provider,
+            sttCredentials,
+          );
           streamSttTranscription = await STTProcessor.transcribe(
             sttAudio,
             sttProvider,
             sttOptions,
+            sttCredentials,
           );
           if (streamSttTranscription.text) {
             const existingText = options.input.text || "";
@@ -18996,6 +19025,231 @@ Current user's request: ${currentInput}`;
     options: DecisionCallerOptions,
   ): Promise<DecisionResult | null> {
     return this.siteDecide(options);
+  }
+
+  // ==========================================================================
+  // TRANSCRIBE — the speech-to-text inference type
+  // ==========================================================================
+
+  /**
+   * Transcribe a recording to text through any STT provider, with the
+   * optional layers that make self-hosted engines usable: a dictionary of
+   * names and jargon (sent to the engine as context, then repaired after the
+   * fact behind a `tryDecide` guard), an LLM rewrite, a second-opinion
+   * engine, and a fallback engine for audio the primary cannot read.
+   *
+   * The provider defaults to `NEUROLINK_STT_PROVIDER`, then the first
+   * configured STT provider, then the built-in local engine, so an instance
+   * with no STT configuration still transcribes. Per-call
+   * `credentials.stt` beats the instance's, which beats the environment.
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.transcribe({
+   *   audio: "./meeting.wav",
+   *   dictionary: [{ term: "NeuroLink", heardAs: ["neural link"] }],
+   * });
+   * console.log(result.text, result.engine.provider, result.steps);
+   * ```
+   *
+   * @throws STTError when the audio cannot be read, the provider is unknown,
+   *   or the engine fails with no fallback that covers errors
+   */
+  async transcribe(options: TranscribeOptions): Promise<TranscribeResult> {
+    const [deps, { runTranscribe }] = await Promise.all([
+      this.buildTranscribeDeps(options.credentials?.stt),
+      import("./voice/transcribe.js"),
+    ]);
+    return runTranscribe(options, deps);
+  }
+
+  /**
+   * Transcribe a live stream of PCM16LE frames. Engines with a native stream
+   * use it; every other engine is streamed through the chunked adapter
+   * (energy-gated utterances, rolling re-transcription, LocalAgreement
+   * commits). Emits `interim`, `final`, `corrected` and the other
+   * {@link TranscribeStreamEvent}s; the same correction, fallback and
+   * provider rules as {@link NeuroLink.transcribe} apply per utterance.
+   *
+   * @example
+   * ```typescript
+   * for await (const event of neurolink.transcribeStream({ audio: micFrames })) {
+   *   if (event.type === "final") console.log(event.text);
+   * }
+   * ```
+   */
+  async *transcribeStream(
+    options: TranscribeStreamOptions,
+  ): AsyncIterable<TranscribeStreamEvent> {
+    const [deps, { runTranscribeStream }] = await Promise.all([
+      this.buildTranscribeDeps(options.credentials?.stt),
+      import("./voice/transcribeStream.js"),
+    ]);
+    yield* runTranscribeStream(options, deps);
+  }
+
+  /**
+   * Instance `credentials.stt` with a per-call `stt` slice merged on top,
+   * provider by provider and field by field (a per-call `apiKey` keeps the
+   * instance's `baseURL`). Undefined when neither has one.
+   */
+  private resolveSTTCredentials(
+    callCredentials?: STTCredentials,
+  ): STTCredentials | undefined {
+    const instance = this.credentials?.stt;
+    if (!instance || !callCredentials) {
+      return callCredentials ?? instance;
+    }
+    const merged: Record<string, unknown> = { ...instance };
+    for (const [key, callSlice] of Object.entries(callCredentials)) {
+      const instanceSlice: unknown = merged[key];
+      merged[key] =
+        instanceSlice &&
+        typeof instanceSlice === "object" &&
+        callSlice &&
+        typeof callSlice === "object"
+          ? { ...instanceSlice, ...callSlice }
+          : (callSlice ?? instanceSlice);
+    }
+    return merged as STTCredentials;
+  }
+
+  /**
+   * The STT provider for a call: an explicit name (or alias) as its
+   * canonical name, a name only a caller-registered handler knows as is, and
+   * no name as the default provider for these credentials.
+   */
+  private resolveSTTProvider(
+    name: string | undefined,
+    credentials: STTCredentials | undefined,
+  ): string {
+    const trimmed = name?.trim();
+    if (!trimmed) {
+      return resolveDefaultSTTProvider(credentials);
+    }
+    return resolveSTTProviderName(trimmed) ?? trimmed;
+  }
+
+  /**
+   * Everything the transcribe orchestration needs from this instance: STT
+   * handlers with the request's credentials applied, provider resolution,
+   * the fail-open decision model and a rewrite model.
+   */
+  private async buildTranscribeDeps(
+    callCredentials?: STTCredentials,
+  ): Promise<TranscribeDeps> {
+    await ProviderRegistry.registerAllProviders();
+    const [{ STTProcessor }, { createSTTHandler }, { STTError }] =
+      await Promise.all([
+        import("./utils/sttProcessor.js"),
+        import("./voice/index.js"),
+        import("./voice/errors.js"),
+      ]);
+    const credentials = this.resolveSTTCredentials(callCredentials);
+
+    const resolveProvider = (name?: string): string => {
+      const resolved = this.resolveSTTProvider(name, credentials);
+      if (
+        resolveSTTProviderName(resolved) === undefined &&
+        !STTProcessor.supports(resolved) &&
+        !resolveCallSTTEndpoints(credentials)[resolved.trim().toLowerCase()]
+      ) {
+        throw STTError.unknownProvider(
+          resolved,
+          listConfiguredSTTProviders(credentials),
+          describeSTTProviderKeys(),
+        );
+      }
+      return resolved;
+    };
+
+    // Same precedence as STTProcessor.resolveHandler, synchronously: a
+    // credentials slice for the provider builds a handler from it; else the
+    // registered handler; else, for a shipped provider, one from the env.
+    const getHandler = (name: string) => {
+      if (resolveCallSTTEndpoints(credentials)[name.trim().toLowerCase()]) {
+        return createSTTHandler(name, credentials);
+      }
+      const descriptor = getSTTProviderDescriptor(name);
+      if (!descriptor) {
+        return STTProcessor.getHandler(name);
+      }
+      if (credentials?.[descriptor.credentialsKey] !== undefined) {
+        return createSTTHandler(descriptor.name, credentials);
+      }
+      return (
+        STTProcessor.getHandler(descriptor.name) ??
+        createSTTHandler(descriptor.name)
+      );
+    };
+
+    return {
+      ...this.buildSTTCorrectionDeps(),
+      transcribe: (audio, provider, options) =>
+        STTProcessor.transcribe(audio, provider, options, credentials),
+      resolveProvider,
+      getHandler,
+    };
+  }
+
+  /**
+   * The correction layer's two model calls: `decide` is {@link tryDecide}
+   * (fail-open — `null` on any failure), `rewrite` a plain text call with
+   * tools and memory off (`onPartial`, when given, receives the finished
+   * text once — see the note inside on why it is not streamed) and aborted
+   * at its timeout.
+   */
+  private buildSTTCorrectionDeps(): STTCorrectionDeps {
+    return {
+      decide: async (o) => {
+        // The correction layer builds plain JSON states and question maps;
+        // the decision provider validates them on its side.
+        const result = await this.tryDecide({
+          state: o.state as DecisionCallerOptions["state"],
+          questions: o.questions as DecisionCallerOptions["questions"],
+          ...(o.timeoutMs !== undefined ? { timeoutMs: o.timeoutMs } : {}),
+        });
+        return result ? { answers: result.answers } : null;
+      },
+      rewrite: async (o) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), o.timeoutMs);
+        // A server runs many transcriptions with one rewrite model, so the
+        // model is configurable once, in the environment; a request's own
+        // `correction.rewrite.provider/model` still wins.
+        const provider =
+          o.provider ?? process.env.NEUROLINK_STT_REWRITE_PROVIDER?.trim();
+        const model =
+          o.model ?? process.env.NEUROLINK_STT_REWRITE_MODEL?.trim();
+        const request = {
+          input: { text: o.user },
+          systemPrompt: o.system,
+          ...(provider ? { provider } : {}),
+          ...(model ? { model } : {}),
+          maxTokens: o.maxTokens,
+          temperature: 0,
+          disableTools: true,
+          memory: { enabled: false },
+          abortSignal: controller.signal,
+        };
+        try {
+          // Always `generate()`. Measured on the same rewrite against the same
+          // model: generate 0.7 s; stream() 3.4 s with the first chunk at
+          // 3.3 s — the stream path's setup costs more than the whole answer
+          // and delivers it in one burst anyway, so a "streamed" rewrite only
+          // risked the 12 s timeout. `onPartial` still fires once with the
+          // full text so a live caller replaces the sentence the same way.
+          const generated = await this.generate(request);
+          const text = generated.content ?? "";
+          if (o.onPartial && text) {
+            o.onPartial(text);
+          }
+          return text;
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+    };
   }
 
   /**

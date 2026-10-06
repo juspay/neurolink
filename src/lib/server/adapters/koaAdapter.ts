@@ -25,6 +25,14 @@ import type {
   KoaRateLimitEntry,
 } from "../../types/index.js";
 import { isErrorResponse } from "../utils/validation.js";
+import {
+  isRawBodyContentType,
+  isWebResponse,
+  parseByteLimit,
+  RawBodyTooLargeError,
+  readRawBody,
+  readWebResponse,
+} from "../utils/rawBody.js";
 
 /**
  * Koa-specific server adapter
@@ -158,6 +166,25 @@ export class KoaServerAdapter extends BaseServerAdapter {
           enableTypes: ["json", "form", "text"],
         }),
       );
+      // Uploads (multipart, octet-stream, audio/*) reach the route as bytes.
+      const rawLimit = parseByteLimit(this.config.bodyParser.maxSize);
+      this.app.use(async (ctx, next) => {
+        if (isRawBodyContentType(ctx.get("content-type"))) {
+          try {
+            ctx.request.body = await readRawBody(ctx.req, rawLimit);
+          } catch (error) {
+            if (error instanceof RawBodyTooLargeError) {
+              ctx.status = 413;
+              ctx.body = {
+                error: { code: "PAYLOAD_TOO_LARGE", message: error.message },
+              };
+              return;
+            }
+            throw error;
+          }
+        }
+        await next();
+      });
     }
 
     // Rate limiting middleware
@@ -343,6 +370,26 @@ export class KoaServerAdapter extends BaseServerAdapter {
       // Execute handler
       const result = await route.handler(serverCtx);
       const duration = Date.now() - startTime;
+
+      // A route that answers in its own wire format returns a web Response.
+      if (isWebResponse(result)) {
+        const raw = await readWebResponse(result);
+        this.emit("response", {
+          requestId,
+          statusCode: raw.status,
+          duration,
+          timestamp: new Date(),
+        } satisfies ServerAdapterEvents["response"]);
+        for (const [key, value] of Object.entries({
+          ...serverCtx.responseHeaders,
+          ...raw.headers,
+        })) {
+          ctx.set(key, value);
+        }
+        ctx.status = raw.status;
+        ctx.body = raw.body;
+        return;
+      }
 
       // Check if result is an error response
       if (isErrorResponse(result)) {
@@ -681,5 +728,9 @@ export class KoaServerAdapter extends BaseServerAdapter {
    */
   public getFrameworkInstance(): unknown {
     return this.app;
+  }
+
+  public override getNativeServer(): unknown {
+    return this.server;
   }
 }

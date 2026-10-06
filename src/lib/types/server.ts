@@ -9,6 +9,16 @@ import type { NeuroLink } from "../neurolink.js";
 import type { JsonObject, JsonValue } from "./common.js";
 import type { ExternalMCPServerStatus } from "./externalMcp.js";
 import type { ProxyRuntimeConfigProvider } from "./proxy.js";
+import type { TTSAudioFormat } from "./tts.js";
+import type {
+  STTCorrectionOptions,
+  STTDictionaryEntry,
+  STTFallbackOptions,
+  STTDecisionRecord,
+  STTEngineInfo,
+  STTStreamingOptions,
+  TranscribeTimings,
+} from "./transcribe.js";
 // ConversationMessage is locally defined further down in this file (line ~1350)
 // — used by ServerVoiceSessionState and other server-side types.
 
@@ -86,7 +96,10 @@ export type CORSConfig = {
   /** Enable CORS (default: true) */
   enabled?: boolean;
 
-  /** Allowed origins (default: ["*"]) */
+  /**
+   * Allowed browser origins. Default `[]`: no cross-origin page may call the
+   * server until an origin is listed; `["*"]` opts in to any origin.
+   */
   origins?: string[];
 
   /** Allowed HTTP methods */
@@ -1439,6 +1452,131 @@ export type CreateRoutesOptions = {
    * docs/features/codex-proxy-support.md.
    */
   runtimeConfigProvider?: ProxyRuntimeConfigProvider;
+  /**
+   * Options for the transcription routes (`POST <basePath>/agent/transcribe`
+   * and the OpenAI-compatible `POST /v1/audio/transcriptions`), which are
+   * always mounted.
+   */
+  transcribe?: ServerTranscribeRouteOptions;
+};
+
+// =============================================================================
+// TRANSCRIBE ROUTES (from server/routes/transcribeRoutes.ts)
+// =============================================================================
+
+/** Options for `createTranscribeRoutes()`. */
+export type ServerTranscribeRouteOptions = {
+  /**
+   * Directories a request's `audioPath` may point into. Empty or omitted (the
+   * default) refuses every `audioPath`: a server must not read its own disk
+   * on a caller's say-so unless the operator names where.
+   */
+  allowedAudioRoots?: string[];
+  /** Largest audio accepted, decoded, in bytes. Default 50 MB. */
+  maxAudioBytes?: number;
+  /**
+   * Prefix of the OpenAI-compatible route. Default `""`, so the route is
+   * `/v1/audio/transcriptions` and an OpenAI client pointed at
+   * `http://host:port/v1` works unchanged.
+   */
+  openaiBasePath?: string;
+};
+
+/**
+ * Body of `POST <basePath>/agent/transcribe`. Exactly one of `audio`,
+ * `audioUrl` or `audioPath`. There is no `credentials` field: a caller cannot
+ * swap in its own key or point an engine at another host.
+ */
+export type ServerTranscribeRequest = {
+  /** Base64 audio, or a `data:` URL. */
+  audio?: string;
+  /** `http(s)` URL the server downloads (SSRF-guarded, size-capped). */
+  audioUrl?: string;
+  /** Server-local path; refused unless it lies under `allowedAudioRoots`. */
+  audioPath?: string;
+  format?: TTSAudioFormat;
+  provider?: string;
+  model?: string;
+  language?: string;
+  prompt?: string;
+  dictionary?: STTDictionaryEntry[];
+  correction?: STTCorrectionOptions;
+  fallback?: STTFallbackOptions;
+  diarization?: boolean;
+  wordTimestamps?: boolean;
+  timeoutMs?: number;
+};
+
+/** The transcribe WebSocket's first text frame: the JSON route's fields without the audio. */
+export type ServerTranscribeStreamConfig = Omit<
+  ServerTranscribeRequest,
+  "audio" | "audioUrl" | "audioPath" | "format"
+> & {
+  streaming?: STTStreamingOptions;
+};
+
+/** One segment of the OpenAI `verbose_json` transcription shape. */
+export type ServerOpenAITranscriptionSegment = {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  /** NeuroLink extension: speaker label when diarization ran. */
+  speaker?: string;
+};
+
+/** One word of the OpenAI `verbose_json` transcription shape. */
+export type ServerOpenAITranscriptionWord = {
+  word: string;
+  start: number;
+  end: number;
+  /** NeuroLink extension: speaker label when diarization ran. */
+  speaker?: string;
+};
+
+/**
+ * `POST /v1/audio/transcriptions` with `response_format=verbose_json`:
+ * OpenAI's shape, plus NeuroLink's extras in snake_case.
+ */
+export type ServerOpenAITranscriptionResponse = {
+  task: "transcribe";
+  text: string;
+  language?: string;
+  duration?: number;
+  segments?: ServerOpenAITranscriptionSegment[];
+  words?: ServerOpenAITranscriptionWord[];
+  /** Engine text before correction. */
+  raw: string;
+  /** Present when the correction changed the text. */
+  corrected?: string;
+  decisions?: STTDecisionRecord[];
+  engine: STTEngineInfo;
+  language_detected?: boolean;
+  steps: string[];
+  timings: TranscribeTimings;
+};
+
+/** Options for `attachTranscribeWebSocket()`. */
+export type ServerTranscribeWebSocketOptions = {
+  /** Upgrade path. Default `/v1/audio/transcriptions/stream`. */
+  path?: string;
+  /**
+   * Token(s) required on the upgrade (`Authorization: Bearer` header or
+   * `?token=`). `neurolink serve` passes the same keys as its HTTP routes
+   * (`NEUROLINK_SERVER_API_KEY`, comma-separated), so one setting guards both.
+   */
+  authToken?: string | readonly string[];
+  /**
+   * Browser origins allowed to upgrade. A browser always sends `Origin` on a
+   * WebSocket upgrade, and an upgrade whose `Origin` is not listed is refused
+   * with 403; a request without the header (a non-browser client) is let
+   * through, as CORS does not apply to it. Omitted, or containing `"*"`, means
+   * any origin. `neurolink serve` passes its `cors.origins` here so one
+   * allow-list covers the HTTP routes and the stream.
+   */
+  allowedOrigins?: readonly string[];
+  /** Largest single frame, in bytes. Default 1 MiB. */
+  maxPayload?: number;
 };
 
 // =============================================================================

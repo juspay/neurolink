@@ -11,6 +11,8 @@ import { STTError } from "../errors.js";
 import type {
   TTSAudioFormat,
   DeepgramResponse,
+  DeepgramWord,
+  STTCredentials,
   DeepgramSTTOptions,
   STTHandler,
   STTLanguage,
@@ -19,6 +21,9 @@ import type {
   TranscriptionSegment,
   WordTiming,
 } from "../../types/index.js";
+
+const DEFAULT_BASE_URL = "https://api.deepgram.com/v1";
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
  * Deepgram Speech-to-Text Handler
@@ -29,7 +34,7 @@ import type {
  */
 export class DeepgramSTT implements STTHandler {
   private readonly apiKey: string | null;
-  private readonly baseUrl = "https://api.deepgram.com/v1";
+  private readonly baseUrl: string;
 
   /**
    * Maximum audio duration in seconds (2 hours)
@@ -41,12 +46,55 @@ export class DeepgramSTT implements STTHandler {
    */
   public readonly supportsStreaming = true;
 
-  constructor(apiKey?: string) {
+  /**
+   * @param apiKeyOrCredentials - The `credentials.stt.deepgram` slice
+   *   (`apiKey`, `baseURL`), or an API key (the original positional form).
+   *   `DEEPGRAM_API_KEY` / `DEEPGRAM_BASE_URL` fill whatever is left out.
+   */
+  constructor(apiKeyOrCredentials?: string | STTCredentials["deepgram"]) {
+    // `typeof x === "string"` narrows the same way with and without
+    // strictNullChecks (the react-hooks build runs tsc without it); an
+    // `=== undefined` test does not.
+    const slice: NonNullable<STTCredentials["deepgram"]> =
+      typeof apiKeyOrCredentials === "string"
+        ? { apiKey: apiKeyOrCredentials }
+        : (apiKeyOrCredentials ?? {});
     // Normalize: trim surrounding whitespace and treat empty string as null
     // so isConfigured() and transcribe()/transcribeStream() agree on the
     // contract (other voice providers all do this — Deepgram was missed).
-    const resolvedKey = (apiKey ?? process.env.DEEPGRAM_API_KEY ?? "").trim();
+    const resolvedKey = (
+      slice.apiKey ??
+      process.env.DEEPGRAM_API_KEY ??
+      ""
+    ).trim();
     this.apiKey = resolvedKey.length > 0 ? resolvedKey : null;
+    const baseURL =
+      ("baseURL" in slice ? slice.baseURL : undefined) ??
+      process.env.DEEPGRAM_BASE_URL ??
+      DEFAULT_BASE_URL;
+    // Linear trailing-slash strip; a `/\/+$/` regex is quadratic on a long
+    // run of slashes in a caller-supplied URL (CodeQL js/polynomial-redos).
+    let end = baseURL.trim().length;
+    const trimmed = baseURL.trim();
+    while (end > 0 && trimmed.charCodeAt(end - 1) === 47) {
+      end--;
+    }
+    this.baseUrl = trimmed.slice(0, end) || DEFAULT_BASE_URL;
+  }
+
+  /** The streaming endpoint: the REST base URL on the WebSocket scheme. */
+  private get wsBaseUrl(): string {
+    return this.baseUrl.replace(/^http(s?):\/\//i, (_m, secure: string) =>
+      secure ? "wss://" : "ws://",
+    );
+  }
+
+  /** A language the caller pinned, or `undefined` for "let Deepgram detect". */
+  private static pinnedLanguage(
+    language: string | undefined,
+  ): string | undefined {
+    const trimmed = language?.trim();
+    return trimmed && trimmed.toLowerCase() !== "auto" ? trimmed : undefined;
   }
 
   isConfigured(): boolean {
@@ -171,9 +219,12 @@ export class DeepgramSTT implements STTHandler {
       // Add model
       params.set("model", deepgramOptions.model ?? "nova-2");
 
-      // Add language
-      if (options.language) {
-        params.set("language", options.language);
+      // Add language, or ask Deepgram to detect it
+      const language = DeepgramSTT.pinnedLanguage(options.language);
+      if (language) {
+        params.set("language", language);
+      } else {
+        params.set("detect_language", "true");
       }
 
       // Add punctuation
@@ -212,13 +263,24 @@ export class DeepgramSTT implements STTHandler {
         params.set("filler_words", "true");
       }
 
-      // Add keywords
+      // Add keywords. Generic `vocabulary` maps onto the same boost when
+      // the caller gave no Deepgram-specific list; Nova-3 takes it as
+      // `keyterm`, earlier models as `keywords`.
       if (deepgramOptions.keywords && deepgramOptions.keywords.length > 0) {
         for (const keyword of deepgramOptions.keywords) {
           params.append("keywords", keyword);
         }
         if (deepgramOptions.keywordBoost) {
           params.set("keyword_boost", deepgramOptions.keywordBoost);
+        }
+      } else if (options.vocabulary && options.vocabulary.length > 0) {
+        const param = (deepgramOptions.model ?? "nova-2").startsWith("nova-3")
+          ? "keyterm"
+          : "keywords";
+        for (const term of options.vocabulary) {
+          if (term.trim()) {
+            params.append(param, term.trim());
+          }
         }
       }
 
@@ -237,7 +299,11 @@ export class DeepgramSTT implements STTHandler {
       const url = `${this.baseUrl}/listen?${params.toString()}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutMs =
+        typeof options.timeoutMs === "number" && options.timeoutMs > 0
+          ? options.timeoutMs
+          : DEFAULT_TIMEOUT_MS;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       let response: Response;
       try {
         response = await fetch(url, {
@@ -252,7 +318,7 @@ export class DeepgramSTT implements STTHandler {
       } catch (fetchErr: unknown) {
         if (fetchErr instanceof Error && fetchErr.name === "AbortError") {
           throw STTError.transcriptionFailed(
-            "Deepgram STT request timed out after 30 seconds",
+            `Deepgram STT request timed out after ${Math.round(timeoutMs / 1000)} seconds`,
             "deepgram",
             fetchErr,
           );
@@ -302,13 +368,19 @@ export class DeepgramSTT implements STTHandler {
       const result: STTResult = {
         text: firstAlternative.transcript,
         confidence: firstAlternative.confidence,
-        language: options.language,
+        language:
+          typeof firstChannel.detected_language === "string"
+            ? firstChannel.detected_language
+            : options.language,
         duration: data.metadata?.duration,
         metadata: {
           latency,
           provider: "deepgram",
           model: deepgramOptions.model ?? "nova-2",
           requestId: data.metadata?.request_id,
+          ...(typeof firstChannel.language_confidence === "number"
+            ? { languageConfidence: firstChannel.language_confidence }
+            : {}),
         },
       };
 
@@ -391,8 +463,11 @@ export class DeepgramSTT implements STTHandler {
     const params = new URLSearchParams();
     params.set("model", deepgramOptions.model ?? "nova-2");
 
-    if (options.language) {
-      params.set("language", options.language);
+    // The live endpoint has no `detect_language`; an unpinned stream runs on
+    // the model's default language.
+    const streamLanguage = DeepgramSTT.pinnedLanguage(options.language);
+    if (streamLanguage) {
+      params.set("language", streamLanguage);
     }
     if (options.punctuation !== false) {
       params.set("punctuate", "true");
@@ -407,7 +482,7 @@ export class DeepgramSTT implements STTHandler {
     // Indicate interim results
     params.set("interim_results", "true");
 
-    const wsUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+    const wsUrl = `${this.wsBaseUrl}/listen?${params.toString()}`;
 
     // Create WebSocket connection
     const WebSocket = (await import("ws")).default;
@@ -437,8 +512,11 @@ export class DeepgramSTT implements STTHandler {
             alternatives?: Array<{
               transcript?: string;
               confidence?: number;
+              words?: DeepgramWord[];
             }>;
           };
+          start?: number;
+          duration?: number;
           is_final?: boolean;
           speech_final?: boolean;
         };
@@ -451,6 +529,7 @@ export class DeepgramSTT implements STTHandler {
               text: alt.transcript,
               isFinal: response.is_final ?? false,
               confidence: alt.confidence ?? 0,
+              ...DeepgramSTT.streamSegmentDetails(response, alt.words),
             };
 
             if (resolveNext) {
@@ -638,6 +717,45 @@ export class DeepgramSTT implements STTHandler {
         ws.terminate();
       }
     }
+  }
+
+  /**
+   * Timing, words and speaker of one live result, taken only from fields the
+   * payload actually carries. The segment's speaker is its words' speaker
+   * when they all agree.
+   */
+  private static streamSegmentDetails(
+    response: { start?: number; duration?: number },
+    words: DeepgramWord[] | undefined,
+  ): Partial<TranscriptionSegment> {
+    const details: Partial<TranscriptionSegment> = {};
+    if (typeof response.start === "number") {
+      details.startTime = response.start;
+      if (typeof response.duration === "number") {
+        details.endTime = response.start + response.duration;
+      }
+    }
+    if (Array.isArray(words) && words.length > 0) {
+      details.words = words.map((word) => {
+        const timing: WordTiming = {
+          word: word.punctuated_word ?? word.word,
+          startTime: word.start,
+          endTime: word.end,
+          confidence: word.confidence,
+        };
+        if (word.speaker !== undefined) {
+          timing.speaker = `Speaker ${word.speaker}`;
+        }
+        return timing;
+      });
+      const speakers = new Set(
+        details.words.map((w) => w.speaker).filter((s) => s !== undefined),
+      );
+      if (speakers.size === 1) {
+        details.speaker = [...speakers][0];
+      }
+    }
+    return details;
   }
 
   /**
