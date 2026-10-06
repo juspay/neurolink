@@ -293,7 +293,14 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "anthropic.claude-opus-4-5-20251101-v1:0": 200_000,
     "anthropic.claude-sonnet-4-5-20250929-v1:0": 200_000,
     "anthropic.claude-haiku-4-5-20251001-v1:0": 200_000,
-    // Claude legacy
+    // Claude 4.1 / 4 — the AWS Bedrock model cards state 200K tokens
+    "anthropic.claude-opus-4-1-20250805-v1:0": 200_000,
+    "anthropic.claude-sonnet-4-20250514-v1:0": 200_000,
+    // Claude legacy. AWS lists no model card for 3.7 Sonnet; 200K is the window
+    // of the same model in the Anthropic manifest. The `us.` id is its
+    // cross-region inference profile, the form tokens.ts keys its output cap by.
+    "anthropic.claude-3-7-sonnet-20250219-v1:0": 200_000,
+    "us.anthropic.claude-3-7-sonnet-20250219-v1:0": 200_000,
     "anthropic.claude-3-5-sonnet-20241022-v1:0": 200_000,
     "anthropic.claude-3-5-haiku-20241022-v1:0": 200_000,
     "anthropic.claude-3-opus-20240229-v1:0": 200_000,

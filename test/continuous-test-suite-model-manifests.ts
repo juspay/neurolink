@@ -66,6 +66,7 @@ const { test, runSuite } = defineSuite("Model Manifests", {
 const {
   resolveManifestEntry,
   resolveManifestEntryExact,
+  resolveManifestEntryStrict,
   getManifestForProvider,
   getAllManifestProviders,
 } = await import("../dist/models/manifestRegistry.js");
@@ -74,8 +75,9 @@ const {
 // all agree with the manifest. Only calculateCost/hasPricing are on
 // dist/index.js's public surface (see the file header) — the rest are
 // pulled from their own compiled modules, same as MANIFEST_REGISTRY above.
-const { getContextWindowSize } =
+const { getContextWindowSize, MODEL_CONTEXT_WINDOWS } =
   await import("../dist/constants/contextWindows.js");
+const { BedrockModels } = await import("../dist/constants/enums.js");
 const { calculateCost } = await import("../dist/index.js");
 const {
   MODEL_REGISTRY,
@@ -354,6 +356,91 @@ await test("getContextWindowSize agrees with the manifest for every priced model
   assert(
     failures.length === 0,
     `${failures.length} model(s) where getContextWindowSize disagrees with the manifest: ${failures.join("; ")}`,
+  );
+});
+
+await test("every Claude id the Bedrock enum ships has a context-window row of its own", async () => {
+  // getContextWindowSize reaches the Bedrock table through the manifest (exact
+  // id or alias) and then through MODEL_CONTEXT_WINDOWS.bedrock. An id found in
+  // neither silently takes the provider default, which stays right only for as
+  // long as the default happens to equal the model's window.
+  const claudeIds = Object.entries(BedrockModels).filter(([, id]) =>
+    id.startsWith("anthropic."),
+  );
+  assert(claudeIds.length > 0, "no Claude ids found in BedrockModels");
+
+  const missing = claudeIds
+    .filter(
+      ([, id]) =>
+        resolveManifestEntryStrict("bedrock", id) === undefined &&
+        MODEL_CONTEXT_WINDOWS.bedrock[id] === undefined,
+    )
+    .map(([name]) => name);
+  assert(
+    missing.length === 0,
+    `${missing.length} Bedrock Claude id(s) fall back to the provider default: ${missing.join(", ")}`,
+  );
+});
+
+await test("the Bedrock Claude ids that used to ride the provider default resolve to their sourced 200K window", async () => {
+  // Sources: the AWS Bedrock model cards for Claude Opus 4.1 and Claude
+  // Sonnet 4 state "Context window: 200K tokens". AWS's model-card index lists
+  // no card for Claude 3.7 Sonnet, so it takes the 200K that the Anthropic
+  // manifest records for the same model; the `us.` entry is that model's
+  // cross-region inference profile, an id src/lib/constants/tokens.ts ships.
+  //
+  // 200K is also the Bedrock default, so the resolved number alone cannot tell
+  // a row from the fallback. The assertion on the row itself is what fails
+  // without the row. The resolved value is pinned too, so a manifest entry
+  // that later takes precedence over the row cannot change it unnoticed.
+  const sourced: ReadonlyArray<readonly [string, string]> = [
+    ["opus-4-1", "anthropic.claude-opus-4-1-20250805-v1:0"],
+    ["sonnet-4", "anthropic.claude-sonnet-4-20250514-v1:0"],
+    ["3-7-sonnet", "anthropic.claude-3-7-sonnet-20250219-v1:0"],
+    ["3-7-sonnet-us-profile", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"],
+  ];
+  const noRow: string[] = [];
+  const wrongValue: string[] = [];
+  for (const [label, id] of sourced) {
+    if (MODEL_CONTEXT_WINDOWS.bedrock[id] !== 200_000) {
+      noRow.push(label);
+    }
+    if (getContextWindowSize("bedrock", id) !== 200_000) {
+      wrongValue.push(label);
+    }
+  }
+  assert(
+    noRow.length === 0,
+    `no 200K row of its own in the Bedrock table for: ${noRow.join(", ")}`,
+  );
+  assert(
+    wrongValue.length === 0,
+    `resolved window is not 200K for: ${wrongValue.join(", ")}`,
+  );
+});
+
+await test("Bedrock Claude ids that already had a window, and unlisted ids, resolve as before", async () => {
+  // Controls for the rows above: a 1M row, a manifest-backed row, a table row
+  // and an id nothing lists (which must still take the Bedrock default).
+  const expected: ReadonlyArray<readonly [string, number]> = [
+    ["anthropic.claude-sonnet-4-6", 1_000_000],
+    ["anthropic.claude-opus-4-5-20251101-v1:0", 200_000],
+    ["anthropic.claude-3-5-haiku-20241022-v1:0", 200_000],
+    ["anthropic.claude-not-a-listed-model-v1:0", 200_000],
+  ];
+  const wrong: number[] = [];
+  expected.forEach(([id, window], index) => {
+    if (getContextWindowSize("bedrock", id) !== window) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `control id(s) at index ${wrong.join(", ")} no longer resolve to their window`,
+  );
+  assert(
+    MODEL_CONTEXT_WINDOWS.bedrock._default === 200_000,
+    "the Bedrock provider default moved off 200K",
   );
 });
 
