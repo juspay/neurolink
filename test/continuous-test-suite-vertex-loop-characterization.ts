@@ -1453,4 +1453,144 @@ await test("the same tool call with the same arguments runs once per turn", asyn
   );
 });
 
+section("finish reasons");
+
+// Every member of @google/genai's `FinishReason`, and the unified value the
+// native loops report for it. `changed` marks the members that read "stop"
+// before the mapping was completed; the rest are controls that must read as
+// they always did. The raw value must survive untouched next to the unified
+// one, so a caller can still tell the members of a bucket apart.
+const FINISH_REASON_CASES: ReadonlyArray<{
+  raw: string;
+  unified: string;
+  changed: boolean;
+}> = [
+  { raw: "STOP", unified: "stop", changed: false },
+  { raw: "MAX_TOKENS", unified: "length", changed: false },
+  { raw: "SAFETY", unified: "content-filter", changed: false },
+  { raw: "MALFORMED_FUNCTION_CALL", unified: "error", changed: false },
+  { raw: "OTHER", unified: "stop", changed: false },
+  { raw: "FINISH_REASON_UNSPECIFIED", unified: "stop", changed: false },
+  { raw: "IMAGE_OTHER", unified: "stop", changed: false },
+  { raw: "NO_IMAGE", unified: "stop", changed: false },
+  { raw: "CONTINUATION", unified: "length", changed: true },
+  { raw: "TOO_MANY_TOOL_CALLS", unified: "tool-calls", changed: true },
+  { raw: "LANGUAGE", unified: "content-filter", changed: true },
+  { raw: "IMAGE_PROHIBITED_CONTENT", unified: "content-filter", changed: true },
+  { raw: "IMAGE_RECITATION", unified: "content-filter", changed: true },
+];
+
+type ObservedFinish = {
+  finishReason: string | undefined;
+  rawFinishReason: string | undefined;
+  stopReason: string | undefined;
+};
+
+async function observeTurn(
+  raw: string,
+  mode: "generate" | "stream",
+): Promise<ObservedFinish> {
+  const server = await startStandIn(() => sse([{ text: "the answer" }], raw));
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  const base = {
+    input: { text: "hi" },
+    provider: "vertex" as const,
+    model: MODEL,
+    maxTokens: 32,
+    maxSteps: 3,
+    disableTools: false,
+    disableInternalFallback: true,
+    tools: customTool(counter),
+    credentials: credentialsFor(server.port),
+  };
+  try {
+    if (mode === "generate") {
+      const result = await nl().generate(base);
+      return {
+        finishReason: result?.finishReason,
+        rawFinishReason: result?.rawFinishReason,
+        stopReason: result?.stopReason,
+      };
+    }
+    const result = await nl().stream(base);
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    // Read after the drain: a stream only knows how it ended once it has.
+    return {
+      finishReason: result.finishReason,
+      rawFinishReason: result.rawFinishReason,
+      stopReason: result.stopReason,
+    };
+  } finally {
+    restore();
+    await server.close();
+  }
+}
+
+for (const [index, entry] of FINISH_REASON_CASES.entries()) {
+  await test(`a ${entry.raw} turn reports ${entry.unified} on generate and stream${entry.changed ? "" : " (control)"}`, async () => {
+    for (const mode of ["generate", "stream"] as const) {
+      const observed = await observeTurn(entry.raw, mode);
+      assert(
+        observed.finishReason === entry.unified,
+        `finish case ${index}: ${mode} reported a different unified finish reason than expected`,
+      );
+      assert(
+        observed.rawFinishReason === entry.raw,
+        `finish case ${index}: ${mode} did not keep the provider's own finish reason on the result`,
+      );
+    }
+  });
+}
+
+await test("a turn whose last step ends TOO_MANY_TOOL_CALLS reports tool-calls but is not a step-cap turn", async () => {
+  // "tool-calls" is also what a step-cap exit reports, so the discriminator
+  // that tells the two apart is pinned next to it: the model answered after
+  // one tool step, took no extra request, and the stop reason stays
+  // "completed" because maxSteps never ran out.
+  const server = await startStandIn((i) =>
+    i === 0
+      ? toolTurn("lookup", {})
+      : sse([{ text: "the closing answer" }], "TOO_MANY_TOOL_CALLS"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  try {
+    const result = await nl().generate({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    assert(counter.calls === 1, "the caller's tool did not execute once");
+    assert(
+      server.calls.length === 2,
+      `the turn made ${server.calls.length} requests, not the 2 it needs`,
+    );
+    assert(
+      typeof result?.content === "string" &&
+        result.content.includes("the closing answer"),
+      "the final step's text was not returned",
+    );
+    assert(
+      result?.finishReason === "tool-calls",
+      "the turn did not report tool-calls for its last step",
+    );
+    assert(
+      result?.stopReason === "completed",
+      "a turn that never reached its step budget was not reported as completed",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
 await runSuite();

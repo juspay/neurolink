@@ -6325,16 +6325,23 @@ exit 127
       return (
         mapGeminiFinishReason("STOP") === "stop" &&
         mapGeminiFinishReason("MAX_TOKENS") === "length" &&
-        // Provider/model failures map to "error" — NOT "tool-calls", which is
-        // reserved for step-cap exits (consumers branch on it).
+        mapGeminiFinishReason("CONTINUATION") === "length" &&
+        // Provider/model failures map to "error" — NOT "tool-calls", which
+        // means the turn ended with the model still wanting tools because a
+        // tool-call budget ran out (the loop's step cap, or Gemini's own limit).
         mapGeminiFinishReason("MALFORMED_FUNCTION_CALL") === "error" &&
         mapGeminiFinishReason("UNEXPECTED_TOOL_CALL") === "error" &&
+        mapGeminiFinishReason("TOO_MANY_TOOL_CALLS") === "tool-calls" &&
         mapGeminiFinishReason("SAFETY") === "content-filter" &&
         mapGeminiFinishReason("RECITATION") === "content-filter" &&
         mapGeminiFinishReason("BLOCKLIST") === "content-filter" &&
         mapGeminiFinishReason("PROHIBITED_CONTENT") === "content-filter" &&
         mapGeminiFinishReason("SPII") === "content-filter" &&
-        mapGeminiFinishReason("IMAGE_SAFETY") === "content-filter"
+        mapGeminiFinishReason("LANGUAGE") === "content-filter" &&
+        mapGeminiFinishReason("IMAGE_SAFETY") === "content-filter" &&
+        mapGeminiFinishReason("IMAGE_PROHIBITED_CONTENT") ===
+          "content-filter" &&
+        mapGeminiFinishReason("IMAGE_RECITATION") === "content-filter"
       );
     },
   },
@@ -6348,7 +6355,8 @@ exit 127
         mapGeminiFinishReason("") === "stop" &&
         mapGeminiFinishReason("FINISH_REASON_UNSPECIFIED") === "stop" &&
         mapGeminiFinishReason("OTHER") === "stop" &&
-        mapGeminiFinishReason("LANGUAGE") === "stop" &&
+        mapGeminiFinishReason("IMAGE_OTHER") === "stop" &&
+        mapGeminiFinishReason("NO_IMAGE") === "stop" &&
         mapGeminiFinishReason("some-garbage-value") === "stop"
       );
     },

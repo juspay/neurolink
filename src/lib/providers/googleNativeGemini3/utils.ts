@@ -689,28 +689,45 @@ export function computeMaxSteps(rawMaxSteps?: number): number {
  * Map a `@google/genai` `Candidate.finishReason` enum value onto NeuroLink's
  * unified finish reason, mirroring anthropic.ts `mapAnthropicStopReason`.
  *
- * Enum values per `@google/genai` `FinishReason`: STOP, MAX_TOKENS, SAFETY,
- * RECITATION, LANGUAGE, OTHER, BLOCKLIST, PROHIBITED_CONTENT, SPII,
- * MALFORMED_FUNCTION_CALL, IMAGE_SAFETY, UNEXPECTED_TOOL_CALL,
- * FINISH_REASON_UNSPECIFIED. Unknown / unset / non-terminal values default to
- * "stop" (a clean completion is the safe assumption).
+ * Every member of `@google/genai`'s `FinishReason` and where it lands:
+ *
+ * - "length": MAX_TOKENS, and CONTINUATION (the response hit the per-request
+ *   token limit before the model was done; it can be continued with the
+ *   returned continuation token)
+ * - "tool-calls": TOO_MANY_TOOL_CALLS (the model called tools consecutively
+ *   until the system cut the turn off, so it still wanted tools)
+ * - "error": MALFORMED_FUNCTION_CALL, UNEXPECTED_TOOL_CALL
+ * - "content-filter": SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT, SPII,
+ *   LANGUAGE (generation stopped over an unsupported language), and the image
+ *   refusals IMAGE_SAFETY, IMAGE_PROHIBITED_CONTENT, IMAGE_RECITATION
+ * - "stop": STOP, and the members that name no cause the unified type can
+ *   carry: OTHER, IMAGE_OTHER, NO_IMAGE, FINISH_REASON_UNSPECIFIED. An unknown
+ *   or unset value also reads "stop" (a clean completion is the safe
+ *   assumption), so a member a newer SDK adds needs an explicit case here.
  *
  * Returns a plain string (not a `{ unified, raw }` object): the Vertex result
  * builders and the consuming layer (neurolink.ts `finishReason || "unknown"`
  * and `finishReason === "length"`) compare against plain strings.
  *
  * MALFORMED_FUNCTION_CALL / UNEXPECTED_TOOL_CALL map to "error", NOT
- * "tool-calls": they are provider/model failures, while "tool-calls" is the
- * exclusive contract for "step budget exhausted while the model still wanted
- * tools" — consumers (e.g. curator's step-cap intercept) branch on it and
- * were rendering fake step-limit messages for 2-4-step malformed-call turns.
+ * "tool-calls": they are provider/model failures, while "tool-calls" means the
+ * turn ended with the model still wanting tools because a tool-call budget ran
+ * out: the loop's own step cap, or Gemini's TOO_MANY_TOOL_CALLS limit. Consumers
+ * (e.g. curator's step-cap intercept) branch on it and were rendering fake
+ * step-limit messages for 2-4-step malformed-call turns. `stopReason` is the
+ * discriminator that tells the two budgets apart: TOO_MANY_TOOL_CALLS reads
+ * "tool-calls" here but stays `stopReason: "completed"`, because `maxSteps` did
+ * not run out.
  */
 export function mapGeminiFinishReason(
   raw: string | null | undefined,
 ): "stop" | "length" | "tool-calls" | "content-filter" | "error" {
   switch (raw) {
     case "MAX_TOKENS":
+    case "CONTINUATION":
       return "length";
+    case "TOO_MANY_TOOL_CALLS":
+      return "tool-calls";
     case "MALFORMED_FUNCTION_CALL":
     case "UNEXPECTED_TOOL_CALL":
       return "error";
@@ -719,7 +736,10 @@ export function mapGeminiFinishReason(
     case "BLOCKLIST":
     case "PROHIBITED_CONTENT":
     case "SPII":
+    case "LANGUAGE":
     case "IMAGE_SAFETY":
+    case "IMAGE_PROHIBITED_CONTENT":
+    case "IMAGE_RECITATION":
       return "content-filter";
     default:
       return "stop";
