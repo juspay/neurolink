@@ -186,7 +186,14 @@ process.env.OPENAI_COMPATIBLE_BASE_URL = server.baseURL;
 
 // Fixture tree, resolved through realpath so macOS /var → /private/var does
 // not make a correctly-contained path look like an escape.
-const P = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nl-roots-")));
+//
+// Built under /tmp on macOS rather than os.tmpdir(): analyzeCSV refuses system
+// directories even inside a permitted root, its list includes /private/var, and
+// os.tmpdir() there (/var/folders/...) resolves into it. Left there, the tool
+// refuses every fixture file at its schema, so the parse and FIFO checks these
+// cases are about never run, and a refused escape may be the denylist's doing.
+const FIXTURE_BASE = process.platform === "darwin" ? "/tmp" : os.tmpdir();
+const P = fs.realpathSync(fs.mkdtempSync(path.join(FIXTURE_BASE, "nl-roots-")));
 const A = path.join(P, "A");
 const B = path.join(P, "B");
 const EVIL = path.join(P, "A-evil");
