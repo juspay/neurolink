@@ -15,6 +15,7 @@ import { DynamicModelProvider } from "../core/dynamicModels.js";
 import { logger } from "../utils/logger.js";
 import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+import { BedrockModels } from "./enums.js";
 
 /**
  * Per-provider context window blocks for the 9 JSON-catalog providers
@@ -523,6 +524,51 @@ export function clearRuntimeOutputCeilings(): void {
 }
 
 /**
+ * Geographies AWS puts in front of a model id to name a cross-region inference
+ * profile (`us.anthropic.claude-sonnet-4-6`). For many models that prefixed id
+ * is the only one a caller can invoke, but the Bedrock table above is keyed by
+ * bare ids, apart from one explicit `us.` row. AWS lists the prefixes on each
+ * model card, not in one place, and the set differs by model, so it is closed
+ * on purpose: a geography added later keeps taking the Bedrock default instead
+ * of being guessed at.
+ */
+const BEDROCK_GEO_PREFIXES: ReadonlySet<string> = new Set([
+  "us",
+  "eu",
+  "apac",
+  "jp",
+  "au",
+  "in",
+  "us-gov",
+  "global",
+]);
+
+/** Vendor segment of every id `BedrockModels` ships: `anthropic`, `amazon`, `meta`, ... */
+const BEDROCK_VENDORS: ReadonlySet<string> = new Set(
+  Object.values(BedrockModels)
+    .map((id) => id.split(".")[0])
+    .filter((vendor) => !BEDROCK_GEO_PREFIXES.has(vendor)),
+);
+
+/**
+ * `us.anthropic.claude-sonnet-4-6` -> `anthropic.claude-sonnet-4-6`.
+ *
+ * Undefined for any other shape, so an id that merely starts with `us.` is
+ * never rewritten. Removes one geography at most: no vendor is a geography.
+ */
+function stripBedrockGeoPrefix(model: string): string | undefined {
+  const [geo, vendor, ...rest] = model.split(".");
+  if (
+    rest.length === 0 ||
+    !BEDROCK_GEO_PREFIXES.has(geo) ||
+    !BEDROCK_VENDORS.has(vendor)
+  ) {
+    return undefined;
+  }
+  return model.slice(geo.length + 1);
+}
+
+/**
  * Resolve context window size for a provider/model combination.
  *
  * Priority:
@@ -547,6 +593,10 @@ export function clearRuntimeOutputCeilings(): void {
  *     MODEL_CONTEXT_WINDOWS.mistral values).
  *  2. Exact model match under provider in static registry
  *  3. Prefix match under provider in static registry
+ *  3.5 Bedrock only: an id shaped `<geography>.<vendor>.<model>` (a
+ *      cross-region inference profile) is resolved again from step 0 without
+ *      the geography. Every step above saw the id as given, so an explicit row
+ *      or discovered window for the prefixed id still wins.
  *  4. Provider's _default in static registry
  *  5. Global DEFAULT_CONTEXT_WINDOW
  */
@@ -615,6 +665,11 @@ export function getContextWindowSize(provider: string, model?: string): number {
         return value;
       }
     }
+  }
+  const bareModel =
+    canonical === "bedrock" && model ? stripBedrockGeoPrefix(model) : undefined;
+  if (bareModel !== undefined) {
+    return getContextWindowSize(provider, bareModel);
   }
   return providerWindows._default ?? DEFAULT_CONTEXT_WINDOW;
 }

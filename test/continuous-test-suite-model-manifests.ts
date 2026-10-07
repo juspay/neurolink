@@ -75,8 +75,12 @@ const {
 // all agree with the manifest. Only calculateCost/hasPricing are on
 // dist/index.js's public surface (see the file header) — the rest are
 // pulled from their own compiled modules, same as MANIFEST_REGISTRY above.
-const { getContextWindowSize, MODEL_CONTEXT_WINDOWS } =
-  await import("../dist/constants/contextWindows.js");
+const {
+  getContextWindowSize,
+  MODEL_CONTEXT_WINDOWS,
+  registerRuntimeContextWindow,
+  clearRuntimeContextWindows,
+} = await import("../dist/constants/contextWindows.js");
 const { BedrockModels } = await import("../dist/constants/enums.js");
 const { calculateCost } = await import("../dist/index.js");
 const {
@@ -442,6 +446,258 @@ await test("Bedrock Claude ids that already had a window, and unlisted ids, reso
     MODEL_CONTEXT_WINDOWS.bedrock._default === 200_000,
     "the Bedrock provider default moved off 200K",
   );
+});
+
+// Geographies AWS puts in front of a Bedrock model id to name a cross-region
+// inference profile. Literal ids for us, eu, au, jp, in and global are on the
+// Claude Haiku 4.5 model card; AWS's geographic cross-Region inference page
+// names apac and in; us-gov is on AWS's GovCloud newsletter
+// (us-gov.anthropic.claude-opus-4-8) and in the AWS CDK enum.
+const BEDROCK_GEO_PREFIXES = [
+  "us",
+  "eu",
+  "apac",
+  "jp",
+  "au",
+  "in",
+  "us-gov",
+  "global",
+] as const;
+
+await test("a geography-prefixed Bedrock id resolves to the window of its bare id, for every prefix and every id the table or manifest lists", async () => {
+  // For many Bedrock models the prefixed id is the only one a caller can
+  // invoke, so each row and manifest entry has to be reachable through every
+  // geography. This sweep is relative (prefixed vs bare); the next case pins
+  // absolute values.
+  const rowIds = Object.keys(MODEL_CONTEXT_WINDOWS.bedrock).filter(
+    (id) =>
+      id !== "_default" &&
+      !BEDROCK_GEO_PREFIXES.some((prefix) => id.startsWith(`${prefix}.`)),
+  );
+  const manifestIds = Object.keys(
+    getManifestForProvider("bedrock")?.models ?? {},
+  ).filter((id) => id !== "_default");
+  const ids = [...new Set([...rowIds, ...manifestIds])];
+  assert(ids.length > 0, "no Bedrock ids found to sweep");
+  assert(
+    ids.some(
+      (id) =>
+        getContextWindowSize("bedrock", id) !==
+        MODEL_CONTEXT_WINDOWS.bedrock._default,
+    ),
+    "every Bedrock id resolves to the provider default, so the sweep cannot tell a prefixed id from the fallback",
+  );
+
+  const affected = new Set<string>();
+  for (const id of ids) {
+    const bare = getContextWindowSize("bedrock", id);
+    for (const prefix of BEDROCK_GEO_PREFIXES) {
+      if (getContextWindowSize("bedrock", `${prefix}.${id}`) !== bare) {
+        affected.add(id);
+      }
+    }
+  }
+  assert(
+    affected.size === 0,
+    `${affected.size} of ${ids.length} Bedrock ids resolve to a different window under a geography prefix: ${[...affected].join(", ")}`,
+  );
+});
+
+await test("geography-prefixed Bedrock ids resolve to their model's window", async () => {
+  // Pinned values, so the sweep above cannot pass with both sides wrong. 1M:
+  // Claude Sonnet/Opus 4.6 and 5.x and Nova 2 Lite (table), Llama 4 Maverick
+  // (manifest only). 300K: Nova Pro. 128K: Palmyra X4. Ids and geographies are
+  // combined for coverage; AWS does not publish every combination. The
+  // version-suffixed Sonnet 4.6 id has no row of its own and resolves through
+  // its bare id's prefix match. The two 200K rows are controls: 200K is also
+  // the Bedrock default, so they hold with or without the lookup.
+  const expected: ReadonlyArray<readonly [string, string, number]> = [
+    ["bedrock", "us.anthropic.claude-sonnet-4-6", 1_000_000],
+    ["bedrock", "eu.anthropic.claude-sonnet-4-6-20260218-v1:0", 1_000_000],
+    ["bedrock", "eu.anthropic.claude-opus-4-6-v1", 1_000_000],
+    ["bedrock", "global.anthropic.claude-opus-5-5", 1_000_000],
+    ["bedrock", "us-gov.anthropic.claude-sonnet-5-5", 1_000_000],
+    ["bedrock", "in.anthropic.claude-fable-5-1", 1_000_000],
+    ["bedrock", "apac.amazon.nova-2-lite-v1:0", 1_000_000],
+    ["bedrock", "us.meta.llama4-maverick-17b-instruct-v1:0", 1_000_000],
+    ["bedrock", "apac.amazon.nova-pro-v1:0", 300_000],
+    ["bedrock", "jp.writer.palmyra-x4-v1:0", 128_000],
+    ["bedrock", "au.anthropic.claude-haiku-4-5-20251001-v1:0", 200_000],
+    ["bedrock", "us.anthropic.claude-sonnet-4-5-20250929-v1:0", 200_000],
+    ["Bedrock", "us.anthropic.claude-sonnet-4-6", 1_000_000],
+  ];
+  const wrong: number[] = [];
+  expected.forEach(([provider, id, window], index) => {
+    if (getContextWindowSize(provider, id) !== window) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `geography-prefixed id(s) at index ${wrong.join(", ")} do not resolve to their model's window`,
+  );
+});
+
+await test("Bedrock ids that are not a geography plus a known vendor and model keep resolving as before (controls)", async () => {
+  // Controls: none of these may be rewritten, and every one resolves the same
+  // with or without the geography lookup.
+  const fallback = MODEL_CONTEXT_WINDOWS.bedrock._default;
+  const expected: ReadonlyArray<readonly [string, number]> = [
+    // The bare id, and the table's own explicit `us.` row.
+    ["anthropic.claude-sonnet-4-6", 1_000_000],
+    ["us.anthropic.claude-3-7-sonnet-20250219-v1:0", 200_000],
+    // An unknown model under a geography still takes the Bedrock default.
+    ["us.anthropic.claude-not-a-listed-model-v1:0", fallback],
+    ["global.amazon.nova-not-listed-v1:0", fallback],
+    // Starts like a profile id but is not one.
+    ["us.something-unrelated", fallback],
+    ["us.anthropic", fallback],
+    ["xx.anthropic.claude-sonnet-4-6", fallback],
+    // One geography is removed, never two.
+    ["us.us.anthropic.claude-sonnet-4-6", fallback],
+    ["global.eu.anthropic.claude-opus-4-6-v1", fallback],
+    // An inference-profile ARN is not a prefixed id; this lookup does not
+    // parse ARNs, so it keeps the provider default as before.
+    [
+      "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.anthropic.claude-sonnet-4-6",
+      fallback,
+    ],
+  ];
+  const wrong: number[] = [];
+  expected.forEach(([id, window], index) => {
+    if (getContextWindowSize("bedrock", id) !== window) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `control id(s) at index ${wrong.join(", ")} no longer resolve as before`,
+  );
+  assert(
+    MODEL_CONTEXT_WINDOWS.bedrock[
+      "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    ] === 200_000,
+    "the table's explicit us. row for Claude 3.7 Sonnet is gone",
+  );
+});
+
+await test("an explicit row or discovered window for the prefixed id wins, and the lookup stays Bedrock-only and vendor-gated (controls)", async () => {
+  // No shipped prefixed id has a window that differs from its bare id's, so
+  // precedence and gating cannot be seen with real rows. This case plants rows
+  // in the live table and removes them again; every one of these holds with
+  // or without the geography lookup, and each would fail a wrong version of it.
+  const bedrock = MODEL_CONTEXT_WINDOWS.bedrock;
+  const prefixed = "us.anthropic.claude-sonnet-4-6";
+  const planted = 123_456;
+
+  try {
+    bedrock[prefixed] = planted;
+    assert(
+      getContextWindowSize("bedrock", prefixed) === planted,
+      "an explicit row for the prefixed id lost to the lookup of its bare id",
+    );
+  } finally {
+    delete bedrock[prefixed];
+  }
+
+  try {
+    bedrock["acme.claude-sonnet-4-6"] = planted;
+    assert(
+      getContextWindowSize("bedrock", "us.acme.claude-sonnet-4-6") ===
+        bedrock._default,
+      "a geography was removed in front of a vendor Bedrock does not ship",
+    );
+  } finally {
+    delete bedrock["acme.claude-sonnet-4-6"];
+  }
+
+  const leaked: string[] = [];
+  for (const provider of ["openai", "anthropic", "vertex", "azure"]) {
+    const table = MODEL_CONTEXT_WINDOWS[provider];
+    assertNotNull(table, "a provider this control relies on has no table");
+    const before = getContextWindowSize(provider, prefixed);
+    try {
+      table["anthropic.claude-sonnet-4-6"] = planted;
+      if (getContextWindowSize(provider, prefixed) !== before) {
+        leaked.push(provider);
+      }
+    } finally {
+      delete table["anthropic.claude-sonnet-4-6"];
+    }
+  }
+  assert(
+    leaked.length === 0,
+    `the geography lookup also applied to: ${leaked.join(", ")}`,
+  );
+
+  try {
+    registerRuntimeContextWindow("bedrock", prefixed, 777_000);
+    assert(
+      getContextWindowSize("bedrock", prefixed) === 777_000,
+      "a window discovered for the prefixed id lost to its bare id's",
+    );
+  } finally {
+    clearRuntimeContextWindows();
+  }
+
+  assert(
+    bedrock[prefixed] === undefined &&
+      bedrock["acme.claude-sonnet-4-6"] === undefined,
+    "the case left a planted row in the Bedrock table",
+  );
+});
+
+await test("public session context stats budget a geography-prefixed Bedrock id against its model's window", async () => {
+  const { NeuroLink } = await import("../dist/index.js");
+  const sdk = new NeuroLink({ conversationMemory: { enabled: true } });
+  try {
+    await sdk.setSessionMessages("bedrock-geo-window", [
+      {
+        id: "bedrock-geo-window-1",
+        role: "user",
+        content: "Remember this message.",
+      },
+      {
+        id: "bedrock-geo-window-2",
+        role: "assistant",
+        content: "Remembered.",
+      },
+    ]);
+    // Usable input is the window minus the output reserve, min(64K, 35% of the
+    // window): 1M -> 936K, 300K -> 236K, 200K -> 136K. The literals encode that
+    // reserve policy, not just the window size. The bare id and the 200K row
+    // are controls; the rest are the prefixed ids this case is about.
+    const expected: ReadonlyArray<readonly [string, number]> = [
+      ["anthropic.claude-sonnet-4-6", 1_000_000 - 64_000],
+      ["us.anthropic.claude-sonnet-4-6", 1_000_000 - 64_000],
+      ["eu.anthropic.claude-opus-4-6-v1", 1_000_000 - 64_000],
+      ["global.anthropic.claude-opus-5-5", 1_000_000 - 64_000],
+      ["apac.amazon.nova-pro-v1:0", 300_000 - 64_000],
+      ["us.anthropic.claude-haiku-4-5-20251001-v1:0", 200_000 - 64_000],
+    ];
+    const wrong: string[] = [];
+    for (const [model, inputBudget] of expected) {
+      const stats = await sdk.getContextStats(
+        "bedrock-geo-window",
+        "bedrock",
+        model,
+      );
+      assertNotNull(stats, "the seeded session returned no context statistics");
+      assert(
+        stats.messageCount === 2,
+        "context statistics did not read the seeded session",
+      );
+      if (stats.availableInputTokens !== inputBudget) {
+        wrong.push(model);
+      }
+    }
+    assert(
+      wrong.length === 0,
+      `session input budget was not the model's window for: ${wrong.join(", ")}`,
+    );
+  } finally {
+    await sdk.shutdown();
+  }
 });
 
 await test("public session context stats use the 1M window for Claude 5 and Opus 4.7/4.8 on Anthropic and Vertex", async () => {
