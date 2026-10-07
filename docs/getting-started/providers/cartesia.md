@@ -6,7 +6,7 @@ keywords: cartesia, sonic, tts, text-to-speech, low-latency, voice-agent
 
 # Cartesia TTS Provider Guide
 
-**Low-latency text-to-speech — Cartesia's `sonic-2` model over the
+**Low-latency text-to-speech — Cartesia's `sonic-3.6` model over the
 synchronous `/tts/bytes` REST endpoint**
 
 ---
@@ -32,7 +32,7 @@ WebSocket path, see the voice-agent docs.
 - **Protocol**: Native REST API (`POST /tts/bytes`)
 - **Default base URL**: `https://api.cartesia.ai`
 - **Default API version**: `2025-04-16` (sent as `Cartesia-Version` header)
-- **Default model**: `sonic-2`
+- **Default model**: `sonic-3.6`
 - **Default voice**: `694f9389-aac1-45b6-b726-9d9369183238` ("Bright Female", English)
 - **Max text length**: 5000 characters
 - **Output formats**: `mp3` (default, 44.1 kHz), `wav` (PCM s16le, 44.1 kHz), `pcm16` (raw, 24 kHz)
@@ -57,8 +57,8 @@ CARTESIA_API_KEY=sk_car_...
 # Optional: override the default voice id (any voice from your Cartesia library)
 # CARTESIA_VOICE_ID=...
 
-# Optional: override the model (default is sonic-2)
-# CARTESIA_MODEL=sonic-2
+# Optional: override the model (default is sonic-3.6)
+# CARTESIA_MODEL=sonic-3.6
 
 # Optional: override the API version header
 # CARTESIA_API_VERSION=2025-04-16
@@ -213,7 +213,7 @@ pnpm run cli generate "Hello world" \
 | ---------------------- | -------- | -------------------------------------- | ---------------------------------------------------------- |
 | `CARTESIA_API_KEY`     | Yes      | —                                      | Cartesia API key (`sk_car_…`)                              |
 | `CARTESIA_VOICE_ID`    | No       | `694f9389-aac1-45b6-b726-9d9369183238` | Default voice id used when no `voice` is passed per-call   |
-| `CARTESIA_MODEL`       | No       | `sonic-2`                              | Model id sent as `model_id`                                |
+| `CARTESIA_MODEL`       | No       | `sonic-3.6`                            | Model id sent as `model_id`                                |
 | `CARTESIA_API_VERSION` | No       | `2025-04-16`                           | Value of the `Cartesia-Version` request header             |
 | `CARTESIA_BASE_URL`    | No       | `https://api.cartesia.ai`              | Base URL (override for self-hosted / EU regional gateways) |
 
@@ -221,10 +221,9 @@ pnpm run cli generate "Hello world" \
 
 ## Voice Models
 
-| Model     | Notes                                               |
-| --------- | --------------------------------------------------- |
-| `sonic-2` | Default — current best balance of latency + quality |
-| `sonic`   | Legacy general-purpose voice model                  |
+| Model       | Notes                                               |
+| ----------- | --------------------------------------------------- |
+| `sonic-3.6` | Default — current best balance of latency + quality |
 
 Voices are identified by UUID strings from the Cartesia voice library.
 Browse and clone voices in your Cartesia dashboard.

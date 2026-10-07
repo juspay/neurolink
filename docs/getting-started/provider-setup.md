@@ -2471,8 +2471,8 @@ CARTESIA_API_KEY=sk_car_...
 # Optional: default voice id (any voice from your Cartesia library)
 # CARTESIA_VOICE_ID=...
 
-# Optional: model override (default sonic-2)
-# CARTESIA_MODEL=sonic-2
+# Optional: model override (default sonic-3.6)
+# CARTESIA_MODEL=sonic-3.6
 
 # Optional: API version header (default 2025-04-16)
 # CARTESIA_API_VERSION=2025-04-16
@@ -2498,7 +2498,7 @@ const result = await neurolink.generate({
 ```
 
 - **Provider ID**: `cartesia`
-- **Default model**: `sonic-2` (also `sonic`)
+- **Default model**: `sonic-3.6`
 - **Default voice**: `694f9389-aac1-45b6-b726-9d9369183238` ("Bright Female", English)
 - **Max text length**: 5000 characters
 - **Output formats**: `mp3` (default, 44.1 kHz), `wav` (PCM s16le @ 44.1 kHz), `pcm16` (raw, 24 kHz)

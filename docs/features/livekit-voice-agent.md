@@ -527,7 +527,7 @@ STT and TTS plugins are chosen per agent and configured by environment credentia
 defineVoiceAgent({
   // …
   stt: { provider: "soniox", model: "stt-rt-preview", language: "en" },
-  tts: { provider: "cartesia", voice: "<voice-id>", model: "sonic-2" },
+  tts: { provider: "cartesia", voice: "<voice-id>", model: "sonic-3.6" },
 });
 ```
 

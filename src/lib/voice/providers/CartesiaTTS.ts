@@ -26,7 +26,7 @@ import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
 const DEFAULT_BASE_URL = "https://api.cartesia.ai";
 const DEFAULT_API_VERSION = "2025-04-16";
-const DEFAULT_MODEL = "sonic-2";
+const DEFAULT_MODEL = "sonic-3.6";
 // Same default voice as the streaming handler — a publicly available
 // Cartesia voice id ("Bright Female"). Override per-call via TTSOptions.voice.
 const DEFAULT_VOICE_ID = "694f9389-aac1-45b6-b726-9d9369183238";
