@@ -10524,9 +10524,9 @@ async function runClefErrors(): Promise<void> {
 }
 
 async function runClefLimits(): Promise<void> {
-  // The endpoint ignores state text past about 2,048 tokens without an error
-  // (hosted service or model: unknown), so a state the estimate puts over the descriptor's
-  // limit is refused before anything is sent.
+  // The descriptor's state limit is 16,000 estimated tokens. The sizes below are
+  // chosen against it, so the first case pins the number: a changed limit must
+  // fail here, not silently move every other case.
   const refusedLocally = async (request: Partial<DecisionRequest>) =>
     withMocks([clefRoute()], async ({ calls }) => {
       const failure = await captureClefFailure(async () =>
@@ -10538,16 +10538,17 @@ async function runClefLimits(): Promise<void> {
   await clefCase(
     "DECIDE cloudflare-clef: a state over the window is refused before it is sent",
     async () => {
-      // 8,000 letters estimate at 2,100 tokens, well clear of the limit, so the
+      // 89,600 letters estimate at 23,520 tokens, well clear of the limit, so the
       // case does not hinge on the global 5% safety margin of the estimate.
-      const over = await refusedLocally({ state: "a".repeat(8_000) });
+      const over = await refusedLocally({ state: "a".repeat(89_600) });
       expectEq(over.failure.kind, "max_tokens_exceeded", "refused");
       expect(
-        over.failure.message.includes("reads at most 1500"),
+        over.failure.message.includes("reads at most 16000"),
         `the message gives the limit (got: ${over.failure.message})`,
       );
       expectEq(over.calls, 0, "nothing was sent");
-      const under = await refusedLocally({ state: "a".repeat(5_000) });
+      // 56,000 letters estimate at 14,700 tokens, inside it.
+      const under = await refusedLocally({ state: "a".repeat(56_000) });
       expect(!under.failure.threw, "a state inside the window is sent");
       expectEq(under.calls, 1, "and reaches the network");
     },
@@ -10557,19 +10558,19 @@ async function runClefLimits(): Promise<void> {
     "DECIDE cloudflare-clef: digits are charged a token each, because the tokenizer reads them one by one",
     async () => {
       // The same length: letters are cheap, digits are not.
-      const letters = await refusedLocally({ state: "a".repeat(1_600) });
-      expect(!letters.failure.threw, "1,600 letters are inside the window");
-      const digits = await refusedLocally({ state: "7".repeat(1_600) });
+      const letters = await refusedLocally({ state: "a".repeat(17_600) });
+      expect(!letters.failure.threw, "17,600 letters are inside the window");
+      const digits = await refusedLocally({ state: "7".repeat(17_600) });
       expectEq(
         digits.failure.kind,
         "max_tokens_exceeded",
-        "1,600 digits are not",
+        "17,600 digits are not",
       );
       expectEq(digits.calls, 0, "refused before it was sent");
-      const fewer = await refusedLocally({ state: "7".repeat(1_400) });
-      expect(!fewer.failure.threw, "1,400 digits still fit");
+      const fewer = await refusedLocally({ state: "7".repeat(14_400) });
+      expect(!fewer.failure.threw, "14,400 digits still fit");
       const object = await refusedLocally({
-        state: { amounts: Array.from({ length: 400 }, (_, i) => 1000 + i) },
+        state: { amounts: Array.from({ length: 4_100 }, (_, i) => 1000 + i) },
       });
       expectEq(
         object.failure.kind,
@@ -10579,27 +10580,26 @@ async function runClefLimits(): Promise<void> {
     },
   );
 
-  // Measured on 2026-10-03 (probe 5): a JSON array of single digits was cut after
-  // 2,043 characters, one token each, commas included; four-digit numbers
-  // separated by spaces after 2,039. A digit rate alone let such an array through
-  // to about 2,370 characters, 15% past the cut.
+  // Measured on 2026-10-03 (probe 5) and again on 2026-10-07: a JSON array of
+  // single digits costs one token per character, commas included. A digit rate
+  // alone would count it 14% short, so the estimate charges punctuation too.
   await clefCase(
     "DECIDE cloudflare-clef: punctuation is charged too, so a JSON array of digits is not let through",
     async () => {
       const array = (n: number) =>
         `[${Array.from({ length: n }, (_, i) => String(i % 10)).join(",")}]`;
-      const over = await refusedLocally({ state: array(1_000) });
+      const over = await refusedLocally({ state: array(10_000) });
       expectEq(
         over.failure.kind,
         "max_tokens_exceeded",
-        "1,000 digits (2,001 characters, at the model's cut) are refused",
+        "10,000 digits (20,001 characters, about 17,500 estimated tokens) are refused",
       );
       expectEq(over.calls, 0, "refused before it was sent");
-      const fits = await refusedLocally({ state: array(600) });
-      expect(!fits.failure.threw, "600 digits (1,201 characters) still fit");
-      // Pretty-printed JSON was cut at half the records of the compact form.
+      const fits = await refusedLocally({ state: array(6_900) });
+      expect(!fits.failure.threw, "6,900 digits (13,801 characters) still fit");
+      // Pretty-printed JSON costs about twice as much per record as compact JSON.
       const pretty = JSON.stringify(
-        Array.from({ length: 49 }, (_, i) => ({
+        Array.from({ length: 500 }, (_, i) => ({
           id: i,
           name: `item-${i}`,
           status: i % 3 === 0 ? "ok" : "pending",
@@ -10612,7 +10612,7 @@ async function runClefLimits(): Promise<void> {
       expectEq(
         prettyOutcome.failure.kind,
         "max_tokens_exceeded",
-        "49 pretty-printed records, where the model cut, are refused",
+        "500 pretty-printed records (about 19,500 estimated tokens) are refused",
       );
     },
   );
@@ -10624,26 +10624,74 @@ async function runClefLimits(): Promise<void> {
         Array.from({ length: n }, (_, i) =>
           String.fromCodePoint(0x1f300 + ((i * 37) % 700)),
         ).join("");
-      // Measured: the model cut after 707 emoji, 2.9 tokens each.
-      const over = await refusedLocally({ state: emoji(707) });
+      // Measured 2026-10-03: 2.9 real tokens each.
+      const over = await refusedLocally({ state: emoji(5_600) });
       expectEq(
         over.failure.kind,
         "max_tokens_exceeded",
-        "707 emoji, the model's cut, are refused",
+        "5,600 emoji (about 16,800 estimated tokens) are refused",
       );
-      const fits = await refusedLocally({ state: emoji(400) });
-      expect(!fits.failure.threw, "400 emoji still fit");
+      const fits = await refusedLocally({ state: emoji(3_000) });
+      expect(!fits.failure.threw, "3,000 emoji still fit");
     },
   );
 
   await clefCase(
     "DECIDE cloudflare-clef: non-ASCII text is charged 1.5 tokens a character",
     async () => {
-      const fits = await refusedLocally({ state: "漢".repeat(900) });
-      expect(!fits.failure.threw, "900 CJK characters fit");
-      const over = await refusedLocally({ state: "漢".repeat(1_100) });
-      expectEq(over.failure.kind, "max_tokens_exceeded", "1,100 do not");
+      const fits = await refusedLocally({ state: "漢".repeat(9_500) });
+      expect(!fits.failure.threw, "9,500 CJK characters fit");
+      const over = await refusedLocally({ state: "漢".repeat(11_700) });
+      expectEq(over.failure.kind, "max_tokens_exceeded", "11,700 do not");
       expectEq(over.calls, 0, "refused before it was sent");
+    },
+  );
+
+  // The timeout reaches the platform as `AbortSignal.timeout(ms)`, so recording
+  // that argument shows what a request was given without waiting for it.
+  await clefCase(
+    "DECIDE cloudflare-clef: the default timeout grows with the size of the state",
+    async () => {
+      const nativeTimeout = AbortSignal.timeout;
+      const asked: number[] = [];
+      AbortSignal.timeout = (ms: number) => {
+        asked.push(ms);
+        return nativeTimeout.call(AbortSignal, ms);
+      };
+      try {
+        await withMocks([clefRoute()], async () => {
+          const provider = await createClef();
+          const timeoutOf = async (
+            request: Partial<DecisionRequest>,
+          ): Promise<string> => {
+            asked.length = 0;
+            await clefDecideOne(provider, request);
+            return asked.join(",");
+          };
+          expectEq(
+            await timeoutOf({}),
+            "5000",
+            "a short state: the 5 s allowance alone",
+          );
+          expectEq(
+            await timeoutOf({ state: "a".repeat(40_000) }),
+            "7500",
+            "10,500 estimated tokens: the allowance and 2.5 s",
+          );
+          expectEq(
+            await timeoutOf({ state: "a".repeat(60_000) }),
+            "8750",
+            "15,750 estimated tokens: the allowance and 3.75 s",
+          );
+          expectEq(
+            await timeoutOf({ timeoutMs: 1234 }),
+            "1234",
+            "a caller's own timeout is used as given",
+          );
+        });
+      } finally {
+        AbortSignal.timeout = nativeTimeout;
+      }
     },
   );
 

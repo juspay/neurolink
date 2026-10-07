@@ -686,25 +686,34 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // Measured 2026-10-03: 0.3 to 1.0 s for a small request, 1.1 s for 64 questions on
     // clef-flash and 1.3 s on clef, and 2.2 s at most for any of 60 requests
     // sent at once. On 2026-10-04, 64 questions took 1.5 s (flash) / 2.3 s (clef).
-    // 5s covers those observations and keeps a fail-open consumer
-    // from waiting on a stuck call.
+    // 5s covers a small request and keeps a fail-open consumer from waiting on a
+    // stuck call. The state adds time, so the provider adds 250 ms for each full
+    // 1,000 estimated state tokens (9s at the limit below). Measured 2026-10-07 at
+    // about 0.2 s per 1,000 input tokens from 50,000 tokens up on both models
+    // (clef-flash 4.9 s at 52,154 tokens, clef 11.8 s, clef-flash 19.2 s at
+    // 86,819 and 30.9 s at 158,153), and 1.7 to 1.9 s at 20,954 tokens.
     timeouts: { decideMs: 5_000 },
-    // The Workers AI endpoint ignores state text past about 2,048 tokens
-    // (hosted service or model: unknown), despite the documented 64K. The local
-    // 1,500-token estimate refuses before every measured cut. On 2026-10-04,
-    // both models read facts at the original clef-flash lower bounds for logs,
-    // number lists, digit arrays and compact JSON, but not 2.5% to 3.1% further on;
-    // English prose and random CJK already matched on both. Digits cost 1,
-    // ASCII symbols 0.75, BMP non-ASCII 1.5 and astral characters 3 tokens.
-    // Natural Chinese, Japanese, Korean and Hindi prose and emoji-rich English
-    // were also safe under those rates on clef. A many-key object cut between
-    // 128 and 134 preceding keys on both models: its lower bound was 4,883
-    // compact-JSON characters, estimated at 2,299 tokens. The probe used an
-    // explicit field-name question and zero-padded keys together after the
-    // control failed three times. It then passed; necessity was not established.
-    // Other object shapes and Unicode sequences may differ.
+    // On 2026-10-03 and 2026-10-04 the Workers AI endpoint ignored state text
+    // past about 2,048 tokens (hosted service or model: unknown), and the local
+    // limit was 1,500. On 2026-10-07 it no longer did: clef-flash read a fact at
+    // the very end of a 190,153-token digit array and of an 86,819-token prose
+    // state, and clef read a 52,154-token prose state, while clef answered
+    // HTTP 529 (code 5012, "Clef inference failed") after 15 s for the digit
+    // array. The limit is now 16,000 estimated tokens. The estimate runs 35%
+    // over real tokens for prose and 14% under for a digit array, whose commas
+    // cost a token each, so the limit is at most about 18,400 real tokens, 2.8
+    // times less than the 52,154 clef read in full. It also bounds how long a
+    // fail-open consumer can wait (the timeout above). The service changed twice
+    // in four days, so live canaries 19.10 and 19.10b read a fact at the end of a
+    // state at this limit on both models. Digits cost 1, ASCII symbols 0.75, BMP
+    // non-ASCII 1.5 and astral characters 3: the rates now approximate real
+    // tokens and no longer stand for a cut.
+    // The 2026-10-04 follow-up on the old cut (logs, number lists, digit arrays
+    // and compact JSON on both models; natural Chinese, Japanese, Korean and
+    // Hindi prose and emoji-rich English on clef; a many-key object) is in the
+    // guide; it explains where the rates come from, not what limit applies now.
     decisionLimits: {
-      maxStateTokens: 1_500,
+      maxStateTokens: 16_000,
       maxQuestions: 64,
       nonAsciiTokensPerChar: 1.5,
       digitTokensPerChar: 1,

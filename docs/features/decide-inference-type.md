@@ -177,12 +177,15 @@ provider id is `cloudflare-clef`: the `cloudflare` provider is the Workers AI te
 provider, which serves `generate()` and `stream()` and not `decide()`, and
 `credentials.cloudflare` does not configure `decide`.
 
-**The Workers AI endpoint ignores state text past about 2,048 tokens.**
-Cloudflare documents a 64K window; text past the observed boundary is ignored
-without an error (hosted service or model: unknown). NeuroLink refuses a state it estimates at more than 1,500
-tokens with `max_tokens_exceeded`, which every built-in consumer treats as "carry
-on as before"; see [Limits and gotchas](#limits-and-gotchas). Clef suits short
-decisions.
+**The Workers AI endpoint's state window changed during October 2026.**
+Cloudflare documents a 64K window; until 2026-10-04 text past about 2,048 tokens
+was ignored without an error, and on 2026-10-07 states of at least 190,153 tokens
+(`clef-flash`) and 52,154 (`clef`) were read in full (hosted service or model:
+unknown). NeuroLink refuses a state it estimates at more than 16,000 tokens with
+`max_tokens_exceeded`, which every built-in consumer treats as "carry on as
+before"; see [Limits and gotchas](#limits-and-gotchas). Latency grows with the
+state, about 0.2 s per 1,000 tokens on large ones, so NeuroLink's default timeout
+adds 250 ms per 1,000 estimated tokens.
 
 **`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` are shared with that text
 provider.** A host that set them only to use Workers AI text has therefore also
@@ -510,8 +513,8 @@ The `jev` column is TypeSafe's figures; the
 [Perplexity guide](../getting-started/providers/perplexity-decider.md) gives its
 latency and the confidence it reports. The
 [Cloudflare Clef guide](../getting-started/providers/cloudflare-clef.md) gives its
-latency; because Clef reads only about 2,048 tokens of state, a long prompt is
-refused there and routing falls back to the heuristic, as it does on any failure.
+latency; a prompt NeuroLink estimates over 16,000 tokens is refused there and
+routing falls back to the heuristic, as it does on any failure.
 
 Thresholds are **asymmetric**, because the two mistakes do not cost the same:
 `minUpgradeConfidence` defaults to 0.3 (spending more on a wrong guess costs
@@ -562,7 +565,7 @@ asks, per eligible message, whether the current request still needs it — at
 `perplexity-decider` differs, taking about 0.3 to 1.1 s for one question and about
 65 ms for each further one, plus an input time that grows faster than linearly
 with size; `cloudflare-clef` took 0.3 to 1.0 s for a small request on 2026-10-03, and its
-endpoint ignores state text past about 2,048 tokens).
+endpoint refuses nothing below 16,000 estimated state tokens, but a state that large takes seconds).
 Only plain user/assistant text is eligible, the most recent messages are never
 touched, and a message is dropped only on a confident "no."
 
@@ -801,22 +804,21 @@ a larger window. Perplexity documents a request rate of 10 per second for the
 account's tier, and on the account tested 14 parallel requests got 10 answers and
 4 replies of 429.
 
-**The Workers AI endpoint ignores Clef state text past about 2,048 tokens,
-far less than the documented 64K (hosted service or model: unknown).** The
-original probe was on 2026-10-03; a follow-up of 133 probe calls on 2026-10-04
-still read the fact at the original `clef-flash` lower bound for logs, number
-lists, digit arrays and compact JSON on both models, and did not read it
-2.5% to 3.1% further on. English prose
-and random CJK already matched. Natural Chinese, Japanese, Korean and Hindi
-prose and emoji-rich English on `clef`, and a many-key object on both models,
-also reached NeuroLink's local cap before their observed cuts.
+**The Workers AI endpoint's state window changed (hosted service or model:
+unknown).** On 2026-10-03 and 2026-10-04 it ignored Clef state text past about
+2,048 tokens, far less than the documented 64K (a 133-call follow-up on 2026-10-04
+found the same cut on both models). On 2026-10-07 `clef-flash` read a fact at the
+very end of states of 190,153 tokens (a digit array) and 86,819 (prose), and
+`clef` read 52,154 tokens of prose and answered HTTP 529, code 5012, for the
+190,153-token array.
 
 The estimator charges digits 1 token each, punctuation 0.75, astral characters
 3 and other non-ASCII characters 1.5, with other text about 4 characters a token.
-It refuses more than 1,500 estimated state tokens with `max_tokens_exceeded`,
-before any network call. No rates changed after the follow-up. These are
-conservative estimates for the measured samples; other object shapes and
-Unicode sequences may differ.
+It refuses more than 16,000 estimated state tokens with `max_tokens_exceeded`,
+before any network call: at most about 18,400 real tokens (it counts prose 35%
+over and a digit array 14% under), 2.8 times fewer than `clef` was seen to read.
+The rates now approximate real tokens and no longer stand for a cut; other object
+shapes and Unicode sequences may differ.
 
 A request takes at most 64 questions (`tryDecide()` splits larger maps) and
 four images. Exactly four succeeded and a fifth was refused on both models.
@@ -824,7 +826,9 @@ NeuroLink retains a 256,000-byte cap for the encoded body, including base64
 images. Both models accepted 520,000 text characters and refused 525,000 with
 413/code 5021 on 2026-10-04; `clef-flash` had accepted 262,000 and refused
 270,000 on 2026-10-03.
-The reason for that change and the current image-byte boundary are unverified.
+On 2026-10-05 both models accepted PNG request bodies up to 492,485 bytes and refused
+532,505 (`clef-flash`) and 532,499 (`clef`) with the same 413; the reason the limits
+moved is unknown.
 See the [Clef guide's limits](../getting-started/providers/cloudflare-clef.md#limits).
 
 **Two separate size ceilings** (TypeSafe), both enforced:

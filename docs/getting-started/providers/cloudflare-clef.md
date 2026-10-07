@@ -16,12 +16,14 @@ AI, and it also reads images. It emits no text at all.
 > read the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`; see
 > [One token, two providers](#one-token-two-providers).
 
-> **Read [Limits](#limits) before you rely on it.** Workers AI reads only about
-> the first 2,048 tokens of the state, far less than the 64K context Cloudflare
-> documents, and ignores text past that point without an error (hosted service
-> or model: unknown). NeuroLink refuses a state it
-> estimates as longer than that rather than let a decision be made on text the
-> model never saw.
+> **Read [Limits](#limits) before you rely on it.** Workers AI's state window
+> changed in October 2026 (hosted service or model: unknown). Until 2026-10-04 it
+> read only about the first 2,048 tokens of the state, far less than the 64K
+> context Cloudflare documents, and ignored the rest without an error; on
+> 2026-10-07 it read states of at least 190,153 tokens (`clef-flash`) and 52,154
+> (`clef`). NeuroLink refuses a state it estimates at more than 16,000 tokens,
+> inside what was read in full, and a longer wait than a fail-open feature can
+> afford.
 
 ## Overview
 
@@ -35,21 +37,21 @@ or in beta.
 
 ### Key Facts
 
-|                         |                                                                                                                                     |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Provider id             | `cloudflare-clef`                                                                                                                   |
-| Models                  | `clef` (27B, the default) and `clef-flash` (9B). `@cf/cloudflare/clef` and `@cf/cloudflare/clef-flash` are accepted too             |
-| Question types          | `boolean` (sent as `noul`), `choice` (2 to 255 options), `score` (2 to 10 levels)                                                   |
-| Questions per request   | 64                                                                                                                                  |
-| Images                  | up to 4 per request: PNG, JPEG or WebP. No video                                                                                    |
-| State                   | Workers AI reads about the first 2,048 tokens; NeuroLink refuses a state it estimates at more than 1,500                            |
-| Request size            | 256,000 bytes in NeuroLink, base64 image data included                                                                              |
-| Endpoint                | `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/run/@cf/cloudflare/<model>`                                          |
-| Credentials             | an API token with Workers AI permission, and the account id                                                                         |
-| Price                   | $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed (Cloudflare's Workers AI pricing page) |
-| Measured latency        | 2026-10-03: 0.3 to 1.0 s for a small request; 64 questions: 1.1 s (`clef-flash`), 1.3 s (`clef`); 2026-10-04: 1.5 s / 2.3 s         |
-| Default decide provider | last, after TypeSafe, Laya, XOR and Perplexity                                                                                      |
-| Verified live           | 2026-10-03 and 2026-10-04, with a real account (see [Limits](#limits))                                                              |
+|                         |                                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider id             | `cloudflare-clef`                                                                                                                                                                     |
+| Models                  | `clef` (27B, the default) and `clef-flash` (9B). `@cf/cloudflare/clef` and `@cf/cloudflare/clef-flash` are accepted too                                                               |
+| Question types          | `boolean` (sent as `noul`), `choice` (2 to 255 options), `score` (2 to 10 levels)                                                                                                     |
+| Questions per request   | 64                                                                                                                                                                                    |
+| Images                  | up to 4 per request: PNG, JPEG or WebP. No video                                                                                                                                      |
+| State                   | read in full up to at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`) on 2026-10-07; about 2,048 until 2026-10-04. NeuroLink refuses a state it estimates at more than 16,000 |
+| Request size            | 256,000 bytes in NeuroLink, base64 image data included                                                                                                                                |
+| Endpoint                | `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/run/@cf/cloudflare/<model>`                                                                                            |
+| Credentials             | an API token with Workers AI permission, and the account id                                                                                                                           |
+| Price                   | $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed (Cloudflare's Workers AI pricing page)                                                   |
+| Measured latency        | 2026-10-03: 0.3 to 1.0 s for a small request; 64 questions: 1.1 s (`clef-flash`), 1.3 s (`clef`); 2026-10-04: 1.5 s / 2.3 s                                                           |
+| Default decide provider | last, after TypeSafe, Laya, XOR and Perplexity                                                                                                                                        |
+| Verified live           | 2026-10-03 and 2026-10-04, with a real account (see [Limits](#limits))                                                                                                                |
 
 ## Quick Start
 
@@ -184,9 +186,9 @@ with none of the first four, but with `CLOUDFLARE_API_KEY` and
 as its default decision provider. Naming `provider: "cloudflare-clef"` reaches it
 whatever else is configured.
 
-Because of the state window below, a built-in feature whose state is longer than
-about 1,500 estimated tokens gets a refusal from Clef, which each of them treats
-as "carry on as before". Clef suits short decisions: routing a request, a
+Because of the state limit below, a built-in feature whose state is longer than
+about 16,000 estimated tokens (about 60,000 characters of prose) gets a refusal
+from Clef, which each of them treats as "carry on as before". Clef suits short decisions: routing a request, a
 guardrail on one action, classifying one message or one picture.
 
 ## What is sent to Cloudflare
@@ -251,8 +253,9 @@ through `credentials.cloudflare`, and leave the environment variables unset.
 
 ### Measured on a real account, October 2026
 
-The Workers AI endpoint ignores text past about 2,048 tokens, far below
-Cloudflare's documented 64K context (hosted service or model: unknown). Request-size refusals also changed between two measurement dates.
+The Workers AI endpoint ignored text past about 2,048 tokens until 2026-10-04,
+far below Cloudflare's documented 64K context, and read far more on 2026-10-07
+(hosted service or model: unknown). Request-size refusals also changed between two measurement dates.
 The original measurements were on 2026-10-03; the bounded follow-up campaign
 used 133 probe calls on 2026-10-04, with one request at a time.
 
@@ -267,16 +270,16 @@ prose was measured on `clef`; a reworked many-key object probe matched on both.
 TypeScript, minified JSON and synthetic Devanagari/emoji cuts remain 9B-only
 measurements. Historical latency, billing and burst figures retain their dates.
 
-| Limit              | Documented                                                                                                          | Measured                                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| State              | a 65,536-token context window; the schema adds that long text "is truncated to fit the model's token limit"         | **text past about 2,048 tokens is ignored without an error; hosted service or model: unknown**                                        |
-| Request size       | 4 MiB an image, 8 MiB in all, 13 MiB for the body                                                                   | 2026-10-04, both models: 520,000 text characters accepted, 525,000 refused with 413/code 5021; NeuroLink retains its 256,000-byte cap |
-| Questions          | 1 to 64                                                                                                             | 64 sent, the 65th refused with a 422                                                                                                  |
-| Question ids       | letters, digits, `_`, `.`, `-`, up to 100                                                                           | the same; 101 characters and a space refused                                                                                          |
-| Options and levels | 2 to 255 options, 2 to 10 levels                                                                                    | the same; 256 and 11 refused                                                                                                          |
-| Images             | up to 4, 16 megapixels each                                                                                         | 4 tiny images accepted, 5 refused; PNG/JPEG/WebP and image/jpg accepted; 16.00 MP accepted, 16.38 MP refused on both models           |
-| Video              | the model page says it reads video                                                                                  | refused: no field, and not accepted in `images`                                                                                       |
-| Rate               | not documented on the model page; the pricing page links a limits page and a free allowance of 10,000 neurons a day | 60 requests sent at once: 56 answered, 4 refused with a 429                                                                           |
+| Limit              | Documented                                                                                                          | Measured                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| State              | a 65,536-token context window; the schema adds that long text "is truncated to fit the model's token limit"         | **2026-10-03 and 2026-10-04: text past about 2,048 tokens ignored without an error. 2026-10-07: states of at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`) read in full. Hosted service or model: unknown** |
+| Request size       | 4 MiB an image, 8 MiB in all, 13 MiB for the body                                                                   | 2026-10-04, both models: 520,000 text characters accepted, 525,000 refused with 413/code 5021; NeuroLink retains its 256,000-byte cap                                                                                 |
+| Questions          | 1 to 64                                                                                                             | 64 sent, the 65th refused with a 422                                                                                                                                                                                  |
+| Question ids       | letters, digits, `_`, `.`, `-`, up to 100                                                                           | the same; 101 characters and a space refused                                                                                                                                                                          |
+| Options and levels | 2 to 255 options, 2 to 10 levels                                                                                    | the same; 256 and 11 refused                                                                                                                                                                                          |
+| Images             | up to 4, 16 megapixels each                                                                                         | 4 tiny images accepted, 5 refused; PNG/JPEG/WebP and image/jpg accepted; 16.00 MP accepted, 16.38 MP refused on both models                                                                                           |
+| Video              | the model page says it reads video                                                                                  | refused: no field, and not accepted in `images`                                                                                                                                                                       |
+| Rate               | not documented on the model page; the pricing page links a limits page and a free allowance of 10,000 neurons a day | 60 requests sent at once: 56 answered, 4 refused with a 429                                                                                                                                                           |
 
 **The state window (2026-10-03 and 2026-10-04; see [the change of 2026-10-07](#the-state-window-changed-on-2026-10-07)).** A fact placed past about 2,048 tokens of state was ignored
 (a 75-character sentence repeated for 60,000 characters: the fact was used at
@@ -312,8 +315,7 @@ do not establish exact tokenizer boundaries.
 The many-key object control failed three times, then passed after an explicit
 field-name question and zero-padded keys were introduced together. On both models the hidden field stopped being
 read between 128 and 134 preceding keys. The lower bound is 4,883 characters of
-compact JSON and 2,299 tokens from the provider's estimator, above the local
-1,500-token cap. This verifies the tested object shape; it does not establish
+compact JSON and 2,299 tokens from the provider's estimator. This verifies the tested object shape; it does not establish
 that every structured state is serialized identically by Workers AI.
 
 Natural samples were composed as about 3,000 code points of ordinary prose and
@@ -328,8 +330,8 @@ the estimate is evaluated at the lower, still-visible bound.
 | Hindi prose                     | 2,999–3,749                        | 3,751                             |
 | Emoji-rich English conversation | 5,249–5,999                        | 2,396                             |
 
-All exceed 1,500 estimated tokens before the observed cut, so no estimator rate
-changed. The mixed emoji conversation is not a measurement of every emoji or
+All exceeded 1,500 estimated tokens, the limit at the time, before the observed
+cut, so no estimator rate changed then. The mixed emoji conversation is not a measurement of every emoji or
 multi-code-point sequence.
 
 **The request size changed.** On 2026-10-03, `clef-flash` accepted 262,000
@@ -405,15 +407,15 @@ benchmark, that `clef` answered 22 of 2,000 short questions differently on
 
 This is one day of data, from a service whose behaviour changed between 2026-10-03,
 2026-10-04, 2026-10-05 and 2026-10-07. Cloudflare was not asked why. NeuroLink's
-local limit is unchanged by this section (see [What NeuroLink refuses before any
-request](#what-neurolink-refuses-before-any-request)): it now refuses states the
-service would read.
+local state limit was raised in response, from 1,500 to 16,000 estimated tokens
+(see [What NeuroLink refuses before any
+request](#what-neurolink-refuses-before-any-request)).
 
 ### What NeuroLink refuses before any request
 
 | Refused                                                               | Limit                                                                                                        | Error kind                            |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| A state estimated over 1,500 tokens                                   | digits 1 token each, punctuation 0.75, emoji 3, other non-ASCII text 1.5, letters about 4 characters a token | `max_tokens_exceeded`                 |
+| A state estimated over 16,000 tokens                                  | digits 1 token each, punctuation 0.75, emoji 3, other non-ASCII text 1.5, letters about 4 characters a token | `max_tokens_exceeded`                 |
 | More than 64 questions in one `decide()`                              | 64                                                                                                           | `max_tokens_exceeded`                 |
 | A request body over 256,000 bytes                                     | 256,000                                                                                                      | `invalid_request`                     |
 | More than 4 images, a video, or a format other than PNG, JPEG or WebP |                                                                                                              | `invalid_request`                     |
@@ -424,18 +426,28 @@ service would read.
 map at 64 and runs up to four batches at once, so only a direct `decide()` meets
 the 64-question refusal.
 
-**Why 1,500 and not 2,048.** The limit is an estimate in NeuroLink's own tokens,
-not the model's, and it was chosen so that for every kind of text in the table
-above the estimate reaches 1,500 before the endpoint ignores the remaining state. A rate for
-digits alone was not enough: a JSON array of single digits, whose commas are
-tokens too, passed with 15% of its length ignored without an error, which is why punctuation
-is charged 0.75 and emoji 3. The price is a state of ordinary text uses only
-about 60% of the window before it is refused: English prose is refused at about
-1,500 estimated tokens, which is about 1,200 of the model's (the estimate runs a
-few percent low for prose, and about 12% high for code), and compact JSON at
-half the window. The natural samples above also reached the local cap before their observed
-cuts. The estimates remain conservative measurements for those samples, rather
-than a guarantee for every script or emoji sequence.
+**Why 16,000.** The limit is an estimate in NeuroLink's own tokens, not the
+model's. Until 2026-10-04 it was 1,500, chosen so that the estimate reached it
+before the endpoint ignored the rest of the state. On 2026-10-07 the endpoint read
+far more, and the limit became 16,000 estimated tokens for two reasons:
+
+- It stays well inside what was read in full. The estimate runs 35% over the real
+  token count for English prose (60,032 characters estimated 16,150 and billed
+  10,555) and 14% under it for a JSON array of digits, whose commas cost a token
+  each (190,031 characters estimated 166,260 and billed 190,153), so the limit is
+  at most about 18,400 real tokens, 2.8 times fewer than the 52,154 `clef` read in
+  full. Punctuation is charged 0.75 and emoji 3 because the tokenizer counts them
+  that way; the rates now approximate real tokens and no longer stand for a cut.
+- It bounds the wait. Large states took about 0.2 s per 1,000 input tokens on both
+  models, so the default timeout is the 5 s allowance plus 250 ms for each full
+  1,000 estimated tokens: 9 s at the limit. A fail-open feature that waits on
+  Clef is held no longer than that.
+
+A state of ordinary prose is refused at about 60,000 characters. The service
+changed several times in a few days, so live canaries 19.10 and 19.10b read a fact
+at the end of a state just under this limit on both models and fail if the service
+stops reading below it; the other estimates are measurements for the samples
+described above, not a guarantee for every script or emoji sequence.
 
 ### What is not verified
 
@@ -472,8 +484,10 @@ than a guarantee for every script or emoji sequence.
 On 2026-10-03, a small request answered in 0.3 to 1.0 s from a developer
 machine; 64 questions took 1.1 s on `clef-flash` and 1.3 s on `clef`; the
 slowest of 60 requests sent at once took 2.2 s. On 2026-10-04, a
-64-question request with the same questions and a shorter state took 1.5 s on `clef-flash` and 2.3 s on `clef`. The default timeout is 5 s. Pass `timeoutMs` to change it for
-one call.
+64-question request with the same questions and a shorter state took 1.5 s on `clef-flash` and 2.3 s on `clef`. The default timeout is 5 s plus 250 ms for each full 1,000 estimated state tokens
+(5 s for a short state, 9 s at the 16,000-token limit); on 2026-10-07 large states took about 0.2 s per
+1,000 input tokens (1.7 to 1.9 s for 20,954 tokens on `clef-flash`; 11.8 s for 52,154 on `clef`). Pass
+`timeoutMs` to change it for one call.
 
 ## Errors
 

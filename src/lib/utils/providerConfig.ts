@@ -1607,7 +1607,7 @@ export function createCloudflareClefConfig(): ProviderConfigOptions {
     instructions: [
       "1. Create an API token with the 'Workers AI: Read + Write' permission (https://dash.cloudflare.com/profile/api-tokens)",
       "2. Set CLOUDFLARE_API_KEY to it, and CLOUDFLARE_ACCOUNT_ID to your account id (in the dashboard URL, or under 'Account ID'); they are the same settings the Cloudflare text provider reads, so setting them also lets decide() use Clef when no other decision provider is configured",
-      "3. The Clef endpoint ignores state text past about 2,048 tokens, so use it for short decisions",
+      "3. NeuroLink refuses a state it estimates at more than 16,000 tokens (about 60,000 characters of prose); long states also take seconds, so Clef suits short decisions",
     ],
   };
 }

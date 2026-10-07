@@ -140,17 +140,21 @@ decision keys, and docs must say so plainly. `credentials.perplexity` (the text
 provider's slice) does not configure it; `credentials.perplexityDecider` does.
 
 **Clef's token and account id are shared with the `cloudflare` text provider, and
-the Workers AI endpoint ignores state text past about 2,048 tokens (hosted
-service or model: unknown).** `CLOUDFLARE_API_KEY` and
+the Workers AI endpoint ignored state text past about 2,048 tokens until
+2026-10-04 and read far more on 2026-10-07 (hosted service or model: unknown).** `CLOUDFLARE_API_KEY` and
 `CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as the last fallback; a test that
 asserts the "nothing configured" path must blank both (and `CLOUDFLARE_CLEF_*`).
 `credentials.cloudflare` does not configure it; `credentials.cloudflareClef` does,
 and its `accountId` stands in for `CLOUDFLARE_ACCOUNT_ID` through the descriptor's
-`extraRequiredCredentialFields`. Cloudflare documents a 64K context, but Workers AI
-ignores text past about 2,048 tokens without an error
-(measured on both models; hosted service or model: unknown), so the descriptor declares 1,500 estimated tokens,
-`digitTokensPerChar: 1` (the tokenizer reads every digit alone) and 1.5 tokens per
-non-ASCII character. The encoded request cap stays 256,000 bytes. On 2026-10-03,
+`extraRequiredCredentialFields`. Cloudflare documents a 64K context. Workers AI
+ignored text past about 2,048 tokens without an error until 2026-10-04 (both
+models) and on 2026-10-07 read at least 190,153 tokens (`clef-flash`) and 52,154
+(`clef`, which answered HTTP 529 for the 190,153-token array), so the descriptor
+declares 16,000 estimated tokens (at most about 18,400 real ones, 2.8 times
+fewer than `clef` was seen to read), `digitTokensPerChar: 1` (the tokenizer reads
+every digit alone) and 1.5 tokens per non-ASCII character, and the provider adds
+250 ms of default timeout per 1,000 estimated tokens. The encoded request cap stays
+256,000 bytes. On 2026-10-03,
 `clef-flash` accepted 262,000 text characters and refused 270,000. On 2026-10-04
 both models accepted 520,000 text characters and refused 525,000 with 413/code 5021. Refusal estimates are the encoded body bytes / 4 (rounded up in seven of eight refusals, one lower in the eighth); what
 changed was the threshold, from between 65,527 accepted / 67,527 refused to
@@ -162,7 +166,7 @@ to `image/jpeg`. Natural-script and many-key-object cuts fit the existing rates.
 suite's live canaries 19.10 and 19.10b fail if the service stops reading a state just under
 NeuroLink's own limit on either model, and 19.11 if the text-only request ceiling moves. On
 2026-10-07 the endpoint read states of at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`),
-which the 1,500-token limit above does not yet reflect.
+which is why the limit above went from 1,500 to 16,000 estimated tokens.
 Only a 401 trips Clef's auth breaker (a 403 was never seen and must not latch the
 instance), and a `credentials.cloudflareClef` slice that names its own `baseURL`
 never borrows `CLOUDFLARE_API_KEY`.

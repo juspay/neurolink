@@ -451,9 +451,9 @@ further question adds about 65 ms and a request takes at most 128 (see
 [its guide](../getting-started/providers/perplexity-decider.md#limits)); on
 Cloudflare Clef a request takes at most 64 questions, which `tryDecide()` splits
 into batches of 64 (see [its guide](../getting-started/providers/cloudflare-clef.md#limits)).
-The Clef endpoint also ignores state text past about 2,048 tokens, and NeuroLink
-refuses a state it estimates at more than 1,500 tokens, so a longer set of
-eligible messages gets a refusal and the stage is skipped, as on any failure.
+NeuroLink also refuses a state it estimates at more than 16,000 tokens (about
+60,000 characters of prose), so a longer set of eligible messages gets a refusal
+and the stage is skipped, as on any failure.
 
 It is **strictly additive**. With no decision provider configured the stage
 does not run, `stagesUsed` omits `relevance`, and the pipeline behaves exactly

@@ -5,9 +5,10 @@ import type { ProviderModelManifest } from "../../types/index.js";
  * generation, and not the Workers AI text models of the `cloudflare` provider.
  *
  * `contextWindow` is the figure Cloudflare documents (65,536 tokens). The
- * Workers AI endpoint ignores state text past about 2,048 tokens without an
- * error (hosted service or model: unknown), so NeuroLink enforces the limit on
- * the descriptor's `decisionLimits`, not this. `vision` describes `generate()`
+ * Workers AI endpoint ignored state text past about 2,048 tokens until
+ * 2026-10-04 and read far more on 2026-10-07 (hosted service or model:
+ * unknown), so NeuroLink enforces the limit on the descriptor's
+ * `decisionLimits`, not this. `vision` describes `generate()`
  * input, which this provider does not serve; its image input is
  * `DecisionRequest.images`.
  *

@@ -62,10 +62,11 @@ Cloudflare Clef a small request took 0.3 to 1.0 s on 2026-10-03 (see
 [its guide](../getting-started/providers/cloudflare-clef.md#latency-and-the-timeout)). See
 [the batching rule](/docs/features/decide-inference-type#the-one-rule-batch-never-fan-out).
 
-The Cloudflare Clef endpoint ignores state text past about 2,048 tokens, and
-NeuroLink refuses a state it estimates at more than 1,500 tokens with
-`max_tokens_exceeded`. A long request is therefore refused there, and the
-heuristic classifier's tier stands, as it does on any failure.
+NeuroLink refuses a state it estimates at more than 16,000 tokens (about 60,000
+characters of prose) with `max_tokens_exceeded`, to keep Clef inside what it was
+seen to read in full and inside a timeout a fail-open consumer can afford. A
+longer request is refused there, and the heuristic classifier's tier stands, as it
+does on any failure.
 
 ## The difficulty rubric
 

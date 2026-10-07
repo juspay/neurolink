@@ -4664,21 +4664,21 @@ await test("19.2 — it shares its token and account id with the cloudflare text
   );
 });
 
-await test("19.3 — it declares limits chosen from what was measured: a state window under the model's own cut, a question cap, four images and no video", async () => {
+await test("19.3 — it declares limits chosen from what was measured: a state window inside what was read in full, a question cap, four images and no video", async () => {
   const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
     AIProviderName.CLOUDFLARE_CLEF,
   )?.decisionLimits;
   assert(limits !== undefined, "cloudflare-clef must declare decisionLimits");
-  // 1,500 is a chosen figure, in the estimator's tokens, not a measured one:
-  // the measured cut is about 2,048 of the model's own tokens. The two are not
-  // the same unit, which is why the per-class rates below exist.
+  // 16,000 is a chosen figure, in the estimator's tokens. On 2026-10-07 the
+  // estimate ran 35% over the real token count for prose and 14% under it for a
+  // JSON array of digits, so the limit is at most about 18,400 real tokens.
   assert(
-    limits!.maxStateTokens === 1_500,
-    "the state window must stay at the chosen 1,500 estimated tokens",
+    limits!.maxStateTokens === 16_000,
+    "the state window must stay at the chosen 16,000 estimated tokens",
   );
   assert(
-    limits!.maxStateTokens < 2_048,
-    "the local window must sit under the endpoint's silent cut at about 2,048 tokens",
+    limits!.maxStateTokens * 1.15 < 52_154,
+    "the local window, at the worst measured real-to-estimated ratio (1.15), must sit inside the 52,154 tokens clef was seen to read in full on 2026-10-07",
   );
   assert(
     limits!.digitTokensPerChar === 1,
@@ -4686,7 +4686,7 @@ await test("19.3 — it declares limits chosen from what was measured: a state w
   );
   assert(
     limits!.symbolTokensPerChar === 0.75,
-    "punctuation must be charged 0.75 a character: a JSON array of digits was cut after 2,043 characters",
+    "punctuation must be charged 0.75 a character: a JSON array of digits costs a real token a character, commas included",
   );
   assert(
     limits!.astralTokensPerChar === 3,

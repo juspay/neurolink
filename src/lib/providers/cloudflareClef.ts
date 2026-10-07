@@ -20,6 +20,16 @@ const CLOUDFLARE_DEFAULT_BASE_URL = "https://api.cloudflare.com/client/v4";
 const MODEL_PREFIX = "@cf/cloudflare/";
 
 /**
+ * Added to the descriptor's `decideMs` for each full 1,000 estimated state
+ * tokens. Latency follows the input size: measured 2026-10-07 at about 0.2 s per
+ * 1,000 input tokens from 50,000 tokens up on both models, so a state at the
+ * descriptor's limit (16,000 estimated, about 18,400 real tokens at most) gets
+ * 4 s on top of the 5 s allowance, and a flat 5 s would cut off a request that
+ * is merely large and retry it into the same wait.
+ */
+const TIMEOUT_MS_PER_THOUSAND_STATE_TOKENS = 250;
+
+/**
  * Cloudflare account ids are 32 hex digits. The pattern is wider so that a
  * change of format needs no release, but it still keeps `/`, `.`, `?` and
  * whitespace out of the URL path the id is placed in.
@@ -222,9 +232,9 @@ function cloudflareErrorKind(
  * reads (`CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`), so a host that has
  * configured that provider has also configured this one.
  *
- * The Workers AI endpoint ignores text past about 2,048 tokens, far below
- * the documented 64K (hosted service or model: unknown). See `decisionLimits`
- * on the descriptor for the measured figures.
+ * The Workers AI state window changed in October 2026: about 2,048 tokens until
+ * 2026-10-04, far more on 2026-10-07 (hosted service or model: unknown). See
+ * `decisionLimits` on the descriptor for the measured figures.
  *
  * @see https://developers.cloudflare.com/workers-ai/models/clef/
  */
@@ -299,6 +309,18 @@ export class CloudflareClefProvider extends SystemOneDecisionProvider {
       return "The Cloudflare account id may contain only letters, digits, '-' and '_'. Copy it from the Cloudflare dashboard.";
     }
     return baseURLProblem(this.baseURL);
+  }
+
+  protected override defaultTimeoutMs(
+    _questionCount: number,
+    stateTokens: number,
+  ): number | undefined {
+    const allowance = this.getDescriptorDecideMs();
+    return allowance === undefined
+      ? undefined
+      : allowance +
+          Math.floor(stateTokens / 1_000) *
+            TIMEOUT_MS_PER_THOUSAND_STATE_TOKENS;
   }
 
   /** The model is part of the path, so the endpoint depends on the model asked for. */

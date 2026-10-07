@@ -307,9 +307,14 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
   /**
    * The per-attempt timeout when the caller sets none. A provider whose latency
-   * grows with the number of questions scales the descriptor's allowance here.
+   * grows with the number of questions or the size of the state scales the
+   * descriptor's allowance here. `stateTokens` is the local estimate, 0 when the
+   * descriptor sets no local limits.
    */
-  protected defaultTimeoutMs(_questionCount: number): number | undefined {
+  protected defaultTimeoutMs(
+    _questionCount: number,
+    _stateTokens: number,
+  ): number | undefined {
     return this.getDescriptorDecideMs();
   }
 
@@ -435,7 +440,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
     const resolvedModel =
       request.model ?? this.modelName ?? this.getDefaultModel();
-    this.assertWithinDecisionLimits(
+    const stateTokens = this.assertWithinDecisionLimits(
       request,
       resolvedModel,
       questionEntries.length,
@@ -459,7 +464,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
     const timeoutMs =
       request.timeoutMs ??
-      this.defaultTimeoutMs(questionEntries.length) ??
+      this.defaultTimeoutMs(questionEntries.length, stateTokens) ??
       this.defaultTimeout ??
       DEFAULT_DECISION_TIMEOUT_MS;
 
@@ -677,13 +682,13 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     request: DecisionRequest,
     model: string,
     questionCount: number,
-  ): void {
+  ): number {
     const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName);
     const limits = descriptor
       ? resolveDecisionLimitsReading(descriptor, model)
       : null;
     if (!limits || !limits.enforcedLocally) {
-      return;
+      return 0;
     }
     const label = this.vendorLabel();
     if (
@@ -705,6 +710,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         retryable: false,
       });
     }
+    return stateTokens;
   }
 
   /**
