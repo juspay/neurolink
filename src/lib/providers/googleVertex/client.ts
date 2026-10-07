@@ -9416,6 +9416,7 @@ export class GoogleVertexProvider extends BaseProvider {
       count: texts.length,
     });
 
+    let rows: Array<number[] | undefined>;
     try {
       const effectiveLocation = resolveVertexRegionForModel(
         embeddingModelName,
@@ -9428,18 +9429,9 @@ export class GoogleVertexProvider extends BaseProvider {
         contents: texts,
       });
 
-      const embeddings = (result.embeddings || []).map(
-        (e: { values?: number[] }) => e.values || [],
+      rows = (result.embeddings || []).map(
+        (e: { values?: number[] }) => e.values,
       );
-
-      logger.debug("Batch embeddings generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        count: embeddings.length,
-        embeddingDimension: embeddings[0]?.length,
-      });
-
-      return embeddings;
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -9449,6 +9441,45 @@ export class GoogleVertexProvider extends BaseProvider {
 
       throw this.handleProviderError(error);
     }
+
+    // One vector per text, or fail: a dropped or empty row would pair later
+    // texts with the wrong vectors, or score 0 downstream. Checked after the
+    // try on purpose: inside it, handleProviderError would wrap this message
+    // in a second provider error and run it through its keyword rules.
+    if (rows.length !== texts.length) {
+      logger.error("Batch embedding returned the wrong number of vectors", {
+        model: embeddingModelName,
+        expected: texts.length,
+        received: rows.length,
+      });
+      throw new ProviderError(
+        `Embedding response held ${rows.length} vectors for ${texts.length} texts`,
+        this.providerName,
+      );
+    }
+
+    const embeddings = rows.map((values, index) => {
+      if (!values || values.length === 0) {
+        logger.error("Batch embedding returned no values", {
+          model: embeddingModelName,
+          index,
+        });
+        throw new ProviderError(
+          `Embedding for the text at index ${index} came back without values`,
+          this.providerName,
+        );
+      }
+      return values;
+    });
+
+    logger.debug("Batch embeddings generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: embeddings.length,
+      embeddingDimension: embeddings[0]?.length,
+    });
+
+    return embeddings;
   }
 }
 

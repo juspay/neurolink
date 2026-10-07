@@ -2113,10 +2113,38 @@ export class AmazonBedrockProvider extends BaseProvider {
     input: string | EmbedInput,
     modelName?: string,
   ): Promise<number[]> {
+    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
+    const embedding = await this.requestEmbedding(input, embeddingModelName);
+    if (!embedding || embedding.length === 0) {
+      throw new ProviderError(
+        "No embedding returned from Bedrock",
+        this.providerName,
+      );
+    }
+
+    logger.debug("Embedding generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      embeddingDimension: embedding.length,
+    });
+
+    return embedding;
+  }
+
+  /**
+   * One InvokeModel round trip. Resolves to the vector the model returned
+   * (empty or not), or `undefined` when the answer carries no embedding array.
+   * What that means is for `embed` and `embedMany` to decide, outside this
+   * try: inside it, handleProviderError would wrap the message in a second
+   * provider error and run it through its keyword rules.
+   */
+  private async requestEmbedding(
+    input: string | EmbedInput,
+    embeddingModelName: string,
+  ): Promise<number[] | undefined> {
     // Normalize input to EmbedInput shape
     const embedInput = typeof input === "string" ? { text: input } : input;
 
-    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
     const isNovaModel =
       embeddingModelName.includes("nova") &&
       embeddingModelName.includes("multimodal");
@@ -2251,17 +2279,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         ? responseBody.embeddings?.at(0)?.embedding
         : responseBody.embedding;
 
-      if (!Array.isArray(embedding)) {
-        throw new Error("Invalid embedding response from Bedrock");
-      }
-
-      logger.debug("Embedding generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        embeddingDimension: embedding.length,
-      });
-
-      return embedding as number[];
+      return Array.isArray(embedding) ? (embedding as number[]) : undefined;
     } catch (error) {
       logger.error("Embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -2287,19 +2305,11 @@ export class AmazonBedrockProvider extends BaseProvider {
       count: texts.length,
     });
 
+    let rows: Array<number[] | undefined>;
     try {
-      const embeddings = await Promise.all(
-        texts.map((text) => this.embed(text, embeddingModelName)),
+      rows = await Promise.all(
+        texts.map((text) => this.requestEmbedding(text, embeddingModelName)),
       );
-
-      logger.debug("Batch embeddings generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        count: embeddings.length,
-        embeddingDimension: embeddings[0]?.length,
-      });
-
-      return embeddings;
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -2309,5 +2319,31 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       throw this.handleProviderError(error);
     }
+
+    // Checked after the try on purpose: inside it, handleProviderError would
+    // wrap this message in a second provider error and run it through its
+    // keyword rules.
+    const embeddings = rows.map((values, index) => {
+      if (!values || values.length === 0) {
+        logger.error("Batch embedding returned no values", {
+          model: embeddingModelName,
+          index,
+        });
+        throw new ProviderError(
+          `Embedding for the text at index ${index} came back without values`,
+          this.providerName,
+        );
+      }
+      return values;
+    });
+
+    logger.debug("Batch embeddings generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: embeddings.length,
+      embeddingDimension: embeddings[0]?.length,
+    });
+
+    return embeddings;
   }
 }

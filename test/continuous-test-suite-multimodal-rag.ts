@@ -16,6 +16,11 @@ import "dotenv/config";
  * request body is being built, before anything is sent; a case that reached the
  * network would fail here rather than pass quietly, which is the point.
  *
+ * The last section is the exception: it sends InvokeModel requests to a local
+ * stand-in, reached through `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, and pins what
+ * `embed()` and `embedMany()` do with an answer that carries no embedding or an
+ * empty one (the call rejects, and `embedMany` names the text's index).
+ *
  * NOT covered, deliberately, and worth knowing before adding to this file: the
  * `loadFromURL` branch of `ImageLoader`. Its redaction is the same helper the
  * path branch uses, but the branch itself cannot be reached offline — the SSRF
@@ -37,7 +42,9 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Multi-modal embeddings + RAG images");
+const { test, section, runSuite } = defineSuite(
+  "Multi-modal embeddings + RAG images",
+);
 
 const { AIProviderFactory } = await import("../dist/index.js");
 const { ImageLoader, RAGPipeline, InMemoryVectorStore, prepareRAGTool } =
@@ -178,6 +185,7 @@ async function bedrockProvider() {
       input: { image?: Buffer; text?: string; mimeType?: string },
       modelName?: string,
     ) => Promise<number[]>;
+    embedMany: (texts: string[], modelName?: string) => Promise<number[][]>;
   };
 }
 
@@ -350,6 +358,16 @@ await test("an ordinary image path still captions from its filename", async () =
   }
 });
 
+/** The `inputText` a Titan text request carries, or "" when the body has none. */
+function titanInputText(body: Buffer): string {
+  try {
+    const parsed = JSON.parse(body.toString("utf8")) as { inputText?: unknown };
+    return typeof parsed.inputText === "string" ? parsed.inputText : "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Minimal local stand-in for the Bedrock Runtime InvokeModel endpoint that
  * `embed()` calls. `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` redirects the real SDK
@@ -360,8 +378,14 @@ await test("an ordinary image path still captions from its filename", async () =
  * `http.Server` never completes the handshake and this must speak h2. No
  * credentials are validated: SigV4 signs happily against placeholder keys and
  * nothing here checks the signature.
+ *
+ * By default every request gets the same fixed vector. A case that needs the
+ * answer to depend on the text passes `answer`, which receives the request's
+ * `inputText` and returns the whole response body.
  */
-async function startLocalBedrockEmbed(): Promise<{
+async function startLocalBedrockEmbed(
+  answer?: (inputText: string) => unknown,
+): Promise<{
   endpoint: string;
   invokeCount: () => number;
   failFromNowOn: () => void;
@@ -387,10 +411,17 @@ async function startLocalBedrockEmbed(): Promise<{
       }
       res.writeHead(200, { "content-type": "application/json" });
       // Shape Bedrock's Titan (non-Nova) embed response takes: a flat
-      // `embedding` array. Fixed and fake — nothing here reads the request
-      // body, so it says nothing about what was actually embedded; the
-      // request COUNT is the signal this test relies on.
-      res.end(JSON.stringify({ embedding: [0.1, 0.2, 0.3, 0.4] }));
+      // `embedding` array. Fixed and fake unless a case passes `answer` —
+      // otherwise nothing here reads the request body, so it says nothing
+      // about what was actually embedded; the request COUNT is the signal
+      // those cases rely on.
+      res.end(
+        JSON.stringify(
+          answer
+            ? answer(titanInputText(Buffer.concat(chunks)))
+            : { embedding: [0.1, 0.2, 0.3, 0.4] },
+        ),
+      );
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -852,6 +883,189 @@ await test("prepareRAGTool fails the search when the query embedding fails inste
     }
     restoreAws();
   }
+});
+
+section("Bedrock embeddings that come back without values");
+
+/**
+ * Runs `run` against the real Bedrock SDK client pointed at the local
+ * InvokeModel stand-in, whose answer depends on the text it was asked about.
+ */
+async function withBedrockEmbeddingAnswers<T>(
+  answer: (inputText: string) => unknown,
+  run: () => Promise<T>,
+): Promise<T> {
+  const restoreAws = withFakeAwsEnv();
+  const local = await startLocalBedrockEmbed(answer);
+  const previousEndpoint = process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+  process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = local.endpoint;
+  try {
+    return await run();
+  } finally {
+    await local.close();
+    if (previousEndpoint === undefined) {
+      delete process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+    } else {
+      process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = previousEndpoint;
+    }
+    restoreAws();
+  }
+}
+
+/**
+ * One vector per text, its first character's code as the only value, except
+ * that `text` gets an embedding with no `embedding` field, or an empty one.
+ */
+function titanAnswerWithout(
+  text: string,
+  as: "missing" | "empty",
+): (inputText: string) => unknown {
+  return (inputText) => {
+    if (inputText !== text) {
+      return { embedding: [inputText.charCodeAt(0)] };
+    }
+    return as === "empty" ? { embedding: [] } : {};
+  };
+}
+
+async function settleEmbedding<T>(
+  run: () => Promise<T>,
+): Promise<{ value: T | undefined; message: string | undefined }> {
+  try {
+    return { value: await run(), message: undefined };
+  } catch (error) {
+    return {
+      value: undefined,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+// The two controls aim the stand-in's fault at a text no case sends, so every
+// answer is healthy and they go through the same code as the rejection cases.
+await test("Bedrock embedMany returns one vector per text, in order", async () => {
+  await withBedrockEmbeddingAnswers(
+    titanAnswerWithout("zzz", "missing"),
+    async () => {
+      const provider = await bedrockProvider();
+      const { value } = await settleEmbedding(() =>
+        provider.embedMany(["a", "b", "c"], TITAN_TEXT_MODEL),
+      );
+      assert(
+        value !== undefined && value.map((v) => v[0]).join(",") === "97,98,99",
+        "Bedrock embedMany did not return one vector per text, in order",
+      );
+    },
+  );
+});
+
+await test("Bedrock embed returns the vector for a healthy embedding", async () => {
+  await withBedrockEmbeddingAnswers(
+    titanAnswerWithout("zzz", "missing"),
+    async () => {
+      const provider = await bedrockProvider();
+      const { value } = await settleEmbedding(() =>
+        provider.embed({ text: "a" }, TITAN_TEXT_MODEL),
+      );
+      assert(
+        value !== undefined && value.length === 1 && value[0] === 97,
+        "Bedrock embed did not return the vector for a healthy embedding",
+      );
+    },
+  );
+});
+
+for (const shape of ["missing", "empty"] as const) {
+  await test(`Bedrock embedMany rejects a ${shape} embedding and names its index`, async () => {
+    await withBedrockEmbeddingAnswers(
+      titanAnswerWithout("b", shape),
+      async () => {
+        const provider = await bedrockProvider();
+        const { value, message } = await settleEmbedding(() =>
+          provider.embedMany(["a", "b", "c"], TITAN_TEXT_MODEL),
+        );
+        assert(
+          value === undefined,
+          "Bedrock embedMany returned vectors although one embedding had no values",
+        );
+        assert(
+          message !== undefined,
+          "Bedrock embedMany did not reject an embedding without values",
+        );
+        assert(
+          /\bindex 1\b/.test(message ?? ""),
+          "the rejection did not name the index of the embedding without values",
+        );
+        assert(
+          (message ?? "").includes("bedrock"),
+          "the rejection did not name the provider",
+        );
+      },
+    );
+  });
+}
+
+await test("Bedrock embedMany keeps the real index in the rejection for an index that looks like a status code", async () => {
+  await withBedrockEmbeddingAnswers(
+    titanAnswerWithout("t429", "empty"),
+    async () => {
+      const provider = await bedrockProvider();
+      const texts = Array.from({ length: 430 }, (_, i) => `t${i}`);
+      const { value, message } = await settleEmbedding(() =>
+        provider.embedMany(texts, TITAN_TEXT_MODEL),
+      );
+      assert(
+        value === undefined && message !== undefined,
+        "Bedrock embedMany did not reject an embedding without values in a large batch",
+      );
+      assert(
+        /\bindex 429\b/.test(message ?? ""),
+        "the rejection lost the index when it resembled a status code",
+      );
+      assert(
+        !/rate limit|throttl/i.test(message ?? ""),
+        "the rejection was reworded as a rate-limit error",
+      );
+    },
+  );
+});
+
+await test("Bedrock embed rejects an empty embedding", async () => {
+  await withBedrockEmbeddingAnswers(
+    titanAnswerWithout("b", "empty"),
+    async () => {
+      const provider = await bedrockProvider();
+      const { value, message } = await settleEmbedding(() =>
+        provider.embed({ text: "b" }, TITAN_TEXT_MODEL),
+      );
+      assert(
+        value === undefined,
+        "Bedrock embed returned a vector although the embedding had no values",
+      );
+      assert(
+        message !== undefined,
+        "Bedrock embed did not reject an embedding without values",
+      );
+    },
+  );
+});
+
+// Bedrock embed already refused an answer with no embedding field before this
+// case was written, so it pins that behaviour rather than proves a change.
+await test("Bedrock embed rejects an answer with no embedding", async () => {
+  await withBedrockEmbeddingAnswers(
+    titanAnswerWithout("b", "missing"),
+    async () => {
+      const provider = await bedrockProvider();
+      const { value, message } = await settleEmbedding(() =>
+        provider.embed({ text: "b" }, TITAN_TEXT_MODEL),
+      );
+      assert(
+        value === undefined && message !== undefined,
+        "Bedrock embed did not reject an answer with no embedding",
+      );
+    },
+  );
 });
 
 await runSuite();

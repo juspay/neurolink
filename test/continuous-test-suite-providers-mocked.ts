@@ -42,7 +42,7 @@ import {
  *
  *   LLM (OpenAI-compat):     every src/lib/providers/catalog/*.json entry, plus Cohere
  *   LLM (custom shape):      Cohere, Cloudflare Workers AI, Replicate
- *   Embeddings:              Voyage AI, Jina AI
+ *   Embeddings:              Voyage AI, Jina AI, OpenAI (native /v1/embeddings)
  *   Image-gen:               Stability, Ideogram, Recraft
  *   LLM (native, fetch-interceptable):    OpenAI, Azure, Anthropic
  *   LLM (native, construction-only —
@@ -1596,6 +1596,287 @@ async function runEmbeddingsSection(): Promise<void> {
       err instanceof Error ? err.message : String(err),
     );
   }
+
+  await runOpenAIEmbeddingRows();
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: OpenAI native embeddings — response rows against the inputs
+// ───────────────────────────────────────────────────────────────────────
+
+const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
+
+type OpenAIEmbeddingRow = {
+  object: "embedding";
+  index: number;
+  embedding?: number[];
+};
+
+/**
+ * Answers `POST /v1/embeddings` with one row per input, the first character's
+ * code as its only value. `reshape` turns that healthy answer into the one a
+ * case needs: a row with no `embedding`, an empty one, or fewer rows than
+ * inputs.
+ */
+function openAIEmbeddingsRoute(
+  reshape: (rows: OpenAIEmbeddingRow[]) => OpenAIEmbeddingRow[] = (rows) =>
+    rows,
+) {
+  return {
+    method: "POST",
+    url: "api.openai.com/v1/embeddings",
+    respond: (call: { bodyJson: unknown }) => {
+      const input = (call.bodyJson as { input?: string | string[] }).input;
+      const texts = Array.isArray(input) ? input : [input ?? ""];
+      const rows = texts.map((text, index) => ({
+        object: "embedding" as const,
+        index,
+        embedding: [text.charCodeAt(0)],
+      }));
+      return {
+        status: 200,
+        json: {
+          object: "list",
+          model: OPENAI_EMBEDDING_MODEL,
+          data: reshape(rows),
+          usage: { prompt_tokens: texts.length, total_tokens: texts.length },
+        },
+      };
+    },
+  };
+}
+
+function withoutEmbeddingAt(
+  position: number,
+  as: "missing" | "empty",
+): (rows: OpenAIEmbeddingRow[]) => OpenAIEmbeddingRow[] {
+  return (rows) =>
+    rows.map((row, index) => {
+      if (index !== position) {
+        return row;
+      }
+      return as === "empty"
+        ? { object: "embedding", index, embedding: [] }
+        : { object: "embedding", index };
+    });
+}
+
+async function runOpenAIEmbeddingRows(): Promise<void> {
+  const section = "EMBED openai";
+  console.log(`\n=== ${section} (native /v1/embeddings) ===`);
+  setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
+  // Same pin as the chat section: an ambient OPENAI_BASE_URL must not reroute
+  // the request away from the api.openai.com mock.
+  setEnv("OPENAI_BASE_URL", undefined);
+
+  const { ProviderFactory } =
+    await import("../dist/factories/providerFactory.js");
+  const provider = (await ProviderFactory.createProvider(
+    "openai",
+    "gpt-4o-mini",
+  )) as unknown as {
+    embed: (text: string, modelName?: string) => Promise<number[]>;
+    embedMany: (texts: string[], modelName?: string) => Promise<number[][]>;
+  };
+
+  async function settle<T>(
+    run: () => Promise<T>,
+  ): Promise<{ value: T | undefined; message: string | undefined }> {
+    try {
+      return { value: await run(), message: undefined };
+    } catch (err) {
+      return {
+        value: undefined,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  async function check(name: string, run: () => Promise<void>): Promise<void> {
+    try {
+      await run();
+      record(results, `${section}: ${name}`, true);
+    } catch (err) {
+      record(
+        results,
+        `${section}: ${name}`,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  await check("embed() returns the vector for a healthy response", () =>
+    withMocks([openAIEmbeddingsRoute()], async ({ calls }) => {
+      const { value } = await settle(() =>
+        provider.embed("a", OPENAI_EMBEDDING_MODEL),
+      );
+      expect(calls.length === 1, "embed did not send exactly one request");
+      expect(
+        value !== undefined && value.length === 1 && value[0] === 97,
+        "embed did not return the vector for a healthy response",
+      );
+    }),
+  );
+
+  await check("embedMany() returns one vector per text, in order", () =>
+    withMocks([openAIEmbeddingsRoute()], async ({ calls }) => {
+      const { value } = await settle(() =>
+        provider.embedMany(["a", "b", "c"], OPENAI_EMBEDDING_MODEL),
+      );
+      const sent = (calls[0]?.bodyJson as { input?: unknown } | undefined)
+        ?.input;
+      expect(
+        Array.isArray(sent) && sent.length === 3,
+        "embedMany did not send the three texts as one batch",
+      );
+      expect(
+        value !== undefined && value.map((v) => v[0]).join(",") === "97,98,99",
+        "embedMany did not return one vector per text, in order",
+      );
+    }),
+  );
+
+  for (const shape of ["missing", "empty"] as const) {
+    await check(
+      `embedMany() rejects a ${shape} embedding and names its index`,
+      () =>
+        withMocks(
+          [openAIEmbeddingsRoute(withoutEmbeddingAt(1, shape))],
+          async () => {
+            const { value, message } = await settle(() =>
+              provider.embedMany(["a", "b", "c"], OPENAI_EMBEDDING_MODEL),
+            );
+            expect(
+              value === undefined,
+              "embedMany returned vectors although one embedding had no values",
+            );
+            expect(
+              message !== undefined,
+              "embedMany did not reject an embedding without values",
+            );
+            expect(
+              /\bindex 1\b/.test(message ?? ""),
+              "the rejection did not name the index of the embedding without values",
+            );
+            expect(
+              (message ?? "").includes("openai"),
+              "the rejection did not name the provider",
+            );
+          },
+        ),
+    );
+  }
+
+  await check(
+    "embedMany() rejects a response with fewer vectors than texts and names the counts",
+    () =>
+      withMocks(
+        [openAIEmbeddingsRoute((rows) => rows.slice(0, -1))],
+        async () => {
+          const { value, message } = await settle(() =>
+            provider.embedMany(["a", "b", "c"], OPENAI_EMBEDDING_MODEL),
+          );
+          expect(
+            value === undefined,
+            "embedMany returned vectors although the response held fewer than one per text",
+          );
+          expect(
+            message !== undefined,
+            "embedMany did not reject a response with fewer vectors than texts",
+          );
+          expect(
+            /\b2 vectors for 3 texts\b/.test(message ?? ""),
+            "the rejection did not name the number of vectors and texts",
+          );
+        },
+      ),
+  );
+
+  await check(
+    "embedMany() keeps the real index in the rejection for an index that looks like a status code",
+    () =>
+      withMocks(
+        [openAIEmbeddingsRoute(withoutEmbeddingAt(429, "empty"))],
+        async () => {
+          const texts = Array.from({ length: 430 }, (_, i) => `t${i}`);
+          const { value, message } = await settle(() =>
+            provider.embedMany(texts, OPENAI_EMBEDDING_MODEL),
+          );
+          expect(
+            value === undefined && message !== undefined,
+            "embedMany did not reject an embedding without values in a large batch",
+          );
+          expect(
+            /\bindex 429\b/.test(message ?? ""),
+            "the rejection lost the index when it resembled a status code",
+          );
+          expect(
+            !/rate limit/i.test(message ?? ""),
+            "the rejection was reworded as a rate-limit error",
+          );
+        },
+      ),
+  );
+
+  await check("embed() rejects an empty embedding", () =>
+    withMocks(
+      [openAIEmbeddingsRoute(withoutEmbeddingAt(0, "empty"))],
+      async () => {
+        const { value, message } = await settle(() =>
+          provider.embed("a", OPENAI_EMBEDDING_MODEL),
+        );
+        expect(
+          value === undefined,
+          "embed returned a vector although the embedding had no values",
+        );
+        expect(
+          message !== undefined,
+          "embed did not reject an embedding without values",
+        );
+      },
+    ),
+  );
+
+  // These two were already refused (every surviving row was dropped, leaving
+  // none), so they pin that behaviour rather than prove a change.
+  await check(
+    "embed() rejects a response whose only row has no embedding",
+    () =>
+      withMocks(
+        [openAIEmbeddingsRoute(withoutEmbeddingAt(0, "missing"))],
+        async () => {
+          const { value, message } = await settle(() =>
+            provider.embed("a", OPENAI_EMBEDDING_MODEL),
+          );
+          expect(
+            value === undefined && message !== undefined,
+            "embed did not reject a response whose only row had no embedding",
+          );
+        },
+      ),
+  );
+
+  await check(
+    "embedMany() rejects a response whose rows all lack an embedding",
+    () =>
+      withMocks(
+        [
+          openAIEmbeddingsRoute((rows) =>
+            rows.map((row) => ({ object: row.object, index: row.index })),
+          ),
+        ],
+        async () => {
+          const { value, message } = await settle(() =>
+            provider.embedMany(["a", "b"], OPENAI_EMBEDDING_MODEL),
+          );
+          expect(
+            value === undefined && message !== undefined,
+            "embedMany did not reject a response whose rows all lacked an embedding",
+          );
+        },
+      ),
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -14188,6 +14469,7 @@ async function main(): Promise<void> {
   const FOCUSED_RUNS: Record<string, Array<() => Promise<void>>> = {
     "--image-downloads-only": [runImageGenSection, runImageDnsRebindingSection],
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
+    "--embeddings-only": [runEmbeddingsSection],
   };
   for (const [flag, sections] of Object.entries(FOCUSED_RUNS)) {
     if (!process.argv.includes(flag)) {
