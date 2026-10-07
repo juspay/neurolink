@@ -153,6 +153,31 @@ function jsonError(
   };
 }
 
+/** Google API error body, `{"error":{"code","message","status"}}`, the shape
+ * Vertex answers with. `@google/genai` raises it as an ApiError whose message
+ * is the JSON text of the whole body, so the status name (INVALID_ARGUMENT,
+ * RESOURCE_EXHAUSTED, ...) is part of the text the classifier rules read.
+ * `code` is separate from the HTTP `status` so a case can answer 400 while the
+ * body names another code, the way a relaying gateway does. 429/5xx carry
+ * retry-after:0 for the same reason as in jsonError(). */
+function googleError(
+  status: number,
+  error: { code: number; message: string; status: string },
+): MockHandler {
+  return () => {
+    const headers: Record<string, string> = {};
+    if (status === 429 || status >= 500) {
+      headers["retry-after"] = "0";
+    }
+    const { code, message, status: name } = error;
+    return {
+      status,
+      headers,
+      body: JSON.stringify({ error: { code, message, status: name } }),
+    };
+  };
+}
+
 /** AWS restJson1-shaped error: exception identity comes from the
  * x-amzn-errortype header (or __type body field — header wins), NOT from
  * message text. Verified against @aws-sdk/core's loadRestJsonErrorCode(). */
@@ -213,6 +238,36 @@ async function startMockServer(
   });
   const { port } = server.address() as AddressInfo;
   return `http://127.0.0.1:${port}`;
+}
+
+/** A server of its own that answers every request with one fixed reply, for
+ * cases that have to run side by side: the shared mock server above has a
+ * single current handler. */
+async function startReplyServer(
+  reply: MockHandler,
+): Promise<{ origin: string; close: () => Promise<void> }> {
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      void (async () => {
+        const spec = await reply();
+        res.writeHead(spec.status, {
+          "content-type": "application/json",
+          ...spec.headers,
+        });
+        res.end(spec.body);
+      })();
+    });
+  });
+  const origin = await startMockServer(server);
+  return {
+    origin,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
 }
 
 // A port nothing listens on: connecting here raises a real ECONNREFUSED
@@ -1421,8 +1476,8 @@ async function main(): Promise<void> {
     //     produce the override message these cases look for.
     // Every case here answers 400, which is not retried, so each is one
     // request and the classified message is the thrown one. Google Vertex has
-    // the same rule change but no case here: it cannot be driven through a
-    // local server (see its section below).
+    // the same rule change; its cases are in the next section, which reaches
+    // it through Express Mode.
     // =========================================================================
     {
       setEnv("NVIDIA_NIM_API_KEY", "test-fake-nvidia-nim-credential");
@@ -1520,15 +1575,285 @@ async function main(): Promise<void> {
     }
 
     // =========================================================================
+    // SECTION: a status number in the message text (Google Vertex, Express Mode)
+    // -------------------------------------------------------------------------
+    // The same rule change as the section above, on the two Vertex rules that
+    // read a status out of the text: the rate limit (429) and the server error
+    // (500, 502, 503, 504). Vertex in project/location mode authenticates
+    // through ADC, which cannot be pointed at a local server (the next section
+    // has the details), but Express Mode, an API key with no project or
+    // location, makes no token exchange, so the real @google/genai client
+    // reaches the mock through the per-call `credentials.vertex.{apiKey,baseURL}`:
+    // the hook that test:vertex-loop-characterization and
+    // test:native-failure-events use.
+    //
+    // @google/genai raises an ApiError whose message is the JSON text of the
+    // whole reply body and whose `status` is the HTTP status, so:
+    //   - every "unrelated" case answers a 400 whose text holds the digits of
+    //     a status where no status is written (a limit in parentheses, a
+    //     request id, a count that merely contains them). It must fall through
+    //     to the invalid-request answer, not to the rate-limit or server-error
+    //     override;
+    //   - every "names" case answers a 400 whose TEXT names the status (a
+    //     relay wrapping an upstream reply). The structured status is 400
+    //     there, so only the text rule can produce the override;
+    //   - the "saying" and "real" cases are controls that classified before
+    //     the change and must still: wording with no number at all, and a real
+    //     429 or 5xx. They pass with the bare-digit rules too, which is what
+    //     shows the "unrelated" cases fail for the digits and nothing else.
+    // Every 400 here is not retried, so each is one request and the thrown
+    // error is the classified one. A real 429 or 5xx is retried, and the error
+    // from @google/genai carries no Retry-After, so each such case would wait
+    // out the provider's 10 s no-hint floor twice and end as the retry
+    // wrapper's plain Error (only its text is asserted). They run side by side,
+    // each against a stand-in of its own, so the suite pays that wait once.
+    // The Vertex constructor copies a per-call apiKey into GOOGLE_API_KEY, so
+    // that variable is snapshotted first and cleared again afterwards. Every
+    // case passes disableInternalFallback: a failed turn must not be rescued by
+    // another provider that holds a placeholder credential from the sections
+    // above.
+    // =========================================================================
+    {
+      setEnv("GOOGLE_API_KEY", undefined);
+
+      const rateLimited = "Google Vertex AI rate limit";
+      const serverError = "Google Vertex AI server error";
+      const invalidRequest = "Google Vertex AI Invalid Request";
+
+      const genVertex = (origin: string) =>
+        gen({
+          provider: "vertex",
+          model: "gemini-2.5-flash",
+          credentials: {
+            vertex: {
+              apiKey: "test-fake-vertex-express-credential",
+              baseURL: origin,
+            },
+          },
+          disableInternalFallback: true,
+        });
+      const vertexCase = async (
+        name: string,
+        handler: MockHandler,
+        expected: {
+          expectClass?: ErrorCtor;
+          notClasses?: ErrorCtor[];
+          messageIncludes?: string[];
+          messageExcludes?: string[];
+        },
+      ): Promise<void> => {
+        setHandler(handler);
+        await expectGenerateError({
+          name: `vertex (express): ${name}`,
+          run: () => genVertex(mockOrigin),
+          ...expected,
+        });
+      };
+      const badRequest = (message: string) =>
+        googleError(400, { code: 400, message, status: "INVALID_ARGUMENT" });
+
+      // --- the rate-limit rule (429) --------------------------------------
+      for (const { label, text } of [
+        {
+          label: "a limit in parentheses",
+          text: "max_tokens (429) exceeds the model limit",
+        },
+        {
+          label: "inside a longer number",
+          text: "request 14290 failed validation",
+        },
+      ]) {
+        await vertexCase(
+          `an unrelated 429 (${label}) in a 400's text is not read as a rate limit`,
+          badRequest(text),
+          {
+            notClasses: [RateLimitError],
+            messageIncludes: [invalidRequest],
+            messageExcludes: [rateLimited],
+          },
+        );
+      }
+      for (const { shape, text } of [
+        { shape: "HTTP", text: "upstream HTTP 429 relayed by the gateway" },
+        { shape: "status code", text: "relay failed with status code 429" },
+        { shape: "error", text: "upstream returned error 429" },
+        {
+          shape: "trailing error",
+          text: "429 error from the upstream gateway",
+        },
+      ]) {
+        await vertexCase(
+          `a 400 whose text names ${shape} 429 is still read as a rate limit`,
+          badRequest(text),
+          { expectClass: RateLimitError, messageIncludes: [rateLimited] },
+        );
+      }
+      // The body of every Google error spells its code the same way, so a
+      // relay that answers 400 around an upstream 429 body still names it.
+      await vertexCase(
+        "a 400 whose body names code 429 is still read as a rate limit",
+        googleError(400, {
+          code: 429,
+          message: "relayed by the gateway",
+          status: "RESOURCE_EXHAUSTED",
+        }),
+        { expectClass: RateLimitError, messageIncludes: [rateLimited] },
+      );
+      for (const { word, text } of [
+        { word: "QUOTA_EXCEEDED", text: "QUOTA_EXCEEDED for this project" },
+        {
+          word: "RATE_LIMIT_EXCEEDED",
+          text: "RATE_LIMIT_EXCEEDED for this project",
+        },
+        { word: "rate limit", text: "rate limit exceeded, slow down" },
+      ]) {
+        await vertexCase(
+          `a 400 saying ${word} is read as a rate limit without a status number`,
+          badRequest(text),
+          { expectClass: RateLimitError, messageIncludes: [rateLimited] },
+        );
+      }
+
+      // --- the server-error rule (500, 502, 503, 504) ---------------------
+      for (const { code, label, text } of [
+        {
+          code: 500,
+          label: "a request id",
+          text: "request id 500 could not be validated",
+        },
+        {
+          code: 502,
+          label: "a request id",
+          text: "request id 502 could not be validated",
+        },
+        {
+          code: 503,
+          label: "a request id",
+          text: "request id 503 could not be validated",
+        },
+        {
+          code: 504,
+          label: "a request id",
+          text: "request id 504 could not be validated",
+        },
+        {
+          code: 500,
+          label: "inside a longer number",
+          text: "the prompt holds 1500 tokens, more than this model accepts",
+        },
+      ]) {
+        await vertexCase(
+          `an unrelated ${code} (${label}) in a 400's text is not read as a server error`,
+          badRequest(text),
+          { messageIncludes: [invalidRequest], messageExcludes: [serverError] },
+        );
+      }
+      for (const { code, shape, text } of [
+        {
+          code: 500,
+          shape: "status code",
+          text: "relay failed with status code 500",
+        },
+        { code: 502, shape: "error", text: "upstream returned error 502" },
+        {
+          code: 503,
+          shape: "HTTP",
+          text: "upstream HTTP 503 relayed by the gateway",
+        },
+        {
+          code: 504,
+          shape: "trailing error",
+          text: "504 error from the upstream gateway",
+        },
+      ]) {
+        await vertexCase(
+          `a 400 whose text names ${shape} ${code} is still read as a server error`,
+          badRequest(text),
+          { messageIncludes: [serverError] },
+        );
+      }
+      for (const { word, text } of [
+        { word: "server error", text: "the backend reported a server error" },
+        {
+          word: "Internal Server Error",
+          text: "Internal Server Error from the backend",
+        },
+        { word: "INTERNAL", text: "INTERNAL: the backend failed" },
+        {
+          word: "UNAVAILABLE",
+          text: "UNAVAILABLE: the backend is not answering",
+        },
+      ]) {
+        await vertexCase(
+          `a 400 saying ${word} is read as a server error without a status number`,
+          badRequest(text),
+          { messageIncludes: [serverError] },
+        );
+      }
+
+      // --- real statuses --------------------------------------------------
+      // A reply with no code in its body can only be classified by the
+      // structured status; the Google-shaped replies also spell the code in
+      // their text, as a real Vertex reply does.
+      await Promise.all(
+        [
+          {
+            name: "a real 429 with no number in its text is a rate limit",
+            reply: jsonError(429, "slow down"),
+            includes: rateLimited,
+          },
+          {
+            name: "a real 429 RESOURCE_EXHAUSTED reply is a rate limit",
+            reply: googleError(429, {
+              code: 429,
+              message: "Resource has been exhausted (e.g. check quota).",
+              status: "RESOURCE_EXHAUSTED",
+            }),
+            includes: rateLimited,
+          },
+          {
+            name: "a real 502 with no number in its text is a server error",
+            reply: jsonError(502, "the backend is down"),
+            includes: serverError,
+          },
+          {
+            name: "a real 503 UNAVAILABLE reply is a server error",
+            reply: googleError(503, {
+              code: 503,
+              message: "The service is currently unavailable.",
+              status: "UNAVAILABLE",
+            }),
+            includes: serverError,
+          },
+        ].map(async ({ name, reply, includes }) => {
+          const standIn = await startReplyServer(reply);
+          try {
+            await expectGenerateError({
+              name: `vertex (express): ${name}`,
+              run: () => genVertex(standIn.origin),
+              messageIncludes: [includes],
+            });
+          } finally {
+            await standIn.close();
+          }
+        }),
+      );
+
+      setEnv("GOOGLE_API_KEY", undefined);
+    }
+
+    // =========================================================================
     // SECTION: Google Vertex (old File3 #8-11) — VERTEX EXCEPTION
     // -------------------------------------------------------------------------
-    // Real ADC OAuth makes true e2e impossible for Vertex (scout-2 #21): a
-    // fake service-account key fails signature verification at Google's real
-    // token endpoint before any request reaches a local mock — no env var or
-    // config hook in NeuroLink or the underlying google-auth-library lets
-    // this be redirected. Ported as direct formatProviderError() calls on a
-    // GoogleVertexProvider instance imported from dist instead (same pattern
-    // providers-mocked.ts already uses for this exact reason).
+    // Real ADC OAuth makes true e2e impossible for Vertex in project/location
+    // mode (scout-2 #21): a fake service-account key fails signature
+    // verification at Google's real token endpoint before any request reaches
+    // a local mock — no env var or config hook in NeuroLink or the underlying
+    // google-auth-library lets this be redirected. Ported as direct
+    // formatProviderError() calls on a GoogleVertexProvider instance imported
+    // from dist instead (same pattern providers-mocked.ts already uses for
+    // this exact reason). Express Mode, which has no token exchange, is driven
+    // end to end in the section above; the four cases below stay direct calls.
     // =========================================================================
     {
       // Constructing the provider validates that SOME credential is present.
