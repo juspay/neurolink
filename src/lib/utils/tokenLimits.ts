@@ -3,7 +3,10 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
-import { getRuntimeOutputCeiling } from "../constants/contextWindows.js";
+import {
+  getRuntimeOutputCeiling,
+  stripBedrockGeoPrefix,
+} from "../constants/contextWindows.js";
 import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
 import { logger } from "./logger.js";
 import {
@@ -88,6 +91,13 @@ export function getSafeMaxTokens(
     return requestedMaxTokens;
   }
 
+  // The Bedrock rows are keyed by bare id, but for many models the cross-region
+  // profile id (us.amazon.nova-pro-v1:0) is the only one a caller can invoke.
+  // The bare id is tried only after the id as given misses, so an explicit row
+  // for the prefixed id still wins.
+  const bareModel =
+    provider === "bedrock" && model ? stripBedrockGeoPrefix(model) : undefined;
+
   // Get model-specific limit or provider default
   let maxLimit: number;
   if (
@@ -96,6 +106,12 @@ export function getSafeMaxTokens(
     (providerLimits as Record<string, number>)[model]
   ) {
     maxLimit = (providerLimits as Record<string, number>)[model];
+  } else if (
+    bareModel !== undefined &&
+    typeof providerLimits === "object" &&
+    (providerLimits as Record<string, number>)[bareModel]
+  ) {
+    maxLimit = (providerLimits as Record<string, number>)[bareModel];
   } else if (
     typeof providerLimits === "object" &&
     (providerLimits as Record<string, number>).default

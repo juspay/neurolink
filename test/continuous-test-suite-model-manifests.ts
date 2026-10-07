@@ -48,6 +48,13 @@ import "dotenv/config";
  * `neurolink/e2e-tests-only` `allow` list in eslint.config.js for that
  * reason.
  *
+ * The Bedrock geography-prefix cases that read `getSafeMaxTokens` (from
+ * `dist/utils/tokenLimits.js`) are table sweeps and planted-row controls for
+ * the same reason: no generate() call can plant a row in PROVIDER_MAX_TOKENS
+ * to show that an explicit row wins or that another provider's table is left
+ * alone. What a Bedrock request actually carries is pinned over the wire in
+ * continuous-test-suite-bedrock-loop-characterization.ts.
+ *
  * Run: npx tsx test/continuous-test-suite-model-manifests.ts
  *      pnpm run test:model-manifests
  */
@@ -80,6 +87,8 @@ const {
   MODEL_CONTEXT_WINDOWS,
   registerRuntimeContextWindow,
   clearRuntimeContextWindows,
+  registerRuntimeOutputCeiling,
+  clearRuntimeOutputCeilings,
 } = await import("../dist/constants/contextWindows.js");
 const { BedrockModels } = await import("../dist/constants/enums.js");
 const { calculateCost } = await import("../dist/index.js");
@@ -92,6 +101,7 @@ const {
 const { ProviderImageAdapter } =
   await import("../dist/adapters/providerImageAdapter.js");
 const { PROVIDER_MAX_TOKENS } = await import("../dist/core/constants.js");
+const { getSafeMaxTokens } = await import("../dist/utils/tokenLimits.js");
 
 type ManifestSample = {
   provider: string;
@@ -698,6 +708,242 @@ await test("public session context stats budget a geography-prefixed Bedrock id 
   } finally {
     await sdk.shutdown();
   }
+});
+
+// stream() passes the caller's maxTokens, or its absence, through
+// getSafeMaxTokens, and what comes back is the max tokens a Bedrock streaming
+// request carries; Bedrock's own generate() skips that step and sends the
+// caller's value as given. A caller's own value clamps differently on either
+// side of a ceiling, so the cases below try one far above every ceiling in the
+// Bedrock table and one far below every one, as well as none at all.
+const ABOVE_EVERY_BEDROCK_CEILING = 1_000_000;
+const BELOW_EVERY_BEDROCK_CEILING = 1_000;
+
+function perModelTable(provider: string): Record<string, number> {
+  const table =
+    PROVIDER_MAX_TOKENS[provider as keyof typeof PROVIDER_MAX_TOKENS];
+  if (typeof table !== "object" || table === null) {
+    throw new Error(`no per-model table for ${provider}`);
+  }
+  return table as Record<string, number>;
+}
+
+await test("a geography-prefixed Bedrock id gets the output ceiling of its bare id, for every prefix and every id the tables, enum or manifest list", async () => {
+  // This sweep is relative (prefixed vs bare); the next case pins absolute
+  // values.
+  const ceilings = perModelTable("bedrock");
+  const rowIds = Object.keys(ceilings).filter((id) => id !== "default");
+  // Ids that already carry a geography (the context table has one explicit
+  // `us.` row) are left out: a second prefix on them is not a profile id.
+  const ids = [
+    ...new Set([
+      ...rowIds,
+      ...Object.keys(MODEL_CONTEXT_WINDOWS.bedrock).filter(
+        (id) => id !== "_default",
+      ),
+      ...Object.keys(getManifestForProvider("bedrock")?.models ?? {}).filter(
+        (id) => id !== "_default",
+      ),
+      ...Object.values(BedrockModels),
+    ]),
+  ].filter(
+    (id) => !BEDROCK_GEO_PREFIXES.some((prefix) => id.startsWith(`${prefix}.`)),
+  );
+  assert(
+    rowIds.length > 0,
+    "the Bedrock table has no per-model output ceiling",
+  );
+  assert(
+    rowIds.some((id) => getSafeMaxTokens("bedrock", id) !== ceilings.default),
+    "every Bedrock row equals the provider default, so the sweep cannot tell a prefixed id from the fallback",
+  );
+
+  const affected = new Set<string>();
+  for (const id of ids) {
+    for (const requested of [
+      undefined,
+      ABOVE_EVERY_BEDROCK_CEILING,
+      BELOW_EVERY_BEDROCK_CEILING,
+    ]) {
+      const bare = getSafeMaxTokens("bedrock", id, requested);
+      for (const prefix of BEDROCK_GEO_PREFIXES) {
+        if (
+          getSafeMaxTokens("bedrock", `${prefix}.${id}`, requested) !== bare
+        ) {
+          affected.add(id);
+        }
+      }
+    }
+  }
+  assert(
+    affected.size === 0,
+    `${affected.size} of ${ids.length} Bedrock ids get a different output ceiling under a geography prefix: ${[...affected].join(", ")}`,
+  );
+});
+
+await test("geography-prefixed Bedrock ids get their model's output ceiling", async () => {
+  // Pinned values, so the sweep above cannot pass with both sides wrong. The
+  // four ceilings below 64K are Nova Premier (25K), Nova Pro and Lite (5K) and
+  // Llama 4 Maverick (8,192). Ids and geographies are combined for coverage;
+  // AWS does not publish every combination. A caller's value above the ceiling
+  // is cut to it and one below passes through. The Opus 4.5 row and the Sonnet
+  // 4.6 id (no row of its own) are controls: 64K is also the Bedrock default,
+  // so they hold with or without the lookup.
+  const expected: ReadonlyArray<readonly [string, number | undefined, number]> =
+    [
+      ["us.amazon.nova-pro-v1:0", undefined, 5_000],
+      ["eu.amazon.nova-lite-v1:0", undefined, 5_000],
+      ["apac.amazon.nova-premier-v1:0", undefined, 25_000],
+      ["global.meta.llama4-maverick-17b-instruct-v1:0", undefined, 8_192],
+      ["jp.amazon.nova-pro-v1:0", ABOVE_EVERY_BEDROCK_CEILING, 5_000],
+      ["au.amazon.nova-premier-v1:0", ABOVE_EVERY_BEDROCK_CEILING, 25_000],
+      [
+        "in.meta.llama4-maverick-17b-instruct-v1:0",
+        ABOVE_EVERY_BEDROCK_CEILING,
+        8_192,
+      ],
+      ["us-gov.amazon.nova-lite-v1:0", ABOVE_EVERY_BEDROCK_CEILING, 5_000],
+      ["us.amazon.nova-pro-v1:0", BELOW_EVERY_BEDROCK_CEILING, 1_000],
+      ["us.anthropic.claude-opus-4-5-20251101-v1:0", undefined, 64_000],
+      ["eu.anthropic.claude-sonnet-4-6", undefined, 64_000],
+    ];
+  const wrong: number[] = [];
+  expected.forEach(([id, requested, ceiling], index) => {
+    if (getSafeMaxTokens("bedrock", id, requested) !== ceiling) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `geography-prefixed id(s) at index ${wrong.join(", ")} do not get their model's output ceiling`,
+  );
+});
+
+await test("Bedrock ids that are not a geography plus a known vendor and model keep their output ceiling as before (controls)", async () => {
+  // Controls: none of these may be rewritten, and every one resolves the same
+  // with or without the geography lookup.
+  const fallback = perModelTable("bedrock").default;
+  const expected: ReadonlyArray<readonly [string, number]> = [
+    // The bare id keeps its own row.
+    ["amazon.nova-pro-v1:0", 5_000],
+    // An unknown model under a geography still takes the Bedrock default.
+    ["us.anthropic.claude-not-a-listed-model-v1:0", fallback],
+    ["global.amazon.nova-not-listed-v1:0", fallback],
+    // Starts like a profile id but is not one.
+    ["us.something-unrelated", fallback],
+    ["us.amazon", fallback],
+    ["xx.amazon.nova-pro-v1:0", fallback],
+    // One geography is removed, never two.
+    ["us.us.amazon.nova-pro-v1:0", fallback],
+    ["global.eu.amazon.nova-pro-v1:0", fallback],
+    // An inference-profile ARN is not a prefixed id; this lookup does not
+    // parse ARNs, so it keeps the provider default as before.
+    [
+      "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+      fallback,
+    ],
+  ];
+  const wrong: number[] = [];
+  expected.forEach(([id, ceiling], index) => {
+    if (getSafeMaxTokens("bedrock", id) !== ceiling) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `control id(s) at index ${wrong.join(", ")} no longer get their output ceiling as before`,
+  );
+  assert(
+    fallback === 64_000,
+    "the Bedrock output-ceiling default moved off 64K",
+  );
+});
+
+await test("an explicit row or discovered ceiling for the prefixed id wins, and the output-ceiling lookup stays Bedrock-only and vendor-gated (controls)", async () => {
+  // No shipped prefixed id has a row of its own, and no other provider's table
+  // holds a bare Bedrock id, so precedence and gating cannot be seen with real
+  // rows. This case plants rows in the live tables and removes them again;
+  // every one of these holds with or without the geography lookup, and each
+  // would fail a wrong version of it.
+  const bedrock = perModelTable("bedrock");
+  const prefixed = "us.amazon.nova-pro-v1:0";
+  const bare = "amazon.nova-pro-v1:0";
+  const planted = 1_234;
+
+  try {
+    bedrock[prefixed] = planted;
+    assert(
+      getSafeMaxTokens("bedrock", prefixed) === planted,
+      "an explicit row for the prefixed id lost to the lookup of its bare id",
+    );
+  } finally {
+    delete bedrock[prefixed];
+  }
+
+  try {
+    bedrock["acme.nova-pro-v1:0"] = planted;
+    assert(
+      getSafeMaxTokens("bedrock", "us.acme.nova-pro-v1:0") === bedrock.default,
+      "a geography was removed in front of a vendor Bedrock does not ship",
+    );
+  } finally {
+    delete bedrock["acme.nova-pro-v1:0"];
+  }
+
+  const others = [
+    "openai",
+    "anthropic",
+    "vertex",
+    "azure",
+    "google-ai",
+    "mistral",
+    "litellm",
+    "ollama",
+  ];
+  const leaked: string[] = [];
+  const unread: string[] = [];
+  for (const provider of others) {
+    const table = perModelTable(provider);
+    const before = getSafeMaxTokens(provider, prefixed);
+    try {
+      table[bare] = planted;
+      // The planted row must be readable for its own id, or the comparison
+      // below would pass without testing anything.
+      if (getSafeMaxTokens(provider, bare) !== planted) {
+        unread.push(provider);
+      }
+      if (getSafeMaxTokens(provider, prefixed) !== before) {
+        leaked.push(provider);
+      }
+    } finally {
+      delete table[bare];
+    }
+  }
+  assert(
+    unread.length === 0,
+    `the planted row was not read for its own id under: ${unread.join(", ")}`,
+  );
+  assert(
+    leaked.length === 0,
+    `the geography lookup also applied to: ${leaked.join(", ")}`,
+  );
+
+  try {
+    registerRuntimeOutputCeiling("bedrock", prefixed, 777);
+    assert(
+      getSafeMaxTokens("bedrock", prefixed) === 777,
+      "a ceiling discovered for the prefixed id lost to its bare id's row",
+    );
+  } finally {
+    clearRuntimeOutputCeilings();
+  }
+
+  assert(
+    bedrock[prefixed] === undefined &&
+      bedrock["acme.nova-pro-v1:0"] === undefined &&
+      others.every((provider) => perModelTable(provider)[bare] === undefined),
+    "the case left a planted row in a per-model table",
+  );
 });
 
 await test("public session context stats use the 1M window for Claude 5 and Opus 4.7/4.8 on Anthropic and Vertex", async () => {

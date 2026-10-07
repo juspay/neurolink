@@ -22,6 +22,10 @@ import "dotenv/config";
  * responses are encoded in the real `vnd.amazon.eventstream` binary framing
  * (see `encodeEventFrame`), so the SDK's own decoder is exercised too.
  *
+ * The last section reads `inferenceConfig.maxTokens` off those requests to pin
+ * what a request carries for a geography-prefixed model id: the streaming path
+ * applies the model's output ceiling, generate() sends the caller's own value.
+ *
  * Run: npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts
  *      pnpm run test:bedrock-loop-characterization
  */
@@ -995,6 +999,190 @@ await test("a caller's own tool executes, on both paths", async () => {
     restore();
     await generateServer.close();
   }
+});
+
+section("max tokens for geography-prefixed ids");
+
+/** [model id, the caller's maxTokens (none when undefined)]. */
+type MaxTokensInput = readonly [string, number | undefined];
+
+/** The model id and `inferenceConfig.maxTokens` of a request that went out. */
+type SentRequest = {
+  modelId: string | undefined;
+  maxTokens: number | undefined;
+};
+
+/**
+ * Sends each input through `generate` or `stream` against one stand-in and
+ * returns, in order, what the request that went out carried. The cases below
+ * compare it with expectations by index only: a message built from what the
+ * server saw could read as a provider error and be reported as a skip.
+ */
+async function sendThrough(
+  path: "generate" | "stream",
+  inputs: readonly MaxTokensInput[],
+): Promise<SentRequest[]> {
+  const server = await startStandIn(() =>
+    path === "generate" ? converseText("ok") : textFrames("ok"),
+  );
+  const restore = withEnv(server.port);
+  const sent: SentRequest[] = [];
+  try {
+    const nl = new NeuroLink();
+    for (const [model, requested] of inputs) {
+      const first = server.calls.length;
+      const maxTokens = requested === undefined ? {} : { maxTokens: requested };
+      if (path === "generate") {
+        await nl.generate({
+          input: { text: "hi" },
+          provider: "bedrock",
+          model,
+          disableTools: true,
+          ...maxTokens,
+        });
+      } else {
+        const result = await nl.stream({
+          input: { text: "hi" },
+          provider: "bedrock",
+          model,
+          disableTools: true,
+          ...maxTokens,
+        });
+        for await (const chunk of result.stream) {
+          void chunk;
+        }
+      }
+      const call = server.calls[first];
+      sent.push({
+        modelId: call?.modelId,
+        maxTokens: (
+          call?.body.inferenceConfig as { maxTokens?: number } | undefined
+        )?.maxTokens,
+      });
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  return sent;
+}
+
+// The streaming path runs the caller's maxTokens, or its absence, through the
+// output ceilings in PROVIDER_MAX_TOKENS.bedrock: Nova Premier 25K, Nova Pro and
+// Lite 5K, Llama 4 Maverick 8,192. Every other Bedrock id takes the 64K provider
+// default. The bare ids are the reference; the same models under a geography
+// must send the same value. Ids and geographies are combined for coverage, and
+// the table-level suite sweeps every geography over every id.
+const STREAM_CEILING_CASES: ReadonlyArray<
+  readonly [string, number | undefined, number]
+> = [
+  ["amazon.nova-pro-v1:0", undefined, 5_000],
+  ["amazon.nova-lite-v1:0", undefined, 5_000],
+  ["amazon.nova-premier-v1:0", undefined, 25_000],
+  ["meta.llama4-maverick-17b-instruct-v1:0", undefined, 8_192],
+  ["us.amazon.nova-pro-v1:0", undefined, 5_000],
+  ["eu.amazon.nova-lite-v1:0", undefined, 5_000],
+  ["apac.amazon.nova-premier-v1:0", undefined, 25_000],
+  ["global.meta.llama4-maverick-17b-instruct-v1:0", undefined, 8_192],
+  // A caller's value above the ceiling is cut to it, as for the bare id; one
+  // under it goes out as given.
+  ["amazon.nova-pro-v1:0", 100_000, 5_000],
+  ["jp.amazon.nova-pro-v1:0", 100_000, 5_000],
+  ["us.amazon.nova-pro-v1:0", 4_000, 4_000],
+];
+
+await test("stream sends a geography-prefixed Bedrock id the max tokens of its bare id", async () => {
+  const sent = await sendThrough(
+    "stream",
+    STREAM_CEILING_CASES.map(
+      ([model, requested]): MaxTokensInput => [model, requested],
+    ),
+  );
+  const wrong: number[] = [];
+  STREAM_CEILING_CASES.forEach(([model, , expected], index) => {
+    if (sent[index].modelId !== model || sent[index].maxTokens !== expected) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `stream sent the wrong max tokens for case(s) at index ${wrong.join(", ")}`,
+  );
+});
+
+await test("stream keeps the Bedrock default max tokens for ids that are not a geography plus a known vendor and model (controls)", async () => {
+  // Controls: none of these ids may be rewritten, and every one goes out with
+  // the same value with or without the geography lookup. The Opus 4.5 row is
+  // 64K, which is also the default. The ARN is not a prefixed id; the lookup
+  // does not parse ARNs.
+  const controls: ReadonlyArray<readonly [string, number | undefined, number]> =
+    [
+      ["us.anthropic.claude-opus-4-5-20251101-v1:0", undefined, 64_000],
+      ["us.anthropic.claude-not-a-listed-model-v1:0", undefined, 64_000],
+      ["us.anthropic.claude-not-a-listed-model-v1:0", 100_000, 64_000],
+      ["xx.amazon.nova-pro-v1:0", undefined, 64_000],
+      ["us.us.amazon.nova-pro-v1:0", undefined, 64_000],
+      [
+        "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+        undefined,
+        64_000,
+      ],
+    ];
+  const sent = await sendThrough(
+    "stream",
+    controls.map(([model, requested]): MaxTokensInput => [model, requested]),
+  );
+  const wrong: number[] = [];
+  controls.forEach(([model, , expected], index) => {
+    if (sent[index].modelId !== model || sent[index].maxTokens !== expected) {
+      wrong.push(index);
+    }
+  });
+  assert(
+    wrong.length === 0,
+    `stream sent the wrong max tokens for control(s) at index ${wrong.join(", ")}`,
+  );
+});
+
+await test("generate sends a geography-prefixed Bedrock id the same max tokens as its bare id (control)", async () => {
+  // Bedrock's generate() reaches its loop with the caller's options as given:
+  // the options normalization that applies the output ceiling, and supplies one
+  // when the caller sent none, runs on the streaming path only. So this holds
+  // with or without the geography lookup, and it guards the day generate starts
+  // applying the ceiling to bare ids.
+  const pairs = [
+    ["amazon.nova-pro-v1:0", "us.amazon.nova-pro-v1:0"],
+    ["amazon.nova-lite-v1:0", "eu.amazon.nova-lite-v1:0"],
+    ["amazon.nova-premier-v1:0", "apac.amazon.nova-premier-v1:0"],
+    [
+      "meta.llama4-maverick-17b-instruct-v1:0",
+      "global.meta.llama4-maverick-17b-instruct-v1:0",
+    ],
+  ] as const;
+  const callerValues = [undefined, 100_000, 4_000];
+  // Each bare id is followed by its prefixed id, with the same caller value.
+  const inputs = pairs.flatMap(([bare, prefixed]) =>
+    callerValues.flatMap((value): MaxTokensInput[] => [
+      [bare, value],
+      [prefixed, value],
+    ]),
+  );
+  const sent = await sendThrough("generate", inputs);
+  const wrong: number[] = [];
+  inputs.forEach(([model], index) => {
+    if (sent[index].modelId !== model) {
+      wrong.push(index);
+    }
+  });
+  for (let index = 0; index < inputs.length; index += 2) {
+    if (sent[index].maxTokens !== sent[index + 1].maxTokens) {
+      wrong.push(index + 1);
+    }
+  }
+  assert(
+    wrong.length === 0,
+    `generate sent a prefixed id another max tokens than its bare id, or another model, for input(s) at index ${wrong.join(", ")}`,
+  );
 });
 
 await runSuite();

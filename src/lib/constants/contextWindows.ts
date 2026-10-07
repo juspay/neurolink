@@ -555,8 +555,12 @@ const BEDROCK_VENDORS: ReadonlySet<string> = new Set(
  *
  * Undefined for any other shape, so an id that merely starts with `us.` is
  * never rewritten. Removes one geography at most: no vendor is a geography.
+ *
+ * Every Bedrock table keyed by bare ids (context windows here, output ceilings
+ * in `getSafeMaxTokens`) goes through this one function, so they cannot
+ * disagree about which ids are cross-region profile ids.
  */
-function stripBedrockGeoPrefix(model: string): string | undefined {
+export function stripBedrockGeoPrefix(model: string): string | undefined {
   const [geo, vendor, ...rest] = model.split(".");
   if (
     rest.length === 0 ||
