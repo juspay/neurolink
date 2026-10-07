@@ -42,7 +42,7 @@ import {
  *
  *   LLM (OpenAI-compat):     every src/lib/providers/catalog/*.json entry, plus Cohere
  *   LLM (custom shape):      Cohere, Cloudflare Workers AI, Replicate
- *   Embeddings:              Voyage AI, Jina AI, OpenAI (native /v1/embeddings)
+ *   Embeddings:              Voyage AI, Jina AI, OpenAI, LiteLLM, Ollama (native embeddings)
  *   Image-gen:               Stability, Ideogram, Recraft
  *   LLM (native, fetch-interceptable):    OpenAI, Azure, Anthropic
  *   LLM (native, construction-only —
@@ -1598,6 +1598,9 @@ async function runEmbeddingsSection(): Promise<void> {
   }
 
   await runOpenAIEmbeddingRows();
+  for (const spec of COMPAT_EMBEDDING_PROVIDERS) {
+    await runCompatEmbeddingRows(spec);
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -1876,6 +1879,408 @@ async function runOpenAIEmbeddingRows(): Promise<void> {
           );
         },
       ),
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: LiteLLM and Ollama native embeddings — response rows against the
+// inputs. Both answer the OpenAI-shaped POST /embeddings, so the rows are the
+// ones the OpenAI section builds.
+// ───────────────────────────────────────────────────────────────────────
+
+type CompatEmbeddingSpec = {
+  provider: "litellm" | "ollama";
+  /** Only builds the provider: every call below names the embedding model. */
+  chatModel: string;
+  embeddingModel: string;
+  /** Substring of the URL the client POSTs the texts to. */
+  embeddingsUrl: string;
+  env: Record<string, string | undefined>;
+  /** Requests the client makes besides the embeddings POST. */
+  sideRoutes: Parameters<typeof installMockFetch>[0];
+};
+
+type CompatEmbeddingProvider = {
+  embed: (text: string, modelName?: string) => Promise<number[]>;
+  embedMany: (texts: string[], modelName?: string) => Promise<number[][]>;
+};
+
+// Non-default ports, so a real LiteLLM or Ollama on its usual port can never
+// answer a call the mock table should have caught.
+const COMPAT_EMBEDDING_PROVIDERS: CompatEmbeddingSpec[] = [
+  {
+    provider: "litellm",
+    chatModel: "openai/gpt-4o-mini",
+    embeddingModel: "mock-embedding-model",
+    embeddingsUrl: "127.0.0.1:4010/embeddings",
+    env: {
+      LITELLM_API_KEY: "test-fake-litellm-credential",
+      LITELLM_BASE_URL: "http://127.0.0.1:4010",
+      LITELLM_EMBEDDING_MODEL: undefined,
+    },
+    // LiteLLM asks for the model limits as soon as the provider is built.
+    sideRoutes: [
+      {
+        method: "GET",
+        url: "127.0.0.1:4010/model/info",
+        respond: { status: 200, json: { data: [] } },
+      },
+    ],
+  },
+  {
+    provider: "ollama",
+    chatModel: "llama3.1:8b",
+    embeddingModel: "mock-embedding-model",
+    embeddingsUrl: "127.0.0.1:11439/v1/embeddings",
+    env: {
+      OLLAMA_BASE_URL: "http://127.0.0.1:11439",
+      OLLAMA_API_KEY: undefined,
+      OLLAMA_EMBEDDING_MODEL: undefined,
+    },
+    sideRoutes: [],
+  },
+];
+
+/**
+ * Answers the embeddings POST with one row per input, the first character's
+ * code as its only value; `reshape` turns that healthy answer into the one a
+ * case needs.
+ */
+function compatEmbeddingsRoute(
+  spec: CompatEmbeddingSpec,
+  reshape: (rows: OpenAIEmbeddingRow[]) => OpenAIEmbeddingRow[] = (rows) =>
+    rows,
+) {
+  return {
+    method: "POST",
+    url: spec.embeddingsUrl,
+    respond: (call: { bodyJson: unknown }) => {
+      const input = (call.bodyJson as { input?: string | string[] }).input;
+      const texts = Array.isArray(input) ? input : [input ?? ""];
+      const rows = texts.map((text, index) => ({
+        object: "embedding" as const,
+        index,
+        embedding: [text.charCodeAt(0)],
+      }));
+      return {
+        status: 200,
+        json: {
+          object: "list",
+          model: spec.embeddingModel,
+          data: reshape(rows),
+          usage: { prompt_tokens: texts.length, total_tokens: texts.length },
+        },
+      };
+    },
+  };
+}
+
+async function runCompatEmbeddingRows(
+  spec: CompatEmbeddingSpec,
+): Promise<void> {
+  console.log(`\n=== EMBED ${spec.provider} (native /embeddings) ===`);
+  // Put the variables back as this section found them: the full run goes on
+  // to later sections with whatever is left in process.env.
+  const before = Object.keys(spec.env).map(
+    (name) => [name, process.env[name]] as const,
+  );
+  for (const [name, value] of Object.entries(spec.env)) {
+    setEnv(name, value);
+  }
+  try {
+    await checkCompatEmbeddingRows(spec);
+  } finally {
+    for (const [name, value] of before) {
+      setEnv(name, value);
+    }
+  }
+}
+
+async function checkCompatEmbeddingRows(
+  spec: CompatEmbeddingSpec,
+): Promise<void> {
+  const section = `EMBED ${spec.provider}`;
+  const { ProviderFactory } = await import("../dist/index.js");
+
+  async function withEmbeddingMock<T>(
+    reshape: Parameters<typeof compatEmbeddingsRoute>[1],
+    run: (
+      provider: CompatEmbeddingProvider,
+      posted: () => ReturnType<typeof installMockFetch>["calls"],
+    ) => Promise<T>,
+  ): Promise<T> {
+    return withMocks(
+      [compatEmbeddingsRoute(spec, reshape), ...spec.sideRoutes],
+      async ({ calls }) => {
+        // Built inside the mock, which is what answers LiteLLM's model
+        // limits request.
+        const provider = (await ProviderFactory.createProvider(
+          spec.provider,
+          spec.chatModel,
+        )) as unknown as CompatEmbeddingProvider;
+        return run(provider, () =>
+          calls.filter((call) => call.url.includes(spec.embeddingsUrl)),
+        );
+      },
+    );
+  }
+
+  async function settle<T>(
+    run: () => Promise<T>,
+  ): Promise<{ value: T | undefined; message: string | undefined }> {
+    try {
+      return { value: await run(), message: undefined };
+    } catch (err) {
+      return {
+        value: undefined,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  async function check(name: string, run: () => Promise<void>): Promise<void> {
+    try {
+      await run();
+      record(results, `${section}: ${name}`, true);
+    } catch (err) {
+      record(
+        results,
+        `${section}: ${name}`,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // A ProviderError puts the provider tag in front of its message once; the
+  // same error wrapped in a second one would carry the tag twice.
+  const isSingleProviderError = (message: string | undefined): boolean =>
+    (message ?? "").split(`[${spec.provider}]`).length === 2;
+
+  await check("embed() returns the vector for a healthy response", () =>
+    withEmbeddingMock(undefined, async (provider, posted) => {
+      const { value } = await settle(() =>
+        provider.embed("a", spec.embeddingModel),
+      );
+      const sent = posted();
+      expect(sent.length === 1, "embed did not send exactly one request");
+      const body = sent[0]?.bodyJson as
+        | { model?: string; input?: unknown }
+        | undefined;
+      expect(
+        body?.model === spec.embeddingModel && body.input === "a",
+        "embed did not send the model and the text",
+      );
+      expect(
+        value !== undefined && value.length === 1 && value[0] === 97,
+        "embed did not return the vector for a healthy response",
+      );
+    }),
+  );
+
+  await check("embedMany() returns one vector per text, in order", () =>
+    withEmbeddingMock(undefined, async (provider, posted) => {
+      const { value } = await settle(() =>
+        provider.embedMany(["a", "b", "c"], spec.embeddingModel),
+      );
+      const sent = (posted()[0]?.bodyJson as { input?: unknown } | undefined)
+        ?.input;
+      expect(
+        Array.isArray(sent) && sent.length === 3,
+        "embedMany did not send the three texts as one batch",
+      );
+      expect(
+        value !== undefined && value.map((v) => v[0]).join(",") === "97,98,99",
+        "embedMany did not return one vector per text, in order",
+      );
+    }),
+  );
+
+  for (const shape of ["missing", "empty"] as const) {
+    await check(
+      `embedMany() rejects an embedding that is ${shape} and names its index`,
+      async () => {
+        const { value, message } = await withEmbeddingMock(
+          withoutEmbeddingAt(1, shape),
+          (provider) =>
+            settle(() =>
+              provider.embedMany(["a", "b", "c"], spec.embeddingModel),
+            ),
+        );
+        expect(
+          value === undefined,
+          "embedMany returned vectors although one embedding had no values",
+        );
+        expect(
+          message !== undefined,
+          "embedMany did not reject an embedding without values",
+        );
+        expect(
+          /\bindex 1\b/.test(message ?? ""),
+          "the rejection did not name the index of the embedding without values",
+        );
+        expect(
+          isSingleProviderError(message),
+          "the rejection did not carry the provider tag exactly once",
+        );
+      },
+    );
+  }
+
+  await check(
+    "embedMany() rejects a response with fewer vectors than texts and names the counts",
+    async () => {
+      const { value, message } = await withEmbeddingMock(
+        (rows) => rows.slice(0, -1),
+        (provider) =>
+          settle(() =>
+            provider.embedMany(["a", "b", "c"], spec.embeddingModel),
+          ),
+      );
+      expect(
+        value === undefined,
+        "embedMany returned vectors although the response held fewer than one per text",
+      );
+      expect(
+        message !== undefined,
+        "embedMany did not reject a response with fewer vectors than texts",
+      );
+      expect(
+        /\b2 vectors for 3 texts\b/.test(message ?? ""),
+        "the rejection did not name the number of vectors and texts",
+      );
+      expect(
+        isSingleProviderError(message),
+        "the rejection did not carry the provider tag exactly once",
+      );
+    },
+  );
+
+  await check(
+    "embedMany() rejects a response with more vectors than texts and names the counts",
+    async () => {
+      const { value, message } = await withEmbeddingMock(
+        (rows) => [
+          ...rows,
+          { object: "embedding", index: rows.length, embedding: [1] },
+        ],
+        (provider) =>
+          settle(() =>
+            provider.embedMany(["a", "b", "c"], spec.embeddingModel),
+          ),
+      );
+      expect(
+        value === undefined,
+        "embedMany returned vectors although the response held more than one per text",
+      );
+      expect(
+        message !== undefined,
+        "embedMany did not reject a response with more vectors than texts",
+      );
+      expect(
+        /\b4 vectors for 3 texts\b/.test(message ?? ""),
+        "the rejection did not name the number of vectors and texts",
+      );
+    },
+  );
+
+  await check(
+    "embedMany() keeps the real index in the rejection for an index that looks like a status code",
+    async () => {
+      const texts = Array.from({ length: 430 }, (_, i) => `t${i}`);
+      const { value, message } = await withEmbeddingMock(
+        withoutEmbeddingAt(429, "empty"),
+        (provider) =>
+          settle(() => provider.embedMany(texts, spec.embeddingModel)),
+      );
+      expect(
+        value === undefined && message !== undefined,
+        "embedMany did not reject an embedding without values in a large batch",
+      );
+      expect(
+        /\bindex 429\b/.test(message ?? ""),
+        "the rejection lost the index when it resembled a status code",
+      );
+      expect(
+        !/rate limit/i.test(message ?? ""),
+        "the rejection was reworded as a rate-limit error",
+      );
+    },
+  );
+
+  await check("embed() rejects an empty embedding", async () => {
+    const { value, message } = await withEmbeddingMock(
+      withoutEmbeddingAt(0, "empty"),
+      (provider) => settle(() => provider.embed("a", spec.embeddingModel)),
+    );
+    expect(
+      value === undefined,
+      "embed returned a vector although the embedding had no values",
+    );
+    expect(
+      message !== undefined,
+      "embed did not reject an embedding without values",
+    );
+    expect(
+      /\bindex 0\b/.test(message ?? ""),
+      "the rejection did not name the index of the embedding without values",
+    );
+  });
+
+  await check(
+    "embed() rejects a response with more than one vector for the text",
+    async () => {
+      const { value, message } = await withEmbeddingMock(
+        (rows) => [
+          ...rows,
+          { object: "embedding", index: rows.length, embedding: [1] },
+        ],
+        (provider) => settle(() => provider.embed("a", spec.embeddingModel)),
+      );
+      expect(
+        value === undefined,
+        "embed returned a vector although the response held more than one",
+      );
+      expect(
+        message !== undefined,
+        "embed did not reject a response with more than one vector",
+      );
+      expect(
+        /\b2 vectors for 1 texts\b/.test(message ?? ""),
+        "the rejection did not name the number of vectors and texts",
+      );
+    },
+  );
+
+  // These two were already refused (every surviving row was dropped, leaving
+  // none), so they pin that behaviour rather than prove a change.
+  await check(
+    "embed() rejects a response whose only row has no embedding",
+    async () => {
+      const { value, message } = await withEmbeddingMock(
+        withoutEmbeddingAt(0, "missing"),
+        (provider) => settle(() => provider.embed("a", spec.embeddingModel)),
+      );
+      expect(
+        value === undefined && message !== undefined,
+        "embed did not reject a response whose only row had no embedding",
+      );
+    },
+  );
+
+  await check(
+    "embedMany() rejects a response whose rows all lack an embedding",
+    async () => {
+      const { value, message } = await withEmbeddingMock(
+        (rows) => rows.map((row) => ({ object: row.object, index: row.index })),
+        (provider) =>
+          settle(() => provider.embedMany(["a", "b"], spec.embeddingModel)),
+      );
+      expect(
+        value === undefined && message !== undefined,
+        "embedMany did not reject a response whose rows all lacked an embedding",
+      );
+    },
   );
 }
 

@@ -615,11 +615,8 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.LITELLM_EMBEDDING_MODEL ||
       "gemini-embedding-001";
-    const [embedding] = await this.callEmbeddings(
-      embeddingModelName,
-      [text],
-      "embed",
-    );
+    const rows = await this.callEmbeddings(embeddingModelName, [text], "embed");
+    const [embedding] = this.requireEmbeddings(rows, 1, embeddingModelName);
     return embedding;
   }
 
@@ -631,14 +628,56 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.LITELLM_EMBEDDING_MODEL ||
       "gemini-embedding-001";
-    return this.callEmbeddings(embeddingModelName, texts, "embedMany");
+    const rows = await this.callEmbeddings(
+      embeddingModelName,
+      texts,
+      "embedMany",
+    );
+    return this.requireEmbeddings(rows, texts.length, embeddingModelName);
+  }
+
+  /**
+   * One non-empty vector per input, or fail: a dropped or empty row would
+   * pair later texts with the wrong vectors, or score 0 downstream.
+   */
+  private requireEmbeddings(
+    rows: Array<number[] | undefined>,
+    inputCount: number,
+    modelName: string,
+  ): number[][] {
+    if (rows.length !== inputCount) {
+      logger.error("Embedding response held the wrong number of vectors", {
+        provider: this.providerName,
+        model: modelName,
+        expected: inputCount,
+        received: rows.length,
+      });
+      throw new ProviderError(
+        `Embedding response held ${rows.length} vectors for ${inputCount} texts`,
+        this.providerName,
+      );
+    }
+    return rows.map((values, index) => {
+      if (!values || values.length === 0) {
+        logger.error("Embedding returned no values", {
+          provider: this.providerName,
+          model: modelName,
+          index,
+        });
+        throw new ProviderError(
+          `Embedding for the text at index ${index} came back without values`,
+          this.providerName,
+        );
+      }
+      return values;
+    });
   }
 
   private async callEmbeddings(
     modelName: string,
     input: string[],
     operation: "embed" | "embedMany",
-  ): Promise<number[][]> {
+  ): Promise<Array<number[] | undefined>> {
     const url = `${stripTrailingSlash(this.config.baseURL)}/embeddings`;
     const fetchImpl = createProxyFetch();
     const timeoutController = createTimeoutController(
@@ -678,16 +717,16 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       const json = (await res.json()) as {
         data?: Array<{ embedding?: number[] }>;
       };
-      const embeddings = (json.data ?? [])
-        .map((row) => row.embedding)
-        .filter((e): e is number[] => Array.isArray(e));
-      if (embeddings.length === 0) {
+      const rows = (json.data ?? []).map((row) =>
+        Array.isArray(row.embedding) ? row.embedding : undefined,
+      );
+      if (rows.length === 0) {
         throw new ProviderError(
           `LiteLLM ${operation} returned no embeddings`,
           this.providerName,
         );
       }
-      return embeddings;
+      return rows;
     } finally {
       timeoutController?.cleanup();
     }
