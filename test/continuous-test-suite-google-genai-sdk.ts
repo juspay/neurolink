@@ -276,14 +276,6 @@ async function startVertexEmbeddingStandIn(
 
 const VERTEX_EMBEDDING_MODEL = "text-embedding-004";
 
-// The Vertex client reads `baseURL` from its credentials, but the public
-// credentials type does not list it, so an inline literal would not compile.
-// Returned from a function it is not checked as a fresh literal, which is how
-// the proxy suite hands the same credentials over.
-function vertexExpressCredentials(baseURL: string) {
-  return { vertex: { apiKey: "k", baseURL } };
-}
-
 async function createVertexExpressProvider(origin: string) {
   await ProviderRegistry.registerAllProviders();
   return ProviderFactory.createProvider(
@@ -291,7 +283,7 @@ async function createVertexExpressProvider(origin: string) {
     "gemini-2.0-flash",
     undefined,
     undefined,
-    vertexExpressCredentials(origin),
+    { vertex: { apiKey: "k", baseURL: origin } },
   );
 }
 

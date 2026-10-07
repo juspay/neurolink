@@ -341,7 +341,7 @@ void runSuite(async () => {
             baseURL: await fixture.url,
           },
         },
-      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      });
 
       let gotFirstChunk = false;
       for await (const chunk of result.stream) {

@@ -113,6 +113,15 @@ Inline service-account fields (alternative to serviceAccountKey)
 
 > `optional` **privateKey?**: `string`
 
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+Overrides the Vertex API base URL, e.g. to reach a local stand-in. Used
+for Gemini and Claude models, in Express Mode and with a project and
+location. Takes precedence over `GOOGLE_VERTEX_BASE_URL`; a blank value
+counts as unset.
+
 ---
 
 ### bedrock?

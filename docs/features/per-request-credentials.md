@@ -91,28 +91,28 @@ Unset providers at any level fall through to the next. You never need to repeat 
 
 All fields are optional — omit any field you want to fall through to a lower-precedence level.
 
-| Provider             | Key                 | Fields                                                                                               |
-| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| OpenAI               | `openai`            | `apiKey`, `baseURL`                                                                                  |
-| Anthropic            | `anthropic`         | `apiKey`, `oauthToken`, `baseURL`                                                                    |
-| Google AI Studio     | `googleAiStudio`    | `apiKey`, `baseURL`                                                                                  |
-| Google Vertex AI     | `vertex`            | `projectId`, `location`, `apiKey` (Express Mode), `serviceAccountKey`, `clientEmail`, `privateKey`   |
-| Amazon Bedrock       | `bedrock`           | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`                                           |
-| Amazon SageMaker     | `sagemaker`         | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`, `endpoint`                               |
-| Azure OpenAI         | `azure`             | `apiKey`, `resourceName`, `deploymentName`, `apiVersion`                                             |
-| Mistral              | `mistral`           | `apiKey`                                                                                             |
-| Hugging Face         | `huggingFace`       | `apiKey`, `baseURL`                                                                                  |
-| OpenRouter           | `openrouter`        | `apiKey`, `baseURL`                                                                                  |
-| LiteLLM              | `litellm`           | `apiKey`, `baseURL`                                                                                  |
-| OpenAI-Compatible    | `openaiCompatible`  | `apiKey`, `baseURL`                                                                                  |
-| Cerebras             | `cerebras`          | `apiKey`, `baseURL`                                                                                  |
-| SambaNova            | `sambanova`         | `apiKey`, `baseURL`                                                                                  |
-| Ollama               | `ollama`            | `baseURL`                                                                                            |
-| TypeSafe (Jev)       | `typesafe`          | `apiKey`, `baseURL`, `transport`, `gatewayApiKey`, `gatewayURL`                                      |
-| Laya                 | `laya`              | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                        |
-| XOR                  | `xor`               | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/systemone`)            |
-| Perplexity Decisions | `perplexityDecider` | `apiKey`, `baseURL` (optional: defaults to `https://api.perplexity.ai`; calls `<base>/v1/decisions`) |
-| Cloudflare Clef      | `cloudflareClef`    | `apiKey`, `accountId`, `baseURL` (optional: defaults to `https://api.cloudflare.com/client/v4`)      |
+| Provider             | Key                 | Fields                                                                                                        |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| OpenAI               | `openai`            | `apiKey`, `baseURL`                                                                                           |
+| Anthropic            | `anthropic`         | `apiKey`, `oauthToken`, `baseURL`                                                                             |
+| Google AI Studio     | `googleAiStudio`    | `apiKey`, `baseURL`                                                                                           |
+| Google Vertex AI     | `vertex`            | `projectId`, `location`, `apiKey` (Express Mode), `serviceAccountKey`, `clientEmail`, `privateKey`, `baseURL` |
+| Amazon Bedrock       | `bedrock`           | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`                                                    |
+| Amazon SageMaker     | `sagemaker`         | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`, `endpoint`                                        |
+| Azure OpenAI         | `azure`             | `apiKey`, `resourceName`, `deploymentName`, `apiVersion`                                                      |
+| Mistral              | `mistral`           | `apiKey`                                                                                                      |
+| Hugging Face         | `huggingFace`       | `apiKey`, `baseURL`                                                                                           |
+| OpenRouter           | `openrouter`        | `apiKey`, `baseURL`                                                                                           |
+| LiteLLM              | `litellm`           | `apiKey`, `baseURL`                                                                                           |
+| OpenAI-Compatible    | `openaiCompatible`  | `apiKey`, `baseURL`                                                                                           |
+| Cerebras             | `cerebras`          | `apiKey`, `baseURL`                                                                                           |
+| SambaNova            | `sambanova`         | `apiKey`, `baseURL`                                                                                           |
+| Ollama               | `ollama`            | `baseURL`                                                                                                     |
+| TypeSafe (Jev)       | `typesafe`          | `apiKey`, `baseURL`, `transport`, `gatewayApiKey`, `gatewayURL`                                               |
+| Laya                 | `laya`              | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                                 |
+| XOR                  | `xor`               | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/systemone`)                     |
+| Perplexity Decisions | `perplexityDecider` | `apiKey`, `baseURL` (optional: defaults to `https://api.perplexity.ai`; calls `<base>/v1/decisions`)          |
+| Cloudflare Clef      | `cloudflareClef`    | `apiKey`, `accountId`, `baseURL` (optional: defaults to `https://api.cloudflare.com/client/v4`)               |
 
 Cloudflare Clef needs both `apiKey` and `accountId`; the account id is part of the route (`<base>/accounts/<accountId>/ai/run/@cf/cloudflare/<model>`), so a token alone does not configure it. `credentials.cloudflare` is the Workers AI text provider's slice and does **not** configure `decide`: the two providers read the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` variables but take their own credentials; see [One token, two providers](../getting-started/providers/cloudflare-clef.md#one-token-two-providers).
 
