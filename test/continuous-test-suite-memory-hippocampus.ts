@@ -132,12 +132,12 @@ class FakeHippocampus implements HippocampusLike {
 }
 
 async function waitFor(
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   timeoutMs = 5_000,
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (predicate()) {
+    if (await predicate()) {
       return true;
     }
     await delay(10);
@@ -258,9 +258,10 @@ void runSuite(async () => {
   function makeNeurolink(
     fake: FakeHippocampus | ((config: HippocampusConfig) => FakeHippocampus),
     memory: Partial<HippocampusMemory> = {},
+    target: MockChatServer = server,
   ): NL {
     return new NeuroLink({
-      credentials: mockOpenAICredentials(server),
+      credentials: mockOpenAICredentials(target),
       conversationMemory: {
         enabled: true,
         memory: { enabled: true, client: fake, ...memory },
@@ -1095,6 +1096,12 @@ void runSuite(async () => {
         (condensation ?? "").includes('"gpt-4o-mini"'),
         "the second request should be the condensation prompt, using the configured neurolink.model",
       );
+      // The request reaching the server only says the condensation has
+      // started; the text is stored once its response has been handled.
+      assert(
+        await waitFor(async () => (await fake.get("user-alice")) !== null),
+        "the condensed text should have been stored",
+      );
       assertEqual(
         await fake.get("user-alice"),
         "mock reply",
@@ -1374,54 +1381,62 @@ void runSuite(async () => {
   });
 
   await test("shutdown() stores the last turn: the deferred write is drained before the condenser is released", async () => {
-    const captured = captureFake();
-    const nl = makeNeurolink(captured.factory, {
-      neurolink: { provider: "openai", model: "gpt-4o-mini" },
-    });
-    const before = server.getAllRequestBodies().length;
-    await nl.generate(generateArgs(undefined));
-    const fake = captured.get();
-    // The write is queued on setImmediate and has not run when shutdown()
-    // begins — the serverless / one-shot shape. Without this precondition a
-    // stored turn would prove nothing about shutdown().
-    assertEqual(
-      fake.adds.length,
-      0,
-      "precondition: the write must still be deferred when shutdown() begins",
-    );
-    await nl.shutdown();
-    // No settle delay: shutdown() itself must have waited for the write.
-    assertEqual(
-      fake.adds.length,
-      1,
-      "shutdown() must store the last turn before releasing the condenser",
-    );
-    const condensations = () =>
-      server
-        .getAllRequestBodies()
-        .slice(before)
-        .filter((body) => body.includes("CONDENSE_MARKER")).length;
-    assertEqual(
-      condensations(),
-      1,
-      "the condensation must have run through the child before it was released",
-    );
-    // Once released, the condenser handle Hippocampus holds must refuse,
-    // not rebuild.
-    let rejected = false;
+    // A server of its own: the shared one also receives the condensation
+    // requests of earlier cases whose instances were never shut down, and one
+    // of those landing here would be counted as this case's.
+    const own = await startMockChatServer();
     try {
-      await fake.config.neurolink!.instance!.generate({
-        input: { text: "CONDENSE_MARKER late" },
-      });
-    } catch {
-      rejected = true;
+      const captured = captureFake();
+      const nl = makeNeurolink(
+        captured.factory,
+        { neurolink: { provider: "openai", model: "gpt-4o-mini" } },
+        own,
+      );
+      await nl.generate(generateArgs(undefined));
+      const fake = captured.get();
+      // The write is queued on setImmediate and has not run when shutdown()
+      // begins — the serverless / one-shot shape. Without this precondition a
+      // stored turn would prove nothing about shutdown().
+      assertEqual(
+        fake.adds.length,
+        0,
+        "precondition: the write must still be deferred when shutdown() begins",
+      );
+      await nl.shutdown();
+      // No settle delay: shutdown() itself must have waited for the write.
+      assertEqual(
+        fake.adds.length,
+        1,
+        "shutdown() must store the last turn before releasing the condenser",
+      );
+      const condensations = () =>
+        own
+          .getAllRequestBodies()
+          .filter((body) => body.includes("CONDENSE_MARKER")).length;
+      assertEqual(
+        condensations(),
+        1,
+        "the condensation must have run through the child before it was released",
+      );
+      // Once released, the condenser handle Hippocampus holds must refuse,
+      // not rebuild.
+      let rejected = false;
+      try {
+        await fake.config.neurolink!.instance!.generate({
+          input: { text: "CONDENSE_MARKER late" },
+        });
+      } catch {
+        rejected = true;
+      }
+      assert(rejected, "a late condensation on a released host must reject");
+      assertEqual(
+        condensations(),
+        1,
+        "no condensation request may reach the server after the release",
+      );
+    } finally {
+      await own.close();
     }
-    assert(rejected, "a late condensation on a released host must reject");
-    assertEqual(
-      condensations(),
-      1,
-      "no condensation request may reach the server after the release",
-    );
   });
 
   await test("a write scheduled after shutdown() resolved is skipped, and never rebuilds the condenser", async () => {
