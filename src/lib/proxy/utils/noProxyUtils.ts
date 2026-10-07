@@ -52,6 +52,11 @@ function withoutTrailingDot(name: string): string {
   return name.endsWith(".") ? name.slice(0, -1) : name;
 }
 
+/** An entry made only of dots (`.`, `..`) names no host. */
+function isDotsOnly(entry: string): boolean {
+  return /^\.+$/.test(entry);
+}
+
 /**
  * curl's rules for one list entry: an optional leading `.` or `*.` is ignored;
  * the entry names that host and every subdomain of it, an IP literal only
@@ -121,17 +126,25 @@ function matchesNoProxyEntry(
 }
 
 /**
- * The rules this function applied before it followed curl, unchanged and still
- * consulted, so that a configuration that bypassed the proxy through them keeps
- * doing so. That includes where they are looser than curl (`.example.com` also
- * matches `notexample.com`) and an IPv4 CIDR range such as `192.168.1.0/24`,
- * which curl-style entries do not express.
+ * The rules this function applied before it followed curl, still consulted so
+ * that a configuration that bypassed the proxy through them keeps doing so.
+ * That includes where they are looser than curl (`.example.com` also matches
+ * `notexample.com`) and an IPv4 CIDR range such as `192.168.1.0/24`, which
+ * curl-style entries do not express. They are unchanged except that an entry
+ * made only of dots names no host, as in the curl-style rules.
  */
 function matchesLegacyNoProxyEntry(
   lowerPattern: string,
   hostname: string,
   port: string,
 ): boolean {
+  // Taken as a suffix, "." leaves the empty string, which every host name ends
+  // with, and ".." leaves ".", which every host written with a trailing dot
+  // ends with.
+  if (isDotsOnly(lowerPattern)) {
+    return false;
+  }
+
   // Domain suffix match (.example.com)
   if (lowerPattern.startsWith(".")) {
     const suffix = lowerPattern.slice(1);
@@ -168,6 +181,8 @@ function matchesLegacyNoProxyEntry(
  * - "192.168.1.10", "::1", "[::1]:8080" - an IP literal, exactly
  * - "192.168.1.0/24" - an IPv4 CIDR range, for IPv4 literal targets (IPv6 CIDR
  *   ranges are not supported)
+ * - "." and ".." - an entry made only of dots names no host, so it matches
+ *   nothing, as in curl
  *
  * @param targetUrl - The URL to check for proxy bypass
  * @param noProxyEnv - Optional NO_PROXY environment variable value (if not provided, reads from process.env)
@@ -232,6 +247,8 @@ export function getNoProxyEnv(): string | undefined {
  * - "example.com" - exact match
  * - ".example.com" - domain suffix match
  *
+ * An entry made only of dots names no host and matches nothing.
+ *
  * @param targetUrl - The URL to check
  * @param noProxyValue - The NO_PROXY value to check against
  * @returns true if should bypass proxy
@@ -249,6 +266,11 @@ export function shouldBypassProxySimple(
 
     for (const pattern of patterns) {
       if (!pattern) {
+        continue;
+      }
+
+      // As a suffix, "." would match every host written with a trailing dot.
+      if (isDotsOnly(pattern)) {
         continue;
       }
 

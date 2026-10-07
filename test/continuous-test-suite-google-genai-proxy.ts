@@ -753,11 +753,12 @@ const BYPASS_ENTRIES: NoProxyCase[] = [
 ];
 
 /**
- * A lone `.` is not a dots-only control here: the rules that applied before
- * NO_PROXY followed curl are still consulted, and they take it as a suffix of
- * every host (and `..` as one of every host written with a trailing dot), so
- * both bypass. `*..` is matched by neither rule set, and it is one the
- * trailing-dot rule would reduce to an empty name.
+ * Entries that must not bypass the proxy for the request their case makes.
+ * Those made only of dots are here because the rules that applied before
+ * NO_PROXY followed curl are still consulted, and they once took `.` for a
+ * suffix of every host and `..` for one of every host written with a trailing
+ * dot, so both bypassed the proxy. `*..` they never matched, and the
+ * trailing-dot rule would reduce it to an empty name.
  */
 const PROXIED_ENTRIES: NoProxyCase[] = [
   {
@@ -781,6 +782,12 @@ const PROXIED_ENTRIES: NoProxyCase[] = [
   {
     label: "only dots and a wildcard, for a host written with a trailing dot",
     entry: () => "*..",
+    host: GOOGLE_HOST_WITH_DOT,
+  },
+  { label: "a lone dot", entry: () => "." },
+  {
+    label: "two dots, for a host written with a trailing dot",
+    entry: () => "..",
     host: GOOGLE_HOST_WITH_DOT,
   },
 ];
