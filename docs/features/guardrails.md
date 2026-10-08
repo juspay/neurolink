@@ -167,11 +167,11 @@ Simple regex-based replacement:
 
 ```typescript
 // Input: "This contains spam and other spam words"
-// Output: "This contains **** and other **** words"
+// Output: "This contains [REDACTED] and other [REDACTED] words"
 ```
 
 - Case-insensitive matching
-- Replaces with asterisks (`*`) of equal length
+- Replaces each match with a fixed string, `[REDACTED]` by default (not length-preserving asterisks) — override it with `badWords.replacementText`
 - Works in both `generate` and `stream` modes
 
 ### Model-Based Filtering
