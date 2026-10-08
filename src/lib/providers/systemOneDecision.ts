@@ -9,6 +9,7 @@ import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { ProviderError } from "../types/index.js";
 import type {
   DecisionAnswer,
+  DecisionDialect,
   DecisionError,
   DecisionQuestion,
   DecisionRequest,
@@ -27,6 +28,8 @@ import {
   estimateDecisionStateTokens,
   resolveDecisionLimitsReading,
 } from "../utils/decisionLimits.js";
+import { systemOneDialect } from "./decide/dialects/systemOne.js";
+import { asNumber, isRecord } from "./decide/guards.js";
 
 /**
  * Generous enough for a cold start (measured at 2.0–2.7s after idle on Jev)
@@ -36,114 +39,7 @@ import {
 export const DEFAULT_DECISION_TIMEOUT_MS = 5000;
 const DEFAULT_MAX_RETRIES = 1;
 
-export const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-export const asNumber = (v: unknown): number | undefined =>
-  typeof v === "number" && Number.isFinite(v) ? v : undefined;
-
-const asNumberMap = (v: unknown): Record<string, number> | undefined => {
-  if (!isRecord(v)) {
-    return undefined;
-  }
-  const out: Record<string, number> = {};
-  for (const [k, raw] of Object.entries(v)) {
-    const n = asNumber(raw);
-    if (n === undefined) {
-      return undefined;
-    }
-    out[k] = n;
-  }
-  return out;
-};
-
-const asStringMap = (v: unknown): Record<string, string> | undefined => {
-  if (!isRecord(v)) {
-    return undefined;
-  }
-  const out: Record<string, string> = {};
-  for (const [k, raw] of Object.entries(v)) {
-    if (typeof raw !== "string") {
-      return undefined;
-    }
-    out[k] = raw;
-  }
-  return out;
-};
-
-/**
- * Last-resort confidence, when no transport reported one.
- *
- * The peak probability is what a calibrated confidence approximates, but it is
- * NOT the same number, so a threshold tuned against a vendor's calibrated
- * figure does not transfer unexamined; an even distribution lands near 1/N
- * rather than 0.
- */
-function deriveConfidence(probabilities: Record<string, number>): number {
-  const values = Object.values(probabilities);
-  return values.length > 0 ? Math.max(...values) : 0;
-}
-
-/**
- * Validate one answer off the wire. Returns null rather than throwing so a
- * single malformed answer degrades to "unanswered" instead of failing the
- * whole batch — the batch may hold hundreds of usable answers.
- */
-function parseDecisionAnswer(
-  raw: unknown,
-  reportedConfidence?: number,
-): DecisionAnswer | null {
-  if (!isRecord(raw)) {
-    return null;
-  }
-  switch (raw.type) {
-    // "noul" is the System One wire's own spelling; "boolean" is the neutral
-    // one (Vercel's gateway), which renames both the type and the field.
-    // Accepting both keeps one parser for every transport.
-    case "noul":
-    case "boolean": {
-      const probability = asNumber(raw.noul) ?? asNumber(raw.probability);
-      return probability === undefined
-        ? null
-        : { type: "boolean", probability };
-    }
-    case "choice": {
-      const probabilities = asNumberMap(raw.probabilities);
-      if (typeof raw.choice !== "string" || !probabilities) {
-        return null;
-      }
-      return {
-        type: "choice",
-        choice: raw.choice,
-        confidence:
-          asNumber(raw.confidence) ??
-          reportedConfidence ??
-          deriveConfidence(probabilities),
-        probabilities,
-      };
-    }
-    case "score": {
-      const score = asNumber(raw.score);
-      const legend = asStringMap(raw.legend);
-      const probabilities = asNumberMap(raw.probabilities);
-      if (score === undefined || !legend || !probabilities) {
-        return null;
-      }
-      return {
-        type: "score",
-        score,
-        confidence:
-          asNumber(raw.confidence) ??
-          reportedConfidence ??
-          deriveConfidence(probabilities),
-        legend,
-        probabilities,
-      };
-    }
-    default:
-      return null;
-  }
-}
+export { asNumber, isRecord } from "./decide/guards.js";
 
 /**
  * FastAPI's request-validation envelope, `{"detail":[{loc, msg, input}]}`,
@@ -285,14 +181,15 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   protected encodeQuestion(
     question: DecisionQuestion,
   ): Record<string, unknown> {
-    if (question.type === "boolean") {
-      return {
-        type: "noul",
-        instructions: question.instructions,
-        ...(question.criteria ? { criteria: question.criteria } : {}),
-      };
-    }
-    return question;
+    return this.dialect().encodeQuestion(question);
+  }
+
+  /**
+   * The wire family this provider speaks. A provider on another layout
+   * overrides it; every one so far speaks System One.
+   */
+  protected dialect(): DecisionDialect {
+    return systemOneDialect;
   }
 
   /**
@@ -536,7 +433,13 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         }
 
         const decoded = this.readDecisionPayload(payload);
-        if (!isRecord(decoded) || !isRecord(decoded.answers)) {
+        const reading = isRecord(decoded)
+          ? this.dialect().readAnswers(
+              decoded,
+              this.reportedConfidence(decoded),
+            )
+          : undefined;
+        if (!isRecord(decoded) || !reading) {
           throw this.decisionError({
             kind: "server",
             message: `${label} returned a response without an answers map.`,
@@ -546,19 +449,12 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           });
         }
 
-        const reported = this.reportedConfidence(decoded);
-
-        const answers: Record<string, DecisionAnswer> = {};
-        for (const [id, raw] of Object.entries(decoded.answers)) {
-          const parsed = parseDecisionAnswer(raw, reported[id]);
-          if (parsed) {
-            answers[id] = parsed;
-          } else {
-            logger.warn(`${label}: dropped unparseable answer "${id}"`, {
-              requestId,
-            });
-          }
+        for (const id of reading.dropped) {
+          logger.warn(`${label}: dropped unparseable answer "${id}"`, {
+            requestId,
+          });
         }
+        const answers: Record<string, DecisionAnswer> = { ...reading.answers };
 
         const usage = isRecord(decoded.usage) ? decoded.usage : {};
         return {

@@ -578,3 +578,26 @@ export type DecisionBooleanGate = {
   /** Minimum {@link decisionBooleanConfidence} to act at all. Default 0.4. */
   minConfidence?: number;
 };
+
+/** The wire family a decide provider speaks. */
+export type DecideDialectName = "system-one";
+
+export type DecisionAnswerReading = {
+  readonly answers: Readonly<Record<string, DecisionAnswer>>;
+  /** Ids of answers the server returned that could not be parsed. */
+  readonly dropped: readonly string[];
+};
+
+/**
+ * How questions are written to, and answers read from, a decide wire. One
+ * dialect serves every vendor that speaks the same layout.
+ */
+export type DecisionDialect = {
+  readonly name: DecideDialectName;
+  encodeQuestion: (question: DecisionQuestion) => Record<string, unknown>;
+  /** `undefined` means the response has no usable answers container. */
+  readAnswers: (
+    decoded: Readonly<Record<string, unknown>>,
+    reportedConfidence: Readonly<Record<string, number>>,
+  ) => DecisionAnswerReading | undefined;
+};

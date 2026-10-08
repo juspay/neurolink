@@ -11656,6 +11656,197 @@ async function runCloudflareClefDecide(): Promise<void> {
   }
 }
 
+type DialectUnderTest = ReturnType<
+  (typeof import("../dist/providers/decide/dialects/index.js"))["getDecisionDialect"]
+>;
+
+async function runDecideDialect(): Promise<void> {
+  console.log("\n--- Decide dialect: system-one ---");
+  const registry = await import("../dist/providers/decide/dialects/index.js");
+  const direct = await import("../dist/providers/decide/dialects/systemOne.js");
+  const dialect = registry.getDecisionDialect("system-one");
+  const same = (actual: unknown, expected: unknown, label: string): void =>
+    expectEq(JSON.stringify(actual), JSON.stringify(expected), label);
+  const confidenceOf = (
+    reading: ReturnType<DialectUnderTest["readAnswers"]>,
+    id: string,
+  ): unknown =>
+    (reading?.answers[id] as { confidence?: unknown } | undefined)?.confidence;
+  const choice = (confidence?: number) => ({
+    type: "choice",
+    choice: "billing",
+    probabilities: { billing: 0.7, sales: 0.3 },
+    ...(confidence === undefined ? {} : { confidence }),
+  });
+
+  const cases: Array<[string, () => void]> = [
+    [
+      "DECIDE dialect system-one: the registry returns the shared dialect object",
+      () => {
+        expectEq(dialect, direct.systemOneDialect, "registry and module agree");
+        expectEq(dialect.name, "system-one", "dialect name");
+      },
+    ],
+    [
+      "DECIDE dialect system-one: a boolean question is sent as noul, criteria only when present",
+      () => {
+        same(
+          dialect.encodeQuestion({
+            type: "boolean",
+            instructions: "Is this urgent?",
+          }),
+          { type: "noul", instructions: "Is this urgent?" },
+          "no criteria",
+        );
+        same(
+          dialect.encodeQuestion({
+            type: "boolean",
+            instructions: "Is this urgent?",
+            criteria: { true: "urgent", false: "routine" },
+          }),
+          {
+            type: "noul",
+            instructions: "Is this urgent?",
+            criteria: { true: "urgent", false: "routine" },
+          },
+          "criteria kept",
+        );
+      },
+    ],
+    [
+      "DECIDE dialect system-one: choice and score questions pass through unchanged",
+      () => {
+        const question = {
+          type: "choice" as const,
+          instructions: "Which team?",
+          criteria: { billing: "money" },
+        };
+        expectEq(
+          dialect.encodeQuestion(question),
+          question,
+          "the same object comes back",
+        );
+      },
+    ],
+    [
+      "DECIDE dialect system-one: noul and boolean answers both read, noul field first",
+      () => {
+        const reading = dialect.readAnswers(
+          {
+            answers: {
+              a: { type: "noul", noul: 0.9 },
+              b: { type: "boolean", probability: 0.2 },
+            },
+          },
+          {},
+        );
+        same(
+          reading,
+          {
+            answers: {
+              a: { type: "boolean", probability: 0.9 },
+              b: { type: "boolean", probability: 0.2 },
+            },
+            dropped: [],
+          },
+          "both spellings",
+        );
+      },
+    ],
+    [
+      "DECIDE dialect system-one: choice confidence is its own, then the reported one, then the peak probability",
+      () => {
+        expectEq(
+          confidenceOf(
+            dialect.readAnswers({ answers: { q: choice(0.55) } }, { q: 0.9 }),
+            "q",
+          ),
+          0.55,
+          "own wins",
+        );
+        expectEq(
+          confidenceOf(
+            dialect.readAnswers({ answers: { q: choice() } }, { q: 0.9 }),
+            "q",
+          ),
+          0.9,
+          "reported next",
+        );
+        expectEq(
+          confidenceOf(
+            dialect.readAnswers({ answers: { q: choice() } }, {}),
+            "q",
+          ),
+          0.7,
+          "peak last",
+        );
+      },
+    ],
+    [
+      "DECIDE dialect system-one: an unparseable answer is dropped and named, the others are kept",
+      () => {
+        const score = {
+          type: "score",
+          score: 1.4,
+          legend: { "0": "low", "1": "high" },
+          probabilities: { "0": 0.2, "1": 0.8 },
+        };
+        const reading = dialect.readAnswers(
+          {
+            answers: {
+              s: score,
+              noLegend: { ...score, legend: undefined },
+              x: { type: "mystery" },
+            },
+          },
+          {},
+        );
+        same(
+          Object.keys(reading?.answers ?? {}),
+          ["s"],
+          "only the good answer",
+        );
+        same(
+          reading?.dropped,
+          ["noLegend", "x"],
+          "both bad ones named, in order",
+        );
+        expectEq(
+          confidenceOf(reading, "s"),
+          0.8,
+          "score confidence is the peak",
+        );
+      },
+    ],
+    [
+      "DECIDE dialect system-one: no answers record means no reading",
+      () => {
+        expectEq(dialect.readAnswers({}, {}), undefined, "missing");
+        expectEq(dialect.readAnswers({ answers: [] }, {}), undefined, "array");
+        expectEq(
+          dialect.readAnswers({ answers: "no" }, {}),
+          undefined,
+          "string",
+        );
+      },
+    ],
+  ];
+
+  for (const [name, run] of cases) {
+    try {
+      run();
+      record(results, name, true);
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
 async function runDecideSection(): Promise<void> {
   console.log(
     "\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef) ===",
@@ -11673,6 +11864,7 @@ async function runDecideSection(): Promise<void> {
   const ambient = cloudflareEnv.map((name) => process.env[name]);
   try {
     cloudflareEnv.forEach((name) => setEnv(name, undefined));
+    await runDecideDialect();
     await runTypeSafeDecide();
     await runLayaDecide();
     await runXorDecide();
