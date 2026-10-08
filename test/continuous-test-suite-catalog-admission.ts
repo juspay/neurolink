@@ -224,6 +224,45 @@ check(
   },
 );
 
+check("a decide catalog record is admitted by id like a chat one", () => {
+  const result = command(
+    "tools/verify-provider-onboarding.ts",
+    ["--catalog-stage", "source", "--provider", "laya"],
+    "review",
+    root,
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.results.length, 1);
+  assert.equal(output.results[0].provider, "laya");
+  assert.equal(output.results[0].sourceReady, true);
+  assert.equal(output.providerCountCredit, 0);
+  assert.equal(readFileSync(calls, "utf8"), "");
+});
+
+check("a broken decide draft is reported by the decide schema", () => {
+  const realLaya = JSON.parse(
+    readFileSync(join(root, "src/lib/providers/catalog/laya.json"), "utf8"),
+  );
+  delete realLaya.evidence;
+  const draftPath = join(fixture, "decide-draft.json");
+  writeFileSync(draftPath, JSON.stringify(realLaya));
+  const result = command(
+    "tools/verify-provider-onboarding.ts",
+    ["--catalog-stage", "draft", "--catalog-file", draftPath],
+    "review",
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const [entry] = JSON.parse(result.stdout).results;
+  assert.equal(entry.state, "incomplete_draft");
+  assert.match(entry.problems.join("\n"), /evidence/);
+  assert.doesNotMatch(
+    entry.problems.join("\n"),
+    /parse it with parseCatalogEntry/,
+    "the draft was judged by the chat-only parser",
+  );
+});
+
 for (const field of ["defaultContextWindow", "defaultMaxOutputTokens"]) {
   for (const [label, value] of [
     ["zero", 0],

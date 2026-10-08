@@ -40,6 +40,7 @@ import incoJson from "./inco.json" with { type: "json" };
 import inferenceNetJson from "./inference-net.json" with { type: "json" };
 import ioIntelligenceJson from "./io-intelligence.json" with { type: "json" };
 import koscomputeJson from "./koscompute.json" with { type: "json" };
+import layaJson from "./laya.json" with { type: "json" };
 import lemonfoxAiJson from "./lemonfox-ai.json" with { type: "json" };
 import lilacJson from "./lilac.json" with { type: "json" };
 import llmtechJson from "./llmtech.json" with { type: "json" };
@@ -84,7 +85,21 @@ import waferJson from "./wafer.json" with { type: "json" };
 import wandbInferenceJson from "./wandb-inference.json" with { type: "json" };
 import xaiJson from "./xai.json" with { type: "json" };
 import zAiJson from "./z-ai.json" with { type: "json" };
-import type { ProviderCatalogJson } from "../../types/index.js";
+import { isDecideCatalogEntry, parseCatalogEntry } from "./schema.js";
+import type {
+  DecideCatalogJson,
+  ProviderCatalogJson,
+} from "../../types/index.js";
+
+const asDecideEntry = (raw: unknown): DecideCatalogJson => {
+  const entry = parseCatalogEntry(raw);
+  if (!isDecideCatalogEntry(entry)) {
+    throw new Error(
+      "a catalog file listed as a decide entry parsed as a chat entry",
+    );
+  }
+  return entry;
+};
 
 export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   a2agentJson as ProviderCatalogJson,
@@ -259,3 +274,9 @@ export const CATALOG_PROVIDER_IDS = [
   "xai",
   "z-ai",
 ] as const;
+
+export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [layaJson].map(
+  asDecideEntry,
+);
+
+export const DECIDE_CATALOG_PROVIDER_IDS = ["laya"] as const;

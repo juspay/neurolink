@@ -60,9 +60,9 @@ forbids).
 
 ---
 
-### tier
+### tier?
 
-> **tier**: `2`
+> `optional` **tier?**: `2`
 
 ---
 

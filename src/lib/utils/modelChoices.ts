@@ -23,29 +23,34 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
-  LayaModels,
   XorModels,
   PerplexityDeciderModels,
   CloudflareClefModels,
   ReplicateModels,
 } from "../constants/enums.js";
-import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+import {
+  getCatalogJsonEntries,
+  getDecideCatalogEntries,
+} from "../providers/catalog/loader.js";
 import type {
+  CatalogEntry,
   CatalogProviderName,
   ModelChoice,
-  ProviderCatalogJson,
 } from "../types/index.js";
 
 /**
  * Looks up the JSON catalog entry for a provider, if it is one of the 11
  * JSON-catalog providers. Used to short-circuit the hand tables below so a
  * catalog provider's models are always sourced from its catalog JSON, never
- * from stale hand-written duplicates.
+ * from stale hand-written duplicates. A decide provider's entry is searched
+ * after the chat catalog (the two never share an id), so its models need no
+ * hand-written rows either.
  */
-function catalogEntryFor(
-  provider: AIProviderName,
-): ProviderCatalogJson | undefined {
-  return getCatalogJsonEntries().find((entry) => entry.id === provider);
+function catalogEntryFor(provider: AIProviderName): CatalogEntry | undefined {
+  return (
+    getCatalogJsonEntries().find((entry) => entry.id === provider) ??
+    getDecideCatalogEntries().find((entry) => entry.id === provider)
+  );
 }
 
 /**
@@ -56,7 +61,7 @@ function catalogEntryFor(
  * the loader's documented fallback contract.
  */
 function catalogTopModels(
-  entry: ProviderCatalogJson,
+  entry: CatalogEntry,
 ): { model: string; description: string }[] {
   if (entry.models.topModels) {
     return entry.models.topModels.map((model) => ({
@@ -415,24 +420,6 @@ const TOP_MODELS_CONFIG: Record<
       description: "Preview build of Jev",
     },
   ],
-  [AIProviderName.LAYA]: [
-    {
-      model: LayaModels.TYPED_DECISIONS,
-      description: "Recommended - Laya fine-tuned for typed decisions",
-    },
-    {
-      model: LayaModels.MULTILINGUAL,
-      description: "Laya, 100+ languages",
-    },
-    {
-      model: LayaModels.ENGLISH,
-      description: "Laya, English base checkpoint (512-token window)",
-    },
-    {
-      model: LayaModels.AUTO,
-      description: "Let Laya pick a checkpoint by language",
-    },
-  ],
   [AIProviderName.XOR]: [
     {
       model: XorModels.XOR_1_1,
@@ -509,7 +496,6 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels.IDEOGRAM_V3,
   [AIProviderName.RECRAFT]: RecraftModels.RECRAFT_V3,
   [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
-  [AIProviderName.LAYA]: LayaModels.TYPED_DECISIONS,
   [AIProviderName.XOR]: XorModels.XOR_1_1,
   [AIProviderName.PERPLEXITY_DECIDER]:
     PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
@@ -550,7 +536,6 @@ const MODEL_ENUMS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels,
   [AIProviderName.RECRAFT]: RecraftModels,
   [AIProviderName.TYPESAFE]: TypeSafeModels,
-  [AIProviderName.LAYA]: LayaModels,
   [AIProviderName.XOR]: XorModels,
   [AIProviderName.PERPLEXITY_DECIDER]: PerplexityDeciderModels,
   [AIProviderName.CLOUDFLARE_CLEF]: CloudflareClefModels,
@@ -790,7 +775,10 @@ export function getPopularModelsAcrossProviders(): {
   }
   // JSON-catalog providers are excluded from TOP_MODELS_CONFIG above; merge
   // their models in here, derived the same way getTopModelChoices() does.
-  for (const entry of getCatalogJsonEntries()) {
+  for (const entry of [
+    ...getCatalogJsonEntries(),
+    ...getDecideCatalogEntries(),
+  ]) {
     pushTop2(entry.id as AIProviderName, catalogTopModels(entry));
   }
 

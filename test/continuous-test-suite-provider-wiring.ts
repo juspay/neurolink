@@ -54,9 +54,9 @@ const { test, runSuite } = defineSuite("Provider Wiring", { offline: true });
 // belongs to a NON-catalog provider. If a key is renamed/removed in
 // NeurolinkCredentials, or a provider moves into/out of the JSON catalog,
 // this literal fails to typecheck (Exclude<> collapses the omitted key set),
-// so it can't silently drift from the real type. The 18 catalog providers'
-// credential keys (CatalogCredentialKey) are read from the built catalog at
-// runtime instead — see the union below.
+// so it can't silently drift from the real type. The catalog providers'
+// credential keys (CatalogCredentialKey), chat and decide alike, are read from
+// the built catalog at runtime instead — see the union below.
 const KNOWN_CREDENTIAL_KEYS = {
   openai: undefined,
   anthropic: undefined,
@@ -80,7 +80,6 @@ const KNOWN_CREDENTIAL_KEYS = {
   ideogram: undefined,
   recraft: undefined,
   typesafe: undefined,
-  laya: undefined,
   xor: undefined,
   perplexityDecider: undefined,
   cloudflareClef: undefined,
@@ -99,7 +98,7 @@ await test("every registered AIProviderName resolves to a real NeurolinkCredenti
   const { ProviderFactory, resolveCredentialKey } =
     await import("../dist/factories/providerFactory.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
-  const { CATALOG_JSON_ENTRIES } =
+  const { CATALOG_JSON_ENTRIES, DECIDE_CATALOG_JSON_ENTRIES } =
     await import("../dist/providers/catalog/index.generated.js");
   const { catalogCredentialsKey } =
     await import("../dist/providers/catalog/loader.js");
@@ -107,6 +106,7 @@ await test("every registered AIProviderName resolves to a real NeurolinkCredenti
   const knownKeys = new Set([
     ...Object.keys(KNOWN_CREDENTIAL_KEYS),
     ...CATALOG_JSON_ENTRIES.map(catalogCredentialsKey),
+    ...DECIDE_CATALOG_JSON_ENTRIES.map(catalogCredentialsKey),
   ]);
   const providerNames = Object.values(AIProviderName).filter(
     (name) => name !== AIProviderName.AUTO,
@@ -568,7 +568,7 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
   const { EXTRA_PROVIDER_CONFIGS } =
     await import("../dist/cli/commands/setup.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
-  const { CATALOG_PROVIDER_IDS } =
+  const { CATALOG_PROVIDER_IDS, DECIDE_CATALOG_PROVIDER_IDS } =
     await import("../dist/providers/catalog/index.generated.js");
   const wizardHandled = new Set([
     "google-ai",
@@ -585,18 +585,21 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
     (name) => name !== AIProviderName.AUTO,
   );
 
-  // Total canonical provider count = the JSON-catalog providers (now
-  // including deepseek, huggingface and mistral) + this literal count of
-  // hand-registered non-catalog providers (openai, anthropic, google-ai,
-  // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
-  // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-  // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor,
-  // perplexity-decider, cloudflare-clef). Onboarding a new catalog provider
-  // grows CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
+  // Total canonical provider count = the chat catalog providers (now
+  // including deepseek, huggingface and mistral) + the decide catalog
+  // providers + this literal count of hand-registered providers (openai,
+  // anthropic, google-ai, vertex, bedrock, sagemaker, azure, ollama,
+  // openrouter, litellm, openai-compatible, nvidia-nim, lm-studio, llamacpp,
+  // cohere, replicate, voyage, jina, stability, ideogram, recraft, typesafe,
+  // xor, perplexity-decider, cloudflare-clef). Onboarding a new catalog
+  // provider of either kind grows CATALOG_PROVIDER_IDS or
+  // DECIDE_CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
   // hand-written provider bumps this literal.
-  const NON_CATALOG_PROVIDER_COUNT = 26;
+  const HAND_ONLY_PROVIDER_COUNT = 25;
   const totalProviderCount =
-    CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
+    CATALOG_PROVIDER_IDS.length +
+    DECIDE_CATALOG_PROVIDER_IDS.length +
+    HAND_ONLY_PROVIDER_COUNT;
   assert(
     allProviders.length === totalProviderCount,
     `expected ${totalProviderCount} canonical providers, got ${allProviders.length}`,
@@ -615,6 +618,25 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
       `expected EXTRA_PROVIDER_CONFIGS to have an entry for ${providerId}`,
     );
   }
+});
+
+await test("laya keeps its public enum surface after moving to a decide catalog file", async () => {
+  const enums = await import("../dist/constants/enums.js");
+  assert(
+    enums.AIProviderName.LAYA === "laya",
+    'AIProviderName.LAYA must stay "laya"',
+  );
+  const expected = {
+    TYPED_DECISIONS: "typed-decisions",
+    ENGLISH: "english",
+    MULTILINGUAL: "multilingual",
+    AUTO: "auto",
+  };
+  assert(
+    JSON.stringify(Object.entries(enums.LayaModels).sort()) ===
+      JSON.stringify(Object.entries(expected).sort()),
+    `LayaModels drifted: ${JSON.stringify(enums.LayaModels)}`,
+  );
 });
 
 await test("isImageGenerationModel rejects a substring match that isn't at a boundary", async () => {

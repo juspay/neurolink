@@ -6,7 +6,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
+import { parseCatalogEntry } from "../src/lib/providers/catalog/schema.js";
 
 const STAGES = ["draft", "source", "review", "merged"] as const;
 const PR_PATTERN =
@@ -338,7 +338,7 @@ export async function runCatalogAdmission(
     const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
     let entry;
     try {
-      entry = parseProviderCatalogJson(raw, path);
+      entry = parseCatalogEntry(raw, path);
     } catch (error) {
       if (stage !== "draft") {
         throw error;

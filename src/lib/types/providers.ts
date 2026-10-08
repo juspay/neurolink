@@ -289,6 +289,7 @@ export type NeurolinkCredentials = {
   inferenceNet?: { apiKey?: string; baseURL?: string };
   ioIntelligence?: { apiKey?: string; baseURL?: string };
   koscompute?: { apiKey?: string; baseURL?: string };
+  laya?: { apiKey?: string; baseURL?: string };
   lemonfoxAi?: { apiKey?: string; baseURL?: string };
   lilac?: { apiKey?: string; baseURL?: string };
   llmtech?: { apiKey?: string; baseURL?: string };
@@ -372,12 +373,6 @@ export type NeurolinkCredentials = {
      */
     gatewayURL?: string;
   };
-  /**
-   * Laya (Convai, open weights) — the `decide` inference type. There is no
-   * built-in endpoint: `baseURL` (or LAYA_BASE_URL) is required, pointing at a
-   * Laya server or a proxy route to one; requests go to `<baseURL>/predict`.
-   */
-  laya?: { apiKey?: string; baseURL?: string };
   /**
    * XOR (Juspay, open weights) — the `decide` inference type. There is no
    * built-in endpoint: `baseURL` (or XOR_BASE_URL) is required, pointing at the
@@ -2530,6 +2525,14 @@ export type ProviderDescriptor = {
    * checks to its own server (TypeSafe). See {@link DecisionLimits}.
    */
   decisionLimits?: DecisionLimits;
+  /**
+   * Precedence among `decide` providers: lower runs first and no two decide
+   * descriptors share a value. resolveDefaultDecisionProvider() returns the
+   * first configured provider in this order, so changing a number changes which
+   * model routes for every host that configures several. Required on every
+   * descriptor that serves `decide`; checked when the descriptors load.
+   */
+  decideOrder?: number;
   /**
    * Ascending priority (1 = tried first) in the auto-select fallback chain
    * used by getBestProvider(). Undefined = not part of the auto-select chain.

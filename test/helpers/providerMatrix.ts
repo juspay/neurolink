@@ -106,6 +106,8 @@ export type ProviderEntry = Capabilities & {
 import {
   CATALOG_JSON_ENTRIES,
   CATALOG_PROVIDER_IDS,
+  DECIDE_CATALOG_JSON_ENTRIES,
+  DECIDE_CATALOG_PROVIDER_IDS,
 } from "../../dist/providers/catalog/index.generated.js";
 import {
   catalogEnvVar,
@@ -149,7 +151,7 @@ export const CATALOG_COMPUTED_BASE_URL_IDS: readonly string[] = [
   ...computedBaseURLEnvVarById.keys(),
 ];
 
-export { CATALOG_PROVIDER_IDS };
+export { CATALOG_PROVIDER_IDS, DECIDE_CATALOG_PROVIDER_IDS };
 
 /**
  * True when the provider has any vision-capable model, and which model to
@@ -233,13 +235,54 @@ const CATALOG_PROVIDERS: Record<string, ProviderEntry> = Object.fromEntries(
   }),
 );
 
+const DECIDE_PROVIDERS: Record<string, ProviderEntry> = Object.fromEntries(
+  DECIDE_CATALOG_JSON_ENTRIES.map((entry): [string, ProviderEntry] => {
+    // The convention catalogEnvVar() applies, written out so this row is an
+    // independent expectation of the descriptor rather than a copy of it.
+    const prefix = entry.id.toUpperCase().replace(/-/g, "_");
+    const overrides = entry.wire.envOverrides;
+    return [
+      entry.id,
+      {
+        name: entry.id,
+        // Not testModel: the decide schema accepts it, but nothing reads it
+        // (buildDecideDescriptor takes models.default), so honouring it here
+        // would make this row disagree with the descriptor it checks.
+        defaultModel: entry.models.default,
+        envVars: [
+          overrides?.apiKey ?? `${prefix}_API_KEY`,
+          ...(entry.decide.baseURLRequired === true
+            ? [overrides?.baseURL ?? `${prefix}_BASE_URL`]
+            : []),
+        ],
+        // A decide provider emits no text: every generation capability is
+        // false because it does not exist, not because it is unimplemented.
+        text: false,
+        streaming: false,
+        tools: false,
+        toolsWithStreaming: false,
+        structuredOutput: false,
+        structuredOutputWithTools: false,
+        vision: false,
+        embeddings: false,
+        thinking: false,
+        imageGeneration: false,
+        videoGeneration: false,
+        tts: false,
+        decide: true,
+      },
+    ];
+  }),
+);
+
 /**
  * Provider entries indexed by AIProviderName string value.
  * Hand-written rows cover the non-catalog providers only; every catalog
- * provider's row is spread in from `CATALOG_PROVIDERS` after them, so a
- * future catalog JSON appears here (and in both matrix suites) with zero
- * edits to this file. Iteration order is hand rows first, then catalog
- * rows in catalog file order — order is not a contract anywhere.
+ * provider's row is spread in from `CATALOG_PROVIDERS`, and every decide
+ * catalog provider's from `DECIDE_PROVIDERS`, so a future catalog JSON of
+ * either kind appears here (and in both matrix suites) with zero edits to
+ * this file. Iteration order is hand rows first, then catalog rows in
+ * catalog file order — order is not a contract anywhere.
  */
 const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
   [
@@ -750,6 +793,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
     },
   ],
   ...Object.entries(CATALOG_PROVIDERS),
+  ...Object.entries(DECIDE_PROVIDERS),
   [
     "typesafe",
     {
@@ -758,30 +802,6 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       envVars: ["TYPESAFE_API_KEY"],
       // Jev serves only `decide`. Every generation capability is false
       // because it emits no text at all, not because it is unimplemented.
-      text: false,
-      streaming: false,
-      tools: false,
-      toolsWithStreaming: false,
-      structuredOutput: false,
-      structuredOutputWithTools: false,
-      vision: false,
-      embeddings: false,
-      thinking: false,
-      imageGeneration: false,
-      videoGeneration: false,
-      tts: false,
-      decide: true,
-    },
-  ],
-  [
-    "laya",
-    {
-      name: "laya",
-      defaultModel: "typed-decisions",
-      // No built-in endpoint: the base URL is as required as the key.
-      envVars: ["LAYA_API_KEY", "LAYA_BASE_URL"],
-      // Laya serves only `decide`, like typesafe: every generation capability
-      // is false because it emits no text at all.
       text: false,
       streaming: false,
       tools: false,
@@ -890,6 +910,13 @@ for (const catalogId of CATALOG_PROVIDER_IDS) {
   if (!(catalogId in PROVIDERS)) {
     throw new Error(
       `providerMatrix: catalog provider "${catalogId}" missing from PROVIDERS`,
+    );
+  }
+}
+for (const decideId of DECIDE_CATALOG_PROVIDER_IDS) {
+  if (!(decideId in PROVIDERS)) {
+    throw new Error(
+      `providerMatrix: decide catalog provider "${decideId}" missing from PROVIDERS`,
     );
   }
 }

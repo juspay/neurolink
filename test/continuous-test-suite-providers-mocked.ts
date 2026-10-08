@@ -24,6 +24,10 @@ import {
   withImageDownloadTransport,
   withRefusingProxy,
 } from "./helpers/imageDownloadTransport.js";
+import {
+  loopCoverageProblem,
+  runDecideProviderContract,
+} from "./helpers/decideProviderContract.js";
 
 /**
  * Mocked Contract Test Suite for New Providers
@@ -11925,6 +11929,36 @@ async function runDecideDialect(): Promise<void> {
   }
 }
 
+// Positive control for the loop below: an empty DECIDE_CATALOG_JSON_ENTRIES (a
+// broken codegen, a deleted laya.json, a generated list that lost its decide
+// entries) fails this section instead of passing it trivially. Raise it when
+// another decide entry joins the catalog; never lower it.
+const MIN_DECIDE_CATALOG_ENTRIES = 1;
+
+async function runDecideCatalogSection(): Promise<void> {
+  const { DECIDE_CATALOG_JSON_ENTRIES } =
+    await import("../dist/providers/catalog/index.generated.js");
+  let planned = 0;
+  let ran = 0;
+  for (const entry of DECIDE_CATALOG_JSON_ENTRIES) {
+    const run = await runDecideProviderContract(entry, { results });
+    planned += run.planned;
+    ran += run.recorded.length;
+  }
+  const problem = loopCoverageProblem({
+    entries: DECIDE_CATALOG_JSON_ENTRIES.length,
+    minEntries: MIN_DECIDE_CATALOG_ENTRIES,
+    planned,
+    ran,
+  });
+  record(
+    results,
+    `DECIDE catalog: loop covered ${DECIDE_CATALOG_JSON_ENTRIES.length} entries and ${ran} cases`,
+    problem === undefined,
+    problem,
+  );
+}
+
 async function runDecideSection(): Promise<void> {
   console.log(
     "\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef) ===",
@@ -11948,6 +11982,7 @@ async function runDecideSection(): Promise<void> {
     await runXorDecide();
     await runPerplexityDecide();
     await runCloudflareClefDecide();
+    await runDecideCatalogSection();
   } finally {
     cloudflareEnv.forEach((name, i) => setEnv(name, ambient[i]));
   }

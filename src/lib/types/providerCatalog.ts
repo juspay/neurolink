@@ -5,6 +5,12 @@
  * source of truth; see docs/superpowers/plans/2026-08-28-provider-json-catalog-spec.md.
  */
 
+import type {
+  DecideDialectName,
+  DecisionErrorKind,
+  DecisionLimits,
+} from "./decision.js";
+
 export type CatalogPricingPerMTok = {
   input: number;
   output: number;
@@ -212,7 +218,7 @@ export type ProviderCatalogJson = {
    */
   credentialsKey?: string;
   aliases: string[];
-  tier: 2;
+  tier?: 2;
   wire: CatalogWire;
   models: {
     default: string;
@@ -270,3 +276,85 @@ export type ProviderCatalogJson = {
   setup: CatalogSetup;
   evidence: CatalogEvidence;
 };
+
+export type DecideFormatterName = "fastapi-validation";
+export type DecideBaseURLTransform = "strip-trailing-slash";
+
+export type DecideErrorRule = {
+  /** One status or a list of them. A rule sets this or `statusMin`, never both. */
+  status?: number | readonly number[];
+  /** Matches every status at or above this value. */
+  statusMin?: number;
+  kind: DecisionErrorKind;
+  retryable?: boolean;
+};
+
+export type DecideBodyShape = {
+  /** Dot path into the parsed error body. */
+  path: string;
+  isArray?: boolean;
+  formatter?: DecideFormatterName;
+  kind?: DecisionErrorKind;
+  retryable?: boolean;
+};
+
+export type DecideErrors = {
+  rules: readonly DecideErrorRule[];
+  default: DecisionErrorKind;
+  bodyShapes: readonly DecideBodyShape[];
+};
+
+export type DecideModel = {
+  placement: "body" | "body-unless-alias";
+  /** With `body-unless-alias`: the model name that means "send no model". */
+  alias?: string;
+};
+
+export type DecideBlock = {
+  dialect: DecideDialectName;
+  /** Decision order, lower runs first; unique across decide providers. */
+  order: number;
+  /** True when the provider has no built-in endpoint and the caller must supply one. */
+  baseURLRequired?: boolean;
+  baseURLNormalize?: readonly DecideBaseURLTransform[];
+  /** Request URL; `{baseURL}` is the only placeholder. */
+  endpoint: string;
+  model: DecideModel;
+  requestIdHeaders?: readonly string[];
+  response?: { modelPaths?: readonly string[] };
+  errors: DecideErrors;
+};
+
+export type DecideCatalogJson = {
+  $schema?: string;
+  id: string;
+  displayName: string;
+  enumTypeName?: string;
+  credentialsKey?: string;
+  aliases: string[];
+  inferenceKinds: readonly ["decide"];
+  tier?: 2;
+  wire: CatalogWire;
+  models: {
+    default: string;
+    catalog: Record<string, CatalogModelSpec>;
+    topModels?: string[];
+    testModel?: string;
+  };
+  timeouts?: { decideMs?: number };
+  decisionLimits?: DecisionLimits;
+  decide: DecideBlock;
+  setup: CatalogSetup;
+  evidence: CatalogEvidence;
+};
+
+export type CatalogEntry = ProviderCatalogJson | DecideCatalogJson;
+
+// The loader helpers read only these fields, so a chat entry, a decide entry
+// or a bare object carrying them all fit.
+export type CatalogKeySource = Pick<CatalogEntry, "id" | "credentialsKey">;
+export type CatalogEnvSource = Pick<CatalogEntry, "id" | "wire">;
+export type CatalogSetupSource = Pick<
+  CatalogEntry,
+  "id" | "displayName" | "wire" | "setup"
+>;

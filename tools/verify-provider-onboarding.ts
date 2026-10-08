@@ -8,8 +8,9 @@
  * JSON-catalog providers (src/lib/providers/catalog/<id>.json exists):
  *
  *   - Catalog providers: the JSON file exists and parses via the real
- *     zod schema (parseProviderCatalogJson). evidence.rosterVerified and
- *     evidence.addedInPR are non-optional fields in that schema, so a
+ *     zod schema (parseCatalogEntry, which accepts a chat or a decide file)
+ *     and the id inside it matches the file name. evidence.rosterVerified
+ *     and evidence.addedInPR are non-optional fields in that schema, so a
  *     successful parse already proves both are present — a failed parse
  *     reports exactly which field is missing/malformed. This replaces the
  *     hand-written-provider checks below entirely: a catalog JSON entry IS
@@ -57,7 +58,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isMockedSectionSatisfied } from "./provider-onboarding-marker.js";
-import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
+import { parseCatalogEntry } from "../src/lib/providers/catalog/schema.js";
 import { validateCatalogIntroductionReference } from "./catalog-admission.js";
 
 const REPO_ROOT = process.cwd();
@@ -335,10 +336,12 @@ function catalogJsonPath(provider: string): string {
 type CatalogCheck = { ok: boolean; problem?: string };
 
 // evidence.rosterVerified and evidence.addedInPR are both non-optional
-// fields in providerCatalogJsonSchema (see src/lib/providers/catalog/
-// schema.ts), so a successful parseProviderCatalogJson call already proves
+// fields in the chat and the decide schema alike (see src/lib/providers/
+// catalog/schema.ts), so a successful parseCatalogEntry call already proves
 // they're present — a missing/malformed one surfaces as a parse failure
-// naming that exact field, which is what problem below reports.
+// naming that exact field, which is what problem below reports. The id check
+// is separate because the schema cannot know the file name: a catalog file
+// copied from another provider would otherwise pass.
 function checkCatalogProvider(provider: string): CatalogCheck {
   const path = catalogJsonPath(provider);
   let raw: string;
@@ -362,7 +365,13 @@ function checkCatalogProvider(provider: string): CatalogCheck {
   }
 
   try {
-    const entry = parseProviderCatalogJson(parsed, path);
+    const entry = parseCatalogEntry(parsed, path);
+    if (entry.id !== provider) {
+      return {
+        ok: false,
+        problem: `catalog file declares id "${entry.id}", expected "${provider}" (copied from another provider?)`,
+      };
+    }
     validateCatalogIntroductionReference(entry.evidence.addedInPR);
   } catch (err) {
     return {

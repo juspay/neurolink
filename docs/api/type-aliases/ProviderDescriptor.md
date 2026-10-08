@@ -241,6 +241,18 @@ checks to its own server (TypeSafe). See [DecisionLimits](DecisionLimits.md).
 
 ---
 
+### decideOrder?
+
+> `optional` **decideOrder?**: `number`
+
+Precedence among `decide` providers: lower runs first and no two decide
+descriptors share a value. resolveDefaultDecisionProvider() returns the
+first configured provider in this order, so changing a number changes which
+model routes for every host that configures several. Required on every
+descriptor that serves `decide`; checked when the descriptors load.
+
+---
+
 ### autoSelectPriority?
 
 > `optional` **autoSelectPriority?**: `number`

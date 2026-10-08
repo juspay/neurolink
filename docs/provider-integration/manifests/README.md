@@ -25,6 +25,8 @@ are now JSON-catalog entries, and their onboarding evidence lives in
 `src/lib/providers/catalog/cerebras.json` and
 `src/lib/providers/catalog/sambanova.json` respectively.
 
+`laya.json` was removed the same way when Laya moved from a hand-written class onto a decide catalog file: `src/lib/providers/catalog/laya.json` carries its `evidence` block, and the gate checks it with `parseCatalogEntry`, which accepts chat and decide files alike and also requires the file's `id` to match its name.
+
 ## Tier 3/4 (hand-written) providers still use a manifest here
 
 A provider onboarded outside the JSON catalog — a custom adapter (Tier 3)

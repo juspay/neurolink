@@ -44,7 +44,6 @@ import {
   createStabilityConfig,
   createVoyageConfig,
   createTypeSafeConfig,
-  createLayaConfig,
   createXorConfig,
   createPerplexityDeciderConfig,
   createCloudflareClefConfig,
@@ -52,6 +51,7 @@ import {
 } from "../../lib/utils/providerConfig.js";
 import {
   getCatalogJsonEntries,
+  getDecideCatalogEntries,
   buildCatalogConfigOptions,
 } from "../../lib/providers/catalog/loader.js";
 
@@ -177,16 +177,18 @@ const PROVIDERS: SetupProviderInfo[] = [
 ];
 
 /**
- * ProviderConfigOptions for the 21 canonical AIProviderName values the
+ * ProviderConfigOptions for the canonical AIProviderName values the
  * interactive wizard above doesn't have a bespoke handleXSetup() for. 8 are
  * the JSON-catalog providers (cerebras, cloudflare, fireworks, groq,
  * perplexity, sambanova, together-ai, xai — mistral is the 9th catalog
  * provider but keeps its own handleMistralSetup() flow above, so it's
  * excluded here), spread directly from the catalog JSON via
- * buildCatalogConfigOptions(). 10 more reuse the existing createXConfig()
- * factories in providerConfig.ts; the remaining 5 (ollama, litellm,
- * sagemaker, lm-studio, llamacpp) don't have a factory and are defined
- * inline using their real env var names. lm-studio and llamacpp previously
+ * buildCatalogConfigOptions(); decide-kind catalog entries (laya) are spread
+ * the same way from getDecideCatalogEntries(). The hand rows listed first
+ * reuse the existing createXConfig() factories in providerConfig.ts; the
+ * remaining 5 (ollama, litellm, sagemaker, lm-studio, llamacpp) don't have a
+ * factory and are defined inline using their real env var names. lm-studio
+ * and llamacpp previously
  * had createLmStudioConfig()/createLlamaCppConfig() factories, but those
  * were removed as dead code in a later cleanup — this mirrors that removal
  * rather than re-adding them.
@@ -203,10 +205,12 @@ export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   ideogram: createIdeogramConfig(),
   recraft: createRecraftConfig(),
   typesafe: createTypeSafeConfig(),
-  laya: createLayaConfig(),
   xor: createXorConfig(),
   "perplexity-decider": createPerplexityDeciderConfig(),
   "cloudflare-clef": createCloudflareClefConfig(),
+  ...Object.fromEntries(
+    getDecideCatalogEntries().map((e) => [e.id, buildCatalogConfigOptions(e)]),
+  ),
   ...Object.fromEntries(
     getCatalogJsonEntries()
       .filter((e) => e.id !== "mistral")

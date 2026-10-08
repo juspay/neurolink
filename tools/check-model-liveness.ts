@@ -35,11 +35,38 @@
 
 import "dotenv/config";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
+import { join, resolve } from "node:path";
+import {
+  isDecideCatalogEntry,
+  parseCatalogEntry,
+} from "../src/lib/providers/catalog/schema.js";
 import type { ProviderCatalogJson } from "../src/lib/types/index.js";
 
-const CATALOG_DIR = join(process.cwd(), "src/lib/providers/catalog");
+// `--dir <path>` points the gate at another catalog directory (the decide
+// suite uses a temp one); without it the real catalog is read.
+const args = process.argv.slice(2);
+const misspelledDir = args.find(
+  (arg) => arg.startsWith("--dir") && arg !== "--dir",
+);
+if (misspelledDir !== undefined) {
+  // Ignoring it would probe the real catalog with whatever keys are in the
+  // environment.
+  throw new Error(
+    `unknown flag ${JSON.stringify(misspelledDir)}: use --dir <path>, not --dir=<path>`,
+  );
+}
+const dirFlagAt = args.indexOf("--dir");
+const dirArg = dirFlagAt === -1 ? undefined : args[dirFlagAt + 1];
+if (
+  dirFlagAt !== -1 &&
+  (dirArg === undefined || dirArg.startsWith("--") || dirArg.trim() === "")
+) {
+  throw new Error("--dir needs a directory argument");
+}
+const CATALOG_DIR =
+  dirArg === undefined
+    ? join(process.cwd(), "src/lib/providers/catalog")
+    : resolve(dirArg);
 const STALE_AFTER_DAYS = 90;
 const PROBE_TIMEOUT_MS = 30_000;
 const jsonMode = process.argv.includes("--json");
@@ -69,12 +96,15 @@ function loadCatalog(): ProviderCatalogJson[] {
   return readdirSync(CATALOG_DIR)
     .filter((f) => f.endsWith(".json") && !f.endsWith(".schema.json"))
     .sort()
-    .map((f) =>
-      parseProviderCatalogJson(
+    .flatMap((f) => {
+      const entry = parseCatalogEntry(
         JSON.parse(readFileSync(join(CATALOG_DIR, f), "utf8")),
         f,
-      ),
-    );
+      );
+      // A decide provider has no /chat/completions route and no model roster
+      // to diff, so probing it would report a healthy provider as dead.
+      return isDecideCatalogEntry(entry) ? [] : [entry];
+    });
 }
 
 // Mirrors the loader's env-var convention. Reimplemented rather than imported

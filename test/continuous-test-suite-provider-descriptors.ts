@@ -53,19 +53,21 @@ await runSuite(async () => {
 
   await test("getAllDescriptors returns every real provider", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
-    const { CATALOG_PROVIDER_IDS } =
+    const { CATALOG_PROVIDER_IDS, DECIDE_CATALOG_PROVIDER_IDS } =
       await import("../dist/providers/catalog/index.generated.js");
-    // Total = the JSON-catalog providers + this literal count of
-    // hand-registered non-catalog providers (openai, anthropic, google-ai,
+    // Total = chat catalog providers + decide catalog providers + this literal
+    // count of hand-registered providers (openai, anthropic, google-ai,
     // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
     // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
-    // voyage, jina, stability, ideogram, recraft, typesafe, laya, xor,
-    // perplexity-decider, cloudflare-clef).
-    // Mirrors continuous-test-suite-provider-wiring.ts's
-    // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 26;
+    // voyage, jina, stability, ideogram, recraft, typesafe, xor,
+    // perplexity-decider, cloudflare-clef). A catalog JSON of either kind adds
+    // one descriptor and no hand line, so only the hand count is a literal.
+    // Mirrors the wiring suite's HAND_ONLY_PROVIDER_COUNT.
+    const HAND_ONLY_PROVIDER_COUNT = 25;
     const expectedCount =
-      CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
+      CATALOG_PROVIDER_IDS.length +
+      DECIDE_CATALOG_PROVIDER_IDS.length +
+      HAND_ONLY_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
     assertEqual(all.length, expectedCount, "getAllDescriptors length");
   });
@@ -327,8 +329,12 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: descriptors without the field simply omit it, never an empty/no-op pattern", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const { CATALOG_PROVIDER_IDS, CATALOG_JSON_ENTRIES } =
-      await import("../dist/providers/catalog/index.generated.js");
+    const {
+      CATALOG_PROVIDER_IDS,
+      CATALOG_JSON_ENTRIES,
+      DECIDE_CATALOG_JSON_ENTRIES,
+      DECIDE_CATALOG_PROVIDER_IDS,
+    } = await import("../dist/providers/catalog/index.generated.js");
     // These 6 hand-typed descriptors legitimately set apiKeyFormatPattern
     // (providerDescriptors.ts's HAND_DESCRIPTORS).
     const withPattern = new Set([
@@ -340,13 +346,14 @@ await runSuite(async () => {
       "sagemaker",
     ]);
     // Catalog entries that set a non-null setup.apiKeyFormat contribute a
-    // real apiKeyFormatPattern via buildCatalogDescriptor(). Derived from the
+    // real apiKeyFormatPattern via buildCatalogDescriptor() (a decide entry
+    // via its own builder, which reads the same field). Derived from the
     // JSON rather than hand-listed so a new catalog entry that declares a
     // key format joins this set without editing the suite.
     const catalogWithPattern = new Set(
-      CATALOG_JSON_ENTRIES.filter((e) => e.setup.apiKeyFormat !== null).map(
-        (e) => e.id,
-      ),
+      [...CATALOG_JSON_ENTRIES, ...DECIDE_CATALOG_JSON_ENTRIES]
+        .filter((e) => e.setup.apiKeyFormat !== null)
+        .map((e) => e.id),
     );
     let checkedAbsent = 0;
     for (const d of PROVIDER_DESCRIPTORS) {
@@ -366,9 +373,12 @@ await runSuite(async () => {
       }
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
-    // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 26;
-    const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
+    // HAND_ONLY_PROVIDER_COUNT.
+    const HAND_ONLY_PROVIDER_COUNT = 25;
+    const totalCount =
+      CATALOG_PROVIDER_IDS.length +
+      DECIDE_CATALOG_PROVIDER_IDS.length +
+      HAND_ONLY_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
       totalCount - withPattern.size - catalogWithPatternCount;
@@ -602,6 +612,40 @@ await runSuite(async () => {
         available.includes(d.name),
         `getAvailableProviders missing ${d.name}`,
       );
+    }
+  });
+
+  await test("a decide catalog provider's matrix row agrees with its descriptor", async () => {
+    const { PROVIDERS } = await import("./helpers/providerMatrix.js");
+    const { DECIDE_CATALOG_PROVIDER_IDS } =
+      await import("../dist/providers/catalog/index.generated.js");
+    const { ProviderFactory } = await import("../dist/index.js");
+    assert(
+      DECIDE_CATALOG_PROVIDER_IDS.length >= 1,
+      "no decide catalog provider was seen, so nothing was compared",
+    );
+    for (const id of DECIDE_CATALOG_PROVIDER_IDS) {
+      const row = PROVIDERS[id];
+      const descriptor = ProviderFactory.getDescriptor(id);
+      assert(
+        row !== undefined && descriptor !== undefined,
+        `${id}: missing matrix row or descriptor`,
+      );
+      const expectedEnv = [
+        descriptor?.envVars.apiKey,
+        ...(descriptor?.envVars.extraRequired ?? []),
+      ];
+      assertEqual(
+        JSON.stringify(row?.envVars),
+        JSON.stringify(expectedEnv),
+        `${id}: matrix envVars vs descriptor`,
+      );
+      assertEqual(
+        row?.defaultModel,
+        descriptor?.defaultModel,
+        `${id}: default model`,
+      );
+      assert(row?.decide === true && row.text === false, `${id}: decide-only`);
     }
   });
 
@@ -919,7 +963,7 @@ await runSuite(async () => {
 
   await test("descriptor.toolSupport !== 'native' reproduces the original 9-member prompt-only set plus catalog entries that declare tools: false", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
-    const { CATALOG_JSON_ENTRIES } =
+    const { CATALOG_JSON_ENTRIES, DECIDE_CATALOG_PROVIDER_IDS } =
       await import("../dist/providers/catalog/index.generated.js");
     const originalPromptOnly = new Set([
       "ollama",
@@ -934,8 +978,9 @@ await runSuite(async () => {
       // typesafe serves only the `decide` inference type, so it has no tools
       // at all — the same reason voyage/jina (embedding-only) are here.
       "typesafe",
-      // laya is decide-only too: no tools for the same reason.
-      "laya",
+      // Every decide catalog entry (laya today) is decide-only too: no tools
+      // for the same reason. Derived, so the next decide JSON needs no line.
+      ...DECIDE_CATALOG_PROVIDER_IDS,
       // xor is decide-only too: no tools for the same reason.
       "xor",
       // perplexity-decider is decide-only as well, and unrelated to the

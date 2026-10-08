@@ -61,6 +61,7 @@ export enum AIProviderName {
   INFERENCE_NET = "inference-net",
   IO_INTELLIGENCE = "io-intelligence",
   KOSCOMPUTE = "koscompute",
+  LAYA = "laya",
   LEMONFOX_AI = "lemonfox-ai",
   LILAC = "lilac",
   LLMTECH = "llmtech",
@@ -115,8 +116,6 @@ export enum AIProviderName {
   RECRAFT = "recraft",
   /** TypeSafe (Jev) — serves the `decide` inference type only. */
   TYPESAFE = "typesafe",
-  /** Laya (Convai, open weights) — serves the `decide` inference type only. */
-  LAYA = "laya",
   /** XOR (Juspay, open weights) — serves the `decide` inference type only. */
   XOR = "xor",
   /**
@@ -1743,6 +1742,13 @@ export enum KoscomputeModels {
   QWEN_QWEN3_8_27B = "qwen/qwen3.8-27b",
 }
 
+export enum LayaModels {
+  TYPED_DECISIONS = "typed-decisions",
+  ENGLISH = "english",
+  MULTILINGUAL = "multilingual",
+  AUTO = "auto",
+}
+
 export enum LemonfoxAiModels {
   DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
   MIMO_V2_5_PRO = "mimo-v2.5-pro",
@@ -2231,20 +2237,6 @@ export enum ZAiModels {
 export enum TypeSafeModels {
   JEV_LATEST = "jev-latest",
   JEV_PREVIEW = "jev-preview",
-}
-
-/**
- * Laya checkpoints. Hand-written: Laya is a Tier-3 provider, so it is not in
- * the provider catalog and codegen never touches this.
- *
- * `auto` sends no model, which lets Laya's own router pick a checkpoint by
- * the detected language of the state.
- */
-export enum LayaModels {
-  TYPED_DECISIONS = "typed-decisions",
-  ENGLISH = "english",
-  MULTILINGUAL = "multilingual",
-  AUTO = "auto",
 }
 
 /**

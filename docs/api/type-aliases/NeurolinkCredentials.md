@@ -860,6 +860,20 @@ counts as unset.
 
 ---
 
+### laya?
+
+> `optional` **laya?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### lemonfoxAi?
 
 > `optional` **lemonfoxAi?**: `object`
@@ -1624,24 +1638,6 @@ Vercel AI Gateway key. Defaults to `AI_GATEWAY_API_KEY`.
 
 The gateway transport's evaluation-model route. Defaults to
 `TYPESAFE_GATEWAY_URL`, then Vercel's own route.
-
----
-
-### laya?
-
-> `optional` **laya?**: `object`
-
-Laya (Convai, open weights) — the `decide` inference type. There is no
-built-in endpoint: `baseURL` (or LAYA_BASE_URL) is required, pointing at a
-Laya server or a proxy route to one; requests go to `<baseURL>/predict`.
-
-#### apiKey?
-
-> `optional` **apiKey?**: `string`
-
-#### baseURL?
-
-> `optional` **baseURL?**: `string`
 
 ---
 

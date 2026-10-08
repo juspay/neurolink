@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "Documentation-grade mirror of src/lib/providers/catalog/schema.ts for editor red-squiggle validation. The zod schema is authoritative \u2014 keep this file in sync by hand when that one changes. This mirror cannot express the zod schema's cross-field refinements (e.g. models.default must be a key of models.catalog, wire's baseURL-XOR-baseURLTemplate rule, errorRules requiring status or pattern); those are enforced only at parse time by parseProviderCatalogJson.",
+  "$comment": "Documentation-grade mirror of src/lib/providers/catalog/schema.ts for editor red-squiggle validation. The zod schema is authoritative \u2014 keep this file in sync by hand when that one changes. This mirror cannot express the zod schema's cross-field refinements (e.g. models.default must be a key of models.catalog, wire's baseURL-XOR-baseURLTemplate rule, errorRules requiring status or pattern); those are enforced only at parse time by parseProviderCatalogJson (chat entries) or parseCatalogEntry (entries that set inferenceKinds). The if/then/else near the end lists which keys each kind requires and forbids.",
   "title": "NeuroLink Provider Catalog",
   "type": "object",
   "additionalProperties": false,
@@ -8,11 +8,8 @@
     "id",
     "displayName",
     "aliases",
-    "tier",
     "wire",
     "models",
-    "capabilities",
-    "errorRules",
     "setup",
     "evidence"
   ],
@@ -43,8 +40,146 @@
         "type": "string"
       }
     },
+    "inferenceKinds": {
+      "const": ["decide"],
+      "description": "Present on decide entries only; its absence makes the file a chat entry."
+    },
     "tier": {
       "const": 2
+    },
+    "decisionLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxStateTokens"],
+      "description": "Decide entries only. Input the provider can read; a request over a limit is refused before any network call.",
+      "properties": {
+        "maxStateTokens": { "type": "integer", "minimum": 1 },
+        "maxQuestions": { "type": "integer", "minimum": 1 },
+        "nonAsciiTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
+        "digitTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
+        "symbolTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
+        "astralTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
+        "advisory": { "type": "boolean" },
+        "models": {
+          "type": "object",
+          "description": "Per-model limits keyed by a models.catalog key (enforced by the zod schema).",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["maxStateTokens"],
+            "properties": {
+              "maxStateTokens": { "type": "integer", "minimum": 1 },
+              "nonAsciiTokensPerChar": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "decide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dialect", "order", "endpoint", "model", "errors"],
+      "description": "Decide entries only: how a decision provider is called and how its errors are classified.",
+      "properties": {
+        "dialect": { "enum": ["system-one"] },
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Decision order; lower runs first and every decide provider's order is unique."
+        },
+        "baseURLRequired": {
+          "type": "boolean",
+          "description": "True when the provider has no built-in endpoint. wire must then set neither baseURL nor baseURLTemplate, and endpoint must contain {baseURL}."
+        },
+        "baseURLNormalize": {
+          "type": "array",
+          "items": { "enum": ["strip-trailing-slash"] }
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Request URL. {baseURL} is the only placeholder."
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["placement"],
+          "properties": {
+            "placement": { "enum": ["body", "body-unless-alias"] },
+            "alias": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A models.catalog key that means send no model. Only with placement body-unless-alias."
+            }
+          }
+        },
+        "requestIdHeaders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$"
+          }
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "modelPaths": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/decidePath" }
+            }
+          }
+        },
+        "errors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rules", "default", "bodyShapes"],
+          "properties": {
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "status": {
+                    "anyOf": [
+                      { "$ref": "#/definitions/httpStatus" },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": { "$ref": "#/definitions/httpStatus" }
+                      }
+                    ]
+                  },
+                  "statusMin": { "$ref": "#/definitions/httpStatus" },
+                  "kind": { "$ref": "#/definitions/decisionErrorKind" },
+                  "retryable": { "type": "boolean" }
+                }
+              }
+            },
+            "default": { "$ref": "#/definitions/decisionErrorKind" },
+            "bodyShapes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path"],
+                "properties": {
+                  "path": { "$ref": "#/definitions/decidePath" },
+                  "isArray": { "type": "boolean" },
+                  "formatter": { "enum": ["fastapi-validation"] },
+                  "kind": { "$ref": "#/definitions/decisionErrorKind" },
+                  "retryable": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "wire": {
       "type": "object",
@@ -94,13 +229,7 @@
     "models": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "default",
-        "fallbacks",
-        "defaultContextWindow",
-        "defaultMaxOutputTokens",
-        "catalog"
-      ],
+      "required": ["default", "catalog"],
       "properties": {
         "default": {
           "type": "string"
@@ -261,6 +390,12 @@
           "pattern": {
             "type": "string"
           },
+          "patternStatuses": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "minItems": 1,
+            "description": "Restrict pattern to these HTTP statuses; status matching stays independent."
+          },
           "class": {
             "type": "string",
             "enum": [
@@ -322,6 +457,11 @@
         },
         "streamMs": {
           "type": "number"
+        },
+        "decideMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Decide entries only: the per-call budget for decide(), in milliseconds. When omitted, the base provider's default timeout applies."
         }
       }
     },
@@ -396,7 +536,74 @@
       }
     }
   },
+  "if": { "required": ["inferenceKinds"] },
+  "then": {
+    "required": ["decide"],
+    "not": {
+      "anyOf": [
+        { "required": ["capabilities"] },
+        { "required": ["quirks"] },
+        { "required": ["errorRules"] },
+        { "required": ["autoSelectPriority"] }
+      ]
+    },
+    "properties": {
+      "models": {
+        "properties": {
+          "fallbacks": false,
+          "fallbackModelName": false,
+          "registryDefaultModel": false,
+          "defaultContextWindow": false,
+          "defaultMaxOutputTokens": false,
+          "visionModel": false
+        }
+      },
+      "timeouts": { "properties": { "generateMs": false, "streamMs": false } },
+      "wire": {
+        "properties": {
+          "baseURLTemplate": false,
+          "extraCredentials": false,
+          "missingCredentialMessage": false,
+          "apiKeyFallbackEnvVars": false
+        }
+      }
+    }
+  },
+  "else": {
+    "required": ["capabilities", "errorRules"],
+    "not": {
+      "anyOf": [{ "required": ["decide"] }, { "required": ["decisionLimits"] }]
+    },
+    "properties": {
+      "models": {
+        "required": [
+          "fallbacks",
+          "defaultContextWindow",
+          "defaultMaxOutputTokens"
+        ]
+      },
+      "timeouts": { "properties": { "decideMs": false } }
+    }
+  },
   "definitions": {
+    "httpStatus": { "type": "integer", "minimum": 100, "maximum": 599 },
+    "decisionErrorKind": {
+      "enum": [
+        "authentication",
+        "invalid_request",
+        "max_tokens_exceeded",
+        "rate_limit",
+        "overloaded",
+        "server",
+        "timeout",
+        "network"
+      ]
+    },
+    "decidePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Dot-separated segments without whitespace; never __proto__, constructor or prototype."
+    },
     "probeEvidence": {
       "type": "object",
       "additionalProperties": false,

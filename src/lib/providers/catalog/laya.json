@@ -1,0 +1,107 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "laya",
+  "displayName": "Laya",
+  "aliases": [],
+  "inferenceKinds": ["decide"],
+  "wire": {},
+  "models": {
+    "default": "typed-decisions",
+    "topModels": ["typed-decisions", "multilingual", "english", "auto"],
+    "catalog": {
+      "typed-decisions": {
+        "contextWindow": 1024,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Laya fine-tuned for typed decisions"
+      },
+      "english": {
+        "contextWindow": 512,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "production",
+        "description": "Laya, English base checkpoint (512-token window)"
+      },
+      "multilingual": {
+        "contextWindow": 1024,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "production",
+        "description": "Laya, 100+ languages"
+      },
+      "auto": {
+        "contextWindow": 512,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "production",
+        "description": "Let Laya pick a checkpoint by language"
+      }
+    }
+  },
+  "timeouts": { "decideMs": 5000 },
+  "decisionLimits": {
+    "maxStateTokens": 320,
+    "maxQuestions": 64,
+    "nonAsciiTokensPerChar": 1.5,
+    "models": {
+      "typed-decisions": { "maxStateTokens": 768 },
+      "multilingual": { "maxStateTokens": 768, "nonAsciiTokensPerChar": 0.6 },
+      "english": { "maxStateTokens": 320 },
+      "auto": { "maxStateTokens": 320 }
+    }
+  },
+  "decide": {
+    "dialect": "system-one",
+    "order": 2,
+    "baseURLRequired": true,
+    "baseURLNormalize": ["strip-trailing-slash"],
+    "endpoint": "{baseURL}/predict",
+    "model": { "placement": "body-unless-alias", "alias": "auto" },
+    "requestIdHeaders": ["x-litellm-call-id"],
+    "response": { "modelPaths": ["routing.model", "model"] },
+    "errors": {
+      "rules": [
+        { "status": [401, 403], "kind": "authentication" },
+        { "status": 413, "kind": "max_tokens_exceeded" },
+        { "status": 429, "kind": "rate_limit" },
+        { "status": 503, "kind": "overloaded" },
+        { "statusMin": 500, "kind": "server" }
+      ],
+      "default": "invalid_request",
+      "bodyShapes": [
+        { "path": "error.message" },
+        {
+          "path": "detail",
+          "isArray": true,
+          "formatter": "fastapi-validation",
+          "kind": "invalid_request",
+          "retryable": false
+        },
+        { "path": "detail" }
+      ]
+    }
+  },
+  "setup": {
+    "url": "https://github.com/NandhaKishorM/laya",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "description": "API key for your Laya endpoint",
+    "instructions": [
+      "1. Run a Laya server, or use a LiteLLM proxy with a pass-through route to one",
+      "2. Set LAYA_BASE_URL to its base URL (NeuroLink calls <LAYA_BASE_URL>/predict)",
+      "3. Set {apiKeyEnvVar} to the key it accepts (on LiteLLM, a virtual key with that route in its Allowed Routes)"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-24",
+      "method": "Checkpoint ids typed-decisions, multilingual and english as listed in docs/getting-started/providers/laya.md and answered by a live Laya 0.3.5 server (routing.model); auto sends no model and lets Laya's router choose"
+    },
+    "liveMatrix": {
+      "date": "2026-09-24",
+      "result": "A 60,000-character state was answered 200 on a 1,024-token window, so Laya truncates silently and decisionLimits refuses over-window input (768 state tokens on typed-decisions and multilingual, 320 on english and auto). Chinese measured about 1.4 tokens per character on the English tokenizer and 0.56 on multilingual."
+    },
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1978"
+  }
+}

@@ -11,7 +11,6 @@ import {
   CohereModels,
   VoyageModels,
   TypeSafeModels,
-  LayaModels,
   XorModels,
   PerplexityDeciderModels,
   CloudflareClefModels,
@@ -24,10 +23,12 @@ import {
 import { API_KEY_FORMATS } from "../utils/providerConfig.js";
 import {
   getCatalogJsonEntries,
+  getDecideCatalogEntries,
   catalogCredentialsKey,
   catalogEnvVar,
 } from "../providers/catalog/loader.js";
 import type {
+  DecideCatalogJson,
   NeurolinkCredentials,
   ProviderDescriptor,
   ProviderCatalogJson,
@@ -471,6 +472,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // what keeps it out of every generation code path, rather than each of
     // those having to special-case the provider name.
     inferenceKinds: ["decide"],
+    decideOrder: 1,
     // It emits no text, so it cannot call tools and cannot answer a
     // "live-generate" health probe.
     toolSupport: "none",
@@ -497,58 +499,13 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     },
     setupUrl: "https://console.typesafe.ai/keys",
   },
-  // Laya MUST stay after TypeSafe, XOR after Laya, Perplexity after XOR, and
-  // Cloudflare Clef after Perplexity.
+  // Decision precedence is decideOrder, not position: typesafe 1, laya 2 (from
+  // catalog/laya.json), xor 3, perplexity-decider 4, cloudflare-clef 5.
   // resolveDefaultDecisionProvider() returns the first configured
-  // DECISION_PROVIDERS entry, in this order, so a host configured for several
+  // DECISION_PROVIDERS entry in that order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
-  // naming them. Reordering these silently changes which model routes,
-  // compacts and plans for every such host.
-  {
-    name: AIProviderName.LAYA,
-    aliases: [],
-    credentialsKey: "laya",
-    envVars: {
-      apiKey: "LAYA_API_KEY",
-      baseURL: "LAYA_BASE_URL",
-      // Laya has no built-in endpoint (it is self-hosted or behind a proxy),
-      // so a key is useless without a base URL. Both are required for it to
-      // count as configured, from the environment or credentials.laya.
-      extraRequired: ["LAYA_BASE_URL"],
-      model: "LAYA_MODEL",
-    },
-    defaultModel: LayaModels.TYPED_DECISIONS,
-    // Serves only `decide`, like TypeSafe — the one declaration that keeps it
-    // out of every generation code path.
-    inferenceKinds: ["decide"],
-    toolSupport: "none",
-    localRuntime: false,
-    healthCheck: "env-only",
-    // Deliberately NO autoSelectPriority / autoSelectPreference /
-    // defaultHealthSweepPriority, for the same reason as TypeSafe above.
-    timeouts: { decideMs: 5000 },
-    // Laya's encoders cut the state off silently past their window (measured
-    // live: a 60,000-character state answered 200 on 1,024 tokens). 768 is
-    // the 1,024-token window minus the 256-token budget Laya reserves for a
-    // question and its options; 320 is the English checkpoint's 512 minus
-    // 192. `auto` may route to English, and an unlisted name (Laya's server
-    // accepts aliases such as `en`) could be any checkpoint, so both get 320.
-    // 64 is the question cap in Laya's own server. Non-ASCII rates were
-    // measured live: Chinese is ~1.4 tokens per character on the English
-    // tokenizer (typed-decisions, english) and ~0.56 on multilingual.
-    decisionLimits: {
-      maxStateTokens: 320,
-      maxQuestions: 64,
-      nonAsciiTokensPerChar: 1.5,
-      models: {
-        "typed-decisions": { maxStateTokens: 768 },
-        multilingual: { maxStateTokens: 768, nonAsciiTokensPerChar: 0.6 },
-        english: { maxStateTokens: 320 },
-        auto: { maxStateTokens: 320 },
-      },
-    },
-    setupUrl: "https://github.com/NandhaKishorM/laya",
-  },
+  // naming them. Renumbering silently changes which model routes, compacts
+  // and plans for every such host.
   {
     name: AIProviderName.XOR,
     aliases: [],
@@ -566,6 +523,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // Serves only `decide`, like TypeSafe and Laya — the one declaration that
     // keeps it out of every generation code path.
     inferenceKinds: ["decide"],
+    decideOrder: 3,
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -610,6 +568,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // declaration that keeps it out of every generation code path, and out of
     // the way of the `perplexity` text provider.
     inferenceKinds: ["decide"],
+    decideOrder: 4,
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -677,6 +636,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // declaration that keeps it out of every generation code path, and out of
     // the way of the `cloudflare` text provider.
     inferenceKinds: ["decide"],
+    decideOrder: 5,
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -818,8 +778,53 @@ function buildCatalogDescriptor(
   };
 }
 
+/**
+ * Builds the ProviderDescriptor of a JSON `decide` provider. It serves only
+ * `decide`, so it declares no auto-select, preference or health-sweep rank:
+ * those feed generation fallback chains a text-less provider must never join.
+ */
+export function buildDecideDescriptor(
+  entry: DecideCatalogJson,
+): ProviderDescriptor {
+  const fallbacks = entry.wire.apiKeyFallbackEnvVars?.length
+    ? { fallbacks: [...entry.wire.apiKeyFallbackEnvVars] }
+    : {};
+  return {
+    name: entry.id as AIProviderName,
+    aliases: entry.aliases,
+    credentialsKey: catalogCredentialsKey(
+      entry,
+    ) as ProviderDescriptor["credentialsKey"],
+    envVars: {
+      apiKey: catalogEnvVar(entry, "apiKey"),
+      ...fallbacks,
+      baseURL: catalogEnvVar(entry, "baseURL"),
+      // A key is useless without an endpoint when the provider has no built-in one.
+      ...(entry.decide.baseURLRequired
+        ? { extraRequired: [catalogEnvVar(entry, "baseURL")] }
+        : {}),
+      model: catalogEnvVar(entry, "model"),
+    },
+    defaultModel: entry.models.default,
+    inferenceKinds: ["decide"],
+    decideOrder: entry.decide.order,
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    setupUrl: entry.setup.url,
+    ...(entry.setup.apiKeyFormat
+      ? { apiKeyFormatPattern: new RegExp(entry.setup.apiKeyFormat) }
+      : {}),
+    ...(entry.timeouts ? { timeouts: { ...entry.timeouts } } : {}),
+    ...(entry.decisionLimits ? { decisionLimits: entry.decisionLimits } : {}),
+  };
+}
+
 function buildCatalogDescriptors(): ProviderDescriptor[] {
-  return getCatalogJsonEntries().map(buildCatalogDescriptor);
+  return [
+    ...getCatalogJsonEntries().map(buildCatalogDescriptor),
+    ...getDecideCatalogEntries().map(buildDecideDescriptor),
+  ];
 }
 
 /**
@@ -851,15 +856,53 @@ export const PROVIDER_ALIAS_INDEX: ReadonlyMap<string, AIProviderName> =
     ]),
   );
 
+const servesDecide = (descriptor: ProviderDescriptor): boolean =>
+  (descriptor.inferenceKinds ?? DEFAULT_INFERENCE_KINDS).includes("decide");
+
+/**
+ * Throws unless every descriptor that serves `decide` has its own finite
+ * `decideOrder`. The order is the precedence of resolveDefaultDecisionProvider(),
+ * so a missing or repeated number would make that choice depend on array position.
+ */
+export function assertUniqueDecideOrder(
+  descriptors: readonly ProviderDescriptor[],
+): void {
+  const owners = new Map<number, string>();
+  for (const descriptor of descriptors.filter(servesDecide)) {
+    const order = descriptor.decideOrder;
+    if (order === undefined || !Number.isFinite(order)) {
+      throw new Error(
+        `decision provider "${descriptor.name}" has no usable decideOrder`,
+      );
+    }
+    const clash = owners.get(order);
+    if (clash !== undefined) {
+      throw new Error(
+        `decideOrder ${order} is used by both "${clash}" and "${descriptor.name}"`,
+      );
+    }
+    owners.set(order, descriptor.name);
+  }
+}
+
+/** The descriptors that serve `decide`, lowest `decideOrder` first. */
+export function orderDecisionProviders(
+  descriptors: readonly ProviderDescriptor[],
+): readonly ProviderDescriptor[] {
+  const rank = (d: ProviderDescriptor): number =>
+    d.decideOrder ?? Number.MAX_SAFE_INTEGER;
+  return descriptors.filter(servesDecide).sort((a, b) => rank(a) - rank(b));
+}
+
+assertUniqueDecideOrder(PROVIDER_DESCRIPTORS);
+
 /**
  * Providers that serve the `decide` inference type, derived from each
- * descriptor's `inferenceKinds`. A provider that declares nothing is a text
- * provider, so it is not here.
+ * descriptor's `inferenceKinds` and sorted by `decideOrder`, lowest first. A
+ * provider that declares nothing is a text provider, so it is not here.
  */
 export const DECISION_PROVIDERS: readonly ProviderDescriptor[] =
-  PROVIDER_DESCRIPTORS.filter((d) =>
-    (d.inferenceKinds ?? DEFAULT_INFERENCE_KINDS).includes("decide"),
-  );
+  orderDecisionProviders(PROVIDER_DESCRIPTORS);
 
 /**
  * Whether a decision provider is fully configured: its key and every

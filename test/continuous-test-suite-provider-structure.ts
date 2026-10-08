@@ -89,6 +89,13 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   // AIProviderName, so this module has no single honest entry there; the ten
   // IDs it registers are covered by their own manifest keys instead.
   "configuredOpenAICompat",
+  // The decide twin of configuredOpenAICompat: one class that every decide
+  // catalog entry (src/lib/providers/catalog/*.json with inferenceKinds
+  // ["decide"]) is built from. It is imported once, inside the decide catalog
+  // loop of providerRegistry.ts, and never registered under an id of its own,
+  // so a per-file "one dynamic import per module" check has nothing honest to
+  // say about it.
+  "configuredDecision",
   // Shared error-rule builder for Ollama/LM Studio/llama.cpp — a plain
   // function, not a provider class (the neurolink/provider-base-class lint
   // rule requires each of those three to extend OpenAIChatCompletionsProvider
@@ -306,6 +313,42 @@ await test("Provider Registration Completeness", async () => {
   assert(
     keyCollisions.length === 0,
     `${keyCollisions.length} alias/key collision(s) found`,
+  );
+});
+
+await test("configuredDecision backs the decide catalog and is never registered under an id of its own", async () => {
+  const file = path.join(
+    process.cwd(),
+    "src",
+    "lib",
+    "providers",
+    "configuredDecision.ts",
+  );
+  assert(
+    fs.existsSync(file),
+    "src/lib/providers/configuredDecision.ts must exist: an exclusion for a missing file is stale",
+  );
+  assert(
+    PROVIDER_REGISTRATION_EXCLUSIONS.has("configuredDecision"),
+    "configuredDecision must be in PROVIDER_REGISTRATION_EXCLUSIONS: one module backs every decide catalog entry and is never registered under an id of its own",
+  );
+  const { AIProviderName } = await import("../dist/constants/enums.js");
+  assert(
+    !(Object.values(AIProviderName) as string[]).includes("configuredDecision"),
+    "no AIProviderName value may be configuredDecision",
+  );
+  // The exclusion above also hides the module from the completeness check, so
+  // this is the only guard on how the registry reaches it.
+  const registrySource = fs.readFileSync(
+    path.join(process.cwd(), "src", "lib", "factories", "providerRegistry.ts"),
+    "utf8",
+  );
+  const importCount = [
+    ...registrySource.matchAll(DYNAMIC_PROVIDER_IMPORT_RE),
+  ].filter((match) => match[1] === "configuredDecision").length;
+  assert(
+    importCount === 1,
+    `providerRegistry.ts must import configuredDecision through exactly one dynamic import, found ${importCount}`,
   );
 });
 
@@ -689,7 +732,7 @@ await test("verify:provider-onboarding rejects a manifest missing addedInPR, fil
   const manifestsRel = path.join("docs", "provider-integration", "manifests");
   const dropped: ReadonlyArray<{ provider: string; field: string }> = [
     { provider: "xor", field: "addedInPR" },
-    { provider: "laya", field: "filesTouched" },
+    { provider: "cloudflare-clef", field: "filesTouched" },
     { provider: "typesafe", field: "manualTestStatus" },
   ];
   const control = "perplexity-decider";
@@ -758,6 +801,103 @@ await test("verify:provider-onboarding rejects a manifest missing addedInPR, fil
     );
   } finally {
     fs.rmSync(scratchRoot, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A decide JSON is gated like a chat JSON: it must parse, carry its evidence
+ * and be named after its own id. Each variant runs in a scratch copy of the
+ * repo in which only laya.json differs. src/lib/providers is a real copy, not
+ * a symlink, because the gate tells files from folders by Dirent flags and a
+ * symlink fails both.
+ */
+await test("verify:provider-onboarding gates a decide catalog file (isolated tree)", async () => {
+  const realRoot = process.cwd();
+  const catalogRel = path.join(
+    "src",
+    "lib",
+    "providers",
+    "catalog",
+    "laya.json",
+  );
+  const realLaya = fs.readFileSync(path.join(realRoot, catalogRel), "utf8");
+  const parsed = JSON.parse(realLaya) as Record<string, unknown>;
+
+  const link = (scratchRoot: string, rel: string): void => {
+    fs.symlinkSync(path.join(realRoot, rel), path.join(scratchRoot, rel));
+  };
+  const gate = async (layaJson: string) => {
+    const scratchRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "neurolink-decide-gate-"),
+    );
+    try {
+      for (const entry of fs.readdirSync(realRoot)) {
+        if (entry !== "src") {
+          link(scratchRoot, entry);
+        }
+      }
+      fs.mkdirSync(path.join(scratchRoot, "src", "lib"), { recursive: true });
+      for (const entry of fs.readdirSync(path.join(realRoot, "src"))) {
+        if (entry !== "lib") {
+          link(scratchRoot, path.join("src", entry));
+        }
+      }
+      for (const entry of fs.readdirSync(path.join(realRoot, "src", "lib"))) {
+        if (entry !== "providers") {
+          link(scratchRoot, path.join("src", "lib", entry));
+        }
+      }
+      const providers = path.join(scratchRoot, "src", "lib", "providers");
+      fs.cpSync(path.join(realRoot, "src", "lib", "providers"), providers, {
+        recursive: true,
+      });
+      fs.writeFileSync(path.join(scratchRoot, catalogRel), layaJson);
+      const result = await runCommand(
+        path.join(realRoot, "node_modules", ".bin", "tsx"),
+        [path.join(realRoot, "tools", "verify-provider-onboarding.ts")],
+        { cwd: scratchRoot, timeoutMs: 120_000 },
+      );
+      return {
+        output: `${result.stdout}\n${result.stderr}`,
+        exitCode: result.exitCode,
+      };
+    } finally {
+      fs.rmSync(scratchRoot, { recursive: true, force: true });
+    }
+  };
+
+  const control = await gate(realLaya);
+  assert(
+    control.output.includes("✓ laya"),
+    "the unchanged decide file must pass the gate",
+  );
+  assert(
+    control.exitCode === 0,
+    "the gate must exit 0 when every provider is onboarded",
+  );
+
+  const broken: ReadonlyArray<{ what: string; text: string }> = [
+    {
+      what: "no evidence block",
+      text: JSON.stringify({ ...parsed, evidence: undefined }),
+    },
+    {
+      what: "an id that belongs to another provider",
+      text: JSON.stringify({ ...parsed, id: "xor" }),
+    },
+    { what: "text that is not JSON", text: "{" },
+  ];
+  for (const { what, text } of broken) {
+    const result = await gate(text);
+    assert(
+      result.output.includes("✗ laya"),
+      `a decide file with ${what} must be rejected`,
+    );
+    assert(
+      result.output.includes("✓ xor"),
+      `the scratch tree must still check the other providers (${what})`,
+    );
+    assert(result.exitCode !== 0, `the gate must exit non-zero for ${what}`);
   }
 });
 

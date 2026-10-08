@@ -62,7 +62,14 @@ import "./helpers/credentialFreeEnv.js";
  *      pnpm run test:model-manifests
  */
 
-import { assert, assertNotNull, defineSuite } from "./helpers/harness.js";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import {
+  assert,
+  assertEqual,
+  assertNotNull,
+  defineSuite,
+} from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import type { ProviderModelManifestEntry } from "../dist/types/model.js";
 
@@ -1355,6 +1362,85 @@ await test("Executable Bedrock manifest aliases preserve their canonical metadat
       8_192,
     "the executable Claude manifest alias missed its recorded safe token row",
   );
+});
+
+await test("a decide catalog provider has a derived manifest and no hand-written one", async () => {
+  const { DECIDE_CATALOG_JSON_ENTRIES } =
+    await import("../dist/providers/catalog/index.generated.js");
+  assert(
+    DECIDE_CATALOG_JSON_ENTRIES.length >= 1,
+    "no decide catalog entry was seen, so nothing was compared",
+  );
+  const manifestFile = (id: string): string =>
+    fileURLToPath(
+      new URL(`../src/lib/models/manifests/${id}.ts`, import.meta.url),
+    );
+  assert(
+    existsSync(manifestFile("anthropic")),
+    "positive control: the manifest directory was not found, so a missing hand file proves nothing",
+  );
+  for (const entry of DECIDE_CATALOG_JSON_ENTRIES) {
+    assert(
+      !existsSync(manifestFile(entry.id)),
+      `${entry.id}: a hand-written manifest file would shadow the catalog entry`,
+    );
+    const manifest = getManifestForProvider(entry.id);
+    assertNotNull(manifest, `${entry.id}: no manifest registered`);
+    const base = entry.models.catalog[entry.models.default];
+    assertNotNull(base, `${entry.id}: models.default is not in models.catalog`);
+    const baseWindow = base.contextWindow;
+    const baseOutput = base.maxOutputTokens;
+    assertNotNull(
+      baseWindow,
+      `${entry.id}: the default model has no contextWindow`,
+    );
+    assertNotNull(
+      baseOutput,
+      `${entry.id}: the default model has no maxOutputTokens`,
+    );
+    assert(
+      manifest.defaultContextWindow === baseWindow,
+      `${entry.id}: defaultContextWindow differs from the default model's window`,
+    );
+    assertEqual(
+      Object.keys(manifest.models).sort().join(","),
+      ["_default", ...Object.keys(entry.models.catalog)].sort().join(","),
+      `${entry.id}: the manifest must hold exactly the catalog's models plus _default`,
+    );
+    const specs: Array<[string, typeof base]> = [
+      ["_default", base],
+      ...Object.entries(entry.models.catalog),
+    ];
+    for (const [modelId, spec] of specs) {
+      const resolved: ProviderModelManifestEntry | undefined =
+        manifest.models[modelId];
+      assertNotNull(
+        resolved,
+        `${entry.id}/${modelId}: missing from the manifest`,
+      );
+      assert(
+        resolved.contextWindow === (spec.contextWindow ?? baseWindow),
+        `${entry.id}/${modelId}: manifest window differs from the catalog entry`,
+      );
+      assert(
+        resolved.maxOutputTokens === (spec.maxOutputTokens ?? baseOutput),
+        `${entry.id}/${modelId}: manifest maxOutputTokens differs from the catalog entry`,
+      );
+      assert(
+        resolved.vision === spec.vision,
+        `${entry.id}/${modelId}: manifest vision differs from the catalog entry`,
+      );
+      assert(
+        resolved.functionCalling === false,
+        `${entry.id}/${modelId}: a decide model has no tool calling`,
+      );
+      assertEqual(
+        JSON.stringify(resolved.aliases),
+        "[]",
+        `${entry.id}/${modelId}: a derived decide entry has aliases`,
+      );
+    }
+  }
 });
 
 await runSuite();

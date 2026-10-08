@@ -52,6 +52,7 @@ import {
   CATALOG_BASE_URL_ROWS,
   CATALOG_COMPUTED_BASE_URL_IDS,
   CATALOG_PROVIDER_IDS,
+  DECIDE_CATALOG_PROVIDER_IDS,
   type ProviderEntry,
 } from "./helpers/providerMatrix.js";
 import {
@@ -318,27 +319,37 @@ const PROVIDERS_NOT_COVERED: Array<{ provider: string; reason: string }> = [
     reason:
       "Decide-only inference (SystemOneDecisionProvider) — every text/streaming/tool/structured-output capability is false; it emits no text at all, so none of cells 1-9 have a surface to exercise.",
   },
-  {
-    provider: "laya",
+  ...DECIDE_CATALOG_PROVIDER_IDS.map((provider) => ({
+    provider,
     reason:
-      "Decide-only inference, like typesafe — no text-generation surface for any of cells 1-9.",
-  },
+      "Decide-only inference (a decide catalog entry served by ConfiguredDecisionProvider) — no text-generation surface for any of cells 1-9.",
+  })),
   {
     provider: "xor",
     reason:
-      "Decide-only inference (XorProvider extends SystemOneDecisionProvider, like typesafe and laya) — no text-generation surface for any of cells 1-9.",
+      "Decide-only inference (XorProvider extends SystemOneDecisionProvider, like typesafe and the decide catalog entries) — no text-generation surface for any of cells 1-9.",
   },
   {
     provider: "perplexity-decider",
     reason:
-      "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe, laya and xor) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
+      "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe, xor and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
   },
   {
     provider: "cloudflare-clef",
     reason:
-      "Decide-only inference (CloudflareClefProvider extends SystemOneDecisionProvider, like typesafe, laya, xor and perplexity-decider) — no text-generation surface for any of cells 1-9. Distinct from the cloudflare Workers AI text provider, though both read the same two variables.",
+      "Decide-only inference (CloudflareClefProvider extends SystemOneDecisionProvider, like typesafe, xor, perplexity-decider and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the cloudflare Workers AI text provider, though both read the same two variables.",
   },
 ];
+
+// The exemption reason above is only true while the matrix row says so.
+for (const providerId of DECIDE_CATALOG_PROVIDER_IDS) {
+  const row = PROVIDERS[providerId];
+  if (row === undefined || row.decide !== true || row.text !== false) {
+    throw new Error(
+      `acceptance-gate: "${providerId}" is a decide catalog provider but its matrix row is not decide-only`,
+    );
+  }
+}
 
 for (const providerId of Object.keys(PROVIDERS)) {
   const covered = GATE_ROWS.some((row) => row.provider === providerId);

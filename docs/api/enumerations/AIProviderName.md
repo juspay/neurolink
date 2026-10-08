@@ -334,6 +334,12 @@ Supported AI Provider Names
 
 ---
 
+### LAYA
+
+> **LAYA**: `"laya"`
+
+---
+
 ### LEMONFOX_AI
 
 > **LEMONFOX_AI**: `"lemonfox-ai"`
@@ -645,14 +651,6 @@ Supported AI Provider Names
 > **TYPESAFE**: `"typesafe"`
 
 TypeSafe (Jev) — serves the `decide` inference type only.
-
----
-
-### LAYA
-
-> **LAYA**: `"laya"`
-
-Laya (Convai, open weights) — serves the `decide` inference type only.
 
 ---
 

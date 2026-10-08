@@ -25,6 +25,13 @@
  *
  * pnpm script: pnpm run scaffold:provider -- --name=... --tier=... ...
  *
+ * Decide providers (inferenceKinds ["decide"]) are scaffolded with
+ * --kind=decide. It emits `<name>.json` (the catalog entry), `contract.json`
+ * (the fixture the generic decide loop reads, to be filled with vendor bodies)
+ * and MANUAL-CHECKLIST.md:
+ *   npx tsx tools/scaffold-provider.ts --kind=decide --name=acme \
+ *     --defaultModel=acme-1 [--baseURL=https://api.acme.test] [--envVar=ACME_TOKEN]
+ *
  * See docs/provider-integration/tiers/README.md for what each tier means.
  */
 
@@ -42,15 +49,23 @@ type ScaffoldTier = 1 | 2 | 3 | 4;
 // can escape the output directory or produce unsafe generated code.
 const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-type ScaffoldInput = {
+type ScaffoldFields = {
   name: string;
-  tier: ScaffoldTier;
   baseURL?: string;
   envVar: string;
   defaultModel: string;
   aliases: readonly string[];
   out: string;
 };
+
+// What the chat scaffold reads. A decide provider is described by the shared
+// fields alone, so its input has no tier to invent.
+type ScaffoldInput = ScaffoldFields & { tier: ScaffoldTier };
+type DecideScaffoldInput = ScaffoldFields;
+
+type ScaffoldRequest =
+  | { kind: "provider"; input: ScaffoldInput }
+  | { kind: "decide"; input: DecideScaffoldInput };
 
 // Every CLI-derived value embedded in a generated TypeScript string literal
 // goes through this: JSON.stringify yields a valid, correctly-escaped TS
@@ -77,7 +92,10 @@ function toCamelCase(name: string): string {
   );
 }
 
-function parseArgs(argv: readonly string[]): ScaffoldInput {
+const DECIDE_USAGE =
+  "npx tsx tools/scaffold-provider.ts --kind=decide --name=<kebab> --defaultModel=<id> [--baseURL=<url>] [--envVar=<ENV_NAME>] [--aliases=a,b,c] [--out=<dir>]";
+
+function parseArgs(argv: readonly string[]): ScaffoldRequest {
   const flags = new Map<string, string>();
   for (const arg of argv) {
     const match = /^--([a-zA-Z]+)=(.*)$/.exec(arg);
@@ -85,12 +103,23 @@ function parseArgs(argv: readonly string[]): ScaffoldInput {
       flags.set(match[1], match[2]);
     }
   }
+  const kind = flags.get("kind") ?? "provider";
+  if (kind !== "provider" && kind !== "decide") {
+    console.error(`--kind must be "provider" or "decide" (got "${kind}")`);
+    process.exit(1);
+  }
+  if (kind === "decide" && flags.has("tier")) {
+    console.error("--tier does not apply to --kind=decide");
+    process.exit(1);
+  }
   const name = flags.get("name");
   const tierRaw = flags.get("tier");
   const defaultModel = flags.get("defaultModel");
-  if (!name || !tierRaw || !defaultModel) {
+  if (!name || !defaultModel || (kind === "provider" && !tierRaw)) {
     console.error(
-      "Usage: npx tsx tools/scaffold-provider.ts --name=<kebab> --tier=<1|2|3|4> --defaultModel=<id> [--baseURL=<url>] [--envVar=<ENV_NAME>] [--aliases=a,b,c] [--out=<dir>]",
+      kind === "decide"
+        ? `Usage: ${DECIDE_USAGE}`
+        : `Usage: npx tsx tools/scaffold-provider.ts --name=<kebab> --tier=<1|2|3|4> --defaultModel=<id> [--baseURL=<url>] [--envVar=<ENV_NAME>] [--aliases=a,b,c] [--out=<dir>]\n   or: ${DECIDE_USAGE}`,
     );
     process.exit(1);
   }
@@ -100,21 +129,23 @@ function parseArgs(argv: readonly string[]): ScaffoldInput {
     );
     process.exit(1);
   }
-  const tierNum = Number(tierRaw);
-  if (![1, 2, 3, 4].includes(tierNum)) {
-    console.error(`--tier must be 1, 2, 3, or 4 (got "${tierRaw}")`);
-    process.exit(1);
-  }
-  const tier = tierNum as ScaffoldTier;
-  return {
+  const fields: ScaffoldFields = {
     name,
-    tier,
     baseURL: flags.get("baseURL"),
     envVar: flags.get("envVar") ?? `${toConstantCase(name)}_API_KEY`,
     defaultModel,
     aliases: (flags.get("aliases") ?? "").split(",").filter(Boolean),
     out: flags.get("out") ?? join(".scaffold-output", name),
   };
+  if (kind === "decide") {
+    return { kind, input: fields };
+  }
+  const tierNum = Number(tierRaw);
+  if (![1, 2, 3, 4].includes(tierNum)) {
+    console.error(`--tier must be 1, 2, 3, or 4 (got "${tierRaw}")`);
+    process.exit(1);
+  }
+  return { kind, input: { ...fields, tier: tierNum as ScaffoldTier } };
 }
 
 function enumEntrySnippet(input: ScaffoldInput): string {
@@ -549,8 +580,320 @@ ${registrationLine}
 `;
 }
 
+// Decide providers: the catalog JSON is the whole integration (enum member,
+// credentials key, descriptor, registry entry and the generic test loop all
+// derive from it). Hand-built text, like catalogJson, so the field order and
+// the TODO markers are the instructions; every flag value goes through tsString.
+// The 0s, the date, the billing policy and the two window numbers keep the file
+// from loading until the author replaces them (the windows hold TODO text that
+// fails the number check and says what goes there); the other TODO strings and
+// the endpoint path load but are wrong. The error rules and body shapes are a
+// working starting point that the fixture below matches.
+function decideCatalogJson(input: DecideScaffoldInput): string {
+  const stem = toConstantCase(input.name);
+  const wireLines = [
+    ...(input.baseURL ? [`    "baseURL": ${tsString(input.baseURL)}`] : []),
+    ...(input.envVar === `${stem}_API_KEY`
+      ? []
+      : [`    "envOverrides": { "apiKey": ${tsString(input.envVar)} }`]),
+  ];
+  const wire = wireLines.length > 0 ? `{\n${wireLines.join(",\n")}\n  }` : "{}";
+  const baseURLRequired = input.baseURL ? "" : `    "baseURLRequired": true,\n`;
+  return `{
+  "$schema": "./provider-catalog.schema.json",
+  "id": ${tsString(input.name)},
+  "displayName": "TODO: human-readable vendor name",
+  "aliases": [${input.aliases.map(tsString).join(", ")}],
+  "inferenceKinds": ["decide"],
+  "wire": ${wire},
+  "models": {
+    "default": ${tsString(input.defaultModel)},
+    "catalog": {
+      ${tsString(input.defaultModel)}: {
+        "contextWindow": "TODO: the default model's context window in tokens, a number",
+        "maxOutputTokens": "TODO: the default model's output limit in tokens, a number",
+        "vision": false,
+        "status": "production",
+        "description": "TODO: one line shown in the CLI model picker"
+      }
+    }
+  },
+  "timeouts": { "decideMs": 5000 },
+  "decisionLimits": { "maxStateTokens": 0 },
+  "decide": {
+    "dialect": "system-one",
+    "order": 0,
+${baseURLRequired}    "baseURLNormalize": ["strip-trailing-slash"],
+    "endpoint": "{baseURL}/TODO-path",
+    "model": { "placement": "body" },
+    "errors": {
+      "rules": [
+        { "status": [401, 403], "kind": "authentication" },
+        { "status": 413, "kind": "max_tokens_exceeded" },
+        { "status": 429, "kind": "rate_limit" },
+        { "status": 503, "kind": "overloaded" },
+        { "statusMin": 500, "kind": "server" }
+      ],
+      "default": "invalid_request",
+      "bodyShapes": [{ "path": "error.message" }, { "path": "detail" }]
+    }
+  },
+  "setup": {
+    "url": "TODO: console/API-keys URL",
+    "apiKeyFormat": null,
+    "billingPolicy": "TODO: one of the billingPolicy values in provider-catalog.schema.json",
+    "instructions": [
+      "1. Visit: TODO",
+      "2. Create an API key",
+      "3. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": { "date": "TODO", "method": "TODO: how the model name was confirmed" },
+    "liveMatrix": null,
+    "addedInPR": "TODO: full PR URL"
+  }
+}
+`;
+}
+
+type DecideStandInError = {
+  readonly label: string;
+  readonly status: number;
+  readonly body: unknown;
+  readonly expect: {
+    readonly kind: string;
+    readonly retryable: boolean;
+    readonly messageIncludes?: readonly string[];
+    readonly messageExcludes?: readonly string[];
+  };
+};
+
+const todoBody = (label: string) => ({
+  error: {
+    message: `TODO: replace with the "${label}" body the vendor returned`,
+  },
+});
+
+// One body for every status the template's rules decide, so the generic loop's
+// rule-coverage and default-kind cases pass as soon as the TODOs are filled:
+// each status a rule lists (401 and 403, 413, 429, 503), the lowest status of
+// the 500-and-up rule (500), one above it (502) and one just below it (499,
+// which no rule matches). 400, 499 and 409 fall through to the default kind;
+// 409 holds both envelopes at once, which guards the order of the body shapes.
+// The first body also echoes the key, so the redaction case checks a server
+// that does that.
+const DECIDE_STAND_IN_ERRORS: readonly DecideStandInError[] = [
+  {
+    label: "bad key",
+    status: 401,
+    body: {
+      error: {
+        message:
+          'TODO: replace with the "bad key" body the vendor returned. Received key {apiKey}',
+      },
+    },
+    expect: {
+      kind: "authentication",
+      retryable: false,
+      messageIncludes: ["bad key"],
+      messageExcludes: ["{apiKey}"],
+    },
+  },
+  {
+    label: "forbidden",
+    status: 403,
+    body: todoBody("forbidden"),
+    expect: { kind: "authentication", retryable: false },
+  },
+  {
+    label: "state too large",
+    status: 413,
+    body: todoBody("state too large"),
+    expect: { kind: "max_tokens_exceeded", retryable: false },
+  },
+  {
+    label: "rate limited",
+    status: 429,
+    body: todoBody("rate limited"),
+    expect: { kind: "rate_limit", retryable: true },
+  },
+  {
+    label: "unavailable",
+    status: 503,
+    body: todoBody("unavailable"),
+    expect: { kind: "overloaded", retryable: true },
+  },
+  {
+    label: "server error",
+    status: 500,
+    body: todoBody("server error"),
+    expect: { kind: "server", retryable: true },
+  },
+  {
+    label: "bad gateway",
+    status: 502,
+    body: todoBody("bad gateway"),
+    expect: { kind: "server", retryable: true },
+  },
+  {
+    label: "bad request",
+    status: 400,
+    body: {
+      detail: 'TODO: replace with the "bad request" body the vendor returned',
+    },
+    expect: {
+      kind: "invalid_request",
+      retryable: false,
+      messageIncludes: ["bad request"],
+    },
+  },
+  {
+    label: "client closed request",
+    status: 499,
+    body: todoBody("client closed request"),
+    expect: { kind: "invalid_request", retryable: false },
+  },
+  {
+    label: "error message beside a detail",
+    status: 409,
+    body: {
+      error: { message: "TODO: keep both fields; this text wins" },
+      detail: "TODO: keep both fields; this text loses",
+    },
+    expect: {
+      kind: "invalid_request",
+      retryable: false,
+      messageIncludes: ["this text wins"],
+      messageExcludes: ["this text loses"],
+    },
+  },
+];
+
+// The shape test/helpers/decideContractFixture.ts reads. Every body is a
+// stand-in until the author replaces it with what the vendor returned.
+function decideContractJson(input: DecideScaffoldInput): string {
+  const choice = {
+    choice: "billing",
+    probabilities: { billing: 0.6, technical: 0.4 },
+    confidence: 0.6,
+  };
+  const score = {
+    score: 1,
+    legend: { "0": "calm", "1": "annoyed" },
+    probabilities: { "0": 0.5, "1": 0.5 },
+    confidence: 0.5,
+  };
+  const fixture = {
+    version: 1,
+    id: input.name,
+    success: {
+      headers: {},
+      body: {
+        model: input.defaultModel,
+        answers: {
+          urgent: { type: "noul", noul: 0.5 },
+          team: { type: "choice", ...choice },
+          mood: { type: "score", ...score },
+        },
+        usage: { input_tokens: 1, output_tokens: 0 },
+      },
+      expected: {
+        model: input.defaultModel,
+        inputTokens: 1,
+        answers: {
+          urgent: { type: "boolean", probability: 0.5 },
+          team: { type: "choice", ...choice },
+          mood: { type: "score", ...score },
+        },
+      },
+    },
+    errors: DECIDE_STAND_IN_ERRORS.map((e) => ({
+      label: e.label,
+      provenance: "stand-in",
+      status: e.status,
+      body: e.body,
+      expect: e.expect,
+    })),
+  };
+  return `${JSON.stringify(fixture, null, 2)}\n`;
+}
+
+function decideChecklist(input: DecideScaffoldInput): string {
+  const stem = toConstantCase(input.name);
+  const baseURLEnv = input.baseURL
+    ? `${stem}_BASE_URL (optional: overrides the built-in ${input.baseURL})`
+    : `${stem}_BASE_URL (required: this vendor has no built-in endpoint)`;
+  return `# Manual checklist for "${input.name}" (decide provider)
+
+One catalog file drives everything: the enum member, the credentials key, the
+descriptor, the registry entry and the generic test loop. Do not hand-write any
+of them.
+
+## Fill in
+
+- [ ] Move ${input.name}.json to src/lib/providers/catalog/ and replace every
+      TODO (the endpoint path too; the default model's contextWindow and
+      maxOutputTokens hold TODO text where a number goes) and every 0
+      (decisionLimits.maxStateTokens, decide.order). The default model needs
+      both numbers: the model manifest is derived from them and codegen refuses
+      the file without them. The error rules and body shapes are a starting
+      point: set them to what the vendor does.
+- [ ] decide.order is a whole number from 1 up that no other decide provider
+      uses; lower runs first and sets which provider is the default. List the
+      taken ones (pnpm run codegen:catalog refuses a repeat or a 0):
+      grep -hE '"order": [0-9]+|decideOrder: [0-9]+' src/lib/providers/catalog/*.json src/lib/factories/providerDescriptors.ts
+- [ ] Move contract.json to test/fixtures/decide/${input.name}/contract.json.
+      Replace each stand-in body with the one the vendor returned; change
+      "provenance" to "seen-live" only for a body you captured yourself. Write
+      {apiKey} where the vendor echoes the key.
+- [ ] Keep a body at every status the rules decide: each status a rule lists
+      (401, 403, 413, 429, 503), the lowest status of the 500-and-up rule (500),
+      one above it (502) and one just below it (499), plus bodies no rule
+      matches that declare the default kind (400, 499, 409). The 409 body holds
+      error.message and detail together, so the order the shapes are read in is
+      pinned. The loop names a missing status, so add a body whenever you add
+      or move a rule.
+- [ ] pnpm run codegen:catalog && pnpm run build
+
+## Live canary env names
+
+- ${input.envVar} (required)
+- ${baseURLEnv}
+- ${stem}_MODEL (optional: names the default model)
+
+A live canary skips when the key, or a required base URL, is absent. Never
+commit the values.
+
+## Gates
+
+- [ ] pnpm run test:decide-contract
+- [ ] pnpm run test:providers-mocked
+- [ ] pnpm run test:provider-wiring && pnpm run test:provider-descriptors
+- [ ] pnpm run verify:provider-onboarding
+`;
+}
+
+function scaffoldDecide(input: DecideScaffoldInput): void {
+  mkdirSync(input.out, { recursive: true });
+  const checklist = decideChecklist(input);
+  writeFileSync(
+    join(input.out, `${input.name}.json`),
+    decideCatalogJson(input),
+  );
+  writeFileSync(join(input.out, "contract.json"), decideContractJson(input));
+  writeFileSync(join(input.out, "MANUAL-CHECKLIST.md"), checklist);
+  console.log(`Scaffolded decide provider "${input.name}" -> ${input.out}`);
+  console.log(checklist);
+}
+
 function main(): void {
-  const input = parseArgs(process.argv.slice(2));
+  const request = parseArgs(process.argv.slice(2));
+  if (request.kind === "decide") {
+    scaffoldDecide(request.input);
+    return;
+  }
+  const input = request.input;
   mkdirSync(input.out, { recursive: true });
 
   // Tier 2 emits exactly two artifacts: the catalog JSON and its checklist.

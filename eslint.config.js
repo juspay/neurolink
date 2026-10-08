@@ -523,6 +523,38 @@ export default [
             // can only read the compiled tables directly. Its header states
             // this in full.
             "test/continuous-test-suite-model-manifests.ts",
+            // parseCatalogEntry and parseProviderCatalogJson are build-tool
+            // validators (codegen, the onboarding gate) that no generate(),
+            // stream() or CLI call reaches. Every case needs a fixed input, a
+            // real catalog file or one hand-mutated copy of an entry, so a
+            // rejection can be pinned to one rule. Its header states this.
+            "test/continuous-test-suite-decide-catalog-schema.ts",
+            // The decide catalog entries are read straight from the module
+            // graph: the descriptor table, the loader accessors, the registry
+            // loop and the generated index are not exported from dist/index.js,
+            // and the control that the 81 chat descriptors are unchanged is an
+            // exact-data comparison no generate() or CLI call can produce. The
+            // snapshot helper reads the same tables. Their headers say so.
+            "test/continuous-test-suite-decide-catalog.ts",
+            "test/helpers/descriptorSnapshot.ts",
+            // The decide engine modules (dist/providers/decide/*) and
+            // ConfiguredDecisionProvider are reachable from dist/index.js only
+            // through a configured provider's generate() call. Each module
+            // takes values a live endpoint cannot be made to produce on demand:
+            // a response body with a getter or a prototype-named key, an error
+            // body that holds the API key, a base URL that fails validation.
+            // Its header states this.
+            "test/continuous-test-suite-decide-engine.ts",
+            // The generic decide provider contract builds
+            // ConfiguredDecisionProvider from dist, which dist/index.js reaches
+            // only through a configured provider's generate() call. Its cases
+            // need what no live endpoint can be made to send on demand: a reply
+            // that echoes the API key, a blank key or base URL, a request count
+            // of exactly zero. Every request goes to a fetch mock, with fake
+            // credentials and .test hosts. Its header says so. The suite that
+            // checks the loop imports nothing from src/ or dist/ at run time
+            // itself, so it needs no entry.
+            "test/helpers/decideProviderContract.ts",
             // Direct `synthesizeStream` access covers only the
             // handler-synthesis seam: provider/default text caps,
             // surrogate-safe splits, and final-chunk failure isolation.

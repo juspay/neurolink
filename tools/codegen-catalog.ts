@@ -11,47 +11,61 @@
  * Idempotent: a second run produces byte-identical output. `--check`
  * exits 1 (writing nothing) if any output is stale — used by pre-commit
  * and CI so generated code can never drift from the JSON.
+ *
+ * `--validate-only` runs every check and writes nothing. `--dir <path>`
+ * reads the entries from that directory instead of the real catalog; it is
+ * legal only together with `--validate-only`, because the generated files
+ * always describe the real catalog directory.
  */
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as prettier from "prettier";
-import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
-import type { ProviderCatalogJson } from "../src/lib/types/index.js";
+import {
+  isDecideCatalogEntry,
+  parseCatalogEntry,
+} from "../src/lib/providers/catalog/schema.js";
+import type { CatalogEntry } from "../src/lib/types/index.js";
+import {
+  credentialsKeyFor,
+  handWrittenDecideOrders,
+  renderCredentialLines,
+  renderIndexSource,
+  renderModelsEnumBlocks,
+  renderProviderMemberLines,
+  renderTypeUnionsSource,
+  toConstantCase,
+  toModelConstant,
+  toPascalCase,
+} from "./codegen-catalog-render.js";
 
-const CATALOG_DIR = "src/lib/providers/catalog";
+const REAL_CATALOG_DIR = "src/lib/providers/catalog";
 
-const checkMode = process.argv.includes("--check");
+const args = process.argv.slice(2);
+const checkMode = args.includes("--check");
+const validateOnly = args.includes("--validate-only");
+const misspelledDir = args.find(
+  (arg) => arg.startsWith("--dir") && arg !== "--dir",
+);
+if (misspelledDir !== undefined) {
+  // Ignoring it would validate the real catalog and report success.
+  throw new Error(
+    `unknown flag ${JSON.stringify(misspelledDir)}: use --dir <path>, not --dir=<path>`,
+  );
+}
+const dirFlagAt = args.indexOf("--dir");
+const dirArg = dirFlagAt === -1 ? undefined : args[dirFlagAt + 1];
+if (
+  dirFlagAt !== -1 &&
+  (dirArg === undefined || dirArg.startsWith("--") || dirArg.trim() === "")
+) {
+  throw new Error("--dir needs a directory argument");
+}
+if (dirArg !== undefined && !validateOnly) {
+  // The generated files always describe the real catalog directory.
+  throw new Error("--dir is only allowed together with --validate-only");
+}
+const CATALOG_DIR = dirArg ?? REAL_CATALOG_DIR;
 let stale = false;
-
-function toConstantCase(id: string): string {
-  return id.toUpperCase().replace(/-/g, "_");
-}
-function toPascalCase(id: string): string {
-  return id
-    .split("-")
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join("");
-}
-// Digits are matched alongside letters so a schema-legal id like
-// "provider-2" collapses to "provider2" rather than keeping the hyphen and
-// emitting an invalid binding ("provider-2Json") / property ("provider-2?").
-function toCamelCase(id: string): string {
-  return id.replace(/-([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
-}
-// Resolves the NeurolinkCredentials key for an entry — respects a
-// credentialsKey override (required where the derived camelCase would
-// rename a pre-existing public credential field; see together-ai).
-function credentialsKeyFor(e: ProviderCatalogJson): string {
-  return e.credentialsKey ?? toCamelCase(e.id);
-}
-function toModelConstant(modelId: string): string {
-  const n = modelId
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  if (n === "") return "MODEL";
-  return /^[0-9]/.test(n) ? `M_${n}` : n;
-}
 
 // `enumTypeName` becomes an `enum <Name> {}` declaration, which needs a
 // BindingIdentifier — reserved words are legal PropertyNames (fine for
@@ -190,9 +204,57 @@ function extractEnumMembers(body: string): {
 // would lose an entry before any collision check below ever sees it — those
 // checks all run on the already-deduplicated parsed object. The catalog map
 // is the realistic place for this (dozens of hand-typed ids per provider),
-// so each surviving id is counted back against the source text. Model ids
-// only ever appear as KEYS (`"id":`); `topModels`/`fallbacks` list them as
-// array values (`"id",`), which this pattern deliberately does not match.
+// so its keys are read back from the source text. They are read by position,
+// not by searching the whole text: a decide file repeats every catalog id as
+// a key of `decisionLimits.models`, and that is not a duplicate. The text is
+// already known to be valid JSON, so strings, brackets and commas are enough
+// to tell a key from a value and to find the object at `models` -> `catalog`.
+function catalogMapKeysInSource(text: string): string[] {
+  type Open = {
+    readonly bracket: "{" | "[";
+    readonly name: string | undefined;
+  };
+  const keys: string[] = [];
+  const open: Open[] = [];
+  let lastKey: string | undefined;
+  let expectKey = false;
+  for (let at = 0; at < text.length; at += 1) {
+    const ch = text[at];
+    if (ch === '"') {
+      let end = at + 1;
+      while (end < text.length && text[end] !== '"') {
+        end += text[end] === "\\" ? 2 : 1;
+      }
+      const inner = open[open.length - 1];
+      if (inner?.bracket === "{" && expectKey) {
+        lastKey = JSON.parse(text.slice(at, end + 1)) as string;
+        expectKey = false;
+        if (
+          open.length === 3 &&
+          open[1].name === "models" &&
+          inner.name === "catalog"
+        ) {
+          keys.push(lastKey);
+        }
+      }
+      at = end;
+    } else if (ch === "{" || ch === "[") {
+      const parent = open[open.length - 1];
+      open.push({
+        bracket: ch,
+        name: parent?.bracket === "{" ? lastKey : undefined,
+      });
+      expectKey = ch === "{";
+    } else if (ch === "}" || ch === "]") {
+      open.pop();
+      expectKey = false;
+    } else if (ch === ",") {
+      expectKey = open[open.length - 1]?.bracket === "{";
+    }
+  }
+  return keys;
+}
+
 function assertNoDuplicateModelKeys(text: string, file: string): void {
   const catalog: unknown = (
     JSON.parse(text) as { models?: { catalog?: unknown } }
@@ -200,14 +262,11 @@ function assertNoDuplicateModelKeys(text: string, file: string): void {
   if (typeof catalog !== "object" || catalog === null) {
     return;
   }
-  for (const id of Object.keys(catalog)) {
-    const needle = `${JSON.stringify(id)}:`;
-    let count = 0;
-    let at = text.indexOf(needle);
-    while (at !== -1) {
-      count += 1;
-      at = text.indexOf(needle, at + needle.length);
-    }
+  const counts = new Map<string, number>();
+  for (const id of catalogMapKeysInSource(text)) {
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  for (const [id, count] of counts) {
     if (count > 1) {
       throw new Error(
         `catalog file ${file} defines the model key ${JSON.stringify(id)} ${count} times — JSON.parse would silently keep only the last one`,
@@ -225,7 +284,10 @@ function assertNoDuplicateModelKeys(text: string, file: string): void {
 // itself, pricing, instruction arrays) are walked by shape, not by name.
 function assertMirrorCoversFields(raw: unknown, file: string): void {
   const mirror: unknown = JSON.parse(
-    readFileSync(join(CATALOG_DIR, "provider-catalog.schema.json"), "utf8"),
+    readFileSync(
+      join(REAL_CATALOG_DIR, "provider-catalog.schema.json"),
+      "utf8",
+    ),
   );
   const propsAt = (node: unknown): Record<string, unknown> | undefined => {
     const p = (node as { properties?: unknown } | undefined)?.properties;
@@ -234,7 +296,14 @@ function assertMirrorCoversFields(raw: unknown, file: string): void {
       : undefined;
   };
   const check = (value: unknown, node: unknown, path: string): void => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      const items = (node as { items?: unknown } | undefined)?.items;
+      value.forEach((item, index) => {
+        check(item, items, `${path.replace(/\.$/, "")}[${index}].`);
+      });
+      return;
+    }
+    if (typeof value !== "object" || value === null) {
       return;
     }
     const declared = propsAt(node);
@@ -270,16 +339,30 @@ function assertMirrorCoversFields(raw: unknown, file: string): void {
   }
 }
 
-function loadEntries(): ProviderCatalogJson[] {
+function parseJsonFile(text: string, file: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      `catalog file ${file} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
+function loadEntries(): CatalogEntry[] {
   const files = readdirSync(CATALOG_DIR)
     .filter((f) => f.endsWith(".json") && !f.endsWith(".schema.json"))
     .sort();
+  if (files.length === 0) {
+    throw new Error(`no catalog files found in ${CATALOG_DIR}`);
+  }
   return files.map((f) => {
     const text = readFileSync(join(CATALOG_DIR, f), "utf8");
+    const raw = parseJsonFile(text, f);
     assertNoDuplicateModelKeys(text, f);
-    const raw: unknown = JSON.parse(text);
     assertMirrorCoversFields(raw, f);
-    const entry = parseProviderCatalogJson(raw, f);
+    const entry = parseCatalogEntry(raw, f);
     if (`${entry.id}.json` !== f) {
       throw new Error(
         `catalog file name must match its id: ${f} vs ${entry.id}`,
@@ -348,7 +431,59 @@ async function replaceRegionWith(
   console.log(`updated region "${tag}" in ${path}`);
 }
 
+const DESCRIPTORS_PATH = "src/lib/factories/providerDescriptors.ts";
+
+// decide.order is the precedence of resolveDefaultDecisionProvider(), so two
+// providers sharing one would make the winner depend on file order. The
+// hand-written rows carry the same number as `decideOrder: <n>,` and count too.
+function assertDecideOrderUnique(list: readonly CatalogEntry[]): void {
+  const handWritten = new Set(
+    handWrittenDecideOrders(readFileSync(DESCRIPTORS_PATH, "utf8")),
+  );
+  const owners = new Map<number, string>();
+  for (const e of list.filter(isDecideCatalogEntry)) {
+    const order = e.decide.order;
+    if (handWritten.has(order)) {
+      throw new Error(
+        `decide order collision: provider "${e.id}" declares decide.order ${order}, which a hand-written row in ${DESCRIPTORS_PATH} already uses`,
+      );
+    }
+    const clash = owners.get(order);
+    if (clash !== undefined) {
+      throw new Error(
+        `decide order collision: providers "${clash}" and "${e.id}" both declare decide.order ${order}`,
+      );
+    }
+    owners.set(order, e.id);
+  }
+}
+
+// Ids and aliases share one case-insensitive namespace, because that is how
+// PROVIDER_ALIAS_INDEX resolves them: a clash would let the later entry win.
+function assertAliasesUnique(list: readonly CatalogEntry[]): void {
+  const owners = new Map<string, string>();
+  for (const e of list) {
+    for (const name of [e.id, ...e.aliases]) {
+      const key = name.trim().toLowerCase();
+      if (key === "") {
+        throw new Error(
+          `provider "${e.id}" has a blank alias: an empty name would resolve to it`,
+        );
+      }
+      const clash = owners.get(key);
+      if (clash !== undefined && clash !== e.id) {
+        throw new Error(
+          `alias collision: "${name}" is claimed by both "${clash}" and "${e.id}" (names compare case-insensitively)`,
+        );
+      }
+      owners.set(key, e.id);
+    }
+  }
+}
+
 const entries = loadEntries();
+assertAliasesUnique(entries);
+assertDecideOrderUnique(entries);
 
 // Collision + identifier checks — fail loudly BEFORE writing any TypeScript.
 {
@@ -446,7 +581,20 @@ const entries = loadEntries();
       "provider-members",
     ),
   );
+  const existingEnumNames = new Set(
+    [
+      ...stripRegion(readFileSync(enumsPath, "utf8"), "models-enums").matchAll(
+        /^export enum ([A-Za-z_$][A-Za-z0-9_$]*)\s*\{/gm,
+      ),
+    ].map((m) => m[1]),
+  );
   for (const e of entries) {
+    const enumName = e.enumTypeName ?? `${toPascalCase(e.id)}Models`;
+    if (existingEnumNames.has(enumName)) {
+      throw new Error(
+        `enum type name collision: "${enumName}" (from provider "${e.id}") is already declared outside the generated region in ${enumsPath}: delete the hand-written enum or set enumTypeName`,
+      );
+    }
     const camel = credentialsKeyFor(e);
     if (existingCredentialKeys.has(camel)) {
       throw new Error(
@@ -467,80 +615,34 @@ const entries = loadEntries();
   }
 }
 
-// 1. Aggregation index
-const indexLines = [
-  "// GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.",
-  "// Source of truth: the per-provider JSON files in this directory.",
-  // The import attribute is required under NodeNext module resolution
-  // (tsconfig.cli.json) and is accepted (ignored) under bundler resolution
-  // (the main SDK build), so a single emitted form satisfies both.
-  ...entries.map(
-    (e) =>
-      `import ${toCamelCase(e.id)}Json from "./${e.id}.json" with { type: "json" };`,
-  ),
-  'import type { ProviderCatalogJson } from "../../types/index.js";',
-  "",
-  "export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [",
-  ...entries.map((e) => `  ${toCamelCase(e.id)}Json as ProviderCatalogJson,`),
-  "];",
-  "",
-  "export const CATALOG_PROVIDER_IDS = [",
-  ...entries.map((e) => `  ${JSON.stringify(e.id)},`),
-  "] as const;",
-  "",
-];
-await emit(join(CATALOG_DIR, "index.generated.ts"), indexLines.join("\n"));
+if (validateOnly) {
+  console.log(
+    `codegen:catalog validate-only passed — ${entries.length} providers`,
+  );
+  process.exit(0);
+}
 
-// 2. Type unions
-const typeLines = [
-  "// GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.",
-  `export type CatalogProviderName = ${entries.map((e) => JSON.stringify(e.id)).join(" | ")};`,
-  `export type CatalogCredentialKey = ${entries.map((e) => JSON.stringify(credentialsKeyFor(e))).join(" | ")};`,
-  "",
-];
-await emit("src/lib/types/providerCatalog.generated.ts", typeLines.join("\n"));
-
-// 3. enums.ts gets TWO tagged regions: "provider-members" (inside the
-// AIProviderName enum body) and "models-enums" (top level, end of file).
-const providerMemberLines = entries
-  .map((e) => `  ${toConstantCase(e.id)} = ${JSON.stringify(e.id)},`)
-  .join("\n");
-const modelsEnumBlocks = entries
-  .map((e) => {
-    const members = Object.entries(e.models.catalog)
-      .map(
-        ([modelId, spec]) =>
-          `  ${spec.enumMember ?? toModelConstant(modelId)} = ${JSON.stringify(modelId)},`,
-      )
-      .join("\n");
-    const enumName = e.enumTypeName ?? `${toPascalCase(e.id)}Models`;
-    return `export enum ${enumName} {\n${members}\n}`;
-  })
-  .join("\n\n");
+// Emit every generated artifact. Chat and decide entries share the enum,
+// credentials and type-union regions; only the index keeps them apart.
+await emit(join(CATALOG_DIR, "index.generated.ts"), renderIndexSource(entries));
+await emit(
+  "src/lib/types/providerCatalog.generated.ts",
+  renderTypeUnionsSource(entries),
+);
 await replaceRegionWith(
   "src/lib/constants/enums.ts",
   "provider-members",
-  providerMemberLines,
+  renderProviderMemberLines(entries),
 );
 await replaceRegionWith(
   "src/lib/constants/enums.ts",
   "models-enums",
-  modelsEnumBlocks,
+  renderModelsEnumBlocks(entries),
 );
-
-// 4. credentials keys
-const credentialLines = entries
-  .map((e) => {
-    const extras = (e.wire.extraCredentials ?? [])
-      .map((c) => ` ${c}?: string;`)
-      .join("");
-    return `  ${credentialsKeyFor(e)}?: { apiKey?: string; baseURL?: string;${extras} };`;
-  })
-  .join("\n");
 await replaceRegionWith(
   "src/lib/types/providers.ts",
   "credentials",
-  credentialLines,
+  renderCredentialLines(entries),
 );
 
 if (checkMode && stale) {

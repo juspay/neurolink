@@ -3,6 +3,7 @@ import { ProviderFactory } from "./providerFactory.js";
 // Removed all static imports - providers loaded dynamically when needed
 // This breaks the circular dependency chain completely
 import type {
+  DecideCatalogJson,
   NeurolinkCredentials,
   ProviderRegistryOptions,
   UnknownRecord,
@@ -26,7 +27,6 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
-  LayaModels,
   XorModels,
   PerplexityDeciderModels,
   CloudflareClefModels,
@@ -36,6 +36,46 @@ import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
 import { OPENAI_COMPAT_CATALOG } from "../providers/openaiCompatCatalog.js";
 import type { OpenAICompatCredentials } from "../types/index.js";
 import { providerChoicesFor } from "./mediaHandlerCatalog.js";
+import {
+  catalogEnvVar,
+  getDecideCatalogEntries,
+} from "../providers/catalog/loader.js";
+
+/**
+ * Registers the config-driven `decide` providers described by catalog JSON
+ * (inferenceKinds ["decide"]). Each one is built by ConfiguredDecisionProvider,
+ * loaded lazily like every other provider; its descriptor declares
+ * inferenceKinds ["decide"], so nothing in the generation fallback chain can
+ * reach it.
+ */
+export function registerDecideCatalogProviders(
+  entries: readonly DecideCatalogJson[],
+): void {
+  for (const entry of entries) {
+    ProviderFactory.registerProvider(
+      entry.id,
+      async (
+        modelName?: string,
+        _providerName?: string,
+        sdk?: NeuroLink,
+        _region?: string,
+        credentials?: UnknownRecord,
+      ) => {
+        const { ConfiguredDecisionProvider } =
+          await import("../providers/configuredDecision.js");
+        return new ConfiguredDecisionProvider(
+          entry,
+          modelName,
+          sdk,
+          credentials,
+        );
+      },
+      process.env[catalogEnvVar(entry, "model")] || entry.models.default,
+      [...entry.aliases],
+      PROVIDER_DESCRIPTORS_BY_NAME.get(entry.id as AIProviderName),
+    );
+  }
+}
 
 /**
  * Provider Registry - registers all providers with the factory
@@ -637,27 +677,6 @@ export class ProviderRegistry {
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TYPESAFE),
       );
 
-      // Register Laya — the second `decide` provider, reached at whatever base
-      // URL its config names. Its descriptor declares inferenceKinds:
-      // ["decide"], so nothing in the generation fallback chain can reach it.
-      ProviderFactory.registerProvider(
-        AIProviderName.LAYA,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const layaCreds = credentials as NeurolinkCredentials["laya"];
-          const { LayaProvider } = await import("../providers/laya.js");
-          return new LayaProvider(modelName, sdk, undefined, layaCreds);
-        },
-        process.env.LAYA_MODEL || LayaModels.TYPED_DECISIONS,
-        [],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LAYA),
-      );
-
       // Register XOR — the third `decide` provider, reached at whatever base
       // URL its config names. Its descriptor declares inferenceKinds:
       // ["decide"], so nothing in the generation fallback chain can reach it.
@@ -737,6 +756,9 @@ export class ProviderRegistry {
         [],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE_CLEF),
       );
+
+      // The decide providers described by catalog JSON (laya.json and later).
+      registerDecideCatalogProviders(getDecideCatalogEntries());
 
       logger.debug("All AI providers registered successfully");
 

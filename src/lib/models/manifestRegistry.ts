@@ -1,10 +1,15 @@
 import type {
+  CatalogModelSpec,
+  DecideCatalogJson,
   ProviderCatalogJson,
   ProviderModelManifest,
   ProviderModelManifestEntry,
 } from "../types/index.js";
 import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
-import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+import {
+  getCatalogJsonEntries,
+  getDecideCatalogEntries,
+} from "../providers/catalog/loader.js";
 import { anthropicManifest } from "./manifests/anthropic.js";
 import { openaiManifest } from "./manifests/openai.js";
 import { azureManifest } from "./manifests/azure.js";
@@ -25,7 +30,6 @@ import { llamacppManifest } from "./manifests/llamacpp.js";
 import { xaiManifest } from "./manifests/xai.js";
 import { groqManifest } from "./manifests/groq.js";
 import { typesafeManifest } from "./manifests/typesafe.js";
-import { layaManifest } from "./manifests/laya.js";
 import { xorManifest } from "./manifests/xor.js";
 import { perplexityDeciderManifest } from "./manifests/perplexityDecider.js";
 import { cloudflareClefManifest } from "./manifests/cloudflareClef.js";
@@ -109,6 +113,51 @@ const catalogManifest = (id: string): ProviderModelManifest => {
 };
 
 /**
+ * Builds a manifest for a decide catalog provider from its catalog entry.
+ *
+ * A decide model emits no text, but the manifest type requires a
+ * `maxOutputTokens`, so the figure a decide entry declares is carried over
+ * as is. A model that omits `contextWindow` or `maxOutputTokens` takes the
+ * default model's, and `_default` is the default model's own row.
+ * `functionCalling` is always false: a decide model has no tool calling.
+ * No row gets a `displayName`: the decide catalog has no field for one and
+ * no reader shows a decide model's manifest name.
+ */
+function buildDecideManifest(entry: DecideCatalogJson): ProviderModelManifest {
+  const base = entry.models.catalog[entry.models.default];
+  if (
+    base === undefined ||
+    base.contextWindow === undefined ||
+    base.maxOutputTokens === undefined
+  ) {
+    throw new Error(
+      `Decide catalog entry "${entry.id}": models.default needs contextWindow and maxOutputTokens for its manifest`,
+    );
+  }
+  const baseWindow = base.contextWindow;
+  const baseMaxOutput = base.maxOutputTokens;
+  const toEntry = (spec: CatalogModelSpec): ProviderModelManifestEntry => ({
+    aliases: [],
+    contextWindow: spec.contextWindow ?? baseWindow,
+    maxOutputTokens: spec.maxOutputTokens ?? baseMaxOutput,
+    vision: spec.vision,
+    functionCalling: false,
+  });
+  return {
+    defaultContextWindow: baseWindow,
+    models: {
+      _default: toEntry(base),
+      ...Object.fromEntries(
+        Object.entries(entry.models.catalog).map(([modelId, spec]) => [
+          modelId,
+          toEntry(spec),
+        ]),
+      ),
+    },
+  };
+}
+
+/**
  * Every provider's model manifest, keyed by the exact AIProviderName enum
  * value (kebab-case) — e.g. "google-ai", "nvidia-nim". Manifests are pure
  * data with zero heavy dependencies, so they are imported statically here
@@ -136,7 +185,9 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   xai: xaiManifest,
   groq: groqManifest,
   typesafe: typesafeManifest,
-  laya: layaManifest,
+  ...Object.fromEntries(
+    getDecideCatalogEntries().map((e) => [e.id, buildDecideManifest(e)]),
+  ),
   xor: xorManifest,
   "perplexity-decider": perplexityDeciderManifest,
   "cloudflare-clef": cloudflareClefManifest,

@@ -4,7 +4,10 @@
  * knowledge about deriving env vars, template interpolation and error
  * rule matching lives HERE — the JSON stays declarative.
  */
-import { CATALOG_JSON_ENTRIES } from "./index.generated.js";
+import {
+  CATALOG_JSON_ENTRIES,
+  DECIDE_CATALOG_JSON_ENTRIES,
+} from "./index.generated.js";
 import { DEFAULT_ERROR_RULES } from "../../utils/errorClassifier.js";
 import {
   AuthenticationError,
@@ -14,6 +17,10 @@ import {
   ProviderError,
 } from "../../types/index.js";
 import type {
+  CatalogEnvSource,
+  CatalogKeySource,
+  CatalogSetupSource,
+  DecideCatalogJson,
   OpenAICompatCatalogEntry,
   ProviderCatalogJson,
   ProviderErrorRule,
@@ -37,7 +44,7 @@ const ERROR_CLASS_MAP: Record<
 // import from tools/ (build-time tooling depends on runtime source, not the
 // reverse).
 function toCamelCase(id: string): string {
-  return id.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase());
+  return id.replace(/-([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
 }
 
 // Resolves the NeurolinkCredentials key for an entry — respects a
@@ -46,12 +53,12 @@ function toCamelCase(id: string): string {
 // source of truth shared with codegen's own credentialsKeyFor() so the
 // generated NeurolinkCredentials keys and any runtime consumer (Task 7's
 // descriptors) can never drift from each other.
-export function catalogCredentialsKey(entry: ProviderCatalogJson): string {
+export function catalogCredentialsKey(entry: CatalogKeySource): string {
   return entry.credentialsKey ?? toCamelCase(entry.id);
 }
 
 export function catalogEnvVar(
-  entry: ProviderCatalogJson,
+  entry: CatalogEnvSource,
   kind: "apiKey" | "baseURL" | "model",
 ): string {
   const override = entry.wire.envOverrides?.[kind];
@@ -68,7 +75,7 @@ export function catalogEnvVar(
 
 function interpolate(
   template: string,
-  entry: ProviderCatalogJson,
+  entry: CatalogSetupSource,
   modelName?: string,
   rawMessage?: string,
 ): string {
@@ -80,7 +87,7 @@ function interpolate(
 }
 
 export function buildCatalogConfigOptions(
-  entry: ProviderCatalogJson,
+  entry: CatalogSetupSource,
 ): ProviderConfigOptions {
   return {
     providerName: entry.displayName,
@@ -148,8 +155,17 @@ function deepFreeze<T>(value: T): T {
 // CATALOG_JSON_ENTRIES's own objects), then deepFreeze() the clone. All
 // current callers only .find/.map/.flatMap/.filter/iterate, so this is
 // behavior-preserving for them.
+export function freezeCatalogCopy<T>(value: T): T {
+  return deepFreeze(structuredClone(value));
+}
+
 export function getCatalogJsonEntries(): readonly ProviderCatalogJson[] {
-  return deepFreeze(structuredClone(CATALOG_JSON_ENTRIES));
+  return freezeCatalogCopy(CATALOG_JSON_ENTRIES);
+}
+
+/** The `decide` entries, copied and frozen exactly as getCatalogJsonEntries() does. */
+export function getDecideCatalogEntries(): readonly DecideCatalogJson[] {
+  return freezeCatalogCopy(DECIDE_CATALOG_JSON_ENTRIES);
 }
 
 export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
