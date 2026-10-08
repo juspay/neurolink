@@ -7,6 +7,7 @@ import type {
   DecisionState,
   NeurolinkCredentials,
 } from "../dist/index.js";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawnSync } from "node:child_process";
 import dnsPromises from "node:dns/promises";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -6793,11 +6794,19 @@ function perplexityRoute(
   return { method: "POST", url: PERPLEXITY_DECIDE_SPEC.urlMatch, respond };
 }
 
-/** Replies in order, the last one repeating, noting when each request arrived. */
-function perplexityScript(replies: readonly PerplexityReply[]) {
+/**
+ * Replies in order, the last one repeating, noting when each request arrived.
+ * `onRequest` runs inside the request, right after it is noted, so a case can
+ * act while the call is in flight.
+ */
+function perplexityScript(
+  replies: readonly PerplexityReply[],
+  onRequest?: (index: number) => void,
+) {
   const stamps: number[] = [];
   const route = perplexityRoute(() => {
     stamps.push(Date.now());
+    onRequest?.(stamps.length - 1);
     return replies[Math.min(stamps.length - 1, replies.length - 1)];
   });
   return { route, stamps };
@@ -8642,25 +8651,44 @@ async function runPerplexityRetries(): Promise<void> {
     headers: { "x-request-id": PERPLEXITY_REQUEST_ID },
   };
 
+  const callUnderTest = new AsyncLocalStorage<symbol>();
+
   /**
-   * Every setTimeout of 100 ms or more scheduled while `run` executes: the wait
-   * a retry asked for, which does not depend on how busy the machine is. A
-   * window on the measured gap cannot tell "1 s from a lenient parse" from "a
-   * quarter second of backoff" once it has to be loose enough for a loaded
-   * runner; the scheduled value can.
+   * Every setTimeout of 100 ms or more that the call inside `run` schedules,
+   * with the time each was set: the wait a retry asked for, which does not
+   * depend on how busy the machine is. A window on the measured gap cannot tell
+   * "1 s from a lenient parse" from "a quarter second of backoff" once it has to
+   * be loose enough for a loaded runner; the scheduled value can.
+   *
+   * setTimeout is global, so on a loaded machine a leftover from an earlier case
+   * or a library's housekeeping can schedule one while the call is in flight,
+   * and counting it failed "exactly one wait" for a reason the provider had no
+   * part in. A timer keeps the async context it was created in, so only the
+   * timers made by code running inside `run` carry the mark.
    */
   const withScheduledWaits = async <T>(run: () => Promise<T>) => {
     const nativeSetTimeout = globalThis.setTimeout;
+    const mark = Symbol("call under test");
     const waits: number[] = [];
+    const scheduledAt: number[] = [];
     globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
       const ms = args[1];
-      if (typeof ms === "number" && ms >= 100) {
+      if (
+        callUnderTest.getStore() === mark &&
+        typeof ms === "number" &&
+        ms >= 100
+      ) {
         waits.push(ms);
+        scheduledAt.push(Date.now());
       }
       return Reflect.apply(nativeSetTimeout, globalThis, args);
     }) as typeof setTimeout;
     try {
-      return { result: await run(), waits };
+      return {
+        result: await callUnderTest.run(mark, run),
+        waits,
+        scheduledAt,
+      };
     } finally {
       globalThis.setTimeout = nativeSetTimeout;
     }
@@ -8670,12 +8698,20 @@ async function runPerplexityRetries(): Promise<void> {
   const retried = async (
     headers: Record<string, string>,
     request: Partial<DecisionRequest> = {},
+    onRequest?: (index: number) => void,
   ) => {
-    const script = perplexityScript([rateLimited(headers), answered]);
+    const script = perplexityScript(
+      [rateLimited(headers), answered],
+      onRequest,
+    );
     return withMocks([script.route], async ({ calls }) => {
       const provider = await createPerplexity();
       const startedAt = Date.now();
-      const { result: outcome, waits } = await withScheduledWaits(() =>
+      const {
+        result: outcome,
+        waits,
+        scheduledAt,
+      } = await withScheduledWaits(() =>
         capturePerplexityFailure(async () =>
           perplexityDecideOne(provider, request),
         ),
@@ -8683,6 +8719,7 @@ async function runPerplexityRetries(): Promise<void> {
       return {
         outcome,
         waits,
+        scheduledAt,
         firstRequestAt: script.stamps[0],
         calls: calls.length,
         elapsed: Date.now() - startedAt,
@@ -8694,6 +8731,58 @@ async function runPerplexityRetries(): Promise<void> {
       };
     });
   };
+
+  /**
+   * A timer scheduled while the call is in flight by code the call did not
+   * start, which is what a leftover from an earlier case, or a library's own
+   * housekeeping, does on a loaded machine. It is a continuation created before
+   * the call and released from inside the first request, so its setTimeout runs
+   * in the context of whoever created it, not of the call.
+   */
+  const strangerTimer = (ms: number) => {
+    const gate = Promise.withResolvers<void>();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    gate.promise.then(() => {
+      timers.push(setTimeout(() => undefined, ms));
+    });
+    return {
+      release: () => gate.resolve(),
+      scheduled: () => timers.length,
+      clear: () => timers.forEach((timer) => clearTimeout(timer)),
+    };
+  };
+
+  /** Holds the event loop the way a starved process is held. */
+  const stallFor = (ms: number): void => {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      // spin
+    }
+  };
+
+  /** Waits for the last tenth of a second, where the whole-second cut costs most. */
+  const untilLateInSecond = async (): Promise<void> => {
+    while (Date.now() % 1000 < 900) {
+      await perplexityPause(20);
+    }
+  };
+
+  /**
+   * The provider turns a Retry-After date into a wait by subtracting the moment
+   * it read the header. That moment lies between the first reply being built and
+   * the timer being set, and both are recorded, so the wait is held to a range
+   * computed from the header itself instead of a guess at how long the machine
+   * took. The default backoff (under 500 ms) falls below the range whenever the
+   * timer was set within half a second of the date being issued.
+   */
+  const dateWaitInRange = (
+    run: Awaited<ReturnType<typeof retried>>,
+    dueAt: number,
+  ): boolean =>
+    run.waits.length === 1 &&
+    run.firstRequestAt !== undefined &&
+    run.waits[0] >= dueAt - run.scheduledAt[0] &&
+    run.waits[0] <= dueAt - run.firstRequestAt;
 
   // ── P15: a 429's Retry-After is the wait before the one retry ──
   await perplexityCase(
@@ -8751,6 +8840,7 @@ async function runPerplexityRetries(): Promise<void> {
         ["an exponent", { "retry-after": "1e3" }],
         ["a negative number", { "retry-after": "-5" }],
         ["zero seconds", { "retry-after": "0" }],
+        ["a blank value", { "retry-after": "" }],
         [
           "a date already past",
           { "retry-after": new Date(Date.now() - 60_000).toUTCString() },
@@ -8775,28 +8865,73 @@ async function runPerplexityRetries(): Promise<void> {
     },
   );
 
+  await perplexityCase(
+    "DECIDE perplexity-decider: a timer another party schedules during a retry is not counted as its wait",
+    async () => {
+      const sources: ReadonlyArray<{
+        label: string;
+        headers: () => Record<string, string>;
+        counted: (waits: readonly number[]) => boolean;
+      }> = [
+        {
+          label: "whole seconds",
+          headers: () => ({ "retry-after": "1" }),
+          counted: (waits) => waits.join(",") === "1000",
+        },
+        {
+          label: "an HTTP date",
+          headers: () => ({
+            "retry-after": new Date(Date.now() + 2000).toUTCString(),
+          }),
+          counted: (waits) => waits.length === 1 && waits[0] <= 2000,
+        },
+        {
+          label: "no header",
+          headers: () => ({}),
+          counted: (waits) =>
+            waits.length === 1 && waits[0] >= 250 && waits[0] < 500,
+        },
+      ];
+      for (const source of sources) {
+        const stranger = strangerTimer(400);
+        try {
+          const run = await retried(source.headers(), {}, (index) => {
+            if (index === 0) {
+              stranger.release();
+            }
+          });
+          expect(!run.outcome.threw, `${source.label}: the retry succeeded`);
+          expectEq(run.calls, 2, `${source.label}: exactly one retry`);
+          expectEq(
+            stranger.scheduled(),
+            1,
+            `${source.label}: the other party's timer was scheduled during the call`,
+          );
+          expect(
+            source.counted(run.waits),
+            `${source.label}: only the call's own wait was counted (got ${run.waits.join(",")})`,
+          );
+        } finally {
+          stranger.clear();
+        }
+      }
+    },
+  );
+
   // Retry-After may be an HTTP date as well as seconds.
   await perplexityCase(
     "DECIDE perplexity-decider: Retry-After as an HTTP date",
     async () => {
       // HTTP dates have whole-second resolution, so the date 2 s ahead is cut
-      // back to a whole second and the wait is between 1 s less the time it took
-      // to reach the header and 2 s. The header is read just after the first
-      // request arrives, so that arrival time stands for it, with 250 ms of
-      // slack. The default backoff (under half a second) cannot be mistaken for
-      // the result unless the call itself was slow.
-      const issuedAt = Date.now();
-      const near = await retried({
-        "retry-after": new Date(issuedAt + 2000).toUTCString(),
-      });
-      const reached = (near.firstRequestAt ?? issuedAt) - issuedAt;
+      // back to a whole second; the header itself says where it was cut.
+      const header = new Date(Date.now() + 2000).toUTCString();
+      const dueAt = Date.parse(header);
+      const near = await retried({ "retry-after": header });
       expect(!near.outcome.threw, "a near date: the retry succeeded");
       expectEq(near.calls, 2, "a near date: one retry");
       expect(
-        near.waits.length === 1 &&
-          near.waits[0] > 750 - reached &&
-          near.waits[0] <= 2000,
-        `a near date is scheduled as a wait of about a second to two (the first request arrived after ${reached} ms)`,
+        dateWaitInRange(near, dueAt),
+        `a near date is scheduled as the time left until it (waits ${near.waits.join(",")} for a date due at ${dueAt}, first reply at ${near.firstRequestAt}, timer set at ${near.scheduledAt.join(",")})`,
       );
       const far = await retried(
         { "retry-after": new Date(Date.now() + 60_000).toUTCString() },
@@ -8804,6 +8939,26 @@ async function runPerplexityRetries(): Promise<void> {
       );
       expectEq(far.outcome.kind, "rate_limit", "a distant date: thrown");
       expectEq(far.calls, 1, "a distant date: not waited out");
+    },
+  );
+
+  await perplexityCase(
+    "DECIDE perplexity-decider: an HTTP date read late is still scheduled inside the range the header allows",
+    async () => {
+      await untilLateInSecond();
+      const header = new Date(Date.now() + 2000).toUTCString();
+      const dueAt = Date.parse(header);
+      const run = await retried({ "retry-after": header }, {}, (index) => {
+        if (index === 0) {
+          stallFor(400);
+        }
+      });
+      expect(!run.outcome.threw, "the retry succeeded");
+      expectEq(run.calls, 2, "one retry");
+      expect(
+        dateWaitInRange(run, dueAt),
+        `the wait is the time left until the date (waits ${run.waits.join(",")} for a date due at ${dueAt}, first reply at ${run.firstRequestAt}, timer set at ${run.scheduledAt.join(",")})`,
+      );
     },
   );
 
