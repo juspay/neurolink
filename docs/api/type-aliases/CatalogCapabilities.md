@@ -26,13 +26,18 @@
 
 > **tools**: `boolean` \| `"model-dependent"`
 
-"model-dependent" when tool support varies per served model and the
-vendor doesn't reject `tools` for unsupported ones (the model just
-never emits tool_calls) — e.g. HuggingFace's router. Maps to
+"model-dependent" when tool support varies per served model. Maps to
 ProviderDescriptor.toolSupport's own "model-dependent" member and
-leaves OpenAICompatCatalogEntry.supportsTools unset so
-ConfiguredOpenAICompatProvider falls through to the model-registry
-default, exactly like an entry that never set supportsTools at all.
+leaves OpenAICompatCatalogEntry.supportsTools unset, so
+ConfiguredOpenAICompatProvider.supportsTools() falls back to whichever
+of its two remaining sources applies: a model whose own
+models.catalog[id].tools is set (see CatalogModelSpec.tools) answers
+from that; any other model falls through further, to the
+model-registry default (true for an unregistered id) — the same
+behavior every model had before CatalogModelSpec.tools existed, and
+still correct for a vendor that doesn't reject `tools` for an
+unsupported model (the model just never emits tool_calls), e.g.
+HuggingFace's router.
 
 ---
 

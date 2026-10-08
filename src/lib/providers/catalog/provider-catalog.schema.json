@@ -158,6 +158,9 @@
               "vision": {
                 "type": "boolean"
               },
+              "tools": {
+                "type": "boolean"
+              },
               "status": {
                 "type": "string",
                 "enum": ["production", "preview", "retired"]

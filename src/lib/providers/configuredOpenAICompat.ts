@@ -157,10 +157,21 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
    * every unknown id. A vendor that declares tools: false must never receive
    * a `tools` array — Mancer's free model rejects one with 400 — so the
    * declaration wins here and the registry is only consulted otherwise.
+   * A per-model entry in `modelToolOverrides` (from a "model-dependent"
+   * provider whose catalog names which specific models accept tools — see
+   * CatalogModelSpec.tools) wins over all of this: it is the same kind of
+   * wire-probed fact as `supportsTools`, just scoped to one model instead of
+   * the whole provider, so it is checked first and can both grant and
+   * withhold tools regardless of what the provider-level flag says.
+   *
    * Like the other entry-reading overrides above, this runs only after
    * construction: BaseProvider merely closes over it.
    */
   supportsTools(): boolean {
+    const override = this.entry.modelToolOverrides?.[this.modelName];
+    if (override !== undefined) {
+      return override;
+    }
     if (this.entry.supportsTools === false) {
       return false;
     }

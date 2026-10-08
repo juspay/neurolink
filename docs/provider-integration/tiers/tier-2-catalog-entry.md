@@ -70,18 +70,19 @@ exactly one `extraCredentials` entry.
 
 **`models`** — `default`, `fallbacks`, `defaultContextWindow`,
 `defaultMaxOutputTokens`, and a `catalog` map of model id → `{contextWindow?,
-maxOutputTokens?, pricingPerMTok?, vision, status, description, enumMember?}`.
+maxOutputTokens?, pricingPerMTok?, vision, tools?, status, description, enumMember?}`.
 Omit a number rather than invent one. Optional refinements:
 
-| Field                  | Use it when                                                     |
-| ---------------------- | --------------------------------------------------------------- |
-| `enumMember`           | The derived constant-case name would break an existing export   |
-| `enumTypeName`         | The `<Name>Models` enum name must differ from the derived one   |
-| `fallbackModelName`    | The legacy fallback differs from `fallbacks[1] ?? fallbacks[0]` |
-| `registryDefaultModel` | The registry default differs from `default`                     |
-| `topModels`            | The CLI picker should show a curated ordered subset             |
-| `visionModel`          | Vision tests need a specific model (the default is text-only)   |
-| `testModel`            | The catalog default is retired/gated on the testing account     |
+| Field                  | Use it when                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enumMember`           | The derived constant-case name would break an existing export                                                                                          |
+| `enumTypeName`         | The `<Name>Models` enum name must differ from the derived one                                                                                          |
+| `fallbackModelName`    | The legacy fallback differs from `fallbacks[1] ?? fallbacks[0]`                                                                                        |
+| `registryDefaultModel` | The registry default differs from `default`                                                                                                            |
+| `topModels`            | The CLI picker should show a curated ordered subset                                                                                                    |
+| `visionModel`          | Vision tests need a specific model (the default is text-only)                                                                                          |
+| `testModel`            | The catalog default is retired/gated on the testing account                                                                                            |
+| `tools` (per model)    | `capabilities.tools` is `"model-dependent"` and the vendor's own docs say which served models actually accept tool definitions (Reka: only reka-flash) |
 
 `testModel` is matrix-only — it never changes the runtime default. Reach
 for it when a vendor retires the model your catalog documents (Groq purged

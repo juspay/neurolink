@@ -539,6 +539,80 @@ async function runOpenAICompatSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: per-model tool support from the catalog (issue #1875).
+// Reka's docs name exactly one tool-capable model out of three
+// ("Currently, only Reka Flash supports function calling."). Before this
+// fix, a "model-dependent" provider-level `capabilities.tools` left
+// OpenAICompatCatalogEntry.supportsTools unset, which fell through to the
+// model registry's "unknown model -> tools supported" default for every
+// catalog provider — so reka-edge and reka-edge-2603 received a `tools`
+// array despite the vendor's own docs saying they reject it.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runCatalogPerModelToolsSection(): Promise<void> {
+  const section = "LLM reka: per-model tool support";
+  console.log(`\n=== ${section} ===`);
+  setEnv("REKA_API_KEY", "test-fake-reka-credential");
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const tools = {
+    lookup: {
+      description: "Look a value up",
+      inputSchema: jsonSchema<{ q: string }>({
+        type: "object",
+        properties: { q: { type: "string" } },
+        required: ["q"],
+      }),
+      execute: async () => ({ value: "x" }),
+    },
+  };
+
+  for (const [model, expectTools] of [
+    ["reka-flash", true],
+    ["reka-edge", false],
+    ["reka-edge-2603", false],
+  ] as const) {
+    const name = `${section}: ${model} ${expectTools ? "receives" : "never receives"} a tools array`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "api.reka.ai/v1/chat/completions",
+            respond: { status: 200, json: openAIChatResponse("pong", model) },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          await nl.generate({
+            provider: "reka",
+            model,
+            input: { text: "ping" },
+            tools,
+            maxSteps: 1,
+          });
+          const body = calls[0]?.bodyJson as { tools?: unknown[] } | undefined;
+          const sawTools = Array.isArray(body?.tools) && body.tools.length > 0;
+          record(
+            results,
+            name,
+            sawTools === expectTools,
+            `body.tools ${sawTools ? "present" : "absent"}`,
+          );
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: LiteLLM generate() over the SSE wire
 // (useStreamingWireForGenerate: doGenerate sends stream:true, aggregates
 //  the SSE into the same complete result the JSON wire yields — the fix
@@ -15078,6 +15152,7 @@ async function main(): Promise<void> {
     "--image-downloads-only": [runImageGenSection, runImageDnsRebindingSection],
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
     "--embeddings-only": [runEmbeddingsSection],
+    "--catalog-per-model-tools-only": [runCatalogPerModelToolsSection],
   };
   for (const [flag, sections] of Object.entries(FOCUSED_RUNS)) {
     if (!process.argv.includes(flag)) {
@@ -15099,6 +15174,7 @@ async function main(): Promise<void> {
 
   try {
     await runOpenAICompatSection();
+    await runCatalogPerModelToolsSection();
     await runLiteLLMSSESection();
     await runReplicateLLMSection();
     await runEmbeddingsSection();

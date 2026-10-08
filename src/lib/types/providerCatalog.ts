@@ -31,6 +31,17 @@ export type CatalogModelSpec = {
   maxOutputTokens?: number;
   pricingPerMTok?: CatalogPricingPerMTok;
   vision: boolean;
+  /**
+   * Per-model override of the provider-level `capabilities.tools`, for a
+   * "model-dependent" provider whose vendor docs name which specific models
+   * accept tool definitions (e.g. Reka: "Currently, only Reka Flash
+   * supports function calling"). Absent means "inherit the provider-level
+   * answer", same as every model before this field existed. Only meaningful
+   * when `capabilities.tools` is `"model-dependent"` — a provider that
+   * already declares a plain `true`/`false` has no need for it, since that
+   * single value already applies to every model it serves.
+   */
+  tools?: boolean;
   status: CatalogModelStatus;
   description: string;
   /**
@@ -137,13 +148,18 @@ export type CatalogEvidence = {
 export type CatalogCapabilities = {
   text: boolean;
   streaming: boolean;
-  /** "model-dependent" when tool support varies per served model and the
-   *  vendor doesn't reject `tools` for unsupported ones (the model just
-   *  never emits tool_calls) — e.g. HuggingFace's router. Maps to
+  /** "model-dependent" when tool support varies per served model. Maps to
    *  ProviderDescriptor.toolSupport's own "model-dependent" member and
-   *  leaves OpenAICompatCatalogEntry.supportsTools unset so
-   *  ConfiguredOpenAICompatProvider falls through to the model-registry
-   *  default, exactly like an entry that never set supportsTools at all. */
+   *  leaves OpenAICompatCatalogEntry.supportsTools unset, so
+   *  ConfiguredOpenAICompatProvider.supportsTools() falls back to whichever
+   *  of its two remaining sources applies: a model whose own
+   *  models.catalog[id].tools is set (see CatalogModelSpec.tools) answers
+   *  from that; any other model falls through further, to the
+   *  model-registry default (true for an unregistered id) — the same
+   *  behavior every model had before CatalogModelSpec.tools existed, and
+   *  still correct for a vendor that doesn't reject `tools` for an
+   *  unsupported model (the model just never emits tool_calls), e.g.
+   *  HuggingFace's router. */
   tools: boolean | "model-dependent";
   toolsWithStreaming: boolean;
   structuredOutput: boolean;

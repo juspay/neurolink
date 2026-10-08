@@ -28,6 +28,7 @@ const catalogModelSpecSchema = z.strictObject({
   maxOutputTokens: z.number().optional(),
   pricingPerMTok: catalogPricingPerMTokSchema.optional(),
   vision: z.boolean(),
+  tools: z.boolean().optional(),
   status: catalogModelStatusSchema,
   description: z.string(),
   enumMember: z

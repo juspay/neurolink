@@ -154,6 +154,13 @@ export function getCatalogJsonEntries(): readonly ProviderCatalogJson[] {
 
 export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
   return CATALOG_JSON_ENTRIES.map((entry) => {
+    // Only models whose entry sets `tools` explicitly contribute a row —
+    // see CatalogModelSpec.tools and OpenAICompatCatalogEntry.modelToolOverrides.
+    const modelToolOverrides = Object.fromEntries(
+      Object.entries(entry.models.catalog).flatMap(([modelId, spec]) =>
+        spec.tools !== undefined ? [[modelId, spec.tools] as const] : [],
+      ),
+    );
     const base: OpenAICompatCatalogEntry = {
       providerName: entry.id as AIProviderName,
       aliases: [entry.id, ...entry.aliases],
@@ -178,6 +185,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
       // never set this field at all.
       ...(typeof entry.capabilities.tools === "boolean"
         ? { supportsTools: entry.capabilities.tools }
+        : {}),
+      ...(Object.keys(modelToolOverrides).length > 0
+        ? { modelToolOverrides }
         : {}),
       // Unlike `tools`, `capabilities.structuredOutputWithTools` is a plain
       // required boolean in the schema (no "model-dependent" member), so this

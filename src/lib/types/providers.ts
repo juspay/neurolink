@@ -944,6 +944,17 @@ export type OpenAICompatCatalogEntry = {
    */
   supportsTools?: boolean;
   /**
+   * Per-model override of `supportsTools`, from catalog models whose entry
+   * sets `tools` explicitly (CatalogModelSpec.tools) — keyed by the model id
+   * exactly as it appears in `models.catalog`. Checked first by
+   * ConfiguredOpenAICompatProvider.supportsTools(), so it can both grant and
+   * withhold tools regardless of what `supportsTools` says; a model id
+   * absent from this map falls through to `supportsTools` unchanged. Built
+   * only from models that declare `tools`, so a provider with no per-model
+   * overrides gets no field here at all (not an empty object).
+   */
+  modelToolOverrides?: Record<string, boolean>;
+  /**
    * Whether the vendor accepts native tool definitions and `response_format`
    * in the SAME request, from the catalog's
    * `capabilities.structuredOutputWithTools`.
