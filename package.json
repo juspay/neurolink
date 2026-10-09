@@ -75,6 +75,8 @@
     "test": "pnpm exec tsx test/continuous-test-suite.ts",
     "test:agent-delegation": "pnpm exec tsx test/continuous-test-suite-agent-delegation.ts",
     "test:agent-tasks": "pnpm exec tsx test/continuous-test-suite-agent-tasks.ts",
+    "test:agent:session-stream": "pnpm exec tsx test/continuous-test-suite-agent-session-stream.ts",
+    "test:agent:platform-router": "pnpm exec tsx test/continuous-test-suite-agent-platform-router.ts",
     "test:artifact-banking": "pnpm exec tsx test/continuous-test-suite-artifact-banking.ts",
     "test:background-commands": "pnpm exec tsx test/continuous-test-suite-background-commands.ts",
     "test:client": "pnpm exec tsx test/continuous-test-suite-client.ts",

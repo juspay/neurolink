@@ -19,9 +19,11 @@ import type {
   AgentStreamChunk,
   GenerateOptions,
   StreamOptions,
+  StreamResult,
 } from "../types/index.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
+import { toToolExecutionRecords } from "../core/toolExecutionRecorder.js";
 
 /**
  * Agent - Wraps a NeuroLink instance with specialized behavior
@@ -273,6 +275,8 @@ export class Agent implements AgentInstance {
   ): AsyncIterable<AgentStreamChunk> {
     const startTime = Date.now();
     const traceId = options?.traceId ?? `agent-${this.id}-${Date.now()}`;
+    let streamResult: StreamResult | undefined;
+    let fullContent = "";
 
     this.emitter.emit("agent:start", {
       agentId: this.id,
@@ -309,9 +313,7 @@ export class Agent implements AgentInstance {
       const streamOptions = this.buildStreamOptions(prompt, options, traceId);
 
       // Execute via NeuroLink
-      const streamResult = await this.neurolink.stream(streamOptions);
-
-      let fullContent = "";
+      streamResult = await this.neurolink.stream(streamOptions);
 
       for await (const chunk of streamResult.stream) {
         // Handle different chunk types from the stream
@@ -378,11 +380,25 @@ export class Agent implements AgentInstance {
         logger.warn(`[Agent:${this.id}] Stream cost analytics unavailable`);
       }
 
+      const stopReason =
+        streamResult.metadata?.stopReason ?? streamResult.stopReason;
+      const error = streamResult.metadata?.error;
+      const status =
+        error || stopReason === "provider-error" ? "error" : "success";
+      const toolExecutions = toToolExecutionRecords(
+        streamResult.toolExecutions,
+        options?.toolExecutionCapture,
+      );
+
       this.emitter.emit("agent:complete", {
         agentId: this.id,
         traceId,
         duration,
         content: fullContent,
+        status,
+        toolExecutions,
+        stopReason,
+        error,
       });
 
       yield {
@@ -391,6 +407,10 @@ export class Agent implements AgentInstance {
         content: fullContent,
         usage: streamResult.usage,
         cost,
+        status,
+        toolExecutions,
+        stopReason,
+        error,
         duration,
         timestamp: Date.now(),
         traceId,
@@ -404,6 +424,14 @@ export class Agent implements AgentInstance {
 
       yield {
         type: "agent-error",
+        status: "error",
+        content: fullContent,
+        toolExecutions: toToolExecutionRecords(
+          streamResult?.toolExecutions,
+          options?.toolExecutionCapture,
+        ),
+        stopReason:
+          streamResult?.metadata?.stopReason ?? streamResult?.stopReason,
         agentId: this.id,
         error: error instanceof Error ? error.message : String(error),
         timestamp: Date.now(),
@@ -458,8 +486,13 @@ export class Agent implements AgentInstance {
   ): string {
     let prompt = typeof input === "string" ? input : JSON.stringify(input);
 
-    if (context && Object.keys(context).length > 0) {
-      prompt = `Context: ${JSON.stringify(context)}\n\nTask: ${prompt}`;
+    const promptContext = context
+      ? Object.fromEntries(
+          Object.entries(context).filter(([key]) => key !== "sessionId"),
+        )
+      : undefined;
+    if (promptContext && Object.keys(promptContext).length > 0) {
+      prompt = `Context: ${JSON.stringify(promptContext)}\n\nTask: ${prompt}`;
     }
 
     return prompt;
@@ -481,6 +514,11 @@ export class Agent implements AgentInstance {
       provider: this.provider,
       model: this.model,
       temperature: this.temperature,
+      ...(options?.region !== undefined && { region: options.region }),
+      ...(options?.maxTokens !== undefined && { maxTokens: options.maxTokens }),
+      ...(options?.disableTools !== undefined && {
+        disableTools: options.disableTools,
+      }),
       systemPrompt: this.instructions,
       // toolFilter delegates to BaseProvider.applyToolFiltering() natively
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
@@ -490,6 +528,12 @@ export class Agent implements AgentInstance {
       }),
       ...(options?.maxBudgetUsd !== undefined && {
         maxBudgetUsd: options.maxBudgetUsd,
+      }),
+      ...(options?.disableInternalFallback !== undefined && {
+        disableInternalFallback: options.disableInternalFallback,
+      }),
+      ...(options?.toolExecutionCapture && {
+        toolExecutionCapture: options.toolExecutionCapture,
       }),
       requestId: traceId,
       // Turn budget + cancellation, forwarded verbatim to generate() — the
@@ -506,10 +550,16 @@ export class Agent implements AgentInstance {
       ...(options?.stallTimeoutMs !== undefined && {
         stallTimeoutMs: options.stallTimeoutMs,
       }),
+      ...(options?.useMemory === false && { memory: { enabled: false } }),
       context: {
         agentId: this.id,
         agentName: this.name,
         ...options?.context,
+        ...(options?.useMemory === false
+          ? { sessionId: undefined }
+          : options?.sessionId !== undefined
+            ? { sessionId: options.sessionId }
+            : {}),
       },
     };
   }
@@ -530,6 +580,11 @@ export class Agent implements AgentInstance {
       provider: this.provider,
       model: this.model,
       temperature: this.temperature,
+      ...(options?.region !== undefined && { region: options.region }),
+      ...(options?.maxTokens !== undefined && { maxTokens: options.maxTokens }),
+      ...(options?.disableTools !== undefined && {
+        disableTools: options.disableTools,
+      }),
       systemPrompt: this.instructions,
       // toolFilter delegates to BaseProvider.applyToolFiltering() natively
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
@@ -539,6 +594,12 @@ export class Agent implements AgentInstance {
       }),
       ...(options?.maxBudgetUsd !== undefined && {
         maxBudgetUsd: options.maxBudgetUsd,
+      }),
+      ...(options?.disableInternalFallback !== undefined && {
+        disableInternalFallback: options.disableInternalFallback,
+      }),
+      ...(options?.toolExecutionCapture && {
+        toolExecutionCapture: options.toolExecutionCapture,
       }),
       // Turn budget + cancellation, forwarded verbatim to stream()
       ...(options?.abortSignal && { abortSignal: options.abortSignal }),
@@ -552,11 +613,17 @@ export class Agent implements AgentInstance {
       ...(options?.stallTimeoutMs !== undefined && {
         stallTimeoutMs: options.stallTimeoutMs,
       }),
+      ...(options?.useMemory === false && { memory: { enabled: false } }),
       context: {
         agentId: this.id,
         agentName: this.name,
         traceId,
         ...options?.context,
+        ...(options?.useMemory === false
+          ? { sessionId: undefined }
+          : options?.sessionId !== undefined
+            ? { sessionId: options.sessionId }
+            : {}),
       },
     };
   }

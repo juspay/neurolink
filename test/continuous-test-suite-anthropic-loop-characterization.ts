@@ -220,8 +220,10 @@ function toolResults(
 
 async function startStandIn(
   reply: (callIndex: number) => string[],
+  holdTerminal = false,
 ): Promise<StandIn> {
   const calls: StandInCall[] = [];
+  const heldResponses = new Set<ServerResponse>();
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
@@ -235,7 +237,25 @@ async function startStandIn(
       };
       calls.push({ body: parseBody() });
       res.writeHead(200, { "content-type": "text/event-stream" });
-      for (const frame of reply(calls.length - 1)) {
+      const frames = reply(calls.length - 1);
+      if (holdTerminal) {
+        const terminalIndex = frames.findIndex((frame) =>
+          frame.startsWith("event: message_delta"),
+        );
+        assert(
+          terminalIndex > 0,
+          "The owned terminal barrier requires a terminal frame",
+        );
+        // A consumed text chunk does not prove the background parser has not
+        // reached a terminal event. Keep that event off the wire until abort.
+        heldResponses.add(res);
+        res.on("close", () => heldResponses.delete(res));
+        for (const frame of frames.slice(0, terminalIndex)) {
+          res.write(frame);
+        }
+        return;
+      }
+      for (const frame of frames) {
         res.write(frame);
       }
       res.end();
@@ -248,6 +268,9 @@ async function startStandIn(
     port: typeof address === "object" && address ? address.port : 0,
     close: () =>
       new Promise<void>((resolve) => {
+        for (const response of heldResponses) {
+          response.destroy();
+        }
         server.close(() => resolve());
       }),
   };
@@ -1203,9 +1226,11 @@ await test("an abort is graded by what the stream delivered, not by what the con
   // positions actually do, so the question is answerable from a run rather
   // than from reading the guard.
   //
-  // Both stand-ins serve the same complete, conformant turn — text, a
-  // message_delta carrying stop_reason "end_turn", and message_stop. Only
-  // WHEN the caller aborts differs.
+  // Both stand-ins define the same conformant turn. The in-flight fixture
+  // holds message_delta/message_stop off the wire until the caller aborts;
+  // the post-drain fixture sends them normally. A scoped async iterator may
+  // let parsing run ahead of the first consumed chunk, so consumption alone
+  // cannot establish that the provider has not delivered its terminal event.
   //
   //  - in-flight: the abort lands on the first content chunk. All of the
   //    model's text still reaches the consumer, but the terminal events were
@@ -1223,7 +1248,10 @@ await test("an abort is graded by what the stream delivered, not by what the con
   // makes that choice visible if it is ever revisited.
   const observed: Record<string, string> = {};
   for (const position of ["in-flight", "post-drain"] as const) {
-    const server = await startStandIn(() => textTurn("all done"));
+    const server = await startStandIn(
+      () => textTurn("all done"),
+      position === "in-flight",
+    );
     const restore = withAnthropicEnv(server.port);
     const controller = new AbortController();
     let streamed = "";

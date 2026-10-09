@@ -95,6 +95,7 @@ import type {
   JsonObject,
   JsonValue,
   NeuroLinkEvents,
+  StreamEventSequence,
   TypedEventEmitter,
   MCPEnhancementsConfig,
   NeuroLinkAuthConfig,
@@ -759,6 +760,8 @@ export class NeuroLink {
   private mcpSkipped = false;
   private mcpInitPromise: Promise<void> | null = null;
   private emitter = createTypedEmitter<NeuroLinkEvents>();
+  /** Request ownership for conversation capture; unscoped emitter events are ignored. */
+  private readonly conversationEventContext = new AsyncLocalStorage<symbol>();
 
   /**
    * Process-unique id used to attribute this instance's log events. The SDK
@@ -6420,6 +6423,7 @@ Current user's request: ${currentInput}`;
       stallTimeoutMs: options.stallTimeoutMs,
       wrapupTimeLeadMs: options.wrapupTimeLeadMs,
       toolTimeoutMs: options.toolTimeoutMs,
+      toolExecutionCapture: options.toolExecutionCapture,
       abortSignal: options.abortSignal,
       skipToolPromptInjection: options.skipToolPromptInjection,
       middleware: options.middleware,
@@ -6698,7 +6702,10 @@ Current user's request: ${currentInput}`;
       responseTime: textResult.responseTime,
       toolsUsed: textResult.toolsUsed,
       toolCalls: textResult.toolCalls ?? [],
-      toolExecutions: toToolExecutionRecords(textResult.toolExecutions),
+      toolExecutions: toToolExecutionRecords(
+        textResult.toolExecutions,
+        options.toolExecutionCapture,
+      ),
       enhancedWithTools: textResult.enhancedWithTools,
       availableTools: transformAvailableTools(textResult.availableTools),
       analytics: textResult.analytics,
@@ -7415,8 +7422,22 @@ Current user's request: ${currentInput}`;
     options: TextGenerationOptions,
     internalSpan: ReturnType<typeof tracers.sdk.startSpan>,
   ): Promise<TextGenerationResult> {
+    return this.conversationEventContext.run(
+      Symbol("generate-conversation"),
+      () => this.executeGenerateTextInternalInEventScope(options, internalSpan),
+    );
+  }
+
+  private async executeGenerateTextInternalInEventScope(
+    options: TextGenerationOptions,
+    internalSpan: ReturnType<typeof tracers.sdk.startSpan>,
+  ): Promise<TextGenerationResult> {
+    const { eventSequence, cleanup } = this.setupStreamEventListeners();
     try {
-      const context = this.initializeGenerateTextInternalContext(options);
+      const context = {
+        ...this.initializeGenerateTextInternalContext(options),
+        eventSequence,
+      };
       internalSpan.setAttribute("neurolink.request_id", context.requestId);
       internalSpan.setAttribute(
         "neurolink.has_conversation_memory",
@@ -7463,6 +7484,7 @@ Current user's request: ${currentInput}`;
       }
       throw error;
     } finally {
+      cleanup();
       internalSpan.end();
     }
   }
@@ -7503,6 +7525,7 @@ Current user's request: ${currentInput}`;
       generateInternalHrTimeStart: bigint;
       functionTag: string;
       requestId: string;
+      eventSequence: StreamEventSequence[];
     },
   ): Promise<TextGenerationResult> {
     try {
@@ -7526,6 +7549,7 @@ Current user's request: ${currentInput}`;
           internalSpan,
           requestId: context.requestId,
           startTime: context.generateInternalStartTime,
+          events: context.eventSequence,
         });
       }
 
@@ -7544,6 +7568,7 @@ Current user's request: ${currentInput}`;
         internalSpan,
         requestId: context.requestId,
         startTime: context.generateInternalStartTime,
+        events: context.eventSequence,
       });
     } catch (error) {
       const recoveredResult = await this.handleGenerateTextInternalFailure(
@@ -7594,9 +7619,23 @@ Current user's request: ${currentInput}`;
     internalSpan: ReturnType<typeof tracers.sdk.startSpan>;
     requestId: string;
     startTime: number;
+    events?: StreamEventSequence[];
   }): Promise<TextGenerationResult> {
-    const { path, result, options, internalSpan, requestId, startTime } =
-      params;
+    const {
+      path,
+      result,
+      options,
+      internalSpan,
+      requestId,
+      startTime,
+      events,
+    } = params;
+    const historyEvents = events?.filter(
+      (event) => event.type !== "response:chunk",
+    );
+    if (historyEvents?.length) {
+      result.events = historyEvents;
+    }
 
     logger.info(
       `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS${path === "mcp" ? " (MCP path)" : ""}`,
@@ -10039,9 +10078,41 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions | DynamicOptions): Promise<StreamResult> {
-    return logger.runInInstanceScope(this.logInstanceId, () =>
-      this.streamInInstanceScope(options),
+    const eventScope = Symbol("stream-conversation");
+    return this.conversationEventContext.run(eventScope, () =>
+      logger.runInInstanceScope(this.logInstanceId, async () => {
+        const result = await this.streamInInstanceScope(options);
+        return preserveLiveStreamAccessors(result, {
+          ...result,
+          stream: this.bindConversationEventStream(result.stream, eventScope),
+        });
+      }),
     );
+  }
+
+  /** Re-enter request ownership when the caller drives a deferred async iterator. */
+  private bindConversationEventStream<T>(
+    stream: AsyncIterable<T>,
+    eventScope: symbol,
+  ): AsyncIterable<T> {
+    const scope = this.conversationEventContext;
+    return (async function* () {
+      const iterator = stream[Symbol.asyncIterator]();
+      try {
+        while (true) {
+          const next = await scope.run(eventScope, () => iterator.next());
+          if (next.done) {
+            return;
+          }
+          yield next.value;
+        }
+      } finally {
+        const close = iterator.return?.bind(iterator);
+        if (close) {
+          await scope.run(eventScope, () => close());
+        }
+      }
+    })();
   }
 
   /**
@@ -10748,7 +10819,11 @@ Current user's request: ${currentInput}`;
       let routingEmbedFn:
         | ((texts: string[]) => Promise<number[][]>)
         | undefined;
-      const embeddingCfg = routingConfig.embedding;
+      // A host-owned routing callback owns every inference account. The
+      // instance's embedding fast-path would otherwise borrow turn credentials.
+      const embeddingCfg = routingConfig.generateFn
+        ? undefined
+        : routingConfig.embedding;
       if (embeddingCfg?.enabled === true) {
         try {
           // Resolve the embedding provider: use the explicitly configured one
@@ -10818,7 +10893,7 @@ Current user's request: ${currentInput}`;
         // call promptly instead of waiting out the routing timeout.
         generateFn: (generateOptions) =>
           this.preservingTurnState(() =>
-            this.generate({
+            (routingConfig.generateFn ?? ((input) => this.generate(input)))({
               ...generateOptions,
               abortSignal: options.abortSignal,
             }),
@@ -10827,11 +10902,15 @@ Current user's request: ${currentInput}`;
         // configured. siteDecide returns null without one, so the resolver
         // falls straight through to the generative router as before. The
         // outer request's credentials, abort signal and ids ride along.
-        decideFn: (decisionOptions) =>
-          this.siteDecide(
-            decisionOptions,
-            this.decisionSiteContext(options, sessionId || undefined),
-          ),
+        // A host-owned routing callback owns the inference account too.
+        // Bypass the instance's decision fast-path in that explicit mode.
+        decideFn: routingConfig.generateFn
+          ? undefined
+          : (decisionOptions) =>
+              this.siteDecide(
+                decisionOptions,
+                this.decisionSiteContext(options, sessionId || undefined),
+              ),
         decisionMinDropConfidence: routingConfig.minDropConfidence,
         emitDecision: captureDecision,
         // L2 / ITEM D — only populated when embedding is configured.
@@ -12098,8 +12177,39 @@ Current user's request: ${currentInput}`;
       [key: string]: unknown;
     }> = [];
     let eventSeqCounter = 0;
+    const eventScope = this.conversationEventContext.getStore();
+    const ownedConfirmations = new Set<string>();
+    const confirmationId = (event: unknown): string | undefined => {
+      if (
+        !event ||
+        typeof event !== "object" ||
+        !("payload" in event) ||
+        !event.payload ||
+        typeof event.payload !== "object" ||
+        !("confirmationId" in event.payload) ||
+        typeof event.payload.confirmationId !== "string"
+      ) {
+        return undefined;
+      }
+      return event.payload.confirmationId;
+    };
 
-    const captureEvent = (type: string, data?: unknown) => {
+    const captureEvent = (
+      type: string,
+      data?: unknown,
+      ownedConfirmation?: string,
+    ) => {
+      // Never infer ownership from whichever listeners happen to be active.
+      // This also fails closed where async context propagation is unavailable.
+      const belongsToTurn =
+        eventScope !== undefined &&
+        this.conversationEventContext.getStore() === eventScope;
+      const belongsToConfirmation =
+        ownedConfirmation !== undefined &&
+        ownedConfirmations.has(ownedConfirmation);
+      if (!belongsToTurn && !belongsToConfirmation) {
+        return;
+      }
       eventSequence.push({
         type,
         seq: eventSeqCounter++,
@@ -12158,20 +12268,51 @@ Current user's request: ${currentInput}`;
         });
       }
     };
+    const onHostConversationEvent = (...args: unknown[]) => {
+      const event = args[0];
+      if (
+        event &&
+        typeof event === "object" &&
+        "type" in event &&
+        typeof event.type === "string" &&
+        "data" in event &&
+        event.data &&
+        typeof event.data === "object" &&
+        !Array.isArray(event.data)
+      ) {
+        captureEvent(event.type, { data: event.data });
+      }
+    };
     const onUIComponent = (...args: unknown[]) => {
       captureEvent("ui-component", args[0]);
     };
     const onHITLRequest = (...args: unknown[]) => {
-      captureEvent("hitl:confirmation-request", args[0]);
+      if (
+        eventScope !== undefined &&
+        this.conversationEventContext.getStore() === eventScope
+      ) {
+        const id = confirmationId(args[0]);
+        if (id !== undefined) {
+          ownedConfirmations.add(id);
+        }
+        captureEvent("hitl:confirmation-request", args[0]);
+      }
     };
     const onHITLResponse = (...args: unknown[]) => {
-      captureEvent("hitl:confirmation-response", args[0]);
+      const id = confirmationId(args[0]);
+      // A host answers from its own HTTP/async context. The issued confirmation
+      // id carries ownership without admitting arbitrary global emitter data.
+      if (id !== undefined && ownedConfirmations.has(id)) {
+        captureEvent("hitl:confirmation-response", args[0], id);
+        ownedConfirmations.delete(id);
+      }
     };
 
     this.emitter.on("response:chunk", onResponseChunk);
     this.emitter.on("tool:start", onToolStart);
     this.emitter.on("tool:end", onToolEnd);
     this.emitter.on("ui-component", onUIComponent);
+    this.emitter.on("host:conversation-event", onHostConversationEvent);
     this.emitter.on("hitl:confirmation-request", onHITLRequest);
     this.emitter.on("hitl:confirmation-response", onHITLResponse);
 
@@ -12180,6 +12321,7 @@ Current user's request: ${currentInput}`;
       this.emitter.off("tool:start", onToolStart);
       this.emitter.off("tool:end", onToolEnd);
       this.emitter.off("ui-component", onUIComponent);
+      this.emitter.off("host:conversation-event", onHostConversationEvent);
       this.emitter.off("hitl:confirmation-request", onHITLRequest);
       this.emitter.off("hitl:confirmation-response", onHITLResponse);
     };

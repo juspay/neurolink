@@ -8,7 +8,11 @@
 import type { z } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import type { TokenUsage } from "./analytics.js";
-import type { GenerateStopReason, ToolExecutionRecord } from "./generate.js";
+import type {
+  GenerateStopReason,
+  ToolExecutionRecord,
+  ToolExecutionCaptureOptions,
+} from "./generate.js";
 
 // ============================================================================
 // AGENT DEFINITION TYPES
@@ -119,6 +123,23 @@ export type AgentExecutionOptions = {
 
   /** Cumulative budget for the NeuroLink instance, not a per-run cap. */
   maxBudgetUsd?: number;
+
+  /** Per-turn tool opt-out; cannot expand the agent tool scope. */
+  disableTools?: boolean;
+  /** Provider region override for this turn. */
+  region?: string;
+  /** Output bound for this turn. */
+  maxTokens?: number;
+  /** Opt out of session history and user-memory reads/writes for this turn, retaining stored state. */
+  useMemory?: boolean;
+  /** Conversation memory identity; never included in the model prompt. */
+  sessionId?: string;
+
+  /** Refuse SDK-internal provider/model fallback for this execution. */
+  disableInternalFallback?: boolean;
+
+  /** Bounds and callback for the underlying SDK's tool execution capture. */
+  toolExecutionCapture?: ToolExecutionCaptureOptions;
 
   /** Additional context for the agent */
   context?: Record<string, unknown>;
@@ -689,6 +710,15 @@ export type AgentStreamChunk = {
 
   /** Duration in ms (for complete chunks) */
   duration?: number;
+
+  /** Complete-turn status; errors remain failures even after partial text. */
+  status?: AgentResult["status"];
+
+  /** Final, bounded per-call records in the same shape as AgentResult. */
+  toolExecutions?: ToolExecutionRecord[];
+
+  /** Terminal reason from the underlying stream. */
+  stopReason?: GenerateStopReason;
 
   /** Error message (for error chunks) */
   error?: string;

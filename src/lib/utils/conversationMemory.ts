@@ -510,7 +510,7 @@ export async function storeConversationTurn(
           providerDetails,
           enableSummarization: originalOptions.enableSummarization,
           requestId,
-          events: toolActivityEvents,
+          events: result.events?.length ? result.events : toolActivityEvents,
           ...(skillMessages && skillMessages.length > 0
             ? { skillMessages }
             : {}),

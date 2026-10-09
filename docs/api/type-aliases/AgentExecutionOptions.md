@@ -28,6 +28,62 @@ Cumulative budget for the NeuroLink instance, not a per-run cap.
 
 ---
 
+### disableTools?
+
+> `optional` **disableTools?**: `boolean`
+
+Per-turn tool opt-out; cannot expand the agent tool scope.
+
+---
+
+### region?
+
+> `optional` **region?**: `string`
+
+Provider region override for this turn.
+
+---
+
+### maxTokens?
+
+> `optional` **maxTokens?**: `number`
+
+Output bound for this turn.
+
+---
+
+### useMemory?
+
+> `optional` **useMemory?**: `boolean`
+
+Opt out of session history and user-memory reads/writes for this turn, retaining stored state.
+
+---
+
+### sessionId?
+
+> `optional` **sessionId?**: `string`
+
+Conversation memory identity; never included in the model prompt.
+
+---
+
+### disableInternalFallback?
+
+> `optional` **disableInternalFallback?**: `boolean`
+
+Refuse SDK-internal provider/model fallback for this execution.
+
+---
+
+### toolExecutionCapture?
+
+> `optional` **toolExecutionCapture?**: [`ToolExecutionCaptureOptions`](ToolExecutionCaptureOptions.md)
+
+Bounds and callback for the underlying SDK's tool execution capture.
+
+---
+
 ### context?
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>

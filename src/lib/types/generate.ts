@@ -16,6 +16,7 @@ import type { Content, ImageWithAltText } from "./content.js";
 import type {
   ChatMessage,
   ConversationMemoryConfig,
+  StreamEventSequence,
   ToolReplayMode,
 } from "./conversation.js";
 import type { MemoryCallOptions } from "./memory.js";
@@ -1871,6 +1872,8 @@ export type TextGenerationOptions = {
  * Text generation result (consolidated from core types)
  */
 export type TextGenerationResult = {
+  /** Ordered tool and host events persisted with the conversation turn. */
+  events?: StreamEventSequence[];
   content: string;
   /** Parsed structured object when a `schema` was requested (see GenerateResult.structuredData). */
   structuredData?: unknown;

@@ -170,6 +170,8 @@ export type InternalStreamEvent = {
  * Flexible type to support both typed and legacy event patterns
  */
 export type NeuroLinkEvents = {
+  /** Application-owned events captured in ordered conversation history. */
+  "host:conversation-event": { type: string; data: Record<string, unknown> };
   // Core tool events
   "tool:start": unknown;
   "tool:end": unknown;
