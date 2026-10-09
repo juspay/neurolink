@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — agentic-loop engine primitives (Plan 08, rule 15
@@ -635,6 +635,11 @@ await test("runAgenticLoop: respects maxSteps and stops without a final answer",
     result.finishReason,
     "tool-calls",
     "step-cap exit maps to tool-calls, mirroring today's providers",
+  );
+  assertEqual(
+    result.stopReason,
+    "step-cap",
+    "the engine exposes its own actual cap independently of the raw provider reason",
   );
 });
 
@@ -1300,6 +1305,90 @@ await test("the Gemini adapter uses a supplied collectStep instead of the shared
   assert(
     result.text.includes("from the custom collector"),
     "text did not come from the supplied collector",
+  );
+});
+
+await test("runAgenticLoop: renewing the last step does not report a stale cap", async () => {
+  const toolStep: AgenticLoopStepResult<unknown> = {
+    text: "",
+    toolCalls: [{ id: "renew_call", name: "noop", args: {} }],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "tool_use",
+    raw: undefined,
+  };
+  const finalStep: AgenticLoopStepResult<unknown> = {
+    text: "renewed answer",
+    toolCalls: [],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "end_turn",
+    raw: undefined,
+  };
+  const adapter: AgenticLoopAdapter<FakeConversation> = {
+    ...fakeAdapter([toolStep, finalStep]),
+    maxSteps: 1,
+  };
+  let renewals = 0;
+  const { resultPromise } = runAgenticLoop(
+    adapter,
+    { turns: [] },
+    {
+      tools: { noop: { execute: async () => "ok" } },
+      beforeStep: async ({ maxSteps }) => {
+        renewals++;
+        return { maxSteps: maxSteps + 1 };
+      },
+    },
+  );
+  const result = await resultPromise;
+  assertEqual(renewals, 1, "the last-step renewal hook never ran");
+  assertEqual(
+    result.text,
+    "renewed answer",
+    "the renewed step never produced its actual answer",
+  );
+  assert(
+    result.stopReason !== "step-cap",
+    "a renewed turn inherited its superseded cap outcome",
+  );
+});
+
+await test("runAgenticLoop: aborting at the last tool step takes priority over cap outcome", async () => {
+  const controller = new AbortController();
+  const toolStep: AgenticLoopStepResult<unknown> = {
+    text: "",
+    toolCalls: [{ id: "aborted_cap_call", name: "cancel", args: {} }],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "tool_use",
+    raw: undefined,
+  };
+  const adapter: AgenticLoopAdapter<FakeConversation> = {
+    ...fakeAdapter([toolStep]),
+    maxSteps: 1,
+  };
+  let toolCalls = 0;
+  const { resultPromise } = runAgenticLoop(
+    adapter,
+    { turns: [] },
+    {
+      abortSignal: controller.signal,
+      tools: {
+        cancel: {
+          execute: async () => {
+            toolCalls++;
+            controller.abort();
+            return "cancelled at the actual tool";
+          },
+        },
+      },
+    },
+  );
+  const result = await resultPromise;
+  assertEqual(toolCalls, 1, "the controlled last-step tool never executed");
+  assert(result.aborted, "the engine did not observe the real abort signal");
+  assertEqual(
+    result.stopReason,
+    "aborted",
+    "a last-step abort was mislabeled as an exhausted cap",
   );
 });
 

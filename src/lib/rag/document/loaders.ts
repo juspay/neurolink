@@ -28,6 +28,7 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { basename, extname } from "path";
 import { logger } from "../../utils/logger.js";
+import { decodeHtmlTextEntitiesOnce } from "../../utils/htmlEntities.js";
 import {
   CSVProcessor,
   stripBom,
@@ -543,7 +544,7 @@ export class WebLoader implements DocumentLoader {
    * Convert HTML to plain text
    */
   private htmlToText(html: string): string {
-    return (
+    return decodeHtmlTextEntitiesOnce(
       html
         // Remove script and style elements
         .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -554,22 +555,21 @@ export class WebLoader implements DocumentLoader {
         .replace(/<\/(p|div|h[1-6]|br|li|tr|blockquote)>/gi, "\n")
         .replace(/<(br|hr)\s*\/?>/gi, "\n")
         // Remove remaining tags
-        .replace(/<[^>]+>/g, "")
-        // Decode common HTML entities
-        .replace(/&nbsp;/gi, " ")
-        .replace(/&amp;/gi, "&")
-        .replace(/&lt;/gi, "<")
-        .replace(/&gt;/gi, ">")
-        .replace(/&quot;/gi, '"')
-        .replace(/&#039;/gi, "'")
-        .replace(/&apos;/gi, "'")
-        // Decode numeric entities
-        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-        // Normalize whitespace
-        .replace(/\n\s*\n/g, "\n\n")
-        .replace(/[ \t]+/g, " ")
-        .trim()
-    );
+        .replace(/<[^>]+>/g, ""),
+      {
+        nbsp: " ",
+        amp: "&",
+        lt: "<",
+        gt: ">",
+        quot: '"',
+        "#039": "'",
+        apos: "'",
+      },
+      true,
+    )
+      .replace(/\n\s*\n/g, "\n\n")
+      .replace(/[ \t]+/g, " ")
+      .trim();
   }
 }
 

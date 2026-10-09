@@ -26,6 +26,7 @@ import {
 import { createTimeoutController } from "../utils/timeout.js";
 import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+import { isFiniteEmbeddingVector } from "./embeddingResponseParsing.js";
 
 const COHERE_DEFAULT_BASE_URL = "https://api.cohere.com/compatibility/v1";
 
@@ -247,14 +248,21 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
           );
         }
         const json = (await response.json()) as {
-          embeddings?: { float?: number[][] } | number[][];
+          embeddings?: { float?: unknown } | unknown[];
         };
         const floatVecs =
-          (json.embeddings as { float?: number[][] })?.float ??
+          (json.embeddings as { float?: unknown })?.float ??
           (Array.isArray(json.embeddings) ? json.embeddings : undefined);
-        if (!floatVecs || floatVecs.length !== batch.length) {
+        if (!Array.isArray(floatVecs) || floatVecs.length !== batch.length) {
           throw new ProviderError(
-            `Cohere /v2/embed returned ${floatVecs?.length ?? 0} embeddings for ${batch.length} inputs.`,
+            `Cohere /v2/embed returned ${Array.isArray(floatVecs) ? floatVecs.length : 0} embeddings for ${batch.length} inputs.`,
+            "cohere",
+          );
+        }
+        if (!floatVecs.every(isFiniteEmbeddingVector)) {
+          const index = floatVecs.findIndex((v) => !isFiniteEmbeddingVector(v));
+          throw new ProviderError(
+            `Cohere /v2/embed returned an invalid embedding at index ${index}: expected a nonempty array of finite numbers.`,
             "cohere",
           );
         }

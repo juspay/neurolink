@@ -22,9 +22,11 @@ export enum AIProviderName {
   LLAMACPP = "llamacpp",
   // ── BEGIN GENERATED(provider-members): provider catalog (pnpm run codegen:catalog) ──
   A2AGENT = "a2agent",
+  ABLITERATION = "abliteration",
   ABOVE_DEV = "above-dev",
   AI21 = "ai21",
   AIAND = "aiand",
+  AIHUBMIX = "aihubmix",
   AIONLABS = "aionlabs",
   AMBIENT = "ambient",
   API_ROUTE = "api-route",
@@ -70,6 +72,7 @@ export enum AIProviderName {
   MODELSCOPE = "modelscope",
   MOONSHOT_AI = "moonshot-ai",
   MORPH = "morph",
+  NAVER_CLOVA_STUDIO = "naver-clova-studio",
   NEBIUS = "nebius",
   NEURALWATT = "neuralwatt",
   NOVITA = "novita",
@@ -1231,6 +1234,10 @@ export enum A2agentModels {
   DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
 }
 
+export enum AbliterationModels {
+  ABLITERATED_MODEL = "abliterated-model",
+}
+
 export enum AboveDevModels {
   DEEPSEEK_V4_1_FLASH = "deepseek-v4.1-flash",
   DEEPSEEK_V4_PRO = "deepseek-v4-pro",
@@ -1264,6 +1271,10 @@ export enum AiandModels {
   QWEN_QWEN3_6_27B = "qwen/qwen3.6-27b",
   MOTIF_TECHNOLOGIES_MOTIF_3 = "motif-technologies/motif-3",
   GOOGLE_GEMMA_4_31B_IT = "google/gemma-4-31b-it",
+}
+
+export enum AIHubMixModels {
+  GPT_4O_MINI = "gpt-4o-mini",
 }
 
 export enum AionlabsModels {
@@ -1850,6 +1861,10 @@ export enum MoonshotAiModels {
 export enum MorphModels {
   MORPH_V3_LARGE = "morph-v3-large",
   MORPH_V3_FAST = "morph-v3-fast",
+}
+
+export enum NaverClovaStudioModels {
+  HCX_005 = "HCX-005",
 }
 
 export enum NebiusModels {

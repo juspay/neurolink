@@ -33,6 +33,7 @@
  * model/region pair.
  */
 
+import { hasBedrockProfilePrefix } from "../../constants/bedrockIdentifiers.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -67,11 +68,6 @@ function geoPrefixForRegion(region: string): string | undefined {
     return "apac";
   }
   return undefined;
-}
-
-/** True when `modelId` already carries a geography or global prefix. */
-function hasProfilePrefix(modelId: string): boolean {
-  return /^(us|eu|au|jp|apac|global)\./.test(modelId);
 }
 
 /**
@@ -122,7 +118,17 @@ export function inferenceProfileCandidates(
   // this provider accepts one as a model id (see `extractRegionFromArn`).
   // Prefixing it yields a malformed identifier whose ValidationException would
   // then replace the original, accurate error.
-  if (modelId.startsWith("arn:") || hasProfilePrefix(modelId)) {
+  // Converse's published foundation-model ID grammar. Application-profile
+  // IDs are opaque, so a matching error must never turn them into guessed
+  // us.<id>/global.<id> model IDs. Keep valid new vendors without an enum gate.
+  // https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
+  const foundationModelId =
+    /^[a-z0-9-]{1,63}\.[a-z0-9-]{1,63}([.:]?[a-z0-9-]{1,63})$/.test(modelId);
+  if (
+    !foundationModelId ||
+    modelId.startsWith("arn:") ||
+    hasBedrockProfilePrefix(modelId)
+  ) {
     return [];
   }
   const candidates: string[] = [];

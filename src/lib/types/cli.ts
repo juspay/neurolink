@@ -85,6 +85,8 @@ export type GenerateCommandArgs = BaseCommandArgs &
     context?: string;
     /** Disable tools */
     disableTools?: boolean;
+    /** Keep the request on the selected provider and model. */
+    disableInternalFallback?: boolean;
     /** Maximum steps for multi-turn */
     maxSteps?: number;
     /** Output file */
@@ -153,6 +155,8 @@ export type StreamCommandArgs = BaseCommandArgs &
     maxTokens?: number;
     /** Disable tools */
     disableTools?: boolean;
+    /** Keep the request on the selected provider and model. */
+    disableInternalFallback?: boolean;
     /** Enable extended thinking/reasoning */
     thinking?: boolean;
     /** Token budget for thinking */
@@ -192,6 +196,8 @@ export type BatchCommandArgs = BaseCommandArgs &
     output?: string;
     /** Disable tools */
     disableTools?: boolean;
+    /** Keep the request on the selected provider and model. */
+    disableInternalFallback?: boolean;
   };
 
 /**

@@ -588,6 +588,14 @@ export function runAgenticLoop<TConversation>(
         finishReason:
           aborted && rawStopReason === undefined ? "other" : finishReason,
         rawStopReason,
+        // The engine owns the actual cap (including mid-turn renewal), so a
+        // provider must not infer this from raw "tool_use" or a step count.
+        // Cancellation takes priority when it interrupts the last tool batch.
+        stopReason: aborted
+          ? "aborted"
+          : hadToolCallsAtCap
+            ? "step-cap"
+            : undefined,
         conversation,
         aborted,
       };

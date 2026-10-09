@@ -1,10 +1,10 @@
 # 🏢 Enterprise & Proxy Setup Guide
 
-NeuroLink provides comprehensive proxy support for enterprise environments, enabling AI integration behind corporate firewalls and proxy servers.
+NeuroLink routes supported HTTP request paths through configured proxies. Native AWS requests, Google authentication and Live WebSockets have separate transport rules described below.
 
-## ✨ Zero Configuration Proxy Support
+## ✨ Configure HTTP Proxy Routes
 
-NeuroLink automatically detects and uses proxy settings when environment variables are configured. **No code changes required.**
+Set the proxy environment variables before creating clients. Request paths that use NeuroLink's proxy-aware HTTP fetch read these settings; they do not establish proxy routing for every SDK or WebSocket transport.
 
 ### Quick Setup
 
@@ -34,21 +34,17 @@ npx @juspay/neurolink generate "Hello from behind corporate proxy"
 
 ## 🌐 Provider-Specific Proxy Support
 
-### ✅ Full Proxy Support
+### Transport Coverage and Limits
 
-All NeuroLink providers automatically work through corporate proxies:
+| Transport                                                         | Integration                                   | Coverage limit                                                                                                                                              |
+| ----------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google AI Studio / Vertex `@google/genai` model HTTP              | SDK HTTP fetch hook                           | The owned HTTP proxy suite covers AI Studio, Vertex Express and the direct web-search tool; it excludes ADC token requests and Live WebSockets.             |
+| Other fetch-backed model requests                                 | Provider-specific proxy-aware fetch           | Check the actual provider request path; a configured variable or successful response alone is not routing proof.                                            |
+| Native AWS SDK clients, including Bedrock runtime/control clients | AWS request handler and runtime configuration | Current native Bedrock constructors do not inject NeuroLink's proxy handler. Handler/agent/runtime behavior and bypass semantics need separate route tests. |
+| Gemini Live WebSockets                                            | `ws` or the GenAI Live SDK transport          | Outside the HTTP fetch hook. WebSocket agents and Node runtime settings can affect routing independently.                                                   |
+| Vertex ADC token acquisition/refresh                              | `google-auth-library` / `gaxios`              | Outside the model fetch hook. The dependency may honor proxy variables independently; its token-refresh and bypass behavior must be checked separately.     |
 
-| Provider             | Proxy Method                        | Status               |
-| -------------------- | ----------------------------------- | -------------------- |
-| **Anthropic Claude** | Direct fetch calls with proxy       | ✅ Verified + Tested |
-| **OpenAI**           | Global fetch handling               | ✅ Verified + Tested |
-| **Google Vertex AI** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Google AI Studio** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Mistral AI**       | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Ollama**           | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **HuggingFace**      | Custom fetch with undici ProxyAgent | ✅ Implemented       |
-| **Azure OpenAI**     | Custom fetch with undici ProxyAgent | ✅ Implemented       |
-| **Amazon Bedrock**   | Global fetch handling               | ✅ Implemented       |
+`NO_PROXY` syntax is documented in the [Environment Variables guide](environment-variables.md). Those shared HTTP matching rules do not automatically apply to the other transports. Missing custom integration does not mean a dependency or runtime can never proxy: observe the route in the environment you use.
 
 ## 🚀 Quick Validation
 
@@ -69,30 +65,20 @@ npx @juspay/neurolink generate "Test proxy connection" --provider google-ai
 
 When proxy is working correctly, you should see:
 
-- ✅ AI responses generated successfully
+- ✅ The intended inference request appears in the proxy logs; a successful response alone does not prove routing
 - ✅ Proxy server logs showing intercepted connections
-- ✅ No direct internet access required
+- ✅ Proxy/bypass controls confirm the expected direct or proxied route for each transport
 - ✅ Enterprise MCP tools work alongside proxy
 
-### Enterprise Grade Testing
+### Owned HTTP Routing Tests
 
-NeuroLink includes comprehensive proxy validation tests:
+After building the package, run the current credential-free Google HTTP proxy suite:
 
 ```bash
-# Run enterprise proxy tests
-npm test -- test/proxy/proxySupport.test.ts
-
-# Test all providers with proxy + MCP
-npm test -- test/proxy/proxySupport.test.ts --run
+pnpm run test:google-genai-proxy
 ```
 
-**Test Coverage:**
-
-- ✅ Proxy usage validation (negative/positive testing)
-- ✅ All enterprise providers (Anthropic, OpenAI, Vertex, Mistral, Ollama)
-- ✅ MCP + Proxy compatibility (enterprise grade)
-- ✅ Real-world timeout handling
-- ✅ SDK and CLI interface testing
+It uses owned forward/direct stand-ins and request counters, with proxy-only response markers and proxy/bypass controls. Its source records the exact covered public paths. It does not certify all providers, native AWS routing, Gemini Live WebSockets or ADC token refresh. Test those transports separately with owned endpoints before relying on them in a constrained network.
 
 ## 🔍 Enterprise Configuration Examples
 
@@ -136,7 +122,8 @@ const proxyFetch = createProxyFetch();
 // Provider integration varies by SDK capabilities:
 // - Custom fetch parameter (Google AI, Vertex AI)
 // - Direct fetch calls (Anthropic)
-// - Global fetch handling (OpenAI, Bedrock)
+// - Other provider-specific HTTP fetch paths
+// Native AWS handlers, ADC token refresh and Live WebSockets are separate.
 ```
 
 ### Key Benefits

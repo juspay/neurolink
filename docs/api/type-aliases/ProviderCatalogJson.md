@@ -104,9 +104,14 @@ is not). Must be a models.catalog key (validated).
 
 > **defaultContextWindow**: `number`
 
+Source-supported positive safe integer model ceiling; never a zero
+placeholder. This does not change caller maxTokens: 0 semantics.
+
 #### defaultMaxOutputTokens
 
 > **defaultMaxOutputTokens**: `number`
+
+Source-supported positive safe integer output ceiling.
 
 #### catalog
 

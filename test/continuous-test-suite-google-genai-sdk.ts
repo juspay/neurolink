@@ -35,6 +35,7 @@
  *      pnpm run test:google-genai-sdk
  */
 
+import "./helpers/credentialFreeEnv.js";
 import { createServer, type Server } from "node:http";
 import type { Socket } from "node:net";
 import { WebSocketServer } from "ws";
@@ -746,6 +747,516 @@ await test("an audio stream settles when the Live server closes the socket befor
       wss.clients.forEach((client) => client.terminate());
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => http.close(() => resolve()));
+    }
+  });
+});
+
+// Owned Gemini Live fixture: exercises the public NeuroLink audio stream
+// against a local WebSocket stand-in. Do not import internal provider modules.
+const OWNED_LIVE_MODEL = "gemini-owned-live-fixture";
+const OWNED_LIVE_KEY = "owned-live-not-a-real-key";
+const OWNED_INPUT_FRAMES = [Buffer.alloc(640, 1), Buffer.alloc(640, 2)];
+const OWNED_OUTPUT_FRAMES = [Buffer.alloc(480, 3), Buffer.alloc(480, 4)];
+
+async function ownedLiveDeadline<T>(
+  promise: Promise<T>,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `${label} did not settle within the owned fixture deadline`,
+              ),
+            ),
+          5000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+async function ownedLiveTurns(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+async function startOwnedLiveStandIn() {
+  const observations = {
+    connections: 0,
+    active: 0,
+    closes: 0,
+    unexpectedHTTP: 0,
+    validRoute: false,
+    fakeKeyMatched: false,
+    validSetup: false,
+    acknowledged: false,
+    mediaBeforeAck: false,
+    serverInitiatedClose: false,
+    cleanupStarted: false,
+    outputSent: 0,
+    media: [] as Array<{ data: string; mimeType: string }>,
+  };
+  let socket: import("ws").WebSocket | undefined;
+  let setupResolve: () => void = () => {};
+  let mediaResolve: () => void = () => {};
+  let closeResolve: () => void = () => {};
+  const setupObserved = new Promise<void>((resolve) => {
+    setupResolve = resolve;
+  });
+  const mediaObserved = new Promise<void>((resolve) => {
+    mediaResolve = resolve;
+  });
+  const peerClosed = new Promise<void>((resolve) => {
+    closeResolve = resolve;
+  });
+  const http = createServer((_req, res) => {
+    observations.unexpectedHTTP++;
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ error: "Owned Live fixture rejects HTTP fallback" }),
+    );
+  });
+  const wss = new WebSocketServer({ server: http });
+  wss.on("connection", (peer, req) => {
+    socket = peer;
+    observations.connections++;
+    observations.active++;
+    const rawTarget = req.url ?? "";
+    if (!rawTarget.startsWith("/")) {
+      throw new Error("Owned Live request target is not origin-form");
+    }
+    const knownHost = `127.0.0.1:${port}`;
+    const origin = `http://${knownHost}`;
+    const target = new URL(origin + rawTarget);
+    observations.validRoute =
+      target.origin === origin &&
+      req.headers.host === knownHost &&
+      target.pathname ===
+        "//ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+    observations.fakeKeyMatched =
+      target.searchParams.get("key") === OWNED_LIVE_KEY;
+    peer.on("message", (raw) => {
+      const message = JSON.parse(raw.toString()) as {
+        setup?: {
+          model?: string;
+          generationConfig?: { responseModalities?: string[] };
+        };
+        realtimeInput?: {
+          mediaChunks?: Array<{ data?: string; mimeType?: string }>;
+        };
+      };
+      if (message.setup) {
+        observations.validSetup =
+          message.setup.model === `models/${OWNED_LIVE_MODEL}` &&
+          message.setup.generationConfig?.responseModalities?.includes(
+            "AUDIO",
+          ) === true;
+        setupResolve();
+      }
+      for (const media of message.realtimeInput?.mediaChunks ?? []) {
+        if (!observations.acknowledged) {
+          observations.mediaBeforeAck = true;
+        }
+        observations.media.push({
+          data: media.data ?? "",
+          mimeType: media.mimeType ?? "",
+        });
+      }
+      if (observations.media.length >= OWNED_INPUT_FRAMES.length) {
+        mediaResolve();
+      }
+    });
+    peer.on("close", () => {
+      observations.active--;
+      observations.closes++;
+      closeResolve();
+    });
+  });
+  const port = await listen(http);
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    observations,
+    setupObserved,
+    mediaObserved,
+    peerClosed,
+    acknowledge() {
+      const peer = socket;
+      if (!peer) {
+        throw new Error("Owned Live setup has no socket");
+      }
+      observations.acknowledged = true;
+      peer.send(JSON.stringify({ setupComplete: {} }));
+    },
+    audio(index: number) {
+      const peer = socket;
+      if (!peer) {
+        throw new Error("Owned Live output has no socket");
+      }
+      const frame = OWNED_OUTPUT_FRAMES[index];
+      assert(frame !== undefined, "Owned Live output index is invalid");
+      observations.outputSent++;
+      peer.send(
+        JSON.stringify({
+          serverContent: {
+            modelTurn: {
+              parts: [
+                {
+                  inlineData: {
+                    data: frame.toString("base64"),
+                    mimeType: "audio/pcm;rate=24000",
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    },
+    end() {
+      const peer = socket;
+      if (!peer) {
+        throw new Error("Owned Live close has no socket");
+      }
+      observations.serverInitiatedClose = true;
+      peer.close(1000, "ordinary owned completion");
+    },
+    async cleanup() {
+      // These are backstops, never evidence that the public caller cancelled.
+      observations.cleanupStarted = true;
+      wss.clients.forEach((client) => client.terminate());
+      await new Promise<void>((resolve) => wss.close(() => resolve()));
+      http.closeAllConnections();
+      await new Promise<void>((resolve) => http.close(() => resolve()));
+    },
+  };
+}
+
+function assertOwnedInput(
+  observations: Awaited<
+    ReturnType<typeof startOwnedLiveStandIn>
+  >["observations"],
+): void {
+  assert(
+    observations.connections === 1 &&
+      observations.validRoute &&
+      observations.fakeKeyMatched &&
+      observations.validSetup,
+    "Owned Live route/setup identity was not reached",
+  );
+  assert(
+    !observations.mediaBeforeAck &&
+      observations.media.length === OWNED_INPUT_FRAMES.length,
+    "Owned Live input ordering/count changed",
+  );
+  observations.media.forEach((media, index) => {
+    assert(
+      media.mimeType === "audio/pcm;rate=16000" &&
+        Buffer.from(media.data, "base64").equals(OWNED_INPUT_FRAMES[index]),
+      "Owned Live input bytes or format changed",
+    );
+  });
+  assert(
+    observations.unexpectedHTTP === 0,
+    "Audio path attempted HTTP fallback",
+  );
+}
+
+function assertOwnedAudio(value: unknown, index: number): void {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("type" in value) ||
+    value.type !== "audio" ||
+    !("audio" in value) ||
+    !value.audio ||
+    typeof value.audio !== "object"
+  ) {
+    throw new Error("Owned Live returned a non-audio public chunk");
+  }
+  const audio = value.audio as {
+    data?: unknown;
+    sampleRateHz?: unknown;
+    channels?: unknown;
+    encoding?: unknown;
+  };
+  assert(
+    Buffer.isBuffer(audio.data) &&
+      audio.data.equals(OWNED_OUTPUT_FRAMES[index]),
+    "Owned Live public output bytes differ",
+  );
+  assert(
+    audio.sampleRateHz === 24000 &&
+      audio.channels === 1 &&
+      audio.encoding === "PCM16LE",
+    "Owned Live public output format differs",
+  );
+}
+
+async function ownedLiveFrames(): Promise<AsyncIterable<Buffer>> {
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (const frame of OWNED_INPUT_FRAMES) {
+        yield frame;
+      }
+    },
+  };
+}
+
+section("AI Studio successful owned Live audio and lifecycle");
+
+await test("owned Live setup, PCM roundtrip and pending close drain", async () => {
+  await withCleanEnv(async () => {
+    const fixture = await startOwnedLiveStandIn();
+    const nl = new NeuroLink();
+    try {
+      const starting = nl.stream({
+        input: {
+          audio: {
+            frames: await ownedLiveFrames(),
+            sampleRateHz: 16000,
+            encoding: "PCM16LE",
+            channels: 1,
+          },
+        },
+        provider: "google-ai",
+        model: OWNED_LIVE_MODEL,
+        disableInternalFallback: true,
+        disableTools: true,
+        credentials: {
+          googleAiStudio: { apiKey: OWNED_LIVE_KEY, baseURL: fixture.origin },
+        },
+      });
+      await ownedLiveDeadline(fixture.setupObserved, "client setup");
+      fixture.acknowledge();
+      const result = await ownedLiveDeadline(starting, "public Live setup");
+      assert(
+        result.provider === "google-ai" && result.model === OWNED_LIVE_MODEL,
+        "Public Live resolved identity changed",
+      );
+      await ownedLiveDeadline(fixture.mediaObserved, "input PCM");
+      assertOwnedInput(fixture.observations);
+      const iterator = result.stream[Symbol.asyncIterator]();
+      for (let index = 0; index < OWNED_OUTPUT_FRAMES.length; index++) {
+        const waiting = iterator.next();
+        fixture.audio(index);
+        const item = await ownedLiveDeadline(waiting, "output PCM");
+        assert(!item.done, "Public Live ended before expected audio");
+        assertOwnedAudio(item.value, index);
+      }
+      let endedBeforeClose = false;
+      const pendingEnd = iterator.next().then((item) => {
+        endedBeforeClose = true;
+        return item;
+      });
+      await ownedLiveTurns();
+      assert(
+        !endedBeforeClose,
+        "Owned close case had no pending public consumer",
+      );
+      fixture.end();
+      const end = await ownedLiveDeadline(pendingEnd, "pending consumer close");
+      assert(end.done === true, "Public Live iterator did not finish");
+      await ownedLiveDeadline(fixture.peerClosed, "ordinary peer close");
+      assert(
+        fixture.observations.active === 0 &&
+          !fixture.observations.cleanupStarted,
+        "Normal drain required backstop cleanup",
+      );
+    } finally {
+      try {
+        await ownedLiveDeadline(nl.shutdown(), "SDK shutdown");
+      } finally {
+        await fixture.cleanup();
+      }
+    }
+  });
+});
+
+await test("owned Live delayed setup gates frames until acknowledgement", async () => {
+  await withCleanEnv(async () => {
+    const fixture = await startOwnedLiveStandIn();
+    const nl = new NeuroLink();
+    let resolved = false;
+    try {
+      const starting = nl
+        .stream({
+          input: {
+            audio: { frames: await ownedLiveFrames(), sampleRateHz: 16000 },
+          },
+          provider: "google-ai",
+          model: OWNED_LIVE_MODEL,
+          disableInternalFallback: true,
+          disableTools: true,
+          credentials: {
+            googleAiStudio: { apiKey: OWNED_LIVE_KEY, baseURL: fixture.origin },
+          },
+        })
+        .then((result) => {
+          resolved = true;
+          return result;
+        });
+      await ownedLiveDeadline(fixture.setupObserved, "delayed setup observed");
+      await ownedLiveTurns();
+      assert(
+        !resolved && fixture.observations.media.length === 0,
+        "Live sent frames or resolved before setup acknowledgement",
+      );
+      fixture.acknowledge();
+      const result = await ownedLiveDeadline(starting, "released setup");
+      await ownedLiveDeadline(fixture.mediaObserved, "released input frames");
+      assertOwnedInput(fixture.observations);
+      const iterator = result.stream[Symbol.asyncIterator]();
+      const first = iterator.next();
+      fixture.audio(0);
+      assertOwnedAudio(
+        (await ownedLiveDeadline(first, "delayed output")).value,
+        0,
+      );
+      let endedBeforeClose = false;
+      const pendingEnd = iterator.next().then((item) => {
+        endedBeforeClose = true;
+        return item;
+      });
+      await ownedLiveTurns();
+      assert(
+        !endedBeforeClose,
+        "Delayed close case had no pending public consumer",
+      );
+      fixture.end();
+      assert(
+        (await ownedLiveDeadline(pendingEnd, "delayed completion")).done ===
+          true,
+        "Delayed Live did not finish",
+      );
+      await ownedLiveDeadline(fixture.peerClosed, "delayed peer close");
+    } finally {
+      try {
+        await ownedLiveDeadline(nl.shutdown(), "SDK shutdown");
+      } finally {
+        await fixture.cleanup();
+      }
+    }
+  });
+});
+
+await test("owned Live caller abort closes the actual ready peer", async () => {
+  await withCleanEnv(async () => {
+    const fixture = await startOwnedLiveStandIn();
+    const nl = new NeuroLink();
+    const controller = new AbortController();
+    try {
+      const starting = nl.stream({
+        input: {
+          audio: { frames: await ownedLiveFrames(), sampleRateHz: 16000 },
+        },
+        provider: "google-ai",
+        model: OWNED_LIVE_MODEL,
+        abortSignal: controller.signal,
+        disableInternalFallback: true,
+        disableTools: true,
+        credentials: {
+          googleAiStudio: { apiKey: OWNED_LIVE_KEY, baseURL: fixture.origin },
+        },
+      });
+      await ownedLiveDeadline(fixture.setupObserved, "abort setup");
+      fixture.acknowledge();
+      const result = await ownedLiveDeadline(starting, "abort-ready stream");
+      await ownedLiveDeadline(fixture.mediaObserved, "abort input");
+      assertOwnedInput(fixture.observations);
+      const iterator = result.stream[Symbol.asyncIterator]();
+      let settledBeforeAbort = false;
+      const outcome = iterator.next().then(
+        () => {
+          settledBeforeAbort = true;
+          return "settled";
+        },
+        () => {
+          settledBeforeAbort = true;
+          return "settled";
+        },
+      );
+      await ownedLiveTurns();
+      assert(!settledBeforeAbort, "Abort case had no pending public consumer");
+      controller.abort();
+      assert(
+        (await ownedLiveDeadline(outcome, "caller abort outcome")) ===
+          "settled",
+        "Caller abort left public next pending",
+      );
+      await ownedLiveDeadline(fixture.peerClosed, "caller abort peer close");
+      assert(
+        !fixture.observations.serverInitiatedClose &&
+          fixture.observations.active === 0 &&
+          !fixture.observations.cleanupStarted,
+        "Caller abort did not release the actual transport",
+      );
+    } finally {
+      try {
+        await ownedLiveDeadline(nl.shutdown(), "SDK shutdown");
+      } finally {
+        await fixture.cleanup();
+      }
+    }
+  });
+});
+
+await test("owned Live consumer return releases the actual peer", async () => {
+  await withCleanEnv(async () => {
+    const fixture = await startOwnedLiveStandIn();
+    const nl = new NeuroLink();
+    try {
+      const starting = nl.stream({
+        input: {
+          audio: { frames: await ownedLiveFrames(), sampleRateHz: 16000 },
+        },
+        provider: "google-ai",
+        model: OWNED_LIVE_MODEL,
+        disableInternalFallback: true,
+        disableTools: true,
+        credentials: {
+          googleAiStudio: { apiKey: OWNED_LIVE_KEY, baseURL: fixture.origin },
+        },
+      });
+      await ownedLiveDeadline(fixture.setupObserved, "return setup");
+      fixture.acknowledge();
+      const result = await ownedLiveDeadline(starting, "return-ready stream");
+      await ownedLiveDeadline(fixture.mediaObserved, "return input");
+      assertOwnedInput(fixture.observations);
+      const iterator = result.stream[Symbol.asyncIterator]();
+      const first = iterator.next();
+      fixture.audio(0);
+      assertOwnedAudio(
+        (await ownedLiveDeadline(first, "return output")).value,
+        0,
+      );
+      const release = iterator.return;
+      if (typeof release !== "function") {
+        throw new Error("Public Live iterator has no return method");
+      }
+      await ownedLiveDeadline(release.call(iterator), "consumer return");
+      await ownedLiveDeadline(fixture.peerClosed, "consumer return peer close");
+      assert(
+        !fixture.observations.serverInitiatedClose &&
+          fixture.observations.active === 0 &&
+          !fixture.observations.cleanupStarted,
+        "Consumer return needed backstop transport closure",
+      );
+    } finally {
+      try {
+        await ownedLiveDeadline(nl.shutdown(), "SDK shutdown");
+      } finally {
+        await fixture.cleanup();
+      }
     }
   });
 });

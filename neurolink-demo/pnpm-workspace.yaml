@@ -1,0 +1,10 @@
+# Keep the demo's own package and frozen lockfile in scope during pnpm's upward
+# workspace search, as the standalone docs-site and landing projects do.
+# Retain the root release-age policy and existing native build allowlist.
+minimumReleaseAge: 4320
+onlyBuiltDependencies:
+  - esbuild
+  - protobufjs
+  - puppeteer
+  - ffmpeg-static
+  - sharp

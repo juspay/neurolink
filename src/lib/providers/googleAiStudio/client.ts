@@ -30,6 +30,7 @@ import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
   GenAIClient,
+  GenAILiveSession,
   GoogleGenAIClass,
   GoogleLiveAudioQueueItem,
   LiveServerMessage,
@@ -50,6 +51,11 @@ import {
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
+import {
+  attachStreamCancel,
+  cancelStream,
+  releaseIterator,
+} from "../../utils/streamCancellation.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { isDirectTTSRequest } from "../../core/resolveRequestKind.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
@@ -2854,24 +2860,61 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     // Simple async queue for yielding audio events to the outer AsyncIterable
     const queue: GoogleLiveAudioQueueItem[] = [];
-    let resolveNext:
-      | ((value: IteratorResult<{ type: "audio"; audio: AudioChunk }>) => void)
-      | null = null;
+    let notifyNext: (() => void) | null = null;
     let done = false;
+    let terminalQueued = false;
+    let cleanupRequested = false;
+    let liveSession: GenAILiveSession | undefined = undefined;
+    let sessionCloseIssued = false;
+    let inputIterator: AsyncIterator<Buffer> | undefined;
+    let removeAbortListener: () => void = () => undefined;
 
-    const push = (item: GoogleLiveAudioQueueItem) => {
-      if (done) {
-        return;
-      }
-      if (item.type === "audio") {
-        if (resolveNext) {
-          const fn = resolveNext;
-          resolveNext = null;
-          fn({ value: { type: "audio", audio: item.audio }, done: false });
-          return;
+    const wake = (): void => {
+      const notify = notifyNext;
+      notifyNext = null;
+      notify?.();
+    };
+
+    const cleanup = (): void => {
+      if (!cleanupRequested) {
+        cleanupRequested = true;
+        removeAbortListener();
+        cancelStream(options.input?.audio?.frames);
+        if (inputIterator) {
+          releaseIterator(inputIterator);
+          inputIterator = undefined;
         }
       }
+      // A close callback can run just before connect() yields its session.
+      // Keep cleanup repeatable so that newly acquired handle is still closed.
+      if (liveSession && !sessionCloseIssued) {
+        sessionCloseIssued = true;
+        try {
+          void Promise.resolve(liveSession.close?.()).catch(() => {});
+        } catch {
+          // Cleanup cannot replace the stream's original outcome.
+        }
+      }
+    };
+
+    const push = (item: GoogleLiveAudioQueueItem) => {
+      if (done || terminalQueued) {
+        return;
+      }
       queue.push(item);
+      if (item.type !== "audio") {
+        terminalQueued = true;
+        cleanup();
+      }
+      // A consumer can already be parked before either end or error arrives.
+      wake();
+    };
+
+    const cancel = (): void => {
+      done = true;
+      queue.length = 0;
+      cleanup();
+      wake();
     };
 
     // @google/genai 2.x waits inside connect() for the server's setupComplete
@@ -2892,6 +2935,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
           // no-op
         },
         onmessage: async (message: LiveServerMessage) => {
+          if (done || terminalQueued) {
+            return;
+          }
           try {
             const audio =
               message?.serverContent?.modelTurn?.parts?.[0]?.inlineData;
@@ -2937,11 +2983,36 @@ export class GoogleAIStudioProvider extends BaseProvider {
       },
     });
     const session = await Promise.race([connecting, connectFailed]);
+    liveSession = session;
     sessionOpen = true;
+    if (cleanupRequested) {
+      cleanup();
+    }
+
+    const signal = options.abortSignal;
+    if (signal && !cleanupRequested) {
+      const onAbort = (): void => {
+        push({
+          type: "error",
+          error:
+            signal.reason instanceof Error
+              ? signal.reason
+              : new DOMException("The operation was aborted", "AbortError"),
+        });
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      removeAbortListener = () => signal.removeEventListener("abort", onAbort);
+      if (signal.aborted) {
+        onAbort();
+      }
+    }
 
     // Feed upstream audio frames concurrently
     (async () => {
       try {
+        if (cleanupRequested) {
+          return;
+        }
         const spec = options.input?.audio;
         if (!spec) {
           logger.debug(
@@ -2949,7 +3020,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
           );
           return;
         }
-        for await (const frame of spec.frames) {
+        const framesIterator = spec.frames[Symbol.asyncIterator]();
+        inputIterator = framesIterator;
+        while (!cleanupRequested) {
+          const nextFrame = await framesIterator.next();
+          if (cleanupRequested) {
+            return;
+          }
+          if (nextFrame.done) {
+            inputIterator = undefined;
+            break;
+          }
+          const frame = nextFrame.value;
           // Zero-length frame acts as a 'flush' control signal
           if (!frame || (frame as Buffer).byteLength === 0) {
             try {
@@ -2971,6 +3053,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
           await session.sendRealtimeInput?.({
             media: { data: base64, mimeType },
           });
+        }
+        if (cleanupRequested) {
+          return;
         }
         // Best-effort flush signal if supported
         try {
@@ -2998,42 +3083,42 @@ export class GoogleAIStudioProvider extends BaseProvider {
           async next(): Promise<
             IteratorResult<{ type: "audio"; audio: AudioChunk }>
           > {
-            if (queue.length > 0) {
+            while (true) {
               const item = queue.shift();
-              if (!item) {
-                // `done: true` selects the IteratorReturnResult arm, whose
-                // value type accepts undefined.
-                return { value: undefined, done: true };
-              }
-              if (item.type === "audio") {
+              if (item?.type === "audio") {
                 return {
                   value: { type: "audio", audio: item.audio },
                   done: false,
                 };
               }
-              if (item.type === "end") {
+              if (item?.type === "end") {
                 done = true;
                 return { value: undefined, done: true };
               }
-              if (item.type === "error") {
+              if (item?.type === "error") {
                 done = true;
                 throw item.error instanceof Error
                   ? item.error
                   : new Error(String(item.error));
               }
+              if (done) {
+                return { value: undefined, done: true };
+              }
+              await new Promise<void>((resolve) => {
+                notifyNext = resolve;
+              });
             }
-            if (done) {
-              return { value: undefined, done: true };
-            }
-            return await new Promise<
-              IteratorResult<{ type: "audio"; audio: AudioChunk }>
-            >((resolve) => {
-              resolveNext = resolve;
-            });
+          },
+          async return(): Promise<
+            IteratorResult<{ type: "audio"; audio: AudioChunk }>
+          > {
+            cancel();
+            return { value: undefined, done: true };
           },
         };
       },
     } as AsyncIterable<{ type: "audio"; audio: AudioChunk }>;
+    attachStreamCancel(asyncIterable, cancel);
 
     return {
       stream: asyncIterable,

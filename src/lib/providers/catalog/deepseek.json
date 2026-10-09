@@ -94,6 +94,6 @@
       "method": "Live against api.deepseek.com on 2026-09-24. GET /models lists only deepseek-flash and deepseek-v4-pro, with context_window 1048576 and max_output_tokens 393216 (the pricing page's 1M / 384K). deepseek-chat and deepseek-reasoner still answer 200 but report model deepseek-flash — deepseek-chat without reasoning_content, deepseek-reasoner with it — so both stay production as aliases rather than being marked retired. Vision was probed with a solid-blue PNG: deepseek-flash, deepseek-chat and deepseek-reasoner all named the colour; deepseek-v4-pro answered 200 but described a scene that was not in the image, so it keeps vision false, matching the pricing page. An unknown model id returns 400 'The supported API model names are …' with code invalid_request_error — never 'model_not_found' — so the invalid-model rule now matches that text. tools plus response_format json_object in one request returned 200 with tool_calls, confirming structuredOutputWithTools. billingPolicy is not re-verified."
     },
     "liveMatrix": null,
-    "addedInPR": "TBD — integration-tested in a worktree before a PR was opened"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1781"
   }
 }

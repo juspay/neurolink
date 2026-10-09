@@ -77,17 +77,17 @@ row.
    Not a separate re-derivation of the assertions — literally the same
    constants.
 
-### Known, documented gap in cell 9
+### CLI fallback policy
 
-The CLI's `generate`/`stream` commands have no flag that reaches
-`disableInternalFallback` — `commandFactory.ts`'s `processOptions()`
-whitelist omits it (only the interactive REPL's separate options schema
-supports it). Cell 9 therefore runs without `disableInternalFallback`. This
-is an intentional, documented gap, not an oversight: fixing it is a CLI
-option-surface change out of scope for this gate.
+The ordinary `generate` and `stream` commands accept
+`--disable-internal-fallback` (also `--disableInternalFallback`) and forward it
+to the SDK. The caller receives the selected model's rejection instead of
+automatically retrying a different model or provider. The default behavior
+still permits fallback. Cell 9 sets this flag, and
+`test/continuous-test-suite-cli-fallback.ts` exercises both default and disabled
+behavior through the built CLI and SDK.
 
-What keeps the gap harmless is that the suite holds no real credential to
-fall back to. `test/helpers/credentialFreeEnv.ts` is its first import: it
+The suite holds no real credential. `test/helpers/credentialFreeEnv.ts` is its first import: it
 points `DOTENV_CONFIG_PATH` at `/dev/null`, so neither the SDK's nor the
 harness's `.env` load reads a developer's `.env`, it deletes every
 credential-named variable the shell exported (including secrets whose names the

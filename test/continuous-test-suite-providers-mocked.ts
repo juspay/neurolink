@@ -484,6 +484,10 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
             url: spec.urlMatch,
             respond: {
               status: 429,
+              // This matrix checks the exhausted friendly error, not wall time.
+              // An explicit vendor hint retains real retries without the
+              // production no-hint backoff floor for every catalog row.
+              headers: { "Retry-After": "0" },
               json: {
                 error: {
                   message: "Rate limit exceeded",

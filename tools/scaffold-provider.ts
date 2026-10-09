@@ -19,9 +19,9 @@
  *     --baseURL=https://api.cerebras.ai/v1 --envVar=CEREBRAS_API_KEY \
  *     --defaultModel=gpt-oss-120b --aliases=cerebras-ai
  *
- * Pick --defaultModel from a LIVE roster probe (authenticated GET
- * /v1/models), never from vendor docs — the cerebras pilot shipped a
- * documented-but-retired default that 404'd on first live call.
+ * An offline draft may cite current vendor documentation for --defaultModel.
+ * Before claiming current account/live availability, verify it against an
+ * authenticated roster: the cerebras pilot's documented default was retired.
  *
  * pnpm script: pnpm run scaffold:provider -- --name=... --tier=... ...
  *
@@ -262,7 +262,7 @@ ${wireBlock}${envOverride}
   "setup": {
     "url": "TODO: console/API-keys URL",
     "apiKeyFormat": null,
-    "billingPolicy": "TODO: free-tier | free-with-card | no-free-tier",
+    "billingPolicy": "TODO: free-tier | free-with-card | no-free-tier | promotional-credit",
     "instructions": [
       "1. Visit: TODO",
       "2. Sign in or create an account",
@@ -273,7 +273,7 @@ ${wireBlock}${envOverride}
   "evidence": {
     "rosterVerified": { "date": "TODO", "method": "authenticated GET /v1/models" },
     "liveMatrix": null,
-    "addedInPR": "TODO: full PR URL"
+    "addedInPR": "PENDING_PR"
   }
 }
 `;
@@ -431,6 +431,12 @@ derived suites produce all of them.
 
 ## Fill in and generate
 
+- This scaffold is an incomplete draft with zero provider/merge/release/live
+  credit. Its zero model ceilings and TODO evidence intentionally do not
+  validate. Replace unknown limits with source-supported positive safe
+  integers; never invent a number to pass the gate. \`PENDING_PR\` is the exact
+  local introduction-pending marker, not a guessed PR URL.
+- [ ] Inspect it with \`pnpm exec tsx tools/verify-provider-onboarding.ts --catalog-stage draft --catalog-file ${join(input.out, `${input.name}.json`)}\`.
 - [ ] Move \`${input.name}.json\` to \`src/lib/providers/catalog/\` and
       replace every TODO (the file will not validate until you do).
 - [ ] \`pnpm run codegen:catalog\` — writes the enum member, the
@@ -446,7 +452,15 @@ derived suites produce all of them.
 - [ ] \`npx tsx test/continuous-test-suite-provider-wiring.ts\`
 - [ ] \`npx tsx test/continuous-test-suite-provider-descriptors.ts\`
 - [ ] \`pnpm run verify:provider-onboarding\` — requires the catalog JSON to
-      parse AND carry \`evidence.rosterVerified\` + \`evidence.addedInPR\`.
+      parse. This is source completeness, not current roster/live or PR proof.
+- [ ] \`pnpm exec tsx tools/verify-provider-onboarding.ts --catalog-stage source --provider ${input.name}\`
+      — validates authoring and labels source versus introduction-pending state.
+- [ ] After an actual PR exists, replace \`PENDING_PR\` with its real URL,
+      regenerate and commit, then use \`--catalog-stage review --provider ${input.name}\`
+      on that exact PR head. It queries real GitHub metadata and file association.
+- [ ] After merge, \`--catalog-stage merged --provider ${input.name}\` proves
+      introduction ancestry and exact-head required checks. Package/publication
+      and live execution still need their separate receipts.
 
 ## Live verification (with a working key)
 

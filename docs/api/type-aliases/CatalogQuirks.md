@@ -56,6 +56,16 @@ turns on the replay; every other provider leaves the field off.
 
 ---
 
+### rejectRequiredToolChoice?
+
+> `optional` **rejectRequiredToolChoice?**: `boolean`
+
+The endpoint accepts auto/none/named tool choices but not required.
+Reject that explicit caller intent with nonempty tools before sending;
+never silently downgrade it to auto. Omitted preserves existing behavior.
+
+---
+
 ### authHeaderStyle?
 
 > `optional` **authHeaderStyle?**: `"x-api-key"`

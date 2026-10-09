@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "scope": "Twelve ordinary synthetic values; no source substitutes or runtime result claims",
+  "fixtures": [
+    {
+      "id": "ordinary",
+      "value": "Ordinary documentation",
+      "role": "healthy ordinary string control",
+      "utf8Hex": "4f7264696e61727920646f63756d656e746174696f6e",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-ordinary",
+        "sidebar_position": 1,
+        "keywords": [
+          "Ordinary documentation",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["Ordinary documentation"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "Ordinary documentation"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்."
+    },
+    {
+      "id": "windows_path",
+      "value": "C:\\new\\reports",
+      "role": "ordinary backslashes plus colon trigger quoted YAML",
+      "utf8Hex": "433a5c6e65775c7265706f727473",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-windows-path",
+        "sidebar_position": 2,
+        "keywords": [
+          "C:\\new\\reports",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["C:\\new\\reports"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "C:\\new\\reports"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n"
+    },
+    {
+      "id": "literal_escape_notation",
+      "value": "notes\\new\\tabs",
+      "role": "literal slash-n and slash-t remain two characters",
+      "utf8Hex": "6e6f7465735c6e65775c74616273",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-literal-escape-notation",
+        "sidebar_position": 3,
+        "keywords": [
+          "notes\\new\\tabs",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["notes\\new\\tabs"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "notes\\new\\tabs"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n\n"
+    },
+    {
+      "id": "double_quote",
+      "value": "She said \"hello\" at café",
+      "role": "ordinary quotation positive control",
+      "utf8Hex": "5368652073616964202268656c6c6f2220617420636166c3a9",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-double-quote",
+        "sidebar_position": 4,
+        "keywords": [
+          "She said \"hello\" at café",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["She said \"hello\" at café"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "She said \"hello\" at café"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்."
+    },
+    {
+      "id": "unicode",
+      "value": "café தமிழ் 🍵",
+      "role": "Unicode code points and UTF-8 fidelity control",
+      "utf8Hex": "636166c3a920e0aea4e0aeaee0aebfe0aeb4e0af8d20f09f8db5",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-unicode",
+        "sidebar_position": 5,
+        "keywords": [
+          "café தமிழ் 🍵",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["café தமிழ் 🍵"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "café தமிழ் 🍵"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n"
+    },
+    {
+      "id": "multiline_no_final_lf",
+      "value": "First line\nSecond line",
+      "role": "preserve newline without adding trailing LF",
+      "utf8Hex": "4669727374206c696e650a5365636f6e64206c696e65",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-multiline-no-final-lf",
+        "sidebar_position": 6,
+        "keywords": [
+          "First line\nSecond line",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["First line\nSecond line"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "First line\nSecond line"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n\n"
+    },
+    {
+      "id": "multiline_one_final_lf",
+      "value": "First line\nSecond line\n",
+      "role": "preserve exactly one trailing LF",
+      "utf8Hex": "4669727374206c696e650a5365636f6e64206c696e650a",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-multiline-one-final-lf",
+        "sidebar_position": 7,
+        "keywords": [
+          "First line\nSecond line\n",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["First line\nSecond line\n"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "First line\nSecond line\n"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்."
+    },
+    {
+      "id": "multiline_two_final_lf",
+      "value": "First line\nSecond line\n\n",
+      "role": "preserve exactly two trailing LF including last metadata field",
+      "utf8Hex": "4669727374206c696e650a5365636f6e64206c696e650a0a",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-multiline-two-final-lf",
+        "sidebar_position": 8,
+        "keywords": [
+          "First line\nSecond line\n\n",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["First line\nSecond line\n\n"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "First line\nSecond line\n\n"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n"
+    },
+    {
+      "id": "boolean_looking",
+      "value": "true",
+      "role": "keep string distinct from boolean",
+      "utf8Hex": "74727565",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-boolean-looking",
+        "sidebar_position": 9,
+        "keywords": [
+          "true",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["true"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "true"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n\n"
+    },
+    {
+      "id": "numeric_looking",
+      "value": "2026",
+      "role": "keep string distinct from number",
+      "utf8Hex": "32303236",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-numeric-looking",
+        "sidebar_position": 10,
+        "keywords": [
+          "2026",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["2026"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "2026"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்."
+    },
+    {
+      "id": "null_looking",
+      "value": "null",
+      "role": "keep string distinct from null",
+      "utf8Hex": "6e756c6c",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-null-looking",
+        "sidebar_position": 11,
+        "keywords": [
+          "null",
+          "documentation",
+          "reference",
+          "serialization",
+          "sdk"
+        ],
+        "tags": ["null"],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": "null"
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n"
+    },
+    {
+      "id": "empty_string",
+      "value": "",
+      "role": "keep empty string distinct from null",
+      "utf8Hex": "",
+      "expectedType": "string",
+      "docsData": {
+        "title": "Ordinary serialization fixture",
+        "description": "An ordinary documentation fixture for preserving strings and metadata across a YAML serialization boundary.",
+        "slug": "/serialization-empty-string",
+        "sidebar_position": 12,
+        "keywords": ["", "documentation", "reference", "serialization", "sdk"],
+        "tags": [""],
+        "draft": false,
+        "hide_title": true,
+        "og:title": "An ordinary social documentation title",
+        "pagination_label": ""
+      },
+      "docsBody": "An ordinary documentation paragraph with café and தமிழ்.\n\n"
+    }
+  ],
+  "extraSchemaTypeControl": {
+    "type": "object",
+    "properties": {
+      "field: label": {
+        "type": "string",
+        "default": "ordinary: label"
+      },
+      "café": {
+        "type": "string",
+        "default": "தமிழ்"
+      },
+      "numeric": {
+        "type": "number",
+        "default": 3.5
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": false
+      },
+      "nullable": {
+        "type": ["string", "null"],
+        "default": null
+      },
+      "list": {
+        "type": "array",
+        "default": []
+      },
+      "record": {
+        "type": "object",
+        "default": {}
+      }
+    }
+  }
+}

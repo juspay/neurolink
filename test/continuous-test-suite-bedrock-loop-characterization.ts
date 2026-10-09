@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — Amazon Bedrock native-loop characterization
@@ -40,6 +40,7 @@ assertDistFresh();
 
 const { test, section, runSuite } = defineSuite(
   "Bedrock loop characterization",
+  { offline: true },
 );
 
 const { NeuroLink } = await import("../dist/index.js");
@@ -432,7 +433,8 @@ await test("the streaming cap is exactly maxSteps, and reaching it returns", asy
   //
   // Reaching the bound then threw, so the caller lost every tool result and
   // every token already streamed. It now ends the turn and reports
-  // finishReason "tool-calls", which is what every other family does.
+  // finishReason "tool-calls", which is what every other family does. Ask for
+  // the capped turn itself with the documented cap-only fallback policy.
   const server = await startStandIn((i) =>
     toolUseFrames(BUILT_IN_TOOL, {}, `tool_${i}`),
   );
@@ -445,6 +447,7 @@ await test("the streaming cap is exactly maxSteps, and reaching it returns", asy
       model: MODEL,
       maxTokens: 32,
       maxSteps: 3,
+      fallbackOnMaxSteps: false,
       disableTools: false,
     });
     for await (const chunk of result.stream) {
@@ -457,6 +460,10 @@ await test("the streaming cap is exactly maxSteps, and reaching it returns", asy
     assert(
       result.metadata?.finishReason === "tool-calls",
       "a turn cut off at the step cap should report finishReason tool-calls",
+    );
+    assert(
+      result.metadata?.stopReason === "step-cap",
+      "the actual engine cap was not carried to public stream metadata",
     );
   } finally {
     restore();
@@ -874,11 +881,16 @@ await test("generate and stream agree on the finish reason for the same turn", a
       model: MODEL,
       maxTokens: 32,
       maxSteps: 2,
+      fallbackOnMaxSteps: false,
       disableTools: false,
     });
     for await (const chunk of result.stream) {
       void chunk;
     }
+    assert(
+      result.metadata?.stopReason === "step-cap",
+      "the streamed capped turn did not expose its actual stop reason",
+    );
     streamFinish = result.metadata?.finishReason;
   } finally {
     restore();
@@ -1089,6 +1101,16 @@ const STREAM_CEILING_CASES: ReadonlyArray<
   ["amazon.nova-pro-v1:0", 100_000, 5_000],
   ["jp.amazon.nova-pro-v1:0", 100_000, 5_000],
   ["us.amazon.nova-pro-v1:0", 4_000, 4_000],
+  [
+    "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+    undefined,
+    5_000,
+  ],
+  [
+    "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0",
+    100_000,
+    5_000,
+  ],
 ];
 
 await test("stream sends a geography-prefixed Bedrock id the max tokens of its bare id", async () => {
@@ -1113,8 +1135,8 @@ await test("stream sends a geography-prefixed Bedrock id the max tokens of its b
 await test("stream keeps the Bedrock default max tokens for ids that are not a geography plus a known vendor and model (controls)", async () => {
   // Controls: none of these ids may be rewritten, and every one goes out with
   // the same value with or without the geography lookup. The Opus 4.5 row is
-  // 64K, which is also the default. The ARN is not a prefixed id; the lookup
-  // does not parse ARNs.
+  // 64K, which is also the default. An application profile's ARN never reveals
+  // its underlying model, even if its resource ID resembles a model name.
   const controls: ReadonlyArray<readonly [string, number | undefined, number]> =
     [
       ["us.anthropic.claude-opus-4-5-20251101-v1:0", undefined, 64_000],
@@ -1123,7 +1145,7 @@ await test("stream keeps the Bedrock default max tokens for ids that are not a g
       ["xx.amazon.nova-pro-v1:0", undefined, 64_000],
       ["us.us.amazon.nova-pro-v1:0", undefined, 64_000],
       [
-        "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+        "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/us.amazon.nova-pro-v1:0",
         undefined,
         64_000,
       ],
@@ -1155,6 +1177,10 @@ await test("generate sends a geography-prefixed Bedrock id the same max tokens a
     ["amazon.nova-lite-v1:0", "eu.amazon.nova-lite-v1:0"],
     ["amazon.nova-premier-v1:0", "apac.amazon.nova-premier-v1:0"],
     [
+      "amazon.nova-pro-v1:0",
+      "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+    ],
+    [
       "meta.llama4-maverick-17b-instruct-v1:0",
       "global.meta.llama4-maverick-17b-instruct-v1:0",
     ],
@@ -1183,6 +1209,99 @@ await test("generate sends a geography-prefixed Bedrock id the same max tokens a
     wrong.length === 0,
     `generate sent a prefixed id another max tokens than its bare id, or another model, for input(s) at index ${wrong.join(", ")}`,
   );
+});
+
+await test("default no-output fallback remains enabled for a capped tool-only Bedrock turn", async () => {
+  const primary = MODEL;
+  const fallback = "amazon.nova-pro-v1:0";
+  const server = await startStandIn((index) =>
+    index < 3
+      ? toolUseFrames(BUILT_IN_TOOL, {}, `default_cap_${index}`)
+      : textFrames("FALLBACK_OK"),
+  );
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.stream({
+      input: { text: "keep going" },
+      provider: "bedrock",
+      model: primary,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      fallbackProvider: "bedrock",
+      fallbackModel: fallback,
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += "content" in chunk ? (chunk.content ?? "") : "";
+    }
+    assert(text === "FALLBACK_OK", "default no-output fallback was suppressed");
+    assert(
+      server.calls.length === 4,
+      "expected three native steps and one owned fallback request",
+    );
+    assert(
+      server.calls
+        .slice(0, 3)
+        .every((call) => call.streaming && call.modelId === primary),
+      "the native capped turn never reached the owned endpoint under its original model",
+    );
+    assert(
+      server.calls[3].streaming && server.calls[3].modelId === fallback,
+      "default fallback did not reach the caller's configured model",
+    );
+  } finally {
+    restore();
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("cap-only fallback exemption still retries an ordinary empty Bedrock turn", async () => {
+  const primary = MODEL;
+  const fallback = "amazon.nova-lite-v1:0";
+  const server = await startStandIn((index) =>
+    textFrames(index === 0 ? "" : "EMPTY_FALLBACK_OK"),
+  );
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.stream({
+      input: { text: "An empty completed turn is not a step cap." },
+      provider: "bedrock",
+      model: primary,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: true,
+      fallbackOnMaxSteps: false,
+      fallbackProvider: "bedrock",
+      fallbackModel: fallback,
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += "content" in chunk ? (chunk.content ?? "") : "";
+    }
+    assert(
+      text === "EMPTY_FALLBACK_OK",
+      "cap-only policy suppressed an ordinary no-output fallback",
+    );
+    assert(
+      server.calls.length === 2,
+      "expected one ordinary empty turn and one fallback request",
+    );
+    assert(
+      server.calls[0].streaming &&
+        server.calls[0].modelId === primary &&
+        server.calls[1].streaming &&
+        server.calls[1].modelId === fallback,
+      "the original empty turn or configured fallback never reached the owned endpoint",
+    );
+  } finally {
+    restore();
+    await nl.shutdown();
+    await server.close();
+  }
 });
 
 await runSuite();

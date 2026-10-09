@@ -185,14 +185,22 @@ export async function safeDownload(
     ? AbortSignal.any([options.signal, timeoutCtrl.signal])
     : timeoutCtrl.signal;
 
-  let response: Awaited<ReturnType<typeof undiciFetch>>;
   try {
-    response = await undiciFetch(validatedUrl, {
+    const response = await undiciFetch(validatedUrl, {
       method: "GET",
       signal: composedSignal,
       redirect: "manual", // a 3xx → private-IP redirect would bypass the guard
       dispatcher,
     });
+    // fetch resolves at the headers. Keep the same deadline and abort signal
+    // active while the bounded reader drains the response body as well.
+    return await readDownloadResponse(response, url, options);
+  } catch (error) {
+    // A status/size rejection may happen before the body is consumed. Stop
+    // that request so a pinned agent can close and a shared proxy agent does
+    // not retain an unused response stream.
+    timeoutCtrl.abort();
+    throw error;
   } finally {
     clearTimeout(timeoutId);
     if (closeDispatcher) {
@@ -201,6 +209,4 @@ export async function safeDownload(
       dispatcher.close().catch(() => undefined);
     }
   }
-
-  return readDownloadResponse(response, url, options);
 }

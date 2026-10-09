@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — Provider Descriptors (Plan 04).
@@ -40,6 +40,9 @@ import {
   assertEqual,
 } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Configuration diagnostics must not consult a real instance-role endpoint.
+process.env.AWS_EC2_METADATA_DISABLED = "true";
 
 assertDistFresh();
 
@@ -705,10 +708,12 @@ await runSuite(async () => {
     // is set (:11434 and :4000), so clearing their variables would let a proxy
     // running on a developer machine win; they are pinned to a dead address
     // instead.
-    const names = Object.keys(process.env).filter((name) =>
-      /(_API_KEY|_TOKEN|_BASE_URL|_ENDPOINT|^AWS_|^GOOGLE_|^AZURE_|^OLLAMA|^LITELLM|^LM_STUDIO|^LLAMACPP|^OPENAI|^ANTHROPIC|^DEFAULT_PROVIDER)/i.test(
-        name,
-      ),
+    const names = Object.keys(process.env).filter(
+      (name) =>
+        name !== "AWS_EC2_METADATA_DISABLED" &&
+        /(_API_KEY|_TOKEN|_BASE_URL|_ENDPOINT|^AWS_|^GOOGLE_|^AZURE_|^OLLAMA|^LITELLM|^LM_STUDIO|^LLAMACPP|^OPENAI|^ANTHROPIC|^DEFAULT_PROVIDER)/i.test(
+          name,
+        ),
     );
     const saved = new Map<string, string | undefined>(
       [...names, "GROQ_API_KEY", "OLLAMA_BASE_URL", "LITELLM_BASE_URL"].map(
@@ -969,11 +974,8 @@ await runSuite(async () => {
   // exception note: tools/automation/environmentManager.ts has no dist
   // build output and isn't part of the shipped package surface.
   await test("validateEnvironment's providers object has one key per descriptor, not just 9", async () => {
-    const { EnvironmentManager } =
-      await import("../tools/automation/environmentManager.js");
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const manager = new EnvironmentManager();
-    const validation = await manager.validateEnvironment();
+    const validation = await validateAgainstEnv("");
     const keys = Object.keys(validation.providers);
     assertEqual(
       keys.length,
@@ -986,14 +988,14 @@ await runSuite(async () => {
     const { EnvironmentManager } =
       await import("../tools/automation/environmentManager.js");
     const manager = new EnvironmentManager();
-    const validation = await manager.validateEnvironment();
+    const validation = await validateAgainstEnv("");
     const score = manager.calculateScore(validation);
     assert(score >= 0 && score <= 100, "score out of 0-100 range");
   });
 
   // Exercised against a throwaway .env, never the repo's own: the parsed file
   // decides everything here, and a developer's real one is full of keys.
-  const validateAgainstEnv = async (envContents: string) => {
+  async function validateAgainstEnv(envContents: string) {
     const { EnvironmentManager } =
       await import("../tools/automation/environmentManager.js");
     const dir = mkdtempSync(join(tmpdir(), "env-manager-"));
@@ -1008,7 +1010,7 @@ await runSuite(async () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  };
+  }
 
   await test("an empty .env configures no provider, including the credential-free ones", async () => {
     const validation = await validateAgainstEnv("");

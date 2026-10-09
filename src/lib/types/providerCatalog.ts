@@ -100,6 +100,10 @@ export type CatalogQuirks = {
    *  without it once tools are in play). ConfiguredOpenAICompatProvider
    *  turns on the replay; every other provider leaves the field off. */
   replayReasoningContent?: boolean;
+  /** The endpoint accepts auto/none/named tool choices but not required.
+   * Reject that explicit caller intent with nonempty tools before sending;
+   * never silently downgrade it to auto. Omitted preserves existing behavior. */
+  rejectRequiredToolChoice?: boolean;
   /** Vendor's chat-completions endpoint authenticates with a vendor-specific
    *  header instead of the OpenAI-standard `Authorization: Bearer <key>`.
    *  "x-api-key": send `X-Api-Key: <key>` and omit Authorization entirely —
@@ -111,10 +115,13 @@ export type CatalogQuirks = {
   authHeaderStyle?: "x-api-key";
 };
 
+/** Promotional allowance is conditional; setup text must describe eligibility,
+ * activation and expiry without implying current account entitlement. */
 export type CatalogBillingPolicy =
   | "free-tier"
   | "free-with-card"
-  | "no-free-tier";
+  | "no-free-tier"
+  | "promotional-credit";
 
 export type CatalogSetup = {
   url: string;
@@ -138,10 +145,15 @@ export type CatalogProbeEvidence = {
 };
 
 export type CatalogEvidence = {
+  /** Historical dated evidence. Its presence does not reverify an account
+   * roster or live execution; the authoring admission command reports those
+   * states separately without changing existing catalog records. */
   rosterVerified: CatalogProbeEvidence;
   authProbe?: CatalogProbeEvidence;
   billingProbe?: CatalogProbeEvidence;
   liveMatrix: { date: string; result: string } | null;
+  /** Introduction PR identity, or PENDING_PR during local source authoring.
+   * A string/URL alone is not proof of PR association, merge or release. */
   addedInPR: string;
 };
 
@@ -213,7 +225,10 @@ export type ProviderCatalogJson = {
      *  registryDefaultModel is MISTRAL_LARGE_LATEST while its defaultModel
      *  is not). Must be a models.catalog key (validated). */
     registryDefaultModel?: string;
+    /** Source-supported positive safe integer model ceiling; never a zero
+     * placeholder. This does not change caller maxTokens: 0 semantics. */
     defaultContextWindow: number;
+    /** Source-supported positive safe integer output ceiling. */
     defaultMaxOutputTokens: number;
     catalog: Record<string, CatalogModelSpec>;
     /** Ordered curated subset of `catalog` keys for wizard/choice surfaces

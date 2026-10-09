@@ -187,6 +187,6 @@
       "date": "2026-09-03",
       "result": "18-probe harness on the free model mytholite: roster, chat, max_completion_tokens, system role, content parts, sampling params, SSE stream (usage chunk + [DONE]), json_schema (valid JSON matching schema) and json_object all 200; tools and tools+schema 400 BAD_PARAMETERS ('\"auto\" tool choice requires --enable-auto-tool-choice and --tool-call-parser') so tools are declared false; vision 200 but text-only (image ignored); bad key 401 'Bad API key'; unknown model 400 'Unknown Model'. Paid models could not be capability-probed without credits — tools may work there and can be re-declared once probed. Nightly matrix pins testModel mytholite."
     },
-    "addedInPR": "pending"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1631"
   }
 }

@@ -121,10 +121,16 @@
           "description": "Default: models.default."
         },
         "defaultContextWindow": {
-          "type": "number"
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Source-supported positive safe integer model default ceiling; unknown values are incomplete authoring drafts."
         },
         "defaultMaxOutputTokens": {
-          "type": "number"
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Source-supported positive safe integer model default ceiling; unknown values are incomplete authoring drafts."
         },
         "catalog": {
           "type": "object",
@@ -215,7 +221,14 @@
           "type": "boolean"
         },
         "tools": {
-          "anyOf": [{ "type": "boolean" }, { "const": "model-dependent" }],
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "const": "model-dependent"
+            }
+          ],
           "description": "\"model-dependent\" when tool support varies per served model and the vendor doesn't reject tools for unsupported ones (e.g. HuggingFace's router)."
         },
         "toolsWithStreaming": {
@@ -288,6 +301,10 @@
           "type": "boolean",
           "description": "Vendor wants each assistant turn's reasoning_content sent back on every later request of the conversation (DeepSeek documents a 400 without it once tools are in play). Off for every other provider, since strict OpenAI-compatible backends reject the unknown field."
         },
+        "rejectRequiredToolChoice": {
+          "type": "boolean",
+          "description": "Reject tool_choice=required with nonempty tools before sending. Preserve auto/none/named choices and do not silently downgrade caller intent. Omitted leaves other providers unchanged."
+        },
         "authHeaderStyle": {
           "type": "string",
           "enum": ["x-api-key"],
@@ -325,7 +342,13 @@
         },
         "billingPolicy": {
           "type": "string",
-          "enum": ["free-tier", "free-with-card", "no-free-tier"]
+          "enum": [
+            "free-tier",
+            "free-with-card",
+            "no-free-tier",
+            "promotional-credit"
+          ],
+          "description": "Promotional credit is conditional; setup instructions must state activation, eligibility and expiry without asserting current account entitlement."
         },
         "instructions": {
           "type": "array",

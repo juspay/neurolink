@@ -57,6 +57,8 @@ export const GATE_MARKERS = {
   TOOL: "___NEUROLINK_GATE_TOOL___",
   /** Cell 5 (structured-exact). */
   STRUCTURED: "___NEUROLINK_GATE_STRUCTURED___",
+  /** Public schema-repair/truncation proof (a deliberately incomplete object). */
+  TRUNCATED: "___NEUROLINK_GATE_TRUNCATED___",
   /** Cell 6 (thinking proof). */
   THINKING: "___NEUROLINK_GATE_THINKING___",
 } as const;
@@ -83,6 +85,13 @@ export const GATE_STRUCTURED_VALUE = {
   status: "ok",
   count: 42,
   tag: "acceptance-gate",
+} as const;
+
+export const GATE_TRUNCATED_TEXT = '{"status":"ok","count":42,"tag":"';
+export const GATE_TRUNCATED_VALUE = {
+  status: "ok",
+  count: 42,
+  tag: "",
 } as const;
 
 /** Tool name the mock asks the model to call for cell 4. */
@@ -138,6 +147,10 @@ export type CapturedGateRequest = {
   path: string;
   protocol: "openai" | "anthropic" | "other";
   bodyJson: unknown;
+  /** Only synthetic fixture labels are recorded; unknown authorization is never retained. */
+  fixtureAuthLabel?: string;
+  /** Model identity recorded when the fixture actually emits a response. */
+  responseModel?: string;
 };
 
 export type AcceptanceGateServer = {
@@ -213,7 +226,11 @@ function findMarker(haystack: string): string | undefined {
   return undefined;
 }
 
-function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
+function handleOpenAIChat(
+  bodyStr: string,
+  res: GateServerResponse,
+  recordModel: (model: string) => void,
+): void {
   let body: OpenAICompatBody = {};
   try {
     body = JSON.parse(bodyStr) as OpenAICompatBody;
@@ -232,6 +249,9 @@ function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
   const created = Math.floor(Date.now() / 1000);
 
   const writeJson = (payload: Record<string, unknown>): void => {
+    if (typeof payload.model === "string") {
+      recordModel(payload.model);
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(payload));
   };
@@ -252,12 +272,13 @@ function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
     });
     for (const d of deltas) {
       const { finish_reason, model, ...delta } = d;
+      recordModel(model ?? requestedModel);
       res.write(
         sseLine({
           id: chunkId,
           object: "chat.completion.chunk",
           created,
-          ...(model ? { model } : {}),
+          model: model ?? requestedModel,
           choices: [
             {
               index: 0,
@@ -336,6 +357,14 @@ function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
       return;
     }
     finishReasonJson({ role: "assistant", content }, "stop");
+    return;
+  }
+
+  if (marker === GATE_MARKERS.TRUNCATED) {
+    finishReasonJson(
+      { role: "assistant", content: GATE_TRUNCATED_TEXT },
+      "length",
+    );
     return;
   }
 
@@ -454,6 +483,7 @@ function handleModels(res: GateServerResponse): void {
 function handleAnthropicMessages(
   bodyStr: string,
   res: GateServerResponse,
+  recordModel: (model: string) => void,
 ): void {
   let body: AnthropicBody = {};
   try {
@@ -473,6 +503,7 @@ function handleAnthropicMessages(
     content: Array<Record<string, unknown>>,
     stopReason: string,
   ): void => {
+    recordModel(requestedModel);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
@@ -500,6 +531,7 @@ function handleAnthropicMessages(
     }>,
     stopReason: string,
   ): void => {
+    recordModel(requestedModel);
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -621,6 +653,11 @@ function handleAnthropicMessages(
     return;
   }
 
+  if (marker === GATE_MARKERS.TRUNCATED) {
+    writeJson([{ type: "text", text: GATE_TRUNCATED_TEXT }], "max_tokens");
+    return;
+  }
+
   if (marker === GATE_MARKERS.THINKING) {
     writeStream(
       [
@@ -718,7 +755,19 @@ export function startAcceptanceGateServer(
         } catch {
           bodyJson = undefined;
         }
-        const captured: CapturedGateRequest = { path: url, protocol, bodyJson };
+        const auth = req.headers.authorization ?? req.headers["x-api-key"];
+        const fixtureAuthLabel =
+          typeof auth === "string"
+            ? /(?:Bearer )?(pilot-fixture-(?:env|instance|call))$/.exec(
+                auth,
+              )?.[1]
+            : undefined;
+        const captured: CapturedGateRequest = {
+          path: url,
+          protocol,
+          bodyJson,
+          ...(fixtureAuthLabel ? { fixtureAuthLabel } : {}),
+        };
         requests.push(captured);
 
         if (requests.length > ceiling) {
@@ -736,7 +785,9 @@ export function startAcceptanceGateServer(
         }
 
         if (url.endsWith("/messages")) {
-          handleAnthropicMessages(bodyStr, res);
+          handleAnthropicMessages(bodyStr, res, (model) => {
+            captured.responseModel = model;
+          });
           return;
         }
         if (url.endsWith("/embeddings")) {
@@ -752,7 +803,9 @@ export function startAcceptanceGateServer(
           return;
         }
         if (url.endsWith("/chat/completions")) {
-          handleOpenAIChat(bodyStr, res);
+          handleOpenAIChat(bodyStr, res, (model) => {
+            captured.responseModel = model;
+          });
           return;
         }
         res.writeHead(404, { "Content-Type": "application/json" });

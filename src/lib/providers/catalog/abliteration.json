@@ -1,0 +1,85 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "abliteration",
+  "displayName": "Abliteration AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.abliteration.ai/v1"
+  },
+  "models": {
+    "default": "abliterated-model",
+    "fallbacks": ["abliterated-model"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 262134,
+    "catalog": {
+      "abliterated-model": {
+        "vision": true,
+        "tools": true,
+        "status": "production",
+        "contextWindow": 262144,
+        "maxOutputTokens": 262134,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 3,
+          "cachedInput": 0.1
+        },
+        "description": "Source documentation only (2026-10-09). The vendor Limits table lists 262,144 combined context tokens and 262,134 maximum completion tokens for abliterated-model; maximum output is reachable only with a small prompt. This is the documented general-purpose model with image input. Account-specific availability and live execution are unverified. Other models and protocol families are outside this initial entry."
+      }
+    },
+    "topModels": ["abliterated-model"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Abliteration requires an API key. https://docs.abliteration.ai/api/errors.md documents HTTP 401 for missing or invalid Bearer credentials."
+    },
+    {
+      "status": 402,
+      "class": "provider",
+      "message": "Abliteration documents HTTP 402 for insufficient credits. This is a billing block, not a rate limit. See https://docs.abliteration.ai/api/errors.md."
+    },
+    {
+      "status": 429,
+      "class": "rate-limit",
+      "message": "Abliteration documents HTTP 429 rate limiting and Retry-After at https://docs.abliteration.ai/api/errors.md."
+    }
+  ],
+  "setup": {
+    "url": "https://abliteration.ai/console",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "Create an API key in https://abliteration.ai/console. The public pricing page, retrieved 2026-10-09, states a one-credit free preview without a card; account eligibility and remaining credit are unverified.",
+      "Set {apiKeyEnvVar}. The chat endpoint is https://api.abliteration.ai/v1/chat/completions with Authorization: Bearer authentication.",
+      "This entry includes only abliterated-model. Public documentation describes image input, tools, streamed tools and JSON/schema; vendor and account acceptance remain pending.",
+      "Reasoning is on by default at the service. SDK effort/toggle controls and native tool-plus-schema combinations are outside this initial declared scope."
+    ],
+    "description": "Source-docs/local-contract pilot, not live or delivered-provider certification. Public documents specify the model-bound integer ceilings and prepaid usage pricing, and the pricing page states a no-card free preview. No authenticated roster, account creation, payment or inference was performed."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-09",
+      "code": "DOCS_ONLY_ROSTER_NOT_OBSERVED",
+      "method": "Source documentation recorded in the legacy required field, not an observed roster: https://docs.abliteration.ai/models.md Limits table and quickstart, compatibility, streaming and tool documentation retrieved 2026-10-09. No GET /models, credentials or inference used. Authenticated roster remains pending."
+    },
+    "billingProbe": {
+      "date": "2026-10-09",
+      "code": "PUBLIC_DOCS_ONLY_ACCOUNT_NOT_TESTED",
+      "method": "Public documentation only: https://abliteration.ai/pricing states a one-credit free preview without a credit card; https://docs.abliteration.ai/pricing.md lists USD prepaid balance and $1.00 input / $0.10 cached input / $3.00 output per million tokens for abliterated-model. Account eligibility, balance and billing execution are untested."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1966"
+  }
+}

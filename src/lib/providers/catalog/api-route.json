@@ -125,6 +125,6 @@
       "date": "2026-09-17",
       "result": "Verified live against https://global.api-route.com/v1: GET /v1/models returned 70 models. Chat completions, streaming, function calling, streamed function calling, and structured JSON output (json_object and json_schema) verified. Multimodal vision verified on claude-sonnet-4-6, claude-haiku-4-5, and gemini-3.8-flash. Invalid API key returns 401 (无效的令牌) and invalid model returns 503 (model_not_found). Tools and response_format were only probed SEPARATELY, never together in one request, so structuredOutputWithTools is corrected to false here pending a dedicated tools_plus_schema probe — the individual passes do not demonstrate the combined capability."
     },
-    "addedInPR": "pending"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1725"
   }
 }

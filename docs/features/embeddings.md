@@ -1,6 +1,6 @@
 ---
 title: "Embeddings"
-description: Generate vector embeddings for semantic search, RAG pipelines, and similarity comparison using OpenAI, Google AI Studio, Google Vertex, and Amazon Bedrock
+description: Generate vector embeddings for semantic search, RAG pipelines, and similarity comparison using nine providers
 keywords:
   [
     embeddings,
@@ -41,14 +41,19 @@ const vector = await provider.embed("How do I reset my password?");
 
 ## Provider Support
 
-Four providers implement native embedding support. All other providers throw a descriptive error when `embed()` or `embedMany()` is called (see [Unsupported Providers](#unsupported-providers) below).
+Nine providers implement embedding support: OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Voyage, Jina, Ollama, and LiteLLM. Ollama requires a locally available embedding model; LiteLLM requires an embedding deployment on its gateway. Other providers throw a descriptive error when `embed()` or `embedMany()` is called (see [Unsupported Providers](#unsupported-providers) below).
 
-| Provider         | Default Model                  | Env Override                | Dimensions |
-| ---------------- | ------------------------------ | --------------------------- | ---------- |
-| OpenAI           | `text-embedding-3-small`       | `OPENAI_EMBEDDING_MODEL`    | 1536       |
-| Google AI Studio | `gemini-embedding-001`         | `GOOGLE_AI_EMBEDDING_MODEL` | 3072       |
-| Google Vertex    | `text-embedding-004`           | `VERTEX_EMBEDDING_MODEL`    | 768        |
-| Amazon Bedrock   | `amazon.titan-embed-text-v2:0` | `BEDROCK_EMBEDDING_MODEL`   | 1024       |
+| Provider         | Default Model                  | Env Override                | Dimensions           |
+| ---------------- | ------------------------------ | --------------------------- | -------------------- |
+| OpenAI           | `text-embedding-3-small`       | `OPENAI_EMBEDDING_MODEL`    | 1536                 |
+| Google AI Studio | `gemini-embedding-001`         | `GOOGLE_AI_EMBEDDING_MODEL` | 3072                 |
+| Google Vertex    | `text-embedding-004`           | `VERTEX_EMBEDDING_MODEL`    | 768                  |
+| Amazon Bedrock   | `amazon.titan-embed-text-v2:0` | `BEDROCK_EMBEDDING_MODEL`   | 1024                 |
+| Cohere           | `embed-english-v3.0`           | `modelName` argument        | Model dependent      |
+| Voyage           | `voyage-3.5`                   | `VOYAGE_MODEL`              | Model dependent      |
+| Jina             | `jina-embeddings-v3`           | `JINA_MODEL`                | Model dependent      |
+| Ollama           | `nomic-embed-text`             | `OLLAMA_EMBEDDING_MODEL`    | Model dependent      |
+| LiteLLM          | `gemini-embedding-001`         | `LITELLM_EMBEDDING_MODEL`   | Deployment dependent |
 
 Google AI Studio and Google Vertex also accept `GOOGLE_EMBEDDING_MODEL` as a shared fallback environment variable.
 
@@ -109,6 +114,25 @@ const embeddings = await provider.embedMany([
 console.log(embeddings.length); // 3
 console.log(embeddings[0].length); // 1536
 ```
+
+### Response validation
+
+Cohere, Voyage, and Jina reject responses containing empty vectors or values
+that are not finite numbers. This changes malformed responses that previously
+returned an empty or unusable vector into rejected promises. Valid vectors,
+including zero and negative values, retain their original values.
+
+Each batch must return one vector per input. Voyage and Jina additionally
+require complete index coverage and restore the input order when the response
+arrives out of order. Cohere's float envelope and legacy flat vector envelope
+are both supported. Cohere splits inputs at 96 texts and Voyage at 128; a
+malformed later batch rejects the entire operation instead of returning partial
+results. Passing an empty input array to these three providers returns `[]`
+without a request.
+
+Validation errors retain the providers' existing error types: `ProviderError`
+for Cohere and Voyage, and `Error` for Jina. These checks validate the response
+boundary; they do not establish a vendor model's availability.
 
 ## Server API
 
@@ -219,12 +243,13 @@ Calling `embed()` or `embedMany()` on a provider that does not implement embeddi
 
 ```
 Embedding generation is not supported by the anthropic provider.
-Supported providers: openai, vertex/google, bedrock.
+Supported providers: openai, vertex/google, bedrock, cohere, voyage, jina.
 Use an embedding model like text-embedding-3-small (OpenAI),
-text-embedding-004 (Vertex), or amazon.titan-embed-text-v2:0 (Bedrock).
+text-embedding-004 (Vertex), embed-english-v3.0 (Cohere), voyage-3 (Voyage),
+jina-embeddings-v3 (Jina), or amazon.titan-embed-text-v2:0 (Bedrock).
 ```
 
-Providers that currently do **not** support embeddings include: Anthropic, Mistral, LiteLLM, Ollama, Hugging Face, Azure OpenAI, and SageMaker. To generate embeddings when using one of these providers for text generation, create a second provider instance from a supported embedding provider:
+Providers that currently do **not** support embeddings include: Anthropic, Mistral, Hugging Face, Azure OpenAI, and SageMaker. To generate embeddings when using one of these providers for text generation, create a second provider instance from a supported embedding provider:
 
 ```typescript
 import { ProviderFactory } from "@juspay/neurolink";
@@ -348,6 +373,10 @@ For more details on RAG pipelines, see the [RAG Document Processing Guide](./rag
 | `GOOGLE_EMBEDDING_MODEL`    | Google AI Studio, Google Vertex | Shared fallback for Google providers                                    |
 | `BEDROCK_EMBEDDING_MODEL`   | Amazon Bedrock                  | Override Bedrock default embedding model                                |
 | `AWS_EMBEDDING_MODEL`       | Amazon Bedrock                  | Alternative Bedrock env var                                             |
+| `VOYAGE_MODEL`              | Voyage                          | Override the provider's default embedding model                         |
+| `JINA_MODEL`                | Jina                            | Override the provider's default embedding model                         |
+| `OLLAMA_EMBEDDING_MODEL`    | Ollama                          | Locally available embedding model                                       |
+| `LITELLM_EMBEDDING_MODEL`   | LiteLLM                         | Embedding model or deployment served by the gateway                     |
 | `NEUROLINK_EMBEDDING_MODEL` | All (CLI RAG only)              | Global override for RAG CLI commands                                    |
 
 ## Key Files

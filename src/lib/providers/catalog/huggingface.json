@@ -401,6 +401,6 @@
       "method": "Live against router.huggingface.co on 2026-09-24. GET /v1/models returned 138 models; each of the 53 catalog ids was also sent a real chat call. 39 ids are absent from the roster AND rejected with 400 ('does not exist' / 'not supported by any provider'), so they are marked retired and keep their enumMember; the other 14 are on the roster and answered 402 (the test account's monthly credits are spent), which is a billing block, not a rejection, so they stay production. No id had the two signals disagree. topModels swaps the retired Mistral-Large-3 for zai-org/GLM-5, which is on the roster. billingPolicy is free-tier per https://huggingface.co/docs/inference-providers/pricing (free users get monthly credits, no card). apiKeyFormat accepts the hf_ + 34 characters a real token has; the previous hf_ + 37 pattern rejected it. structuredOutput, toolsWithStreaming and per-model vision are left unchanged: /v1/models reports them per serving provider, and the 402 prevented a live round trip that would prove them."
     },
     "liveMatrix": null,
-    "addedInPR": "TBD — integration-tested in a worktree before a PR was opened"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1781"
   }
 }

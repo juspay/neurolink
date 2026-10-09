@@ -3,10 +3,11 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
+import { getRuntimeOutputCeiling } from "../constants/contextWindows.js";
 import {
-  getRuntimeOutputCeiling,
+  bedrockModelIdForLookup,
   stripBedrockGeoPrefix,
-} from "../constants/contextWindows.js";
+} from "../constants/bedrockIdentifiers.js";
 import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
 import { logger } from "./logger.js";
 import {
@@ -53,6 +54,12 @@ export function getSafeMaxTokens(
     return requestedMaxTokens;
   }
 
+  // The descriptor registers aws as Bedrock. Options still carry the caller
+  // spelling when this normalizer runs, before provider instantiation.
+  const canonicalProvider = /^(?:bedrock|aws)$/i.test(provider)
+    ? "bedrock"
+    : provider;
+
   // Runtime-discovered output ceiling (e.g. LiteLLM /model/info
   // max_output_tokens): the serving infrastructure's own number for the
   // deployed model, authoritative over the static per-provider table. This
@@ -62,7 +69,11 @@ export function getSafeMaxTokens(
   // usable input on total-context backends. Checked AFTER the
   // restricted-model branch so hard caps proven at the origin API (Gemini 3
   // / image models) still win over a proxy that over-advertises them.
-  const runtimeCeiling = getRuntimeOutputCeiling(provider, model);
+  const runtimeCeiling =
+    getRuntimeOutputCeiling(provider, model) ??
+    (canonicalProvider === "bedrock"
+      ? getRuntimeOutputCeiling(canonicalProvider, model)
+      : undefined);
   if (runtimeCeiling !== undefined) {
     if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
       return runtimeCeiling;
@@ -79,7 +90,7 @@ export function getSafeMaxTokens(
 
   // Get provider-specific limits
   const providerLimits =
-    PROVIDER_MAX_TOKENS[provider as keyof typeof PROVIDER_MAX_TOKENS];
+    PROVIDER_MAX_TOKENS[canonicalProvider as keyof typeof PROVIDER_MAX_TOKENS];
 
   if (!providerLimits) {
     logger.warn(`Unknown provider ${provider}, no token limits enforced`);
@@ -95,8 +106,13 @@ export function getSafeMaxTokens(
   // profile id (us.amazon.nova-pro-v1:0) is the only one a caller can invoke.
   // The bare id is tried only after the id as given misses, so an explicit row
   // for the prefixed id still wins.
-  const bareModel =
-    provider === "bedrock" && model ? stripBedrockGeoPrefix(model) : undefined;
+  const lookupModel =
+    canonicalProvider === "bedrock" && model
+      ? bedrockModelIdForLookup(model)
+      : undefined;
+  const bareModel = lookupModel
+    ? stripBedrockGeoPrefix(lookupModel)
+    : undefined;
 
   // Get model-specific limit or provider default
   let maxLimit: number;
@@ -106,6 +122,12 @@ export function getSafeMaxTokens(
     (providerLimits as Record<string, number>)[model]
   ) {
     maxLimit = (providerLimits as Record<string, number>)[model];
+  } else if (
+    lookupModel !== undefined &&
+    typeof providerLimits === "object" &&
+    (providerLimits as Record<string, number>)[lookupModel]
+  ) {
+    maxLimit = (providerLimits as Record<string, number>)[lookupModel];
   } else if (
     bareModel !== undefined &&
     typeof providerLimits === "object" &&

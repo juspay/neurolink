@@ -21,6 +21,6 @@ export type SafeDownloadOptions = {
   label: string;
   /** Optional abort signal for caller-driven cancellation. */
   signal?: AbortSignal;
-  /** Optional per-call request timeout (ms). Default: 60_000. */
+  /** Optional HTTP transfer timeout (ms), covering headers and body after URL validation. Default: 60_000. */
   timeoutMs?: number;
 };

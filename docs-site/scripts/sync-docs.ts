@@ -2009,27 +2009,20 @@ async function syncDocs(): Promise<void> {
       // Add auto-detected badges based on git changes
       const finalFrontmatter = addAutoBadges(frontmatter, file.relativePath, gitChanges);
 
-      // Build output with frontmatter
-      const frontmatterYaml = Object.entries(finalFrontmatter)
-        .map(([key, value]) => {
-          if (Array.isArray(value)) {
-            return `${key}:\n${value.map((v) => `  - "${String(v).replace(/"/g, '\\"')}"`).join("\n")}`;
-          }
-          if (typeof value === "string") {
-            // Quote strings that contain special YAML characters
-            const needsQuoting = /[:<>#{}[\]!|>&*?\n"'`\\]/.test(value) || value.trim() !== value;
-            if (needsQuoting) {
-              // Use double quotes and escape internal double quotes and backslashes
-              const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-              return `${key}: "${escaped}"`;
-            }
-            return `${key}: ${value}`;
-          }
-          return `${key}: ${value}`;
-        })
-        .join("\n");
-
-      const output = `---\n${frontmatterYaml}\n---\n\n${content}`;
+      // Serialize YAML as a flow mapping so gray-matter's framing trim cannot
+      // remove significant trailing newlines from a final multiline scalar.
+      const serializationOptions = {
+        language: "yaml",
+        flowLevel: 0,
+        noRefs: true,
+        lineWidth: -1,
+      };
+      const output =
+        matter.stringify(
+          { content: "" },
+          finalFrontmatter,
+          serializationOptions,
+        ) + content;
 
       // Ensure target directory exists
       const targetDir = path.dirname(file.targetPath);

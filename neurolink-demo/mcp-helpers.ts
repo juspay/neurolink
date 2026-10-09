@@ -5,7 +5,7 @@
  * through the NeuroLink CLI and configuration management.
  */
 
-import { execSync, spawn, type ExecSyncOptions } from "child_process";
+import { execFileSync, spawn, type ExecFileSyncOptions } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -74,20 +74,95 @@ export function saveMCPConfig(config: MCPConfig): CommandResult {
 export function executeMCPCommand(
   command: string,
   args: string[] = [],
-  options: ExecSyncOptions = {},
+  options: ExecFileSyncOptions = {},
 ): CommandResult {
   try {
+    const allowedCommands = new Set([
+      "list",
+      "servers",
+      "tools",
+      "discover",
+      "create-server",
+      "annotate",
+      "install",
+      "add",
+      "test",
+      "exec",
+      "remove",
+      "registry",
+    ]);
+    if (
+      !allowedCommands.has(command) ||
+      !Array.isArray(args) ||
+      args.some((arg) => typeof arg !== "string" || /[\u0000\r\n]/.test(arg))
+    ) {
+      throw new Error("Invalid MCP command or arguments");
+    }
+    if (
+      command === "test" &&
+      (args.length > 1 ||
+        args.some((arg) => !arg.trim() || arg.startsWith("-")))
+    ) {
+      throw new Error("MCP test accepts only a server name");
+    }
+    if (command === "exec") {
+      if (
+        (args.length !== 2 && args.length !== 4) ||
+        args.slice(0, 2).some((arg) => !arg.trim() || arg.startsWith("-")) ||
+        (args.length === 4 && args[2] !== "--params")
+      ) {
+        throw new Error("Invalid MCP tool command arguments");
+      }
+      if (args.length === 4) {
+        const params = JSON.parse(args[3]);
+        if (!params || typeof params !== "object" || Array.isArray(params)) {
+          throw new Error("MCP tool parameters must be an object");
+        }
+      }
+    }
+    const allowedOptions = new Set([
+      "cwd",
+      "env",
+      "timeout",
+      "maxBuffer",
+      "killSignal",
+      "windowsHide",
+      "encoding",
+      "stdio",
+      "shell",
+    ]);
+    if (
+      !options ||
+      typeof options !== "object" ||
+      Array.isArray(options) ||
+      Object.keys(options).some((name) => !allowedOptions.has(name)) ||
+      (options.shell !== undefined && options.shell !== false) ||
+      (options.encoding !== undefined && options.encoding !== "utf8") ||
+      (options.stdio !== undefined && options.stdio !== "pipe")
+    ) {
+      throw new Error("Unsupported MCP execution options");
+    }
+    if (
+      options.timeout !== undefined &&
+      (!Number.isFinite(options.timeout) ||
+        options.timeout <= 0 ||
+        options.timeout > 10000)
+    ) {
+      throw new Error("MCP timeout must be between 1 and 10000 milliseconds");
+    }
     const cliPath = path.join(process.cwd(), "dist/cli/index.js");
-    const fullCommand = `node ${cliPath} mcp ${command} ${args.join(" ")}`;
+    const argv = [cliPath, "mcp", command, ...args];
+    const fullCommand = JSON.stringify([process.execPath, ...argv]);
 
     console.log(`[MCP] Executing: ${fullCommand}`);
 
-    const result = execSync(fullCommand, {
-      encoding: "utf8",
-      stdio: "pipe",
+    const result = execFileSync(process.execPath, argv, {
       timeout: 10000,
       cwd: process.cwd(),
       ...options,
+      encoding: "utf8",
+      stdio: "pipe",
+      shell: false,
     });
 
     return {
@@ -488,7 +563,11 @@ export async function getMCPSystemStatus(): Promise<Record<string, unknown>> {
   let cliAvailable = false;
   try {
     const cliPath = path.join(process.cwd(), "dist/cli/index.js");
-    execSync(`node ${cliPath} --version`, { stdio: "pipe", timeout: 3000 });
+    execFileSync(process.execPath, [cliPath, "--version"], {
+      stdio: "pipe",
+      timeout: 3000,
+      shell: false,
+    });
     cliAvailable = true;
   } catch (error) {
     console.log("[MCP] CLI not available:", (error as Error).message);

@@ -1,9 +1,11 @@
 // GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.
 // Source of truth: the per-provider JSON files in this directory.
 import a2agentJson from "./a2agent.json" with { type: "json" };
+import abliterationJson from "./abliteration.json" with { type: "json" };
 import aboveDevJson from "./above-dev.json" with { type: "json" };
 import ai21Json from "./ai21.json" with { type: "json" };
 import aiandJson from "./aiand.json" with { type: "json" };
+import aihubmixJson from "./aihubmix.json" with { type: "json" };
 import aionlabsJson from "./aionlabs.json" with { type: "json" };
 import ambientJson from "./ambient.json" with { type: "json" };
 import apiRouteJson from "./api-route.json" with { type: "json" };
@@ -49,6 +51,7 @@ import moarkJson from "./moark.json" with { type: "json" };
 import modelscopeJson from "./modelscope.json" with { type: "json" };
 import moonshotAiJson from "./moonshot-ai.json" with { type: "json" };
 import morphJson from "./morph.json" with { type: "json" };
+import naverClovaStudioJson from "./naver-clova-studio.json" with { type: "json" };
 import nebiusJson from "./nebius.json" with { type: "json" };
 import neuralwattJson from "./neuralwatt.json" with { type: "json" };
 import novitaJson from "./novita.json" with { type: "json" };
@@ -85,9 +88,11 @@ import type { ProviderCatalogJson } from "../../types/index.js";
 
 export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   a2agentJson as ProviderCatalogJson,
+  abliterationJson as ProviderCatalogJson,
   aboveDevJson as ProviderCatalogJson,
   ai21Json as ProviderCatalogJson,
   aiandJson as ProviderCatalogJson,
+  aihubmixJson as ProviderCatalogJson,
   aionlabsJson as ProviderCatalogJson,
   ambientJson as ProviderCatalogJson,
   apiRouteJson as ProviderCatalogJson,
@@ -133,6 +138,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   modelscopeJson as ProviderCatalogJson,
   moonshotAiJson as ProviderCatalogJson,
   morphJson as ProviderCatalogJson,
+  naverClovaStudioJson as ProviderCatalogJson,
   nebiusJson as ProviderCatalogJson,
   neuralwattJson as ProviderCatalogJson,
   novitaJson as ProviderCatalogJson,
@@ -169,9 +175,11 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
 
 export const CATALOG_PROVIDER_IDS = [
   "a2agent",
+  "abliteration",
   "above-dev",
   "ai21",
   "aiand",
+  "aihubmix",
   "aionlabs",
   "ambient",
   "api-route",
@@ -217,6 +225,7 @@ export const CATALOG_PROVIDER_IDS = [
   "modelscope",
   "moonshot-ai",
   "morph",
+  "naver-clova-studio",
   "nebius",
   "neuralwatt",
   "novita",
