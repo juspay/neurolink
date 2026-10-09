@@ -112,6 +112,12 @@ export type ToolRoutingEmbeddingConfig = {
 
 /** Constructor-level configuration for pre-call tool routing. */
 export type ToolRoutingConfig = {
+  /**
+   * Host-owned generative routing, independent of main-turn credentials.
+   * When provided, instance decision and embedding fast-paths are bypassed;
+   * routing selection is performed by this callback.
+   */
+  generateFn?: (options: GenerateOptions) => Promise<GenerateResult>;
   /** Master switch. Routing runs only when true AND the server catalog is non-empty. */
   enabled: boolean;
   /**

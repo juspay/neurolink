@@ -12,6 +12,12 @@ Text generation result (consolidated from core types)
 
 ## Type Declaration
 
+### events?
+
+> `optional` **events?**: [`StreamEventSequence`](StreamEventSequence.md)[]
+
+Ordered tool and host events persisted with the conversation turn.
+
 ### content
 
 > **content**: `string`

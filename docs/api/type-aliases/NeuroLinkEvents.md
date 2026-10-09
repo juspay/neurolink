@@ -17,6 +17,22 @@ Flexible type to support both typed and legacy event patterns
 
 ## Properties
 
+### host:conversation-event
+
+> **host:conversation-event**: `object`
+
+Application-owned events captured in ordered conversation history.
+
+#### type
+
+> **type**: `string`
+
+#### data
+
+> **data**: `Record`\<`string`, `unknown`\>
+
+---
+
 ### tool:start
 
 > **tool:start**: `unknown`

@@ -12,6 +12,26 @@ Constructor-level configuration for pre-call tool routing.
 
 ## Properties
 
+### generateFn?
+
+> `optional` **generateFn?**: (`options`) => `Promise`\<[`GenerateResult`](GenerateResult.md)\>
+
+Host-owned generative routing, independent of main-turn credentials.
+When provided, instance decision and embedding fast-paths are bypassed;
+routing selection is performed by this callback.
+
+#### Parameters
+
+##### options
+
+[`GenerateOptions`](GenerateOptions.md)
+
+#### Returns
+
+`Promise`\<[`GenerateResult`](GenerateResult.md)\>
+
+---
+
 ### enabled
 
 > **enabled**: `boolean`

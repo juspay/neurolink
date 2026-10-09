@@ -468,6 +468,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:codex
 
+      - name: Agent session and platform routing contracts (owned vendor endpoints)
+        if: matrix.group == 'rest'
+        run: pnpm run test:agent:session-stream && pnpm run test:agent:platform-router
+
       - name: AI Studio loop characterization (local SSE stand-in, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:aistudio-loop-characterization

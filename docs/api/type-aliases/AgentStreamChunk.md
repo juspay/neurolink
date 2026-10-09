@@ -84,6 +84,30 @@ Duration in ms (for complete chunks)
 
 ---
 
+### status?
+
+> `optional` **status?**: [`AgentResult`](AgentResult.md)\[`"status"`\]
+
+Complete-turn status; errors remain failures even after partial text.
+
+---
+
+### toolExecutions?
+
+> `optional` **toolExecutions?**: [`ToolExecutionRecord`](ToolExecutionRecord.md)[]
+
+Final, bounded per-call records in the same shape as AgentResult.
+
+---
+
+### stopReason?
+
+> `optional` **stopReason?**: [`GenerateStopReason`](GenerateStopReason.md)
+
+Terminal reason from the underlying stream.
+
+---
+
 ### error?
 
 > `optional` **error?**: `string`
