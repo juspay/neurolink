@@ -12,6 +12,14 @@ Result of agent execution
 
 ## Properties
 
+### cost?
+
+> `optional` **cost?**: `number`
+
+SDK estimate in USD; undefined when the model has no known pricing.
+
+---
+
 ### content
 
 > **content**: `string`

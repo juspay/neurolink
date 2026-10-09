@@ -2,6 +2,7 @@ import { modelConfig } from "./modelConfiguration.js";
 import type {
   ProviderModelConfig,
   ProviderPerformanceMetrics,
+  ProviderPerformanceSample,
   ProviderConfiguration,
 } from "../types/index.js";
 
@@ -154,12 +155,7 @@ export function getBestAvailableProvider(
 
 export function recordProviderPerformanceFromMetrics(
   providerName: string,
-  metrics: {
-    responseTime: number;
-    tokensGenerated: number;
-    cost: number;
-    success: boolean;
-  },
+  metrics: ProviderPerformanceSample,
 ): void {
   const existing = providerMetrics.get(providerName) || {
     responseTime: [],
@@ -194,7 +190,7 @@ export function recordProviderPerformanceFromMetrics(
   // but still update other metrics
 
   // Update cost efficiency (tokens per dollar)
-  if (metrics.cost > 0) {
+  if (metrics.cost !== undefined && metrics.cost > 0) {
     const tokensPerDollar = metrics.tokensGenerated / metrics.cost;
     existing.costEfficiency =
       (existing.costEfficiency * existing.sampleCount + tokensPerDollar) /

@@ -12,6 +12,22 @@ Options for agent execution
 
 ## Properties
 
+### enableAnalytics?
+
+> `optional` **enableAnalytics?**: `boolean`
+
+Enable SDK usage and cost analytics for this execution.
+
+---
+
+### maxBudgetUsd?
+
+> `optional` **maxBudgetUsd?**: `number`
+
+Cumulative budget for the NeuroLink instance, not a per-run cap.
+
+---
+
 ### context?
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>

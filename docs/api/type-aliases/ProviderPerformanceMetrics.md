@@ -8,8 +8,6 @@
 
 > **ProviderPerformanceMetrics** = `object`
 
-Real-time provider performance tracking metrics
-
 ## Properties
 
 ### responseTime

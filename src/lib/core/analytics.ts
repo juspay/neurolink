@@ -12,7 +12,6 @@ import type {
   TokenUsage,
   AnalyticsData,
 } from "../types/index.js";
-import { modelConfig } from "./modelConfiguration.js";
 
 import { extractTokenUsage as extractTokenUsageUtil } from "../utils/tokenUtils.js";
 import { calculateCost, hasPricing } from "../utils/pricing.js";
@@ -116,8 +115,8 @@ function extractTokenUsage(result: UnknownRecord): TokenUsage {
 
 /**
  * Estimate cost based on provider, model, and token usage.
- * Uses the per-model pricing table first (which includes cache token rates),
- * then falls back to the provider-level configuration system.
+ * Uses known per-model rates, including cache tiers. An unpriced model has
+ * unknown cost; another model's provider default cannot estimate its bill.
  */
 function estimateCost(
   provider: string,
@@ -130,24 +129,7 @@ function estimateCost(
       return calculateCost(provider, model, tokens);
     }
 
-    // Fall back to the configuration system for providers/models not in the pricing table
-    const costInfo = modelConfig.getCostInfo(provider.toLowerCase(), model);
-    if (!costInfo) {
-      return undefined;
-    }
-
-    // Calculate cost using the configuration system (per-1K-token rates).
-    // costInfo has no cache tiers, so cache tokens are billed at the input
-    // rate — the pre-split total a cache-blind provider would report, never $0.
-    const inputCost =
-      ((tokens.input +
-        (tokens.cacheReadTokens ?? 0) +
-        (tokens.cacheCreationTokens ?? 0)) /
-        1000) *
-      costInfo.input;
-    const outputCost = (tokens.output / 1000) * costInfo.output;
-
-    return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // Round to 6 decimal places
+    return undefined;
   } catch (error) {
     logger.debug("Cost estimation failed", { provider, model, error });
     return undefined;

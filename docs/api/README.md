@@ -1265,6 +1265,7 @@ console.log(result.content);
 - [GeneratedReport](type-aliases/GeneratedReport.md)
 - [PerformancePriority](type-aliases/PerformancePriority.md)
 - [ProviderModelConfig](type-aliases/ProviderModelConfig.md)
+- [ProviderPerformanceSample](type-aliases/ProviderPerformanceSample.md)
 - [ProviderPerformanceMetrics](type-aliases/ProviderPerformanceMetrics.md)
 - [ProviderPerformanceData](type-aliases/ProviderPerformanceData.md)
 - [ProviderPerformanceAnalytics](type-aliases/ProviderPerformanceAnalytics.md)

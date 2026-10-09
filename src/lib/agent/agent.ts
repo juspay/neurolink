@@ -215,6 +215,7 @@ export class Agent implements AgentInstance {
         content: result.content || "",
         object: parsedOutput,
         usage: result.usage,
+        cost: result.analytics?.cost,
         toolsUsed: result.toolsUsed,
         // Real per-call records straight from the tool loop (N2)
         toolExecutions: result.toolExecutions,
@@ -370,6 +371,13 @@ export class Agent implements AgentInstance {
       this.executionCount++;
       this.totalExecutionTime += duration;
 
+      let cost: number | undefined;
+      try {
+        cost = (await streamResult.analytics)?.cost;
+      } catch {
+        logger.warn(`[Agent:${this.id}] Stream cost analytics unavailable`);
+      }
+
       this.emitter.emit("agent:complete", {
         agentId: this.id,
         traceId,
@@ -382,6 +390,7 @@ export class Agent implements AgentInstance {
         agentId: this.id,
         content: fullContent,
         usage: streamResult.usage,
+        cost,
         duration,
         timestamp: Date.now(),
         traceId,
@@ -476,6 +485,12 @@ export class Agent implements AgentInstance {
       // toolFilter delegates to BaseProvider.applyToolFiltering() natively
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
       maxSteps: options?.maxSteps ?? this.maxSteps,
+      ...(options?.enableAnalytics !== undefined && {
+        enableAnalytics: options.enableAnalytics,
+      }),
+      ...(options?.maxBudgetUsd !== undefined && {
+        maxBudgetUsd: options.maxBudgetUsd,
+      }),
       requestId: traceId,
       // Turn budget + cancellation, forwarded verbatim to generate() — the
       // machinery (wrap-up nudge, stall watchdog, honest stopReason) lives
@@ -519,6 +534,12 @@ export class Agent implements AgentInstance {
       // toolFilter delegates to BaseProvider.applyToolFiltering() natively
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
       maxSteps: options?.maxSteps ?? this.maxSteps,
+      ...(options?.enableAnalytics !== undefined && {
+        enableAnalytics: options.enableAnalytics,
+      }),
+      ...(options?.maxBudgetUsd !== undefined && {
+        maxBudgetUsd: options.maxBudgetUsd,
+      }),
       // Turn budget + cancellation, forwarded verbatim to stream()
       ...(options?.abortSignal && { abortSignal: options.abortSignal }),
       ...(options?.timeout !== undefined && { timeout: options.timeout }),

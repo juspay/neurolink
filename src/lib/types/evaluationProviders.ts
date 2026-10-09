@@ -28,6 +28,13 @@ export type ProviderModelConfig = {
 /**
  * Real-time provider performance tracking metrics
  */
+export type ProviderPerformanceSample = {
+  responseTime: number;
+  tokensGenerated: number;
+  cost?: number;
+  success: boolean;
+};
+
 export type ProviderPerformanceMetrics = {
   responseTime: number[];
   successRate: number;

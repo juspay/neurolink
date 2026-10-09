@@ -424,6 +424,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract
 
+      - name: Agent pricing and unknown-cost contracts (owned vendor endpoint)
+        if: matrix.group == 'rest'
+        run: pnpm run test:agent:cost
+
       - name: Bedrock inference-profile fallback (local HTTP/2 stand-in, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:bedrock-inference-profile
