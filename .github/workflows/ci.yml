@@ -420,6 +420,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:provider-structure
 
+      - name: MCP egress and recovery contracts (owned endpoints, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:mcp:egress && pnpm run test:mcp:deadline-health && pnpm run test:mcp:timeout-compat && pnpm run test:mcp:startup-readiness
+
       - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract

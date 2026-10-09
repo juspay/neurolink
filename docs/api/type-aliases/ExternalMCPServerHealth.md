@@ -68,6 +68,30 @@ Any health issues detected
 
 ---
 
+### consecutiveFailures?
+
+> `optional` **consecutiveFailures?**: `number`
+
+Consecutive failed connections or live health checks, reset on recovery.
+
+---
+
+### lastError?
+
+> `optional` **lastError?**: `string`
+
+Most recent connection/health error, absent after successful recovery.
+
+---
+
+### nextRetryAt?
+
+> `optional` **nextRetryAt?**: `Date`
+
+Next automatic retry deadline, absent when no retry is scheduled.
+
+---
+
 ### performance
 
 > **performance**: `object`

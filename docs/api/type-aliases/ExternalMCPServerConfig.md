@@ -108,6 +108,14 @@ HTTP headers for authentication and configuration (HTTP/SSE/WebSocket)
 
 ---
 
+### fetch?
+
+> `optional` **fetch?**: _typeof_ `globalThis.fetch`
+
+Trusted HTTP/SSE egress hook, retained for every connection and request.
+
+---
+
 ### blockedTools?
 
 > `optional` **blockedTools?**: `string`[]

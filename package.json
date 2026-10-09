@@ -83,6 +83,9 @@
     "test:harness-offline-timeout": "pnpm exec tsx test/continuous-test-suite-harness-offline-timeout.ts",
     "test:resolve-request-kind": "pnpm exec tsx test/continuous-test-suite-resolve-request-kind.ts",
     "test:mcp": "pnpm exec tsx test/continuous-test-suite-mcp-infra.ts",
+    "test:mcp:egress": "pnpm exec tsx test/continuous-test-suite-mcp-egress.ts",
+    "test:mcp:deadline-health": "pnpm exec tsx test/continuous-test-suite-mcp-deadline-health.ts",
+    "test:mcp:timeout-compat": "pnpm exec tsx test/continuous-test-suite-mcp-timeout-compat.ts",
     "test:tool-resolution": "pnpm exec tsx test/continuous-test-suite-tool-resolution.ts",
     "test:mcp:http": "pnpm exec tsx test/continuous-test-suite-mcp-http.ts",
     "test:mcp:sdk": "pnpm exec tsx test/continuous-test-suite-mcp-sdk.ts",
@@ -302,7 +305,8 @@
     "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts",
     "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts",
     "test:logging-guidelines": "pnpm exec tsx test/continuous-test-suite-logging-guidelines.ts",
-    "test:proxy-polyfills": "pnpm exec tsx test/continuous-test-suite-proxy-polyfills.ts"
+    "test:proxy-polyfills": "pnpm exec tsx test/continuous-test-suite-proxy-polyfills.ts",
+    "test:mcp:startup-readiness": "pnpm exec tsx test/continuous-test-suite-mcp-startup-readiness.ts"
   },
   "files": [
     "dist",

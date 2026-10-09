@@ -2285,17 +2285,27 @@ Operation result
 
 ---
 
-#### listExternalMCPServers()
+#### getExternalMCPServerHealth()
 
-> **listExternalMCPServers**(): `object`[]
+> **getExternalMCPServerHealth**(): [`ExternalMCPServerHealth`](../type-aliases/ExternalMCPServerHealth.md)[]
 
 List all external MCP servers
 
 ##### Returns
 
-`object`[]
+[`ExternalMCPServerHealth`](../type-aliases/ExternalMCPServerHealth.md)[]
 
 Array of server health information
+
+---
+
+#### listExternalMCPServers()
+
+> **listExternalMCPServers**(): `object`[]
+
+##### Returns
+
+`object`[]
 
 ---
 

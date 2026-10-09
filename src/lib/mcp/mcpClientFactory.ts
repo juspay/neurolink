@@ -123,6 +123,10 @@ export class MCPClientFactory {
     config: MCPServerInfo,
     timeout = DEFAULT_CLIENT_TIMEOUT,
   ): Promise<MCPClientResult> {
+    const connectionTimeout = config.httpOptions?.connectionTimeout;
+    if (connectionTimeout !== undefined) {
+      timeout = Math.min(timeout, connectionTimeout);
+    }
     const startTime = Date.now();
     const { traceId, parentSpanId } = getActiveTraceContext();
     const obsSpan = SpanSerializer.createSpan(
@@ -307,9 +311,26 @@ export class MCPClientFactory {
         capabilities: this.DEFAULT_CAPABILITIES,
       });
 
+      const requestTimeout = config.httpOptions?.requestTimeout;
+      if (requestTimeout !== undefined) {
+        const request = client.request.bind(client);
+        client.request = (payload, resultSchema, options) =>
+          request(payload, resultSchema, {
+            ...options,
+            timeout: Math.min(
+              requestTimeout,
+              options?.timeout ?? requestTimeout,
+            ),
+            maxTotalTimeout: Math.min(
+              requestTimeout,
+              options?.maxTotalTimeout ?? requestTimeout,
+            ),
+          });
+      }
+
       // Connect with timeout
       await this.raceWithTimeout(
-        client.connect(transport),
+        client.connect(transport, { timeout }),
         timeout,
         `Client connection timeout for ${config.id}`,
       );
@@ -476,7 +497,16 @@ export class MCPClientFactory {
       const url = new URL(config.url);
       const { SSEClientTransport } =
         await import("@modelcontextprotocol/sdk/client/sse.js");
-      const transport = new SSEClientTransport(url);
+      const transportFetch = this.createEnhancedFetch(
+        config,
+        config.httpOptions?.requestTimeout ?? 60000,
+      );
+      const transport = new SSEClientTransport(url, {
+        requestInit: { headers: config.headers },
+        fetch: transportFetch,
+        // EventSource prefers this fetch over the transport-level hook for GET.
+        eventSourceInit: { fetch: transportFetch },
+      });
 
       return { transport };
     } catch (error) {
@@ -602,13 +632,29 @@ export class MCPClientFactory {
   /**
    * Create a fetch wrapper with timeout support
    */
-  private static createFetchWithTimeout(timeoutMs: number): typeof fetch {
+  private static createFetchWithTimeout(
+    timeoutMs: number,
+    transportFetch: typeof globalThis.fetch,
+  ): typeof fetch {
     return async (input: RequestInfo | URL, init?: RequestInit) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        return await fetch(input, { ...init, signal: controller.signal });
+        const response = await transportFetch(input, {
+          ...init,
+          // EventSource requests "follow"; enforcing this here covers its GET
+          // as well as MCP POSTs and prevents credentials crossing a redirect.
+          redirect: "manual",
+          signal: init?.signal
+            ? AbortSignal.any([controller.signal, init.signal])
+            : controller.signal,
+        });
+        if (response.status >= 300 && response.status < 400) {
+          await response.body?.cancel();
+          throw new Error("MCP transport redirects are not permitted");
+        }
+        return response;
       } finally {
         clearTimeout(timeoutId);
       }
@@ -623,7 +669,10 @@ export class MCPClientFactory {
     timeoutMs: number,
     oauthProvider?: NeuroLinkOAuthProvider,
   ): typeof fetch {
-    const fetchWithTimeout = this.createFetchWithTimeout(timeoutMs);
+    const fetchWithTimeout = this.createFetchWithTimeout(
+      timeoutMs,
+      config.fetch ?? globalThis.fetch,
+    );
 
     return async (input: RequestInfo | URL, init?: RequestInit) => {
       // If OAuth is configured, ensure we have valid tokens

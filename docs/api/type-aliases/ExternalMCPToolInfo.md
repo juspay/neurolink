@@ -44,6 +44,14 @@ Input schema (JSON Schema)
 
 ---
 
+### annotations?
+
+> `optional` **annotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
+
+Server-supplied behavior hints; absent annotations remain absent.
+
+---
+
 ### isAvailable
 
 > **isAvailable**: `boolean`

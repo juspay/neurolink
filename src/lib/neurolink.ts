@@ -104,6 +104,7 @@ import type {
   ProviderDetails,
   ExternalMCPOperationResult,
   ExternalMCPServerInstance,
+  ExternalMCPServerHealth,
   ExternalMCPToolInfo,
   AdditionalMemoryUser,
   GenerateOptions,
@@ -3304,6 +3305,9 @@ Current user's request: ${currentInput}`;
    * Setup event handlers for external server manager
    */
   private setupExternalServerEventHandlers(constructorId: string): void {
+    this.externalServerManager.on("healthCheck", (event) => {
+      this.emitter.emit("externalMCP:serverHealth", event);
+    });
     this.externalServerManager.on("connected", (event) => {
       logger.debug(`[NeuroLink] 🔗 EXTERNAL_SERVER_EVENT_CONNECTED`, {
         constructorId,
@@ -17475,6 +17479,10 @@ Current user's request: ${currentInput}`;
    * List all external MCP servers
    * @returns Array of server health information
    */
+  getExternalMCPServerHealth(): ExternalMCPServerHealth[] {
+    return this.externalServerManager.getServerStatuses();
+  }
+
   listExternalMCPServers(): Array<{
     serverId: string;
     status: string;

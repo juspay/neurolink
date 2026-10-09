@@ -111,6 +111,12 @@ export type MCPServerInfo = {
   env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>; // HTTP headers for authentication (HTTP/SSE/WebSocket)
+  /**
+   * Trusted host-provided fetch for HTTP and SSE, including reconnects and tool
+   * calls. Use a guarded, DNS-pinned dispatcher for untrusted server URLs.
+   * Programmatic only: functions cannot be persisted in JSON configuration.
+   */
+  fetch?: typeof globalThis.fetch;
   /** HTTP transport-specific options */
   httpOptions?: MCPHTTPTransportOptions;
   timeout?: number;
@@ -200,12 +206,12 @@ export type MCPServerInfo = {
 };
 
 /**
- * HTTP Transport Options for fine-grained control
+ * Transport deadlines (all transports), plus HTTP connection-pool options
  */
 export type MCPHTTPTransportOptions = {
-  /** Connection timeout in milliseconds (default: 30000) */
+  /** Explicit connection cap in milliseconds for every transport; absent retains the server/client startup budget. */
   connectionTimeout?: number;
-  /** Request timeout in milliseconds (default: 60000) */
+  /** Explicit whole-request cap in milliseconds for every transport; absent retains caller/server RPC limits (HTTP fetch defaults are separate). */
   requestTimeout?: number;
   /** Idle timeout for connection pool (default: 120000) */
   idleTimeout?: number;

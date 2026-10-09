@@ -85,6 +85,22 @@ if (process.stdin && typeof process.stdin.unref === "function") {
   );
 }
 
+const isMCPTransportFetch = (
+  value: unknown,
+): value is typeof globalThis.fetch => typeof value === "function";
+
+const readMCPTransportFetch = (
+  value: unknown,
+): typeof globalThis.fetch | undefined => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!isMCPTransportFetch(value)) {
+    throw new Error("MCP fetch hook must be a function");
+  }
+  return value;
+};
+
 /**
  * Recursively substitute environment variables in strings
  * Replaces ${VAR_NAME} with the value from process.env.VAR_NAME
@@ -472,6 +488,12 @@ export class ExternalServerManager extends EventEmitter {
   private inFlightToolCalls = new Map<string, number>();
   /** Consecutive pings missed while idle, per server. */
   private unresponsiveChecks = new Map<string, number>();
+  private consecutiveFailures = new Map<string, number>();
+  private retryDeadlines = new Map<string, Date>();
+  private lastHealth = new Map<string, ExternalMCPServerHealth>();
+  private lifecycleStates = new Map<string, ExternalMCPServerStatus>();
+  /** Closed clients must never publish readiness after an awaited startup phase. */
+  private closedClients = new WeakSet<Client>();
   private toolDiscovery: ToolDiscoveryService;
   private enableMainRegistryIntegration: boolean;
   private hitlManager?: HITLManager; // Optional HITL manager for safety mechanisms
@@ -696,6 +718,7 @@ export class ExternalServerManager extends EventEmitter {
                     serverConfig.headers as Record<string, string>,
                   )
                 : undefined,
+              fetch: readMCPTransportFetch(serverConfig.fetch),
               httpOptions: isNonNullObject(serverConfig.httpOptions)
                 ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
                 : undefined,
@@ -880,6 +903,7 @@ export class ExternalServerManager extends EventEmitter {
                   serverConfig.headers as Record<string, string>,
                 )
               : undefined,
+            fetch: readMCPTransportFetch(serverConfig.fetch),
             httpOptions: isNonNullObject(serverConfig.httpOptions)
               ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
               : undefined,
@@ -950,6 +974,18 @@ export class ExternalServerManager extends EventEmitter {
 
     if (!["stdio", "sse", "websocket", "http"].includes(config.transport)) {
       errors.push("Transport must be one of: stdio, sse, websocket, http");
+    }
+
+    if (config.fetch !== undefined && !isMCPTransportFetch(config.fetch)) {
+      errors.push("MCP fetch hook must be a function");
+    }
+    for (const [name, value] of Object.entries({
+      connectionTimeout: config.httpOptions?.connectionTimeout,
+      requestTimeout: config.httpOptions?.requestTimeout,
+    })) {
+      if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+        errors.push(`${name} must be a positive finite number`);
+      }
     }
 
     // Transport-specific validation
@@ -1029,6 +1065,12 @@ export class ExternalServerManager extends EventEmitter {
       minTools: config.minTools,
       cwd: config.cwd,
       url: config.url,
+      headers: config.headers,
+      fetch: config.fetch,
+      httpOptions: config.httpOptions,
+      retryConfig: config.retryConfig,
+      rateLimiting: config.rateLimiting,
+      auth: config.auth,
       metadata: {
         category: "external" as MCPServerCategory,
         ...(safeMetadataConversion(config.metadata) || {}),
@@ -1057,6 +1099,7 @@ export class ExternalServerManager extends EventEmitter {
     configOrServerInfo: MCPServerInfo,
   ): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>> {
     const startTime = Date.now();
+    let ownedInstance: RuntimeMCPServerInfo | undefined;
 
     try {
       // Use MCPServerInfo directly (zero-conversion architecture)
@@ -1102,6 +1145,7 @@ export class ExternalServerManager extends EventEmitter {
         metadata: safeMetadataConversion(serverInfo.metadata),
         // HTTP transport-specific fields
         headers: serverInfo.headers,
+        fetch: serverInfo.fetch,
         httpOptions: serverInfo.httpOptions,
         retryConfig: serverInfo.retryConfig,
         rateLimiting: serverInfo.rateLimiting,
@@ -1153,7 +1197,8 @@ export class ExternalServerManager extends EventEmitter {
         config: tempConfig,
       };
 
-      // Store the instance
+      // Store the captured instance; failure cleanup may only remove this owner.
+      ownedInstance = instance;
       this.servers.set(serverId, instance);
 
       // Start the server
@@ -1205,8 +1250,18 @@ export class ExternalServerManager extends EventEmitter {
         error,
       );
 
-      // Clean up if instance was created
-      this.servers.delete(serverId);
+      // A removed/replaced startup must not delete its successor's slot or health.
+      if (
+        ownedInstance !== undefined &&
+        this.servers.get(serverId) === ownedInstance &&
+        ownedInstance.status !== "stopping"
+      ) {
+        this.servers.delete(serverId);
+        this.consecutiveFailures.delete(serverId);
+        this.retryDeadlines.delete(serverId);
+        this.lastHealth.delete(serverId);
+        this.lifecycleStates.delete(serverId);
+      }
 
       // The minTools readiness gate carries structured metadata a generic
       // start failure does not: how many tools were actually discovered, so
@@ -1263,15 +1318,19 @@ export class ExternalServerManager extends EventEmitter {
       await this.stopServer(serverId);
 
       // Remove from registry
-      this.servers.delete(serverId);
-
-      // Emit event
-      this.emit("disconnected", {
-        serverId,
-        serverName,
-        reason: "Manually removed",
-        timestamp: new Date(),
-      } satisfies ExternalMCPServerEvents["disconnected"]);
+      if (this.servers.get(serverId) === instance) {
+        this.servers.delete(serverId);
+        this.consecutiveFailures.delete(serverId);
+        this.retryDeadlines.delete(serverId);
+        this.lastHealth.delete(serverId);
+        this.lifecycleStates.delete(serverId);
+        this.emit("disconnected", {
+          serverId,
+          serverName,
+          reason: "Manually removed",
+          timestamp: new Date(),
+        } satisfies ExternalMCPServerEvents["disconnected"]);
+      }
 
       return {
         success: true,
@@ -1321,6 +1380,10 @@ export class ExternalServerManager extends EventEmitter {
 
     try {
       this.updateServerStatus(serverId, "connecting");
+      this.toolDiscovery.clearServerTools(serverId);
+      instance.toolsMap.clear();
+      instance.toolsArray = undefined;
+      instance.tools = [];
 
       mcpLogger.debug(`[ExternalServerManager] Starting server: ${serverId}`, {
         command: config.command,
@@ -1342,6 +1405,15 @@ export class ExternalServerManager extends EventEmitter {
         throw new Error(`Failed to create MCP client: ${clientResult.error}`);
       }
 
+      // Client creation is awaited: a host can remove and replace this slot meanwhile.
+      if (this.servers.get(serverId) !== instance || this.isShuttingDown) {
+        await MCPClientFactory.closeClient(
+          clientResult.client,
+          clientResult.transport,
+          clientResult.process ?? undefined,
+        );
+        throw new Error(`MCP startup for '${serverId}' was superseded`);
+      }
       // Store client components
       instance.client = clientResult.client;
       instance.transportInstance = clientResult.transport;
@@ -1364,10 +1436,24 @@ export class ExternalServerManager extends EventEmitter {
         clientResult.transport,
       );
 
-      this.updateServerStatus(serverId, "connected");
-
-      // Discover tools from the server
+      const assertStartupConnection = (): void => {
+        if (
+          this.servers.get(serverId) !== instance ||
+          instance.client !== clientResult.client ||
+          clientResult.client.transport !== clientResult.transport ||
+          this.closedClients.has(clientResult.client) ||
+          instance.status !== "initializing" ||
+          this.isShuttingDown
+        ) {
+          throw new Error(
+            `MCP connection for '${serverId}' was lost during startup`,
+          );
+        }
+      };
+      assertStartupConnection();
+      // Readiness belongs to this live client generation and successful discovery.
       await this.discoverServerTools(serverId);
+      assertStartupConnection();
 
       // Readiness gate: a server whose discovered tool count falls below
       // its configured minTools (default 0 — no minimum, so resource/prompt
@@ -1393,7 +1479,13 @@ export class ExternalServerManager extends EventEmitter {
         await this.registerServerToolsWithMainRegistry(serverId);
       }
 
+      assertStartupConnection();
       // Start health monitoring
+      this.consecutiveFailures.delete(serverId);
+      this.lastHealth.delete(serverId);
+      this.retryDeadlines.delete(serverId);
+      instance.lastError = undefined;
+      this.updateServerStatus(serverId, "connected");
       this.startHealthMonitoring(serverId);
 
       // Emit connected event
@@ -1417,9 +1509,49 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Failed to start server ${serverId}:`,
         error,
       );
-      this.updateServerStatus(serverId, "failed");
-      instance.lastError =
-        error instanceof Error ? error.message : String(error);
+      if (
+        this.servers.get(serverId) === instance &&
+        instance.status !== "stopping"
+      ) {
+        await this.closeInstanceConnection(serverId, instance);
+        // Closing is asynchronous; removal or shutdown can revoke this owner.
+        const retainedOwner = this.servers.get(serverId);
+        if (
+          retainedOwner === instance &&
+          retainedOwner.status !== "stopping" &&
+          !this.isShuttingDown
+        ) {
+          this.updateServerStatus(serverId, "failed", instance);
+          instance.lastError =
+            error instanceof Error ? error.message : String(error);
+          this.consecutiveFailures.set(
+            serverId,
+            (this.consecutiveFailures.get(serverId) ?? 0) + 1,
+          );
+          this.emit("failed", {
+            serverId,
+            serverName: this.getServerName(serverId),
+            error: instance.lastError,
+            timestamp: new Date(),
+          } satisfies ExternalMCPServerEvents["failed"]);
+        }
+      } else if (
+        this.servers.get(serverId) !== instance &&
+        instance.client &&
+        instance.transportInstance
+      ) {
+        // Dispose only this superseded client's handles; shared maps belong to its successor.
+        instance.client.onclose = undefined;
+        instance.client.onerror = undefined;
+        await MCPClientFactory.closeClient(
+          instance.client,
+          instance.transportInstance,
+          instance.process ?? undefined,
+        );
+        instance.client = null;
+        instance.transportInstance = null;
+        instance.process = null;
+      }
 
       span.recordException(
         error instanceof Error ? error : new Error(String(error)),
@@ -1447,6 +1579,14 @@ export class ExternalServerManager extends EventEmitter {
     serverId: string,
     instance: RuntimeMCPServerInfo,
   ): Promise<void> {
+    // A failed or stopped client cannot retain metadata from its own or an older discovery.
+    if (this.enableMainRegistryIntegration) {
+      this.unregisterServerToolsFromMainRegistry(serverId);
+    }
+    this.toolDiscovery.clearServerTools(serverId);
+    instance.toolsMap.clear();
+    instance.toolsArray = undefined;
+    instance.tools = [];
     if (!instance.client || !instance.transportInstance) {
       return;
     }
@@ -1495,7 +1635,7 @@ export class ExternalServerManager extends EventEmitter {
     });
 
     try {
-      this.updateServerStatus(serverId, "stopping");
+      this.updateServerStatus(serverId, "stopping", instance);
 
       // Clear timers
       if (instance.healthTimer) {
@@ -1521,7 +1661,7 @@ export class ExternalServerManager extends EventEmitter {
       // the onclose it triggers cannot schedule a restart of a server we
       // are deliberately stopping.
       await this.closeInstanceConnection(serverId, instance);
-      this.updateServerStatus(serverId, "stopped");
+      this.updateServerStatus(serverId, "stopped", instance);
 
       span.setStatus({ code: SpanStatusCode.OK });
 
@@ -1531,7 +1671,7 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Error stopping server ${serverId}:`,
         error,
       );
-      this.updateServerStatus(serverId, "failed");
+      this.updateServerStatus(serverId, "failed", instance);
 
       span.recordException(
         error instanceof Error ? error : new Error(String(error)),
@@ -1551,13 +1691,15 @@ export class ExternalServerManager extends EventEmitter {
   private updateServerStatus(
     serverId: string,
     newStatus: ExternalMCPServerStatus,
+    owner?: RuntimeMCPServerInfo,
   ): void {
     const instance = this.servers.get(serverId);
-    if (!instance) {
+    if (!instance || (owner !== undefined && instance !== owner)) {
       return;
     }
 
     const oldStatus = instance.status;
+    this.lifecycleStates.set(serverId, newStatus);
     // Map ExternalMCPServerStatus to MCPServerInfo status
     const mappedStatus: MCPServerInfo["status"] =
       newStatus === "connecting" || newStatus === "restarting"
@@ -1602,6 +1744,7 @@ export class ExternalServerManager extends EventEmitter {
     transport: Transport,
   ): void {
     client.onclose = () => {
+      this.closedClients.add(client);
       const instance = this.servers.get(serverId);
       const pidNote = instance?.pid ? ` (pid ${instance.pid})` : "";
       const stderrTail = MCPClientFactory.getStderrTail(transport);
@@ -1635,6 +1778,7 @@ export class ExternalServerManager extends EventEmitter {
     client: Client,
     reason: string,
     stderrTail: string[] = [],
+    failureAlreadyCounted = false,
   ): void {
     const instance = this.servers.get(serverId);
     if (
@@ -1650,7 +1794,7 @@ export class ExternalServerManager extends EventEmitter {
       stderrTail.length > 0 ? { stderrTail } : undefined,
     );
     instance.lastError = reason;
-    this.handleServerDisconnection(serverId, reason);
+    this.handleServerDisconnection(serverId, reason, failureAlreadyCounted);
   }
 
   private trackToolCall(serverId: string, delta: 1 | -1): void {
@@ -1673,6 +1817,10 @@ export class ExternalServerManager extends EventEmitter {
 
     instance.lastError = error.message;
     instance.metrics.totalErrors++;
+    this.consecutiveFailures.set(
+      serverId,
+      (this.consecutiveFailures.get(serverId) ?? 0) + 1,
+    );
 
     mcpLogger.error(
       `[ExternalServerManager] Server error for ${serverId}:`,
@@ -1688,7 +1836,10 @@ export class ExternalServerManager extends EventEmitter {
     } satisfies ExternalMCPServerEvents["failed"]);
 
     // Attempt restart if enabled
-    if (this.config.enableAutoRestart && !this.isShuttingDown) {
+    if (
+      (instance.config.autoRestart ?? this.config.enableAutoRestart) &&
+      !this.isShuttingDown
+    ) {
       this.scheduleRestart(serverId);
     } else {
       this.updateServerStatus(serverId, "failed");
@@ -1698,13 +1849,23 @@ export class ExternalServerManager extends EventEmitter {
   /**
    * Handle server disconnection
    */
-  private handleServerDisconnection(serverId: string, reason: string): void {
+  private handleServerDisconnection(
+    serverId: string,
+    reason: string,
+    failureAlreadyCounted = false,
+  ): void {
     const instance = this.servers.get(serverId);
     if (!instance) {
       return;
     }
 
     instance.metrics.totalDisconnections++;
+    if (!failureAlreadyCounted) {
+      this.consecutiveFailures.set(
+        serverId,
+        (this.consecutiveFailures.get(serverId) ?? 0) + 1,
+      );
+    }
 
     mcpLogger.warn(
       `[ExternalServerManager] Server disconnected ${serverId}: ${reason}`,
@@ -1738,11 +1899,16 @@ export class ExternalServerManager extends EventEmitter {
       return;
     }
 
+    if (instance.restartTimer) {
+      return;
+    }
+
     if (instance.reconnectAttempts >= instance.maxReconnectAttempts) {
       mcpLogger.error(
         `[ExternalServerManager] Max restart attempts reached for ${serverId}`,
       );
       this.updateServerStatus(serverId, "failed");
+      this.retryDeadlines.delete(serverId);
       return;
     }
 
@@ -1762,10 +1928,20 @@ export class ExternalServerManager extends EventEmitter {
       `[ExternalServerManager] Scheduling restart for ${serverId} in ${delay}ms (attempt ${instance.reconnectAttempts})`,
     );
 
-    if (instance.restartTimer) {
-      return;
-    } // already scheduled
+    this.retryDeadlines.set(serverId, new Date(Date.now() + delay));
+    const health = this.getServerStatuses().find(
+      (status) => status.serverId === serverId,
+    );
+    if (health) {
+      this.emit("healthCheck", {
+        serverId,
+        serverName: this.getServerName(serverId),
+        health,
+        timestamp: new Date(),
+      } satisfies ExternalMCPServerEvents["healthCheck"]);
+    }
     instance.restartTimer = setTimeout(async () => {
+      this.retryDeadlines.delete(serverId);
       const restartSpan = tracers.mcp.startSpan(
         "neurolink.mcp.server.restart",
         {
@@ -1778,8 +1954,17 @@ export class ExternalServerManager extends EventEmitter {
       );
 
       try {
+        if (this.servers.get(serverId) !== instance) {
+          return;
+        }
         await this.stopServer(serverId);
+        if (this.servers.get(serverId) !== instance) {
+          return;
+        }
         await this.startServer(serverId);
+        if (this.servers.get(serverId) !== instance) {
+          return;
+        }
 
         // Reset restart attempts on successful restart
         instance.reconnectAttempts = 0;
@@ -1798,7 +1983,9 @@ export class ExternalServerManager extends EventEmitter {
           message: error instanceof Error ? error.message : String(error),
         });
 
-        this.scheduleRestart(serverId); // Try again
+        if (this.servers.get(serverId) === instance) {
+          this.scheduleRestart(serverId); // Try again only for this retained owner.
+        }
       } finally {
         restartSpan.end();
       }
@@ -1875,9 +2062,23 @@ export class ExternalServerManager extends EventEmitter {
     try {
       try {
         await client.ping({ timeout: pingTimeoutMs });
+        if (instance.client !== client || instance.status !== "connected") {
+          return;
+        }
         this.unresponsiveChecks.delete(serverId);
+        this.consecutiveFailures.delete(serverId);
+        instance.lastError = undefined;
       } catch (error) {
+        if (instance.client !== client || instance.status !== "connected") {
+          return;
+        }
         isHealthy = false;
+        this.consecutiveFailures.set(
+          serverId,
+          (this.consecutiveFailures.get(serverId) ?? 0) + 1,
+        );
+        instance.lastError =
+          error instanceof Error ? error.message : String(error);
         if (isConnectionLostError(error)) {
           connectionLost = true;
           issues.push("connection closed");
@@ -1904,11 +2105,14 @@ export class ExternalServerManager extends EventEmitter {
       const health: ExternalMCPServerHealth = {
         serverId,
         isHealthy,
-        status: instance.status,
+        status: this.lifecycleStates.get(serverId) ?? instance.status,
         checkedAt: new Date(),
         responseTime,
         toolCount: instance.toolsMap.size,
         issues,
+        consecutiveFailures: this.consecutiveFailures.get(serverId) ?? 0,
+        lastError: instance.lastError,
+        nextRetryAt: this.retryDeadlines.get(serverId),
         performance: {
           uptime: instance.startTime
             ? Date.now() - instance.startTime.getTime()
@@ -1918,6 +2122,7 @@ export class ExternalServerManager extends EventEmitter {
       };
 
       // Emit health check event
+      this.lastHealth.set(serverId, health);
       this.emit("healthCheck", {
         serverId,
         serverName: this.getServerName(serverId),
@@ -1930,6 +2135,8 @@ export class ExternalServerManager extends EventEmitter {
           serverId,
           client,
           `Health check failed: ${issues.join(", ")}`,
+          [],
+          true,
         );
       } else if (!isHealthy) {
         mcpLogger.warn(
@@ -2026,11 +2233,16 @@ export class ExternalServerManager extends EventEmitter {
 
       statuses.push({
         serverId,
-        isHealthy: instance.status === "connected",
-        status: instance.status,
+        isHealthy:
+          instance.status === "connected" &&
+          (this.lastHealth.get(serverId)?.isHealthy ?? true),
+        status: this.lifecycleStates.get(serverId) ?? instance.status,
         checkedAt: instance.lastHealthCheck || new Date(),
         toolCount: instance.toolsMap.size,
         issues: instance.lastError ? [instance.lastError] : [],
+        consecutiveFailures: this.consecutiveFailures.get(serverId) ?? 0,
+        lastError: instance.lastError,
+        nextRetryAt: this.retryDeadlines.get(serverId),
         performance: {
           uptime,
           averageResponseTime: instance.metrics.averageResponseTime,
@@ -2134,16 +2346,33 @@ export class ExternalServerManager extends EventEmitter {
       throw new Error(`Server '${serverId}' not found or not connected`);
     }
 
+    // Resource/prompt-only servers legitimately advertise no tools capability.
+    if (instance.client.getServerCapabilities()?.tools === undefined) {
+      return;
+    }
     try {
       mcpLogger.debug(
         `[ExternalServerManager] Discovering tools for server: ${serverId}`,
       );
 
+      const client = instance.client;
+      const isCurrentDiscovery = (): boolean =>
+        this.servers.get(serverId) === instance &&
+        instance.client === client &&
+        instance.status === "initializing" &&
+        client.transport === instance.transportInstance &&
+        !this.closedClients.has(client) &&
+        !this.isShuttingDown;
       const discoveryResult = await this.toolDiscovery.discoverTools(
         serverId,
-        instance.client,
+        client,
         instance.config.timeout || this.config.defaultTimeout,
+        isCurrentDiscovery,
+        true,
       );
+      if (!isCurrentDiscovery()) {
+        throw new Error(`MCP discovery for '${serverId}' was superseded`);
+      }
 
       if (discoveryResult.success) {
         instance.toolsMap.clear();
@@ -2175,8 +2404,8 @@ export class ExternalServerManager extends EventEmitter {
           `[ExternalServerManager] Discovered ${discoveryResult.toolCount} tools for ${serverId} (${blockedCount} blocked, ${instance.toolsMap.size} available)`,
         );
       } else {
-        mcpLogger.warn(
-          `[ExternalServerManager] Tool discovery failed for ${serverId}: ${discoveryResult.error}`,
+        throw new Error(
+          `Tool discovery failed for ${serverId}: ${discoveryResult.error ?? "unknown failure"}`,
         );
       }
     } catch (error) {
@@ -2184,6 +2413,7 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Tool discovery error for ${serverId}:`,
         error,
       );
+      throw error;
     }
   }
 
