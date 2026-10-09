@@ -29,6 +29,9 @@ export type HITLConfig = {
   /** Auto-approve requests when they timeout (default: false - rejects on timeout) */
   autoApproveOnTimeout?: boolean;
 
+  /** Exact tool names that require an explicit answer even when timeout auto-approval is enabled. */
+  autoApproveExclusions?: string[];
+
   /** Enable audit logging for compliance and debugging (default: false) */
   auditLogging?: boolean;
 
