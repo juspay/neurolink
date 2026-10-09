@@ -76,6 +76,10 @@ function skipIfProviderError(err: unknown): never {
   throw err as Error;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ============================================================
 // MATRIX RUN
 // ============================================================
@@ -231,26 +235,46 @@ async function runMatrix(): Promise<void> {
               }
             | undefined;
           for (let attempt = 1; attempt <= 2; attempt++) {
-            const r = await sdk.generate({
-              ...baseOpts,
-              input: { text: 'Reply with greeting="hi" and count=42 in JSON.' },
-              maxTokens: 200,
-              disableTools: true,
-              // `schema` is the option generate() honours. The previous
-              // `structuredOutput: { schema }` was never a GenerateOptions
-              // field (the `as never` cast hid that) and was silently
-              // ignored, so this cell passed on plain text. The real
-              // parameter type replaces the `as never` cast here so a
-              // wrong option name is a compile error, not a silent no-op.
-              schema,
-            } as Parameters<NeuroLink["generate"]>[0]);
-            last = r;
-            if (
-              r.content &&
-              r.content.length > 0 &&
-              r.structuredData !== undefined
-            ) {
-              break;
+            try {
+              const r = await sdk.generate({
+                ...baseOpts,
+                input: {
+                  text: 'Reply with greeting="hi" and count=42 in JSON.',
+                },
+                maxTokens: 200,
+                disableTools: true,
+                // `schema` is the option generate() honours. The previous
+                // `structuredOutput: { schema }` was never a GenerateOptions
+                // field (the `as never` cast hid that) and was silently
+                // ignored, so this cell passed on plain text. The real
+                // parameter type replaces the `as never` cast here so a
+                // wrong option name is a compile error, not a silent no-op.
+                schema,
+              } as Parameters<NeuroLink["generate"]>[0]);
+              last = r;
+              if (
+                r.content &&
+                r.content.length > 0 &&
+                r.structuredData !== undefined
+              ) {
+                break;
+              }
+            } catch (err) {
+              // A provider that enforces one in-flight request per account
+              // (observed: Mancer, "This model cannot be queried at the
+              // same time as any others") can reject this attempt because
+              // the preceding stream-tokens test deliberately aborts its
+              // connection early (reads 5 chunks, then breaks) to keep the
+              // sweep fast — if the vendor hasn't yet observed that abort,
+              // this request lands while it still considers the aborted
+              // stream in flight. Retrying once after a short delay gives
+              // that window time to close, without weakening the two-attempt
+              // budget: a persistent failure still throws out of the loop
+              // and fails the row exactly as before attempt 2.
+              if (attempt === 2) {
+                throw err;
+              }
+              await delay(2000);
             }
           }
           if (!last?.content || last.content.length === 0) {
