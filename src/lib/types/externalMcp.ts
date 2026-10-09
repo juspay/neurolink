@@ -15,6 +15,7 @@ import type {
   MCPTransportType,
   MCPServerInfo,
   MCPServerReadiness,
+  MCPToolAnnotations,
 } from "./mcp.js";
 export type { MCPTransportType } from "./mcp.js";
 
@@ -57,6 +58,9 @@ export type ExternalMCPServerConfig = {
 
   /** HTTP headers for authentication and configuration (HTTP/SSE/WebSocket) */
   headers?: Record<string, string>;
+
+  /** Trusted HTTP/SSE egress hook, retained for every connection and request. */
+  fetch?: typeof globalThis.fetch;
 
   /** List of tool names to block/blacklist from this server */
   blockedTools?: string[];
@@ -164,6 +168,9 @@ export type ExternalMCPToolInfo = {
   /** Input schema (JSON Schema) */
   inputSchema?: JsonObject;
 
+  /** Server-supplied behavior hints; absent annotations remain absent. */
+  annotations?: MCPToolAnnotations;
+
   /** Whether the tool is currently available */
   isAvailable: boolean;
 
@@ -207,6 +214,15 @@ export type ExternalMCPServerHealth = {
 
   /** Any health issues detected */
   issues: string[];
+
+  /** Consecutive failed connections or live health checks, reset on recovery. */
+  consecutiveFailures?: number;
+
+  /** Most recent connection/health error, absent after successful recovery. */
+  lastError?: string;
+
+  /** Next automatic retry deadline, absent when no retry is scheduled. */
+  nextRetryAt?: Date;
 
   /** Performance metrics */
   performance: {

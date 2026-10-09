@@ -15,7 +15,6 @@ import {
 import type {
   ExternalMCPToolInfo,
   ExternalMCPToolResult,
-  MCPServerInfo,
   ToolDiscoveryResult,
   ExternalToolExecutionOptions,
   ToolValidationResult,
@@ -115,7 +114,7 @@ const DEFAULT_TOOL_TIMEOUT = Math.max(
  * Handles automatic tool discovery and registration from external MCP servers
  */
 export class ToolDiscoveryService extends EventEmitter {
-  private serverToolStorage = new Map<string, MCPServerInfo["tools"]>();
+  private serverToolStorage = new Map<string, ExternalMCPToolInfo[]>();
   private toolRegistry = new Map<string, ExternalMCPToolInfo>();
   private serverTools = new Map<string, Set<string>>();
   private discoveryInProgress = new Set<string>();
@@ -139,11 +138,15 @@ export class ToolDiscoveryService extends EventEmitter {
 
   /**
    * Discover tools from an external MCP server
+   * Startup probes use the fresh connection directly under the same operation
+   * deadline, so an ordinary discovery cooldown cannot exhaust reconnects.
    */
   async discoverTools(
     serverId: string,
     client: Client,
     timeout = DEFAULT_TOOL_TIMEOUT,
+    isCurrentDiscovery: () => boolean = () => true,
+    startupDiscovery = false,
   ): Promise<ToolDiscoveryResult> {
     return withSpan(
       {
@@ -153,8 +156,13 @@ export class ToolDiscoveryService extends EventEmitter {
       },
       async (span) => {
         const startTime = Date.now();
-
+        let ownsDiscovery = false;
         try {
+          if (!isCurrentDiscovery()) {
+            throw new Error(
+              `Discovery owner for '${serverId}' is no longer current`,
+            );
+          }
           // Prevent concurrent discovery for same server
           if (this.discoveryInProgress.has(serverId)) {
             return {
@@ -168,30 +176,32 @@ export class ToolDiscoveryService extends EventEmitter {
           }
 
           this.discoveryInProgress.add(serverId);
+          ownsDiscovery = true;
 
           mcpLogger.info(
             `[ToolDiscoveryService] Starting tool discovery for server: ${serverId}`,
           );
 
-          // Create circuit breaker for tool discovery
-          const circuitBreaker = globalCircuitBreakerManager.getBreaker(
-            `tool-discovery-${serverId}`,
-            {
-              failureThreshold: 2,
-              resetTimeout: 60000,
-              operationTimeout: timeout,
-            },
-          );
-
-          // Discover tools with circuit breaker protection
-          const tools = await circuitBreaker.execute(async () => {
-            return await this.performToolDiscovery(serverId, client, timeout);
-          });
+          const discover = () =>
+            this.performToolDiscovery(serverId, client, timeout);
+          // A new connection must get its bounded readiness probe even while
+          // the ordinary discovery breaker is cooling down. Its transport and
+          // operation deadlines still apply; real failures still reject startup.
+          const tools = startupDiscovery
+            ? await discover()
+            : await globalCircuitBreakerManager
+                .getBreaker(`tool-discovery-${serverId}`, {
+                  failureThreshold: 2,
+                  resetTimeout: 60000,
+                  operationTimeout: timeout,
+                })
+                .execute(discover);
 
           // Register discovered tools
           const registeredTools = await this.registerDiscoveredTools(
             serverId,
             tools,
+            isCurrentDiscovery,
           );
 
           span.setAttribute("mcp.tools_discovered", registeredTools.length);
@@ -250,7 +260,9 @@ export class ToolDiscoveryService extends EventEmitter {
             serverId,
           };
         } finally {
-          this.discoveryInProgress.delete(serverId);
+          if (ownsDiscovery) {
+            this.discoveryInProgress.delete(serverId);
+          }
         }
       },
     );
@@ -288,15 +300,23 @@ export class ToolDiscoveryService extends EventEmitter {
   private async registerDiscoveredTools(
     serverId: string,
     tools: Tool[],
+    isCurrentDiscovery: () => boolean,
   ): Promise<ExternalMCPToolInfo[]> {
     const registeredTools: ExternalMCPToolInfo[] = [];
-
+    if (!isCurrentDiscovery()) {
+      throw new Error(`Discovery owner for '${serverId}' is no longer current`);
+    }
     // Clear existing tools for this server
     this.clearServerTools(serverId);
 
     for (const tool of tools) {
       try {
         const toolInfo = await this.createToolInfo(serverId, tool);
+        if (!isCurrentDiscovery()) {
+          throw new Error(
+            `Discovery owner for '${serverId}' is no longer current`,
+          );
+        }
         const validation = this.validateTool(toolInfo);
 
         if (!validation.isValid) {
@@ -328,11 +348,7 @@ export class ToolDiscoveryService extends EventEmitter {
         }
         // Add tool if not already present
         if (!serverTools.find((t) => t.name === tool.name)) {
-          serverTools.push({
-            name: tool.name,
-            description: tool.description || "",
-            inputSchema: tool.inputSchema,
-          });
+          serverTools.push(toolInfo);
         }
 
         // Track server tools (legacy)
@@ -358,6 +374,9 @@ export class ToolDiscoveryService extends EventEmitter {
           `[ToolDiscoveryService] Registered tool: ${tool.name} from ${serverId}`,
         );
       } catch (error) {
+        if (!isCurrentDiscovery()) {
+          throw error;
+        }
         mcpLogger.error(
           `[ToolDiscoveryService] Failed to register tool ${tool.name} from ${serverId}:`,
           error,
@@ -365,6 +384,9 @@ export class ToolDiscoveryService extends EventEmitter {
       }
     }
 
+    if (!isCurrentDiscovery()) {
+      throw new Error(`Discovery owner for '${serverId}' is no longer current`);
+    }
     return registeredTools;
   }
 
@@ -380,6 +402,7 @@ export class ToolDiscoveryService extends EventEmitter {
       description: tool.description || "No description provided",
       serverId,
       inputSchema: tool.inputSchema as JsonObject,
+      ...(tool.annotations ? { annotations: { ...tool.annotations } } : {}),
       isAvailable: true,
       stats: {
         totalCalls: 0,
@@ -1062,6 +1085,7 @@ export class ToolDiscoveryService extends EventEmitter {
         description: tool.description,
         serverId,
         inputSchema: tool.inputSchema as JsonObject,
+        ...(tool.annotations ? { annotations: { ...tool.annotations } } : {}),
         isAvailable: true,
         stats: {
           totalCalls: 0,
@@ -1104,6 +1128,7 @@ export class ToolDiscoveryService extends EventEmitter {
           description: tool.description,
           serverId,
           inputSchema: tool.inputSchema as JsonObject,
+          ...(tool.annotations ? { annotations: { ...tool.annotations } } : {}),
           isAvailable: true,
           stats: {
             totalCalls: 0,

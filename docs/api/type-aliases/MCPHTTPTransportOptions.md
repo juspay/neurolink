@@ -8,7 +8,7 @@
 
 > **MCPHTTPTransportOptions** = `object`
 
-HTTP Transport Options for fine-grained control
+Transport deadlines (all transports), plus HTTP connection-pool options
 
 ## Properties
 
@@ -16,7 +16,7 @@ HTTP Transport Options for fine-grained control
 
 > `optional` **connectionTimeout?**: `number`
 
-Connection timeout in milliseconds (default: 30000)
+Explicit connection cap in milliseconds for every transport; absent retains the server/client startup budget.
 
 ---
 
@@ -24,7 +24,7 @@ Connection timeout in milliseconds (default: 30000)
 
 > `optional` **requestTimeout?**: `number`
 
-Request timeout in milliseconds (default: 60000)
+Explicit whole-request cap in milliseconds for every transport; absent retains caller/server RPC limits (HTTP fetch defaults are separate).
 
 ---
 

@@ -110,6 +110,16 @@ Replaces both MCPServerInfo and MCPServerConfig
 
 ---
 
+### fetch?
+
+> `optional` **fetch?**: _typeof_ `globalThis.fetch`
+
+Trusted host-provided fetch for HTTP and SSE, including reconnects and tool
+calls. Use a guarded, DNS-pinned dispatcher for untrusted server URLs.
+Programmatic only: functions cannot be persisted in JSON configuration.
+
+---
+
 ### httpOptions?
 
 > `optional` **httpOptions?**: [`MCPHTTPTransportOptions`](MCPHTTPTransportOptions.md)
