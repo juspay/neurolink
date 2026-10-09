@@ -13923,8 +13923,10 @@ Current user's request: ${currentInput}`;
   // ENHANCED: Tool Event Emission API
   // ========================================
 
-  // TODO(#1576): Add ToolExecutionEvent utility methods in future version
-  // Will provide structured event format for consistent tool event processing
+  // Speculative, not a gap: ToolExecutionEvent already exists
+  // (src/lib/types/tools.ts) and is already surfaced via
+  // StreamResult.toolEvents. Dedicated utility methods are a possible
+  // future convenience, not planned work.
 
   /**
    * Emit tool start event with execution tracking
@@ -14083,8 +14085,9 @@ Current user's request: ${currentInput}`;
     this.currentStreamToolExecutions = [];
   }
 
-  // TODO(#1576): Add getToolExecutionEvents() method in future version
-  // Will return properly formatted ToolExecutionEvent objects for structured event processing
+  // Speculative, not a gap: the same structured events a
+  // getToolExecutionEvents() method would return are already available via
+  // StreamResult.toolEvents.
 
   // ========================================
   // Tool Registration API
