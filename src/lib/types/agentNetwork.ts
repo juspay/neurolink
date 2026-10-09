@@ -70,6 +70,9 @@ export type AgentInput = string | Record<string, unknown>;
  * Result of agent execution
  */
 export type AgentResult = {
+  /** SDK estimate in USD; undefined when the model has no known pricing. */
+  cost?: number;
+
   /** Generated content */
   content: string;
 
@@ -111,6 +114,12 @@ export type AgentResult = {
  * Options for agent execution
  */
 export type AgentExecutionOptions = {
+  /** Enable SDK usage and cost analytics for this execution. */
+  enableAnalytics?: boolean;
+
+  /** Cumulative budget for the NeuroLink instance, not a per-run cap. */
+  maxBudgetUsd?: number;
+
   /** Additional context for the agent */
   context?: Record<string, unknown>;
 
@@ -654,6 +663,9 @@ export type AgentStreamChunkType =
  * Agent stream chunk
  */
 export type AgentStreamChunk = {
+  /** SDK cost estimate in USD (for complete chunks), when priced. */
+  cost?: number;
+
   /** Chunk type */
   type: AgentStreamChunkType;
 

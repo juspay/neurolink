@@ -12,6 +12,14 @@ Agent stream chunk
 
 ## Properties
 
+### cost?
+
+> `optional` **cost?**: `number`
+
+SDK cost estimate in USD (for complete chunks), when priced.
+
+---
+
 ### type
 
 > **type**: [`AgentStreamChunkType`](AgentStreamChunkType.md)

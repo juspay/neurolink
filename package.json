@@ -107,6 +107,7 @@
     "test:anthropic-silent-truncation": "pnpm exec tsx test/continuous-test-suite-anthropic-silent-truncation.ts",
     "test:anthropic-thinking-disabled": "pnpm exec tsx test/continuous-test-suite-anthropic-thinking-disabled.ts",
     "test:cache-cost-accounting": "pnpm exec tsx test/continuous-test-suite-cache-cost-accounting.ts",
+    "test:agent:cost": "pnpm exec tsx test/continuous-test-suite-agent-cost.ts",
     "test:adjust-body-after-400": "pnpm exec tsx test/continuous-test-suite-adjust-body-after-400.ts",
     "test:zod3-schema-native-path": "pnpm exec tsx test/continuous-test-suite-zod3-schema-native-path.ts",
     "test:error-classification-e2e": "pnpm exec tsx test/continuous-test-suite-error-classification-e2e.ts",
