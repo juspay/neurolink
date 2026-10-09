@@ -61,6 +61,14 @@ Auto-approve requests when they timeout (default: false - rejects on timeout)
 
 ---
 
+### autoApproveExclusions?
+
+> `optional` **autoApproveExclusions?**: `string`[]
+
+Exact tool names that require an explicit answer even when timeout auto-approval is enabled.
+
+---
+
 ### auditLogging?
 
 > `optional` **auditLogging?**: `boolean`

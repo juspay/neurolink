@@ -444,6 +444,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:anthropic-execution-control
 
+      - name: HITL timeout consent exclusions (public registry, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:hitl:timeout-exclusions
+
       - name: Proxy telemetry accuracy (isolated storage faults and HTTP fixtures)
         if: matrix.group == 'rest'
         run: pnpm run test:proxy-telemetry
