@@ -293,6 +293,15 @@ assistant turn's `reasoning_content` sent back on later requests.
 
 ---
 
+### rejectRequiredToolChoice?
+
+> `optional` **rejectRequiredToolChoice?**: `boolean`
+
+See CatalogQuirks.rejectRequiredToolChoice. Applied only to a nonempty
+tools request that explicitly requires a tool; no silent auto downgrade.
+
+---
+
 ### authHeaderStyle?
 
 > `optional` **authHeaderStyle?**: `"x-api-key"`

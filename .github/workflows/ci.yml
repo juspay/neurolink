@@ -628,6 +628,8 @@ jobs:
           pnpm run test:vector-pgvector
           pnpm run test:vector-pinecone
           pnpm run test:provider-wiring
+          pnpm run test:cli-fallback
+          pnpm run test:embedding-response-validation
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

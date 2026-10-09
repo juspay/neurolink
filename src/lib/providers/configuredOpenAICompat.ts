@@ -6,6 +6,7 @@ import type {
   OpenAICompatCredentials,
   OpenAICompatResponseFormat,
 } from "../types/index.js";
+import { ProviderError } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import {
@@ -202,6 +203,17 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
     modelId: string,
   ): OpenAICompatChatRequest {
     const adjusted = super.adjustRequestBody(body, modelId);
+    if (
+      this.entry.rejectRequiredToolChoice === true &&
+      adjusted.tool_choice === "required" &&
+      Array.isArray(adjusted.tools) &&
+      adjusted.tools.length > 0
+    ) {
+      throw new ProviderError(
+        "tool_choice='required' is not supported by this endpoint; use auto, none or a named tool choice",
+        this.providerName,
+      );
+    }
     if (this.entry.messageContentFormat !== "string") {
       return adjusted;
     }

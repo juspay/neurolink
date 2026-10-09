@@ -65,3 +65,9 @@ Output file
 > `optional` **disableTools?**: `boolean`
 
 Disable tools
+
+### disableInternalFallback?
+
+> `optional` **disableInternalFallback?**: `boolean`
+
+Keep the request on the selected provider and model.

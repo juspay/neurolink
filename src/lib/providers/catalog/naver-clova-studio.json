@@ -1,0 +1,68 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "naver-clova-studio",
+  "displayName": "NAVER CLOVA Studio",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://clovastudio.stream.ntruss.com/v1/openai"
+  },
+  "models": {
+    "default": "HCX-005",
+    "fallbacks": ["HCX-005"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "HCX-005": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 4096,
+        "vision": false,
+        "tools": true,
+        "status": "production",
+        "description": "Own Chat Completions v3 documentation names HCX-005 and states a combined input/output limit of 128,000 tokens and a maximum of 4,096 output tokens. The OpenAI-compatible guide uses the same model ID. This initial entry declares text and tool paths, not endpoint-specific image or native strict-schema acceptance. Account availability is unverified."
+      }
+    },
+    "topModels": ["HCX-005"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "quirks": {
+    "rejectRequiredToolChoice": true
+  },
+  "setup": {
+    "url": "https://console.ncloud.com",
+    "apiKeyFormat": null,
+    "billingPolicy": "promotional-credit",
+    "instructions": [
+      "Use an eligible NAVER Cloud account and subscribe to CLOVA Studio in the Korea region on Classic or VPC, following https://guide.ncloud-docs.com/docs/en/clovastudio-start.",
+      "The official new-signup program at https://www.ncloud.com/main/creditEvent, retrieved 2026-10-09, offers 100,000 KRW discount credit after payment-method registration and a credit application. Eligibility follows the policy at application time; prior recipients of other discounts cannot apply.",
+      "Issued credit is usable for three months against NAVER Cloud service charges. Free/trial products, Marketplace purchases and NAVER WORKS are excluded. This is a conditional promotional program, not a no-card free tier or proof of your current entitlement or balance.",
+      "Create a CLOVA Studio test or service API key under the CLOVA Studio API-key menu. Its OpenAI-compatible API accepts those keys with Authorization: Bearer; a general NAVER Cloud access key is not a substitute. Set {apiKeyEnvVar}.",
+      "The chat base is https://clovastudio.stream.ntruss.com/v1/openai and default model is HCX-005. Auto, none and named tool choices retain their documented meanings. Required tool choice is unsupported and explicitly rejected, never silently downgraded to auto."
+    ],
+    "description": "Documentation-based source pilot. CLOVA Studio is usage-priced; conditional NAVER Cloud promotional credit requires payment-method registration/application and eligibility. Actual account subscription, models, credit balance and live API execution remain unverified. JSON-schema name/strict controls are ignored by the shim, so native strict-schema and tools-plus-schema support are not declared."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-09",
+      "code": "DOCS_ONLY_ROSTER_NOT_OBSERVED",
+      "method": "Public first-party HCX-005 Chat v3 limits, OpenAI compatibility and function-calling documents only. No authenticated model roster, account/key lookup or inference performed. Limits 128,000 / 4,096 are explicit per-model source constraints, not K/M expansion."
+    },
+    "billingProbe": {
+      "date": "2026-10-09",
+      "code": "PUBLIC_PROMOTIONAL_POLICY_ONLY",
+      "method": "Public https://guide.ncloud-docs.com/docs/en/clovastudio-spec confirms usage fees; https://www.ncloud.com/main/creditEvent publishes conditional 100,000 KRW credit, valid three months, after payment-method registration and application. No card-only requirement or current account entitlement is claimed."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1966"
+  }
+}

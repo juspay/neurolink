@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Span } from "@opentelemetry/api";
 import type { Tool } from "./tools.js";
+import type { GenerateStopReason } from "./generate.js";
 import type {
   CollectedChunkResult,
   NativeFunctionCall,
@@ -706,6 +707,12 @@ export type AgenticLoopResult<TConversation> = {
   usage: AgenticLoopUsage;
   finishReason: string;
   rawStopReason: string | undefined;
+  /**
+   * A known engine-owned termination condition, distinct from the provider's
+   * raw reason. Optional for adapters/fixtures that predate this field; the
+   * engine reports step-cap or aborted when it has observed that condition.
+   */
+  stopReason?: GenerateStopReason;
   conversation: TConversation;
   /**
    * True when the turn ended because its abort signal fired rather than

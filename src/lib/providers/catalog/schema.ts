@@ -165,6 +165,7 @@ const catalogQuirksSchema = z.strictObject({
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),
   responseFormatDowngrade: z.literal("json-schema-to-json-object").optional(),
   replayReasoningContent: z.boolean().optional(),
+  rejectRequiredToolChoice: z.boolean().optional(),
   authHeaderStyle: z.literal("x-api-key").optional(),
 });
 
@@ -177,6 +178,7 @@ const catalogBillingPolicySchema = z.enum([
   "free-tier",
   "free-with-card",
   "no-free-tier",
+  "promotional-credit",
 ]);
 
 const catalogSetupSchema = z.strictObject({
@@ -224,8 +226,19 @@ const catalogModelsSchema = z
     fallbacks: z.array(z.string()),
     fallbackModelName: z.string().optional(),
     registryDefaultModel: z.string().optional(),
-    defaultContextWindow: z.number(),
-    defaultMaxOutputTokens: z.number(),
+    // Catalog defaults are real model ceilings, never an unknown/zero
+    // placeholder. Caller maxTokens and optional model overrides are separate
+    // contracts and deliberately keep their existing validation semantics.
+    defaultContextWindow: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER),
+    defaultMaxOutputTokens: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER),
     catalog: z.record(z.string(), catalogModelSpecSchema),
     topModels: z.array(z.string()).min(1).optional(),
     visionModel: z.string().optional(),

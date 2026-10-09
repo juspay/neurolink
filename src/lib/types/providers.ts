@@ -250,9 +250,11 @@ export type NeurolinkCredentials = {
   llamacpp?: { apiKey?: string; baseURL?: string };
   // ── BEGIN GENERATED(credentials): provider catalog (pnpm run codegen:catalog) ──
   a2agent?: { apiKey?: string; baseURL?: string };
+  abliteration?: { apiKey?: string; baseURL?: string };
   aboveDev?: { apiKey?: string; baseURL?: string };
   ai21?: { apiKey?: string; baseURL?: string };
   aiand?: { apiKey?: string; baseURL?: string };
+  aihubmix?: { apiKey?: string; baseURL?: string };
   aionlabs?: { apiKey?: string; baseURL?: string };
   ambient?: { apiKey?: string; baseURL?: string };
   apiRoute?: { apiKey?: string; baseURL?: string };
@@ -298,6 +300,7 @@ export type NeurolinkCredentials = {
   modelscope?: { apiKey?: string; baseURL?: string };
   moonshotAi?: { apiKey?: string; baseURL?: string };
   morph?: { apiKey?: string; baseURL?: string };
+  naverClovaStudio?: { apiKey?: string; baseURL?: string };
   nebius?: { apiKey?: string; baseURL?: string };
   neuralwatt?: { apiKey?: string; baseURL?: string };
   novita?: { apiKey?: string; baseURL?: string };
@@ -1026,6 +1029,9 @@ export type OpenAICompatCatalogEntry = {
   /** See CatalogQuirks.replayReasoningContent — a vendor that wants each
    *  assistant turn's `reasoning_content` sent back on later requests. */
   replayReasoningContent?: boolean;
+  /** See CatalogQuirks.rejectRequiredToolChoice. Applied only to a nonempty
+   * tools request that explicitly requires a tool; no silent auto downgrade. */
+  rejectRequiredToolChoice?: boolean;
   /** See CatalogQuirks.authHeaderStyle — a vendor whose chat-completions
    *  endpoint authenticates via `X-Api-Key` instead of the inherited
    *  `Authorization: Bearer` default. */

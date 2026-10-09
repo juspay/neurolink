@@ -1,9 +1,11 @@
 // GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.
 export type CatalogProviderName =
   | "a2agent"
+  | "abliteration"
   | "above-dev"
   | "ai21"
   | "aiand"
+  | "aihubmix"
   | "aionlabs"
   | "ambient"
   | "api-route"
@@ -49,6 +51,7 @@ export type CatalogProviderName =
   | "modelscope"
   | "moonshot-ai"
   | "morph"
+  | "naver-clova-studio"
   | "nebius"
   | "neuralwatt"
   | "novita"
@@ -83,9 +86,11 @@ export type CatalogProviderName =
   | "z-ai";
 export type CatalogCredentialKey =
   | "a2agent"
+  | "abliteration"
   | "aboveDev"
   | "ai21"
   | "aiand"
+  | "aihubmix"
   | "aionlabs"
   | "ambient"
   | "apiRoute"
@@ -131,6 +136,7 @@ export type CatalogCredentialKey =
   | "modelscope"
   | "moonshotAi"
   | "morph"
+  | "naverClovaStudio"
   | "nebius"
   | "neuralwatt"
   | "novita"

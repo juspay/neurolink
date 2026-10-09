@@ -14,6 +14,10 @@
 
 > **rosterVerified**: [`CatalogProbeEvidence`](CatalogProbeEvidence.md)
 
+Historical dated evidence. Its presence does not reverify an account
+roster or live execution; the authoring admission command reports those
+states separately without changing existing catalog records.
+
 ---
 
 ### authProbe?
@@ -37,3 +41,6 @@
 ### addedInPR
 
 > **addedInPR**: `string`
+
+Introduction PR identity, or PENDING_PR during local source authoring.
+A string/URL alone is not proof of PR association, merge or release.

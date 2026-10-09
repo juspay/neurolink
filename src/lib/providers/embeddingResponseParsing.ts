@@ -12,6 +12,11 @@
  * `providerLabel` preserves each provider's exact existing message text
  * ("Voyage ..." / "Jina ...").
  */
+export const isFiniteEmbeddingVector = (value: unknown): value is number[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every((n) => typeof n === "number" && Number.isFinite(n));
+
 const isIndexedEmbedding = (
   value: unknown,
 ): value is { embedding: number[]; index: number } => {
@@ -22,11 +27,7 @@ const isIndexedEmbedding = (
     embedding?: unknown;
     index?: unknown;
   };
-  return (
-    Number.isInteger(index) &&
-    Array.isArray(embedding) &&
-    embedding.every((n) => typeof n === "number" && Number.isFinite(n))
-  );
+  return Number.isInteger(index) && isFiniteEmbeddingVector(embedding);
 };
 
 export function parseIndexedEmbeddingsResponse(

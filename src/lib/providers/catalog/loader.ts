@@ -226,6 +226,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     if (entry.quirks?.replayReasoningContent) {
       base.replayReasoningContent = true;
     }
+    if (entry.quirks?.rejectRequiredToolChoice !== undefined) {
+      base.rejectRequiredToolChoice = entry.quirks.rejectRequiredToolChoice;
+    }
     if (entry.quirks?.authHeaderStyle) {
       base.authHeaderStyle = entry.quirks.authHeaderStyle;
     }

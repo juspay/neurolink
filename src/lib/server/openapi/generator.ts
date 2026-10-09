@@ -3,6 +3,8 @@
  * Generates OpenAPI documentation from NeuroLink server routes
  */
 
+import { dump } from "js-yaml";
+
 import type {
   JsonObject,
   OpenAPIGeneratorConfig,
@@ -95,11 +97,9 @@ export class OpenAPIGenerator {
 
   /**
    * Generate OpenAPI spec as YAML string
-   * Note: For full YAML support, use a YAML library
    */
   toYAML(): string {
-    const spec = this.generate();
-    return this.jsonToYaml(spec);
+    return dump(this.generate(), { noRefs: true, lineWidth: -1 });
   }
 
   // ============================================
@@ -442,86 +442,6 @@ export class OpenAPIGenerator {
     }
 
     return params;
-  }
-
-  /**
-   * Simple JSON to YAML converter
-   * For production use, consider using a proper YAML library
-   */
-  private jsonToYaml(obj: unknown, indent: number = 0): string {
-    const spaces = "  ".repeat(indent);
-
-    if (obj === null || obj === undefined) {
-      return "null";
-    }
-
-    if (typeof obj === "boolean" || typeof obj === "number") {
-      return String(obj);
-    }
-
-    if (typeof obj === "string") {
-      // Check if string needs quotes
-      if (
-        obj.includes("\n") ||
-        obj.includes(":") ||
-        obj.includes("#") ||
-        obj.includes("'") ||
-        obj.includes('"') ||
-        obj.startsWith(" ") ||
-        obj.endsWith(" ")
-      ) {
-        // Use block scalar for multiline
-        if (obj.includes("\n")) {
-          const lines = obj.split("\n");
-          return `|\n${lines.map((line) => spaces + "  " + line).join("\n")}`;
-        }
-        return `"${obj.replace(/"/g, '\\"')}"`;
-      }
-      return obj;
-    }
-
-    if (Array.isArray(obj)) {
-      if (obj.length === 0) {
-        return "[]";
-      }
-      return obj
-        .map((item) => {
-          const itemYaml = this.jsonToYaml(item, indent + 1);
-          if (typeof item === "object" && item !== null) {
-            return `${spaces}- ${itemYaml
-              .trim()
-              .replace(/^\s+/gm, (match) => spaces + "  " + match.trim() + "\n")
-              .trim()}`;
-          }
-          return `${spaces}- ${itemYaml}`;
-        })
-        .join("\n");
-    }
-
-    if (typeof obj === "object") {
-      const entries = Object.entries(obj);
-      if (entries.length === 0) {
-        return "{}";
-      }
-      return entries
-        .map(([key, value]) => {
-          const valueYaml = this.jsonToYaml(value, indent + 1);
-          if (
-            typeof value === "object" &&
-            value !== null &&
-            !Array.isArray(value)
-          ) {
-            return `${spaces}${key}:\n${valueYaml}`;
-          }
-          if (Array.isArray(value)) {
-            return `${spaces}${key}:\n${valueYaml}`;
-          }
-          return `${spaces}${key}: ${valueYaml}`;
-        })
-        .join("\n");
-    }
-
-    return String(obj);
   }
 }
 

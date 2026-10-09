@@ -70,6 +70,6 @@
       "date": "2026-09-03",
       "result": "Full capability sweep on mercury-2: chat, stream, system_role, content_text_parts, sampling_params, tools, tools_stream, tools_roundtrip_null, tool_choice_without_tools, json_object, json_schema and tools_plus_schema all 200. The smoke-test json_schema probe (max_tokens:60) came back truncated (finish_reason=length, null content) because this diffusion model spends part of the budget on reasoning tokens before content; re-probed live with max_tokens:300 and got a clean schema-conformant reply ({\"name\":\"Lila Whitaker\",\"age\":34}, finish_reason=stop), confirming structuredOutput:true is correct. vision is 400 (text-only; rejects image_url on mercury-2, matching the vendor docs' 'Supported Formats: Text'). bad_key is 401 'Incorrect API key provided'. bad_model is 400 with an array-shaped pydantic error.message; the shared OpenAI-compat wire-error builder coerces a non-string Error message via toString, so that array becomes the literal string \"[object Object]\" and no regex pattern can match the real text \u2014 errorRules is intentionally left empty rather than shipping a rule that can never fire (see notes)."
     },
-    "addedInPR": "pending"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1625"
   }
 }

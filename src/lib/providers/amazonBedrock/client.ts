@@ -1916,6 +1916,9 @@ export class AmazonBedrockProvider extends BaseProvider {
             self.conversationHistory = outcome.result.conversation;
             metadata.finishReason = outcome.result.finishReason;
             metadata.rawFinishReason = outcome.result.rawStopReason;
+            // Read after drain by the facade's fallbackOnMaxSteps gate. Keep
+            // the engine's own outcome; raw tool_use alone is not a step cap.
+            metadata.stopReason = outcome.result.stopReason;
             streamSpan.setAttribute(
               "gen_ai.response.stop_reason",
               outcome.result.rawStopReason ?? "unknown",

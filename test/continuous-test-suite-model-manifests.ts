@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — Model Manifests
@@ -54,6 +54,9 @@ import "dotenv/config";
  * to show that an explicit row wins or that another provider's table is left
  * alone. What a Bedrock request actually carries is pinned over the wire in
  * continuous-test-suite-bedrock-loop-characterization.ts.
+ * TokenUtils' safe defaults are another compiled internal table. Exact-row
+ * precedence and malformed/opaque identifier controls require the same fixed
+ * inputs; they are covered here without adding another determinism exception.
  *
  * Run: npx tsx test/continuous-test-suite-model-manifests.ts
  *      pnpm run test:model-manifests
@@ -102,6 +105,8 @@ const { ProviderImageAdapter } =
   await import("../dist/adapters/providerImageAdapter.js");
 const { PROVIDER_MAX_TOKENS } = await import("../dist/core/constants.js");
 const { getSafeMaxTokens } = await import("../dist/utils/tokenLimits.js");
+const { TokenUtils, PROVIDER_TOKEN_LIMITS } =
+  await import("../dist/constants/tokens.js");
 
 type ManifestSample = {
   provider: string;
@@ -566,10 +571,9 @@ await test("Bedrock ids that are not a geography plus a known vendor and model k
     // One geography is removed, never two.
     ["us.us.anthropic.claude-sonnet-4-6", fallback],
     ["global.eu.anthropic.claude-opus-4-6-v1", fallback],
-    // An inference-profile ARN is not a prefixed id; this lookup does not
-    // parse ARNs, so it keeps the provider default as before.
+    // An application profile does not disclose its underlying model.
     [
-      "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.anthropic.claude-sonnet-4-6",
+      "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/opaque123456",
       fallback,
     ],
   ];
@@ -836,10 +840,9 @@ await test("Bedrock ids that are not a geography plus a known vendor and model k
     // One geography is removed, never two.
     ["us.us.amazon.nova-pro-v1:0", fallback],
     ["global.eu.amazon.nova-pro-v1:0", fallback],
-    // An inference-profile ARN is not a prefixed id; this lookup does not
-    // parse ARNs, so it keeps the provider default as before.
+    // An application profile does not disclose its underlying model.
     [
-      "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+      "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/opaque123456",
       fallback,
     ],
   ];
@@ -1182,6 +1185,175 @@ await test("a manifest-priced entry carries the legacy registry's deprecation fl
   assert(
     entry?.deprecated === true,
     "manifest-derived gpt-4 row dropped the legacy deprecated flag",
+  );
+});
+
+await test("Bedrock metadata lookups accept aws and published model-bearing ARNs without guessing opaque profiles", async () => {
+  const nova = "amazon.nova-pro-v1:0";
+  const ids = [
+    nova,
+    `us.${nova}`,
+    `arn:aws:bedrock:us-east-1::foundation-model/${nova}`,
+    `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.${nova}`,
+    `arn:aws-cn:bedrock:cn-north-1::foundation-model/${nova}`,
+  ];
+  for (const provider of ["bedrock", "aws", "AWS", "Bedrock"]) {
+    for (const id of ids) {
+      assert(
+        getContextWindowSize(provider, id) === 300_000,
+        `${provider}/${id}: lost Nova's recorded context window`,
+      );
+      for (const [requested, expected] of [
+        [undefined, 5_000],
+        [100_000, 5_000],
+        [7, 7],
+        [0, 0],
+      ] as const) {
+        assert(
+          getSafeMaxTokens(provider, id, requested) === expected,
+          `${provider}/${id}: wrong default or explicit output ceiling`,
+        );
+      }
+    }
+  }
+  const opaque = [
+    "opaque123456",
+    `arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/us.${nova}`,
+    `arn:aws:bedrock:us-east-1:123456789012:inference-profile/opaque123456`,
+    `arn:aws:bedrock:us-east-1::inference-profile/us.${nova}`,
+    `arn:aws:bedrock:us-east-1:123456789012:foundation-model/${nova}`,
+    `arn:aws:wrong:us-east-1::foundation-model/${nova}`,
+    `arn:aws-made-up:bedrock:us-east-1::foundation-model/${nova}`,
+    `arn:aws:bedrock:us-east-1::foundation-model/${nova}/extra`,
+    `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.us.${nova}`,
+  ];
+  for (const id of opaque) {
+    assert(
+      getContextWindowSize("aws", id) === 200_000 &&
+        getSafeMaxTokens("aws", id) === 64_000,
+      `${id}: guessed a model from an opaque or malformed identifier`,
+    );
+  }
+  // amazon-bedrock is not registered by the descriptor; never invent it here.
+  assert(
+    getSafeMaxTokens("amazon-bedrock", nova) === undefined,
+    "metadata lookup invented an unsupported public provider alias",
+  );
+});
+
+await test("TokenUtils safe defaults preserve all supplied Bedrock geographies and aws aliases", async () => {
+  const claude = "anthropic.claude-sonnet-4-5-20250929-v1:0";
+  assert(
+    PROVIDER_TOKEN_LIMITS.BEDROCK[claude] !==
+      Number(PROVIDER_TOKEN_LIMITS.BEDROCK.default),
+    "safe token row equals default; this proof cannot detect a missed lookup",
+  );
+  const ids = [
+    claude,
+    ...BEDROCK_GEO_PREFIXES.map((prefix) => `${prefix}.${claude}`),
+    `arn:aws:bedrock:us-east-1::foundation-model/${claude}`,
+    `arn:aws-us-gov:bedrock:us-gov-west-1:123456789012:inference-profile/us-gov.${claude}`,
+  ];
+  for (const provider of ["bedrock", "aws", "AWS"]) {
+    for (const id of ids) {
+      assert(
+        TokenUtils.getProviderTokenLimit(provider, id) === 8_192,
+        `${provider}/${id}: lost recorded safe token default`,
+      );
+    }
+    for (const id of [
+      `us.us.${claude}`,
+      `xx.${claude}`,
+      `arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/us.${claude}`,
+      "us.acme.unknown",
+    ]) {
+      assert(
+        TokenUtils.getProviderTokenLimit(provider, id) === 4_096,
+        `${provider}/${id}: changed unknown-identifier fallback`,
+      );
+    }
+  }
+  assert(
+    TokenUtils.getProviderTokenLimit("openai", "gpt-4o") === 16_384,
+    "an unrelated provider's safe default changed",
+  );
+});
+
+await test("Bedrock original ARN rows and discovered limits win through aws aliases", async () => {
+  const arn =
+    "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0";
+  const contexts = MODEL_CONTEXT_WINDOWS.bedrock;
+  const outputs = perModelTable("bedrock");
+  const safe = PROVIDER_TOKEN_LIMITS.BEDROCK as Record<string, number>;
+  try {
+    contexts[arn] = 456_000;
+    outputs[arn] = 1_234;
+    safe[arn] = 2_345;
+    assert(
+      getContextWindowSize("aws", arn) === 456_000 &&
+        getSafeMaxTokens("aws", arn) === 1_234 &&
+        TokenUtils.getProviderTokenLimit("aws", arn) === 2_345,
+      "the model embedded in an ARN shadowed the original identifier's row",
+    );
+    registerRuntimeContextWindow("bedrock", arn, 777_000);
+    registerRuntimeOutputCeiling("bedrock", arn, 777);
+    assert(
+      getContextWindowSize("aws", arn) === 777_000 &&
+        getSafeMaxTokens("aws", arn) === 777,
+      "the aws alias lost discovered limits for the exact ARN",
+    );
+    registerRuntimeContextWindow("aws", arn, 888_000);
+    registerRuntimeOutputCeiling("aws", arn, 888);
+    assert(
+      getContextWindowSize("aws", arn) === 888_000 &&
+        getSafeMaxTokens("aws", arn) === 888,
+      "canonical discovered limits shadowed the caller's exact alias identity",
+    );
+  } finally {
+    delete contexts[arn];
+    delete outputs[arn];
+    delete safe[arn];
+    clearRuntimeContextWindows();
+    clearRuntimeOutputCeilings();
+  }
+});
+
+await test("Executable Bedrock manifest aliases preserve their canonical metadata and safe defaults", async () => {
+  for (const [alias, canonical, context, output] of [
+    ["nova-pro", "amazon.nova-pro-v1:0", 300_000, 5_000],
+    ["NOVA-PRO", "amazon.nova-pro-v1:0", 300_000, 5_000],
+    ["aws-balanced", "amazon.nova-pro-v1:0", 300_000, 5_000],
+    ["aws-flagship", "amazon.nova-premier-v1:0", 1_000_000, 25_000],
+  ] as const) {
+    for (const provider of ["bedrock", "aws"]) {
+      assert(
+        getContextWindowSize(provider, alias) === context,
+        `${provider}/${alias}: context metadata missed its executable identity`,
+      );
+      for (const [requested, expected] of [
+        [undefined, output],
+        [100_000, output],
+        [7, 7],
+        [0, 0],
+      ] as const) {
+        assert(
+          getSafeMaxTokens(provider, alias, requested) === expected,
+          `${provider}/${alias}: output default or override missed its executable identity`,
+        );
+      }
+      assert(
+        TokenUtils.getProviderTokenLimit(provider, alias) ===
+          TokenUtils.getProviderTokenLimit("bedrock", canonical),
+        `${provider}/${alias}: safe default differs from the canonical model`,
+      );
+    }
+  }
+  // This legacy safe row differs from the provider default, so an alias miss
+  // cannot hide behind two identical conservative values as it can for Nova.
+  assert(
+    TokenUtils.getProviderTokenLimit("aws", "bedrock-claude-flagship") ===
+      8_192,
+    "the executable Claude manifest alias missed its recorded safe token row",
   );
 });
 

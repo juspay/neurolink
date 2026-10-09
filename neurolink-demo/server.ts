@@ -4,7 +4,8 @@
  * A comprehensive Express.js server showcasing NeuroLink's capabilities:
  */
 
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "node:module";
 import path from "path";
 import dotenv from "dotenv";
 import express, { Request, Response, NextFunction } from "express";
@@ -23,6 +24,141 @@ const neurolink = new NeuroLink();
 function sanitizeForLog(value: string): string {
   // Strip control characters (U+0000-U+001F) and newlines for log injection prevention
   return value.replace(/[\r\n\u0000-\u001f]/g, "");
+}
+
+function evaluateMathExpression(expression: string): number {
+  if (expression.length > 2048) {
+    throw new Error("Expression is too long");
+  }
+  const functions: Record<string, (...args: number[]) => number> = {
+    abs: Math.abs,
+    ceil: Math.ceil,
+    floor: Math.floor,
+    round: Math.round,
+    sqrt: Math.sqrt,
+    pow: Math.pow,
+    sin: Math.sin,
+    cos: Math.cos,
+    tan: Math.tan,
+    log: Math.log,
+    exp: Math.exp,
+    min: Math.min,
+    max: Math.max,
+  };
+  let offset = 0;
+  let depth = 0;
+  function spaces(): void {
+    while (/\s/.test(expression[offset] ?? "") && offset < expression.length)
+      offset++;
+  }
+  function nested(parse: () => number): number {
+    if (++depth > 64) throw new Error("Expression is nested too deeply");
+    try {
+      return parse();
+    } finally {
+      depth--;
+    }
+  }
+  function primary(): number {
+    spaces();
+    if (expression[offset] === "(") {
+      offset++;
+      const value = nested(additive);
+      spaces();
+      if (expression[offset++] !== ")")
+        throw new Error("Expected closing parenthesis");
+      return value;
+    }
+    const literal = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/.exec(
+      expression.slice(offset),
+    );
+    if (literal) {
+      offset += literal[0].length;
+      return Number(literal[0]);
+    }
+    const name = /^Math\.([A-Za-z]+)/.exec(expression.slice(offset));
+    if (!name)
+      throw new Error("Expected a number, parenthesis, or supported Math name");
+    offset += name[0].length;
+    if (name[1] === "PI") return Math.PI;
+    if (name[1] === "E") return Math.E;
+    if (!Object.hasOwn(functions, name[1]))
+      throw new Error("Unsupported Math function");
+    spaces();
+    if (expression[offset++] !== "(")
+      throw new Error("Expected function arguments");
+    const args: number[] = [];
+    spaces();
+    if (expression[offset] !== ")") {
+      while (true) {
+        if (args.length === 32) throw new Error("Too many function arguments");
+        args.push(nested(additive));
+        spaces();
+        if (expression[offset] !== ",") break;
+        offset++;
+      }
+    }
+    if (expression[offset++] !== ")")
+      throw new Error("Expected closing parenthesis");
+    if (
+      name[1] === "pow"
+        ? args.length !== 2
+        : !["min", "max"].includes(name[1]) && args.length !== 1
+    ) {
+      throw new Error("Incorrect number of function arguments");
+    }
+    return functions[name[1]](...args);
+  }
+  function power(): number {
+    const base = primary();
+    spaces();
+    if (expression.slice(offset, offset + 2) !== "**") return base;
+    offset += 2;
+    return Math.pow(base, nested(unary));
+  }
+  function unary(): number {
+    spaces();
+    const sign = expression[offset];
+    if (sign === "+" || sign === "-") {
+      offset++;
+      const value = nested(unary);
+      return sign === "-" ? -value : value;
+    }
+    return power();
+  }
+  function multiplicative(): number {
+    let value = unary();
+    while (true) {
+      spaces();
+      const operator = expression[offset];
+      if (!["*", "/", "%"].includes(operator ?? "")) return value;
+      offset++;
+      const right = unary();
+      value =
+        operator === "*"
+          ? value * right
+          : operator === "/"
+            ? value / right
+            : value % right;
+    }
+  }
+  function additive(): number {
+    let value = multiplicative();
+    while (true) {
+      spaces();
+      const operator = expression[offset];
+      if (operator !== "+" && operator !== "-") return value;
+      offset++;
+      const right = multiplicative();
+      value = operator === "+" ? value + right : value - right;
+    }
+  }
+  const value = additive();
+  spaces();
+  if (offset !== expression.length)
+    throw new Error("Unexpected expression input");
+  if (!Number.isFinite(value)) throw new Error("Math result must be finite");
+  return value;
 }
 
 // ================================
@@ -1338,6 +1474,20 @@ app.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { text, length = "medium" } = req.body;
 
+    if (
+      typeof text !== "string" ||
+      !text.trim() ||
+      typeof length !== "string" ||
+      !["brief", "medium", "detailed"].includes(length)
+    ) {
+      res
+        .status(400)
+        .json(
+          createErrorResponse("Text and a valid summary length are required"),
+        );
+      return;
+    }
+
     const summaryPrompts = {
       brief: `Summarize this text in 1-2 concise sentences: ${text}`,
       medium: `Provide a comprehensive paragraph summary of this text: ${text}`,
@@ -1828,8 +1978,12 @@ app.post(
         const textLower = chunk.text.toLowerCase();
         let score = 0;
         for (const term of queryTerms) {
-          const matches = (textLower.match(new RegExp(term, "g")) || []).length;
-          score += matches;
+          // Query terms are literal text, including punctuation such as C++.
+          let offset = 0;
+          while ((offset = textLower.indexOf(term, offset)) !== -1) {
+            score++;
+            offset += term.length;
+          }
         }
         return { ...chunk, score };
       });
@@ -2520,25 +2674,28 @@ app.post(
     } = req.body;
 
     // If videoUrl provided, fetch it server-side and convert to base64
-    if (!videoBase64 && req.body.videoUrl) {
-      const videoUrl = req.body.videoUrl as string;
-      console.log(`[Video] Fetching video from URL: ${videoUrl}`);
+    if (!videoBase64 && req.body.videoUrl !== undefined) {
+      const videoUrl = req.body.videoUrl;
+      if (typeof videoUrl !== "string" || !videoUrl.trim()) {
+        res
+          .status(400)
+          .json(createErrorResponse("Video URL must be a non-empty string"));
+        return;
+      }
+      console.log("[Video] Fetching guarded video URL");
       try {
-        const urlResponse = await fetch(videoUrl, {
-          signal: AbortSignal.timeout(30000),
+        // Reuse the approved download policy from this demo's actual SDK
+        // installation: HTTPS/public destinations, pinned DNS, no redirects.
+        const sdkEntry = createRequire(import.meta.url).resolve("neurolink");
+        const safeFetchUrl = pathToFileURL(
+          path.join(path.dirname(sdkEntry), "utils", "safeFetch.js"),
+        );
+        const { safeDownload } = await import(safeFetchUrl.href);
+        const buffer = await safeDownload(videoUrl, {
+          maxBytes: 20 * 1024 * 1024,
+          timeoutMs: 30000,
+          label: "demo video URL",
         });
-        if (!urlResponse.ok) {
-          res
-            .status(400)
-            .json(
-              createErrorResponse(
-                `Failed to fetch video URL: HTTP ${urlResponse.status}`,
-              ),
-            );
-          return;
-        }
-        const arrayBuffer = await urlResponse.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
         req.body.videoBase64 = buffer.toString("base64");
       } catch (fetchErr) {
         res
@@ -2554,7 +2711,7 @@ app.post(
 
     const resolvedVideoBase64: string = req.body.videoBase64;
 
-    if (!resolvedVideoBase64) {
+    if (typeof resolvedVideoBase64 !== "string" || !resolvedVideoBase64) {
       res
         .status(400)
         .json(
@@ -3989,52 +4146,15 @@ app.post(
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { expression } = req.body;
 
-    if (!expression) {
+    if (typeof expression !== "string" || !expression.trim()) {
       res.status(400).json(createErrorResponse("Math expression is required"));
       return;
     }
 
-    console.log(`[Math] Evaluating: ${expression}`);
+    console.log(`[Math] Evaluating: ${sanitizeForLog(expression)}`);
 
     try {
-      // Safe math evaluation - only allow basic operations and Math functions
-      const allowedMathFunctions = [
-        "Math.abs",
-        "Math.ceil",
-        "Math.floor",
-        "Math.round",
-        "Math.sqrt",
-        "Math.pow",
-        "Math.sin",
-        "Math.cos",
-        "Math.tan",
-        "Math.log",
-        "Math.exp",
-        "Math.PI",
-        "Math.E",
-        "Math.min",
-        "Math.max",
-      ];
-
-      let safeExpression = expression;
-      let hasMathFunction = false;
-
-      for (const func of allowedMathFunctions) {
-        if (expression.includes(func)) {
-          hasMathFunction = true;
-        }
-      }
-
-      // Check for dangerous patterns
-      const dangerousPatterns =
-        /[;{}[\]]|eval|Function|require|import|process|global/;
-      if (dangerousPatterns.test(expression)) {
-        res.status(400).json(createErrorResponse("Unsafe expression detected"));
-        return;
-      }
-
-      // Use Function constructor for safe evaluation
-      const result = new Function(`'use strict'; return (${expression})`)();
+      const result = evaluateMathExpression(expression);
 
       res.json(
         createSuccessResponse({
@@ -4687,7 +4807,17 @@ app.post(
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { serverName, toolName, params = {} } = req.body;
 
-    if (!serverName || !toolName) {
+    if (
+      typeof serverName !== "string" ||
+      !serverName.trim() ||
+      serverName.startsWith("-") ||
+      typeof toolName !== "string" ||
+      !toolName.trim() ||
+      toolName.startsWith("-") ||
+      !params ||
+      typeof params !== "object" ||
+      Array.isArray(params)
+    ) {
       res
         .status(400)
         .json(createErrorResponse("Server name and tool name are required"));

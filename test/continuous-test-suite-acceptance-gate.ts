@@ -856,6 +856,7 @@ async function main(): Promise<void> {
                 row.model,
                 "--quiet",
                 "--disableTools",
+                "--disable-internal-fallback",
                 "--format",
                 "json",
               ],

@@ -1,3 +1,5 @@
+import { bedrockModelIdForLookup } from "./bedrockIdentifiers.js";
+
 /**
  * Token Limit Constants for NeuroLink
  *
@@ -313,6 +315,7 @@ export const TokenUtils = {
       case "vertex":
         providerLimits = PROVIDER_TOKEN_LIMITS.VERTEX;
         break;
+      case "aws":
       case "bedrock":
         providerLimits = PROVIDER_TOKEN_LIMITS.BEDROCK;
         break;
@@ -337,6 +340,16 @@ export const TokenUtils = {
 
     if (model && providerLimits[model]) {
       return providerLimits[model];
+    }
+
+    if (
+      model &&
+      (normalizedProvider === "bedrock" || normalizedProvider === "aws")
+    ) {
+      const lookupModel = bedrockModelIdForLookup(model);
+      if (lookupModel !== undefined) {
+        return TokenUtils.getProviderTokenLimit("bedrock", lookupModel);
+      }
     }
 
     return providerLimits.default || PROVIDER_TOKEN_LIMITS.DEFAULT;

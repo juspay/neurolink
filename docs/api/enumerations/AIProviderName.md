@@ -100,6 +100,12 @@ Supported AI Provider Names
 
 ---
 
+### ABLITERATION
+
+> **ABLITERATION**: `"abliteration"`
+
+---
+
 ### ABOVE_DEV
 
 > **ABOVE_DEV**: `"above-dev"`
@@ -115,6 +121,12 @@ Supported AI Provider Names
 ### AIAND
 
 > **AIAND**: `"aiand"`
+
+---
+
+### AIHUBMIX
+
+> **AIHUBMIX**: `"aihubmix"`
 
 ---
 
@@ -385,6 +397,12 @@ Supported AI Provider Names
 ### MORPH
 
 > **MORPH**: `"morph"`
+
+---
+
+### NAVER_CLOVA_STUDIO
+
+> **NAVER_CLOVA_STUDIO**: `"naver-clova-studio"`
 
 ---
 

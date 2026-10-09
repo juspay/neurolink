@@ -627,31 +627,59 @@ await test("5.2 — decide() throws a clear error with no provider configured", 
 });
 
 await test("5.3 — a rejected key classifies as authentication", async () => {
-  let kind: string | undefined;
-  try {
-    await new NeuroLink().decide({
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    let kind: string | undefined;
+    try {
+      await new NeuroLink().decide({
+        state: "anything",
+        questions: { q: { type: "boolean", instructions: "Is this true?" } },
+        provider: "typesafe",
+        credentials: {
+          typesafe: {
+            apiKey: "apikey_definitely_not_valid",
+            baseURL,
+            transport: "direct",
+          },
+        },
+      });
+    } catch (error) {
+      kind = (error as { cause?: { kind?: string } }).cause?.kind;
+    }
+    assert(bearers.length === 1, "the owned rejection must be requested once");
+    assert(
+      kind === "authentication",
+      "a bad key must classify as authentication",
+    );
+  });
+});
+
+/** Mandatory auth controls use an owned response; vendor acceptance is separate. */
+function withRejectedDecisionKey<T>(
+  run: (baseURL: string, bearers: readonly string[]) => Promise<T>,
+): Promise<T> {
+  return withGateway(
+    () => ({ status: 401, body: { error: { message: "Invalid API key" } } }),
+    run,
+  );
+}
+
+await test("5.4 — tryDecide() swallows a rejected key", async () => {
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    const result = await new NeuroLink().tryDecide({
       state: "anything",
       questions: { q: { type: "boolean", instructions: "Is this true?" } },
       provider: "typesafe",
-      credentials: { typesafe: { apiKey: "apikey_definitely_not_valid" } },
+      credentials: {
+        typesafe: {
+          apiKey: "apikey_definitely_not_valid",
+          baseURL,
+          transport: "direct",
+        },
+      },
     });
-  } catch (error) {
-    kind = (error as { cause?: { kind?: string } }).cause?.kind;
-  }
-  assert(
-    kind === "authentication",
-    "a bad key must classify as authentication",
-  );
-});
-
-await test("5.4 — tryDecide() swallows a rejected key", async () => {
-  const result = await new NeuroLink().tryDecide({
-    state: "anything",
-    questions: { q: { type: "boolean", instructions: "Is this true?" } },
-    provider: "typesafe",
-    credentials: { typesafe: { apiKey: "apikey_definitely_not_valid" } },
+    assert(bearers.length === 1, "the owned rejection must be requested once");
+    assert(result === null, "a rejected key must degrade to null, not throw");
   });
-  assert(result === null, "a rejected key must degrade to null, not throw");
 });
 
 await test("5.5 — an oversized state is classified, not thrown raw", async () => {
@@ -788,19 +816,43 @@ await test("6.2 — with a key the router upgrades to the decision model", async
 });
 
 await test("6.3 — an invalid key degrades silently to the heuristic", async () => {
-  process.env.TYPESAFE_API_KEY = "apikey_definitely_not_valid";
-  const nl = new NeuroLink();
-  const router = new ClassifierRouter(
-    { enabled: true, pool: POOL },
-    { decide: (o) => nl.tryDecide(o) },
-  );
-  const decision = await router.route({ prompt: HARD_PROMPT });
-  assert(decision !== null, "a broken key must never block routing");
-  assert(
-    decision!.reason?.startsWith("heuristic") === true,
-    "a rejected key must fall through to the heuristic, not surface an error",
-  );
-  restoreEnv();
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    // ClassifierRouter's standalone default-provider detection reads env,
+    // while the injected caller uses NeuroLink's explicit local credentials.
+    const savedKey = process.env.TYPESAFE_API_KEY;
+    process.env.TYPESAFE_API_KEY = "apikey_definitely_not_valid";
+    try {
+      const nl = new NeuroLink({
+        credentials: {
+          typesafe: {
+            apiKey: "apikey_definitely_not_valid",
+            baseURL,
+            transport: "direct",
+          },
+        },
+      });
+      const router = new ClassifierRouter(
+        { enabled: true, pool: POOL },
+        { decide: (o) => nl.tryDecide(o) },
+      );
+      const decision = await router.route({ prompt: HARD_PROMPT });
+      assert(decision !== null, "a broken key must never block routing");
+      assert(
+        decision!.reason?.startsWith("heuristic") === true,
+        "a rejected key must fall through to the heuristic, not surface an error",
+      );
+      assert(
+        bearers.length === 1,
+        "the router never received its owned rejection",
+      );
+    } finally {
+      if (savedKey === undefined) {
+        delete process.env.TYPESAFE_API_KEY;
+      } else {
+        process.env.TYPESAFE_API_KEY = savedKey;
+      }
+    }
+  });
 });
 
 await test("6.4 — no injected decide fn ⇒ heuristic, even with a key", async () => {
@@ -1985,49 +2037,71 @@ await test("13.4 — a decision is NOT counted as a generation", async () => {
 });
 
 await test("13.5 — a failed decision records an ERROR span, not silence", async () => {
-  restoreEnv();
-  process.env.TYPESAFE_API_KEY = "apikey_definitely-not-a-valid-key";
-  const nl = new NeuroLink();
-  nl.resetMetrics();
-  let threw = false;
-  try {
-    await nl.decide({
-      state: "x",
-      questions: { q: { type: "boolean", instructions: "?" } },
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    const nl = new NeuroLink({
+      credentials: {
+        typesafe: {
+          apiKey: "apikey_definitely-not-a-valid-key",
+          baseURL,
+          transport: "direct",
+        },
+      },
     });
-  } catch {
-    threw = true;
-  }
-  restoreEnv();
-  assert(threw, "an invalid key did not surface an error from decide()");
-  const spans = nl.getSpans().filter((s) => s.type === "model.decision");
-  assert(spans.length === 1, "a failed decision recorded no span");
-  assert(
-    spans[0]!.status === 2,
-    "a failed decision was not recorded with ERROR status",
-  );
+    nl.resetMetrics();
+    let threw = false;
+    try {
+      await nl.decide({
+        state: "x",
+        questions: { q: { type: "boolean", instructions: "?" } },
+      });
+    } catch {
+      threw = true;
+    }
+    assert(
+      bearers.length === 1,
+      "the telemetry control never reached its owned rejection",
+    );
+    assert(threw, "an invalid key did not surface an error from decide()");
+    const spans = nl.getSpans().filter((s) => s.type === "model.decision");
+    assert(spans.length === 1, "a failed decision recorded no span");
+    assert(
+      spans[0]!.status === 2,
+      "a failed decision was not recorded with ERROR status",
+    );
+  });
 });
 
 await test("13.6 — tryDecide stays silent to callers but not to telemetry", async () => {
-  restoreEnv();
-  process.env.TYPESAFE_API_KEY = "apikey_definitely-not-a-valid-key";
-  const nl = new NeuroLink();
-  nl.resetMetrics();
-  const result = await nl.tryDecide({
-    state: "x",
-    questions: { q: { type: "boolean", instructions: "?" } },
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    const nl = new NeuroLink({
+      credentials: {
+        typesafe: {
+          apiKey: "apikey_definitely-not-a-valid-key",
+          baseURL,
+          transport: "direct",
+        },
+      },
+    });
+    nl.resetMetrics();
+    const result = await nl.tryDecide({
+      state: "x",
+      questions: { q: { type: "boolean", instructions: "?" } },
+    });
+    assert(
+      bearers.length === 1,
+      "the swallowed failure never reached its owned rejection",
+    );
+    // This is the pairing that makes a fail-open design operable: the caller
+    // sees null and carries on, while the failure is still recorded. Without
+    // the span, a decision path that quietly stopped working would be
+    // indistinguishable from one that was never configured.
+    assert(result === null, "tryDecide surfaced a failure to its caller");
+    const spans = nl.getSpans().filter((s) => s.type === "model.decision");
+    assert(
+      spans.length === 1 && spans[0]!.status === 2,
+      "a swallowed failure left no trace in telemetry",
+    );
   });
-  restoreEnv();
-  // This is the pairing that makes a fail-open design operable: the caller
-  // sees null and carries on, while the failure is still recorded. Without
-  // the span, a decision path that quietly stopped working would be
-  // indistinguishable from one that was never configured.
-  assert(result === null, "tryDecide surfaced a failure to its caller");
-  const spans = nl.getSpans().filter((s) => s.type === "model.decision");
-  assert(
-    spans.length === 1 && spans[0]!.status === 2,
-    "a swallowed failure left no trace in telemetry",
-  );
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -2361,41 +2435,30 @@ await test("15.4 — --format json keeps diagnostics off stdout, even with --deb
 });
 
 await test("15.5 — a provider error keeps the provider's own detail", async () => {
-  // Same network call as 5.3: a key the service rejects, no real key needed.
-  const result = await runCLI(
-    ["decide", "some state", "--questions", ONE_QUESTION],
-    {
-      env: {
-        TYPESAFE_API_KEY: "apikey_definitely_not_valid",
-        AI_GATEWAY_API_KEY: "",
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    const result = await runCLI(
+      ["decide", "some state", "--questions", ONE_QUESTION],
+      {
+        env: {
+          TYPESAFE_API_KEY: "apikey_definitely_not_valid",
+          TYPESAFE_BASE_URL: baseURL,
+          TYPESAFE_TRANSPORT: "direct",
+          AI_GATEWAY_API_KEY: "",
+        },
+        timeoutMs: 60_000,
       },
-      timeoutMs: 60_000,
-    },
-  );
-  assert(result.exitCode !== 0, "a rejected key must exit non-zero");
-  // Only a key rejection can be judged here. When the service is slow or
-  // overloaded it answers with a transient error instead, which says nothing
-  // about how the CLI reports a rejection — so that run is skipped, not failed.
-  const TRANSIENT_REPLIES = [
-    "timed out",
-    "rate-limiting",
-    "overloaded",
-    "network error",
-    "server error",
-  ];
-  if (TRANSIENT_REPLIES.some((phrase) => result.stderr.includes(phrase))) {
-    throw new Error(
-      "SKIP: the decision service returned a transient error, not a key rejection",
     );
-  }
-  assert(
-    /Error: Authentication failed[^\n]*\(.+\)/.test(result.stderr),
-    "the rejected-credential message lost the provider's detail",
-  );
-  assert(
-    !looksLikeStackTrace(result.stdout + result.stderr),
-    "the rejected-credential message printed a stack trace",
-  );
+    assert(bearers.length === 1, "the CLI never reached its owned rejection");
+    assert(result.exitCode !== 0, "a rejected key must exit non-zero");
+    assert(
+      /Error: Authentication failed[^\n]*\(.+\)/.test(result.stderr),
+      "the rejected-credential message lost the provider's detail",
+    );
+    assert(
+      !looksLikeStackTrace(result.stdout + result.stderr),
+      "the rejected-credential message printed a stack trace",
+    );
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -4380,7 +4443,33 @@ function requestedPerplexityModel(): string {
   return process.env.PERPLEXITY_DECIDER_MODEL?.trim() || "pplx-decider-v1-27b";
 }
 
-await test("18.27 — a rejected key reaches the real API and comes back as authentication, sent once", async () => {
+await test("18.27 — an owned rejection is authentication and is sent once", async () => {
+  await withRejectedDecisionKey(async (baseURL, bearers) => {
+    const failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: {
+          perplexityDecider: { apiKey: "pplx-owned-rejection-key", baseURL },
+        },
+      }).decide({
+        provider: "perplexity-decider",
+        state: "x",
+        questions: PERPLEXITY_ONE_QUESTION,
+      }),
+    );
+    assert(bearers.length === 1, "the owned rejection must be requested once");
+    assert(
+      failure?.kind === "authentication" && failure.status === 401,
+      "the owned rejection must preserve authentication and its status",
+    );
+    assert(
+      failure.retryable === false,
+      "an authentication rejection must not retry",
+    );
+  });
+});
+
+await test("18.27a — live: a rejected key reaches the real API and comes back as authentication, sent once", async () => {
+  requirePerplexityKey();
   // Needs no credential of ours: the point is that the API's own 401 maps to
   // `authentication` and that it is not retried. Whether a repeated key is
   // stripped is 18.26b: this API's 401 never repeats it, so nothing here shows it.

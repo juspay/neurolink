@@ -36,7 +36,13 @@
  *        read. Nothing enforced it before: cerebras shipped in #1561 and
  *        the capability sweep simply did not cover it.
  *
- * Zero network I/O, zero API keys, source-only — does not require
+ * The default gate is source completeness only: a dated evidence field or
+ * PR URL is not current roster, live execution or merged provenance proof.
+ * --catalog-stage draft/source stays offline. The explicitly selected
+ * review/merged stages read GitHub introduction metadata; see
+ * docs/provider-integration/catalog-admission.md.
+ *
+ * Default: zero network I/O, zero API keys, source-only — does not require
  * `pnpm run build` first (see docs/provider-integration/tiers/README.md
  * and this repo's tools/README notes on why: PROVIDER_DESCRIPTORS,
  * OPENAI_COMPAT_CATALOG, and the catalog JSON + zod schema are all
@@ -52,6 +58,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isMockedSectionSatisfied } from "./provider-onboarding-marker.js";
 import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
+import { validateCatalogIntroductionReference } from "./catalog-admission.js";
 
 const REPO_ROOT = process.cwd();
 
@@ -355,7 +362,8 @@ function checkCatalogProvider(provider: string): CatalogCheck {
   }
 
   try {
-    parseProviderCatalogJson(parsed, path);
+    const entry = parseProviderCatalogJson(parsed, path);
+    validateCatalogIntroductionReference(entry.evidence.addedInPR);
   } catch (err) {
     return {
       ok: false,
@@ -445,6 +453,9 @@ function loadManifest(provider: string): ManifestCheck {
 }
 
 async function main(): Promise<void> {
+  console.log(
+    "Scope: source completeness only; PR association/merge, current roster, package and live execution are not verified.",
+  );
   const enumMemberMap = await loadEnumMemberMap();
   const [descriptors, catalog] = await Promise.all([
     loadDescriptors(),
@@ -536,7 +547,7 @@ async function main(): Promise<void> {
     console.log("No new (post-legacy) providers to check.");
   } else {
     console.log(
-      `\n${results.length - failures.length}/${results.length} new providers fully onboarded.`,
+      `\n${results.length - failures.length}/${results.length} new provider records are source-complete.`,
     );
   }
   if (failures.length > 0) {
@@ -547,7 +558,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
+(process.argv.some(
+  (arg) => arg === "--catalog-stage" || arg.startsWith("--catalog-stage="),
+)
+  ? import("./catalog-admission.js").then(({ runCatalogAdmission }) =>
+      runCatalogAdmission(process.argv.slice(2)),
+    )
+  : main()
+).catch((err: unknown) => {
   console.error("verify-provider-onboarding crashed:", err);
   process.exit(1);
 });

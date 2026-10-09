@@ -35,7 +35,9 @@
  * env script`): the post-apply note, the model-id default and the env script
  * content are read from what `proxy start` prints and writes in a throwaway
  * HOME that `startProxyForTests({ seed })` stages, so a `dist` whose CLI stops
- * doing this fails them. What stays on the exception for Copilot is what a live `proxy
+ * doing this fails them. The built-CLI profile composition case also covers
+ * false source mentions and quoted-HOME sourcing through six owned launches.
+ * What stays on the exception for Copilot is what a live `proxy
  * start` does not exercise (absent-CLI detection, restore removing the script)
  * or would exercise only at one spawned proxy per input: `Copilot only counts a
  * profile line that really sources its script` writes arbitrary profile texts
@@ -5741,6 +5743,76 @@ async function testCopilotReportsWhenItsScriptIsNotSourced(): Promise<boolean> {
   } finally {
     await stopProxyForTests(sourced);
   }
+}
+
+/** Each profile must affect the actual built CLI's outstanding-action note. */
+async function testCopilotBuiltCliProfileComposition(): Promise<boolean> {
+  const cases = [
+    {
+      name: "comment only",
+      profile: "# . ~/.neurolink/copilot-env.sh\n",
+      sourced: false,
+    },
+    {
+      name: "existence check only",
+      profile: "[ -f ~/.neurolink/copilot-env.sh ]\n",
+      sourced: false,
+    },
+    {
+      name: "echo followed by comment",
+      profile: "echo ready # source ~/.neurolink/copilot-env.sh\n",
+      sourced: false,
+    },
+    {
+      name: "echo of source word",
+      profile: "echo source ~/.neurolink/copilot-env.sh\n",
+      sourced: false,
+    },
+    {
+      name: "backup script suffix",
+      profile: ". ~/.neurolink/copilot-env.sh.bak\n",
+      sourced: false,
+    },
+    {
+      name: "quoted HOME source",
+      profile: 'source "$HOME/.neurolink/copilot-env.sh"\n',
+      sourced: true,
+    },
+  ];
+  for (const candidate of cases) {
+    const proxy = await startCopilotProxy(candidate.profile);
+    if (proxy === null) {
+      return false;
+    }
+    try {
+      if (
+        fs.readFileSync(path.join(proxy.home, ".zshrc"), "utf8") !==
+        candidate.profile
+      ) {
+        log(`built CLI profile fixture changed: ${candidate.name}`, "red");
+        return false;
+      }
+      const output = proxy.output();
+      if (
+        !output.includes("Auto-configured Copilot CLI settings") ||
+        readCopilotEnvScript(proxy) === null
+      ) {
+        log(`built CLI did not stage Copilot: ${candidate.name}`, "red");
+        return false;
+      }
+      const outstandingAction = output.includes(
+        "Add this line to your shell profile",
+      );
+      if (outstandingAction === candidate.sourced) {
+        log(`built CLI source note incorrect: ${candidate.name}`, "red");
+        return false;
+      }
+      log(`built CLI profile verified: ${candidate.name}`, "green");
+    } finally {
+      await stopProxyForTests(proxy);
+    }
+  }
+  return true;
 }
 
 /**
@@ -15955,6 +16027,11 @@ const tests: TestFunction[] = [
     category: "proxy-infra",
   },
   {
+    name: "Proxy clients: Copilot built CLI composes false mentions and real profile sourcing",
+    fn: testCopilotBuiltCliProfileComposition,
+    category: "proxy-infra",
+  },
+  {
     name: "Proxy clients: Copilot only counts a profile line that really sources its script",
     fn: testCopilotOnlyCountsAProfileThatSourcesItsScript,
     category: "proxy-config",
@@ -16256,7 +16333,18 @@ async function runAllTests(): Promise<void> {
   log(`Credential check: ${credStatus}\n`, "cyan");
 
   try {
-    for (const test of tests) {
+    const selectedTests = process.argv.includes(
+      "--copilot-profile-composition-only",
+    )
+      ? tests.filter((test) =>
+          [
+            testCopilotReportsWhenItsScriptIsNotSourced,
+            testCopilotOnlyCountsAProfileThatSourcesItsScript,
+            testCopilotBuiltCliProfileComposition,
+          ].some((fn) => fn === test.fn),
+        )
+      : tests;
+    for (const test of selectedTests) {
       // If startup detected a launchd-managed local proxy, every downstream
       // test would FAIL with "fetch failed" — skip them all so the result is
       // SKIP instead of cascading FAILs.

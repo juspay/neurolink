@@ -310,6 +310,20 @@ counts as unset.
 
 ---
 
+### abliteration?
+
+> `optional` **abliteration?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### aboveDev?
 
 > `optional` **aboveDev?**: `object`
@@ -341,6 +355,20 @@ counts as unset.
 ### aiand?
 
 > `optional` **aiand?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### aihubmix?
+
+> `optional` **aihubmix?**: `object`
 
 #### apiKey?
 
@@ -975,6 +1003,20 @@ counts as unset.
 ### morph?
 
 > `optional` **morph?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
+### naverClovaStudio?
+
+> `optional` **naverClovaStudio?**: `object`
 
 #### apiKey?
 

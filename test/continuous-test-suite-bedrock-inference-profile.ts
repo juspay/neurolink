@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — Bedrock cross-region inference profiles
@@ -24,10 +24,16 @@ import "dotenv/config";
 import { createServer, type Http2Server } from "node:http2";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  startLocalBedrock,
+  userTextOnWire,
+} from "./helpers/bedrockLocalEndpoint.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Bedrock Inference Profiles");
+const { test, runSuite } = defineSuite("Bedrock Inference Profiles", {
+  offline: true,
+});
 
 const { NeuroLink } = await import("../dist/index.js");
 
@@ -327,6 +333,442 @@ await test("A model ARN is never rewritten into a prefixed id", async () => {
     );
   } finally {
     restore();
+    await server.close();
+  }
+});
+
+await test("An existing in. or us-gov. profile is preserved on both generate and stream errors", async () => {
+  // Recognition does not imply support for a model/region pair. This stand-in
+  // rejects both supplied IDs; the contract is that their error remains theirs,
+  // instead of being replaced by a fabricated us.in.* or global.us-gov.* ID.
+  for (const id of [
+    "in.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "us-gov.anthropic.claude-haiku-4-5-20251001-v1:0",
+  ]) {
+    const server = await startServer(() => ({
+      status: 400,
+      body: PROFILE_REQUIRED_BODY,
+    }));
+    const restore = withEnv(server.port);
+    const nl = new NeuroLink();
+    try {
+      for (const operation of ["generate", "stream"] as const) {
+        const before = server.modelIds.length;
+        let rejected = false;
+        try {
+          const options = {
+            input: { text: "Keep this profile identity." },
+            provider: "bedrock",
+            model: id,
+            maxTokens: 8,
+            disableTools: true,
+            disableInternalFallback: true,
+          };
+          if (operation === "generate") {
+            await nl.generate(options);
+          } else {
+            const streamed = await nl.stream(options);
+            for await (const chunk of streamed.stream) {
+              void chunk;
+            }
+          }
+        } catch {
+          rejected = true;
+        }
+        const attempts = server.modelIds.slice(before);
+        assert(rejected, `${operation}/${id}: expected the validation error`);
+        assert(
+          attempts.length > 0,
+          `${operation}/${id}: no request reached the owned endpoint`,
+        );
+        assert(
+          attempts.every((attempt) => attempt === id),
+          `${operation}/${id}: a supplied profile was prefixed again`,
+        );
+      }
+    } finally {
+      restore();
+      await nl.shutdown();
+      await server.close();
+    }
+  }
+});
+
+await test("aws streaming alias and model-bearing ARNs keep their identity while applying the recorded output ceiling", async () => {
+  const server = await startLocalBedrock("IDENTIFIER_OK");
+  const port = Number(new URL(server.endpoint).port);
+  const restore = withEnv(port);
+  const nl = new NeuroLink();
+  try {
+    const nova = "amazon.nova-pro-v1:0";
+    const ids = [
+      `us.${nova}`,
+      `arn:aws:bedrock:us-east-1::foundation-model/${nova}`,
+      `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.${nova}`,
+    ];
+    for (const model of ids) {
+      for (const [requested, expected] of [
+        [undefined, 5_000],
+        [100_000, 5_000],
+        [7, 7],
+      ] as const) {
+        const before = server.requests.length;
+        const result = await nl.stream({
+          input: { text: "Check model identity." },
+          provider: "aws",
+          model,
+          ...(requested !== undefined ? { maxTokens: requested } : {}),
+          disableTools: true,
+          disableInternalFallback: true,
+        });
+        let text = "";
+        for await (const chunk of result.stream) {
+          text += "content" in chunk ? (chunk.content ?? "") : "";
+        }
+        assert(
+          text === "IDENTIFIER_OK",
+          "stream did not decode the real AWS event framing",
+        );
+        const requests = server.requests.slice(before);
+        assert(
+          requests.length > 0,
+          "stream made no request to the owned endpoint",
+        );
+        for (const request of requests) {
+          assert(
+            request.path.endsWith("/converse-stream"),
+            "unexpected operation",
+          );
+          const modelOnWire = decodeURIComponent(
+            /\/model\/([^/]+)\//.exec(request.path)?.[1] ?? "",
+          );
+          assert(
+            modelOnWire === model,
+            "metadata lookup rewrote the invocation identity",
+          );
+          assert(
+            userTextOnWire(request.body) === "Check model identity.",
+            "the prompt did not reach the server",
+          );
+          const body = JSON.parse(request.body) as {
+            inferenceConfig?: { maxTokens?: number };
+          };
+          assert(
+            body.inferenceConfig?.maxTokens === expected,
+            "aws alias or ARN missed the recorded output ceiling",
+          );
+        }
+      }
+    }
+    // The native generate path intentionally preserves the caller's maxTokens
+    // (the previous scoped fix changed stream only). Record that applicability.
+    const model = ids[2];
+    const before = server.requests.length;
+    const generated = await nl.generate({
+      input: { text: "Keep generate override." },
+      provider: "aws",
+      model,
+      maxTokens: 7,
+      disableTools: true,
+      disableInternalFallback: true,
+    });
+    assert(
+      generated?.content === "IDENTIFIER_OK",
+      "generate did not complete the round trip",
+    );
+    const request = server.requests[before];
+    assert(!!request, "generate made no request to the owned endpoint");
+    assert(
+      decodeURIComponent(/\/model\/([^/]+)\//.exec(request.path)?.[1] ?? "") ===
+        model,
+      "generate rewrote the model ARN",
+    );
+    const body = JSON.parse(request.body) as {
+      inferenceConfig?: { maxTokens?: number };
+    };
+    assert(
+      body.inferenceConfig?.maxTokens === 7,
+      "generate lost its explicit override",
+    );
+  } finally {
+    restore();
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("Public context statistics resolve aws model and system-profile ARNs, while opaque application profiles retain fallback", async () => {
+  const nl = new NeuroLink({ conversationMemory: { enabled: true } });
+  try {
+    await nl.setSessionMessages("identifier-budget", [
+      { id: "identifier-message", role: "user", content: "A seeded session." },
+    ]);
+    const nova = "amazon.nova-pro-v1:0";
+    for (const [model, expected] of [
+      [nova, 236_000],
+      [`us.${nova}`, 236_000],
+      [`arn:aws:bedrock:us-east-1::foundation-model/${nova}`, 236_000],
+      [
+        `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.${nova}`,
+        236_000,
+      ],
+      [
+        "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/opaque123456",
+        136_000,
+      ],
+    ] as const) {
+      const stats = await nl.getContextStats("identifier-budget", "aws", model);
+      assert(
+        stats !== null && stats.messageCount === 1,
+        "context stats never read the seeded session",
+      );
+      assert(
+        stats?.availableInputTokens === expected,
+        `${model}: wrong public input budget`,
+      );
+    }
+  } finally {
+    await nl.shutdown();
+  }
+});
+
+for (const operation of ["generate", "stream"] as const) {
+  await test(`Opaque application profile IDs are preserved by ${operation}`, async () => {
+    const id = "opaque123456";
+    const server = await startServer(() => ({
+      status: 400,
+      body: JSON.stringify({
+        message: `Invocation of model ID ${id} with on-demand throughput isn't supported. Retry your request with the ID or ARN of an inference profile that contains this model.`,
+      }),
+    }));
+    const restore = withEnv(server.port);
+    const nl = new NeuroLink();
+    try {
+      let rejected = false;
+      try {
+        const options = {
+          input: { text: "Do not infer an opaque profile's model." },
+          provider: "bedrock",
+          model: id,
+          maxTokens: 8,
+          disableTools: true,
+          disableInternalFallback: true,
+        };
+        if (operation === "generate") {
+          await nl.generate(options);
+        } else {
+          const result = await nl.stream(options);
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        }
+      } catch {
+        rejected = true;
+      }
+      assert(rejected, "the original validation error did not surface");
+      assert(
+        server.modelIds.length > 0,
+        "no request reached the owned AWS endpoint",
+      );
+      assert(
+        server.modelIds.every((model) => model === id),
+        "the retry path guessed a foundation model from an opaque profile ID",
+      );
+    } finally {
+      restore();
+      await nl.shutdown();
+      await server.close();
+    }
+  });
+}
+
+await test("Published foundation-model ID grammar preserves automatic retry for an unlisted vendor", async () => {
+  // This is a legal-shape fixture, not a claim that AWS serves this vendor.
+  // An enum whitelist would strand newly supported vendors until an SDK update.
+  const id = "newvendor.model-for-prefix-v1:0";
+  const server = await startServer((model) =>
+    model === `us.${id}`
+      ? { status: 200, body: OK_BODY }
+      : { status: 400, body: PROFILE_REQUIRED_BODY },
+  );
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  try {
+    const result = await nl.generate({
+      input: { text: "Preserve valid new vendor identifiers." },
+      provider: "bedrock",
+      model: id,
+      maxTokens: 8,
+      disableTools: true,
+      disableInternalFallback: true,
+    });
+    assert(
+      result?.content === "ok",
+      "the owned profile retry did not complete",
+    );
+    assert(
+      JSON.stringify(server.modelIds) === JSON.stringify([id, `us.${id}`]),
+      "a legal new-vendor model was rejected or its retry identity changed",
+    );
+  } finally {
+    restore();
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("Configured model aliases reach their declared model or profile ARN with correct aws limits", async () => {
+  const nova = "amazon.nova-pro-v1:0";
+  const profile = `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.${nova}`;
+  const server = await startLocalBedrock("ALIAS_OK");
+  const restore = withEnv(Number(new URL(server.endpoint).port));
+  const nl = new NeuroLink({
+    modelAliasConfig: {
+      aliases: {
+        "friendly-nova": { action: "redirect", target: nova },
+        "friendly-profile": { action: "redirect", target: profile },
+      },
+    },
+  });
+  try {
+    for (const [alias, declared] of [
+      ["friendly-nova", nova],
+      ["friendly-profile", profile],
+    ] as const) {
+      const before = server.requests.length;
+      const result = await nl.stream({
+        input: { text: "Resolve the declared alias." },
+        provider: "aws",
+        model: alias,
+        maxTokens: 100_000,
+        disableTools: true,
+        disableInternalFallback: true,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += "content" in chunk ? (chunk.content ?? "") : "";
+      }
+      assert(
+        text === "ALIAS_OK",
+        "configured alias never completed the real wire round trip",
+      );
+      const requests = server.requests.slice(before);
+      assert(requests.length > 0, "configured alias made no owned AWS request");
+      for (const request of requests) {
+        assert(
+          decodeURIComponent(
+            /\/model\/([^/]+)\//.exec(request.path)?.[1] ?? "",
+          ) === declared,
+          "alias routing did not reach its configured canonical identity",
+        );
+        const body = JSON.parse(request.body) as {
+          inferenceConfig?: { maxTokens?: number };
+        };
+        assert(
+          body.inferenceConfig?.maxTokens === 5_000,
+          "alias routing lost the declared model's recorded output ceiling",
+        );
+      }
+    }
+  } finally {
+    restore();
+    await nl.shutdown();
+    await server.close();
+  }
+});
+
+await test("Built-in nova-pro aws-balanced and aws-flagship aliases use canonical wire IDs and their recorded stream defaults and ceilings", async () => {
+  // These aliases are resolved by ProviderFactory itself, without host alias
+  // configuration. Source: MODEL_REGISTRY and bedrockManifest aliases.
+  const server = await startLocalBedrock("BUILT_IN_ALIAS_OK");
+  const restore = withEnv(Number(new URL(server.endpoint).port));
+  const nl = new NeuroLink();
+  try {
+    for (const [alias, canonical, ceiling] of [
+      ["nova-pro", "amazon.nova-pro-v1:0", 5_000],
+      ["NOVA-PRO", "amazon.nova-pro-v1:0", 5_000],
+      ["aws-balanced", "amazon.nova-pro-v1:0", 5_000],
+      ["aws-flagship", "amazon.nova-premier-v1:0", 25_000],
+    ] as const) {
+      for (const [requested, expected] of [
+        [undefined, ceiling],
+        [100_000, ceiling],
+        [7, 7],
+      ] as const) {
+        const before = server.requests.length;
+        const result = await nl.stream({
+          input: { text: "Use the existing factory alias." },
+          provider: "aws",
+          model: alias,
+          ...(requested !== undefined ? { maxTokens: requested } : {}),
+          disableTools: true,
+          disableInternalFallback: true,
+        });
+        let text = "";
+        for await (const chunk of result.stream) {
+          text += "content" in chunk ? (chunk.content ?? "") : "";
+        }
+        assert(
+          text === "BUILT_IN_ALIAS_OK",
+          "built-in alias did not complete the real event-stream round trip",
+        );
+        const requests = server.requests.slice(before);
+        assert(
+          requests.length > 0,
+          "no native request reached the owned alias endpoint",
+        );
+        for (const request of requests) {
+          assert(
+            decodeURIComponent(
+              /\/model\/([^/]+)\//.exec(request.path)?.[1] ?? "",
+            ) === canonical,
+            "the built-in alias is not an executable canonical factory identity",
+          );
+          const body = JSON.parse(request.body) as {
+            inferenceConfig?: { maxTokens?: number };
+          };
+          assert(
+            body.inferenceConfig?.maxTokens === expected,
+            `${alias}: canonical routing silently missed its recorded stream default or ceiling`,
+          );
+        }
+      }
+      // Generation shares executable alias routing while preserving its
+      // established caller-owned maxTokens behavior (no native clamp added).
+      for (const requested of [7, 100_000]) {
+        const before = server.requests.length;
+        const result = await nl.generate({
+          input: { text: "Keep generate's explicit alias override." },
+          provider: "aws",
+          model: alias,
+          maxTokens: requested,
+          disableTools: true,
+          disableInternalFallback: true,
+        });
+        assert(
+          result?.content === "BUILT_IN_ALIAS_OK",
+          "generate alias did not complete its owned round trip",
+        );
+        const request = server.requests[before];
+        assert(!!request, "generate alias made no native request");
+        assert(
+          decodeURIComponent(
+            /\/model\/([^/]+)\//.exec(request.path)?.[1] ?? "",
+          ) === canonical,
+          "generate did not route its built-in alias to the canonical model",
+        );
+        const body = JSON.parse(request.body) as {
+          inferenceConfig?: { maxTokens?: number };
+        };
+        assert(
+          body.inferenceConfig?.maxTokens === requested,
+          "generate's established explicit override changed during alias repair",
+        );
+      }
+    }
+  } finally {
+    restore();
+    await nl.shutdown();
     await server.close();
   }
 });

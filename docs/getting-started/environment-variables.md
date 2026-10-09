@@ -238,6 +238,10 @@ NO_PROXY="localhost,127.0.0.1,.company.com"
 | `HTTP_PROXY`  | Proxy server for HTTP requests  | `http://proxy.company.com:8080`    |
 | `NO_PROXY`    | Domains to bypass proxy         | `localhost,127.0.0.1,.company.com` |
 
+The shared HTTP proxy fetch accepts comma- or whitespace-separated `NO_PROXY` entries. Entries are case-insensitive: `*` bypasses all; `example.com`, `.example.com` and `*.example.com` cover the host and its subdomains; `example.com:8443` restricts a match to that effective port (HTTP defaults to 80, HTTPS to 443). One trailing dot is normalized for domain names. IPv4/IPv6 literals match exactly, including `[::1]:8080`; IPv4 CIDR entries apply only to literal IPv4 targets, and IPv6 CIDR is unsupported. Dot-only entries (`.` or `..`) match nothing.
+
+These rules apply to request paths that use NeuroLink's HTTP proxy fetch. Native AWS handlers, Gemini Live WebSockets and Vertex ADC token requests use separate transports/dependency rules. See [Enterprise & Proxy Setup](enterprise-proxy-setup.md) for those limits. The legacy AWS proxy selector uses a smaller comma-separated matcher; it supports exact hosts, leading-dot subdomain suffixes and `*`, without the full port/wildcard/CIDR syntax. It is not automatically injected into the native Bedrock constructors.
+
 ### Authenticated Proxy
 
 ```bash

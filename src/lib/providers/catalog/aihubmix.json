@@ -1,0 +1,77 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "aihubmix",
+  "displayName": "AIHubMix",
+  "enumTypeName": "AIHubMixModels",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://aihubmix.com/v1"
+  },
+  "models": {
+    "default": "gpt-4o-mini",
+    "fallbacks": ["gpt-4o-mini"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 16384,
+    "catalog": {
+      "gpt-4o-mini": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 16384,
+        "vision": false,
+        "status": "production",
+        "description": "AIHubMix's paid GPT 4o Mini. Exact context/output limits and active lifecycle are published in its own model-page record on 2026-10-09. This pilot declares text generate/stream; tools, vision, strict schema and effort controls await separate evidence and acceptance. Account/model access is unverified."
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or expired AIHubMix API key. Check {apiKeyEnvVar} and your key permissions."
+    },
+    {
+      "pattern": "insufficient_user_quota|insufficient.*quota",
+      "patternStatuses": [403],
+      "class": "provider",
+      "message": "AIHubMix quota or paid-model access is insufficient. The gpt-4o-mini default is usage-priced; verify account funding and model eligibility."
+    },
+    {
+      "pattern": "model_retired|model.*retired",
+      "patternStatuses": [404],
+      "class": "invalid-model",
+      "message": "The requested AIHubMix model '{model}' is retired. Select a current documented model; gpt-4o-free and gpt-5.5-free are excluded from this pilot."
+    }
+  ],
+  "setup": {
+    "url": "https://console.aihubmix.com",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Sign in to the AIHubMix console and create an API key.",
+      "2. The selected gpt-4o-mini default is paid and usage-priced. Verify your own account funding, model permissions and current rates before using it.",
+      "3. The vendor-level free-tier label refers to AIHubMix's separately documented, model-limited free programme. It does not grant free usage of gpt-4o-mini; current model eligibility and allowances are unverified.",
+      "4. Current model-specific guides mark gpt-4o-free and gpt-5.5-free retired. Do not use either as a default or fallback based on older free-model marketing.",
+      "5. Set {apiKeyEnvVar} for this provider. The documented base URL is https://aihubmix.com/v1."
+    ],
+    "description": "AIHubMix gateway text/stream pilot with a paid gpt-4o-mini default. A separate model-limited free programme is documented; no account entitlement, roster, live inference or delivery is verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-09",
+      "code": "PUBLIC_DOCS_ONLY_NOT_ROSTER_VERIFIED",
+      "method": "Public documentation GETs of https://aihubmix.com/model/gpt-4o-mini and its /llms.txt guide. Exact own model-page record binds context_window=128000 and max_output=16384. No vendor roster, auth, billing or inference probe ran; this legacy field does not assert roster verification."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1966"
+  }
+}

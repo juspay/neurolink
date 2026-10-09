@@ -453,7 +453,7 @@
       "date": "2026-09-03",
       "result": "SDK end-to-end via dist: generate, stream, tool call (nonce round-trip) and json_schema structured output all pass. Tools + schema: after a tool result the vendor answers finish_reason=tool_calls with no tool_calls and null content when JSON is requested (4/4 raw replays); the SDK now re-asks that step once with tool_choice none and recovers the JSON — passed 1/1 in the final live proof through dist/index.js, tool nonce present in structuredData. structuredOutputWithTools is declared true on that basis."
     },
-    "addedInPR": "pending",
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1625",
     "billingProbe": {
       "date": "2026-09-03",
       "status": 200,

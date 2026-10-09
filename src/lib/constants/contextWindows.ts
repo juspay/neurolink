@@ -15,7 +15,8 @@ import { DynamicModelProvider } from "../core/dynamicModels.js";
 import { logger } from "../utils/logger.js";
 import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
-import { BedrockModels } from "./enums.js";
+import { bedrockModelIdForLookup } from "./bedrockIdentifiers.js";
+export { stripBedrockGeoPrefix } from "./bedrockIdentifiers.js";
 
 /**
  * Per-provider context window blocks for the 9 JSON-catalog providers
@@ -396,6 +397,7 @@ const PROVIDER_ALIAS_MAP: Record<string, string> = {
   // by ~8x, so AI Studio agent loops reclaimed tool history that still fitted
   // comfortably. `google-ai` itself only resolved via the raw-provider
   // fallback below, which the normalized lookup now covers directly.
+  aws: "bedrock",
   googleaistudio: "google-ai",
   googleai: "google-ai",
   lmstudio: "lm-studio",
@@ -524,55 +526,6 @@ export function clearRuntimeOutputCeilings(): void {
 }
 
 /**
- * Geographies AWS puts in front of a model id to name a cross-region inference
- * profile (`us.anthropic.claude-sonnet-4-6`). For many models that prefixed id
- * is the only one a caller can invoke, but the Bedrock table above is keyed by
- * bare ids, apart from one explicit `us.` row. AWS lists the prefixes on each
- * model card, not in one place, and the set differs by model, so it is closed
- * on purpose: a geography added later keeps taking the Bedrock default instead
- * of being guessed at.
- */
-const BEDROCK_GEO_PREFIXES: ReadonlySet<string> = new Set([
-  "us",
-  "eu",
-  "apac",
-  "jp",
-  "au",
-  "in",
-  "us-gov",
-  "global",
-]);
-
-/** Vendor segment of every id `BedrockModels` ships: `anthropic`, `amazon`, `meta`, ... */
-const BEDROCK_VENDORS: ReadonlySet<string> = new Set(
-  Object.values(BedrockModels)
-    .map((id) => id.split(".")[0])
-    .filter((vendor) => !BEDROCK_GEO_PREFIXES.has(vendor)),
-);
-
-/**
- * `us.anthropic.claude-sonnet-4-6` -> `anthropic.claude-sonnet-4-6`.
- *
- * Undefined for any other shape, so an id that merely starts with `us.` is
- * never rewritten. Removes one geography at most: no vendor is a geography.
- *
- * Every Bedrock table keyed by bare ids (context windows here, output ceilings
- * in `getSafeMaxTokens`) goes through this one function, so they cannot
- * disagree about which ids are cross-region profile ids.
- */
-export function stripBedrockGeoPrefix(model: string): string | undefined {
-  const [geo, vendor, ...rest] = model.split(".");
-  if (
-    rest.length === 0 ||
-    !BEDROCK_GEO_PREFIXES.has(geo) ||
-    !BEDROCK_VENDORS.has(vendor)
-  ) {
-    return undefined;
-  }
-  return model.slice(geo.length + 1);
-}
-
-/**
  * Resolve context window size for a provider/model combination.
  *
  * Priority:
@@ -597,14 +550,16 @@ export function stripBedrockGeoPrefix(model: string): string | undefined {
  *     MODEL_CONTEXT_WINDOWS.mistral values).
  *  2. Exact model match under provider in static registry
  *  3. Prefix match under provider in static registry
- *  3.5 Bedrock only: an id shaped `<geography>.<vendor>.<model>` (a
- *      cross-region inference profile) is resolved again from step 0 without
- *      the geography. Every step above saw the id as given, so an explicit row
- *      or discovered window for the prefixed id still wins.
+ *  3.5 Bedrock only: a published model-bearing ARN is resolved again from
+ *      step 0 using its model/profile id; a `<geography>.<vendor>.<model>`
+ *      profile is then resolved without its geography. Every step above saw
+ *      the original id, so its explicit row or discovered window still wins.
+ *      Opaque/application profile identifiers keep the provider default.
  *  4. Provider's _default in static registry
  *  5. Global DEFAULT_CONTEXT_WINDOW
  */
 export function getContextWindowSize(provider: string, model?: string): number {
+  const canonical = normalizeProviderForLookup(provider);
   // Step 0: Check dynamic model registry first.
   // This resolves cases where the runtime provider differs from the model's
   // origin (e.g. Claude running via Vertex would hit Vertex's Gemini default
@@ -626,7 +581,11 @@ export function getContextWindowSize(provider: string, model?: string): number {
 
   // Step 0.5: Runtime-discovered window for this exact provider/model.
   if (model) {
-    const discovered = RUNTIME_CONTEXT_WINDOWS.get(`${provider}:${model}`);
+    const discovered =
+      RUNTIME_CONTEXT_WINDOWS.get(`${provider}:${model}`) ??
+      (canonical === "bedrock"
+        ? RUNTIME_CONTEXT_WINDOWS.get(`${canonical}:${model}`)
+        : undefined);
     if (discovered !== undefined) {
       return discovered;
     }
@@ -634,8 +593,6 @@ export function getContextWindowSize(provider: string, model?: string): number {
 
   // Static fallback chain — normalize aliases first so "lmstudio" / "llama.cpp" /
   // "nvidianim" find their canonical entries instead of falling back to default.
-  const canonical = normalizeProviderForLookup(provider);
-
   // Step 1: Manifest real-entry lookup (exact id, alias, or longest-prefix —
   // see resolveManifestEntryStrict's docblock). Tries the alias-normalized
   // provider key first, then the raw provider string, mirroring the
@@ -670,10 +627,12 @@ export function getContextWindowSize(provider: string, model?: string): number {
       }
     }
   }
-  const bareModel =
-    canonical === "bedrock" && model ? stripBedrockGeoPrefix(model) : undefined;
-  if (bareModel !== undefined) {
-    return getContextWindowSize(provider, bareModel);
+  const lookupModel =
+    canonical === "bedrock" && model
+      ? bedrockModelIdForLookup(model)
+      : undefined;
+  if (lookupModel !== undefined) {
+    return getContextWindowSize(provider, lookupModel);
   }
   return providerWindows._default ?? DEFAULT_CONTEXT_WINDOW;
 }

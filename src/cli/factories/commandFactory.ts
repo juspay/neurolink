@@ -370,6 +370,12 @@ export class CLICommandFactory {
       default: false,
       description: "Disable MCP tool integration (tools enabled by default)",
     },
+    disableInternalFallback: {
+      type: "boolean" as const,
+      default: false,
+      alias: "disable-internal-fallback",
+      description: "Disable automatic provider and model fallback",
+    },
     enableAnalytics: {
       type: "boolean" as const,
       default: false,
@@ -1137,6 +1143,9 @@ export class CLICommandFactory {
       maxSteps: argv.maxSteps as number | undefined,
       timeout: argv.timeout as number | undefined,
       disableTools: argv.disableTools as boolean | undefined,
+      disableInternalFallback: argv.disableInternalFallback as
+        | boolean
+        | undefined,
       enableAnalytics: argv.enableAnalytics as boolean | undefined,
       enableEvaluation: argv.enableEvaluation as boolean | undefined,
       domain: argv.domain as string | undefined,
@@ -3865,6 +3874,7 @@ export class CLICommandFactory {
             ? enhancedOptions.timeout * 1000
             : undefined,
           disableTools: enhancedOptions.disableTools,
+          disableInternalFallback: enhancedOptions.disableInternalFallback,
           enabledToolNames: enhancedOptions.enabledToolNames as
             | string[]
             | undefined,
@@ -4222,6 +4232,9 @@ export class CLICommandFactory {
           ? (enhancedOptions.timeout as number) * 1000
           : undefined,
         disableTools: enhancedOptions.disableTools as boolean | undefined,
+        disableInternalFallback: enhancedOptions.disableInternalFallback as
+          | boolean
+          | undefined,
         enabledToolNames: enhancedOptions.enabledToolNames as
           | string[]
           | undefined,
@@ -5036,6 +5049,7 @@ export class CLICommandFactory {
                 ? enhancedOptions.timeout * 1000
                 : undefined,
               disableTools: enhancedOptions.disableTools,
+              disableInternalFallback: enhancedOptions.disableInternalFallback,
               enabledToolNames: enhancedOptions.enabledToolNames as
                 | string[]
                 | undefined,
@@ -6176,7 +6190,7 @@ export class CLICommandFactory {
         "                    return 0\n" +
         "                    ;;\n" +
         "                *)\n" +
-        '                    opts="--provider --model --temperature --maxTokens --system --format --output --timeout --delay --disableTools --enableAnalytics --enableEvaluation --debug --quiet --noColor --configFile --dryRun"\n' +
+        '                    opts="--provider --model --temperature --maxTokens --system --format --output --timeout --delay --disableTools --disableInternalFallback --disable-internal-fallback --enableAnalytics --enableEvaluation --debug --quiet --noColor --configFile --dryRun"\n' +
         '                    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
         "                    return 0\n" +
         "                    ;;\n" +

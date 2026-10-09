@@ -83,6 +83,16 @@ refactor.
 
 ---
 
+### stopReason?
+
+> `optional` **stopReason?**: [`GenerateStopReason`](GenerateStopReason.md)
+
+A known engine-owned termination condition, distinct from the provider's
+raw reason. Optional for adapters/fixtures that predate this field; the
+engine reports step-cap or aborted when it has observed that condition.
+
+---
+
 ### conversation
 
 > **conversation**: `TConversation`

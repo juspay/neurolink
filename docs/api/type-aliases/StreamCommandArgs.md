@@ -66,6 +66,12 @@ Maximum tokens
 
 Disable tools
 
+### disableInternalFallback?
+
+> `optional` **disableInternalFallback?**: `boolean`
+
+Keep the request on the selected provider and model.
+
 ### thinking?
 
 > `optional` **thinking?**: `boolean`
