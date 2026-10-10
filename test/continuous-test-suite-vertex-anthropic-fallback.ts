@@ -258,6 +258,48 @@ test("fixed thinking stays unchanged for targets that support it", () => {
   assert.deepEqual(out.thinking, thinking);
 });
 
+// The rewrite used to match only the exact id `claude-sonnet-5-5`, so every
+// other target in the always-on adaptive tier — and Sonnet 5.5 itself under a
+// dated or aliased id — still got the fixed budget it answers with a 400.
+test("every Claude 5.5 / 5.1 target adapts a fixed thinking budget, under any id shape", () => {
+  for (const target of [
+    "claude-opus-5-5",
+    "claude-fable-5-1",
+    "claude-mythos-5-1",
+    "claude-sonnet-5-5@20260928",
+    "claude-opus-5-5@20260928",
+    "sonnet-5.5",
+  ]) {
+    const out = buildVertexAnthropicPayload(
+      {
+        messages: [{ role: "user", content: "hi" }],
+        thinking: { type: "enabled", budget_tokens: 4096, display: "omitted" },
+      },
+      target,
+    );
+    assert.deepEqual(
+      out.thinking,
+      { type: "adaptive", display: "omitted" },
+      `${target} kept a fixed thinking budget`,
+    );
+  }
+});
+
+test("fixed thinking stays unchanged for the 4.5 families", () => {
+  for (const target of [
+    "claude-haiku-4-5@20251001",
+    "claude-sonnet-4-5@20250929",
+    "claude-opus-4-5@20251101",
+  ]) {
+    const thinking = { type: "enabled", budget_tokens: 2048 };
+    const out = buildVertexAnthropicPayload(
+      { messages: [{ role: "user", content: "hi" }], thinking },
+      target,
+    );
+    assert.deepEqual(out.thinking, thinking, `${target} lost its budget`);
+  }
+});
+
 test("thinking disabled is dropped for an always-on-thinking target", () => {
   const out = buildVertexAnthropicPayload(
     {

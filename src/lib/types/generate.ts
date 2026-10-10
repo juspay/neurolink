@@ -2055,6 +2055,7 @@ export type NativeGenerateLoopArgs = {
   maxSteps: number;
   maxOutputTokens?: number;
   temperature?: number;
+  topP?: number;
   abortSignal?: AbortSignal;
   /** Per-tool-execution cap, forwarded into `guardToolExecutor`. `null` for no bound. */
   toolTimeoutMs?: number | null;

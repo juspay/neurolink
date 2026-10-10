@@ -182,6 +182,8 @@ export type ClaudeRequest = {
     | { type: "auto" | "any"; disable_parallel_tool_use?: boolean }
     | { type: "tool"; name: string; disable_parallel_tool_use?: boolean };
   thinking?: { type: string; budget_tokens?: number };
+  /** `effort` sets thinking depth for models that only take adaptive thinking. */
+  output_config?: { effort?: string };
   metadata?: ClaudeMetadata;
 };
 

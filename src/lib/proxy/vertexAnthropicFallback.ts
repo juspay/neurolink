@@ -17,6 +17,7 @@ import type { GoogleAuth } from "google-auth-library";
 import { logger } from "../utils/logger.js";
 import {
   claudeDisabledThinkingReplacement,
+  modelSupportsFixedThinkingBudget,
   modelSupportsForcedToolChoice,
 } from "../models/modelRegistry.js";
 import { isTransientNetworkError } from "./proxyFetch.js";
@@ -403,9 +404,9 @@ function stripBillingBlock(system: unknown): unknown {
  */
 /**
  * The client addressed its own model; the fallback target may be a Claude
- * 5.5 / 5.1 model, which answers a forced `tool_choice` and
- * `thinking: {type: "disabled"}` with a 400. Reshape both into what the target
- * accepts rather than fail the turn the fallback exists to rescue.
+ * 5.5 / 5.1 model, which answers a forced `tool_choice`, a fixed thinking
+ * budget and `thinking: {type: "disabled"}` with a 400. Reshape each into what
+ * the target accepts rather than fail the turn the fallback exists to rescue.
  */
 function fitRequestToTarget(
   payload: Record<string, unknown>,
@@ -431,10 +432,12 @@ function fitRequestToTarget(
   if (
     record(thinking) &&
     thinking.type === "enabled" &&
-    targetModel === "claude-sonnet-5-5"
+    !modelSupportsFixedThinkingBudget(targetModel)
   ) {
-    // Sonnet 5.5 rejects fixed thinking budgets. Keep the requested display,
-    // but use its adaptive mode; a fixed token budget has no Vertex equivalent.
+    // Claude 5.5 / 5.1 targets reject fixed thinking budgets. Keep the
+    // requested display, but use adaptive mode; a fixed token budget has no
+    // equivalent there. Matched by family, so suffixed (`@date`) and aliased
+    // target ids are covered too.
     payload.thinking = {
       type: "adaptive",
       ...(thinking.display !== undefined ? { display: thinking.display } : {}),

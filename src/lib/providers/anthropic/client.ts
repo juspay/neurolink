@@ -73,6 +73,7 @@ import {
 } from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
+import { releaseIterator } from "../../utils/streamCancellation.js";
 import {
   ANTHROPIC_ELISION_NOTE,
   planAnthropicLoopReclaim,
@@ -90,6 +91,10 @@ import {
   countAnthropicCacheMarkers,
 } from "../../utils/anthropicCacheBreakpoints.js";
 import type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
+  ModelMessage,
   SageMakerAsLanguageModel,
   VertexAnthropicMessage,
 } from "../../types/index.js";
@@ -147,6 +152,7 @@ import {
   fileToAnthropicBlock,
 } from "../anthropicImageBlocks.js";
 import {
+  claudeDisabledThinkingReplacement,
   modelSupportsForcedToolChoice,
   resolveSamplingParams,
 } from "../../models/modelRegistry.js";
@@ -681,6 +687,150 @@ const relaxForcedToolChoice = (
       : {}),
   };
 };
+
+// ── Model middleware stream bridge ──
+//
+// Caller model middleware is defined against a `LanguageModelV3`'s `doStream`,
+// not this provider's native loop. These two functions are the boundary:
+// `anthropicChunksToV3Stream` turns the loop's push-based channel into the
+// `ReadableStream<LanguageModelV3StreamPart>` a `doStream` must return, and
+// `v3StreamToAnthropicChunks` turns the (possibly middleware-replaced) V3
+// stream back into the `{content, reasoning?}` chunks `StreamResult.stream`
+// has always carried. Same pair as the one in `googleVertex/client.ts`, kept
+// local for the same reason the AI Studio copy is: each native provider's
+// bridge is independent.
+
+/** Pulls one native chunk at a time and forwards a wrapped stream's cancel. */
+const anthropicChunksToV3Stream = (
+  source: AsyncIterable<{ content: string; reasoning?: string }>,
+  completion: Promise<LanguageModelV3StreamPart>,
+  cancel: () => void,
+): ReadableStream<LanguageModelV3StreamPart> => {
+  const iterator = source[Symbol.asyncIterator]();
+  return new ReadableStream<LanguageModelV3StreamPart>({
+    async pull(controller) {
+      try {
+        // Keep reading until something is enqueued: a pull that settles with
+        // nothing queued is not re-invoked, which would park the reader.
+        for (;;) {
+          const next = await iterator.next();
+          if (next.done) {
+            controller.enqueue(await completion);
+            controller.close();
+            return;
+          }
+          let enqueued = false;
+          if (next.value.reasoning) {
+            controller.enqueue({
+              type: "reasoning-delta",
+              delta: next.value.reasoning,
+            });
+            enqueued = true;
+          }
+          if (next.value.content) {
+            controller.enqueue({
+              type: "text-delta",
+              delta: next.value.content,
+            });
+            enqueued = true;
+          }
+          if (enqueued) {
+            return;
+          }
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    cancel() {
+      cancel();
+      // Not awaited: the channel's generator queues `return()` behind any
+      // in-flight `next()`, and waiting on it would hold the consumer's
+      // `break` until the next upstream frame. The abort above settles it.
+      releaseIterator(iterator);
+    },
+  });
+};
+
+/**
+ * Drains a V3 stream back into native chunks. `onFinish` receives the
+ * terminal part instead of yielding it — native consumers have never seen a
+ * finish-shaped chunk.
+ */
+async function* v3StreamToAnthropicChunks(
+  stream: ReadableStream<LanguageModelV3StreamPart>,
+  onFinish: (
+    part: Extract<LanguageModelV3StreamPart, { type: "finish" }>,
+  ) => void,
+): AsyncGenerator<{ content: string; reasoning?: string }> {
+  const reader = stream.getReader();
+  let done = false;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) {
+        done = true;
+        return;
+      }
+      const part = next.value;
+      if (part.type === "text-delta") {
+        yield { content: part.delta };
+      } else if (part.type === "reasoning-delta") {
+        yield { content: "", reasoning: part.delta };
+      } else if (part.type === "finish") {
+        onFinish(part);
+      } else if (part.type === "error") {
+        throw part.error;
+      }
+    }
+  } finally {
+    try {
+      if (!done) {
+        await reader.cancel();
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+}
+
+/**
+ * What a caller's `thinkingConfig: { type: "disabled" }` becomes on the wire.
+ *
+ * Claude Sonnet 5.5, Opus 5.5 and Fable/Mythos 5.1 answer
+ * `thinking: { type: "disabled" }` with a 400 (live probes in #1858), so those
+ * models get what `claudeDisabledThinkingReplacement` says they accept — the
+ * same rule the proxy applies. Sonnet 5.5 takes `between_tools` as its lowest
+ * setting; the rest think adaptively and always, so the field is left off.
+ * Every other model still gets `disabled`. No effort is passed because this
+ * provider never sends `output_config.effort`, so the model's default effort
+ * applies, and `between_tools` is refused only above `high`.
+ */
+const disabledThinkingFor = (
+  modelId: string,
+): { type: "disabled" } | { type: "between_tools" } | undefined => {
+  const replacement = claudeDisabledThinkingReplacement(modelId, undefined);
+  if (replacement === "keep") {
+    return { type: "disabled" };
+  }
+  logger.debug(
+    `[anthropic] ${modelId} rejects thinking "disabled"; ${replacement === "omit" ? "omitting thinking" : "sending between_tools"}`,
+  );
+  return replacement === "between_tools"
+    ? { type: "between_tools" }
+    : undefined;
+};
+
+/**
+ * The pinned SDK's `ThinkingConfigParam` union predates `between_tools`, which
+ * the Messages API accepts on Sonnet 5.5. Widening to it here — rather than at
+ * every request literal — keeps the type checking on the other three shapes.
+ */
+const toThinkingParam = (thinking: {
+  type: string;
+  budget_tokens?: number;
+}): Anthropic.Messages.ThinkingConfigParam =>
+  thinking as Anthropic.Messages.ThinkingConfigParam;
 
 /** Map Anthropic stop_reason onto the V3 unified finish reason. */
 const mapAnthropicStopReason = (
@@ -1542,6 +1692,7 @@ export class AnthropicProvider extends BaseProvider {
         const thinking = options.providerOptions?.anthropic?.thinking as
           | { type: "enabled"; budget_tokens: number }
           | { type: "disabled" }
+          | { type: "between_tools" }
           | undefined;
         // `disabled` is sent so a model that thinks by default (claude-sonnet-5
         // does, unasked) is told not to, but it fixes nothing about sampling: only a
@@ -1620,7 +1771,7 @@ export class AnthropicProvider extends BaseProvider {
             : {}),
           ...(tools ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {}),
-          ...(thinking ? { thinking } : {}),
+          ...(thinking ? { thinking: toThinkingParam(thinking) } : {}),
         };
 
         // The caller's resolved `timeout` reaches this layer only through
@@ -2015,7 +2166,11 @@ export class AnthropicProvider extends BaseProvider {
       // Without this the request carries no `thinking` field at all, which on
       // a model that thinks by default means "think" — the explicit
       // `type: "disabled"` the type already offered was silently dropped.
-      anthropicNamespace.thinking = { type: "disabled" as const };
+      // Claude 5.5 / 5.1 refuse `disabled`; see disabledThinkingFor.
+      const disabled = disabledThinkingFor(modelId);
+      if (disabled) {
+        anthropicNamespace.thinking = disabled;
+      }
     }
     // The per-call `timeout` keeps its per-MODEL-CALL meaning once
     // `turnTimeoutMs` owns the whole-turn deadline, and it reaches the model
@@ -2086,6 +2241,10 @@ export class AnthropicProvider extends BaseProvider {
         ...(options.temperature !== undefined
           ? { temperature: options.temperature }
           : {}),
+        // doGenerate applies the same sampling rules to it as to temperature
+        // (stripped for models that reject sampling, dropped while thinking
+        // is on); it was simply never handed over.
+        ...(options.topP !== undefined ? { topP: options.topP } : {}),
         ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
         ...(options.toolTimeoutMs !== undefined
           ? { toolTimeoutMs: options.toolTimeoutMs }
@@ -2248,6 +2407,10 @@ export class AnthropicProvider extends BaseProvider {
 
     let toolsRecord: Record<string, Tool>;
     let anthropicTools: Anthropic.Messages.Tool[] | undefined;
+    // The caller's turn in message-builder shape. It is what model middleware
+    // is shown as the V3 prompt, and the wire payload is built from whatever
+    // prompt comes back out of `transformParams`, inside `doStream` below.
+    let promptMessages: ModelMessage[];
     let payload: {
       system?: string | Anthropic.Messages.TextBlockParam[];
       messages: Anthropic.Messages.MessageParam[];
@@ -2273,12 +2436,10 @@ export class AnthropicProvider extends BaseProvider {
             | Anthropic.Messages.Tool[]
             | undefined)
         : undefined;
-      // Build message array from options with multimodal support, then
-      // convert to the Anthropic Messages payload (system + content blocks).
-      const built = await this.buildMessagesForStream(options);
-      payload = messagesToAnthropic(
-        built as Array<{ role: string; content: unknown }>,
-      );
+      // Build message array from options with multimodal support. It becomes
+      // the Anthropic Messages payload (system + content blocks) only once
+      // model middleware has had its say.
+      promptMessages = await this.buildMessagesForStream(options);
       // Schema + tools: append final_result rather than pinning tool_choice to
       // a json tool, so the real tools stay callable for the whole turn.
       // Unlike generate, no plumbing is needed — this is a native loop, so the
@@ -2293,9 +2454,6 @@ export class AnthropicProvider extends BaseProvider {
         );
         anthropicTools = appended.tools;
         finalResultActive = appended.applied;
-        if (appended.applied) {
-          payload.system = appendFinalResultInstruction(payload.system);
-        }
       }
     } catch (setupErr) {
       timeoutController?.cleanup();
@@ -2326,10 +2484,23 @@ export class AnthropicProvider extends BaseProvider {
             budget_tokens: options.thinkingConfig.budgetTokens,
           }
         : options.thinkingConfig?.type === "disabled"
-          ? { type: "disabled" as const }
+          ? disabledThinkingFor(modelId)
           : undefined;
     // See the generate path: `disabled` is sent, but only ON constrains sampling.
     const thinkingOn = thinking?.type === "enabled";
+
+    // The sampling knobs this turn is sent with. Seeded from the caller and
+    // replaced in `doStream` by whatever `transformParams` handed back, so a
+    // middleware can change or remove any of them before a byte is sent.
+    let turnSampling: {
+      maxTokens?: number;
+      temperature?: number;
+      topP?: number;
+    } = {
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      topP: options.topP,
+    };
 
     // Wrap the native stream in an OTel span to capture provider-level
     // latency and token usage (same span name as the pre-migration path so
@@ -2490,7 +2661,7 @@ export class AnthropicProvider extends BaseProvider {
           availableInputTokens: getAvailableInputTokens(
             "anthropic",
             modelId,
-            options.maxTokens ?? undefined,
+            turnSampling.maxTokens ?? undefined,
           ),
           fixedOverheadTokens: estimateAnthropicFixedOverhead(
             payload.system,
@@ -2630,20 +2801,30 @@ export class AnthropicProvider extends BaseProvider {
         const streamSamplingParams = resolveSamplingParams(
           "anthropic",
           modelId,
-          options.temperature !== undefined && options.temperature !== null
-            ? { temperature: options.temperature }
-            : {},
+          {
+            ...(turnSampling.temperature !== undefined &&
+            turnSampling.temperature !== null
+              ? { temperature: turnSampling.temperature }
+              : {}),
+            ...(turnSampling.topP !== undefined && turnSampling.topP !== null
+              ? { topP: turnSampling.topP }
+              : {}),
+          },
           "anthropic.executeStream",
         );
-        if (thinkingOn && streamSamplingParams.temperature !== undefined) {
+        if (
+          thinkingOn &&
+          (streamSamplingParams.temperature !== undefined ||
+            streamSamplingParams.topP !== undefined)
+        ) {
           logger.debug(
-            "[anthropic] extended thinking is enabled, so temperature is omitted on the stream path — Anthropic rejects any temperature but 1 while thinking is set",
+            "[anthropic] extended thinking is enabled, so temperature/top_p are omitted on the stream path — Anthropic rejects any temperature but 1 while thinking is set",
           );
         }
         return {
           model: modelId,
           messages: cachedConversation,
-          max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
+          max_tokens: resolveClaudeMaxTokens(modelId, turnSampling.maxTokens),
           // No `stream: true` here: executeStep sets it when it calls
           // messages.create, so declaring it made the caller assert a literal
           // the adapter immediately overwrites — and forced this whole params
@@ -2654,11 +2835,16 @@ export class AnthropicProvider extends BaseProvider {
           ...(!thinkingOn && streamSamplingParams.temperature !== undefined
             ? { temperature: streamSamplingParams.temperature }
             : {}),
+          // top_p follows the generate path: forwarded unless the model
+          // rejects sampling, and dropped while thinking is on.
+          ...(!thinkingOn && streamSamplingParams.topP !== undefined
+            ? { top_p: streamSamplingParams.topP }
+            : {}),
           ...(cachedTools && cachedTools.length > 0
             ? { tools: cachedTools }
             : {}),
           ...(anthropicToolChoice ? { tool_choice: anthropicToolChoice } : {}),
-          ...(thinking ? { thinking } : {}),
+          ...(thinking ? { thinking: toThinkingParam(thinking) } : {}),
         };
       };
 
@@ -3027,48 +3213,199 @@ export class AnthropicProvider extends BaseProvider {
       resolveFinish(lastStop ?? "stop");
     };
 
-    const loopPromise = runLoop()
-      // Parameter named `error` so the compiled `capturedProviderError = error`
-      // assignment matches the regression-grep in test:context 6.14.
-      .catch((error: unknown) => {
-        capturedProviderError = error;
-        logger.error("Anthropic: Stream error", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        // Report whatever the completed steps accumulated — they were billed
-        // — and unblock any consumer awaiting the usage promise.
-        resolveUsage(buildDeferredUsage());
-        resolveFinish("error");
-        throw this.formatProviderError(error);
-      })
-      .finally(() => {
-        // Deliver the buffered structured-output turn: `finalResultText` when
-        // the model called final_result, otherwise the prose it produced
-        // instead — never nothing, so a model that ignores the instruction
-        // degrades to today's plain-text behaviour rather than an empty
-        // stream. In `finally` so a turn that dies mid-loop still surfaces
-        // the text it had already buffered, exactly as the unbuffered path
-        // surfaces its partial deltas.
-        if (finalResultActive) {
-          const output = finalResultText ?? bufferedText;
-          if (output.length > 0) {
-            pushChunk({ content: output });
+    // Started by `doStream` below, so it stays undefined when a middleware
+    // answers without calling it (guardrails' precall block). Every reader
+    // after this point has to tolerate that.
+    let loopPromise: Promise<void> | undefined;
+    const startLoop = (): Promise<void> => {
+      const started = runLoop()
+        // Parameter named `error` so the compiled `capturedProviderError = error`
+        // assignment matches the regression-grep in test:context 6.14.
+        .catch((error: unknown) => {
+          capturedProviderError = error;
+          logger.error("Anthropic: Stream error", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          // Report whatever the completed steps accumulated — they were billed
+          // — and unblock any consumer awaiting the usage promise.
+          resolveUsage(buildDeferredUsage());
+          resolveFinish("error");
+          throw this.formatProviderError(error);
+        })
+        .finally(() => {
+          // Deliver the buffered structured-output turn: `finalResultText` when
+          // the model called final_result, otherwise the prose it produced
+          // instead — never nothing, so a model that ignores the instruction
+          // degrades to today's plain-text behaviour rather than an empty
+          // stream. In `finally` so a turn that dies mid-loop still surfaces
+          // the text it had already buffered, exactly as the unbuffered path
+          // surfaces its partial deltas.
+          if (finalResultActive) {
+            const output = finalResultText ?? bufferedText;
+            if (output.length > 0) {
+              pushChunk({ content: output });
+            }
           }
+          timeoutController?.cleanup();
+          channel.close();
+        });
+      started.catch(() => {
+        // Swallowed by design: the generator below surfaces loop errors after
+        // draining the channel; this guard only prevents an unhandled-rejection
+        // crash when the consumer abandons the stream early.
+      });
+      return started;
+    };
+
+    // Model middleware on the streaming path. generate() has always wrapped
+    // its model (executeNativeGenerate); this loop never did, so a caller's
+    // transformParams, wrapStream and guardrails ran on generate() and were
+    // silently skipped on stream() — including a guardrail that should have
+    // blocked the request.
+    //
+    // The base model's `doStream` starts the real native loop. The prompt is
+    // converted to the wire payload only after `transformParams`, so a rewrite
+    // reaches Anthropic; `maxOutputTokens`, `temperature` and `topP` are read
+    // back the same way. `tools` is not offered: a middleware that adds one
+    // gets a WARN, because the wire tool list is derived from the registered
+    // tools and re-deriving it here would diverge from that.
+    //
+    // With no middleware configured the loop is driven directly and its chunks
+    // never cross the V3 bridge, so those callers see exactly the stream they
+    // saw before.
+    const v3Params: LanguageModelV3CallOptions = {
+      prompt: promptMessages,
+      ...(turnSampling.maxTokens !== undefined
+        ? { maxOutputTokens: turnSampling.maxTokens }
+        : {}),
+      ...(turnSampling.temperature !== undefined
+        ? { temperature: turnSampling.temperature }
+        : {}),
+      ...(turnSampling.topP !== undefined ? { topP: turnSampling.topP } : {}),
+    };
+    /**
+     * Build the wire payload and sampling from the (possibly transformed)
+     * params, then start the loop.
+     */
+    const beginTurn = (params: LanguageModelV3CallOptions): Promise<void> => {
+      payload = messagesToAnthropic(params.prompt);
+      if (finalResultActive) {
+        payload.system = appendFinalResultInstruction(payload.system);
+      }
+      turnSampling = {
+        maxTokens:
+          typeof params.maxOutputTokens === "number"
+            ? params.maxOutputTokens
+            : undefined,
+        temperature:
+          typeof params.temperature === "number"
+            ? params.temperature
+            : undefined,
+        topP: typeof params.topP === "number" ? params.topP : undefined,
+      };
+      const started = startLoop();
+      loopPromise = started;
+      return started;
+    };
+    const providerName = this.providerName;
+    const streamModel: LanguageModelV3 = {
+      specificationVersion: "v3",
+      provider: providerName,
+      modelId,
+      supportedUrls: {},
+      // This model exists only to be driven through doStream.
+      doGenerate: () => {
+        throw new Error(
+          "[anthropic] the native stream model does not implement doGenerate",
+        );
+      },
+      doStream: async (params) => {
+        if (params.tools !== undefined) {
+          logger.warn(
+            "[anthropic] middleware rewrote 'tools' on the stream path; the rewrite was ignored and the registered tools were sent",
+          );
         }
+        const started = beginTurn(params);
+        const completion: Promise<LanguageModelV3StreamPart> = started
+          .then(() => Promise.all([usagePromise, finishPromise]))
+          .then(([usage, reason]) => ({
+            type: "finish" as const,
+            finishReason: {
+              unified:
+                reason === "other" || reason === "error"
+                  ? reason
+                  : mapAnthropicStopReason(reason),
+              raw: reason,
+            },
+            usage: {
+              inputTokens: {
+                total:
+                  usage.promptTokens +
+                  (usage.cacheReadTokens ?? 0) +
+                  (usage.cacheCreationTokens ?? 0),
+                noCache: usage.promptTokens,
+                cacheRead: usage.cacheReadTokens,
+                cacheWrite: usage.cacheCreationTokens,
+              },
+              outputTokens: { total: usage.completionTokens },
+            },
+          }));
+        // The loop can reject before anything reads this terminal event.
+        void completion.catch(() => undefined);
+        return {
+          stream: anthropicChunksToV3Stream(channel.iterable, completion, () =>
+            consumerAbortController.abort(),
+          ),
+        };
+      },
+    };
+
+    let chunkSource: AsyncIterable<{ content: string; reasoning?: string }>;
+    try {
+      const wrappedModel = await this.applyMiddlewareToModel(
+        streamModel,
+        options,
+      );
+      if (typeof wrappedModel === "string") {
+        throw new Error(
+          "[anthropic] middleware returned a model id string, not a native model handle",
+        );
+      }
+      if (wrappedModel === streamModel) {
+        void beginTurn(v3Params);
+        chunkSource = channel.iterable;
+      } else {
+        const { stream } = await wrappedModel.doStream(v3Params);
+        chunkSource = v3StreamToAnthropicChunks(stream, (part) => {
+          // Only a middleware that answered on its own reaches here with no
+          // loop; the loop settles these itself, and a promise settles once.
+          if (!loopPromise) {
+            const input = part.usage.inputTokens.total ?? 0;
+            const output = part.usage.outputTokens.total ?? 0;
+            resolveUsage({
+              promptTokens: input,
+              completionTokens: output,
+              totalTokens: input + output,
+            });
+            resolveFinish(part.finishReason.unified);
+          }
+        });
+      }
+    } catch (error) {
+      consumerAbortController.abort();
+      if (!loopPromise) {
         timeoutController?.cleanup();
         channel.close();
-      });
-    loopPromise.catch(() => {
-      // Swallowed by design: the generator below surfaces loop errors after
-      // draining the channel; this guard only prevents an unhandled-rejection
-      // crash when the consumer abandons the stream early.
-    });
+        resolveUsage(buildDeferredUsage());
+        resolveFinish("error");
+      }
+      throw this.handleProviderError(error);
+    }
 
-    const providerName = this.providerName;
     const transformedStream = async function* () {
       let contentYielded = 0;
       try {
-        for await (const chunk of channel.iterable) {
+        for await (const chunk of chunkSource) {
           if (
             "content" in chunk &&
             typeof chunk.content === "string" &&
@@ -3079,7 +3416,14 @@ export class AnthropicProvider extends BaseProvider {
           yield chunk;
         }
         // Surface any error the loop threw after draining the channel.
-        await loopPromise;
+        if (loopPromise) {
+          await loopPromise;
+        } else {
+          // A middleware answered without starting the loop. Its stream may
+          // close without a finish part, and nothing else would settle these.
+          resolveUsage(buildDeferredUsage());
+          resolveFinish("stop");
+        }
         // No-output path: stream completed normally but yielded zero text.
         if (contentYielded === 0 && toolsUsed.length === 0) {
           logger.warn(
@@ -3110,6 +3454,11 @@ export class AnthropicProvider extends BaseProvider {
       } finally {
         if (!consumerAbortController.signal.aborted) {
           consumerAbortController.abort();
+        }
+        // The loop's own `finally` releases these; without a loop nothing did.
+        if (!loopPromise) {
+          timeoutController?.cleanup();
+          channel.close();
         }
       }
     };

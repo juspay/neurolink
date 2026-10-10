@@ -46,6 +46,7 @@ import type {
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import { inlineJsonSchema } from "../utils/schemaConversion.js";
 import {
+  modelSupportsFixedThinkingBudget,
   modelSupportsForcedToolChoice,
   claudeDisabledThinkingReplacement,
 } from "../models/modelRegistry.js";
@@ -430,11 +431,16 @@ const REASONING_BUDGET: Record<
 // be turned off, and the field is dropped rather than asking for a rejected
 // state). For every target outside that family the function returns "keep",
 // which here means the historical, unaffected behavior: omit the field.
+//
+// The same families refuse a fixed budget (`type:"enabled"`) too, so for them
+// a real effort goes out as adaptive thinking with the level carried in
+// `output_config.effort`. Codex's levels (low through max) are Anthropic's own
+// effort levels, so the level passes through unchanged.
 function mapCodexReasoningToThinking(
   reasoning: { effort: CodexReasoningEffort } | undefined,
   resolvedMaxTokens: number,
   targetModel: string,
-): ClaudeRequest["thinking"] | undefined {
+): Pick<ClaudeRequest, "thinking" | "output_config"> {
   if (
     !reasoning ||
     reasoning.effort === "none" ||
@@ -445,8 +451,14 @@ function mapCodexReasoningToThinking(
       reasoning?.effort,
     );
     return replacement === "between_tools"
-      ? { type: "between_tools" }
-      : undefined;
+      ? { thinking: { type: "between_tools" } }
+      : {};
+  }
+  if (!modelSupportsFixedThinkingBudget(targetModel)) {
+    return {
+      thinking: { type: "adaptive" },
+      output_config: { effort: reasoning.effort },
+    };
   }
   const table = REASONING_BUDGET[reasoning.effort];
   // Explicit floor: makes the ">= 1024" invariant correct by construction
@@ -455,7 +467,7 @@ function mapCodexReasoningToThinking(
     1024,
     Math.min(table, resolvedMaxTokens - 1024),
   );
-  return { type: "enabled", budget_tokens };
+  return { thinking: { type: "enabled", budget_tokens } };
 }
 
 // ---------------------------------------------------------------------------
@@ -880,9 +892,9 @@ export function translateCodexRequestToClaude(
   // final assistant turn calls a tool, which with thinking on must open with a
   // thinking block. Codex history carries none that can be translated, since
   // its reasoning is OpenAI ciphertext.
-  const thinking =
+  const reasoningFields =
     forcesTool || lastAssistantMessageUsesTool(messages)
-      ? undefined
+      ? {}
       : mapCodexReasoningToThinking(request.reasoning, maxTokens, target.model);
 
   const claudeRequest: ClaudeRequest = {
@@ -893,7 +905,7 @@ export function translateCodexRequestToClaude(
     ...(tools ? { tools } : {}),
     // The Messages API accepts tool_choice only alongside tools.
     ...(tools ? { tool_choice: toolChoice } : {}),
-    ...(thinking ? { thinking } : {}),
+    ...reasoningFields,
     stream: request.stream ?? true,
   };
 

@@ -93,6 +93,18 @@ Matches POST /v1/messages.
 
 ---
 
+### output_config?
+
+> `optional` **output_config?**: `object`
+
+`effort` sets thinking depth for models that only take adaptive thinking.
+
+#### effort?
+
+> `optional` **effort?**: `string`
+
+---
+
 ### metadata?
 
 > `optional` **metadata?**: [`ClaudeMetadata`](ClaudeMetadata.md)
