@@ -182,7 +182,10 @@ import type {
   HITLOutcomeAction,
   ToolResult,
   ToolRoutingConfig,
+  ToolRoutingCatalogEntry,
   ToolRoutingDecision,
+  JevRoutingAuditEvidence,
+  JevRoutingAuditInput,
   ToolRoutingServerDescriptor,
   ToolDedupConfig,
   ToolConfig,
@@ -224,6 +227,7 @@ import { repairToolPairs } from "./context/toolPairRepair.js";
 import {
   SYSTEM_LIMITS,
   DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+  JEV_ROUTING_AUDIT_PROVIDER,
   MIN_RECOVERY_TURN_BUDGET_MS,
 } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
@@ -427,6 +431,12 @@ import {
 } from "./telemetry/observation.js";
 import { toolSpanName } from "./telemetry/observationNames.js";
 import { isNestedOperation, tracers } from "./telemetry/tracers.js";
+import {
+  buildJevRoutingAuditInput,
+  logJevRoutingAuditFailure,
+} from "./utils/jevRoutingAudit.js";
+import { recordJevRoutingAudit } from "./telemetry/jevRoutingAudit.js";
+const pendingJevRoutingAudits = new WeakMap<object, () => void>();
 // Voice integration imports
 import type {
   STTCredentials,
@@ -6009,6 +6019,7 @@ Current user's request: ${currentInput}`;
       !!(options.input?.images && options.input.images.length > 0),
       options.thinkingConfig?.thinkingLevel,
     );
+    this.flushJevRoutingAudit(options);
 
     await this.maybeApplyGenerateOrchestration(options);
 
@@ -10786,6 +10797,7 @@ Current user's request: ${currentInput}`;
         (options as StreamOptions & { thinking?: { thinkingLevel?: string } })
           .thinking?.thinkingLevel,
       );
+      this.flushJevRoutingAudit(options);
 
       // Pre-call request router for stream: opt-in, fails open.
       await this.applyRequestRouter(
@@ -10892,6 +10904,34 @@ Current user's request: ${currentInput}`;
    * resolver fails open to an empty exclusion list). Accepts both StreamOptions
    * and GenerateOptions since both share the required fields.
    */
+  /** Excluded tools including those a non-empty `toolFilter` leaves out. */
+  private effectiveExcludedTools(
+    options: StreamOptions | GenerateOptions,
+    catalog: ToolRoutingCatalogEntry[],
+  ): string[] {
+    const excluded = new Set(options.excludeTools ?? []);
+    const allow = options.toolFilter;
+    if (allow && allow.length > 0) {
+      const allowed = new Set(allow);
+      for (const server of catalog) {
+        for (const name of server.toolNames) {
+          if (!allowed.has(name)) {
+            excluded.add(name);
+          }
+        }
+      }
+    }
+    return [...excluded];
+  }
+
+  private flushJevRoutingAudit(options: object): void {
+    const pending = pendingJevRoutingAudits.get(options);
+    if (pending) {
+      pendingJevRoutingAudits.delete(options);
+      pending();
+    }
+  }
+
   private async applyToolRoutingExclusions(
     options: StreamOptions | GenerateOptions,
     userQuery: string,
@@ -11031,6 +11071,12 @@ Current user's request: ${currentInput}`;
 
       let routedExcludeTools: string[];
       let resolvedDecision: ToolRoutingDecision | undefined;
+      let auditEvidence: JevRoutingAuditEvidence | null = null;
+      const auditEnabled = routingConfig.audit?.enabled === true;
+      let auditPolicyExclusions: string[] = [];
+      if (auditEnabled) {
+        auditPolicyExclusions = this.effectiveExcludedTools(options, catalog);
+      }
       // Intercept the decision so we can store it in the cache.
       const captureDecision = (decision: ToolRoutingDecision): void => {
         resolvedDecision = decision;
@@ -11084,11 +11130,30 @@ Current user's request: ${currentInput}`;
         // Bypass the instance's decision fast-path in that explicit mode.
         decideFn: routingConfig.generateFn
           ? undefined
-          : (decisionOptions) =>
-              this.siteDecide(
+          : async (decisionOptions) => {
+              let auditInput: JevRoutingAuditInput | null = null;
+              if (auditEnabled) {
+                auditInput = buildJevRoutingAuditInput(decisionOptions.state);
+              }
+              const result = await this.siteDecide(
                 decisionOptions,
                 this.decisionSiteContext(options, sessionId || undefined),
-              ),
+              );
+              if (auditInput !== null && result !== null) {
+                try {
+                  if (result.provider === JEV_ROUTING_AUDIT_PROVIDER) {
+                    auditEvidence = {
+                      input: auditInput,
+                      provider: result.provider,
+                      model: result.model,
+                    };
+                  }
+                } catch (error) {
+                  logJevRoutingAuditFailure(error);
+                }
+              }
+              return result;
+            },
         decisionMinDropConfidence: routingConfig.minDropConfidence,
         emitDecision: captureDecision,
         // L2 / ITEM D — only populated when embedding is configured.
@@ -11152,6 +11217,29 @@ Current user's request: ${currentInput}`;
           ...(options.excludeTools ?? []),
           ...routedExcludeTools,
         ];
+      }
+      if (auditEnabled) {
+        // Deferred until the classifier router has narrowed the tools, so the
+        // audit reports the exclusions the request actually runs with.
+        const auditContext = context.active();
+        const evidence = auditEvidence;
+        const decision = resolvedDecision;
+        const policyExclusions = auditPolicyExclusions;
+        pendingJevRoutingAudits.set(options, () => {
+          context.with(auditContext, () => {
+            const finalExcluded = this.effectiveExcludedTools(options, catalog);
+            const policy = new Set(policyExclusions);
+            const routed = new Set(routedExcludeTools);
+            // Exclusions added after JEV ran (classifier) are not JEV's call.
+            const lateExclusions = finalExcluded.filter(
+              (name) => !policy.has(name) && !routed.has(name),
+            );
+            recordJevRoutingAudit(evidence, decision, catalog, finalExcluded, [
+              ...policyExclusions,
+              ...lateExclusions,
+            ]);
+          });
+        });
       }
     } catch (error) {
       if (isAbortError(error)) {
