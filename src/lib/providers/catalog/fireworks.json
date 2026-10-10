@@ -33,9 +33,10 @@
       },
       "accounts/fireworks/models/kimi-k3": {
         "enumMember": "KIMI_K3",
+        "contextWindow": 1048576,
         "vision": true,
         "status": "production",
-        "description": "Recommended - Kimi K3, newest Moonshot generation; vision-capable"
+        "description": "Recommended - Kimi K3, newest Moonshot generation; vision-capable. contextWindow is the model's own 1,048,576-token window from Moonshot's pricing page (see moonshot-ai.json kimi-k3, retrieved 2026-09-29); Fireworks' model page could not be read on 2026-10-06, so the window it serves is not separately verified. No pricingPerMTok: no Fireworks-published rate for this model was available to transcribe."
       },
       "accounts/fireworks/models/qwen3p8-max": {
         "enumMember": "QWEN3P8_MAX",

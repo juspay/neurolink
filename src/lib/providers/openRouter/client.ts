@@ -1,4 +1,4 @@
-import { AIProviderName } from "../../constants/enums.js";
+import { AIProviderName, OpenRouterModels } from "../../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
@@ -192,10 +192,9 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
         message: () =>
           `Model '${this.modelName}' does not support tool calling. ` +
           "Use a tool-capable model like:\n" +
-          "  • google/gemini-2.0-flash-exp:free (free)\n" +
-          "  • meta-llama/llama-3.3-70b-instruct:free (free)\n" +
-          "  • anthropic/claude-3.7-sonnet (paid)\n" +
-          "  • openai/gpt-4o (paid)\n" +
+          `  • ${OpenRouterModels.GEMINI_2_5_FLASH}\n` +
+          `  • ${OpenRouterModels.CLAUDE_SONNET_4_6}\n` +
+          `  • ${OpenRouterModels.GPT_4O}\n` +
           "Or use --disableTools flag. " +
           "See all tool-capable models at https://openrouter.ai/models?supported_parameters=tools",
       },
@@ -285,8 +284,7 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
     // For unknown models, warn and disable tools (safe default)
     logger.warn("OpenRouter: Unknown model tool capability, disabling tools", {
       model: modelName,
-      suggestion:
-        "Use a known tool-capable model like anthropic/claude-3.7-sonnet, openai/gpt-4o, or google/gemini-2.0-flash-exp:free",
+      suggestion: `Use a known tool-capable model like ${OpenRouterModels.CLAUDE_SONNET_4_6}, ${OpenRouterModels.GPT_4O}, or ${OpenRouterModels.GEMINI_2_5_FLASH}`,
     });
     return false;
   }

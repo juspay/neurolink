@@ -59,6 +59,6 @@
       "date": "2026-09-21",
       "result": "deepseek-v4-flash: provider matrix 4/4 (generate, stream, tools, structured output); CLI generate resolves the default and returns HELLO. Direct SSE, tool calls, streaming tool calls, JSON output and tools+response_format probes pass. SDK generate executes a tool and validates its result against a schema; fresh-session SDK streaming executes the tool and returns its value with automatic tool choice. Forcing required tool choice on every stream step loops until timeout, so that mode is not claimed. Vision, embeddings and thinking-level controls are not claimed."
     },
-    "addedInPR": "https://github.com/juspay/neurolink/pull/1775"
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1887"
   }
 }

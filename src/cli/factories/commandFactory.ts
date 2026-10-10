@@ -45,7 +45,6 @@ import { SkillsManager } from "../../lib/skills/skillsManager.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { ModelsCommandFactory } from "../commands/models.js";
-import { handleSetup } from "../commands/setup.js";
 import { handleError } from "../errorHandler.js";
 import { LoopSession } from "../loop/session.js";
 import { initializeCliParser } from "../parser.js";
@@ -2778,104 +2777,6 @@ export class CLICommandFactory {
    */
   static createOllamaCommands(): CommandModule {
     return OllamaCommandFactory.createOllamaCommands();
-  }
-
-  /**
-   * Create setup command
-   */
-  static createSetupCommand(): CommandModule {
-    return {
-      command: ["setup [provider]", "s [provider]"],
-      describe: "Interactive AI provider setup wizard",
-      builder: (yargs) => {
-        return CLICommandFactory.buildOptions(
-          yargs
-            .positional("provider", {
-              type: "string" as const,
-              description: "Specific provider to set up",
-              choices: [
-                "google-ai",
-                "openai",
-                "openrouter",
-                "anthropic",
-                "anthropic-subscription", // Setup Anthropic with subscription tier
-                "azure",
-                "bedrock",
-                "vertex",
-                "huggingface",
-                "mistral",
-                "deepseek",
-                "nvidia-nim",
-                "lm-studio",
-                "llamacpp",
-                "xai",
-                "groq",
-                "cerebras",
-                "cohere",
-                "together-ai",
-                "fireworks",
-                "perplexity",
-                "cloudflare",
-                "replicate",
-                "voyage",
-                "jina",
-                "stability",
-                "ideogram",
-                "recraft",
-              ],
-            })
-            .option("list", {
-              type: "boolean" as const,
-              description: "List all available providers",
-              alias: "l",
-            })
-            .option("status", {
-              type: "boolean" as const,
-              description: "Show provider configuration status",
-            })
-            .option("subscription-tier", {
-              type: "string" as const,
-              choices: ["free", "pro", "max", "max_5", "max_20", "api"],
-              description:
-                "Anthropic subscription tier for setup (free, pro, max, max_5, max_20, api)",
-            })
-            .option("auth-method", {
-              type: "string" as const,
-              choices: ["api-key", "oauth"],
-              description:
-                "Authentication method for Anthropic (api-key or oauth)",
-            })
-            .example("$0 setup", "Interactive setup wizard")
-            .example("$0 setup --provider openai", "Setup specific provider")
-            .example(
-              "$0 setup --provider anthropic --subscription-tier pro",
-              "Setup Anthropic with Pro subscription",
-            )
-            .example(
-              "$0 setup --provider anthropic --auth-method oauth",
-              "Setup Anthropic with OAuth authentication",
-            )
-            .example("$0 setup --list", "List all providers")
-            .example("$0 setup --status", "Check provider status"),
-        );
-      },
-      handler: async (argv) =>
-        await handleSetup(
-          argv as BaseCommandArgs & {
-            provider?: string;
-            list?: boolean;
-            status?: boolean;
-            subscriptionTier?:
-              | "free"
-              | "pro"
-              | "max"
-              | "max_5"
-              | "max_20"
-              | "api";
-            authMethod?: "api-key" | "oauth";
-          },
-        ),
-    };
   }
 
   /**

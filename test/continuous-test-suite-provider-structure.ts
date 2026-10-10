@@ -786,4 +786,61 @@ await test("verify:provider-onboarding rejects a manifest missing addedInPR, fil
   }
 });
 
+/**
+ * The nightly live sweeps only reach a catalog vendor whose key the workflow
+ * passes into that step's env. Three steps carry the provider key list, and
+ * the JSON-validity step had kept a 37-key copy while the others grew to the
+ * whole catalog; A2Agent shipped in none of them. Each step must pass every
+ * catalog vendor's key (the name the runtime reads: `wire.envOverrides.apiKey`
+ * or `<CONSTANT_CASE(id)>_API_KEY`), so a new catalog JSON cannot be skipped
+ * by the sweeps silently.
+ */
+await test("live-matrix.yml passes every catalog vendor's API key to each live sweep step", async () => {
+  const workflow = fs.readFileSync(
+    path.join(process.cwd(), ".github", "workflows", "live-matrix.yml"),
+    "utf8",
+  );
+  const catalogDir = path.join(process.cwd(), "src/lib/providers/catalog");
+  const keys = fs
+    .readdirSync(catalogDir)
+    .filter((f) => f.endsWith(".json") && !f.endsWith(".schema.json"))
+    .map((f) => {
+      const entry = JSON.parse(
+        fs.readFileSync(path.join(catalogDir, f), "utf8"),
+      ) as { id: string; wire: { envOverrides?: { apiKey?: string } } };
+      return (
+        entry.wire.envOverrides?.apiKey ??
+        `${entry.id.toUpperCase().replace(/-/g, "_")}_API_KEY`
+      );
+    });
+  assert(keys.length > 0, "no catalog JSON files found");
+
+  const missing: string[] = [];
+  for (const script of ["test:matrix", "test:matrix:cli", "test:json-e2e"]) {
+    const runLine = `run: pnpm run ${script}\n`;
+    const at = workflow.indexOf(runLine);
+    if (at === -1) {
+      missing.push(`${script}: step not found`);
+      continue;
+    }
+    const envAt = workflow.indexOf("env:\n", at);
+    const block = workflow.slice(envAt, workflow.indexOf("\n\n", envAt));
+    for (const key of keys) {
+      if (!block.includes(`${key}: \${{ secrets.${key} }}`)) {
+        missing.push(`${script}: ${key}`);
+      }
+    }
+  }
+  // Printed, never interpolated into the assertion message (see the
+  // model-id-table case above for why).
+  if (missing.length > 0) {
+    console.error("  live-matrix.yml steps missing catalog keys:");
+    missing.forEach((m) => console.error(`    ${m}`));
+  }
+  assert(
+    missing.length === 0,
+    `${missing.length} catalog key/step pair(s) missing from live-matrix.yml (listed above)`,
+  );
+});
+
 await runSuite();

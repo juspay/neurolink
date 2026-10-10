@@ -139,6 +139,8 @@ export enum AIProviderName {
  */
 export enum OpenRouterModels {
   // Anthropic Claude models
+  CLAUDE_SONNET_5_5 = "anthropic/claude-sonnet-5.5",
+  CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5",
   CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4.6",
   CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4.6",
   CLAUDE_SONNET_4_5 = "anthropic/claude-sonnet-4.5",
@@ -182,7 +184,23 @@ export enum BedrockModels {
   // ANTHROPIC CLAUDE MODELS
   // ============================================================================
 
-  // Claude 4.6 Series (Latest - February 2026)
+  // Claude 5.5 / 5.1 Series (September 2026). Bedrock serves the current
+  // generation as "anthropic.<first-party id>", with no date or version
+  // suffix.
+  CLAUDE_5_5_OPUS = "anthropic.claude-opus-5-5",
+  CLAUDE_5_5_SONNET = "anthropic.claude-sonnet-5-5",
+  CLAUDE_5_1_FABLE = "anthropic.claude-fable-5-1",
+
+  // Claude 5 Series (mid 2026)
+  CLAUDE_5_OPUS = "anthropic.claude-opus-5",
+  CLAUDE_5_SONNET = "anthropic.claude-sonnet-5",
+  CLAUDE_5_FABLE = "anthropic.claude-fable-5",
+
+  // Claude 4.7 / 4.8 Series
+  CLAUDE_4_8_OPUS = "anthropic.claude-opus-4-8",
+  CLAUDE_4_7_OPUS = "anthropic.claude-opus-4-7",
+
+  // Claude 4.6 Series (February 2026)
   CLAUDE_4_6_OPUS = "anthropic.claude-opus-4-6-v1",
   CLAUDE_4_6_SONNET = "anthropic.claude-sonnet-4-6",
 
@@ -535,7 +553,12 @@ export enum AzureOpenAIModels {
  * Supported Models for Google Vertex AI
  */
 export enum VertexModels {
-  // Claude 4.6 Series (Latest - February 2026)
+  // Claude Sonnet 5.5 / 5. Vertex serves current-generation Claude under the
+  // bare first-party id (no "@date" suffix).
+  CLAUDE_5_5_SONNET = "claude-sonnet-5-5",
+  CLAUDE_5_SONNET = "claude-sonnet-5",
+
+  // Claude 4.6 Series (February 2026)
   CLAUDE_4_6_OPUS = "claude-opus-4-6",
   CLAUDE_4_6_SONNET = "claude-sonnet-4-6",
 
@@ -890,6 +913,10 @@ export enum LiteLLMModels {
   OPENAI_GPT_5_2 = "openai/gpt-5.2",
   OPENAI_GPT_5_2_CODEX = "openai/gpt-5.2-codex",
 
+  // Anthropic Claude Sonnet 5.5 / 5 via LiteLLM
+  ANTHROPIC_CLAUDE_SONNET_5_5 = "anthropic/claude-sonnet-5-5",
+  ANTHROPIC_CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5",
+
   // Anthropic Claude 4.6 via LiteLLM
   ANTHROPIC_CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4-6",
   ANTHROPIC_CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6",
@@ -1021,12 +1048,17 @@ export enum AnthropicBetaFeature {
  * Note: NIM hosts hundreds of models; pass arbitrary IDs via --model.
  */
 export enum NvidiaNimModels {
-  // NVIDIA retired a large part of this list upstream on 2026-08-26 —
-  // llama-3.3-70b, llama-3.1-70b, llama-3.2-90b-vision, the deepseek-r1
-  // distill and gemma-3-27b all answer "no longer available" now. The members
-  // are kept so existing callers still compile, but the provider default
-  // below must point at something live: gpt-oss-20b is on the current roster
-  // and was probed for text, streaming, tool calling and structured output.
+  // NVIDIA retired a large part of this list upstream. A probe on 2026-08-26
+  // had llama-3.3-70b, llama-3.1-70b, the deepseek-r1 distill and
+  // gemma-3-27b answer "no longer available", and the hosted
+  // `GET /v1/models` read on 2026-10-02 (#1889) agreed. That list also left
+  // out llama-3.1-405b, deepseek-r1, both Mixtral models and phi-4. It DID
+  // list llama-3.2-90b-vision and llama-3.2-11b-vision, so those two are not
+  // retired (the 2026-08-26 probe had also reported 90b-vision unavailable).
+  // The members are kept so existing callers still compile, but the provider
+  // default below must point at something live: gpt-oss-20b is on the
+  // current roster and was probed for text, streaming, tool calling and
+  // structured output.
   GPT_OSS_20B = "openai/gpt-oss-20b",
   // Meta Llama
   LLAMA_3_3_70B_INSTRUCT = "meta/llama-3.3-70b-instruct",

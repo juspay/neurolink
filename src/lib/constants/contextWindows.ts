@@ -24,8 +24,8 @@ export { stripBedrockGeoPrefix } from "./bedrockIdentifiers.js";
  * together-ai, xai), derived from models.catalog[*].contextWindow +
  * defaultContextWindow — the catalog JSON (src/lib/providers/catalog/<id>.json)
  * is their single source of truth. A catalog model with no recorded
- * contextWindow (e.g. fireworks' current roster — none of its models have a
- * sourced value yet) is simply omitted here, same as it was never a key in
+ * contextWindow (e.g. most of fireworks' roster — only kimi-k3 has a
+ * sourced value) is simply omitted here, same as it was never a key in
  * the pre-migration table either; the `_default` / prefix-match /
  * DEFAULT_CONTEXT_WINDOW fallback chain in getContextWindowSize() below
  * covers it exactly as it always has.
@@ -288,6 +288,14 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "anthropic.claude-opus-5-5": 1_000_000,
     "anthropic.claude-sonnet-5-5": 1_000_000,
     "anthropic.claude-fable-5-1": 1_000_000,
+    // Claude 5 (mid 2026) and Opus 4.7 / 4.8 — the same 1M window their
+    // Anthropic and Vertex rows carry; Bedrock serves them as
+    // "anthropic.<first-party id>".
+    "anthropic.claude-opus-5": 1_000_000,
+    "anthropic.claude-sonnet-5": 1_000_000,
+    "anthropic.claude-fable-5": 1_000_000,
+    "anthropic.claude-opus-4-8": 1_000_000,
+    "anthropic.claude-opus-4-7": 1_000_000,
     // Claude 4.6
     "anthropic.claude-opus-4-6-v1": 1_000_000,
     "anthropic.claude-sonnet-4-6": 1_000_000,
@@ -407,6 +415,22 @@ const PROVIDER_ALIAS_MAP: Record<string, string> = {
   nvidia: "nvidia-nim",
   deepseek: "deepseek",
 };
+
+/** AWS cross-region inference-profile prefixes ("us.anthropic.claude-…"). */
+const BEDROCK_PROFILE_PREFIX = /^(?:us|eu|apac|global|us-gov|jp|au|ca)\./;
+
+/**
+ * Reduce a Bedrock model reference to the bare foundation-model id: drop an
+ * ARN down to its final path segment, then any inference-profile prefix.
+ * "arn:aws:bedrock:us-east-1:1:inference-profile/us.anthropic.claude-x" and
+ * "global.anthropic.claude-x" both become "anthropic.claude-x".
+ */
+function stripBedrockInferenceProfile(model: string): string {
+  const id = model.startsWith("arn:")
+    ? model.slice(model.lastIndexOf("/") + 1)
+    : model;
+  return id.replace(BEDROCK_PROFILE_PREFIX, "");
+}
 
 function normalizeProviderForLookup(provider: string): string {
   const stripped = provider.toLowerCase().replace(/[^a-z]/g, "");

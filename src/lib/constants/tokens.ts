@@ -78,10 +78,25 @@ export const USE_CASE_TOKENS = {
 export const PROVIDER_TOKEN_LIMITS = {
   /** Anthropic model limits */
   ANTHROPIC: {
+    // Claude output ceilings match resolveClaudeMaxTokens()
+    // (utils/tokenLimits.ts) and the Anthropic manifest's maxOutputTokens:
+    // 128K for the 5.x family, 64K for Sonnet/Haiku 4.x, 32K for Opus 4.x.
+    // Claude 5 / 5.5 / Fable 5.1 Series
+    "claude-opus-5-5": 128_000,
+    "claude-sonnet-5-5": 128_000,
+    "claude-fable-5-1": 128_000,
+    "claude-opus-5": 128_000,
+    "claude-sonnet-5": 128_000,
+    "claude-fable-5": 128_000,
+    // Claude 4.6 / 4.7 / 4.8 Series
+    "claude-opus-4-8": 32_000,
+    "claude-opus-4-7": 32_000,
+    "claude-opus-4-6": 32_000,
+    "claude-sonnet-4-6": 64_000,
     // Claude 4.5 Series (September-November 2025)
-    "claude-sonnet-4-5-20250929": 8192,
-    "claude-opus-4-5-20251101": 8192,
-    "claude-haiku-4-5-20251001": 8192,
+    "claude-sonnet-4-5-20250929": 64_000,
+    "claude-opus-4-5-20251101": 32_000,
+    "claude-haiku-4-5-20251001": 64_000,
     // Claude 3.5 Series
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-5-haiku-20241022": 4096,
@@ -159,13 +174,22 @@ export const PROVIDER_TOKEN_LIMITS = {
     // Gemini 1.5 Series (Legacy)
     "gemini-1.5-pro": 8192,
     "gemini-1.5-flash": 8192,
+    // Claude output ceilings match resolveClaudeMaxTokens()
+    // (utils/tokenLimits.ts) and the Anthropic manifest's maxOutputTokens:
+    // 128K for the 5.x family, 64K for Sonnet/Haiku 4.x, 32K for Opus 4.x.
+    // Claude Sonnet 5.5 / 5 (Vertex uses the bare first-party id)
+    "claude-sonnet-5-5": 128_000,
+    "claude-sonnet-5": 128_000,
+    // Claude 4.6 Series
+    "claude-opus-4-6": 32_000,
+    "claude-sonnet-4-6": 64_000,
     // Claude 4.5 Series (September-November 2025)
-    "claude-sonnet-4-5@20250929": 8192,
-    "claude-opus-4-5@20251101": 8192,
-    "claude-haiku-4-5@20251001": 8192,
+    "claude-sonnet-4-5@20250929": 64_000,
+    "claude-opus-4-5@20251101": 32_000,
+    "claude-haiku-4-5@20251001": 64_000,
     // Claude 4 Series (May 2025)
-    "claude-sonnet-4@20250514": 4096,
-    "claude-opus-4@20250514": 4096,
+    "claude-sonnet-4@20250514": 64_000,
+    "claude-opus-4@20250514": 32_000,
     // Claude 3.5 Series
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-5-haiku-20241022": 4096,
@@ -178,10 +202,25 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** AWS Bedrock model limits */
   BEDROCK: {
+    // Claude output ceilings match resolveClaudeMaxTokens()
+    // (utils/tokenLimits.ts) and the Anthropic manifest's maxOutputTokens:
+    // 128K for the 5.x family, 64K for Sonnet/Haiku 4.x, 32K for Opus 4.x.
+    // Claude 5 / 5.5 / Fable 5.1 Series
+    "anthropic.claude-opus-5-5": 128_000,
+    "anthropic.claude-sonnet-5-5": 128_000,
+    "anthropic.claude-fable-5-1": 128_000,
+    "anthropic.claude-opus-5": 128_000,
+    "anthropic.claude-sonnet-5": 128_000,
+    "anthropic.claude-fable-5": 128_000,
+    // Claude 4.6 / 4.7 / 4.8 Series
+    "anthropic.claude-opus-4-8": 32_000,
+    "anthropic.claude-opus-4-7": 32_000,
+    "anthropic.claude-opus-4-6-v1": 32_000,
+    "anthropic.claude-sonnet-4-6": 64_000,
     // Claude 4.5 Series (September-November 2025)
-    "anthropic.claude-sonnet-4-5-20250929-v1:0": 8192,
-    "anthropic.claude-opus-4-5-20251101-v1:0": 8192,
-    "anthropic.claude-haiku-4-5-20251001-v1:0": 8192,
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": 64_000,
+    "anthropic.claude-opus-4-5-20251101-v1:0": 32_000,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": 64_000,
     // Claude 3.7 Series
     "us.anthropic.claude-3-7-sonnet-20250219-v1:0": 4096,
     // Claude 3.5 Series

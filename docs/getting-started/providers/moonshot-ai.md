@@ -202,7 +202,12 @@ not in the catalog.
 `temperature`, `top_p`, `n`, `presence_penalty` and `frequency_penalty` as
 "Cannot be modified" for `kimi-k3`, `kimi-k2.7-code` and `kimi-k2.6`, and states
 that "Fixed" means "the parameter cannot be modified: passing any other value
-returns an error, so do not pass it explicitly."
+returns an error, so do not pass it explicitly." The catalog lists those three
+models under `quirks.fixedSamplingModels`, so NeuroLink removes `temperature`,
+`top_p`, `presence_penalty` and `frequency_penalty` from every request to them.
+The CLI's default `--temperature 0.7`, and any value an SDK caller passes, is
+dropped rather than sent. `kimi-k2.7-code-highspeed` is not on the vendor's
+list, so its requests keep the caller's values.
 
 **Fallback order** when the default is unavailable:
 `kimi-k2.7-code` → `kimi-k2.6` → `kimi-k2.7-code-highspeed`. The order is the

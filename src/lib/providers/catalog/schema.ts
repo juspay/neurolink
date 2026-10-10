@@ -167,6 +167,7 @@ const catalogQuirksSchema = z.strictObject({
   replayReasoningContent: z.boolean().optional(),
   rejectRequiredToolChoice: z.boolean().optional(),
   authHeaderStyle: z.literal("x-api-key").optional(),
+  fixedSamplingModels: z.array(z.string()).min(1).optional(),
 });
 
 const catalogTimeoutsSchema = z.strictObject({
@@ -419,6 +420,17 @@ export function parseProviderCatalogJson(
       `Invalid provider catalog file ${sourcePath}: ${result.error.issues
         .map((i) => `${i.path.join(".")}: ${i.message}`)
         .join("; ")}`,
+    );
+  }
+  // A fixed-sampling id that is not a catalog key would strip nothing (a
+  // typo), so the quirk may only name models this file lists. Checked here
+  // rather than in the schema because it spans `quirks` and `models`.
+  const unknownFixed = (result.data.quirks?.fixedSamplingModels ?? []).filter(
+    (modelId) => !(modelId in result.data.models.catalog),
+  );
+  if (unknownFixed.length > 0) {
+    throw new Error(
+      `Invalid provider catalog file ${sourcePath}: quirks.fixedSamplingModels: ${unknownFixed.join(", ")} must be keys of models.catalog`,
     );
   }
   return result.data;

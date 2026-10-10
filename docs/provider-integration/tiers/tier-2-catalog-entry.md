@@ -53,10 +53,17 @@ provider is missing. Adding a provider changes no test file.
 `_doRegister()` loops over the catalog and registers every entry
 generically.
 
-One historical exception worth re-checking: `commandFactory.ts`'s separate
-`setup [provider]` subcommand hand-hardcoded its own provider-choices array.
-That was migrated to derive from the enum (PR #1583) — confirm it still
-does before assuming you need a manual edit.
+`neurolink setup <id>` needs no edit either. The command registered in
+`src/cli/factories/setupCommandFactory.ts` takes its provider choices from
+`AIProviderName` plus every descriptor alias, and `delegateToProviderSetup()`
+(`src/cli/commands/setup.ts`) sends any catalog id to one interactive flow,
+`handleCatalogProviderSetup()` (`src/cli/commands/setup-catalog.ts`). It
+reads the env var names, the default model and base URL, `setup.instructions`
+and `setup.apiKeyFormat` from the JSON. It prompts for the key, then offers the
+model and the base URL, and writes `.env`. `--check` and `--non-interactive`
+behave as they do for the native providers. (An older copy of the command in
+`commandFactory.ts` kept a hand-written 28-provider list. It was never
+registered and has been deleted.)
 
 ## The JSON, field by field
 
@@ -98,10 +105,10 @@ Rules are appended before the defaults and matched first-wins.
 with one of those HTTP statuses, so the same words on another status fall
 through to the defaults.
 
-**`quirks`** — five named, closed escape hatches, all rare. Each one is
+**`quirks`** — seven named, closed escape hatches, all rare. Each one is
 consumed generically by `ConfiguredOpenAICompatProvider`/the catalog loader —
 none of them run arbitrary code. A provider that needs more than these
-becomes a Tier 3 subclass instead of a sixth quirk.
+becomes a Tier 3 subclass instead of another quirk.
 
 - `timeoutErrorClass: "provider"` — What it does: `classifyProviderError()`
   hard-codes `TimeoutError -> NetworkError` ahead of any rule table; this
@@ -144,6 +151,16 @@ becomes a Tier 3 subclass instead of a sixth quirk.
   user, and it sets this alongside `responseFormatDowngrade`. Setting this
   for a vendor that doesn't ask for it risks a 400 from an unrecognized
   field, since strict OpenAI-compatible backends reject it.
+- `authHeaderStyle: "x-api-key"` — What it does: sends the key as
+  `X-Api-Key` and omits `Authorization: Bearer`. When to use it: the vendor's
+  chat endpoint authenticates only that way — Reka is the only current user.
+- `fixedSamplingModels: [<model id>, …]` — What it does: removes
+  `temperature`, `top_p`, `presence_penalty` and `frequency_penalty` from
+  every request to the listed models, whatever the caller (or the CLI's
+  default `--temperature 0.7`) passed. Each id must be a key of
+  `models.catalog`. When to use it: the vendor documents those parameters as
+  fixed for a model and rejects a request that sends any value — Moonshot is
+  the only current user (`kimi-k3`, `kimi-k2.7-code`, `kimi-k2.6`).
 
 **`setup`** — `url`, `apiKeyFormat` (regex or null), `billingPolicy`
 (`free-tier` | `free-with-card` | `no-free-tier`), `instructions[]`, and an

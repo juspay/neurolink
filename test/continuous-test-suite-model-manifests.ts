@@ -949,6 +949,95 @@ await test("an explicit row or discovered ceiling for the prefixed id wins, and 
   );
 });
 
+await test("Bedrock rows for Claude 5, 5.5, Fable 5/5.1 and Opus 4.7/4.8 carry the 1M window", async () => {
+  // The same window these models' Anthropic and Vertex rows carry. Without a
+  // row each id rode the 200K Bedrock default.
+  const ids = [
+    BedrockModels.CLAUDE_5_5_OPUS,
+    BedrockModels.CLAUDE_5_5_SONNET,
+    BedrockModels.CLAUDE_5_1_FABLE,
+    BedrockModels.CLAUDE_5_OPUS,
+    BedrockModels.CLAUDE_5_SONNET,
+    BedrockModels.CLAUDE_5_FABLE,
+    BedrockModels.CLAUDE_4_8_OPUS,
+    BedrockModels.CLAUDE_4_7_OPUS,
+  ];
+  const wrong = ids.filter(
+    (id) =>
+      MODEL_CONTEXT_WINDOWS.bedrock[id] !== 1_000_000 ||
+      getContextWindowSize("bedrock", id) !== 1_000_000,
+  );
+  assert(
+    ids.every((id) => typeof id === "string"),
+    "a Claude 5.x / 4.7 / 4.8 member is missing from BedrockModels",
+  );
+  assert(
+    wrong.length === 0,
+    `${wrong.length} Bedrock Claude id(s) do not resolve to a 1M row of their own`,
+  );
+});
+
+await test("Bedrock inference-profile ids and ARNs resolve to the bare model's window", async () => {
+  // Cross-region profiles ("us.", "eu.", "apac.", "global.") and full ARNs
+  // used to prefix-match nothing and take the 200K default; they now resolve
+  // through the bare "anthropic.…" id, as pricing.ts already did.
+  const bare = BedrockModels.CLAUDE_5_5_SONNET;
+  const forms = [
+    `us.${bare}`,
+    `eu.${bare}`,
+    `apac.${bare}`,
+    `global.${bare}`,
+    `arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.${bare}`,
+    `arn:aws:bedrock:us-east-1::foundation-model/${bare}`,
+  ];
+  const wrong = forms
+    .map((form, index) => [form, index] as const)
+    .filter(([form]) => getContextWindowSize("bedrock", form) !== 1_000_000)
+    .map(([, index]) => index);
+  assert(
+    wrong.length === 0,
+    `inference-profile form(s) at index ${wrong.join(", ")} did not resolve to the 1M window`,
+  );
+  // Controls: a profile id with a row of its own keeps that row, a
+  // non-Anthropic profile resolves through its bare id, and an unknown
+  // profile still takes the Bedrock default.
+  const controls: ReadonlyArray<readonly [string, number]> = [
+    ["us.anthropic.claude-3-7-sonnet-20250219-v1:0", 200_000],
+    ["us.amazon.nova-pro-v1:0", 300_000],
+    ["global.anthropic.claude-not-a-listed-model-v1:0", 200_000],
+  ];
+  const wrongControls = controls
+    .map(([id, window], index) => [id, window, index] as const)
+    .filter(([id, window]) => getContextWindowSize("bedrock", id) !== window)
+    .map(([, , index]) => index);
+  assert(
+    wrongControls.length === 0,
+    `control id(s) at index ${wrongControls.join(", ")} resolved to the wrong window`,
+  );
+});
+
+await test("Vertex Gemini 2.5 output ceiling is 65,536 in the table getSafeMaxTokens reads", async () => {
+  // #1890 raised the Vertex Gemini 2.5 rows in constants/tokens.ts, which no
+  // runtime path reads. getSafeMaxTokens() reads PROVIDER_MAX_TOKENS, whose
+  // per-model keys come from the Vertex manifest — so the rows have to live
+  // there, or Vertex caps at the 64,000 provider default.
+  const ids = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+  const wrong = ids.filter(
+    (id) =>
+      getSafeMaxTokens("vertex", id) !== 65_536 ||
+      getSafeMaxTokens("vertex", id, 70_000) !== 65_536 ||
+      getSafeMaxTokens("vertex", id, 65_000) !== 65_000,
+  );
+  assert(
+    wrong.length === 0,
+    `${wrong.length} Vertex Gemini 2.5 model(s) do not default to and clamp at 65,536`,
+  );
+  assert(
+    getSafeMaxTokens("vertex", "a-vertex-model-nothing-lists") === 64_000,
+    "an unlisted Vertex model no longer takes the 64,000 provider default",
+  );
+});
+
 await test("public session context stats use the 1M window for Claude 5 and Opus 4.7/4.8 on Anthropic and Vertex", async () => {
   const { NeuroLink } = await import("../dist/index.js");
   const sdk = new NeuroLink({ conversationMemory: { enabled: true } });

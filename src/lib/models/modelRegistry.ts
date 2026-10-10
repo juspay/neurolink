@@ -1072,7 +1072,9 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
     },
     limits: {
       maxContextTokens: 1048576, // 1M tokens
-      maxOutputTokens: 8192,
+      // Gemini 2.5 Flash's output ceiling, as the google-ai manifest records
+      // (8192 was the Gemini 1.5/2.0 figure).
+      maxOutputTokens: 65536,
       maxRequestsPerMinute: 1000,
     },
     useCases: {

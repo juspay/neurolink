@@ -113,6 +113,13 @@ export type CatalogQuirks = {
    *  ConfiguredOpenAICompatProvider.getAuthHeaders(); omitted means the
    *  inherited Bearer default. */
   authHeaderStyle?: "x-api-key";
+  /** Catalog model ids whose sampling parameters the vendor fixes: passing
+   *  `temperature`, `top_p`, `presence_penalty` or `frequency_penalty` at
+   *  all is an error (Moonshot's kimi-k3, kimi-k2.7-code and kimi-k2.6).
+   *  ConfiguredOpenAICompatProvider removes those fields from every request
+   *  to these models, so the CLI's default temperature and a caller's
+   *  explicit one both stop being fatal. Each id must be a catalog key. */
+  fixedSamplingModels?: string[];
 };
 
 /** Promotional allowance is conditional; setup text must describe eligibility,

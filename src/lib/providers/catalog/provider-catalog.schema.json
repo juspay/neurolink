@@ -309,6 +309,12 @@
           "type": "string",
           "enum": ["x-api-key"],
           "description": "Vendor's chat-completions endpoint authenticates with X-Api-Key instead of the inherited Authorization: Bearer default (Reka's OpenAPI spec declares exactly one security scheme, an apiKey in header X-Api-Key). Normalized by ConfiguredOpenAICompatProvider.getAuthHeaders()."
+        },
+        "fixedSamplingModels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Catalog model ids whose sampling parameters the vendor fixes and rejects when sent (Moonshot documents temperature, top_p, presence_penalty and frequency_penalty as \"Cannot be modified\" for kimi-k3). ConfiguredOpenAICompatProvider removes those fields from requests to these models, whatever the caller passed."
         }
       }
     },

@@ -376,7 +376,7 @@ export class ModelsCommandFactory {
         demandOption: true,
       })
       .example(
-        "neurolink models compare gpt-4o claude-3.5-sonnet gemini-2.5-pro",
+        "neurolink models compare gpt-4o claude-sonnet-4-6 gemini-2.5-pro",
         "Compare three flagship models",
       )
       .example(

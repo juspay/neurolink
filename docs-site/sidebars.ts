@@ -45,6 +45,7 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/nvidia-nim",
             "getting-started/providers/lm-studio",
             "getting-started/providers/llamacpp",
+            "getting-started/providers/a2agent",
             "getting-started/providers/above-dev",
             "getting-started/providers/ai21",
             "getting-started/providers/aiand",

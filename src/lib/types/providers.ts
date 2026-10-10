@@ -1036,6 +1036,9 @@ export type OpenAICompatCatalogEntry = {
    *  endpoint authenticates via `X-Api-Key` instead of the inherited
    *  `Authorization: Bearer` default. */
   authHeaderStyle?: "x-api-key";
+  /** See CatalogQuirks.fixedSamplingModels — model ids whose requests must
+   *  carry no sampling parameters. */
+  fixedSamplingModels?: ReadonlySet<string>;
 };
 
 /** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()

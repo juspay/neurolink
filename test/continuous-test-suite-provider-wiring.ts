@@ -544,9 +544,11 @@ await test("llama.cpp validateConfiguration returns false when the server is unr
 await test("delegateToProviderSetup falls back to a generic flow for a previously-unhandled provider", async () => {
   const { delegateToProviderSetup } =
     await import("../dist/cli/commands/setup.js");
-  // Previously threw "Unknown provider: together-ai". Should now print the
-  // generic data-driven setup flow instead of throwing.
-  await delegateToProviderSetup("together-ai");
+  // Previously threw "Unknown provider: together-ai". Should now run the
+  // generic catalog setup flow instead of throwing. Non-interactive, because
+  // with no key in the environment the interactive flow would prompt on this
+  // process's own stdin.
+  await delegateToProviderSetup("together-ai", { nonInteractive: true });
 });
 
 await test("delegateToProviderSetup still throws for a genuinely unknown provider id", async () => {
@@ -1910,6 +1912,180 @@ await test("the built OpenRouter setup guide prints supported model examples", a
   assert(
     examples.length >= 3 && examples.every((id) => known.has(id)),
     "the model examples include unsupported IDs",
+  );
+});
+
+// `neurolink setup <id>` for the JSON-catalog vendors. Every case spawns the
+// built CLI in a fresh temp cwd with a hand-built env (PATH, HOME, NO_COLOR
+// plus whatever the case sets), so no ambient credential or repo `.env` can
+// reach the child, and the `.env` the wizard writes lands in that temp dir.
+async function runSetupCli(
+  args: string[],
+  options: {
+    env?: Record<string, string>;
+    // Prompt text -> keystrokes, sent in order once that prompt appears.
+    answers?: ReadonlyArray<readonly [string, string]>;
+  } = {},
+): Promise<{ code: number | null; output: string; dotenv: string | null }> {
+  const { spawn } = await import("node:child_process");
+  const { mkdtempSync, readFileSync, existsSync, rmSync } =
+    await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join, resolve } = await import("node:path");
+  const cli = resolve("dist/cli/index.js");
+  const dir = mkdtempSync(join(tmpdir(), "cli-setup-catalog-"));
+  try {
+    const child = spawn(process.execPath, [cli, ...args], {
+      cwd: dir,
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: dir,
+        NO_COLOR: "1",
+        ...(options.env ?? {}),
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const pending = [...(options.answers ?? [])];
+    let output = "";
+    let scanFrom = 0;
+    const onData = (chunk: Buffer): void => {
+      output += chunk.toString();
+      // Answer each prompt once, in order, only after it has been printed.
+      // The short delay lets the prompt attach its keypress reader first:
+      // keys written the instant the question is painted are dropped.
+      while (pending.length > 0) {
+        const at = output.indexOf(pending[0][0], scanFrom);
+        if (at === -1) {
+          break;
+        }
+        scanFrom = at + pending[0][0].length;
+        const keys = pending[0][1];
+        setTimeout(() => child.stdin.write(keys), 250);
+        pending.shift();
+      }
+    };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+    // With nothing to answer, close stdin at once so the first prompt sees
+    // EOF and aborts. With answers, stdin stays open until the child exits.
+    if (pending.length === 0) {
+      child.stdin.end();
+    }
+    const code = await new Promise<number | null>((resolveExit) => {
+      const timer = setTimeout(() => child.kill("SIGKILL"), 30_000);
+      child.on("close", (exitCode) => {
+        clearTimeout(timer);
+        resolveExit(exitCode);
+      });
+    });
+    const envPath = join(dir, ".env");
+    return {
+      code,
+      output,
+      dotenv: existsSync(envPath) ? readFileSync(envPath, "utf8") : null,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+await test("CLI setup <catalog vendor> prints the vendor's variables and reaches its API-key prompt", async () => {
+  // a2agent is a catalog-only vendor with no bespoke handler. Stdin is closed,
+  // so the first prompt aborts at EOF and handleSetup exits 1 — that exit is
+  // the expected outcome here; the case asserts what was printed before it.
+  const r = await runSetupCli(["setup", "a2agent"]);
+  assert(
+    !/Unknown provider|Invalid values|Did you mean/.test(r.output),
+    "setup rejected a catalog vendor id",
+  );
+  assert(
+    r.output.includes("A2Agent Configuration Status") &&
+      r.output.includes("API key (A2AGENT_API_KEY): Not set"),
+    "the status block does not name the vendor's API-key variable",
+  );
+  assert(
+    r.output.includes("A2AGENT_MODEL=deepseek-v4-flash") &&
+      r.output.includes("A2AGENT_BASE_URL=https://api.a2agent.me/v1"),
+    "the instructions omit the catalog's default model or base URL",
+  );
+  assert(
+    r.output.includes("Enter your A2Agent API key (A2AGENT_API_KEY):"),
+    "the flow never reached its API-key prompt",
+  );
+  assert(r.code === 1, "a prompt aborted at EOF should exit 1");
+});
+
+await test("CLI setup <alias> resolves to its catalog vendor and writes the key, model and base URL", async () => {
+  // `kimi` is a descriptor alias of moonshot-ai. Down-arrow once picks the
+  // first non-default catalog model (topModels order), and a non-default base
+  // URL is typed in; all three land in the temp dir's .env.
+  const r = await runSetupCli(["setup", "kimi"], {
+    answers: [
+      ["(MOONSHOT_AI_API_KEY):", "test-kimi-wizard-key-0001\r"],
+      ["Select a model for Moonshot AI (Kimi)", "\x1b[B\r"],
+      ["Base URL (MOONSHOT_AI_BASE_URL)", "https://proxy.example.test/v1\r"],
+    ],
+  });
+  assert(r.code === 0, "the interactive alias setup did not exit cleanly");
+  assert(r.dotenv !== null, "the wizard wrote no .env");
+  const lines = new Set((r.dotenv ?? "").split("\n"));
+  assert(
+    lines.has("MOONSHOT_AI_API_KEY=test-kimi-wizard-key-0001"),
+    "the API key was not written under the vendor's variable",
+  );
+  assert(
+    lines.has("MOONSHOT_AI_MODEL=kimi-k2.7-code"),
+    "the selected model was not written under the vendor's model variable",
+  );
+  assert(
+    lines.has("MOONSHOT_AI_BASE_URL=https://proxy.example.test/v1"),
+    "the custom base URL was not written under the vendor's base-URL variable",
+  );
+});
+
+await test("CLI setup <catalog vendor> keeps defaults out of .env when they are accepted", async () => {
+  const r = await runSetupCli(["setup", "a2agent"], {
+    answers: [
+      ["(A2AGENT_API_KEY):", "test-a2agent-wizard-key-0001\r"],
+      ["Select a model for A2Agent", "\r"],
+      ["Base URL (A2AGENT_BASE_URL)", "\r"],
+    ],
+  });
+  assert(r.code === 0, "the interactive setup did not exit cleanly");
+  const dotenv = r.dotenv ?? "";
+  assert(
+    dotenv.includes("A2AGENT_API_KEY=test-a2agent-wizard-key-0001"),
+    "the API key was not written",
+  );
+  assert(
+    !dotenv.includes("A2AGENT_MODEL=") && !dotenv.includes("A2AGENT_BASE_URL="),
+    "an accepted default was written to .env",
+  );
+});
+
+await test("CLI setup <catalog vendor> --check and --non-interactive need no prompt", async () => {
+  // `grok` is xai's alias. --check passes once the key is set and fails
+  // without it; --non-interactive prints the instructions and exits 0.
+  const configured = await runSetupCli(["setup", "grok", "--check"], {
+    env: { XAI_API_KEY: "xai-test-wizard-check-key-0001" },
+  });
+  assert(
+    configured.code === 0 && configured.output.includes("xAI"),
+    "--check failed for a configured catalog vendor",
+  );
+  const missing = await runSetupCli(["setup", "grok", "--check"]);
+  assert(missing.code === 1, "--check passed with no key set");
+  const printed = await runSetupCli([
+    "setup",
+    "--provider",
+    "fireworks",
+    "--non-interactive",
+  ]);
+  assert(
+    printed.code === 0 &&
+      printed.output.includes("export FIREWORKS_API_KEY=") &&
+      !printed.output.includes("Enter your"),
+    "--non-interactive did not print the instructions without prompting",
   );
 });
 
