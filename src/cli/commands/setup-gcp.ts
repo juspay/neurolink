@@ -600,6 +600,27 @@ function validateServiceAccountJSON(input: string): boolean | string {
 }
 
 /**
+ * Quote a value for a double-quoted .env entry.
+ *
+ * Line breaks are folded first, whichever way they were typed (a real CR/LF,
+ * or the two characters `\n` a key copied out of a service-account JSON file
+ * carries), and written back as the `\n` escape the .env loaders expand. That
+ * has to come before the backslashes are escaped, or a pasted `\n` would be
+ * doubled into `\\n` and the key would stop being a key. Every other backslash
+ * is then escaped before the quote is: an unescaped one in front of a `"`
+ * cancels the quote's own escape, closes the value early and lets the rest of
+ * the input run as part of the .env line.
+ */
+function quoteEnvValue(value: string): string {
+  const escaped = value
+    .replace(/\\r\\n|\\n|\\r|\r\n|\r/g, "\n")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n");
+  return `"${escaped}"`;
+}
+
+/**
  * Update .env file with selected authentication method
  */
 async function updateEnvFile(
@@ -676,10 +697,10 @@ async function updateEnvFile(
           existingVars.set("GOOGLE_AUTH_CLIENT_EMAIL", config.clientEmail);
         }
         if (config.privateKey) {
-          const escaped = config.privateKey
-            .replace(/\r?\n/g, "\\n")
-            .replace(/"/g, '\\"');
-          existingVars.set("GOOGLE_AUTH_PRIVATE_KEY", `"${escaped}"`);
+          existingVars.set(
+            "GOOGLE_AUTH_PRIVATE_KEY",
+            quoteEnvValue(config.privateKey),
+          );
         }
         break;
     }

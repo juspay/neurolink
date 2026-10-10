@@ -356,6 +356,23 @@ function validateApiKey(input: string): boolean | string {
   return true;
 }
 
+const AZURE_OPENAI_HOST_SUFFIX = ".openai.azure.com";
+
+/**
+ * True only when the parsed hostname is a subdomain of openai.azure.com.
+ * A substring test also accepts `openai.azure.com.evil.example` and
+ * `evilopenai.azure.com`, so the leading dot of the suffix is what pins the
+ * label boundary. The URL class has already lower-cased the host; a single
+ * trailing dot (an absolute DNS name) is the same host and is ignored.
+ */
+function isAzureOpenAIHostname(hostname: string): boolean {
+  const host = hostname.endsWith(".") ? hostname.slice(0, -1) : hostname;
+  return (
+    host.length > AZURE_OPENAI_HOST_SUFFIX.length &&
+    host.endsWith(AZURE_OPENAI_HOST_SUFFIX)
+  );
+}
+
 /**
  * Validate Azure OpenAI endpoint URL
  */
@@ -368,7 +385,7 @@ function validateEndpoint(input: string): boolean | string {
 
   try {
     const url = new URL(trimmed);
-    if (!url.hostname.includes("openai.azure.com")) {
+    if (!isAzureOpenAIHostname(url.hostname)) {
       return "Endpoint should be an Azure OpenAI URL (*.openai.azure.com)";
     }
     return true;
