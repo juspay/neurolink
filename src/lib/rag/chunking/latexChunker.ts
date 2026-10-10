@@ -14,6 +14,35 @@ import type {
   LaTeXChunkerConfig,
 } from "../../types/index.js";
 
+const BEGIN_DOCUMENT = "\\begin{document}";
+const END_DOCUMENT = "\\end{document}";
+
+/**
+ * Split a LaTeX source into the text before `\begin{document}` and the body up
+ * to the first `\end{document}` after it, or null when there is no such pair.
+ *
+ * This is what `/^([\s\S]*?)\\begin\{document\}([\s\S]*?)\\end\{document\}/`
+ * returned, without its cost: with no `\end{document}` in the text, that
+ * pattern rescanned to the end of the input from every `\begin{document}`,
+ * so N occurrences took O(N * length). If the first `\begin{document}` has no
+ * closing marker after it, a later one cannot either, so two `indexOf` calls
+ * decide the match and the work is linear.
+ */
+function splitDocumentBody(
+  text: string,
+): { preamble: string; body: string } | null {
+  const begin = text.indexOf(BEGIN_DOCUMENT);
+  if (begin === -1) {
+    return null;
+  }
+  const bodyStart = begin + BEGIN_DOCUMENT.length;
+  const end = text.indexOf(END_DOCUMENT, bodyStart);
+  if (end === -1) {
+    return null;
+  }
+  return { preamble: text.slice(0, begin), body: text.slice(bodyStart, end) };
+}
+
 /**
  * LaTeX-aware chunker implementation
  * Splits based on LaTeX structure (sections, environments)
@@ -60,16 +89,14 @@ export class LaTeXChunker implements Chunker {
     }
 
     // Extract preamble if present
-    const preambleMatch = text.match(
-      /^([\s\S]*?)\\begin\{document\}([\s\S]*?)\\end\{document\}/,
-    );
+    const documentParts = splitDocumentBody(text);
 
     let preamble = "";
     let documentContent = text;
 
-    if (preambleMatch) {
-      preamble = preambleMatch[1].trim();
-      documentContent = preambleMatch[2];
+    if (documentParts) {
+      preamble = documentParts.preamble.trim();
+      documentContent = documentParts.body;
 
       // Add preamble as first chunk if requested
       if (includePreamble && preamble.length > 0) {

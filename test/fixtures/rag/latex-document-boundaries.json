@@ -1,0 +1,1048 @@
+{
+  "cases": [
+    {
+      "name": "full-document-with-preamble-sections-and-math",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n\\end{document}\n% trailing comment after the document\n",
+      "config": {
+        "maxSize": 120,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 90,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 90,
+            "endPosition": 224,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 224,
+            "endPosition": 326,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 326,
+            "endPosition": 356,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "same-document-without-preamble-chunk",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n\\end{document}\n",
+      "config": {
+        "maxSize": 120,
+        "overlap": 20,
+        "includePreamble": false
+      },
+      "expected": [
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 134,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 3
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 134,
+            "endPosition": 236,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 3
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 236,
+            "endPosition": 266,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 3
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-document-environment-at-all",
+      "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.",
+      "config": {
+        "maxSize": 100,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 92,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 92,
+            "endPosition": 134,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 134,
+            "endPosition": 236,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 236,
+            "endPosition": 266,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "begin-without-end-keeps-whole-text",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 107,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 107,
+            "endPosition": 241,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 241,
+            "endPosition": 343,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 343,
+            "endPosition": 373,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "end-before-begin-is-ordinary-preamble-text",
+      "text": "\\end{document}\n\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n\\end{document}\n",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\end{document}\n\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 105,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 105,
+            "endPosition": 239,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 239,
+            "endPosition": 341,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 341,
+            "endPosition": 371,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "nested-begin-single-end",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\nouter text\n\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n\\end{document}\ntail after end\n",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 90,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 5
+          }
+        },
+        {
+          "text": "outer text\n\\begin{document}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 90,
+            "endPosition": 117,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 5
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 117,
+            "endPosition": 251,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 5
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 251,
+            "endPosition": 353,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 5
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 4,
+            "startPosition": 353,
+            "endPosition": 383,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "two-documents-only-the-first-is-read",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\nfirst body\n\\end{document}\nmiddle\n\\begin{document}\nsecond body\n\\end{document}\n",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 90,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 2
+          }
+        },
+        {
+          "text": "first body",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 90,
+            "endPosition": 100,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty-body",
+      "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}\n\\begin{document}\\end{document}\n",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\title{Boundary Notes}\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 90,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-preamble-document-starts-the-text",
+      "text": "\\begin{document}\n\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]\n\n\\section*{Closing}\nFinal words.\n\\end{document}",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\n\n\\begin{equation}\nE = mc^2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 134,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 3
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 134,
+            "endPosition": 236,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 3
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 236,
+            "endPosition": 266,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 3
+          }
+        }
+      ]
+    },
+    {
+      "name": "adjacent-end-markers",
+      "text": "\\begin{document}kept\\end{document}\\end{document}after",
+      "config": {
+        "maxSize": 150,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "kept",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 4,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "crlf-line-endings",
+      "text": "\\documentclass{article}\r\n\\usepackage{amsmath}\r\n\\title{Boundary Notes}\r\n\\author{Owned Fixture}\r\n\\begin{document}\r\n\\section{Introduction}\r\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\r\n\r\n\\begin{equation}\r\nE = mc^2\r\n\\end{equation}\r\n\r\n\\subsection{Details}\r\nMore prose follows here. Another sentence ends here. And a third.\r\n\\[ a + b = c \\]\r\n\r\n\\section*{Closing}\r\nFinal words.\r\n\\end{document}\r\n",
+      "config": {
+        "maxSize": 140,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\r\n\\usepackage{amsmath}\r\n\\title{Boundary Notes}\r\n\\author{Owned Fixture}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 93,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nThis paper studies $x^2 + y^2 = z^2$ in a plain setting. It is short.\r\n\r\n\\begin{equation}\r\nE = mc^2\r\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 93,
+            "endPosition": 231,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\subsection{Details}\nMore prose follows here. Another sentence ends here. And a third.\r\n\\[ a + b = c \\]",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 231,
+            "endPosition": 334,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Details",
+            "custom": {},
+            "totalChunks": 4
+          }
+        },
+        {
+          "text": "\\section{Closing}\nFinal words.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 334,
+            "endPosition": 364,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Closing",
+            "custom": {},
+            "totalChunks": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "shipped-sample-document-default-size",
+      "textFile": "sample-document.tex",
+      "config": {},
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{amssymb}\n\\usepackage{hyperref}\n\n\\title{Mathematical Foundations of RAG Systems}\n\\author{NeuroLink Research Team}\n\\date{January 2024}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 189,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\maketitle\n\n\\begin{abstract}\nThis paper presents the mathematical foundations underlying Retrieval-Augmented Generation (RAG) systems, including vector similarity measures, embedding spaces, and fusion algorithms.\n\\end{abstract}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 189,
+            "endPosition": 417,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nRetrieval-Augmented Generation (RAG) combines the strengths of retrieval systems with generative language models. The core idea is to augment the input to a language model with relevant information retrieved from an external knowledge base.\n\nLet $\\mathcal{D} = \\{d_1, d_2, \\ldots, d_n\\}$ be a document collection and $q$ be a query. The RAG system performs:\n\n\\begin{equation}\nP(y|q) = \\sum_{d \\in \\mathcal{D}} P(d|q) \\cdot P(y|q, d)\n\\end{equation}\n\nwhere $P(d|q)$ is the retrieval probability and $P(y|q,d)$ is the generation probability given the retrieved document.",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 417,
+            "endPosition": 1007,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Vector Embeddings}\nDocuments and queries are mapped to a high-dimensional vector space using embedding functions.",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 1007,
+            "endPosition": 1129,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Vector Embeddings",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\subsection{Embedding Function}\nLet $E: \\mathcal{T} \\rightarrow \\mathbb{R}^d$ be an embedding function mapping text to $d$-dimensional vectors:\n\n\\begin{equation}\n\\mathbf{v} = E(t), \\quad \\mathbf{v} \\in \\mathbb{R}^d\n\\end{equation}\n\nCommon embedding models produce vectors with $d \\in \\{384, 768, 1536, 3072\\}$ dimensions.",
+          "metadata": {
+            "chunkIndex": 4,
+            "startPosition": 1129,
+            "endPosition": 1449,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Embedding Function",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\subsection{Similarity Measures}\nGiven query embedding $\\mathbf{q}$ and document embedding $\\mathbf{d}$:\n\n\\textbf{Cosine Similarity:}\n\\begin{equation}\n\\text{cos}(\\mathbf{q}, \\mathbf{d}) = \\frac{\\mathbf{q} \\cdot \\mathbf{d}}{\\|\\mathbf{q}\\| \\|\\mathbf{d}\\|}\n\\end{equation}\n\n\\textbf{Euclidean Distance:}\n\\begin{equation}\n\\text{eucl}(\\mathbf{q}, \\mathbf{d}) = \\|\\mathbf{q} - \\mathbf{d}\\|_2 = \\sqrt{\\sum_{i=1}^{d} (q_i - d_i)^2}\n\\end{equation}\n\n\\textbf{Dot Product:}\n\\begin{equation}\n\\text{dot}(\\mathbf{q}, \\mathbf{d}) = \\mathbf{q} \\cdot \\mathbf{d} = \\sum_{i=1}^{d} q_i d_i\n\\end{equation}\n\nFor normalized vectors ($\\|\\mathbf{v}\\| = 1$), cosine similarity equals dot product.",
+          "metadata": {
+            "chunkIndex": 5,
+            "startPosition": 1449,
+            "endPosition": 2116,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Similarity Measures",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{BM25 Scoring}\nBM25 is a probabilistic ranking function for keyword-based retrieval:\n\n\\begin{equation}\n\\text{BM25}(q, d) = \\sum_{t \\in q} \\text{IDF}(t) \\cdot \\frac{f(t, d) \\cdot (k_1 + 1)}{f(t, d) + k_1 \\cdot (1 - b + b \\cdot \\frac{|d|}{\\text{avgdl}})}\n\\end{equation}\n\nwhere:\n\\begin{itemize}\n    \\item $f(t, d)$ is the term frequency of $t$ in document $d$\n    \\item $|d|$ is the document length\n    \\item $\\text{avgdl}$ is the average document length\n    \\item $k_1$ and $b$ are tuning parameters (typically $k_1 = 1.5$, $b = 0.75$)\n\\end{itemize}\n\nThe inverse document frequency is:\n\\begin{equation}\n\\text{IDF}(t) = \\log \\frac{N - n(t) + 0.5}{n(t) + 0.5}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 6,
+            "startPosition": 2116,
+            "endPosition": 2794,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "BM25 Scoring",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Reciprocal Rank Fusion}\nRRF combines rankings from multiple retrieval methods:\n\n\\begin{equation}\n\\text{RRF}(d) = \\sum_{r \\in R} \\frac{1}{k + r(d)}\n\\end{equation}\n\nwhere $R$ is the set of ranking methods, $r(d)$ is the rank of document $d$ in ranking $r$, and $k$ is a constant (typically $k = 60$).",
+          "metadata": {
+            "chunkIndex": 7,
+            "startPosition": 2794,
+            "endPosition": 3101,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Reciprocal Rank Fusion",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\subsection{Properties of RRF}\n\\begin{itemize}\n    \\item Bounded: $\\text{RRF}(d) \\leq \\frac{|R|}{k+1}$\n    \\item Rank-based: Only considers position, not scores\n    \\item Robust: Less sensitive to score scale differences\n\\end{itemize}",
+          "metadata": {
+            "chunkIndex": 8,
+            "startPosition": 3101,
+            "endPosition": 3335,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Properties of RRF",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Linear Score Combination}\nAn alternative to RRF is weighted linear combination of normalized scores:\n\n\\begin{equation}\n\\text{score}(d) = \\alpha \\cdot \\hat{s}_{\\text{vec}}(d) + (1-\\alpha) \\cdot \\hat{s}_{\\text{bm25}}(d)\n\\end{equation}\n\nwhere $\\hat{s}$ denotes min-max normalized scores:\n\n\\begin{equation}\n\\hat{s}(d) = \\frac{s(d) - s_{\\min}}{s_{\\max} - s_{\\min}}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 9,
+            "startPosition": 3335,
+            "endPosition": 3718,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Linear Score Combination",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Chunking Theory}\nOptimal chunk size balances context preservation with retrieval precision.",
+          "metadata": {
+            "chunkIndex": 10,
+            "startPosition": 3718,
+            "endPosition": 3818,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Chunking Theory",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\subsection{Overlap Calculation}\nFor chunks of size $c$ with overlap $o$, the number of chunks for a document of length $L$ is:\n\n\\begin{equation}\nn = \\left\\lceil \\frac{L - o}{c - o} \\right\\rceil\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 11,
+            "startPosition": 3818,
+            "endPosition": 4027,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Overlap Calculation",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\subsection{Information Loss}\nInformation loss at chunk boundaries can be minimized with overlap ratio:\n\n\\begin{equation}\n\\text{overlap\\_ratio} = \\frac{o}{c} \\approx 0.1 \\text{ to } 0.2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 12,
+            "startPosition": 4027,
+            "endPosition": 4227,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Information Loss",
+            "custom": {},
+            "totalChunks": 14
+          }
+        },
+        {
+          "text": "\\section{Conclusion}\nThe mathematical framework presented here provides the foundation for implementing efficient and effective RAG systems. Key considerations include choosing appropriate similarity metrics, balancing retrieval methods through fusion, and optimizing chunk sizes for the target domain.\n\n\\begin{thebibliography}{9}\n\\bibitem{rag} Lewis et al., \"Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks,\" NeurIPS 2020.\n\\bibitem{bm25} Robertson and Zaragoza, \"The Probabilistic Relevance Framework: BM25 and Beyond,\" 2009.\n\\bibitem{rrf} Cormack et al., \"Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods,\" SIGIR 2009.\n\\end{thebibliography}",
+          "metadata": {
+            "chunkIndex": 13,
+            "startPosition": 4227,
+            "endPosition": 4919,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Conclusion",
+            "custom": {},
+            "totalChunks": 14
+          }
+        }
+      ]
+    },
+    {
+      "name": "shipped-sample-document-small-chunks",
+      "textFile": "sample-document.tex",
+      "config": {
+        "maxSize": 300,
+        "overlap": 0
+      },
+      "expected": [
+        {
+          "text": "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{amssymb}\n\\usepackage{hyperref}\n\n\\title{Mathematical Foundations of RAG Systems}\n\\author{NeuroLink Research Team}\n\\date{January 2024}",
+          "metadata": {
+            "chunkIndex": 0,
+            "startPosition": 0,
+            "endPosition": 189,
+            "documentType": "latex",
+            "latexEnvironment": "preamble",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\maketitle\n\n\\begin{abstract}\nThis paper presents the mathematical foundations underlying Retrieval-Augmented Generation (RAG) systems, including vector similarity measures, embedding spaces, and fusion algorithms.\n\\end{abstract}",
+          "metadata": {
+            "chunkIndex": 1,
+            "startPosition": 189,
+            "endPosition": 417,
+            "documentType": "latex",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Introduction}\nRetrieval-Augmented Generation (RAG) combines the strengths of retrieval systems with generative language models. The core idea is to augment the input to a language model with relevant information retrieved from an external knowledge base.",
+          "metadata": {
+            "chunkIndex": 2,
+            "startPosition": 417,
+            "endPosition": 680,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "Let $\\mathcal{D} = \\{d_1, d_2, \\ldots, d_n\\}$ be a document collection and $q$ be a query. The RAG system performs:\n\n\\begin{equation}\nP(y|q) = \\sum_{d \\in \\mathcal{D}} P(d|q) \\cdot P(y|q, d)\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 3,
+            "startPosition": 680,
+            "endPosition": 887,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "where $P(d|q)$ is the retrieval probability and $P(y|q,d)$ is the generation probability given the retrieved document.",
+          "metadata": {
+            "chunkIndex": 4,
+            "startPosition": 887,
+            "endPosition": 1007,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Introduction",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Vector Embeddings}\nDocuments and queries are mapped to a high-dimensional vector space using embedding functions.",
+          "metadata": {
+            "chunkIndex": 5,
+            "startPosition": 1007,
+            "endPosition": 1129,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Vector Embeddings",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\subsection{Embedding Function}\nLet $E: \\mathcal{T} \\rightarrow \\mathbb{R}^d$ be an embedding function mapping text to $d$-dimensional vectors:\n\n\\begin{equation}\n\\mathbf{v} = E(t), \\quad \\mathbf{v} \\in \\mathbb{R}^d\n\\end{equation}\n\nCommon embedding models produce vectors with $d \\in \\{384, 768, 1536, 3072\\}$ dimensions.",
+          "metadata": {
+            "chunkIndex": 6,
+            "startPosition": 1129,
+            "endPosition": 1449,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Embedding Function",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\subsection{Similarity Measures}\nGiven query embedding $\\mathbf{q}$ and document embedding $\\mathbf{d}$:\n\n\\textbf{Cosine Similarity:}\n\\begin{equation}\n\\text{cos}(\\mathbf{q}, \\mathbf{d}) = \\frac{\\mathbf{q} \\cdot \\mathbf{d}}{\\|\\mathbf{q}\\| \\|\\mathbf{d}\\|}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 7,
+            "startPosition": 1449,
+            "endPosition": 1717,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Similarity Measures",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\textbf{Euclidean Distance:}\n\\begin{equation}\n\\text{eucl}(\\mathbf{q}, \\mathbf{d}) = \\|\\mathbf{q} - \\mathbf{d}\\|_2 = \\sqrt{\\sum_{i=1}^{d} (q_i - d_i)^2}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 8,
+            "startPosition": 1717,
+            "endPosition": 1885,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Similarity Measures",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\textbf{Dot Product:}\n\\begin{equation}\n\\text{dot}(\\mathbf{q}, \\mathbf{d}) = \\mathbf{q} \\cdot \\mathbf{d} = \\sum_{i=1}^{d} q_i d_i\n\\end{equation}\n\nFor normalized vectors ($\\|\\mathbf{v}\\| = 1$), cosine similarity equals dot product.",
+          "metadata": {
+            "chunkIndex": 9,
+            "startPosition": 1885,
+            "endPosition": 2116,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Similarity Measures",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{BM25 Scoring}\nBM25 is a probabilistic ranking function for keyword-based retrieval:\n\n\\begin{equation}\n\\text{BM25}(q, d) = \\sum_{t \\in q} \\text{IDF}(t) \\cdot \\frac{f(t, d) \\cdot (k_1 + 1)}{f(t, d) + k_1 \\cdot (1 - b + b \\cdot \\frac{|d|}{\\text{avgdl}})}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 10,
+            "startPosition": 2116,
+            "endPosition": 2391,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "BM25 Scoring",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "where:\n\\begin{itemize}\n    \\item $f(t, d)$ is the term frequency of $t$ in document $d$\n    \\item $|d|$ is the document length\n    \\item $\\text{avgdl}$ is the average document length\n    \\item $k_1$ and $b$ are tuning parameters (typically $k_1 = 1.5$, $b = 0.75$)\n\\end{itemize}",
+          "metadata": {
+            "chunkIndex": 11,
+            "startPosition": 2391,
+            "endPosition": 2671,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "BM25 Scoring",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "The inverse document frequency is:\n\\begin{equation}\n\\text{IDF}(t) = \\log \\frac{N - n(t) + 0.5}{n(t) + 0.5}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 12,
+            "startPosition": 2671,
+            "endPosition": 2794,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "BM25 Scoring",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Reciprocal Rank Fusion}\nRRF combines rankings from multiple retrieval methods:\n\n\\begin{equation}\n\\text{RRF}(d) = \\sum_{r \\in R} \\frac{1}{k + r(d)}\n\\end{equation}\n\nwhere $R$ is the set of ranking methods, $r(d)$ is the rank of document $d$ in ranking $r$, and $k$ is a constant (typically $k = 60$).",
+          "metadata": {
+            "chunkIndex": 13,
+            "startPosition": 2794,
+            "endPosition": 3101,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Reciprocal Rank Fusion",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\subsection{Properties of RRF}\n\\begin{itemize}\n    \\item Bounded: $\\text{RRF}(d) \\leq \\frac{|R|}{k+1}$\n    \\item Rank-based: Only considers position, not scores\n    \\item Robust: Less sensitive to score scale differences\n\\end{itemize}",
+          "metadata": {
+            "chunkIndex": 14,
+            "startPosition": 3101,
+            "endPosition": 3335,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Properties of RRF",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Linear Score Combination}\nAn alternative to RRF is weighted linear combination of normalized scores:\n\n\\begin{equation}\n\\text{score}(d) = \\alpha \\cdot \\hat{s}_{\\text{vec}}(d) + (1-\\alpha) \\cdot \\hat{s}_{\\text{bm25}}(d)\n\\end{equation}\n\nwhere $\\hat{s}$ denotes min-max normalized scores:",
+          "metadata": {
+            "chunkIndex": 15,
+            "startPosition": 3335,
+            "endPosition": 3628,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Linear Score Combination",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\begin{equation}\n\\hat{s}(d) = \\frac{s(d) - s_{\\min}}{s_{\\max} - s_{\\min}}\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 16,
+            "startPosition": 3628,
+            "endPosition": 3718,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Linear Score Combination",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Chunking Theory}\nOptimal chunk size balances context preservation with retrieval precision.",
+          "metadata": {
+            "chunkIndex": 17,
+            "startPosition": 3718,
+            "endPosition": 3818,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Chunking Theory",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\subsection{Overlap Calculation}\nFor chunks of size $c$ with overlap $o$, the number of chunks for a document of length $L$ is:\n\n\\begin{equation}\nn = \\left\\lceil \\frac{L - o}{c - o} \\right\\rceil\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 18,
+            "startPosition": 3818,
+            "endPosition": 4027,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Overlap Calculation",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\subsection{Information Loss}\nInformation loss at chunk boundaries can be minimized with overlap ratio:\n\n\\begin{equation}\n\\text{overlap\\_ratio} = \\frac{o}{c} \\approx 0.1 \\text{ to } 0.2\n\\end{equation}",
+          "metadata": {
+            "chunkIndex": 19,
+            "startPosition": 4027,
+            "endPosition": 4227,
+            "documentType": "latex",
+            "latexEnvironment": "subsection",
+            "header": "Information Loss",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\section{Conclusion}\nThe mathematical framework presented here provides the foundation for implementing efficient and effective RAG systems. Key considerations include choosing appropriate similarity metrics, balancing retrieval methods through fusion, and optimizing chunk sizes for the target domain.",
+          "metadata": {
+            "chunkIndex": 20,
+            "startPosition": 4227,
+            "endPosition": 4529,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Conclusion",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\begin{thebibliography}{9}\n\\bibitem{rag} Lewis et al., \"Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks,\" NeurIPS 2020.",
+          "metadata": {
+            "chunkIndex": 21,
+            "startPosition": 4529,
+            "endPosition": 4667,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Conclusion",
+            "custom": {},
+            "totalChunks": 23
+          }
+        },
+        {
+          "text": "\\bibitem{bm25} Robertson and Zaragoza, \"The Probabilistic Relevance Framework: BM25 and Beyond,\" 2009.\n\\bibitem{rrf} Cormack et al., \"Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods,\" SIGIR 2009.\n\\end{thebibliography}",
+          "metadata": {
+            "chunkIndex": 22,
+            "startPosition": 4667,
+            "endPosition": 4919,
+            "documentType": "latex",
+            "latexEnvironment": "section",
+            "header": "Conclusion",
+            "custom": {},
+            "totalChunks": 23
+          }
+        }
+      ]
+    }
+  ]
+}

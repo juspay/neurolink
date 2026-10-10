@@ -9,6 +9,7 @@ import {
 } from "../observability/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
+import { ErrorFactory } from "../utils/errorHandling.js";
 import { ImageProcessor } from "../utils/imageProcessor.js";
 import { createChunker } from "./ChunkerFactory.js";
 import {
@@ -69,6 +70,23 @@ function detectStrategy(filePath: string): ChunkingStrategy {
 const EMBEDDING_DIMENSION = 128;
 
 /**
+ * Longest text, in UTF-16 code units, that {@link generateSimpleEmbedding}
+ * will hash: 1,048,576.
+ *
+ * The 128-dimension output does not bound the work. The function walks every
+ * character and every word of its input, and nothing upstream limits that
+ * input: a chunk is as large as the caller's `chunkSize` allows, and a search
+ * query is whatever the model sends. A default chunk is 1,000 characters, so
+ * this is about a thousand times that and no ordinary input reaches it. Longer
+ * text is refused with an error rather than truncated, because a clipped text
+ * would be embedded as a different document and rank as one.
+ *
+ * It applies only to the hash embedding. A configured embedding provider
+ * receives the text as before and applies its own limits.
+ */
+const MAX_HASH_EMBEDDING_TEXT_LENGTH = 1_048_576;
+
+/**
  * Simple hash function for strings (FNV-1a variant).
  * Maps a word to a bucket index deterministically.
  */
@@ -88,6 +106,16 @@ function hashWord(word: string, buckets: number): number {
  * When a real embedding provider is configured, it will be used instead.
  */
 function generateSimpleEmbedding(text: string, dimension: number): number[] {
+  if (text.length > MAX_HASH_EMBEDDING_TEXT_LENGTH) {
+    throw ErrorFactory.invalidParameters(
+      "rag.hashEmbedding",
+      new Error(
+        `text is ${text.length} characters, over the ${MAX_HASH_EMBEDDING_TEXT_LENGTH} character limit of the built-in hash embedding. Lower chunkSize, shorten the query, or configure an embeddingProvider.`,
+      ),
+      { length: text.length, maxLength: MAX_HASH_EMBEDDING_TEXT_LENGTH },
+    );
+  }
+
   const charEmbedding = new Array(dimension).fill(0);
   const wordEmbedding = new Array(dimension).fill(0);
 
@@ -184,6 +212,10 @@ function diversifyResults(
  * @param ragConfig - RAG configuration from generate/stream options
  * @param fallbackProvider - Provider to use for embeddings if not specified in ragConfig
  * @returns Prepared RAG tool to inject into the tools record
+ * @throws When `files` is empty, when no source can be loaded, and when the
+ * built-in hash embedding is given a chunk longer than 1,048,576 characters (it
+ * is the default, and the fallback when a configured embedding provider fails).
+ * The returned tool rejects a query over the same length the same way.
  */
 export async function prepareRAGTool(
   ragConfig: RAGConfig,
@@ -466,6 +498,7 @@ async function _prepareRAGToolInner(
   const embedModelName = embeddingModel || "gemini-2.5-flash";
   let embedFn = (text: string): Promise<number[]> =>
     Promise.resolve(generateSimpleEmbedding(text, EMBEDDING_DIMENSION));
+  let embeddingFromProvider = false;
   if (wantProviderEmbeddings) {
     try {
       const { AIProviderFactory } = await import("../core/factory.js");
@@ -476,6 +509,7 @@ async function _prepareRAGToolInner(
       if (typeof embedderProvider.embed === "function") {
         const providerEmbed = embedderProvider.embed.bind(embedderProvider);
         embedFn = (text: string) => providerEmbed(text, embedModelName);
+        embeddingFromProvider = true;
       } else {
         logger.warn(
           `[RAG] Embedding provider '${embedProviderName}' has no embed(); falling back to hash embeddings`,
@@ -503,6 +537,12 @@ async function _prepareRAGToolInner(
     chunkVectors = allVectors.slice(0, allChunks.length);
     imageVectors = allVectors.slice(allChunks.length);
   } catch (error) {
+    // The hash embedding refuses text over its length limit. With no provider
+    // in use there is nothing to fall back from, and retrying would only repeat
+    // that refusal after a log line claiming a provider failed.
+    if (!embeddingFromProvider) {
+      throw error;
+    }
     // One failed chunk must not leave a mixed-space index — flip the whole
     // index AND all queries back to the hash space together.
     logger.warn(
@@ -595,7 +635,7 @@ async function _prepareRAGToolInner(
           // would be scored against provider-space vectors of another
           // dimension, which cosine reads as 0 for every chunk, so the tool
           // would return arbitrary chunks as if they were relevant. A hash-built
-          // index never reaches this — its embedFn cannot reject.
+          // index only rejects here for a query over the hash length limit.
           const queryEmbedding = await embedFn(query);
 
           // Fetch more candidates than needed so diversity can select across files and images
