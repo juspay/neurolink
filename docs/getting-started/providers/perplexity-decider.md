@@ -309,6 +309,9 @@ Perplexity with `provider: "perplexity-decider"`. So:
   [One key, two providers](#one-key-two-providers).
 - **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef configured:**
   everything behaves exactly as it did without a decision model.
+- **`NEUROLINK_DECISION_PROVIDER=none`:** built-in features use no decision
+  provider, whatever is configured; with a provider's name instead, they use
+  that one only. See [One key, two providers](#one-key-two-providers).
 
 The classifier router's `auto` gate reads the credentials given to the
 `NeuroLink` constructor and the environment, not credentials passed on a single
@@ -451,7 +454,15 @@ shell does.
 To keep a key that was set for Sonar from activating decisions, use one of
 these:
 
-1. **Hand the key to the text provider through the SDK, not the environment, and
+1. **Set `NEUROLINK_DECISION_PROVIDER=none`.** Built-in consumers then use no
+   decision provider at all, as if none were configured, and the key keeps
+   working for the text provider. To use a different decision provider instead,
+   name it (`NEUROLINK_DECISION_PROVIDER=typesafe`): that one becomes the default
+   while it is configured, and Perplexity is never used in its place. Either way
+   a call that names `provider: "perplexity-decider"` still reaches Perplexity.
+   The variable works for the SDK and the CLI alike, and can sit in `.env`. See
+   [Turning the default off, or pinning it](../../features/decide-inference-type.md#turning-the-default-off-or-pinning-it).
+2. **Hand the key to the text provider through the SDK, not the environment, and
    keep it out of `.env`.**
    `new NeuroLink({ credentials: { perplexity: { apiKey } } })` configures the
    text provider and not this one, because NeuroLink looks for this provider's
@@ -468,18 +479,19 @@ these:
    made `decide()` answer. The CLI reads only the environment and the `.env`
    it loads, so a CLI run that has the variable set in either place has
    decisions configured; set it only for the commands that need it.
-2. **Configure TypeSafe, Laya or XOR.** One of them then answers every built-in
+3. **Configure TypeSafe, Laya or XOR.** One of them then answers every built-in
    consumer, and Perplexity runs only where a caller names it. The same texts go
    to that provider instead.
-3. **Switch off the opt-in consumers, or pin the router's strategy.**
+4. **Switch off the opt-in consumers, or pin the router's strategy.**
    `classifierRouter: { classifier: "heuristic" }` keeps routing in-process
    (`"llm"` sends the prompt to the classifier model instead). Leave
    `toolRouting.enabled` unset, and do not pass `decide` to a `RAGPipeline`.
    This does not cover compaction.
 
 Compaction's relevance stage and summary gate have no switch of their own while
-a decision provider is configured, and there is no switch that turns this
-provider off while the key is set.
+a decision provider is configured; `NEUROLINK_DECISION_PROVIDER=none` is the
+switch that covers them, and every other built-in consumer, while the key is
+set.
 
 ---
 
@@ -704,19 +716,24 @@ to its scheme, host and path.
 - **A 400 naming the model** — `PERPLEXITY_DECIDER_MODEL`, or a per-call
   `model`, names something other than `pplx-decider-v1-27b`.
 - **`The Perplexity base URL must not carry credentials…`** — the override has a
-  user name, a password, a query string or a fragment. Set it to the origin only,
-  or leave it unset for `https://api.perplexity.ai`.
-- **`The Perplexity base URL must start with https:// or http://`** — the value
-  parses as a URL with another scheme: an explicit one such as `ftp://`, or a host
-  name and port with no scheme, such as `localhost:8080`, which reads as the
-  scheme `localhost:`. Put `https://` or `http://` in front.
+  user name, a password, a query string or a fragment (a trailing `?` or `#`
+  counts). Set it to the origin only, or leave it unset for
+  `https://api.perplexity.ai`.
+- **`The Perplexity base URL must use https:// unless it names a loopback host`**
+  — every request carries the key as a bearer token, so plain `http://` is
+  accepted only for `localhost`, `127.0.0.1` and `[::1]`. Use `https://`.
+- **`The Perplexity base URL must start with https://`** — the value parses as a
+  URL with another scheme: an explicit one such as `ftp://`, or a host name and
+  port with no scheme, such as `localhost:8080`, which reads as the scheme
+  `localhost:`. Put `https://` in front (`http://` only for a loopback host).
 - **`The Perplexity base URL is not a valid absolute URL`** — the value does not
   parse as a URL at all: a bare host name such as `api.perplexity.ai` (the likely
   mistake), an IP address and port such as `127.0.0.1:8080`, a path, or a scheme
   with no host. Write the origin with its scheme.
 - **A refused base URL in the debug log** — it is not there. A base URL that
   NeuroLink refuses (credentials, a query string, a fragment, a scheme other than
-  http or https, or not a URL at all) is never written to the debug log: the line
+  https, http to a host other than loopback, or not a URL at all) is never
+  written to the debug log: the line
   shows `(invalid)` in its place, because such a value can carry a secret.
 - **`Image N is not a PNG, JPEG or WebP image`** — Perplexity reads only those
   three. Convert the image first.

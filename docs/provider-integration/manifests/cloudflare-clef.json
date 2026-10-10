@@ -1,7 +1,7 @@
 {
   "provider": "cloudflare-clef",
   "tier": 3,
-  "addedInPR": "pending",
+  "addedInPR": "https://github.com/juspay/neurolink/pull/1904",
   "addedDate": "2026-10-03",
   "mockedContractSection": "DECIDE cloudflare-clef",
   "manualTestStatus": "verified-live",

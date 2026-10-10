@@ -21,6 +21,7 @@ import {
   RecraftModels,
   ReplicateModels,
 } from "../constants/enums.js";
+import { logger } from "../utils/logger.js";
 import { API_KEY_FORMATS } from "../utils/providerConfig.js";
 import {
   getCatalogJsonEntries,
@@ -581,9 +582,23 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // per-token estimate is several times too generous for CJK on this
     // tokenizer. One token per character is a deliberate upper bound, to be
     // replaced by a live measurement.
+    //
+    // UNMEASURED: the 200,000 window and the one-token rate above are
+    // placeholders, not measurements of an XOR deployment (the manifest's
+    // manualTestStatus is still ci-mocked-only). The one rate below that rests
+    // on a measurement is the structured one: a non-string state of 100,000
+    // Chinese characters, sent to a live LiteLLM route on 2026-10-01 (commit
+    // 1cf03a6d, docs/getting-started/providers/xor.md#limits), was counted by
+    // the server as 485,774 tokens, 4.86 per character, against ~100,000
+    // estimated at the string rate. That fits a server that serializes a
+    // non-string state as ASCII-escaped JSON (each character a `\uXXXX`
+    // escape) — an inference from the figure, not read from the server's
+    // code. 5 is that measurement rounded up; a string state keeps the rate
+    // above.
     decisionLimits: {
       maxStateTokens: 200_000,
       nonAsciiTokensPerChar: 1,
+      structuredNonAsciiTokensPerChar: 5,
       // The server takes 1..8 images and one video, and refuses a body over
       // 8 MB.
       media: { maxImages: 8, video: true, maxRequestBytes: 8 * 1024 * 1024 },
@@ -669,6 +684,10 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
       // credentials.cloudflareClef.
       extraRequired: ["CLOUDFLARE_ACCOUNT_ID"],
       extraRequiredCredentialFields: { CLOUDFLARE_ACCOUNT_ID: "accountId" },
+      // The provider never sends the shared CLOUDFLARE_API_KEY to a base URL
+      // that credentials.cloudflareClef names; such a slice needs its own
+      // apiKey to count as configured.
+      apiKeyEnvIgnoredForCredentialBaseURL: true,
       baseURL: "CLOUDFLARE_CLEF_BASE_URL",
       model: "CLOUDFLARE_CLEF_MODEL",
     },
@@ -881,11 +900,19 @@ function isDecisionProviderConfigured(
       ]
     : undefined;
 
+  // A slice that names its own endpoint may be barred from borrowing the
+  // environment key; the provider then refuses to send it, so it cannot count
+  // here either.
+  const envKeyUsable = !(
+    descriptor.envVars.apiKeyEnvIgnoredForCredentialBaseURL &&
+    isSet(slice?.baseURL)
+  );
   // `gatewayApiKey` is TypeSafe's config form of AI_GATEWAY_API_KEY.
   const hasKey =
-    [descriptor.envVars.apiKey, ...(descriptor.envVars.fallbacks ?? [])].some(
-      inEnv,
-    ) ||
+    (envKeyUsable &&
+      [descriptor.envVars.apiKey, ...(descriptor.envVars.fallbacks ?? [])].some(
+        inEnv,
+      )) ||
     isSet(slice?.apiKey) ||
     isSet(slice?.gatewayApiKey);
   // A required base URL can also come from credentials.<key>.baseURL, and any
@@ -902,6 +929,51 @@ function isDecisionProviderConfigured(
 }
 
 /**
+ * The environment variable that overrides how the default decision provider
+ * is chosen: `none` turns the default off, and a decision provider's name (or
+ * alias) pins it to that one provider.
+ */
+const DECISION_PROVIDER_OVERRIDE_ENV = "NEUROLINK_DECISION_PROVIDER";
+
+/** Unrecognised override values already warned about, so each is logged once. */
+const warnedDecisionOverrides = new Set<string>();
+
+/**
+ * What NEUROLINK_DECISION_PROVIDER asks for: nothing (unset or blank), `none`,
+ * a decision provider, or a value that names no decision provider. An
+ * unrecognised value is treated like `none` — whoever set it meant to narrow
+ * where decision requests go, so falling back to the shared-key default would
+ * do the opposite of what was asked.
+ */
+function readDecisionProviderOverride():
+  | { kind: "unset" }
+  | { kind: "none" }
+  | { kind: "pinned"; descriptor: ProviderDescriptor }
+  | { kind: "unknown"; value: string } {
+  const raw = process.env[DECISION_PROVIDER_OVERRIDE_ENV]?.trim() ?? "";
+  if (raw === "") {
+    return { kind: "unset" };
+  }
+  const value = raw.toLowerCase();
+  if (value === "none") {
+    return { kind: "none" };
+  }
+  const canonical = PROVIDER_ALIAS_INDEX.get(value);
+  const descriptor = DECISION_PROVIDERS.find((d) => d.name === canonical);
+  if (descriptor) {
+    return { kind: "pinned", descriptor };
+  }
+  const shown = raw.slice(0, 40);
+  if (!warnedDecisionOverrides.has(shown)) {
+    warnedDecisionOverrides.add(shown);
+    logger.warn(
+      `${DECISION_PROVIDER_OVERRIDE_ENV}="${shown}" names no decision provider, so no default decision provider is used. Set it to one of ${DECISION_PROVIDERS.map((d) => d.name).join(", ")} or none, or unset it.`,
+    );
+  }
+  return { kind: "unknown", value: shown };
+}
+
+/**
  * The decision provider to use when a caller names none: the first
  * DECISION_PROVIDERS entry that is fully configured, from the environment or
  * from `credentials`.
@@ -909,13 +981,48 @@ function isDecisionProviderConfigured(
  * This is where "if somebody configures it, we start using it" is
  * implemented. Returns undefined when none is configured, which every
  * internal consumer treats as "carry on exactly as before".
+ *
+ * NEUROLINK_DECISION_PROVIDER overrides the search, for a host whose
+ * PERPLEXITY_API_KEY or Cloudflare token is meant for the text provider that
+ * shares it: `none` returns undefined whatever is configured, and a decision
+ * provider's name returns that provider when it is configured and undefined
+ * otherwise, never another one. A caller that names a provider explicitly is
+ * not affected; this decides only the default.
  */
 export function resolveDefaultDecisionProvider(
   credentials?: NeurolinkCredentials,
 ): string | undefined {
+  const override = readDecisionProviderOverride();
+  if (override.kind === "none" || override.kind === "unknown") {
+    return undefined;
+  }
+  if (override.kind === "pinned") {
+    return isDecisionProviderConfigured(override.descriptor, credentials)
+      ? override.descriptor.name
+      : undefined;
+  }
   return DECISION_PROVIDERS.find((descriptor) =>
     isDecisionProviderConfigured(descriptor, credentials),
   )?.name;
+}
+
+/**
+ * A sentence to add to a "no decision provider is configured" message when
+ * NEUROLINK_DECISION_PROVIDER is what kept the default empty, or "" when it is
+ * unset. Starts with a space, so it can be appended as is.
+ */
+export function describeDecisionProviderOverride(): string {
+  const override = readDecisionProviderOverride();
+  switch (override.kind) {
+    case "none":
+      return ` ${DECISION_PROVIDER_OVERRIDE_ENV} is "none", which turns the default decision provider off; unset it to use one.`;
+    case "pinned":
+      return ` ${DECISION_PROVIDER_OVERRIDE_ENV} pins the default to ${override.descriptor.name}, so no other decision provider is used.`;
+    case "unknown":
+      return ` ${DECISION_PROVIDER_OVERRIDE_ENV}="${override.value}" names no decision provider, so none is used; set it to one of ${DECISION_PROVIDERS.map((d) => d.name).join(", ")} or none.`;
+    default:
+      return "";
+  }
 }
 
 /**

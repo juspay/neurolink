@@ -8,9 +8,10 @@ import type {
   NeurolinkCredentials,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import {
+  decisionBaseURLProblem,
+  describeDecisionBaseURLForLog,
   describeValidationErrors,
   isRecord,
   redactCredentials,
@@ -28,35 +29,37 @@ function normalizeBaseURL(raw: string): string {
   return raw.replace(/\/+$/, "").replace(/\/v1$/i, "");
 }
 
-/** What a 500 says when the prefill was too long for the model to read. */
+/**
+ * What a reply says when the prefill was too long for the model to read. The
+ * live route's 500 said the input "is longer than the model's context length"
+ * (docs/getting-started/providers/xor.md#limits), and a LiteLLM proxy's
+ * context-window error says "maximum context length"; both match.
+ */
 const CONTEXT_LENGTH_MESSAGE =
   /(context|prefill|prompt).{0,40}(length|limit|too long|exceed)|(too long|exceeds?).{0,40}(context|tokens)/i;
 
 /**
- * A base URL that cannot work is refused up front, and its text is never
- * repeated: `fetch` rejects a URL with userinfo and echoes it in the error, the
- * route is appended after a query string or fragment, and any of them can hold a
- * credential.
+ * A base URL that cannot work is refused up front; see
+ * {@link decisionBaseURLProblem}.
  */
 function baseURLProblem(baseURL: string): string | undefined {
-  const fix =
-    "Set XOR_BASE_URL or pass credentials.xor.baseURL to the origin, and give the key through XOR_API_KEY or credentials.xor.apiKey.";
-  try {
-    const url = new URL(baseURL);
-    // `new URL()` accepts any scheme, so a host:port with no scheme parses as
-    // one (`xor.internal:8080` has the scheme `xor.internal:`) and would reach
-    // `fetch` as a network error instead of this message.
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return `The XOR base URL must start with https:// or http://. ${fix}`;
-    }
-    return url.username || url.password || url.search || url.hash
-      ? `The XOR base URL must not carry credentials, a query string or a fragment. ${fix}`
-      : undefined;
-  } catch {
-    return `The XOR base URL is not a valid absolute URL. ${fix}`;
-  }
+  return decisionBaseURLProblem(
+    baseURL,
+    "XOR",
+    "Set XOR_BASE_URL or pass credentials.xor.baseURL to the origin, and give the key through XOR_API_KEY or credentials.xor.apiKey.",
+  );
 }
 
+/**
+ * Status first, then the text for the two statuses an over-long request can
+ * come back as. The live route answered one with a 500, which is retried
+ * unless its text says the context was exceeded. A server that validates the
+ * length itself answers 400, and a FastAPI-style front end 422, with the same
+ * wording; those are `max_tokens_exceeded` too, never a plain
+ * `invalid_request`, so a consumer can tell "shorten it" from "fix the call".
+ * A 403 and a 402 stay `invalid_request` whatever they say (see
+ * `parseDecisionError`).
+ */
 function xorErrorKind(status: number, message: string): DecisionErrorKind {
   if (status === 401) {
     return "authentication";
@@ -70,10 +73,11 @@ function xorErrorKind(status: number, message: string): DecisionErrorKind {
   if (status === 503) {
     return "overloaded";
   }
-  if (status >= 500) {
-    return CONTEXT_LENGTH_MESSAGE.test(message)
-      ? "max_tokens_exceeded"
-      : "server";
+  if (status >= 500 || status === 400 || status === 422) {
+    if (CONTEXT_LENGTH_MESSAGE.test(message)) {
+      return "max_tokens_exceeded";
+    }
+    return status >= 500 ? "server" : "invalid_request";
   }
   return "invalid_request";
 }
@@ -139,12 +143,14 @@ export class XorProvider extends SystemOneDecisionProvider {
       credentials?.baseURL?.trim() || process.env.XOR_BASE_URL?.trim() || "",
     );
 
-    // A base URL with `user:pass@` or a `?token=` is refused when a request is
-    // made, but it is redacted here as well so a misconfigured value cannot leak
-    // through this line either.
+    // A base URL that `baseURLProblem` refuses is not logged at all: it can
+    // carry `user:pass@` or a `?token=`.
     logger.debug("XOR Provider initialized (decide only)", {
       modelName: this.modelName,
-      baseURL: this.baseURL ? redactUrlForError(this.baseURL) : "(not set)",
+      baseURL: describeDecisionBaseURLForLog(
+        this.baseURL,
+        baseURLProblem(this.baseURL),
+      ),
     });
   }
 

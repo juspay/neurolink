@@ -36,7 +36,7 @@ const fetchCapture = installFetchCapture();
  *      pnpm run test:decide
  */
 
-import { readFileSync } from "node:fs";
+import { promises as fsPromises, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -144,6 +144,10 @@ const REAL_CLOUDFLARE_CLEF_MODEL = process.env.CLOUDFLARE_CLEF_MODEL;
 // Section 19 reads LAYA_MODEL as an input to model resolution, so it is
 // saved and restored like the keys rather than deleted outright.
 const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
+// NEUROLINK_DECISION_PROVIDER decides which configured provider is the default
+// (or that none is), so an ambient value would change what every test below
+// resolves. It is cleared with the keys and restored with them.
+const REAL_DECISION_PROVIDER_OVERRIDE = process.env.NEUROLINK_DECISION_PROVIDER;
 // The model the registry recorded for laya: LAYA_MODEL as it read at
 // registration, else the default. The registry reads it once, so a test
 // that merely deletes LAYA_MODEL mid-run does not change what was already
@@ -225,12 +229,18 @@ function restoreEnv(): void {
   } else {
     delete process.env.LAYA_MODEL;
   }
+  if (REAL_DECISION_PROVIDER_OVERRIDE !== undefined) {
+    process.env.NEUROLINK_DECISION_PROVIDER = REAL_DECISION_PROVIDER_OVERRIDE;
+  } else {
+    delete process.env.NEUROLINK_DECISION_PROVIDER;
+  }
 }
 
 /**
  * Remove every setting that would configure a decision provider, including
  * LAYA_BASE_URL, which Laya needs alongside its key, and PERPLEXITY_API_KEY,
- * which the `perplexity` text provider shares. The Perplexity base URL and
+ * which the `perplexity` text provider shares, and NEUROLINK_DECISION_PROVIDER,
+ * which would otherwise pin or turn off the default. The Perplexity base URL and
  * model overrides go too, so a developer's own endpoint or model never decides
  * what a keyless test sees.
  */
@@ -249,6 +259,7 @@ function clearDecisionKeys(): void {
   delete process.env.CLOUDFLARE_CLEF_BASE_URL;
   delete process.env.CLOUDFLARE_CLEF_MODEL;
   delete process.env.LAYA_MODEL;
+  delete process.env.NEUROLINK_DECISION_PROVIDER;
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -2289,6 +2300,7 @@ const NO_PROVIDER_ENV = {
   CLOUDFLARE_ACCOUNT_ID: "",
   CLOUDFLARE_CLEF_BASE_URL: "",
   CLOUDFLARE_CLEF_MODEL: "",
+  NEUROLINK_DECISION_PROVIDER: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -3149,6 +3161,41 @@ await test("17.12 — live: xor answers boolean, choice and score", async () => 
   assert(
     result.model === requestedModel,
     "the reported model must be the one that was asked for",
+  );
+  // `result.model` falls back to the requested model when a response omits
+  // its own, so the check above would also pass on a server that reports
+  // nothing. The server's own body is read directly to tell the two apart.
+  const base = (process.env.XOR_BASE_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/i, "");
+  const raw = await fetch(`${base}/v1/systemone`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.XOR_API_KEY?.trim()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: requestedModel,
+      state: SUPPORT_TICKET,
+      questions: { urgent: { type: "noul", instructions: "Is this urgent?" } },
+    }),
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => {
+    throw new Error("SKIP: xor could not be reached for the raw check");
+  });
+  if (raw.status === 429 || raw.status >= 500) {
+    throw new Error("SKIP: xor returned a transient reply to the raw check");
+  }
+  const body: unknown = await raw.json().catch(() => undefined);
+  assert(raw.ok, "the raw request must be answered like the SDK's");
+  assert(
+    isRecordLike(body) && typeof body.model === "string",
+    "the server itself must report a model, not leave the SDK to fall back to the requested one",
+  );
+  assert(
+    isRecordLike(body) && body.model === requestedModel,
+    "the model the server reports must be the one that was asked for",
   );
   assert(result.usage.inputTokens > 0, "usage must be reported");
   assert(result.latencyMs > 0, "latency must be measured");
@@ -7149,6 +7196,690 @@ await test("20.24 — with no question cap, every well-formed host addition goes
     }
     restoreEnv();
   }
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection(
+  "21. The default's override, Clef's own endpoint, XOR's estimate and errors, base URLs, media",
+);
+// ───────────────────────────────────────────────────────────────────────────
+
+/** A reply a scripted XOR server gives to every request. */
+type ScriptedReply = { status: number; body: unknown };
+
+/**
+ * A local XOR deployment that answers every request with one canned reply,
+ * counting what it received — for the error-classification tests, which need
+ * a status and a body the fake System One server never sends.
+ */
+async function startScriptedXor(reply: ScriptedReply): Promise<{
+  baseURL: string;
+  hits: () => number;
+  close: () => Promise<void>;
+}> {
+  let hits = 0;
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      hits += 1;
+      res.statusCode = reply.status;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify(reply.body));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    baseURL: `http://127.0.0.1:${port}`,
+    hits: () => hits,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+const ONE_XOR_QUESTION = {
+  urgent: { type: "boolean" as const, instructions: "Is this urgent?" },
+};
+
+await test("21.1 — NEUROLINK_DECISION_PROVIDER=none: a configured provider is not the default, and nothing is sent", async () => {
+  const fake = await startFakeXor();
+  try {
+    clearDecisionKeys();
+    process.env.XOR_API_KEY = "sk-placeholder-for-the-fake";
+    process.env.XOR_BASE_URL = fake.baseURL;
+    const nl = new NeuroLink();
+    // Positive control: without the override, xor is the default and answers.
+    assert(
+      resolveDefaultDecisionProvider() === "xor",
+      "with only xor configured, xor must be the default",
+    );
+    const control = await nl.tryDecide({
+      state: SUPPORT_TICKET,
+      questions: ONE_XOR_QUESTION,
+    });
+    assert(control !== null, "without the override the default must answer");
+    assert(fake.requests.length === 1, "the control must reach the fake");
+
+    for (const value of ["none", "NONE", " none "]) {
+      process.env.NEUROLINK_DECISION_PROVIDER = value;
+      assert(
+        resolveDefaultDecisionProvider() === undefined,
+        "none must leave no default, however it is cased or padded",
+      );
+      const result = await nl.tryDecide({
+        state: SUPPORT_TICKET,
+        questions: ONE_XOR_QUESTION,
+      });
+      assert(result === null, "tryDecide must fail open under none");
+      assert(
+        nl.decisionLimits() === null,
+        "decisionLimits() with no provider must read no default under none",
+      );
+    }
+    assert(
+      fake.requests.length === 1,
+      "nothing may be sent to the configured provider under none",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("21.2 — none decides only the default: a caller that names a provider still reaches it", async () => {
+  const fake = await startFakeXor();
+  try {
+    clearDecisionKeys();
+    process.env.XOR_API_KEY = "sk-placeholder-for-the-fake";
+    process.env.XOR_BASE_URL = fake.baseURL;
+    process.env.NEUROLINK_DECISION_PROVIDER = "none";
+    const result = await new NeuroLink().decide({
+      provider: "xor",
+      state: SUPPORT_TICKET,
+      questions: ONE_XOR_QUESTION,
+    });
+    assert(result.provider === "xor", "the named provider must answer");
+    assert(fake.requests.length === 1, "the request must reach it once");
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("21.3 — none: decide() and the CLI say which variable turned the default off", async () => {
+  let message = "";
+  try {
+    clearDecisionKeys();
+    process.env.XOR_API_KEY = "sk-placeholder";
+    process.env.XOR_BASE_URL = "http://127.0.0.1:9/xor";
+    process.env.NEUROLINK_DECISION_PROVIDER = "none";
+    await new NeuroLink().decide({ state: "x", questions: ONE_XOR_QUESTION });
+  } catch (error) {
+    message = error instanceof Error ? error.message : "";
+  } finally {
+    restoreEnv();
+  }
+  assert(
+    message.includes("No decision provider is configured") &&
+      message.includes("NEUROLINK_DECISION_PROVIDER"),
+    "the SDK error must name the override",
+  );
+  const result = await runCLI(
+    ["decide", "Refund request", "--questions", ONE_QUESTION],
+    {
+      env: {
+        ...NO_PROVIDER_ENV,
+        XOR_API_KEY: "sk-placeholder-for-cli",
+        XOR_BASE_URL: "http://127.0.0.1:9/xor",
+        NEUROLINK_DECISION_PROVIDER: "none",
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  assert(result.exitCode !== 0, "the CLI must fail with no default");
+  assert(
+    result.stderr.includes("NEUROLINK_DECISION_PROVIDER"),
+    "the CLI line must name the override",
+  );
+  assert(
+    !/ECONNREFUSED|network/i.test(result.stderr),
+    "no request may be attempted",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the failure printed a stack trace",
+  );
+});
+
+await test("21.4 — a provider's name pins the default: never another provider, and nothing when it is not configured", async () => {
+  try {
+    clearDecisionKeys();
+    process.env.TYPESAFE_API_KEY = "apikey_placeholder_for_resolution";
+    process.env.XOR_API_KEY = "sk-placeholder-for-resolution";
+    process.env.XOR_BASE_URL = "https://xor.placeholder.invalid";
+    process.env.PERPLEXITY_API_KEY = "pplx-placeholder-for-resolution";
+    const rows: Array<[string, string | undefined, string]> = [
+      ["", "typesafe", "blank leaves the order alone"],
+      ["   ", "typesafe", "whitespace leaves the order alone"],
+      [
+        "perplexity-decider",
+        "perplexity-decider",
+        "a later provider is pinned",
+      ],
+      ["XOR", "xor", "the name is case-insensitive"],
+      ["jev", "typesafe", "an alias pins its provider"],
+      ["laya", undefined, "an unconfigured pin falls back to nothing"],
+      [
+        "cloudflare-clef",
+        undefined,
+        "an unconfigured pin falls back to nothing",
+      ],
+      [
+        "perplexity",
+        undefined,
+        "a text provider's name is not a decision provider",
+      ],
+      ["xorr", undefined, "an unknown value narrows to nothing"],
+    ];
+    for (const [value, expected, why] of rows) {
+      process.env.NEUROLINK_DECISION_PROVIDER = value;
+      assert(resolveDefaultDecisionProvider() === expected, why);
+    }
+    // The pin counts SDK credentials, as the default search does.
+    process.env.NEUROLINK_DECISION_PROVIDER = "laya";
+    assert(
+      resolveDefaultDecisionProvider({
+        laya: {
+          apiKey: "sk-placeholder",
+          baseURL: "https://laya.placeholder.invalid",
+        },
+      }) === "laya",
+      "a pinned provider configured through credentials must be the default",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("21.5 — a pin routes the default end to end: the pinned provider answers, the one ahead of it is not called", async () => {
+  const xor = await startFakeXor();
+  const perplexity = await startFakeSystemOne();
+  try {
+    clearDecisionKeys();
+    process.env.XOR_API_KEY = "sk-placeholder-for-the-fake";
+    process.env.XOR_BASE_URL = xor.baseURL;
+    process.env.PERPLEXITY_API_KEY = "pplx-placeholder-for-the-fake";
+    process.env.PERPLEXITY_DECIDER_BASE_URL = `http://127.0.0.1:${perplexity.port}`;
+    process.env.NEUROLINK_DECISION_PROVIDER = "perplexity-decider";
+    const result = await new NeuroLink().tryDecide({
+      state: SUPPORT_TICKET,
+      questions: ONE_XOR_QUESTION,
+    });
+    assert(result !== null, "the pinned provider must answer");
+    assert(
+      result!.provider === "perplexity-decider",
+      "the answer must come from the pinned provider",
+    );
+    assert(
+      perplexity.requests.length === 1 &&
+        perplexity.requests[0]!.path.endsWith("/v1/decisions"),
+      "the pinned provider must be called once, on its own route",
+    );
+    assert(
+      xor.requests.length === 0,
+      "the provider ahead of it in the order must not be called",
+    );
+  } finally {
+    await xor.close();
+    await perplexity.close();
+    restoreEnv();
+  }
+});
+
+await test("21.6 — a cloudflareClef slice with its own base URL and no key is not configured by the shared token", async () => {
+  fetchCapture.reset();
+  try {
+    clearDecisionKeys();
+    process.env.CLOUDFLARE_API_KEY = "cf-placeholder-shared-token";
+    process.env.CLOUDFLARE_ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
+    const ownEndpoint = {
+      cloudflareClef: { baseURL: "https://cf.caller-chosen.invalid/client/v4" },
+    };
+    assert(
+      resolveDefaultDecisionProvider() === "cloudflare-clef",
+      "control: the shared token and account id configure clef",
+    );
+    assert(
+      resolveDefaultDecisionProvider({
+        cloudflareClef: { accountId: "0123456789abcdef0123456789abcdef" },
+      }) === "cloudflare-clef",
+      "control: a slice without a base URL may still use the shared token",
+    );
+    assert(
+      resolveDefaultDecisionProvider(ownEndpoint) === undefined,
+      "a slice naming its own endpoint must not count as configured by the shared token",
+    );
+    assert(
+      resolveDefaultDecisionProvider({
+        cloudflareClef: {
+          ...ownEndpoint.cloudflareClef,
+          apiKey: "cf-placeholder-own-token",
+        },
+      }) === "cloudflare-clef",
+      "the same slice with its own key must count",
+    );
+    const result = await new NeuroLink({ credentials: ownEndpoint }).tryDecide({
+      state: "x",
+      questions: ONE_XOR_QUESTION,
+    });
+    assert(
+      result === null,
+      "with nothing configured, tryDecide must fail open",
+    );
+    assert(
+      fetchCapture.list().every((c) => !c.url.includes("caller-chosen")),
+      "nothing may be sent to the caller-chosen endpoint",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("21.7 — xor charges a structured non-ASCII state at the escaped rate, and a string state as before", async () => {
+  const fake = await startFakeXor();
+  try {
+    clearDecisionKeys();
+    const nl = new NeuroLink();
+    const reading = nl.decisionLimits({ provider: "xor" });
+    assert(
+      reading !== null && reading.structuredNonAsciiTokensPerChar === 5,
+      "xor's reading must carry the measured structured rate",
+    );
+    const cjk = (n: number) => "中".repeat(n);
+    // The measurement: 100,000 CJK characters in a structured state counted
+    // 485,774 tokens on the server. The local estimate must not fall below it.
+    assert(
+      estimateDecisionStateTokens({ text: cjk(100_000) }, reading!) >= 485_774,
+      "the structured estimate must cover the measured server count",
+    );
+    assert(
+      estimateDecisionStateTokens(cjk(100_000), reading!) === 100_000,
+      "a string state keeps one token per non-ASCII character",
+    );
+    assert(
+      estimateDecisionStateTokens({ e: "😀".repeat(1_000) }, reading!) >=
+        10_000,
+      "an astral character is two escapes, so twice the rate",
+    );
+
+    const xor = new NeuroLink({
+      credentials: { xor: { apiKey: "sk-placeholder", baseURL: fake.baseURL } },
+    });
+    const refused = await failureOf(() =>
+      xor.decide({
+        provider: "xor",
+        state: { ticket: cjk(50_000) },
+        questions: ONE_XOR_QUESTION,
+      }),
+    );
+    assert(
+      refused?.kind === "max_tokens_exceeded",
+      "a structured state of 50,000 CJK characters must be refused locally",
+    );
+    assert(fake.requests.length === 0, "the refusal must send nothing");
+    const sent = await xor.decide({
+      provider: "xor",
+      state: cjk(150_000),
+      questions: ONE_XOR_QUESTION,
+    });
+    assert(sent.provider === "xor", "a string state of 150,000 must be sent");
+    assert(fake.requests.length === 1, "and reach the server once");
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+});
+
+await test("21.8 — xor: an over-length 400 or 422 is max_tokens_exceeded and sent once; other 4xx stay invalid_request", async () => {
+  const rows: Array<{
+    label: string;
+    reply: ScriptedReply;
+    kind: string;
+    hits: number;
+  }> = [
+    {
+      label: "400 over-length",
+      reply: {
+        status: 400,
+        body: {
+          error:
+            "The input (300000 tokens) is longer than the model's context length (262144 tokens).",
+        },
+      },
+      kind: "max_tokens_exceeded",
+      hits: 1,
+    },
+    {
+      label: "422 over-length",
+      reply: {
+        status: 422,
+        body: {
+          detail:
+            "This model's maximum context length is 262144 tokens. However, you requested 300000 tokens.",
+        },
+      },
+      kind: "max_tokens_exceeded",
+      hits: 1,
+    },
+    {
+      label: "400 validation",
+      reply: { status: 400, body: { error: "q: 2..255 options, got 1" } },
+      kind: "invalid_request",
+      hits: 1,
+    },
+    {
+      label: "403 that mentions a context length",
+      reply: {
+        status: 403,
+        body: { error: "team may not exceed its context length budget" },
+      },
+      kind: "invalid_request",
+      hits: 1,
+    },
+    {
+      label: "500 over-length (control)",
+      reply: {
+        status: 500,
+        body: {
+          error:
+            "The input (300000 tokens) is longer than the model's context length (262144 tokens).",
+        },
+      },
+      kind: "max_tokens_exceeded",
+      hits: 1,
+    },
+  ];
+  for (const row of rows) {
+    const fake = await startScriptedXor(row.reply);
+    try {
+      const failure = await failureOf(() =>
+        new NeuroLink({
+          credentials: {
+            xor: { apiKey: "sk-placeholder", baseURL: fake.baseURL },
+          },
+        }).decide({ provider: "xor", state: "x", questions: ONE_XOR_QUESTION }),
+      );
+      assert(failure?.kind === row.kind, `${row.label}: wrong kind`);
+      assert(
+        failure.status === row.reply.status,
+        `${row.label}: the status must be kept`,
+      );
+      assert(failure.retryable === false, `${row.label}: must not be retried`);
+      assert(
+        fake.hits() === row.hits,
+        `${row.label}: sent the wrong number of times`,
+      );
+    } finally {
+      await fake.close();
+    }
+  }
+});
+
+/** One decide() against `provider` at `baseURL`, with placeholder credentials. */
+async function decideAtBaseURL(
+  provider: "xor" | "perplexity-decider" | "cloudflare-clef",
+  baseURL: string,
+): Promise<DecisionFailure | undefined> {
+  const credentials =
+    provider === "xor"
+      ? { xor: { apiKey: "sk-placeholder", baseURL } }
+      : provider === "perplexity-decider"
+        ? { perplexityDecider: { apiKey: "pplx-placeholder", baseURL } }
+        : {
+            cloudflareClef: {
+              apiKey: "cf-placeholder",
+              accountId: "0123456789abcdef0123456789abcdef",
+              baseURL,
+            },
+          };
+  return failureOf(() =>
+    new NeuroLink({ credentials }).decide({
+      provider,
+      state: "x",
+      questions: ONE_XOR_QUESTION,
+    }),
+  );
+}
+
+const BASE_URL_PROVIDERS = [
+  "xor",
+  "perplexity-decider",
+  "cloudflare-clef",
+] as const;
+
+await test("21.9 — plain http:// is refused for every host but loopback, before any request", async () => {
+  try {
+    clearDecisionKeys();
+    for (const provider of BASE_URL_PROVIDERS) {
+      fetchCapture.reset();
+      const refused = await decideAtBaseURL(
+        provider,
+        "http://decide.example.invalid/gw",
+      );
+      assert(
+        refused?.kind === "invalid_request",
+        `${provider}: a non-loopback http base URL must be refused locally`,
+      );
+      assert(
+        refused.message.includes("https://") &&
+          refused.message.includes("loopback"),
+        `${provider}: the refusal must say why`,
+      );
+      assert(
+        fetchCapture.list().every((c) => !c.url.includes("example.invalid")),
+        `${provider}: nothing may be sent`,
+      );
+      // Loopback spellings pass validation and fail at the dead port instead.
+      for (const base of [
+        "http://127.0.0.1:9/gw",
+        "http://localhost:9/gw",
+        "http://[::1]:9/gw",
+      ]) {
+        const reached = await decideAtBaseURL(provider, base);
+        assert(
+          reached?.kind === "network",
+          `${provider}: a loopback http base URL must get as far as the transport`,
+        );
+      }
+    }
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("21.10 — a bare trailing ? or # is refused for every provider, not only cloudflare-clef", async () => {
+  for (const provider of BASE_URL_PROVIDERS) {
+    for (const suffix of ["?", "#"]) {
+      const refused = await decideAtBaseURL(
+        provider,
+        `http://127.0.0.1:9/gw${suffix}`,
+      );
+      assert(
+        refused?.kind === "invalid_request" &&
+          refused.message.includes("query string or a fragment"),
+        `${provider}: a trailing ${suffix === "?" ? "question mark" : "hash"} must be refused locally`,
+      );
+    }
+  }
+});
+
+await test("21.11 — every provider logs a refused base URL the same way: (invalid), never its text", async () => {
+  const { logger } = await import("../dist/index.js");
+  const originalDebug = console.debug;
+  const previousDebugFlag = process.env.NEUROLINK_DEBUG;
+  const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+  const previousLevel =
+    loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+      ? loadLevel
+      : "info";
+  const lines: string[] = [];
+  const marker = /initialized \(decide only\)/;
+  try {
+    process.env.NEUROLINK_DEBUG = "true";
+    logger.setLogLevel("debug");
+    console.debug = (...args: unknown[]) => {
+      lines.push(
+        args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" "),
+      );
+    };
+    for (const provider of BASE_URL_PROVIDERS) {
+      for (const base of [
+        "https://ops:hunter2-basic@decide.internal.test/gw",
+        "http://decide.internal.test/gw?token=hunter2-query",
+        "decide.internal:8080 hunter2-noscheme",
+      ]) {
+        lines.length = 0;
+        await decideAtBaseURL(provider, base);
+        const init = lines.filter((l) => marker.test(l));
+        assert(init.length > 0, `${provider}: the construction line is logged`);
+        assert(
+          init.every((l) => l.includes("(invalid)") && !l.includes("hunter2")),
+          `${provider}: a refused base URL must be logged as (invalid) only`,
+        );
+      }
+      lines.length = 0;
+      await decideAtBaseURL(provider, "http://127.0.0.1:9/usable-gw");
+      assert(
+        lines.some(
+          (l) => marker.test(l) && l.includes("127.0.0.1:9/usable-gw"),
+        ),
+        `${provider}: a usable base URL keeps its host and path for diagnostics`,
+      );
+    }
+  } finally {
+    console.debug = originalDebug;
+    logger.setLogLevel(previousLevel);
+    if (previousDebugFlag === undefined) {
+      delete process.env.NEUROLINK_DEBUG;
+    } else {
+      process.env.NEUROLINK_DEBUG = previousDebugFlag;
+    }
+  }
+});
+
+await test("21.12 — an abort while media is read stops the reading and fails the call as aborted, with nothing sent", async () => {
+  const fake = await startFakeXor();
+  const originalReadFile = fsPromises.readFile;
+  const controller = new AbortController();
+  let reads = 0;
+  try {
+    // The SDK reads image files through this same `fs.promises` object, so the
+    // wrapper sees every read; the first one aborts the request mid-way.
+    fsPromises.readFile = ((...args: Parameters<typeof originalReadFile>) => {
+      reads += 1;
+      controller.abort();
+      return originalReadFile(...args);
+    }) as typeof originalReadFile;
+    const failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: {
+          xor: { apiKey: "sk-placeholder", baseURL: fake.baseURL },
+        },
+      }).decide({
+        provider: "xor",
+        state: "x",
+        questions: ONE_XOR_QUESTION,
+        images: [`${XOR_FIXTURE_DIR}red.png`, `${XOR_FIXTURE_DIR}blue.png`],
+        signal: controller.signal,
+      }),
+    );
+    assert(failure !== undefined, "an aborted call must fail");
+    assert(failure.kind === "network", "an abort must read as an abort");
+    assert(failure.retryable === false, "an abort must not be retried");
+    assert(reads === 1, "the second image must not be read after the abort");
+    assert(fake.requests.length === 0, "nothing may be sent");
+  } finally {
+    fsPromises.readFile = originalReadFile;
+    await fake.close();
+  }
+});
+
+await test("21.13 — media over the body limit on its own is refused before the rest is read", async () => {
+  const fake = await startFakeXor();
+  const originalReadFile = fsPromises.readFile;
+  let reads = 0;
+  try {
+    fsPromises.readFile = ((...args: Parameters<typeof originalReadFile>) => {
+      reads += 1;
+      return originalReadFile(...args);
+    }) as typeof originalReadFile;
+    // A PNG signature on 7 MB of zeros: about 9.3 MB once base64-encoded, past
+    // the 8 MiB cap before the second image is touched.
+    const big = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(7 * 1024 * 1024),
+    ]);
+    const failure = await failureOf(() =>
+      new NeuroLink({
+        credentials: {
+          xor: { apiKey: "sk-placeholder", baseURL: fake.baseURL },
+        },
+      }).decide({
+        provider: "xor",
+        state: "x",
+        questions: ONE_XOR_QUESTION,
+        images: [big, `${XOR_FIXTURE_DIR}red.png`],
+      }),
+    );
+    assert(
+      failure?.kind === "invalid_request" &&
+        failure.message.includes("The request is more than") &&
+        failure.message.includes("8388608"),
+      "the refusal must name the body limit",
+    );
+    assert(reads === 0, "the image after the limit must not be read");
+    assert(fake.requests.length === 0, "nothing may be sent");
+  } finally {
+    fsPromises.readFile = originalReadFile;
+    await fake.close();
+  }
+});
+
+await test("21.14 — .env.example leaves every decision-configuring variable commented out", async () => {
+  // A placeholder copied unedited would configure a decision provider with a
+  // fake credential, make it every built-in consumer's default and fail each
+  // call with a 401. Derived from the descriptors, so a new decision provider
+  // is covered without editing this test.
+  const text = readFileSync(
+    fileURLToPath(new URL("../.env.example", import.meta.url)),
+    "utf8",
+  );
+  const names = new Set<string>(["NEUROLINK_DECISION_PROVIDER"]);
+  for (const descriptor of DECISION_PROVIDERS) {
+    for (const name of [
+      descriptor.envVars.apiKey,
+      ...(descriptor.envVars.fallbacks ?? []),
+      ...(descriptor.envVars.extraRequired ?? []),
+    ]) {
+      if (name) {
+        names.add(name);
+      }
+    }
+  }
+  const active = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => !line.startsWith("#"))
+    .map((line) => line.split("=")[0]!.trim())
+    .filter((name) => names.has(name));
+  assert(
+    active.length === 0,
+    // A count, not the names: a variable name such as *_API_KEY in the message
+    // would match the harness's provider-error patterns and turn this into a
+    // skip.
+    `${active.length} decision-configuring variable(s) are uncommented in .env.example`,
+  );
 });
 
 restoreEnv();

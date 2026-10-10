@@ -1,11 +1,11 @@
 {
   "provider": "xor",
   "tier": 3,
-  "addedInPR": "pending",
+  "addedInPR": "https://github.com/juspay/neurolink/pull/1859",
   "addedDate": "2026-09-29",
   "mockedContractSection": "DECIDE xor",
   "manualTestStatus": "ci-mocked-only",
-  "notes": "Third provider of the `decide` inference type: Juspay's open-weights XOR, reached at a configured base URL (an XOR deployment or a LiteLLM pass-through route); it has no built-in endpoint, so XOR_BASE_URL or credentials.xor.baseURL is required. Tier 3 for the same reasons as typesafe and laya (the catalog schema has no decide vocabulary and requires output-token fields). Extends SystemOneDecisionProvider. Declares inferenceKinds [\"decide\"] and decisionLimits, and sits after laya in HAND_DESCRIPTORS so typesafe and laya stay the default whenever their keys are set. Also accepts images and one video through DecisionRequest.",
+  "notes": "Third provider of the `decide` inference type: Juspay's open-weights XOR, reached at a configured base URL (an XOR deployment or a LiteLLM pass-through route); it has no built-in endpoint, so XOR_BASE_URL or credentials.xor.baseURL is required. Tier 3 for the same reasons as typesafe and laya (the catalog schema has no decide vocabulary and requires output-token fields). Extends SystemOneDecisionProvider. Declares inferenceKinds [\"decide\"] and decisionLimits, and sits after laya in HAND_DESCRIPTORS so typesafe and laya stay the default whenever their keys are set. Also accepts images and one video through DecisionRequest. NOT VERIFIED LIVE: the PR asked not to be merged before live tests passed and the limits were measured, and neither has happened. The decisionLimits values maxStateTokens 200000 and nonAsciiTokensPerChar 1 are unmeasured placeholders; the only measured figure is structuredNonAsciiTokensPerChar 5, from a structured state of 100,000 Chinese characters that a live LiteLLM route (model not confirmed as XOR) counted as 485,774 tokens on 2026-10-01.",
   "filesTouched": [
     "src/lib/constants/enums.ts",
     "src/lib/providers/xor.ts",

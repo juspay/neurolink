@@ -1,7 +1,7 @@
 {
   "provider": "laya",
   "tier": 3,
-  "addedInPR": "pending",
+  "addedInPR": "https://github.com/juspay/neurolink/pull/1789",
   "addedDate": "2026-09-24",
   "mockedContractSection": "DECIDE laya",
   "manualTestStatus": "verified-live",

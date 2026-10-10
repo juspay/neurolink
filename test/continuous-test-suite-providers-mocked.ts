@@ -6469,13 +6469,14 @@ async function runXorDecide(): Promise<void> {
           !init.some((l) => l.includes("hunter2")),
           "no credential from the base URL is logged",
         );
+        // A refused base URL is logged as "(invalid)", never redacted: the same
+        // rule as perplexity-decider and cloudflare-clef.
         expect(
-          init.some((l) => l.includes("xor.internal.test/proxy")),
-          "the host and path stay in the log for diagnostics",
+          init.some((l) => l.includes("(invalid)")),
+          "a refused base URL is logged as (invalid)",
         );
         // A value with no `//` parses as the scheme `user:` with an opaque path,
         // which a redactor that rebuilds the URL from scheme and path hands back.
-        // A file URL and a Windows drive path keep their `@`: it is not a credential.
         const logged = async (base: string): Promise<string> => {
           lines.length = 0;
           setEnv("XOR_BASE_URL", base);
@@ -6493,15 +6494,23 @@ async function runXorDecide(): Promise<void> {
           !bare.includes("hunter2"),
           "no password from a scheme-less user:pass@host is logged",
         );
+        // A file URL and a Windows drive path are refused too, so neither is
+        // echoed, whatever it holds.
+        for (const refused of [
+          "file:///srv/node_modules/@scope/xor",
+          "C:\\srv\\ops@corp\\xor",
+        ]) {
+          const line = await logged(refused);
+          expect(
+            line.includes("(invalid)") && !line.includes("@"),
+            "a refused non-http base URL is logged as (invalid)",
+          );
+        }
         expect(
-          (await logged("file:///srv/node_modules/@scope/xor")).includes(
-            "@scope/xor",
+          (await logged("https://xor.internal.test/proxy")).includes(
+            "xor.internal.test/proxy",
           ),
-          "a file URL keeps its @",
-        );
-        expect(
-          (await logged("C:\\srv\\ops@corp\\xor")).includes("ops@corp"),
-          "a Windows drive path keeps its @",
+          "a usable base URL keeps its host and path for diagnostics",
         );
       } finally {
         console.debug = originalDebug;
@@ -16182,6 +16191,7 @@ async function main(): Promise<void> {
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
     "--embeddings-only": [runEmbeddingsSection],
     "--catalog-per-model-tools-only": [runCatalogPerModelToolsSection],
+    "--decide-only": [runDecideSection],
   };
   for (const [flag, sections] of Object.entries(FOCUSED_RUNS)) {
     if (!process.argv.includes(flag)) {

@@ -2473,6 +2473,8 @@ export type ProviderDescriptor = {
     extraRequiredFallbacks?: readonly (string | readonly string[])[];
     /** For an `extraRequired` name that can also be given in `credentials.<credentialsKey>`: the field of that slice that stands for it (e.g. `{ CLOUDFLARE_ACCOUNT_ID: "accountId" }`). A base URL needs no entry; it is matched through `baseURL` above. */
     extraRequiredCredentialFields?: Readonly<Record<string, string>>;
+    /** True when a `credentials.<credentialsKey>` slice that names its own `baseURL` must bring its own key: the provider never sends the environment key (or its fallbacks) to an endpoint a caller chose, so such a slice does not count as configured by that key either. */
+    apiKeyEnvIgnoredForCredentialBaseURL?: boolean;
     /** True when the provider is usable with zero configuration (local runtime with a documented default URL, or a documented non-secret default like LiteLLM's "sk-anything"). */
     optional?: boolean;
   };
