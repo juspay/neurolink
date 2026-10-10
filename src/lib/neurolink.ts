@@ -23,6 +23,9 @@ import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
 // Multi-agent orchestration type imports
 import type {
   ContextCompactorDeps,
+  AdsImageAuditInput,
+  AdsImageAuditConfig,
+  AdsImageAuditReport,
   ContextRelevanceOptions,
   DecisionAfterEvent,
   DecisionAnswer,
@@ -18434,6 +18437,20 @@ Current user's request: ${currentInput}`;
    */
   async decide(options: DecisionOptions): Promise<DecisionResult> {
     return this.runDecide(options);
+  }
+
+  /**
+   * Compare one image creative per merchant/competitor using a shared rubric,
+   * XOR image assessments and JEV-reviewed action experiments. No publishing.
+   * The SDK owns research, discovery, media preparation and inference; hosts
+   * supply inputs and configure models/connectors. This instance remains usable.
+   */
+  async auditImageAds(
+    input: AdsImageAuditInput,
+    options: AdsImageAuditConfig,
+  ): Promise<AdsImageAuditReport> {
+    const { createImageAdsAuditor } = await import("./creativeAudit/index.js");
+    return createImageAdsAuditor(this, options)(input);
   }
 
   /**

@@ -7,6 +7,7 @@
  */
 
 // Event system types - PRIORITY 2
+export * from "./adsImageAudit.js";
 export type {
   AnyFunction,
   AsyncFunction,

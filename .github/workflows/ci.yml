@@ -613,6 +613,7 @@ jobs:
           pnpm run test:memory:hippocampus
           pnpm run test:security-check-filter
           pnpm run test:decide
+          pnpm run test:image-ads-audit
           pnpm run test:mcp:infra
           pnpm run test:mcp:spans
           pnpm run test:mcp:stdio-lifecycle

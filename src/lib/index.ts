@@ -33,6 +33,9 @@
  */
 
 // Core exports
+export { createImageAdsAuditor } from "./creativeAudit/index.js";
+export { createApifyImageAdsSource } from "./creativeAudit/apify.js";
+export { ADS_IMAGE_AUDIT_LIMITS } from "./constants/adsImageAudit.js";
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 

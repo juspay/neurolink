@@ -3015,6 +3015,31 @@ when no decision provider is configured, or the call fails
 
 ---
 
+#### auditImageAds()
+
+> **auditImageAds**(`input`, `options`): `Promise`\<[`AdsImageAuditReport`](../type-aliases/AdsImageAuditReport.md)\>
+
+Compare one image creative per merchant/competitor using a shared rubric,
+XOR image assessments and JEV-reviewed action experiments. No publishing.
+The SDK owns research, discovery, media preparation and inference; hosts
+supply inputs and configure models/connectors. This instance remains usable.
+
+##### Parameters
+
+###### input
+
+[`AdsImageAuditInput`](../type-aliases/AdsImageAuditInput.md)
+
+###### options
+
+[`AdsImageAuditConfig`](../type-aliases/AdsImageAuditConfig.md)
+
+##### Returns
+
+`Promise`\<[`AdsImageAuditReport`](../type-aliases/AdsImageAuditReport.md)\>
+
+---
+
 #### decisionLimits()
 
 > **decisionLimits**(`query?`): [`DecisionLimitsReading`](../type-aliases/DecisionLimitsReading.md) \| `null`
