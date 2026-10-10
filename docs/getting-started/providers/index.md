@@ -531,6 +531,18 @@ behavioural quirks may apply, so check the provider's catalog file. The whole
 integration is one JSON file under `src/lib/providers/catalog/`. Each page is
 generated from that file, which is also what the CI onboarding gate reads.
 
+### [A2Agent](a2agent.md)
+
+**DeepSeek V4 Flash**
+
+- 🤖 1 model; default `deepseek-v4-flash` (1M context)
+- 🛠️ Native tool calling + structured output together
+- 💳 No free tier (prepaid, pay-as-you-go)
+- ✅ Roster verified 2026-09-21 (authenticated GET /v1/models)
+- 🔑 API key from [a2agent.me/keys](https://a2agent.me/keys)
+
+[Setup Guide →](a2agent.md)
+
 ### [API Route](api-route.md)
 
 **Claude Sonnet 4.6**

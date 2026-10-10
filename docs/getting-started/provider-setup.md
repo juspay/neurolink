@@ -44,6 +44,7 @@ Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each ha
 - **[Mancer](providers/mancer.md)** - default `deepseek-v4-flash` (`MANCER_API_KEY`); **no tool calling**
 - **[Upstage](providers/upstage.md)** - Solar models; default `solar-pro4` (`UPSTAGE_API_KEY`)
 - **[API Route](providers/api-route.md)** - OpenAI-compatible passthrough; default `claude-sonnet-4-6` (`API_ROUTE_API_KEY`)
+- **[A2Agent](providers/a2agent.md)** - default `deepseek-v4-flash` (`A2AGENT_API_KEY`)
 - **[DeepInfra](providers/deepinfra.md)** - default `deepseek-ai/DeepSeek-V4-Flash-0731` (`DEEPINFRA_API_KEY`); docs- and roster-verified, not yet live-verified
 - **[Featherless AI](providers/featherless-ai.md)** - default `unsloth/Llama-3.3-70B-Instruct` (`FEATHERLESS_AI_API_KEY`); docs- and roster-verified, not yet live-verified
 - **[Chutes](providers/chutes.md)** - default `moonshotai/Kimi-K2.6-TEE` (`CHUTES_API_KEY`); docs- and roster-verified, not yet live-verified
@@ -1525,7 +1526,7 @@ export NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
 ### Optional Configuration
 
 ```bash
-export NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+export NVIDIA_NIM_MODEL="openai/gpt-oss-20b"                       # Default model
 export NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default; override for self-hosted NIM
 ```
 
@@ -1543,7 +1544,9 @@ export NVIDIA_NIM_CHAT_TEMPLATE=""          # Override model chat template (adva
 
 ### Supported Models
 
-- `meta/llama-3.3-70b-instruct` (default) - Meta Llama 3.3 70B Instruct
+- `openai/gpt-oss-20b` (default) - OpenAI gpt-oss 20B
+- `meta/llama-3.2-90b-vision-instruct` / `meta/llama-3.2-11b-vision-instruct` - Llama 3.2 vision
+- `meta/llama-3.3-70b-instruct` is no longer served: NVIDIA's hosted model list did not include it on 2026-10-02
 - Any model from the [NVIDIA NIM catalog](https://build.nvidia.com/models)
 
 ### Usage Example
@@ -1556,7 +1559,7 @@ const neurolink = new NeuroLink();
 const result = await neurolink.generate({
   input: { text: "Explain GPU architecture" },
   provider: "nvidia-nim",
-  model: "meta/llama-3.3-70b-instruct",
+  model: "openai/gpt-oss-20b",
   temperature: 0.7,
   maxTokens: 1000,
 });
@@ -1593,7 +1596,7 @@ export NVIDIA_NIM_BASE_URL="http://your-nim-server:8000/v1"
 | Variable                        | Required | Default                               | Description                             |
 | ------------------------------- | -------- | ------------------------------------- | --------------------------------------- |
 | `NVIDIA_NIM_API_KEY`            | ✅       | -                                     | NVIDIA NIM API key (Bearer token)       |
-| `NVIDIA_NIM_MODEL`              | ❌       | `meta/llama-3.3-70b-instruct`         | Default model                           |
+| `NVIDIA_NIM_MODEL`              | ❌       | `openai/gpt-oss-20b`                  | Default model                           |
 | `NVIDIA_NIM_BASE_URL`           | ❌       | `https://integrate.api.nvidia.com/v1` | Override for self-hosted NIM            |
 | `NVIDIA_NIM_TOP_K`              | ❌       | -                                     | Top-K sampling parameter                |
 | `NVIDIA_NIM_MIN_P`              | ❌       | -                                     | Min-P sampling parameter                |
@@ -1922,7 +1925,7 @@ DEEPSEEK_MODEL=deepseek-chat  # Optional (deepseek-chat or deepseek-reasoner)
 
 # NVIDIA NIM
 NVIDIA_NIM_API_KEY=nvapi-your-nvidia-key
-NVIDIA_NIM_MODEL=meta/llama-3.3-70b-instruct  # Optional
+NVIDIA_NIM_MODEL=openai/gpt-oss-20b  # Optional
 
 # LM Studio (local — no API key required)
 LM_STUDIO_BASE_URL=http://localhost:1234/v1  # Optional

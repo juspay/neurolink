@@ -66,6 +66,19 @@ export function catalogEnvVar(
       : `${base}_MODEL`;
 }
 
+/**
+ * Env var for one of `wire.extraCredentials` (e.g. Cloudflare's `accountId`
+ * → `CLOUDFLARE_ACCOUNT_ID`). The single derivation shared by the runtime's
+ * computed base URL and the `neurolink setup` flow, so the variable the
+ * wizard writes is always the one the provider reads.
+ */
+export function catalogExtraCredentialEnvVar(
+  entry: ProviderCatalogJson,
+  extra: string,
+): string {
+  return `${entry.id.toUpperCase().replace(/-/g, "_")}_${extra.replace(/([A-Z])/g, "_$1").toUpperCase()}`;
+}
+
 function interpolate(
   template: string,
   entry: ProviderCatalogJson,
@@ -193,7 +206,7 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
       // accountId-shaped runtime computedBaseURL type.
       const extra = entry.wire.extraCredentials?.[0] ?? "accountId";
       base.computedBaseURL = {
-        envVar: `${entry.id.toUpperCase().replace(/-/g, "_")}_${extra.replace(/([A-Z])/g, "_$1").toUpperCase()}`,
+        envVar: catalogExtraCredentialEnvVar(entry, extra),
         missingValueMessage:
           entry.wire.missingCredentialMessage ??
           `Missing ${extra} for ${entry.displayName}`,
@@ -218,6 +231,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     }
     if (entry.quirks?.authHeaderStyle) {
       base.authHeaderStyle = entry.quirks.authHeaderStyle;
+    }
+    if (entry.quirks?.fixedSamplingModels) {
+      base.fixedSamplingModels = new Set(entry.quirks.fixedSamplingModels);
     }
     return base;
   });

@@ -99,7 +99,8 @@
     }
   ],
   "quirks": {
-    "replayReasoningContent": true
+    "replayReasoningContent": true,
+    "fixedSamplingModels": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6"]
   },
   "setup": {
     "url": "https://platform.kimi.ai/console/api-keys",

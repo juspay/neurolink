@@ -7,6 +7,7 @@
  *   2. src/lib/types/providerCatalog.generated.ts    (type unions)
  *   3. marked region in src/lib/constants/enums.ts   (AIProviderName members + <Name>Models enums)
  *   4. marked region in src/lib/types/providers.ts   (NeurolinkCredentials keys)
+ *   5. marked region in .env.example                 (a block per vendor not documented by hand)
  *
  * Idempotent: a second run produces byte-identical output. `--check`
  * exits 1 (writing nothing) if any output is stale — used by pre-commit
@@ -542,6 +543,85 @@ await replaceRegionWith(
   "credentials",
   credentialLines,
 );
+
+// 5. .env.example — one block per catalog vendor the file does not already
+// document by hand. Hand-written blocks (groq, cerebras, perplexity,
+// cloudflare, …) carry vendor-specific notes and stay where they are; any
+// vendor without one gets a generated block here, so a new catalog JSON can
+// never ship without a `.env.example` entry. Env var names come from the
+// same derivation the runtime uses (loader.ts catalogEnvVar), duplicated
+// here only because tools/ must not need a build of src/.
+{
+  const envPath = ".env.example";
+  const begin =
+    "# ── BEGIN GENERATED(env-example): provider catalog (pnpm run codegen:catalog) ──";
+  const end = "# ── END GENERATED(env-example) ──";
+  const current = readFileSync(envPath, "utf8");
+  const beginIdx = current.indexOf(begin);
+  const endIdx = current.indexOf(end);
+  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
+    throw new Error(`marked region "env-example" not found in ${envPath}`);
+  }
+  const outside =
+    current.slice(0, beginIdx) + current.slice(endIdx + end.length);
+  const envVarFor = (
+    e: ProviderCatalogJson,
+    kind: "apiKey" | "baseURL" | "model",
+  ): string =>
+    e.wire.envOverrides?.[kind] ??
+    `${toConstantCase(e.id)}_${kind === "apiKey" ? "API_KEY" : kind === "baseURL" ? "BASE_URL" : "MODEL"}`;
+  const documented = (name: string): boolean =>
+    new RegExp(`^#?\\s*${name}=`, "m").test(outside);
+  const blocks = entries
+    .filter((e) => !documented(envVarFor(e, "apiKey")))
+    .map((e) => {
+      const listed = e.models.topModels ?? Object.keys(e.models.catalog);
+      const shown = [
+        e.models.default,
+        ...listed.filter((m) => m !== e.models.default),
+      ];
+      const lines = [
+        `# ${e.displayName} (${shown.slice(0, 3).join(", ")}${shown.length > 3 ? ", …" : ""})`,
+      ];
+      if (e.capabilities.tools === false) {
+        lines.push(
+          "# Note: no tool calling — text generation and structured output only.",
+        );
+      }
+      lines.push(`# Keys: ${e.setup.url}`);
+      lines.push(`${envVarFor(e, "apiKey")}=your-${e.id}-api-key`);
+      for (const extra of e.wire.baseURLTemplate
+        ? (e.wire.extraCredentials ?? [])
+        : []) {
+        lines.push(
+          `${toConstantCase(e.id)}_${extra.replace(/([A-Z])/g, "_$1").toUpperCase()}=your-${e.id}-${extra.replace(/([A-Z])/g, "-$1").toLowerCase()}`,
+        );
+      }
+      lines.push(`# Optional: ${envVarFor(e, "model")}=${e.models.default}`);
+      if (e.wire.baseURL) {
+        lines.push(`# Optional: ${envVarFor(e, "baseURL")}=${e.wire.baseURL}`);
+      }
+      return lines.join("\n");
+    });
+  const next =
+    current.slice(0, beginIdx + begin.length) +
+    "\n" +
+    "# Generated from src/lib/providers/catalog/*.json for every vendor not\n" +
+    "# documented above. Edit the JSON and run `pnpm run codegen:catalog`.\n" +
+    "\n" +
+    blocks.join("\n\n") +
+    "\n" +
+    current.slice(endIdx);
+  if (next !== current) {
+    if (checkMode) {
+      console.error(`stale generated region "env-example" in ${envPath}`);
+      stale = true;
+    } else {
+      writeFileSync(envPath, next);
+      console.log(`updated region "env-example" in ${envPath}`);
+    }
+  }
+}
 
 if (checkMode && stale) {
   console.error(

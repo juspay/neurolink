@@ -213,6 +213,7 @@ jobs:
           RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           API_ROUTE_API_KEY: ${{ secrets.API_ROUTE_API_KEY }}
+          A2AGENT_API_KEY: ${{ secrets.A2AGENT_API_KEY }}
 
       # The CLI mirror of the sweep above (dist/cli/index.js against the same
       # PROVIDERS matrix, minus embed-only providers the CLI has no command
@@ -324,6 +325,7 @@ jobs:
           STACKIT_API_KEY: ${{ secrets.STACKIT_API_KEY }}
           BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
           API_ROUTE_API_KEY: ${{ secrets.API_ROUTE_API_KEY }}
+          A2AGENT_API_KEY: ${{ secrets.A2AGENT_API_KEY }}
 
       # The JSON-validity/huge-text E2E suite, which spans nearly the same
       # provider breadth as the sweep above (tools-active structured output
@@ -361,16 +363,80 @@ jobs:
           SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
           BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
           GMICLOUD_API_KEY: ${{ secrets.GMICLOUD_API_KEY }}
+          FRIENDLI_API_KEY: ${{ secrets.FRIENDLI_API_KEY }}
           INCEPTION_LABS_API_KEY: ${{ secrets.INCEPTION_LABS_API_KEY }}
           IO_INTELLIGENCE_API_KEY: ${{ secrets.IO_INTELLIGENCE_API_KEY }}
           UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
           MANCER_API_KEY: ${{ secrets.MANCER_API_KEY }}
+          NOVITA_API_KEY: ${{ secrets.NOVITA_API_KEY }}
+          MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          FEATHERLESS_AI_API_KEY: ${{ secrets.FEATHERLESS_AI_API_KEY }}
+          CHUTES_API_KEY: ${{ secrets.CHUTES_API_KEY }}
+          OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+          SYNTHETIC_API_KEY: ${{ secrets.SYNTHETIC_API_KEY }}
+          AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
+          INFERENCE_API_KEY: ${{ secrets.INFERENCE_API_KEY }}
+          EMPIRIOLABS_API_KEY: ${{ secrets.EMPIRIOLABS_API_KEY }}
+          ABOVE_DEV_API_KEY: ${{ secrets.ABOVE_DEV_API_KEY }}
+          AIAND_API_KEY: ${{ secrets.AIAND_API_KEY }}
+          BEE_HEOSSI_API_KEY: ${{ secrets.BEE_HEOSSI_API_KEY }}
+          CHARM_HYPER_API_KEY: ${{ secrets.CHARM_HYPER_API_KEY }}
+          INCO_API_KEY: ${{ secrets.INCO_API_KEY }}
+          KOSCOMPUTE_API_KEY: ${{ secrets.KOSCOMPUTE_API_KEY }}
+          LILAC_API_KEY: ${{ secrets.LILAC_API_KEY }}
+          LLMTECH_API_KEY: ${{ secrets.LLMTECH_API_KEY }}
+          MOARK_API_KEY: ${{ secrets.MOARK_API_KEY }}
+          NEURALWATT_API_KEY: ${{ secrets.NEURALWATT_API_KEY }}
+          PARETO_INFERENCE_API_KEY: ${{ secrets.PARETO_INFERENCE_API_KEY }}
+          AIONLABS_API_KEY: ${{ secrets.AIONLABS_API_KEY }}
+          ATLAS_CLOUD_API_KEY: ${{ secrets.ATLAS_CLOUD_API_KEY }}
+          AVIAN_IO_API_KEY: ${{ secrets.AVIAN_IO_API_KEY }}
+          PRIME_INTELLECT_API_KEY: ${{ secrets.PRIME_INTELLECT_API_KEY }}
+          SUBCONSCIOUS_API_KEY: ${{ secrets.SUBCONSCIOUS_API_KEY }}
+          TINFOIL_API_KEY: ${{ secrets.TINFOIL_API_KEY }}
+          UMANS_AI_API_KEY: ${{ secrets.UMANS_AI_API_KEY }}
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+          WAFER_API_KEY: ${{ secrets.WAFER_API_KEY }}
+          VENICE_AI_API_KEY: ${{ secrets.VENICE_AI_API_KEY }}
+          AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          MOONSHOT_AI_API_KEY: ${{ secrets.MOONSHOT_AI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          Z_AI_API_KEY: ${{ secrets.Z_AI_API_KEY }}
+          STEPFUN_API_KEY: ${{ secrets.STEPFUN_API_KEY }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+          SCALEWAY_API_KEY: ${{ secrets.SCALEWAY_API_KEY }}
+          CRUSOE_API_KEY: ${{ secrets.CRUSOE_API_KEY }}
+          WANDB_INFERENCE_API_KEY: ${{ secrets.WANDB_INFERENCE_API_KEY }}
+          INCEPTRON_API_KEY: ${{ secrets.INCEPTRON_API_KEY }}
+          BYTEPLUS_MODELARK_API_KEY: ${{ secrets.BYTEPLUS_MODELARK_API_KEY }}
+          GRADIENTAI_API_KEY: ${{ secrets.GRADIENTAI_API_KEY }}
+          PARASAIL_API_KEY: ${{ secrets.PARASAIL_API_KEY }}
+          BAIDU_QIANFAN_API_KEY: ${{ secrets.BAIDU_QIANFAN_API_KEY }}
+          ARCEE_API_KEY: ${{ secrets.ARCEE_API_KEY }}
+          TELNYX_API_KEY: ${{ secrets.TELNYX_API_KEY }}
+          REKA_API_KEY: ${{ secrets.REKA_API_KEY }}
+          THINKING_MACHINES_API_KEY: ${{ secrets.THINKING_MACHINES_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          VISPARK_API_KEY: ${{ secrets.VISPARK_API_KEY }}
+          SAKANA_AI_API_KEY: ${{ secrets.SAKANA_AI_API_KEY }}
+          POOLSIDE_API_KEY: ${{ secrets.POOLSIDE_API_KEY }}
+          LEMONFOX_AI_API_KEY: ${{ secrets.LEMONFOX_AI_API_KEY }}
+          MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY }}
+          HETZNER_INFERENCE_API_KEY: ${{ secrets.HETZNER_INFERENCE_API_KEY }}
+          META_MODEL_API_API_KEY: ${{ secrets.META_MODEL_API_API_KEY }}
+          STACKIT_API_KEY: ${{ secrets.STACKIT_API_KEY }}
+          BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
           VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
           IDEOGRAM_API_KEY: ${{ secrets.IDEOGRAM_API_KEY }}
           RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          API_ROUTE_API_KEY: ${{ secrets.API_ROUTE_API_KEY }}
+          A2AGENT_API_KEY: ${{ secrets.A2AGENT_API_KEY }}
 
   # Two more single-credential live suites, grouped the way reasoning-parity
   # above is: the sweep's steps carry many provider credentials and each of

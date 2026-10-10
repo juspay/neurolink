@@ -6,6 +6,7 @@
 import type { CommandModule, Argv } from "yargs";
 import type { SetupCommandArgs } from "../../lib/types/index.js";
 import { AIProviderName } from "../../lib/constants/enums.js";
+import { PROVIDER_DESCRIPTORS } from "../../lib/factories/providerDescriptors.js";
 import { handleGCPSetup } from "../commands/setup-gcp.js";
 import { handleBedrockSetup } from "../commands/setup-bedrock.js";
 import { handleOpenAISetup } from "../commands/setup-openai.js";
@@ -42,10 +43,14 @@ export class SetupCommandFactory {
               // (found completing the cerebras integration surface).
               // "gcp" stays as the one extra: it's a vertex alias with
               // its own native subcommand below, not an enum member.
+              // Descriptor aliases (`claude`, `kimi`, `grok`, …) are
+              // accepted too, as they are by `--provider` on generate;
+              // delegateToProviderSetup resolves them to the canonical id.
               choices: [
                 ...Object.values(AIProviderName).filter(
                   (name) => name !== AIProviderName.AUTO,
                 ),
+                ...SetupCommandFactory.providerAliases(),
                 "gcp",
               ],
             })
@@ -177,9 +182,25 @@ export class SetupCommandFactory {
   }
 
   /**
+   * Every descriptor alias, minus any that already names a native
+   * subcommand (yargs would otherwise register the same command twice).
+   */
+  private static providerAliases(): string[] {
+    const canonical = new Set<string>([
+      ...Object.values(AIProviderName),
+      "gcp",
+    ]);
+    return PROVIDER_DESCRIPTORS.flatMap((d) => d.aliases).filter(
+      (alias) => !canonical.has(alias),
+    );
+  }
+
+  /**
    * Every AIProviderName that has no dedicated native setup subcommand
-   * above — these route through the generic wizard (handleSetup ->
-   * delegateToProviderSetup / EXTRA_PROVIDER_CONFIGS).
+   * above, plus every descriptor alias — these route through the generic
+   * wizard (handleSetup -> delegateToProviderSetup, which resolves an
+   * alias to its canonical id and runs the native handler, the catalog
+   * flow or the EXTRA_PROVIDER_CONFIGS printout).
    */
   private static nonNativeProviderIds(): string[] {
     const nativeSetup = new Set<string>([
@@ -193,9 +214,12 @@ export class SetupCommandFactory {
       "huggingface",
       "mistral",
     ]);
-    return Object.values(AIProviderName).filter(
-      (name) => name !== AIProviderName.AUTO && !nativeSetup.has(name),
-    );
+    return [
+      ...Object.values(AIProviderName).filter(
+        (name) => name !== AIProviderName.AUTO && !nativeSetup.has(name),
+      ),
+      ...SetupCommandFactory.providerAliases(),
+    ];
   }
 
   /**

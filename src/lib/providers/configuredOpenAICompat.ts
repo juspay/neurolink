@@ -42,6 +42,29 @@ const flattenMessageContent = (
 };
 
 /**
+ * Remove the sampling parameters a vendor fixes for a model (the catalog's
+ * `quirks.fixedSamplingModels`). Such a vendor rejects any value at all —
+ * Moonshot: "passing any other value returns an error, so do not pass it
+ * explicitly" — so the fields are dropped rather than clamped.
+ */
+const stripFixedSampling = (
+  body: OpenAICompatChatRequest,
+  fixed: boolean,
+): OpenAICompatChatRequest => {
+  if (!fixed) {
+    return body;
+  }
+  const {
+    temperature: _temperature,
+    top_p: _topP,
+    presence_penalty: _presencePenalty,
+    frequency_penalty: _frequencyPenalty,
+    ...rest
+  } = body;
+  return rest;
+};
+
+/**
  * Generic OpenAI-compatible provider driven entirely by an
  * OpenAICompatCatalogEntry. Replaces a hand-written subclass for any
  * provider whose only differences from its siblings are credentials, base
@@ -190,7 +213,10 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
     body: OpenAICompatChatRequest,
     modelId: string,
   ): OpenAICompatChatRequest {
-    const adjusted = super.adjustRequestBody(body, modelId);
+    const adjusted = stripFixedSampling(
+      super.adjustRequestBody(body, modelId),
+      this.entry.fixedSamplingModels?.has(modelId) === true,
+    );
     if (this.entry.messageContentFormat !== "string") {
       return adjusted;
     }

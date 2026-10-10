@@ -22,8 +22,8 @@ import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
  * together-ai, xai), derived from models.catalog[*].contextWindow +
  * defaultContextWindow — the catalog JSON (src/lib/providers/catalog/<id>.json)
  * is their single source of truth. A catalog model with no recorded
- * contextWindow (e.g. fireworks' current roster — none of its models have a
- * sourced value yet) is simply omitted here, same as it was never a key in
+ * contextWindow (e.g. most of fireworks' roster — only kimi-k3 has a
+ * sourced value) is simply omitted here, same as it was never a key in
  * the pre-migration table either; the `_default` / prefix-match /
  * DEFAULT_CONTEXT_WINDOW fallback chain in getContextWindowSize() below
  * covers it exactly as it always has.
@@ -286,6 +286,14 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "anthropic.claude-opus-5-5": 1_000_000,
     "anthropic.claude-sonnet-5-5": 1_000_000,
     "anthropic.claude-fable-5-1": 1_000_000,
+    // Claude 5 (mid 2026) and Opus 4.7 / 4.8 — the same 1M window their
+    // Anthropic and Vertex rows carry; Bedrock serves them as
+    // "anthropic.<first-party id>".
+    "anthropic.claude-opus-5": 1_000_000,
+    "anthropic.claude-sonnet-5": 1_000_000,
+    "anthropic.claude-fable-5": 1_000_000,
+    "anthropic.claude-opus-4-8": 1_000_000,
+    "anthropic.claude-opus-4-7": 1_000_000,
     // Claude 4.6
     "anthropic.claude-opus-4-6-v1": 1_000_000,
     "anthropic.claude-sonnet-4-6": 1_000_000,
@@ -404,6 +412,22 @@ const PROVIDER_ALIAS_MAP: Record<string, string> = {
   nvidia: "nvidia-nim",
   deepseek: "deepseek",
 };
+
+/** AWS cross-region inference-profile prefixes ("us.anthropic.claude-…"). */
+const BEDROCK_PROFILE_PREFIX = /^(?:us|eu|apac|global|us-gov|jp|au|ca)\./;
+
+/**
+ * Reduce a Bedrock model reference to the bare foundation-model id: drop an
+ * ARN down to its final path segment, then any inference-profile prefix.
+ * "arn:aws:bedrock:us-east-1:1:inference-profile/us.anthropic.claude-x" and
+ * "global.anthropic.claude-x" both become "anthropic.claude-x".
+ */
+function stripBedrockInferenceProfile(model: string): string {
+  const id = model.startsWith("arn:")
+    ? model.slice(model.lastIndexOf("/") + 1)
+    : model;
+  return id.replace(BEDROCK_PROFILE_PREFIX, "");
+}
 
 function normalizeProviderForLookup(provider: string): string {
   const stripped = provider.toLowerCase().replace(/[^a-z]/g, "");
@@ -581,6 +605,24 @@ export function getContextWindowSize(provider: string, model?: string): number {
   // Static fallback chain — normalize aliases first so "lmstudio" / "llama.cpp" /
   // "nvidianim" find their canonical entries instead of falling back to default.
   const canonical = normalizeProviderForLookup(provider);
+
+  // Bedrock ids often arrive as cross-region inference profiles
+  // ("us.anthropic.…", "global.anthropic.…") or as full ARNs, while the
+  // table keys the bare "anthropic.…" id — so a profile id prefix-matched
+  // nothing and fell to the 200K default, capping 1M models. A row for the
+  // raw id still wins (the `us.` Claude 3.7 Sonnet profile has one);
+  // otherwise the bare id is looked up, the same normalisation pricing.ts
+  // applies before its own lookup.
+  if (model && canonical === "bedrock") {
+    const bare = stripBedrockInferenceProfile(model);
+    if (
+      bare !== model &&
+      MODEL_CONTEXT_WINDOWS.bedrock?.[model] === undefined &&
+      resolveManifestEntryStrict("bedrock", model) === undefined
+    ) {
+      return getContextWindowSize(provider, bare);
+    }
+  }
 
   // Step 1: Manifest real-entry lookup (exact id, alias, or longest-prefix —
   // see resolveManifestEntryStrict's docblock). Tries the alias-normalized

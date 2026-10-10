@@ -1,6 +1,6 @@
 # OpenAI-Compatible Provider Catalog
 
-Every OpenAI-compatible provider in the catalog (80 as of 2026-09-29; the
+Every OpenAI-compatible provider in the catalog (81 as of 2026-10-06; the
 directory is the list) is registered from **one JSON file each**, under
 `src/lib/providers/catalog/<id>.json`, and served by one generic class,
 `ConfiguredOpenAICompatProvider`
@@ -50,6 +50,11 @@ A provider belongs in the JSON catalog if it needs **only**:
   back on later requests once tools are in play, so the shared message
   converter and the streaming tool loop send it — for this quirk only, since
   strict OpenAI-compatible backends reject the unknown field.
+  Moonshot is the per-model case: it rejects any `temperature`, `top_p`,
+  `presence_penalty` or `frequency_penalty` on `kimi-k3`, `kimi-k2.7-code`
+  and `kimi-k2.6`, so `moonshot-ai.json` lists those ids in
+  `quirks.fixedSamplingModels` and the generic provider removes the four
+  fields from requests to them (each id must be a key of `models.catalog`).
 - a wire-proven capability such as
   `capabilities.structuredOutputWithTools`. The generic provider suppresses
   `response_format` when tools are attached by default; an explicit `true`

@@ -914,7 +914,7 @@ NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
 #### Optional Variables
 
 ```bash
-NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+NVIDIA_NIM_MODEL="openai/gpt-oss-20b"                       # Default model
 NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default: NVIDIA cloud API (override for self-hosted NIM)
 ```
 
@@ -938,7 +938,8 @@ NVIDIA_NIM_CHAT_TEMPLATE=              # Override model chat template string (ad
 
 #### Supported Models
 
-- `meta/llama-3.3-70b-instruct` (default) - Llama 3.3 70B Instruct
+- `openai/gpt-oss-20b` (default) - OpenAI gpt-oss 20B
+- `meta/llama-3.2-90b-vision-instruct` / `meta/llama-3.2-11b-vision-instruct` - Llama 3.2 vision
 - Any model listed at [build.nvidia.com/models](https://build.nvidia.com/models)
 
 ---
@@ -1132,6 +1133,25 @@ GOOGLE_AI_API_KEY="AIza-your-google-ai-studio-key"   # canonical
 | `ELEVENLABS_API_KEY`  | ❌       | -       | ElevenLabs key, if using ElevenLabs alongside       |
 | `DEEPGRAM_API_KEY`    | ❌       | -       | Deepgram key, if using Deepgram alongside           |
 
+### 20. Tier-2 catalog providers (Groq, Moonshot, A2Agent, …)
+
+Every provider defined by a JSON file under `src/lib/providers/catalog/` reads
+three variables named after its id in constant case (`moonshot-ai` →
+`MOONSHOT_AI`), unless its JSON sets `wire.envOverrides`:
+
+| Variable        | Required | Default                 | Description                     |
+| --------------- | -------- | ----------------------- | ------------------------------- |
+| `<ID>_API_KEY`  | ✅       | -                       | The vendor's API key            |
+| `<ID>_MODEL`    | ❌       | the catalog's default   | Model used when none is passed  |
+| `<ID>_BASE_URL` | ❌       | the catalog's `baseURL` | Proxy or gateway in front of it |
+
+`.env.example` lists every catalog vendor with its exact names and defaults
+(the vendors without a hand-written block are in a section generated from the
+catalog). `npx @juspay/neurolink setup <id>` prompts for the key and writes
+`.env`; each provider's guide under `providers/` gives its exceptions, such as
+Cloudflare's `CLOUDFLARE_ACCOUNT_ID` or OVHcloud's
+`OVH_AI_ENDPOINTS_ACCESS_TOKEN`.
+
 ---
 
 ## 🔧 Configuration Examples
@@ -1207,7 +1227,7 @@ DEEPSEEK_MODEL="deepseek-chat"
 
 # NVIDIA NIM Configuration
 NVIDIA_NIM_API_KEY="nvapi-your-nvidia-key"
-NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"
+NVIDIA_NIM_MODEL="openai/gpt-oss-20b"
 # NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 
 # LM Studio Configuration (local — no API key required)

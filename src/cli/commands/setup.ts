@@ -22,6 +22,7 @@ import { handleBedrockSetup } from "./setup-bedrock.js";
 import { handleGCPSetup } from "./setup-gcp.js";
 import { handleHuggingFaceSetup } from "./setup-huggingface.js";
 import { handleMistralSetup } from "./setup-mistral.js";
+import { handleCatalogProviderSetup } from "./setup-catalog.js";
 import type {
   ProviderConfigOptions,
   SetupArgs,
@@ -31,7 +32,10 @@ import {
   type AIProviderName,
   OpenRouterModels,
 } from "../../lib/constants/enums.js";
-import { PROVIDER_DESCRIPTORS_BY_NAME } from "../../lib/factories/providerDescriptors.js";
+import {
+  PROVIDER_ALIAS_INDEX,
+  PROVIDER_DESCRIPTORS_BY_NAME,
+} from "../../lib/factories/providerDescriptors.js";
 import {
   createCohereConfig,
   createDeepSeekConfig,
@@ -630,15 +634,21 @@ async function runProviderSelection(): Promise<void> {
 }
 
 /**
- * Delegate to existing provider setup commands
+ * Delegate to existing provider setup commands. `requestedId` may be a
+ * canonical provider name or any alias `--provider` accepts elsewhere
+ * (`claude`, `kimi`, `grok`, …); it is resolved through the same alias
+ * index ProviderFactory uses, so `setup <alias>` configures the provider
+ * `generate --provider <alias>` would call.
  */
 export async function delegateToProviderSetup(
-  providerId: string,
+  requestedId: string,
   flags: { check?: boolean; nonInteractive?: boolean } = {
     check: false,
     nonInteractive: false,
   },
 ): Promise<void> {
+  const providerId: string =
+    PROVIDER_ALIAS_INDEX.get(requestedId.toLowerCase()) ?? requestedId;
   const nonInteractive = flags.nonInteractive ?? false;
   const check = flags.check ?? false;
   const setupArgs = {
@@ -666,6 +676,7 @@ export async function delegateToProviderSetup(
       await handleBedrockSetup(setupArgs);
       break;
     case "vertex":
+    case "gcp":
       await handleGCPSetup(setupArgs);
       break;
     case "huggingface":
@@ -678,9 +689,21 @@ export async function delegateToProviderSetup(
       await handleOpenRouterSetup();
       break;
     default: {
+      // Every JSON-catalog vendor shares one interactive flow driven by its
+      // catalog entry (API key, then optional model and base URL).
+      const catalogEntry = getCatalogJsonEntries().find(
+        (entry) => entry.id === providerId,
+      );
+      if (catalogEntry) {
+        await handleCatalogProviderSetup(catalogEntry, {
+          check,
+          nonInteractive,
+        });
+        break;
+      }
       const genericConfig = EXTRA_PROVIDER_CONFIGS[providerId];
       if (!genericConfig) {
-        throw new Error(`Unknown provider: ${providerId}`);
+        throw new Error(`Unknown provider: ${requestedId}`);
       }
       printGenericProviderSetup(providerId, genericConfig);
       break;

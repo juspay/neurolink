@@ -165,6 +165,10 @@ const CATALOG_ENV_VARS = [
   "MORPH_API_KEY",
   "MORPH_BASE_URL",
   "MORPH_MODEL",
+  "MOONSHOT_AI_API_KEY",
+  "MOONSHOT_API_KEY",
+  "MOONSHOT_AI_BASE_URL",
+  "MOONSHOT_AI_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1515,6 +1519,150 @@ async function testMorphContentFormatSection(): Promise<void> {
 const NOVITA_MODEL = "zai-org/glm-5.3-flash"; // catalog `models.default` / `testModel`
 const NOVITA_FALLBACK_MODEL = "meta-llama/llama-3.3-70b-instruct"; // catalog fallback that rejects response_format
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: Moonshot — quirks.fixedSamplingModels
+//
+// Moonshot documents temperature, top_p, presence_penalty and
+// frequency_penalty as fixed for kimi-k3, kimi-k2.7-code and kimi-k2.6 and
+// rejects a request that sends any value. The catalog lists those ids, so the
+// wire body for them must carry none of the four fields even when the caller
+// (or the CLI's default --temperature 0.7) passed them; a model off the list
+// keeps the caller's values. Both the JSON and the streaming wire are checked,
+// since they build the body on separate paths.
+// ───────────────────────────────────────────────────────────────────────
+
+const MOONSHOT_URL = "api.moonshot.ai/v1/chat/completions";
+const FIXED_SAMPLING_FIELDS = [
+  "temperature",
+  "top_p",
+  "presence_penalty",
+  "frequency_penalty",
+] as const;
+
+function sseChatStream(model: string): () => ReadableStream<Uint8Array> {
+  return () =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        const enc = new TextEncoder();
+        const chunk = {
+          id: "chatcmpl-mock",
+          object: "chat.completion.chunk",
+          created: 0,
+          model,
+          choices: [
+            { index: 0, delta: { content: "pong" }, finish_reason: "stop" },
+          ],
+        };
+        controller.enqueue(enc.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+        controller.enqueue(enc.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+}
+
+async function testMoonshotFixedSamplingSection(): Promise<void> {
+  const section = "Moonshot (fixedSamplingModels quirk)";
+
+  await runCase(
+    `${section}: generate() on kimi-k3 sends no sampling parameters`,
+    async () => {
+      setEnv("MOONSHOT_AI_API_KEY", "test-fake-moonshot-credential");
+      await withMocks(
+        [{ method: "POST", url: MOONSHOT_URL, respond: okResp("kimi-k3") }],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "moonshot-ai",
+            model: "kimi-k3",
+            input: { text: "ping" },
+            temperature: 0.7,
+            topP: 0.9,
+            disableTools: true,
+          });
+          expect(calls.length > 0, "request captured");
+          const body = calls[0].bodyJson as Record<string, unknown>;
+          const present = FIXED_SAMPLING_FIELDS.filter((f) => f in body);
+          expect(
+            present.length === 0,
+            `fixed sampling field(s) reached the wire: ${present.join(", ")}`,
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: stream() on kimi-k2.6 sends no sampling parameters`,
+    async () => {
+      setEnv("MOONSHOT_AI_API_KEY", "test-fake-moonshot-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: MOONSHOT_URL,
+            respond: {
+              status: 200,
+              contentType: "text/event-stream",
+              stream: sseChatStream("kimi-k2.6"),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const result = await newNL().stream({
+            provider: "moonshot-ai",
+            model: "kimi-k2.6",
+            input: { text: "ping" },
+            temperature: 0.7,
+            disableTools: true,
+          });
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          expect(calls.length > 0, "request captured");
+          const body = calls[0].bodyJson as Record<string, unknown>;
+          expectEq(body.stream, true, "the streaming wire was used");
+          const present = FIXED_SAMPLING_FIELDS.filter((f) => f in body);
+          expect(
+            present.length === 0,
+            `fixed sampling field(s) reached the wire: ${present.join(", ")}`,
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: a model off the list keeps the caller's temperature`,
+    async () => {
+      setEnv("MOONSHOT_AI_API_KEY", "test-fake-moonshot-credential");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: MOONSHOT_URL,
+            respond: okResp("kimi-k2.7-code-highspeed"),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "moonshot-ai",
+            model: "kimi-k2.7-code-highspeed",
+            input: { text: "ping" },
+            temperature: 0.7,
+            disableTools: true,
+          });
+          expect(calls.length > 0, "request captured");
+          const body = calls[0].bodyJson as { temperature?: number };
+          expectEq(
+            body.temperature,
+            0.7,
+            "temperature must reach the wire for a model whose sampling is not fixed",
+          );
+        },
+      );
+    },
+  );
+}
+
 async function testNovitaCapabilitiesSection(): Promise<void> {
   const section = "Novita (structuredOutput + tool-calling)";
 
@@ -1943,6 +2091,7 @@ async function main(): Promise<void> {
     await testCatalogFallbackRule();
     await testMorphContentFormatSection();
     await testNovitaCapabilitiesSection();
+    await testMoonshotFixedSamplingSection();
   } finally {
     restoreEnv();
   }
