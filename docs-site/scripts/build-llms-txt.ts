@@ -99,6 +99,33 @@ type ProviderInfo = {
 };
 
 /**
+ * Remove every `<...>` span, keeping the text between them.
+ *
+ * Same result as `replace(/<[^>]+>/g, "")` (an empty `<>` and a `<` with no
+ * `>` after it stay as written), but read left to right in one pass: text is
+ * only copied from outside a removed span, so removing one span cannot join
+ * the fragments around it into a new tag. Plain text conversion for the llms
+ * files; not output sanitization.
+ */
+function removeTagSpans(content: string): string {
+  const lastClose = content.lastIndexOf(">");
+  let output = "";
+  let copied = 0;
+  let open = content.indexOf("<");
+  while (open !== -1 && open < lastClose) {
+    const close = content.indexOf(">", open + 1);
+    if (close === open + 1) {
+      open = content.indexOf("<", open + 1);
+      continue;
+    }
+    output += content.slice(copied, open);
+    copied = close + 1;
+    open = content.indexOf("<", copied);
+  }
+  return output + content.slice(copied);
+}
+
+/**
  * Strip unnecessary formatting from content
  */
 function stripFormatting(content: string): string {
@@ -124,7 +151,7 @@ function stripFormatting(content: string): string {
   stripped = stripped.replace(/<[A-Z][a-zA-Z]*[^>]*>[\s\S]*?<\/[A-Z][a-zA-Z]*>/g, "");
 
   // Remove HTML tags (but keep content)
-  stripped = stripped.replace(/<[^>]+>/g, "");
+  stripped = removeTagSpans(stripped);
 
   // Remove image references (keep alt text if available)
   stripped = stripped.replace(/!\[([^\]]*)\]\([^)]+\)/g, (_, alt) => (alt ? `[Image: ${alt}]` : ""));

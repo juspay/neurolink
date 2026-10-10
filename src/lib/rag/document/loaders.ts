@@ -29,6 +29,7 @@ import { readFile } from "fs/promises";
 import { basename, extname } from "path";
 import { logger } from "../../utils/logger.js";
 import { decodeHtmlTextEntitiesOnce } from "../../utils/htmlEntities.js";
+import { removeHtmlMarkup } from "../../utils/htmlText.js";
 import {
   CSVProcessor,
   stripBom,
@@ -545,17 +546,25 @@ export class WebLoader implements DocumentLoader {
    */
   private htmlToText(html: string): string {
     return decodeHtmlTextEntitiesOnce(
-      html
-        // Remove script and style elements
-        .replace(/<script[\s\S]*?<\/script>/gi, "")
-        .replace(/<style[\s\S]*?<\/style>/gi, "")
-        // Remove HTML comments
-        .replace(/<!--[\s\S]*?-->/g, "")
-        // Replace common block elements with newlines
-        .replace(/<\/(p|div|h[1-6]|br|li|tr|blockquote)>/gi, "\n")
-        .replace(/<(br|hr)\s*\/?>/gi, "\n")
-        // Remove remaining tags
-        .replace(/<[^>]+>/g, ""),
+      removeHtmlMarkup(html, {
+        tagReplacement: "",
+        commentReplacement: "",
+        lineBreakEndTags: [
+          "p",
+          "div",
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "br",
+          "li",
+          "tr",
+          "blockquote",
+        ],
+        lineBreakVoidTags: ["br", "hr"],
+      }),
       {
         nbsp: " ",
         amp: "&",

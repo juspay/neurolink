@@ -153,6 +153,7 @@
     "test:embedding-response-validation": "pnpm exec tsx test/continuous-test-suite-embedding-response-validation.ts",
     "test:pdf-image-streaming": "pnpm exec tsx test/continuous-test-suite-pdf-image-streaming.ts",
     "test:rag": "pnpm exec tsx test/continuous-test-suite-rag.ts",
+    "test:rag-html-markup": "pnpm exec tsx test/continuous-test-suite-rag-html-markup.ts",
     "test:skills": "pnpm exec tsx test/continuous-test-suite-skills.ts",
     "test:decide": "pnpm exec tsx test/continuous-test-suite-decide.ts",
     "test:agent-mode": "pnpm exec tsx test/continuous-test-suite-agent-mode.ts",

@@ -628,6 +628,7 @@ jobs:
           pnpm run test:vector-pgvector
           pnpm run test:vector-pinecone
           pnpm run test:provider-wiring
+          pnpm run test:rag-html-markup
           pnpm run test:cli-fallback
           pnpm run test:embedding-response-validation
 
