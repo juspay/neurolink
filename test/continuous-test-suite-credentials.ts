@@ -7,6 +7,7 @@
  *   Section 1: Type Contracts (5 tests)
  *   Section 2: Instance & Call Behavior (3 tests)
  *   Section 3: Provider-scoped Credential Slicing (2 tests)
+ *   Section 8: Azure credentials.resourceName precedence (4 tests)
  *
  * STANDALONE TEST RUNNER - NO VITEST, NO JEST
  * Imports from compiled dist/ — run `pnpm run build` first.
@@ -47,6 +48,7 @@ import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { installMockFetch } from "./utils/mockFetch.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -1065,6 +1067,190 @@ async function testAnthropicBaseURLCredential(): Promise<void> {
   });
 }
 
+// =============================================================================
+// SECTION 8: Azure credentials.resourceName (no API key, no network)
+// =============================================================================
+
+const AZURE_ENV_VARS = [
+  "AZURE_OPENAI_API_KEY",
+  "AZURE_OPENAI_ENDPOINT",
+  "AZURE_API_VERSION",
+  "AZURE_OPENAI_MODEL",
+  "AZURE_OPENAI_DEPLOYMENT",
+  "AZURE_OPENAI_DEPLOYMENT_ID",
+  // The Azure request goes through the proxy-aware fetch; with a proxy in
+  // the environment it would leave through the proxy rather than the
+  // intercepted global fetch, so the case would measure the network.
+  "HTTP_PROXY",
+  "http_proxy",
+  "HTTPS_PROXY",
+  "https_proxy",
+  "ALL_PROXY",
+  "all_proxy",
+  "SOCKS_PROXY",
+  "socks_proxy",
+] as const;
+
+/**
+ * Runs `work` with every Azure variable cleared and the global fetch
+ * intercepted, then restores both. Returns the URLs the provider requested;
+ * every request is answered like a chat completion, so the turn completes.
+ * `AZURE_OPENAI_ENDPOINT` is set only when `envEndpoint` is given.
+ */
+async function withInterceptedAzure(
+  envEndpoint: string | undefined,
+  work: () => Promise<void>,
+): Promise<string[]> {
+  const saved = new Map<string, string | undefined>(
+    AZURE_ENV_VARS.map((name) => [name, process.env[name]]),
+  );
+  for (const name of AZURE_ENV_VARS) {
+    delete process.env[name];
+  }
+  if (envEndpoint !== undefined) {
+    process.env.AZURE_OPENAI_ENDPOINT = envEndpoint;
+  }
+  const handle = installMockFetch([
+    {
+      method: "POST",
+      url: /\/chat\/completions/,
+      respond: {
+        status: 200,
+        json: {
+          id: "chatcmpl-azure-credentials",
+          object: "chat.completion",
+          created: 0,
+          model: "azure-deployment",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "pong" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        },
+      },
+    },
+  ]);
+  try {
+    await work();
+    return handle.calls.map((call) => call.url);
+  } finally {
+    handle.unset();
+    saved.forEach((value, name) => {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    });
+  }
+}
+
+function azureGenerate(
+  neurolink: NeuroLink,
+  credentials?: NeurolinkCredentials,
+): Promise<unknown> {
+  return neurolink.generate({
+    input: { text: "ping" },
+    provider: "azure",
+    model: "azure-deployment",
+    maxTokens: 8,
+    disableTools: true,
+    disableInternalFallback: true,
+    ...(credentials ? { credentials } : {}),
+  });
+}
+
+async function testAzureResourceNameCredential(): Promise<void> {
+  logSection("SECTION 8: Azure credentials.resourceName");
+
+  await test("8.1 credentials.azure.resourceName routes the request to that resource, with no AZURE_OPENAI_ENDPOINT", async () => {
+    const urls = await withInterceptedAzure(undefined, async () => {
+      await azureGenerate(new NeuroLink(), {
+        azure: { apiKey: "azure-key", resourceName: "call-resource" },
+      });
+    });
+    assert(urls.length > 0, "no request left the Azure provider");
+    assertEqual(
+      new URL(urls[0]!).host,
+      "call-resource.openai.azure.com",
+      "the request went to the resource named in the credentials",
+    );
+    assert(
+      new URL(urls[0]!).pathname ===
+        "/openai/deployments/azure-deployment/chat/completions",
+      "the request did not use the classic deployment path",
+    );
+  });
+
+  await test("8.2 credentials resourceName wins over AZURE_OPENAI_ENDPOINT, and per-call credentials win over the instance", async () => {
+    const urls = await withInterceptedAzure(
+      "https://env-resource.openai.azure.com",
+      async () => {
+        const neurolink = new NeuroLink({
+          credentials: {
+            azure: {
+              apiKey: "instance-key",
+              resourceName: "instance-resource",
+            },
+          },
+        });
+        await azureGenerate(neurolink);
+        await azureGenerate(neurolink, {
+          azure: { apiKey: "call-key", resourceName: "call-resource" },
+        });
+      },
+    );
+    assert(urls.length >= 2, "expected one request per generate call");
+    assertEqual(
+      new URL(urls[0]!).host,
+      "instance-resource.openai.azure.com",
+      "instance credentials win over the environment endpoint",
+    );
+    assertEqual(
+      new URL(urls[urls.length - 1]!).host,
+      "call-resource.openai.azure.com",
+      "per-call credentials win over the instance",
+    );
+  });
+
+  await test("8.3 AZURE_OPENAI_ENDPOINT still applies when the credentials carry no resourceName", async () => {
+    const urls = await withInterceptedAzure(
+      "https://env-resource.openai.azure.com",
+      async () => {
+        await azureGenerate(new NeuroLink(), {
+          azure: { apiKey: "azure-key" },
+        });
+      },
+    );
+    assert(urls.length > 0, "no request left the Azure provider");
+    assertEqual(
+      new URL(urls[0]!).host,
+      "env-resource.openai.azure.com",
+      "the environment endpoint is used without a resourceName",
+    );
+  });
+
+  await test("8.4 a resourceName that is already a host is used as given", async () => {
+    const urls = await withInterceptedAzure(undefined, async () => {
+      await azureGenerate(new NeuroLink(), {
+        azure: {
+          apiKey: "azure-key",
+          resourceName: "foundry-host.services.ai.azure.com",
+        },
+      });
+    });
+    assert(urls.length > 0, "no request left the Azure provider");
+    assertEqual(
+      new URL(urls[0]!).host,
+      "foundry-host.services.ai.azure.com",
+      "a host-shaped resourceName is not wrapped again",
+    );
+  });
+}
+
 async function testDotenvStripIsHonoured(): Promise<void> {
   logSection("SECTION 6: Implicit .env load honours DOTENV_CONFIG_PATH");
 
@@ -1189,5 +1375,6 @@ await runSuite(async () => {
   await testConcurrentCallsWithDifferentCredentials();
   await testIssue01ModelAccess();
   await testAnthropicBaseURLCredential();
+  await testAzureResourceNameCredential();
   await testDotenvStripIsHonoured();
 });

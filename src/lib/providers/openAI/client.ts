@@ -2,6 +2,7 @@ import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { AIProviderName } from "../../constants/enums.js";
 import { AIProviderName as AIProviderNameEnum } from "../../constants/enums.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { requireEmbeddingPerInput } from "../embeddingResponseParsing.js";
 import type {
   EmbedInput,
   EnhancedGenerateResult,
@@ -319,18 +320,9 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
       textLength: text.length,
     });
 
+    let rows: unknown[];
     try {
-      const [embedding] = await this.callEmbeddings(
-        embeddingModelName,
-        [text],
-        "embed",
-      );
-      logger.debug("Embedding generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        embeddingDimension: embedding.length,
-      });
-      return embedding;
+      rows = await this.callEmbeddings(embeddingModelName, [text], "embed");
     } catch (error) {
       logger.error("Embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -339,6 +331,18 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
       });
       throw this.handleProviderError(error);
     }
+    // Outside the try: see requireEmbeddingPerInput.
+    const [embedding] = requireEmbeddingPerInput(
+      rows,
+      1,
+      (message) => new ProviderError(message, this.providerName),
+    );
+    logger.debug("Embedding generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      embeddingDimension: embedding.length,
+    });
+    return embedding;
   }
 
   /**
@@ -357,19 +361,9 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
       count: texts.length,
     });
 
+    let rows: unknown[];
     try {
-      const embeddings = await this.callEmbeddings(
-        embeddingModelName,
-        texts,
-        "embedMany",
-      );
-      logger.debug("Batch embeddings generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        count: embeddings.length,
-        embeddingDimension: embeddings[0]?.length,
-      });
-      return embeddings;
+      rows = await this.callEmbeddings(embeddingModelName, texts, "embedMany");
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -378,13 +372,26 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
       });
       throw this.handleProviderError(error);
     }
+    // Outside the try: see requireEmbeddingPerInput.
+    const embeddings = requireEmbeddingPerInput(
+      rows,
+      texts.length,
+      (message) => new ProviderError(message, this.providerName),
+    );
+    logger.debug("Batch embeddings generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: embeddings.length,
+      embeddingDimension: embeddings[0]?.length,
+    });
+    return embeddings;
   }
 
   private async callEmbeddings(
     modelName: string,
     input: string[],
     operation: "embed" | "embedMany",
-  ): Promise<number[][]> {
+  ): Promise<unknown[]> {
     const url = `${stripTrailingSlash(this.config.baseURL)}/embeddings`;
     const fetchImpl = createProxyFetch();
     const timeoutController = createTimeoutController(
@@ -433,11 +440,11 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
         });
       }
       const json = (await res.json()) as {
-        data?: Array<{ embedding?: number[] }>;
+        data?: Array<{ embedding?: unknown }>;
       };
-      const embeddings = (json.data ?? [])
-        .map((row) => row.embedding)
-        .filter((e): e is number[] => Array.isArray(e));
+      // Unfiltered, in response order: the caller checks there is one
+      // non-empty vector per input (requireEmbeddingPerInput).
+      const embeddings = (json.data ?? []).map((row) => row?.embedding);
       if (embeddings.length === 0) {
         throw new ProviderError(
           `OpenAI ${operation} returned no embeddings`,

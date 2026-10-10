@@ -79,7 +79,11 @@ function frame(headers: Record<string, string>, payload: string): Buffer {
   return Buffer.concat([withoutCrc, messageCrc]);
 }
 
-function streamEvent(type: string, payload: unknown): Buffer {
+/**
+ * One encoded ConverseStream event. Exported for stand-ins that answer over
+ * a transport this endpoint does not speak (a forward proxy, HTTP/1.1).
+ */
+export function streamEvent(type: string, payload: unknown): Buffer {
   return frame(
     {
       ":event-type": type,

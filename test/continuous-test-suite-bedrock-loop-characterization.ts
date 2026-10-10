@@ -8,6 +8,9 @@ import "dotenv/config";
  * Pins the observable behaviour of Bedrock's two hand-rolled turn loops —
  * `conversationLoop` (generate) and `streamingConversationLoop` (stream) —
  * so the migration onto `runAgenticLoop` can be shown not to change it.
+ * Later sections pin what the stream returns about its tools, how
+ * `thinkingConfig` reaches a Claude model, and the tool rows both paths store
+ * in conversation memory.
  *
  * Everything here drives the shipped surface: `new NeuroLink()` from
  * `../dist/index.js`, no imports out of `src/`, no stubbing. The provider's
@@ -996,5 +999,391 @@ await test("a caller's own tool executes, on both paths", async () => {
     await generateServer.close();
   }
 });
+
+section("stream tool data");
+
+// `stream()` used to return no `toolCalls`, `toolsUsed` or `toolExecutions`
+// at all — the tool data reached analytics only — while `generate()` returned
+// all three. The loop runs in the background, so the fields are live and are
+// read here after the stream drains, the way a caller reads them.
+
+/** A caller tool that answers once, or throws when `fail` is set. */
+function lookupTool(fail = false) {
+  return {
+    lookup: {
+      description: "look a value up",
+      inputSchema: z.object({ q: z.string() }).passthrough(),
+      execute: async () => {
+        if (fail) {
+          throw new Error("lookup backend unavailable");
+        }
+        return { found: true };
+      },
+    },
+  };
+}
+
+type ToolCallShape = { toolCallId?: string; toolName?: string; args?: unknown };
+
+function toolCallShapes(calls: unknown): ToolCallShape[] {
+  return (Array.isArray(calls) ? calls : []).map((call) => {
+    const c = call as ToolCallShape;
+    return { toolCallId: c.toolCallId, toolName: c.toolName, args: c.args };
+  });
+}
+
+await test("stream returns toolCalls, toolsUsed and toolExecutions after draining, in generate's shape", async () => {
+  const streamServer = await startStandIn((i) =>
+    i === 0
+      ? toolUseFrames("lookup", { q: "x" }, "tool_stream_1")
+      : textFrames("after"),
+  );
+  let restore = withEnv(streamServer.port);
+  let streamed: {
+    toolCalls: ToolCallShape[];
+    toolsUsed: unknown;
+    toolExecutions: unknown;
+  };
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: lookupTool(),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    assert(
+      streamServer.calls.length === 2,
+      "precondition: the tool round trip did not take two calls",
+    );
+    streamed = {
+      toolCalls: toolCallShapes(result.toolCalls),
+      toolsUsed: result.toolsUsed,
+      toolExecutions: result.toolExecutions,
+    };
+  } finally {
+    restore();
+    await streamServer.close();
+  }
+
+  assert(
+    streamed.toolCalls.length === 1,
+    `stream should report one tool call, reported ${streamed.toolCalls.length}`,
+  );
+  assert(
+    streamed.toolCalls[0]?.toolCallId === "tool_stream_1",
+    "the streamed tool call did not carry the model's toolCallId",
+  );
+  assert(
+    streamed.toolCalls[0]?.toolName === "lookup",
+    "the streamed tool call did not name the tool",
+  );
+  assert(
+    JSON.stringify(streamed.toolCalls[0]?.args) === JSON.stringify({ q: "x" }),
+    "the streamed tool call did not carry the model's arguments",
+  );
+  assert(
+    Array.isArray(streamed.toolsUsed) && streamed.toolsUsed.includes("lookup"),
+    "stream toolsUsed did not include the tool that ran",
+  );
+  assert(
+    Array.isArray(streamed.toolExecutions) &&
+      streamed.toolExecutions.length === 1,
+    "stream toolExecutions did not hold the one execution",
+  );
+
+  const generateServer = await startStandIn((i) =>
+    i === 0
+      ? converseToolUse("lookup", { q: "x" }, "tool_stream_1")
+      : converseText("after"),
+  );
+  restore = withEnv(generateServer.port);
+  try {
+    const nl = new NeuroLink();
+    const generated = await nl.generate({
+      input: { text: "look something up" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: lookupTool(),
+    });
+    assert(
+      JSON.stringify(toolCallShapes(generated?.toolCalls)) ===
+        JSON.stringify(streamed.toolCalls),
+      "stream and generate reported the same tool call in different shapes",
+    );
+  } finally {
+    restore();
+    await generateServer.close();
+  }
+});
+
+await test("a stream tool call that failed is in toolCalls and toolExecutions but not toolsUsed", async () => {
+  const server = await startStandIn((i) =>
+    i === 0
+      ? toolUseFrames("lookup", { q: "x" }, "tool_fail_1")
+      : textFrames("after"),
+  );
+  const restore = withEnv(server.port);
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: lookupTool(true),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    assert(
+      toolResults(server.calls[1])[0]?.status === "error",
+      "precondition: the tool did not fail",
+    );
+    assert(
+      toolCallShapes(result.toolCalls)[0]?.toolCallId === "tool_fail_1",
+      "the failed call is missing from toolCalls",
+    );
+    assert(
+      Array.isArray(result.toolExecutions) &&
+        result.toolExecutions.length === 1,
+      "the failed call is missing from toolExecutions",
+    );
+    assert(
+      Array.isArray(result.toolsUsed) && !result.toolsUsed.includes("lookup"),
+      "a tool that never returned was reported in toolsUsed",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+section("extended thinking");
+
+// Bedrock ignored `thinkingConfig` entirely, enabled or disabled. For a Claude
+// model it now rides in Converse's `additionalModelRequestFields.thinking`,
+// with the direct Anthropic client's rules: thinking on drops temperature,
+// and models that refuse `disabled` get their documented replacement.
+
+const SONNET_5_5 = "us.anthropic.claude-sonnet-5-5-v1:0";
+const OPUS_5_5 = "us.anthropic.claude-opus-5-5-v1:0";
+const NOVA = "us.amazon.nova-pro-v1:0";
+
+function thinkingSent(call: StandInCall | undefined): unknown {
+  const fields = call?.body?.additionalModelRequestFields as
+    | { thinking?: unknown }
+    | undefined;
+  return fields?.thinking;
+}
+
+function temperatureSent(call: StandInCall | undefined): unknown {
+  return (call?.body?.inferenceConfig as { temperature?: unknown } | undefined)
+    ?.temperature;
+}
+
+/** Runs one generate (or drained stream) turn and returns the request it sent. */
+async function sentWith(
+  mode: "generate" | "stream",
+  model: string,
+  thinkingConfig: Record<string, unknown>,
+): Promise<StandInCall | undefined> {
+  const server = await startStandIn(() =>
+    mode === "stream" ? textFrames("thought") : converseText("thought"),
+  );
+  const restore = withEnv(server.port);
+  try {
+    const nl = new NeuroLink();
+    const options = {
+      input: { text: "think about it" },
+      provider: "bedrock",
+      model,
+      maxTokens: 4096,
+      temperature: 0.5,
+      disableTools: true,
+      disableInternalFallback: true,
+      thinkingConfig,
+    };
+    if (mode === "stream") {
+      const result = await nl.stream(options);
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+    } else {
+      await nl.generate(options);
+    }
+    assert(
+      server.calls.length === 1,
+      "precondition: the turn did not reach Bedrock exactly once",
+    );
+    return server.calls[0];
+  } finally {
+    restore();
+    await server.close();
+  }
+}
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`${mode}: an enabled thinking budget reaches Claude and drops temperature`, async () => {
+    const call = await sentWith(mode, MODEL, {
+      enabled: true,
+      budgetTokens: 2048,
+    });
+    assert(
+      JSON.stringify(thinkingSent(call)) ===
+        JSON.stringify({ type: "enabled", budget_tokens: 2048 }),
+      "the thinking budget did not reach the Converse request",
+    );
+    assert(
+      temperatureSent(call) === undefined,
+      "temperature was sent alongside enabled thinking",
+    );
+  });
+
+  await test(`${mode}: disabled thinking is sent to a Claude model that accepts it`, async () => {
+    const call = await sentWith(mode, MODEL, { type: "disabled" });
+    assert(
+      JSON.stringify(thinkingSent(call)) ===
+        JSON.stringify({ type: "disabled" }),
+      "disabled thinking did not reach the Converse request",
+    );
+    assert(
+      temperatureSent(call) === 0.5,
+      "temperature was dropped although thinking was off",
+    );
+  });
+}
+
+await test("disabled thinking becomes between_tools on Sonnet 5.5", async () => {
+  const call = await sentWith("generate", SONNET_5_5, { type: "disabled" });
+  assert(
+    JSON.stringify(thinkingSent(call)) ===
+      JSON.stringify({ type: "between_tools" }),
+    "Sonnet 5.5 was not sent its replacement for disabled thinking",
+  );
+});
+
+await test("disabled thinking is omitted on Opus 5.5", async () => {
+  const call = await sentWith("stream", OPUS_5_5, { type: "disabled" });
+  assert(
+    call?.body?.additionalModelRequestFields === undefined,
+    "Opus 5.5 was sent a thinking field it refuses",
+  );
+});
+
+await test("a non-Claude Bedrock model is sent no thinking field and keeps its temperature", async () => {
+  const call = await sentWith("generate", NOVA, {
+    enabled: true,
+    budgetTokens: 2048,
+  });
+  assert(
+    call?.body?.additionalModelRequestFields === undefined,
+    "a non-Claude model was sent Claude's thinking field",
+  );
+  assert(
+    temperatureSent(call) === 0.5,
+    "a non-Claude model lost its temperature",
+  );
+});
+
+section("conversation memory");
+
+// Bedrock stored no tool rows from either path, while the context-compaction
+// docs promise every tool call is stored for generate() and stream(). Rows
+// are read back through the public session API on the in-memory backend.
+
+async function toolRowsAfter(
+  mode: "generate" | "stream",
+): Promise<Array<{ role?: string; toolCallId?: string; tool?: string }>> {
+  const server = await startStandIn((i) => {
+    if (mode === "stream") {
+      return i === 0
+        ? toolUseFrames("lookup", { q: "x" }, "tool_mem_1")
+        : textFrames("after");
+    }
+    return i === 0
+      ? converseToolUse("lookup", { q: "x" }, "tool_mem_1")
+      : converseText("after");
+  });
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink({
+    conversationMemory: { enabled: true, enableSummarization: false },
+  });
+  const sessionId = `bedrock-tool-rows-${mode}-${Date.now()}`;
+  try {
+    const options = {
+      input: { text: "look something up" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: lookupTool(),
+      context: { sessionId },
+    };
+    if (mode === "stream") {
+      const result = await nl.stream(options);
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+    } else {
+      await nl.generate(options);
+    }
+    assert(
+      server.calls.length === 2,
+      "precondition: the tool round trip did not take two calls",
+    );
+    // The stream path writes per step without awaiting, like the other
+    // native stream loops, so poll briefly rather than read once.
+    const deadline = Date.now() + 3000;
+    let messages = await nl.getSessionMessages(sessionId);
+    while (
+      Date.now() < deadline &&
+      !messages.some((m) => m.role === "tool_result")
+    ) {
+      await new Promise((r) => setTimeout(r, 50));
+      messages = await nl.getSessionMessages(sessionId);
+    }
+    return messages as Array<{
+      role?: string;
+      toolCallId?: string;
+      tool?: string;
+    }>;
+  } finally {
+    await nl.dispose();
+    restore();
+    await server.close();
+  }
+}
+
+for (const mode of ["generate", "stream"] as const) {
+  await test(`${mode} stores the turn's tool call and result in the session`, async () => {
+    const messages = await toolRowsAfter(mode);
+    const call = messages.find((m) => m.role === "tool_call");
+    const result = messages.find((m) => m.role === "tool_result");
+    assert(call !== undefined, "no tool_call row was stored for the turn");
+    assert(result !== undefined, "no tool_result row was stored for the turn");
+    assert(
+      call?.tool === "lookup" && call.toolCallId === "tool_mem_1",
+      "the stored tool_call row lost the tool name or the model's toolCallId",
+    );
+    assert(
+      result?.toolCallId === "tool_mem_1",
+      "the stored tool_result row is not paired with its call",
+    );
+  });
+}
 
 await runSuite();

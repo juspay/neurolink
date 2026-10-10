@@ -240,6 +240,12 @@ const result = await neurolink.generate({
 });
 ```
 
+`resourceName` sends the request to `https://<resourceName>.openai.azure.com`
+and wins over `AZURE_OPENAI_ENDPOINT`. A value that is already a host or a URL,
+such as an Azure AI Foundry (`*.services.ai.azure.com`) or Cognitive Services
+endpoint, is used as given. Without `resourceName` the endpoint still comes
+from `AZURE_OPENAI_ENDPOINT`.
+
 ### Streaming with Credentials
 
 `credentials` works identically on `stream()`. Note that `neurolink.stream()`

@@ -4,6 +4,9 @@ import { createStreamChannel } from "../core/streamChannel.js";
 import type { NeuroLink } from "../neurolink.js";
 import type {
   EnhancedGenerateResult,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
   TextGenerationOptions,
   Tool,
   ToolExecutionSummaryInternal,
@@ -383,6 +386,106 @@ export class AmazonSageMakerProvider extends BaseProvider {
   }
 
   /**
+   * A V3 view of `SageMakerLanguageModel.doStream`, for the middleware chain
+   * to wrap. The language model takes the legacy option names and emits the
+   * legacy part shapes (`textDelta`, a flat finish reason and usage); the
+   * middleware contract, the guardrails output filter included, reads V3
+   * parts (`delta`, `{ unified }`, `{ total }`), so both directions are
+   * translated here. Parts with no V3 counterpart the pump would read are
+   * dropped, as the pump always dropped them. The language model's warnings
+   * have no slot in a V3 stream result, so they are collected into `warnings`.
+   */
+  private createStreamModel(warnings: string[]): LanguageModelV3 {
+    const sagemakerModel = this.sagemakerModel;
+    return {
+      specificationVersion: "v3",
+      provider: this.providerName,
+      modelId: this.modelName,
+      supportedUrls: {},
+      // This model exists only to be driven through doStream; generate wraps
+      // the language model itself.
+      doGenerate: () => {
+        throw new Error(
+          "AmazonSageMakerProvider's stream model does not implement doGenerate",
+        );
+      },
+      doStream: async (params: LanguageModelV3CallOptions) => {
+        // Read AFTER transformParams: `params` is already the transformed
+        // call, so a prompt or sampling rewrite reaches the endpoint.
+        const result = await sagemakerModel.doStream({
+          prompt: params.prompt,
+          maxTokens: params.maxOutputTokens,
+          temperature: params.temperature,
+          ...(params.abortSignal ? { abortSignal: params.abortSignal } : {}),
+        });
+        for (const warning of result.warnings ?? []) {
+          warnings.push(warning.message ?? String(warning));
+        }
+        const reader = result.stream.getReader();
+        const stream = new ReadableStream<LanguageModelV3StreamPart>({
+          async pull(controller) {
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                  controller.close();
+                  return;
+                }
+                const part = value as {
+                  type?: string;
+                  textDelta?: string;
+                  finishReason?: string;
+                  usage?: {
+                    inputTokens?: number;
+                    outputTokens?: number;
+                    promptTokens?: number;
+                    completionTokens?: number;
+                  };
+                };
+                if (part.type === "text-delta" && part.textDelta) {
+                  controller.enqueue({
+                    type: "text-delta",
+                    delta: part.textDelta,
+                  });
+                  return;
+                }
+                if (part.type === "finish") {
+                  const reason = part.finishReason ?? "stop";
+                  controller.enqueue({
+                    type: "finish",
+                    finishReason: { unified: reason, raw: reason },
+                    usage: {
+                      inputTokens: {
+                        total:
+                          part.usage?.inputTokens ??
+                          part.usage?.promptTokens ??
+                          0,
+                      },
+                      outputTokens: {
+                        total:
+                          part.usage?.outputTokens ??
+                          part.usage?.completionTokens ??
+                          0,
+                      },
+                    },
+                  });
+                  return;
+                }
+              }
+            } catch (error) {
+              controller.error(error);
+            }
+          },
+          async cancel(reason) {
+            await reader.cancel(reason);
+          },
+        });
+        return { stream };
+      },
+    };
+  }
+
+  /**
    * Streaming was previously an `executeStream` override that unconditionally
    * threw "not yet fully implemented" — while `SageMakerLanguageModel.doStream`
    * sat one property access away, complete and working, with its own fallback
@@ -415,10 +518,27 @@ export class AmazonSageMakerProvider extends BaseProvider {
       async () => {
         try {
           const messages = await this.buildMessagesForStream(options);
-          const result = await this.sagemakerModel.doStream({
+          // Middleware must wrap the stream too, exactly as generate wraps
+          // its model: calling `sagemakerModel.doStream` directly skipped a
+          // caller's transformParams, wrapStream and the guardrails pre-call
+          // check and output filter on every SageMaker stream.
+          const warnings: string[] = [];
+          const model = await this.applyMiddlewareToModel(
+            this.createStreamModel(warnings),
+            options,
+          );
+          if (typeof model === "string") {
+            throw new Error(
+              "sagemaker: middleware returned a model id string, not a native model handle",
+            );
+          }
+          const result = await model.doStream({
             prompt: messages,
-            maxTokens: options.maxTokens,
+            maxOutputTokens: options.maxTokens,
             temperature: options.temperature,
+            ...(options.abortSignal
+              ? { abortSignal: options.abortSignal }
+              : {}),
           });
 
           // Settled from the `finish` part below. A turn that ends without one
@@ -456,31 +576,19 @@ export class AmazonSageMakerProvider extends BaseProvider {
                 if (done) {
                   break;
                 }
-                const part = value as {
-                  type?: string;
-                  textDelta?: string;
-                  finishReason?: string;
-                  usage?: {
-                    inputTokens?: number;
-                    outputTokens?: number;
-                    promptTokens?: number;
-                    completionTokens?: number;
-                  };
-                };
-                if (part.type === "text-delta" && part.textDelta) {
-                  channel.push({ content: part.textDelta });
+                if (value.type === "text-delta" && value.delta) {
+                  channel.push({ content: value.delta });
                   continue;
                 }
-                if (part.type === "finish") {
+                if (value.type === "error") {
+                  throw value.error;
+                }
+                if (value.type === "finish") {
                   sawFinish = true;
-                  settleFinishReason(part.finishReason ?? "stop");
+                  settleFinishReason(value.finishReason.unified ?? "stop");
                   settleUsage({
-                    inputTokens:
-                      part.usage?.inputTokens ?? part.usage?.promptTokens ?? 0,
-                    outputTokens:
-                      part.usage?.outputTokens ??
-                      part.usage?.completionTokens ??
-                      0,
+                    inputTokens: value.usage.inputTokens.total ?? 0,
+                    outputTokens: value.usage.outputTokens.total ?? 0,
                   });
                 }
               }
@@ -503,9 +611,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
             stream: channel.iterable,
             finishReason,
             usage,
-            warnings: (result.warnings ?? []).map(
-              (warning) => warning.message ?? String(warning),
-            ),
+            warnings,
           };
         } catch (error) {
           throw this.handleProviderError(error);

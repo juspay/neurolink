@@ -69,3 +69,39 @@ export function parseIndexedEmbeddingsResponse(
 
   return sorted.map((d) => d.embedding);
 }
+
+/**
+ * One vector per input from an OpenAI-shaped `/embeddings` response (OpenAI,
+ * Ollama, LiteLLM), or a typed error.
+ *
+ * `embeddings` holds each `data[]` entry's `embedding` field in response
+ * order, unfiltered. Those three providers used to drop an entry without an
+ * embedding and return the rest, so every later vector moved up one place and
+ * was paired with the wrong input — with nothing to say so, because there was
+ * no count check either. Now a response with a different number of entries
+ * than inputs, or an entry whose embedding is missing or empty, is rejected,
+ * and the message names the input's index, never its text.
+ *
+ * Callers raise this outside any `try` that funnels into
+ * `handleProviderError`: that re-words an error from keywords in its text, so
+ * an index such as 429 or 502 would turn it into a rate-limit or server error.
+ */
+export function requireEmbeddingPerInput(
+  embeddings: ReadonlyArray<unknown>,
+  inputCount: number,
+  makeError: (message: string) => Error,
+): number[][] {
+  if (embeddings.length !== inputCount) {
+    throw makeError(
+      `Embedding response held ${embeddings.length} vectors for ${inputCount} texts`,
+    );
+  }
+  return embeddings.map((embedding, index) => {
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      throw makeError(
+        `Embedding for the text at index ${index} came back without values`,
+      );
+    }
+    return embedding as number[];
+  });
+}

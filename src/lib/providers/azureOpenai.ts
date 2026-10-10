@@ -79,8 +79,19 @@ export class AzureOpenAIProvider extends OpenAIChatCompletionsProvider {
     // In both cases we pass the "resource origin" (scheme+host) as `baseURL`
     // to super so that `getAvailableModels()` can still build a models URL
     // from it if needed; `getChatCompletionsURL()` builds the real path.
+    //
+    // `credentials.resourceName` (per call or on the instance) wins over
+    // AZURE_OPENAI_ENDPOINT, the same precedence every other field here
+    // follows. It names a classic resource, so it becomes
+    // https://<resourceName>.openai.azure.com; a value that is already a host
+    // or a URL (a Foundry or Cognitive Services endpoint) is used as given.
     // -----------------------------------------------------------------------
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";
+    const resourceName = credentials?.resourceName?.trim();
+    const endpoint = resourceName
+      ? resourceName.includes("://") || resourceName.includes(".")
+        ? resourceName
+        : `https://${resourceName}.openai.azure.com`
+      : process.env.AZURE_OPENAI_ENDPOINT || "";
 
     let endpointUrl: URL | undefined;
     if (endpoint) {

@@ -5,6 +5,7 @@ import {
   registerRuntimeOutputCeiling,
 } from "../../constants/contextWindows.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { requireEmbeddingPerInput } from "../embeddingResponseParsing.js";
 import type {
   EmbedInput,
   OpenAICompatBuildBodyArgs,
@@ -615,10 +616,10 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.LITELLM_EMBEDDING_MODEL ||
       "gemini-embedding-001";
-    const [embedding] = await this.callEmbeddings(
-      embeddingModelName,
-      [text],
-      "embed",
+    const [embedding] = requireEmbeddingPerInput(
+      await this.callEmbeddings(embeddingModelName, [text], "embed"),
+      1,
+      (message) => new ProviderError(message, this.providerName),
     );
     return embedding;
   }
@@ -631,14 +632,18 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.LITELLM_EMBEDDING_MODEL ||
       "gemini-embedding-001";
-    return this.callEmbeddings(embeddingModelName, texts, "embedMany");
+    return requireEmbeddingPerInput(
+      await this.callEmbeddings(embeddingModelName, texts, "embedMany"),
+      texts.length,
+      (message) => new ProviderError(message, this.providerName),
+    );
   }
 
   private async callEmbeddings(
     modelName: string,
     input: string[],
     operation: "embed" | "embedMany",
-  ): Promise<number[][]> {
+  ): Promise<unknown[]> {
     const url = `${stripTrailingSlash(this.config.baseURL)}/embeddings`;
     const fetchImpl = createProxyFetch();
     const timeoutController = createTimeoutController(
@@ -676,11 +681,11 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
         );
       }
       const json = (await res.json()) as {
-        data?: Array<{ embedding?: number[] }>;
+        data?: Array<{ embedding?: unknown }>;
       };
-      const embeddings = (json.data ?? [])
-        .map((row) => row.embedding)
-        .filter((e): e is number[] => Array.isArray(e));
+      // Unfiltered, in response order: the caller checks there is one
+      // non-empty vector per input (requireEmbeddingPerInput).
+      const embeddings = (json.data ?? []).map((row) => row?.embedding);
       if (embeddings.length === 0) {
         throw new ProviderError(
           `LiteLLM ${operation} returned no embeddings`,

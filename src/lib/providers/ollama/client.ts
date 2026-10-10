@@ -1,6 +1,7 @@
 import type { AIProviderName } from "../../constants/enums.js";
 import { modelConfig } from "../../core/modelConfiguration.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { requireEmbeddingPerInput } from "../embeddingResponseParsing.js";
 import type {
   EmbedInput,
   NeurolinkCredentials,
@@ -294,10 +295,10 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.OLLAMA_EMBEDDING_MODEL ||
       DEFAULT_EMBEDDING_MODEL;
-    const [embedding] = await this.callEmbeddings(
-      embeddingModel,
-      [text],
-      "embed",
+    const [embedding] = requireEmbeddingPerInput(
+      await this.callEmbeddings(embeddingModel, [text], "embed"),
+      1,
+      (message) => new ProviderError(message, this.providerName),
     );
     return embedding;
   }
@@ -310,14 +311,18 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
       modelName ||
       process.env.OLLAMA_EMBEDDING_MODEL ||
       DEFAULT_EMBEDDING_MODEL;
-    return this.callEmbeddings(embeddingModel, texts, "embedMany");
+    return requireEmbeddingPerInput(
+      await this.callEmbeddings(embeddingModel, texts, "embedMany"),
+      texts.length,
+      (message) => new ProviderError(message, this.providerName),
+    );
   }
 
   private async callEmbeddings(
     modelName: string,
     input: string[],
     operation: "embed" | "embedMany",
-  ): Promise<number[][]> {
+  ): Promise<unknown[]> {
     const url = `${stripTrailingSlash(this.config.baseURL)}/embeddings`;
     const fetchImpl = createProxyFetch();
     const timeoutController = createTimeoutController(
@@ -361,11 +366,11 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
         );
       }
       const json = (await res.json()) as {
-        data?: Array<{ embedding?: number[] }>;
+        data?: Array<{ embedding?: unknown }>;
       };
-      const embeddings = (json.data ?? [])
-        .map((row) => row.embedding)
-        .filter((e): e is number[] => Array.isArray(e));
+      // Unfiltered, in response order: the caller checks there is one
+      // non-empty vector per input (requireEmbeddingPerInput).
+      const embeddings = (json.data ?? []).map((row) => row?.embedding);
       if (embeddings.length === 0) {
         throw new ProviderError(
           `Ollama ${operation} returned no embeddings`,

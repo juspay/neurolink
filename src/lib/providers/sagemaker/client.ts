@@ -28,6 +28,10 @@ import {
 import { logger } from "../../utils/logger.js";
 import { isAbortError } from "../../utils/errorHandling.js";
 import { tryImport } from "../../utils/tryImport.js";
+import {
+  createAWSProxyHandler,
+  resolveAWSEndpointForProxy,
+} from "../../proxy/awsProxyIntegration.js";
 
 /**
  * Lazily load `@aws-sdk/client-sagemaker-runtime`.
@@ -97,6 +101,19 @@ export class SageMakerRuntimeClient {
 
     if (!this.client) {
       const { SageMakerRuntimeClient: AWSClientCtor } = await this.getSdk();
+      const requestTimeout = this.config.timeout || 30000;
+      // The AWS SDK does not read HTTP(S)_PROXY. With a proxy configured for
+      // this endpoint the client gets a proxy-aware handler; otherwise it
+      // keeps the SDK's own handler with the options it always had.
+      const proxyHandler = createAWSProxyHandler(
+        resolveAWSEndpointForProxy({
+          explicitEndpoint: this.config.endpoint,
+          serviceEndpointEnvVar: "AWS_ENDPOINT_URL_SAGEMAKER_RUNTIME",
+          hostPrefix: "runtime.sagemaker",
+          region: this.config.region,
+        }),
+        { requestTimeout },
+      );
       this.client = new AWSClientCtor({
         region: this.config.region,
         credentials: {
@@ -105,8 +122,8 @@ export class SageMakerRuntimeClient {
           sessionToken: this.config.sessionToken,
         },
         maxAttempts: this.config.maxRetries || 3,
-        requestHandler: {
-          requestTimeout: this.config.timeout || 30000,
+        requestHandler: proxyHandler ?? {
+          requestTimeout,
           httpsAgent: {
             // Keep connections alive for better performance
             keepAlive: true,
