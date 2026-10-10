@@ -12,7 +12,10 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
 import { logger } from "../../lib/utils/logger.js";
-import type { ProviderCatalogJson } from "../../lib/types/index.js";
+import type {
+  CliCatalogSetupFlags,
+  ProviderCatalogJson,
+} from "../../lib/types/index.js";
 import {
   buildCatalogConfigOptions,
   catalogEnvVar,
@@ -20,8 +23,6 @@ import {
 } from "../../lib/providers/catalog/loader.js";
 import { maskCredential } from "../utils/maskCredential.js";
 import { updateEnvFile, displayEnvUpdateSummary } from "../utils/envManager.js";
-
-type CatalogSetupFlags = { check: boolean; nonInteractive: boolean };
 
 const NUMBERED_STEP = /^\d+[.)]\s/;
 
@@ -103,7 +104,7 @@ function readApiKey(vars: ReturnType<typeof catalogSetupVars>): string {
 
 export async function handleCatalogProviderSetup(
   entry: ProviderCatalogJson,
-  flags: CatalogSetupFlags,
+  flags: CliCatalogSetupFlags,
 ): Promise<void> {
   const vars = catalogSetupVars(entry);
   const apiKey = readApiKey(vars);

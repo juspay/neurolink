@@ -416,22 +416,6 @@ const PROVIDER_ALIAS_MAP: Record<string, string> = {
   deepseek: "deepseek",
 };
 
-/** AWS cross-region inference-profile prefixes ("us.anthropic.claude-…"). */
-const BEDROCK_PROFILE_PREFIX = /^(?:us|eu|apac|global|us-gov|jp|au|ca)\./;
-
-/**
- * Reduce a Bedrock model reference to the bare foundation-model id: drop an
- * ARN down to its final path segment, then any inference-profile prefix.
- * "arn:aws:bedrock:us-east-1:1:inference-profile/us.anthropic.claude-x" and
- * "global.anthropic.claude-x" both become "anthropic.claude-x".
- */
-function stripBedrockInferenceProfile(model: string): string {
-  const id = model.startsWith("arn:")
-    ? model.slice(model.lastIndexOf("/") + 1)
-    : model;
-  return id.replace(BEDROCK_PROFILE_PREFIX, "");
-}
-
 function normalizeProviderForLookup(provider: string): string {
   const stripped = provider.toLowerCase().replace(/[^a-z]/g, "");
   // On alias miss, return the *stripped* key — not the raw input — so case /

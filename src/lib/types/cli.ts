@@ -2351,3 +2351,6 @@ export type ProxyGateProbe = {
   reachable: boolean;
   detail: string;
 };
+
+/** The flags `neurolink setup <catalog provider>` reads from its arguments. */
+export type CliCatalogSetupFlags = { check: boolean; nonInteractive: boolean };
