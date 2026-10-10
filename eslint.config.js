@@ -498,6 +498,9 @@ export default [
             // fakes and a decoding OTLP receiver. Its header states the
             // exception in full.
             "test/continuous-test-suite-observability-adv-proxy.ts",
+            // Routing audit evidence needs deterministic provider results,
+            // concurrent turns, sticky guards and an isolated external exporter.
+            "test/continuous-test-suite-jev-routing-audit.ts",
             // Exact isolated transport, cancellation, batching, budget and updater failures.
             "test/continuous-test-suite-proxy-request-lifecycle.ts",
             "test/continuous-test-suite-proxy-http-disconnect.ts",
