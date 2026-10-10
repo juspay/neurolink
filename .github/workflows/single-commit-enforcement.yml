@@ -31,6 +31,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # This job runs on pull_request and never pushes. Its one remote
+          # call, `git fetch origin`, reads a public repository; `gh` takes
+          # GH_TOKEN from the environment. Keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
 
       - name: Validate Single Commit Policy
         id: validate
@@ -243,8 +247,15 @@ jobs:
           # for the cases GitHub does not skip. Do not move it to
           # pull_request_target to close the gap: that trigger runs with the
           # base repository's token, and this workflow checks out the PR head.
+          #
+          # Two shapes. The five bracketed directives work anywhere in the
+          # message. GitHub also honours a `skip-checks: true` trailer (with or
+          # without the space) on a line of its own at the end of the message;
+          # matched here on any line, since a backstop that is stricter than
+          # GitHub costs a reword, and one that is looser costs a CI-less push.
+          # test:tooling-scripts runs this step against real commits.
           FULL_MSG=$(git log -1 --pretty=format:%B "$COMMIT_HASH")
-          SKIP_RE='\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'
+          SKIP_RE='\[(skip ci|ci skip|no ci|skip actions|actions skip)\]|^[[:space:]]*skip-checks:[[:space:]]*true[[:space:]]*$'
 
           if printf '%s\n' "$FULL_MSG" | grep -qiE "$SKIP_RE"; then
             echo "❌ POLICY VIOLATION: commit message contains a CI-skip directive"
@@ -253,7 +264,8 @@ jobs:
             printf '%s\n' "$FULL_MSG" | grep -niE "$SKIP_RE" | sed 's/^/    /'
             echo ""
             echo "GitHub honours [skip ci], [ci skip], [no ci], [skip actions] and"
-            echo "[actions skip] anywhere in a commit message -- subject or body."
+            echo "[actions skip] anywhere in a commit message -- subject or body --"
+            echo "and a 'skip-checks: true' trailer at the end of it."
             echo "Merging this would push a commit that runs none of the push or"
             echo "pull_request workflows, including the checks required to protect"
             echo "this branch."
@@ -261,8 +273,9 @@ jobs:
             echo "🔧 TO FIX:"
             echo "  If you were quoting the directive rather than intending it,"
             echo "  break up the literal text -- write 'skip-ci' or 'skip<space>ci'"
-            echo "  instead -- or move the explanation to the pull request body,"
-            echo "  which GitHub does not scan."
+            echo "  instead; a quoted trailer must not start its own line -- or move"
+            echo "  the explanation to the pull request body, which GitHub does not"
+            echo "  scan."
             echo ""
             echo "    git commit --amend"
             echo "    git push --force-with-lease"

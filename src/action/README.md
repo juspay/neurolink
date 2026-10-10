@@ -5,7 +5,7 @@ Run AI-powered workflows across supported AI providers directly in GitHub Action
 ## Quick Start
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: "Review this code"

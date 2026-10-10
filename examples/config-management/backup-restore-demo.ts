@@ -5,8 +5,7 @@
  * Demonstrates automatic backup creation and manual restoration
  */
 
-// @ts-expect-error -- ConfigManager may not have published types
-import { ConfigManager } from "@juspay/neurolink/config";
+import { ConfigManager } from "@juspay/neurolink";
 import { fileURLToPath } from "url";
 
 async function backupRestoreDemo() {

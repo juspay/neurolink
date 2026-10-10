@@ -5,8 +5,7 @@
  * Demonstrates enterprise configuration management with automatic backup/restore
  */
 
-// @ts-expect-error -- ConfigManager may not have published types
-import { ConfigManager } from "@juspay/neurolink/config";
+import { ConfigManager } from "@juspay/neurolink";
 import { fileURLToPath } from "url";
 
 async function basicConfigSetup() {

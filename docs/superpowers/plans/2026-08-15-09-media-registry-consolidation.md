@@ -8,10 +8,7 @@
 
 **Tech Stack:** TypeScript (strict), pnpm, tsx-driven no-API test suites using the existing `test/helpers/harness.ts` `defineSuite`/`test`/`assert` API.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/08-non-text-provider-ecosystems-image-video-tts-stt-r.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/02-sdk-entry-orchestration-src-lib-neurolink-ts-gener.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

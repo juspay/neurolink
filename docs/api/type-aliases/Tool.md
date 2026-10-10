@@ -46,7 +46,7 @@
 
 ##### options
 
-`ToolCallOptions`
+[`ToolCallOptions`](ToolCallOptions.md)
 
 #### Returns
 
@@ -60,7 +60,7 @@
 
 ##### options
 
-`object` & `ToolCallOptions`
+`object` & [`ToolCallOptions`](ToolCallOptions.md)
 
 #### Returns
 
@@ -74,7 +74,7 @@
 
 ##### options
 
-`object` & `ToolCallOptions`
+`object` & [`ToolCallOptions`](ToolCallOptions.md)
 
 #### Returns
 

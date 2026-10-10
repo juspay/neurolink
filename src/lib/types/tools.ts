@@ -29,6 +29,10 @@ export type {
   Tool,
   ToolSet,
   ToolChoice,
+  // Public through v12.11.x and dropped from this list, not from aiCompat,
+  // when the Vercel AI SDK was removed. ToolExecuteFunction still takes it as
+  // its second parameter, so callers need to be able to name it.
+  ToolCallOptions,
   ToolExecuteFunction,
   ToolApprovalRequest,
   ToolApprovalResponse,

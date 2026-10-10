@@ -7,15 +7,17 @@ by [`docs/guides/migration-guide.md`](./guides/migration-guide.md) and the
 auto-generated changelog (see the
 [GitHub releases page](https://github.com/juspay/neurolink/releases)).
 
-Four breaking changes have shipped (three across 9.94.x–9.95.x, one in 11.0.0),
-and a fifth is registered below before release. Each is intentional — this document exists so downstream
+Five breaking changes have shipped (three across 9.94.x–9.95.x, one in 11.0.0,
+and the type removals of section 6 across 11.3.0–12.12.15), and one more is
+registered below before release. Each is intentional — this document exists so downstream
 consumers know what changed and how to adapt.
 
 ## Policy
 
 Per this repository's `CLAUDE.md` (Critical Rule 5), the public SDK API must
-not break existing callers. The first four breaking changes below (9.94.x–9.95.x and 11.0.0) shipped
-without an accompanying migration path and are documented here retroactively. Going forward, any breaking change **must** ship its migration
+not break existing callers. The first four breaking changes below (9.94.x–9.95.x and 11.0.0) and
+the sixth (11.3.0–12.12.15) shipped without an accompanying migration path and are documented
+here retroactively. Going forward, any breaking change **must** ship its migration
 path in the same release that introduces it — not documented after the fact.
 
 ---
@@ -271,3 +273,51 @@ versus response synthesis for `generate()`; it no longer gates synthesis for
 **How to adapt:** disable TTS for a text-only stream by omitting `tts` or setting
 `tts.enabled: false`. Keep `tts.enabled: true` when streamed response audio is
 desired; no `useAiResponse` value is required on that path.
+
+---
+
+## 6. Six unreferenced types were removed (v11.3.0, v12.12.13, v12.12.15)
+
+**Who is affected:** TypeScript code that imports any of the six names below
+from `@juspay/neurolink`. All six are type-only, so nothing changed at runtime
+and no `generate()`/`stream()` behavior changed.
+
+**What changed:** each was deleted from a file under `src/lib/types/` that the
+package root re-exports with `export *`, so each was importable from
+`@juspay/neurolink` in v11.0.0 and is absent from the release named in the
+table. Importing one now fails with TS2305.
+
+| Removed export          | Kind | Last shipped in | What it was                                                                                                                                                                                 |
+| ----------------------- | ---- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TextChannel`           | type | v11.2.4         | `{ push(text: string); close(); error(err: unknown); iterable: AsyncIterable<{ content: string }> }`, the Gemini-family push channel.                                                       |
+| `AISDKGenerateResult`   | type | v12.12.12       | `GenerateResult` plus an open `steps?: Array<{ toolCalls?: Array<{ toolName?; name? }> }>`, the removed AI SDK's multi-step result.                                                         |
+| `StepFinishEvent`       | type | v12.12.12       | `{ toolCalls; toolResults; text; finishReason; usage: { inputTokens?; outputTokens? } }`, the removed AI SDK's per-step callback payload.                                                   |
+| `StepBudgetGuardConfig` | type | v12.12.12       | `{ provider; model?; maxTokens?; fixedOverheadTokens?; getFixedOverheadTokens?; thresholdRatio? }`, the options of an internal per-step context guard. The guard itself was never exported. |
+| `ServiceFactory`        | type | v12.12.14       | `<T>() => T \| Promise<T>`.                                                                                                                                                                 |
+| `ServiceRegistration`   | type | v12.12.14       | `{ factory: ServiceFactory<T>; singleton: boolean; instance?: T }`. Both described the internal `ServiceRegistry` class, which was never exported.                                          |
+
+**Why:** none had a consumer left. `TextChannel` was replaced when the
+OpenAI-family and Gemini-family stream primitives were unified (v11.3.0). The
+three AI SDK shapes went with the removal of the Vercel AI SDK (v12.12.13): the
+loop they described no longer exists. The two service types outlived the
+`ServiceRegistry` file that used them by one release (v12.12.15). As with
+section 4, removing exported names is a breaking change whatever the number of
+consumers, and these shipped without a note.
+
+**How to adapt:**
+
+- **`TextChannel`** → `StreamChannel` (exported from `@juspay/neurolink`).
+  `StreamChannel` is generic and its default parameter is `{ content: string }`,
+  so `push` takes the chunk object: `push({ content: text })` where you wrote
+  `push(text)`. `close`, `error` and `iterable` are unchanged.
+- **`AISDKGenerateResult`** → `GenerateResult`. Per-call tool data is on
+  `toolCalls`, `toolResults` and `toolExecutions` (one `ToolExecutionRecord`
+  per call, from every provider loop), not on a `steps` array.
+- **`StepFinishEvent`** has no replacement: NeuroLink no longer exposes a
+  per-step callback. To observe tool activity, listen for `tool:start` and
+  `tool:end` on `neurolink.getEventEmitter()`, or read `toolExecutions` from
+  the result.
+- **`StepBudgetGuardConfig`, `ServiceFactory`, `ServiceRegistration`** have no
+  replacement and nothing to migrate: no public function ever accepted them.
+  Delete the import, or copy the alias into your own module if you still want
+  the shape (the definitions above are complete).

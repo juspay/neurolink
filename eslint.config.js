@@ -609,6 +609,18 @@ export default [
             // module graph as the dist-importing suites that consume it.
             "test/helpers/providerMatrix.ts",
           ],
+          // Suites that already load BOTH src/ and dist/ when the
+          // one-module-graph check was added. `allow` does not exempt a file
+          // from that check; only this list does, and it is closed: it may
+          // shrink, never grow. Each takes its store class from dist/ and a
+          // pure filter translator (or chunker/reranker factory) from src/, so
+          // no stub or instanceof crosses the two copies today — which is luck,
+          // not design.
+          mixedGraphGrandfathered: [
+            "test/continuous-test-suite-rag.ts",
+            "test/continuous-test-suite-vector-chroma.ts",
+            "test/continuous-test-suite-vector-pinecone.ts",
+          ],
         },
       ],
 

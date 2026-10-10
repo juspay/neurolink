@@ -8,11 +8,7 @@
 
 **Tech Stack:** TypeScript (strict mode, no `interface`, named exports only), no new runtime dependencies — manifests are plain object literals imported statically (they carry no heavy provider SDKs, so Critical Rule 1's dynamic-import mandate for `providerRegistry.ts` factories does not apply here).
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap2-model-metadata-subsystem-model-registry-modelresol.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/06-message-building-multimodal-adaptation-how-user-in.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

@@ -2020,9 +2020,22 @@ await test("NeuroLink.stream (openai-compatible) emits tool:start and tool:end e
     for await (const _ of result.stream) {
       void _;
     }
+    // Exactly one pair per execution, not merely both present. Per-call tools
+    // are event-wrapped once, at BaseProvider's merge point, and the provider
+    // loop must use that merged record as is: a second wrapper layer (the
+    // loop's own emit, or re-instrumenting a recorder-wrapped tool) doubles
+    // both counts while still looking "paired". Moved here from
+    // continuous-test-suite-bugfixes.ts, which loads src/ and must not also
+    // load this dist/ graph.
+    const starts = events.filter((e) => e === "start").length;
+    const ends = events.filter((e) => e === "end").length;
     assert(
-      events.includes("start") && events.includes("end") && toolRuns === 1,
-      "the public stream must execute the tool once and emit both lifecycle events",
+      toolRuns === 1,
+      "the public stream must execute the tool exactly once",
+    );
+    assert(
+      starts === 1 && ends === 1,
+      `one tool execution must emit exactly one tool:start and one tool:end, saw ${starts} and ${ends}`,
     );
   } finally {
     globalThis.fetch = originalFetch;

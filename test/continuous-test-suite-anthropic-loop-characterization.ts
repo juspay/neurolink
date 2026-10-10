@@ -1078,15 +1078,15 @@ await test("a caller abort mid-stream is reported as an aborted turn, not a norm
   );
   assert(
     stopReason === "aborted",
-    `an aborted turn must report stopReason "aborted", reported ${String(stopReason)}`,
+    'an aborted turn must report stopReason "aborted" (actual value in the diagnostic line above)',
   );
   assert(
     finishReason === "other",
-    `an aborted turn must report finishReason "other", reported ${String(finishReason)}`,
+    'an aborted turn must report finishReason "other" (actual value in the diagnostic line above)',
   );
   assert(
     finishes.length === 1 && finishes[0] === "other",
-    `the resolved finish reason must be "other", was ${finishes.join(",") || "(none)"}`,
+    'exactly one provider span must resolve finish reason "other" (spans in the diagnostic line above)',
   );
 });
 
@@ -1132,11 +1132,11 @@ await test("a turn that outlives turnTimeoutMs is reported as a time limit, not 
   );
   assert(
     stopReason === "time-limit",
-    `a turn killed by turnTimeoutMs must report stopReason "time-limit", reported ${String(stopReason)}`,
+    'a turn killed by turnTimeoutMs must report stopReason "time-limit" (actual value in the diagnostic line above)',
   );
   assert(
     finishReason === "other",
-    `a timed-out turn must report finishReason "other", reported ${String(finishReason)}`,
+    'a timed-out turn must report finishReason "other" (actual value in the diagnostic line above)',
   );
   assert(
     finishes.length === 1 && finishes[0] === "other",
@@ -1184,15 +1184,15 @@ await test("a turn the model ended itself still reports a plain stop", async () 
   );
   assert(
     finishReason === "stop",
-    `a clean turn must still report finishReason "stop", reported ${String(finishReason)}`,
+    'a clean turn must still report finishReason "stop" (actual value in the diagnostic line above)',
   );
   assert(
     stopReason === undefined,
-    `a clean turn must not claim an interrupted stopReason, claimed ${String(stopReason)}`,
+    "a clean turn must not claim an interrupted stopReason (actual value in the diagnostic line above)",
   );
   assert(
     finishes.length === 1 && finishes[0] === "end_turn",
-    `a clean turn must resolve its provider stop reason verbatim, resolved ${finishes.join(",") || "(none)"}`,
+    'a clean turn must resolve exactly one provider stop reason, "end_turn" verbatim (spans in the diagnostic line above)',
   );
 });
 
@@ -1280,25 +1280,25 @@ await test("an abort is graded by what the stream delivered, not by what the con
   assert(
     observed["in-flight.text"] === "all done" &&
       observed["post-drain.text"] === "all done",
-    `both turns must deliver the full text, delivered ${JSON.stringify(observed["in-flight.text"])} and ${JSON.stringify(observed["post-drain.text"])}`,
+    `both turns must deliver the full text, but the ${observed["in-flight.text"] === "all done" ? "post-drain" : "in-flight"} turn delivered something else (see its diagnostic line above)`,
   );
   assert(
     observed["in-flight.stopReason"] === "aborted" &&
       observed["in-flight.finishReason"] === "other",
-    `an abort mid-stream must report an aborted turn, reported ${observed["in-flight.stopReason"]} / ${observed["in-flight.finishReason"]}`,
+    'an abort mid-stream must report stopReason "aborted" and finishReason "other" (actual values in the in-flight diagnostic line above)',
   );
   assert(
     observed["in-flight.rawFinishReason"] === "undefined",
-    `an abort mid-stream never parsed a terminal event, so no provider reason should survive, but ${observed["in-flight.rawFinishReason"]} did`,
+    "an abort mid-stream never parsed a terminal event, so no provider reason should survive, but one did (see the in-flight diagnostic line above)",
   );
   assert(
     observed["post-drain.stopReason"] === "undefined" &&
       observed["post-drain.finishReason"] === "stop",
-    `an abort after the stream ended must not rewrite the turn, reported ${observed["post-drain.stopReason"]} / ${observed["post-drain.finishReason"]}`,
+    'an abort after the stream ended must not rewrite the turn: stopReason must stay unset and finishReason "stop" (actual values in the post-drain diagnostic line above)',
   );
   assert(
     observed["post-drain.rawFinishReason"] === "end_turn",
-    `a completed turn must keep the provider's own reason, kept ${observed["post-drain.rawFinishReason"]}`,
+    'a completed turn must keep the provider\'s own reason "end_turn" (actual value in the post-drain diagnostic line above)',
   );
 });
 

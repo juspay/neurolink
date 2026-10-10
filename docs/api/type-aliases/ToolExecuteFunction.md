@@ -26,7 +26,7 @@
 
 ### options
 
-`ToolCallOptions`
+[`ToolCallOptions`](ToolCallOptions.md)
 
 ## Returns
 

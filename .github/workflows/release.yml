@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # This job only builds. Keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -70,7 +73,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # semantic-release pushes the release tag itself: on Actions it
+          # builds an x-access-token URL from the GITHUB_TOKEN it is given in
+          # its own env (get-git-auth-url.js), which is the setup its docs
+          # recommend. Nothing else in this job pushes, so the checkout token
+          # has no reason to sit in .git/config for every later step — the
+          # `pnpm install` lifecycle scripts included.
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4

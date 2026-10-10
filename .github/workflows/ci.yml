@@ -149,13 +149,16 @@ jobs:
           #   eslint-rules 13 | test 25 (outside the glob) | docs-site 5
           #   tools 1 | landing 1 | .pnpmfile.cjs 1
           #
-          # Note what this does NOT add. `scripts/**` is in the ignores list in
-          # eslint.config.js, so no ESLint run covers it. And every custom
-          # `neurolink/*` rule is enabled only for `files: ["src/**/*.ts", ...]`,
-          # so those rules were never short of coverage — `eslint src/` already
-          # gave them everything they inspect. The value here is the generic
-          # rules reaching the lint rules themselves and the untested test files,
-          # not rescuing a custom rule from a partial view.
+          # Note what this does NOT add. `scripts/**` and `tools/**` are linted
+          # by it too, but only at the syntactic tier (eslint.config.js gives
+          # them no `project`), so type errors there are left to
+          # check:ci-scripts. And every custom `neurolink/*` rule but one is
+          # enabled only for `files: ["src/**/*.ts", ...]`, so those rules were
+          # never short of coverage — `eslint src/` already gave them everything
+          # they inspect. The exception is `neurolink/e2e-tests-only`, scoped to
+          # test/**, which this run extends to the 25 test files outside the
+          # glob. Otherwise the value here is the generic rules reaching the lint
+          # rules themselves and the untested test files.
           #
           # No warning ceiling on purpose: the scoped runs above own the warning
           # budgets, and duplicating one would let a limit be tightened in one
@@ -164,6 +167,40 @@ jobs:
           # Free to add, measured: `pnpm exec eslint .` reports 0 errors / 56 warnings
           # and exits 0.
           pnpm exec eslint .
+
+      # action-dist/ is what `uses: juspay/neurolink@<tag>` runs: action.yml
+      # points at action-dist/index.js, and the release job's build:action is
+      # never committed, so a tag carries whatever bundle is in git. Nothing
+      # kept it current — it went months behind its source, still carrying a
+      # retired Bedrock model id, until cc3c57e5 regenerated it by hand.
+      #
+      # The bundle compiles six first-party files (src/action/index.ts,
+      # src/lib/action/*, src/lib/constants/enums.ts and
+      # src/lib/utils/errorHandling.ts) plus @actions/*, so only a change to
+      # one of those can trip this. enums.ts is one of them, and its generated
+      # region grows with every catalog provider: a Tier-2 pull request
+      # regenerates the bundle along with the codegen.
+      #
+      # Possible only because ncc's output is reproducible: two consecutive
+      # builds in a fresh Linux worktree were byte-identical to each other AND
+      # to the committed bundle (cmp, both files). If this ever fails on a
+      # pull request that touched none of those files, the build stopped being
+      # reproducible; fix that, do not loosen the check. `git status
+      # --porcelain` so an added or removed file counts too.
+      - name: 🎬 Check the GitHub Action bundle is current
+        if: matrix.group == 'lint'
+        run: |
+          pnpm run build:action
+          if [ -n "$(git status --porcelain action-dist)" ]; then
+            echo "::error::action-dist/ is out of date with the source it bundles."
+            echo "Regenerate and commit:"
+            echo "    pnpm run build:action"
+            echo "    git add action-dist"
+            git --no-pager diff --stat action-dist
+            git status --porcelain action-dist
+            exit 1
+          fi
+          echo "✅ action-dist/ matches a fresh build."
 
       - name: 🔒 Security & Environment Validation
         if: matrix.group == 'validate'
@@ -242,6 +279,30 @@ jobs:
           echo "🔍 Verifying no banned packages leaked into production dependencies..."
           pnpm run check:deps
 
+      # Suites that need no build, so they sit in the one shard that has none
+      # and runs the gate scripts they test. Each was registered as a test:*
+      # script and then run by no required job — test:tooling-scripts only in
+      # the non-blocking extended job, although #1895 described it as gating,
+      # and the other three in no workflow at all. A suite wired into nothing
+      # protects nothing.
+      #
+      #   test:tooling-scripts        the gate scripts, hooks and this repo's
+      #                               CI-skip step, as child processes
+      #   test:docs-search-index      the committed search index and its
+      #                               truncation helper
+      #   test:retired-model-defaults no default or doc names a retired model
+      #   test:harness-offline-timeout the harness bounds an offline suite
+      #
+      # Measured with no .env and no credential variables: all pass, none
+      # skip, about 70s together on a developer machine.
+      - name: 🧪 Credential-free suites that need no build
+        if: matrix.group == 'validate'
+        run: |
+          pnpm run test:tooling-scripts
+          pnpm run test:docs-search-index
+          pnpm run test:retired-model-defaults
+          pnpm run test:harness-offline-timeout
+
       # test/ is excluded from tsconfig too, so `check` never looks at the
       # suites. A full typecheck there is 296 errors and a separate cleanup;
       # a parse check is free and catches the breakage that actually happens
@@ -314,6 +375,19 @@ jobs:
         if: matrix.group == 'types'
         run: pnpm run check:dts
 
+      # Two more checks on the built package's public surface, so they sit next
+      # to check:dts. Both were run by no workflow. test:import-cost holds the
+      # export checks from #1837/#1879: the root entry's import cost, and that
+      # every @juspay/neurolink/<subpath> README.md, docs/ or examples/ shows a
+      # reader resolves through the exports map. test:docs-snippets compares
+      # the docs' `new NeuroLink({...})` options with the built .d.ts. No
+      # network, no credentials; about 25s together.
+      - name: 🔎 Public-surface suites (import cost, documented subpaths, docs snippets)
+        if: matrix.group == 'types'
+        run: |
+          pnpm run test:import-cost
+          pnpm run test:docs-snippets
+
       - name: Test CLI build
         if: matrix.group == 'types'
         run: |
@@ -345,9 +419,11 @@ jobs:
           fi
           echo "All provider-safety-net shards passed."
 
-  # The work. Split by measured duration: test:providers-mocked alone is
-  # 4m13s of this job's 10m14s; the remaining eight suites total roughly the
-  # same. Two shards therefore halve it rather than leaving one long tail.
+  # The work. Split by measured duration: test:providers-mocked alone was
+  # 4m13s of this job's 10m14s when the split was made; the remaining eight
+  # suites totalled roughly the same. It has grown since: on three runs of
+  # 2026-10-06 `contract` took 1918-2012s and `rest` 528-755s, so `contract`
+  # is the long pole and `rest` is where new suites go (see the last step).
   provider-safety-net-shards:
     strategy:
       fail-fast: false
@@ -467,6 +543,34 @@ jobs:
       - name: 🧩 Provider Onboarding Completeness
         if: matrix.group == 'rest'
         run: pnpm run verify:provider-onboarding
+
+      # Credential-free suites that import the built package and were run by no
+      # required job. test:stream-middleware and test:anthropic-thinking-disabled
+      # ran only in the non-blocking extended job, although #1878 described the
+      # latter as gating; the rest ran in no workflow at all.
+      #
+      # They go to `rest` because it has room: on run 37465405233 `contract`
+      # took 2012s and `rest` 528s, so `rest` can absorb these (about 500s
+      # measured locally, the acceptance gate alone about 230s) without moving
+      # the aggregator's finish time. Measured with no .env, no credential
+      # variables and no ffmpeg/ffprobe on PATH, as on the runner: all pass,
+      # and the only skips are the acceptance gate's cells for capabilities a
+      # provider does not declare.
+      - name: Provider acceptance gate (local mock vendor, no API keys required)
+        if: matrix.group == 'rest'
+        run: pnpm run test:acceptance-gate
+
+      - name: Credential-free provider, media and MCP suites (local stand-ins, no API keys required)
+        if: matrix.group == 'rest'
+        run: |
+          pnpm run test:image-exif
+          pnpm run test:tts:sixtydb
+          pnpm run test:video-no-ffprobe
+          pnpm run test:google-genai-sdk
+          pnpm run test:mcp-direct-name-repair
+          pnpm run test:mcp-breaker-resolved-errors
+          pnpm run test:stream-middleware
+          pnpm run test:anthropic-thinking-disabled
 
   # REQUIRED. A red run here blocks the merge.
   #
@@ -1153,6 +1257,11 @@ jobs:
           # Round-robin by list position was the previous scheme. It balances
           # the COUNT of suites, which is the wrong quantity: the measured
           # spread is 1s to 140s, so equal counts gave shards of 90s and 241s.
+          #
+          # Promoted out of this list to required shards, so not listed here:
+          # test:tooling-scripts (test-shards validate), test:stream-middleware
+          # and test:anthropic-thinking-disabled (provider-safety-net rest). A
+          # suite listed in both would only run twice.
           SUITES="
             test:tts:unit@140
             test:agent-delegation@78
@@ -1178,7 +1287,6 @@ jobs:
             test:video:unit@12
             test:adjust-body-after-400@10
             test:anthropic-streaming-retry@10
-            test:anthropic-thinking-disabled@5
             test:dynamic@10
             test:local-usage@8
             test:provider-fallback-latency@6
@@ -1193,11 +1301,9 @@ jobs:
             test:tool-resolution@3
             test:autoresearch@2
             test:loop-engine@2
-            test:stream-middleware@5
             test:vendor-recovery@5
             test:browser-bundle@5
             test:tools-manager-truncation@3
-            test:tooling-scripts@100
           "
           # Normalise every entry to name@weight (missing or non-numeric
           # weights become 30), then sort by weight descending. Greedy

@@ -42,19 +42,39 @@ jobs:
   ai-task:
     runs-on: ubuntu-latest
     steps:
-      - uses: juspay/neurolink@v1
+      - uses: juspay/neurolink@v12
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: "Review this pull request for potential issues"
           post_comment: true
 ```
 
+### Choosing a version
+
+The action is released with the npm package, so its tags are the package's
+release tags:
+
+| Reference                   | Resolves to                                                   |
+| --------------------------- | ------------------------------------------------------------- |
+| `juspay/neurolink@v12`      | The newest 12.x release. Moves forward on every 12.x release. |
+| `juspay/neurolink@v12.48.2` | Exactly that release. Never moves.                            |
+| `juspay/neurolink@<sha>`    | Exactly that commit. The strictest pin.                       |
+
+The major tag follows the package's major version, so it is `v12` while the
+package is on 12.x and will be `v13` after the next major release. There is no
+`v1` tag. `@v12` never crosses a major boundary, so a breaking release does not
+reach a workflow until you change the tag yourself.
+
+The `neurolink_version` input (default `latest`) is separate: it picks which
+NeuroLink CLI the action installs at run time, not which version of the action
+runs.
+
 ### Auto Provider Detection
 
 When you set `provider: auto` (the default), NeuroLink automatically selects the best available provider based on which API keys you provide:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -91,7 +111,7 @@ NeuroLink supports many AI providers. Configure each by providing the required c
 ### OpenAI
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
     provider: openai
@@ -115,7 +135,7 @@ NeuroLink supports many AI providers. Configure each by providing the required c
 ### Anthropic
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     provider: anthropic
@@ -140,7 +160,7 @@ NeuroLink supports many AI providers. Configure each by providing the required c
 ### Google AI Studio
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
     provider: google-ai
@@ -165,7 +185,7 @@ NeuroLink supports many AI providers. Configure each by providing the required c
 ### Google Vertex AI
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     google_vertex_project: ${{ secrets.GCP_PROJECT_ID }}
     google_vertex_location: us-central1
@@ -203,7 +223,7 @@ cat key.json | base64 > key_base64.txt
 ### Amazon Bedrock
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -244,7 +264,7 @@ jobs:
           role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
           aws-region: us-east-1
 
-      - uses: juspay/neurolink@v1
+      - uses: juspay/neurolink@v12
         with:
           provider: bedrock
           bedrock_model_id: anthropic.claude-3-5-sonnet-20241022-v2:0
@@ -256,7 +276,7 @@ jobs:
 ### Azure OpenAI
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
     azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
@@ -276,7 +296,7 @@ jobs:
 ### Mistral
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
     provider: mistral
@@ -299,7 +319,7 @@ jobs:
 ### Hugging Face
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     huggingface_api_key: ${{ secrets.HUGGINGFACE_API_KEY }}
     provider: huggingface
@@ -316,7 +336,7 @@ jobs:
 ### OpenRouter
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
     provider: openrouter
@@ -339,7 +359,7 @@ jobs:
 ### LiteLLM
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     litellm_api_key: ${{ secrets.LITELLM_API_KEY }}
     litellm_base_url: https://your-litellm-proxy.com
@@ -358,7 +378,7 @@ jobs:
 ### Amazon SageMaker
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -382,7 +402,7 @@ jobs:
 For self-hosted models (vLLM, Ollama, etc.) that implement the OpenAI API:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     openai_compatible_api_key: ${{ secrets.CUSTOM_API_KEY }}
     openai_compatible_base_url: https://your-api.com/v1
@@ -547,7 +567,7 @@ The action provides the following outputs for use in subsequent steps:
 
 ```yaml
 - name: AI Analysis
-  uses: juspay/neurolink@v1
+  uses: juspay/neurolink@v12
   id: ai
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -574,7 +594,7 @@ Process images, PDFs, CSVs, and videos along with text prompts.
 ```yaml
 - uses: actions/checkout@v4
 
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: "Describe what you see in these screenshots"
@@ -586,7 +606,7 @@ Process images, PDFs, CSVs, and videos along with text prompts.
 #### PDF Processing
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
     prompt: "Summarize the key points from this document"
@@ -598,7 +618,7 @@ Process images, PDFs, CSVs, and videos along with text prompts.
 #### CSV Analysis
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
     prompt: "Analyze trends in this data and provide insights"
@@ -625,7 +645,7 @@ Process images, PDFs, CSVs, and videos along with text prompts.
 Enable deep reasoning for complex tasks. Supported by Anthropic and Google AI/Vertex providers.
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: |
@@ -655,7 +675,7 @@ Enable deep reasoning for complex tasks. Supported by Anthropic and Google AI/Ve
 Enable analytics to track usage and estimate costs:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   id: ai
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -682,7 +702,7 @@ The job summary will include detailed analytics:
 Enable evaluation to score response quality (0-100):
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   id: ai
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -705,7 +725,7 @@ Enable evaluation to score response quality (0-100):
 Enable MCP tools to extend AI capabilities:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: "Search for files containing 'TODO' comments"
@@ -762,7 +782,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: AI Code Review
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
@@ -794,7 +814,7 @@ jobs:
   respond:
     runs-on: ubuntu-latest
     steps:
-      - uses: juspay/neurolink@v1
+      - uses: juspay/neurolink@v12
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
@@ -817,7 +837,7 @@ When `update_existing_comment: true` (default):
 To always create new comments:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     # ...
     post_comment: true
@@ -873,7 +893,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: AI Code Review
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
@@ -912,7 +932,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Triage Issue
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         id: triage
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -966,7 +986,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate Code
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         id: codegen
         with:
           google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
@@ -993,7 +1013,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Try Primary Provider
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         id: primary
         continue-on-error: true
         with:
@@ -1003,7 +1023,7 @@ jobs:
 
       - name: Fallback Provider
         if: steps.primary.outcome == 'failure'
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           provider: openai
@@ -1065,13 +1085,13 @@ jobs:
 1. **Add delays between requests:**
 
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        # ...
 
    - run: sleep 5
 
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        # ...
    ```
@@ -1081,13 +1101,13 @@ jobs:
    ```yaml
    jobs:
      review-1:
-       uses: juspay/neurolink@v1
+       uses: juspay/neurolink@v12
        with:
          provider: anthropic
          # ...
 
      review-2:
-       uses: juspay/neurolink@v1
+       uses: juspay/neurolink@v12
        with:
          provider: openai
          # ...
@@ -1107,7 +1127,7 @@ jobs:
 1. **Increase timeout:**
 
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        timeout: "600" # 10 minutes
        # ...
@@ -1123,7 +1143,7 @@ jobs:
 
 3. **Use faster model:**
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        model: gpt-4o-mini # Faster than gpt-4o
        # ...
@@ -1152,7 +1172,7 @@ jobs:
 2. **Use explicit token:**
 
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        github_token: ${{ secrets.GITHUB_TOKEN }}
        post_comment: true
@@ -1175,7 +1195,7 @@ jobs:
 1. **Increase max_tokens:**
 
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        max_tokens: "8192"
        # ...
@@ -1186,7 +1206,7 @@ jobs:
 
 3. **Enable debug logging:**
    ```yaml
-   - uses: juspay/neurolink@v1
+   - uses: juspay/neurolink@v12
      with:
        debug: true
        # ...
@@ -1199,7 +1219,7 @@ jobs:
 Enable debug mode for detailed logging:
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@v12
   with:
     debug: true
     # ...

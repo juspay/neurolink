@@ -5,8 +5,7 @@
  * Demonstrates advanced provider configuration and management
  */
 
-// @ts-expect-error -- ConfigManager may not have published types
-import { ConfigManager } from "@juspay/neurolink/config";
+import { ConfigManager } from "@juspay/neurolink";
 import { fileURLToPath } from "url";
 
 async function providerManagementDemo() {

@@ -33,6 +33,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # This job builds code from the pull request and never pushes; the
+          # comment job uses the API token, not git. Keep GITHUB_TOKEN out of
+          # .git/config.
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

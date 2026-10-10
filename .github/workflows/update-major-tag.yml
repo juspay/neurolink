@@ -1,29 +1,116 @@
 name: Update Major Version Tag
+
+# Moves the floating major tag (`v12` while the package is on 12.x) to the
+# newest release, so `uses: juspay/neurolink@v12` tracks the latest 12.x
+# release the way Marketplace actions are expected to.
+#
+# Why workflow_run and not only `release: published`. That trigger was the
+# only one here and this workflow had never run: semantic-release creates
+# each GitHub Release with the job's GITHUB_TOKEN, and events raised by
+# GITHUB_TOKEN do not start other workflows (GitHub's recursion guard). So
+# no major tag was ever created, and the documented `@v1` never resolved.
+# workflow_run fires when "Release and Publish" finishes, which is not
+# subject to that rule. It needs this file on the default branch (`release`).
+#
+# `release: published` is kept for a release a person publishes by hand,
+# and workflow_dispatch backfills or repairs a tag.
 on:
+  workflow_run:
+    workflows: ["Release and Publish"]
+    types: [completed]
+    branches: [release]
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to point its major tag at (e.g. v12.48.2)"
+        required: true
+
 permissions:
   contents: write
+
+concurrency:
+  group: update-major-tag
+  cancel-in-progress: false
+
 jobs:
   update-tag:
     runs-on: ubuntu-latest
+    # A failed or cancelled release published nothing, so there is nothing
+    # to point at.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
+          # The tag is moved through the REST API below with GH_TOKEN, so
+          # git never needs a credential.
+          persist-credentials: false
+
       - name: Update major version tag
         env:
-          # A release tag is user-supplied text. Interpolated into the script
-          # it is program text, not data — see single-commit-enforcement.yml.
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          # User-supplied text (a tag name, a dispatch input). Interpolated into
+          # the script it would be program text, not data — see
+          # single-commit-enforcement.yml.
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          # fetch-depth: 0 above already brought every tag, the new release
+          # tag included: it was pushed before this run was queued.
           set -euo pipefail
-          TAG="$RELEASE_TAG"
-          if [[ $TAG =~ ^v([0-9]+)\. ]]; then
-            MAJOR="v${BASH_REMATCH[1]}"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -fa "$MAJOR" -m "Update $MAJOR to $TAG"
-            git push origin "$MAJOR" --force
+
+          case "$EVENT_NAME" in
+            release) TAG="$RELEASE_TAG" ;;
+            workflow_dispatch) TAG="$INPUT_TAG" ;;
+            workflow_run)
+              # semantic-release tags the commit it was run on, which is the
+              # pushed commit this run reports. A push that released nothing
+              # (only chore/docs commits) has no tag there, and that is a
+              # normal outcome, not an error.
+              TAG=$(git tag --points-at "$RUN_HEAD_SHA" --list 'v*' | sort -V | tail -n 1)
+              if [ -z "$TAG" ]; then
+                echo "No release tag on $RUN_HEAD_SHA; this push published nothing."
+                exit 0
+              fi
+              ;;
+            *) echo "::error::unexpected event $EVENT_NAME"; exit 1 ;;
+          esac
+
+          # Stable releases only. A prerelease must not become what `@vN`
+          # hands every consumer.
+          if ! [[ $TAG =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$TAG is not a stable vMAJOR.MINOR.PATCH tag; leaving major tags alone."
+            exit 0
+          fi
+          MAJOR="v${BASH_REMATCH[1]}"
+
+          if ! SHA=$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}"); then
+            echo "::error::tag $TAG does not exist in this repository"
+            exit 1
+          fi
+
+          # Never move the major tag backwards: a late run for an older
+          # release, or a dispatch naming one, must not pull consumers off the
+          # newest release in that major.
+          NEWEST=$(git tag --list "$MAJOR.*" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          if [ "$TAG" != "$NEWEST" ]; then
+            echo "$TAG is not the newest $MAJOR release ($NEWEST is); leaving $MAJOR alone."
+            exit 0
+          fi
+
+          # A lightweight tag on the release commit. The exact-match ref
+          # endpoint answers 404 when the tag does not exist yet.
+          if gh api "repos/$REPO/git/ref/tags/$MAJOR" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$REPO/git/refs/tags/$MAJOR" \
+              -f sha="$SHA" -F force=true > /dev/null
+            echo "Moved $MAJOR to $TAG ($SHA)."
+          else
+            gh api -X POST "repos/$REPO/git/refs" \
+              -f ref="refs/tags/$MAJOR" -f sha="$SHA" > /dev/null
+            echo "Created $MAJOR at $TAG ($SHA)."
           fi

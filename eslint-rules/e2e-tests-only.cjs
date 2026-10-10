@@ -69,6 +69,14 @@
  * copy, so a stub applied to one graph is invisible to the other and the test
  * silently starts doing real work. See CLAUDE.md rule 15, "One module graph
  * per suite".
+ *
+ * That is also checked (`mixedModuleGraph`): a file with a runtime import from
+ * `src/lib/` or `src/cli/` AND a runtime import from `dist/` — static or
+ * dynamic, public or deep — is reported, allow-listed or not. The allow list
+ * exempts a suite from driving the public surface; it never made mixing the
+ * two copies safe. An allow-listed suite once regressed this way with a single
+ * `await import("../dist/index.js")` deep inside a case, which no other check
+ * could see.
  */
 
 "use strict";
@@ -211,6 +219,10 @@ module.exports = {
         type: "object",
         properties: {
           allow: { type: "array", items: { type: "string" } },
+          mixedGraphGrandfathered: {
+            type: "array",
+            items: { type: "string" },
+          },
         },
         additionalProperties: false,
       },
@@ -222,6 +234,8 @@ module.exports = {
         "Rule 15: '{{source}}' cannot load. The build collapses dist/lib into the dist/ top level and deletes it, so this path does not exist after `pnpm run build` — it is ERR_MODULE_NOT_FOUND, not merely internal. Do NOT add this file to the rule's `allow` list: that silences the lint and leaves a suite that still cannot load. Repoint the import instead — drop the 'lib/' segment ('../dist/lib/x/y.js' → '../dist/x/y.js') — and prefer a shipped entry point ('../dist/index.js' or a declared subpath), since the collapsed path is still the package's inside.",
       deepDistImport:
         "Rule 15: tests are end-to-end only — '{{source}}' reaches inside the build output. No package.json `exports` entry resolves it, so asserting on it pins an internal shape callers cannot reach and that is free to change under them. Drive the surface via NeuroLink/generate/stream or the built CLI, or import from a shipped entry point ('../dist/index.js' or a declared subpath). If this genuinely needs deterministic control a live call cannot give, add the file to the rule's `allow` list in eslint.config.js and say why in its header.",
+      mixedModuleGraph:
+        "Rule 15: one module graph per suite — '{{source}}' loads dist/ in a file that also loads src/ ('{{other}}'). dist/index.js is a separate bundled copy of src/lib, so a stub, spy or instanceof on one copy is invisible to the other, silently. Move the dist-using case to a suite that imports only dist/, or the src-using one to a suite that imports only src/. The `allow` list does not exempt this.",
     },
   },
 
@@ -241,6 +255,10 @@ module.exports = {
     // Returning `{}` here would let an allow-list entry hide a broken import,
     // which is precisely the mistake the message warns against.
     const allowed = allow.some((p) => normalized.endsWith(p));
+    // Closed list of files that mixed the two graphs before that was checked.
+    const mixedGraphGrandfathered = (
+      context.options?.[0]?.mixedGraphGrandfathered ?? []
+    ).some((p) => normalized.endsWith(p.split("\\").join("/")));
 
     function messageIdFor(value) {
       if (isDeletedDistLibPath(value)) {
@@ -255,10 +273,48 @@ module.exports = {
       return isDeepDistPath(value) ? "deepDistImport" : undefined;
     }
 
+    // First runtime import of each graph, for the one-graph-per-suite check.
+    // Like `missingDistLibImport`, that check is not a judgement call, so the
+    // allow list does not exempt it: an allow-listed suite takes everything
+    // from src/, and a dist/ import in it is the exact mix rule 15 forbids.
+    let firstSrc = null;
+    let firstDist = null;
+    function noteGraph(node, value) {
+      if (typeof value !== "string") {
+        return;
+      }
+      if (isSrcPath(value)) {
+        firstSrc = firstSrc ?? node;
+      } else if (DIST_IMPORT.test(`/${value}`)) {
+        firstDist = firstDist ?? node;
+      }
+    }
+
     return {
+      "Program:exit"() {
+        if (
+          firstSrc === null ||
+          firstDist === null ||
+          mixedGraphGrandfathered
+        ) {
+          return;
+        }
+        // Report on whichever came second; it is the one that broke the file.
+        context.report({
+          node: firstDist.range[0] > firstSrc.range[0] ? firstDist : firstSrc,
+          messageId: "mixedModuleGraph",
+          data: {
+            source: firstDist.source.value,
+            other: firstSrc.source.value,
+          },
+        });
+      },
       ImportDeclaration(node) {
         if (node.importKind === "type") {
           return;
+        }
+        if (!allSpecifiersAreTypeOnly(node)) {
+          noteGraph(node, node.source.value);
         }
         const messageId = messageIdFor(node.source.value);
         if (!messageId) {
@@ -277,6 +333,7 @@ module.exports = {
         if (node.source?.type !== "Literal") {
           return;
         }
+        noteGraph(node, node.source.value);
         const messageId = messageIdFor(node.source.value);
         if (!messageId) {
           return;
