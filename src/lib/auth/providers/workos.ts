@@ -9,7 +9,7 @@ import type {
   AuthHealthCheck,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { createProxyFetch, proxyAwareFetch } from "../../proxy/proxyFetch.js";
 import { AuthError } from "../errors.js";
 import * as jose from "jose";
 import { BaseAuthProvider } from "./BaseAuthProvider.js";
@@ -77,7 +77,11 @@ export class WorkOSProvider extends BaseAuthProvider {
    */
   async initialize(): Promise<void> {
     const jwksUrl = new URL("https://api.workos.com/sso/jwks");
-    this.jwks = jose.createRemoteJWKSet(jwksUrl);
+    this.jwks = jose.createRemoteJWKSet(jwksUrl, {
+      // jose downloads the key set with global fetch unless told otherwise,
+      // which ignores HTTP(S)_PROXY.
+      [jose.customFetch]: proxyAwareFetch,
+    });
     logger.debug("WorkOS provider initialized");
   }
 

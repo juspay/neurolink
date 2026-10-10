@@ -20,7 +20,10 @@ import {
   modelSupportsFixedThinkingBudget,
   modelSupportsForcedToolChoice,
 } from "../models/modelRegistry.js";
-import { isTransientNetworkError } from "./proxyFetch.js";
+import {
+  getProxyDispatcherForUrl,
+  isTransientNetworkError,
+} from "./proxyFetch.js";
 import { readCacheCreation1hTokens } from "./proxyTokenUsage.js";
 import type {
   VertexAccessTokenProvider,
@@ -672,6 +675,10 @@ export async function dispatchVertexAnthropicPassthrough(
     model: request.model,
     stream,
   });
+  // Through the proxy HTTPS_PROXY / ALL_PROXY configures for the host (unless
+  // NO_PROXY lists it). As on the Claude and Codex upstreams, a proxied
+  // request never falls back to a direct connection.
+  const dispatcher = await getProxyDispatcherForUrl(url);
   return fetch(url, {
     method: "POST",
     headers: {
@@ -683,6 +690,8 @@ export async function dispatchVertexAnthropicPassthrough(
       buildVertexAnthropicPayload(request.body, request.model),
     ),
     ...(request.signal ? { signal: request.signal } : {}),
+    // undici's non-standard `dispatcher` option is not in the DOM RequestInit.
+    ...(dispatcher ? ({ dispatcher } as RequestInit) : {}),
   });
 }
 

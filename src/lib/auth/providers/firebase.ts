@@ -12,7 +12,7 @@ import type {
   AuthProviderType,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { createProxyFetch, proxyAwareFetch } from "../../proxy/proxyFetch.js";
 import * as jose from "jose";
 
 /**
@@ -74,7 +74,11 @@ export class FirebaseAuthProvider extends BaseAuthProvider {
     const jwksUrl = new URL(
       "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
     );
-    this.jwks = jose.createRemoteJWKSet(jwksUrl);
+    this.jwks = jose.createRemoteJWKSet(jwksUrl, {
+      // jose downloads the key set with global fetch unless told otherwise,
+      // which ignores HTTP(S)_PROXY.
+      [jose.customFetch]: proxyAwareFetch,
+    });
     logger.debug(
       `Firebase provider initialized for project: ${this.projectId}`,
     );

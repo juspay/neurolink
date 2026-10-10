@@ -242,7 +242,7 @@ NO_PROXY="localhost,127.0.0.1,.company.com"
 
 The shared HTTP proxy fetch accepts comma- or whitespace-separated `NO_PROXY` entries. Entries are case-insensitive: `*` bypasses all; `example.com`, `.example.com` and `*.example.com` cover the host and its subdomains; `example.com:8443` restricts a match to that effective port (HTTP defaults to 80, HTTPS to 443). One trailing dot is normalized for domain names. IPv4/IPv6 literals match exactly, including `[::1]:8080`; IPv4 CIDR entries apply only to literal IPv4 targets, and IPv6 CIDR is unsupported. Dot-only entries (`.` or `..`) match nothing.
 
-These rules apply to request paths that use NeuroLink's HTTP proxy fetch. Native AWS handlers, Gemini Live WebSockets and Vertex ADC token requests use separate transports/dependency rules. See [Enterprise & Proxy Setup](enterprise-proxy-setup.md) for those limits. The legacy AWS proxy selector uses a smaller comma-separated matcher; it supports exact hosts, leading-dot subdomain suffixes and `*`, without the full port/wildcard/CIDR syntax. It is not automatically injected into the native Bedrock constructors.
+These rules apply to every request path that uses NeuroLink's proxy-aware fetch, and to the proxy-aware request handler that the Amazon Bedrock and SageMaker clients get. Gemini Live and the other WebSocket sessions, and the Vertex ADC token requests (made by `google-auth-library`, which reads `HTTPS_PROXY` and `NO_PROXY` on its own), use separate transports. See [Enterprise & Proxy Setup](enterprise-proxy-setup.md) for the full list of what is and is not routed.
 
 ### Authenticated Proxy
 
@@ -252,7 +252,7 @@ HTTPS_PROXY="http://username:password@proxy.company.com:8080"
 HTTP_PROXY="http://username:password@proxy.company.com:8080"
 ```
 
-Provider, voice, media, MCP HTTP, OAuth and exporter requests use these settings; WebSocket sessions, Google ADC token requests and a few other paths still connect directly. SOCKS proxies are not supported.
+Provider, voice, media, MCP HTTP, OAuth, authentication-provider and exporter requests use these settings; WebSocket sessions, the Replicate, Beatoven and D-ID job APIs, Vertex video generation and URLs you pass as input still connect directly (the full list is in the Enterprise & Proxy Setup guide). SOCKS proxies are not supported.
 
 **For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](enterprise-proxy-setup.md)
 

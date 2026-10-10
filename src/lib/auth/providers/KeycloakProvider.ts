@@ -17,6 +17,7 @@ import type {
 } from "../../types/index.js";
 import { AuthError } from "../errors.js";
 import { BaseAuthProvider } from "./BaseAuthProvider.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 // =============================================================================
 // JWKS CACHE
@@ -272,7 +273,7 @@ export class KeycloakProvider extends BaseAuthProvider {
     }
 
     try {
-      const response = await fetch(this.jwksUri, {
+      const response = await proxyAwareFetch(this.jwksUri, {
         signal: AbortSignal.timeout(5000),
       });
 
@@ -410,7 +411,7 @@ export class KeycloakProvider extends BaseAuthProvider {
 
     try {
       // Get admin token
-      const tokenResponse = await fetch(
+      const tokenResponse = await proxyAwareFetch(
         `${this.expectedIssuer}/protocol/openid-connect/token`,
         {
           method: "POST",
@@ -434,7 +435,7 @@ export class KeycloakProvider extends BaseAuthProvider {
 
       // Get user from admin API
       const serverUrl = this.keycloakConfig.serverUrl.replace(/\/$/, "");
-      const userResponse = await fetch(
+      const userResponse = await proxyAwareFetch(
         `${serverUrl}/admin/realms/${this.keycloakConfig.realm}/users/${encodeURIComponent(userId)}`,
         {
           headers: {
@@ -454,7 +455,7 @@ export class KeycloakProvider extends BaseAuthProvider {
       const userData = (await userResponse.json()) as Record<string, unknown>;
 
       // Get user's realm roles
-      const rolesResponse = await fetch(
+      const rolesResponse = await proxyAwareFetch(
         `${serverUrl}/admin/realms/${this.keycloakConfig.realm}/users/${encodeURIComponent(userId)}/role-mappings/realm`,
         {
           headers: {

@@ -9,8 +9,9 @@
  * opts in. This suite samples the call sites that used to go straight to
  * global `fetch`: a voice provider (ElevenLabs TTS, and its multipart STT
  * upload), a music provider (ElevenLabs Music), the MCP Streamable HTTP
- * transport, an OAuth token refresh (`neurolink auth refresh codex`) and the
- * proxy server's own Codex upstream (`neurolink proxy start`). It also pins a
+ * transport, the Keycloak and OAuth2 key-set downloads, OAuth token refreshes
+ * (`neurolink auth refresh codex` and `anthropic`) and the proxy server's own
+ * Codex upstream (`neurolink proxy start`). It also pins a
  * multipart body on the older `createProxyFetch` path (Stability), the
  * direct-connection fallback when the proxy fails, NEUROLINK_PROXY_STRICT,
  * SOCKS being refused, and that nothing changes without a proxy.
@@ -98,8 +99,11 @@ const VOICE_HOST = "voice.egress.invalid";
 const MUSIC_HOST = "music.egress.invalid";
 const MCP_HOST = "mcp.egress.invalid";
 const IMAGE_HOST = "image.egress.invalid";
+const JWKS_HOST = "jwks.egress.invalid";
+const OAUTH_HOST = "oauth.egress.invalid";
 const TOKEN_HOST = "auth.openai.com";
 const CODEX_HOST = "chatgpt.com";
+const ANTHROPIC_HOST = "api.anthropic.com";
 
 const ELEVENLABS_KEY = "egress-elevenlabs-key";
 const TTS_AUDIO = Buffer.from("ID3-egress-tts-audio");
@@ -118,6 +122,8 @@ const {
   NeuroLink,
   STTProcessor,
   TTSProcessor,
+  AuthProviderRegistry,
+  createAuthProvider,
   registerDefaultMusicHandlers,
   registerDefaultSTTHandlers,
   registerDefaultTTSHandlers,
@@ -206,8 +212,9 @@ type UpstreamCall = {
 
 /**
  * The stand-in for every plain-HTTP upstream. It answers as ElevenLabs
- * (TTS, STT, sound generation), as Stability, and as an MCP Streamable HTTP
- * server, chosen by path, and records what each request carried.
+ * (TTS, STT, sound generation), as Stability, as an identity provider's
+ * (empty) key set, and as an MCP Streamable HTTP server, chosen by path, and
+ * records what each request carried.
  */
 async function startUpstream(): Promise<Listening & { calls: UpstreamCall[] }> {
   const calls: UpstreamCall[] = [];
@@ -247,6 +254,12 @@ async function startUpstream(): Promise<Listening & { calls: UpstreamCall[] }> {
       } else if (path === "/v1/sound-generation") {
         res.writeHead(200, { "content-type": "audio/mpeg" });
         res.end(MUSIC_AUDIO);
+      } else if (
+        path.endsWith("/protocol/openid-connect/certs") ||
+        path === "/oauth2-keys"
+      ) {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ keys: [] }));
       } else if (path.startsWith("/v2beta/stable-image/generate/")) {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(
@@ -310,7 +323,7 @@ function makeTlsFixture(): TlsFixture | null {
       "[dn]",
       "CN = egress-fixture.invalid",
       "[v3]",
-      `subjectAltName = DNS:${TOKEN_HOST},DNS:${CODEX_HOST}`,
+      `subjectAltName = DNS:${TOKEN_HOST},DNS:${CODEX_HOST},DNS:${ANTHROPIC_HOST}`,
       "",
     ].join("\n"),
   );
@@ -414,7 +427,10 @@ async function startForwardProxy(options: {
       client.on("error", () => upstream.destroy());
       return;
     }
-    if (innerTls && (host === TOKEN_HOST || host === CODEX_HOST)) {
+    if (
+      innerTls &&
+      (host === TOKEN_HOST || host === CODEX_HOST || host === ANTHROPIC_HOST)
+    ) {
       client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
       if (head.length > 0) {
         client.unshift(head);
@@ -487,6 +503,8 @@ const routes = {
   [MUSIC_HOST]: upstream.port,
   [MCP_HOST]: upstream.port,
   [IMAGE_HOST]: upstream.port,
+  [JWKS_HOST]: upstream.port,
+  [OAUTH_HOST]: upstream.port,
 };
 
 try {
@@ -630,6 +648,75 @@ try {
       assert(
         proxyCalled(proxy, MCP_HOST),
         "the proxy was not asked for the MCP host",
+      );
+    } finally {
+      restore();
+      await proxy.close();
+    }
+  });
+
+  await test("Proxy egress: the Keycloak and OAuth2 JWKS downloads go through HTTP_PROXY", async () => {
+    assertNotSelfProxying();
+    const jwt = (claims: Record<string, unknown>): string => {
+      const b64 = (value: unknown): string =>
+        Buffer.from(JSON.stringify(value)).toString("base64url");
+      return `${b64({ alg: "RS256", kid: "egress-key" })}.${b64(claims)}.c2ln`;
+    };
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    await AuthProviderRegistry.registerAllProviders();
+    const proxy = await startForwardProxy({ routes });
+    const restore = withEnv({ HTTP_PROXY: `http://127.0.0.1:${proxy.port}` });
+    try {
+      // Keycloak fetches the key set itself, then verifies the signature.
+      const keycloak = await createAuthProvider("keycloak", {
+        type: "keycloak",
+        serverUrl: `http://${JWKS_HOST}`,
+        realm: "egress",
+        clientId: "egress-client",
+      } as Parameters<typeof createAuthProvider>[1]);
+      await orFail(
+        () =>
+          keycloak.authenticateToken(
+            jwt({
+              iss: `http://${JWKS_HOST}/realms/egress`,
+              aud: ["egress-client"],
+              sub: "egress-user",
+              exp,
+            }),
+          ),
+        "the Keycloak provider threw instead of answering",
+      );
+      assert(
+        upstream.calls.some((call) =>
+          call.path.includes("/realms/egress/protocol/openid-connect/certs"),
+        ),
+        "the Keycloak key set did not reach the host behind the proxy",
+      );
+      assert(
+        proxyCalled(proxy, JWKS_HOST),
+        "the proxy was not asked for the Keycloak host",
+      );
+
+      // The OAuth2 provider hands the key set to jose, which downloads it.
+      upstream.calls.length = 0;
+      const oauth2 = await createAuthProvider("oauth2", {
+        type: "oauth2",
+        authorizationUrl: `http://${OAUTH_HOST}/authorize`,
+        tokenUrl: `http://${OAUTH_HOST}/token`,
+        jwksUrl: `http://${OAUTH_HOST}/oauth2-keys`,
+        clientId: "egress-client",
+      } as Parameters<typeof createAuthProvider>[1]);
+      await orFail(
+        () => oauth2.authenticateToken(jwt({ sub: "egress-user", exp })),
+        "the OAuth2 provider threw instead of answering",
+      );
+      assert(
+        upstream.calls.some((call) => call.path.includes("/oauth2-keys")),
+        "the OAuth2 key set did not reach the host behind the proxy",
+      );
+      assert(
+        proxyCalled(proxy, OAUTH_HOST),
+        "the proxy was not asked for the OAuth2 key-set host",
       );
     } finally {
       restore();
@@ -855,6 +942,7 @@ try {
   };
 
   let tokenRequests = 0;
+  let anthropicTokenRequests = 0;
   let codexRequests = 0;
   const intercept = (req: IncomingMessage, res: ServerResponse): void => {
     const host = String(req.headers.host ?? "").split(":")[0];
@@ -866,6 +954,19 @@ try {
           JSON.stringify({
             access_token: codexJwt("refreshed"),
             refresh_token: "egress-rotated-refresh-token",
+          }),
+        );
+        return;
+      }
+      if (host === ANTHROPIC_HOST && req.url?.startsWith("/v1/oauth/token")) {
+        anthropicTokenRequests++;
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            access_token: "egress-anthropic-access-token",
+            refresh_token: "egress-anthropic-rotated-refresh",
+            expires_in: 3600,
+            token_type: "Bearer",
           }),
         );
         return;
@@ -933,6 +1034,60 @@ try {
         result.stdout.includes("All Codex accounts refreshed"),
         "the CLI did not report the refreshed account",
       );
+    } finally {
+      await proxy.close();
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  await test("Proxy egress: `auth refresh anthropic` reaches the token endpoint through HTTPS_PROXY", async () => {
+    if (!tls) {
+      throw new Skip("openssl is not available to mint the TLS fixture");
+    }
+    const home = mkdtempSync(join(tmpdir(), "neurolink-egress-home-"));
+    mkdirSync(join(home, ".neurolink"), { recursive: true });
+    writeFileSync(
+      join(home, ".neurolink", "anthropic-credentials.json"),
+      JSON.stringify({
+        type: "oauth",
+        provider: "anthropic",
+        oauth: {
+          accessToken: "egress-old-access-token",
+          refreshToken: "egress-old-refresh-token",
+          tokenType: "Bearer",
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+    const proxy = await startForwardProxy({ routes: {}, tls, intercept });
+    anthropicTokenRequests = 0;
+    try {
+      const result = await runCLI(["auth", "refresh", "anthropic"], {
+        env: {
+          HOME: home,
+          USERPROFILE: home,
+          NODE_EXTRA_CA_CERTS: tls.certPath,
+          ...cliProxyEnv({
+            HTTPS_PROXY: `http://127.0.0.1:${proxy.port}`,
+            NEUROLINK_PROXY_STRICT: "true",
+          }),
+        },
+        timeoutMs: 60_000,
+      });
+      assert(
+        proxy.calls.some(
+          (call) =>
+            call.method === "CONNECT" &&
+            call.target === `${ANTHROPIC_HOST}:443`,
+        ),
+        "the proxy was not asked to tunnel to the Anthropic token endpoint",
+      );
+      assert(
+        anthropicTokenRequests === 1,
+        "the Anthropic token endpoint behind the proxy did not receive the refresh",
+      );
+      assert(result.exitCode === 0, "the Anthropic refresh did not succeed");
     } finally {
       await proxy.close();
       rmSync(home, { recursive: true, force: true });

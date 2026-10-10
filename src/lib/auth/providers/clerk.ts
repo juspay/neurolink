@@ -12,7 +12,7 @@ import type {
   AuthProviderType,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { createProxyFetch, proxyAwareFetch } from "../../proxy/proxyFetch.js";
 import * as jose from "jose";
 
 /**
@@ -72,7 +72,11 @@ export class ClerkProvider extends BaseAuthProvider {
   async initialize(): Promise<void> {
     // Clerk JWKS endpoint (v1 API)
     const jwksUrl = new URL("https://api.clerk.com/v1/jwks");
-    this.jwks = jose.createRemoteJWKSet(jwksUrl);
+    this.jwks = jose.createRemoteJWKSet(jwksUrl, {
+      // jose downloads the key set with global fetch unless told otherwise,
+      // which ignores HTTP(S)_PROXY.
+      [jose.customFetch]: proxyAwareFetch,
+    });
     logger.debug("Clerk provider initialized");
   }
 
