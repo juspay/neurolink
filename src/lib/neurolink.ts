@@ -140,6 +140,8 @@ import type {
   HITLExecutionState,
   ToolRoutingConfig,
   ToolRoutingDecision,
+  JevRoutingAuditEvidence,
+  JevRoutingAuditInput,
   ToolRoutingServerDescriptor,
   ToolDedupConfig,
   ToolConfig,
@@ -178,6 +180,7 @@ import { repairToolPairs } from "./context/toolPairRepair.js";
 import {
   SYSTEM_LIMITS,
   DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+  JEV_ROUTING_AUDIT_PROVIDER,
   MIN_RECOVERY_TURN_BUDGET_MS,
 } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
@@ -350,6 +353,11 @@ import { TaskManager } from "./tasks/taskManager.js";
 import { createTaskTools } from "./tasks/tools/taskTools.js";
 import { ATTR, spanJsonAttribute } from "./telemetry/attributes.js";
 import { tracers } from "./telemetry/tracers.js";
+import {
+  buildJevRoutingAuditInput,
+  logJevRoutingAuditFailure,
+} from "./utils/jevRoutingAudit.js";
+import { recordJevRoutingAudit } from "./telemetry/jevRoutingAudit.js";
 // Voice integration imports
 import type {
   STTCredentials,
@@ -10730,6 +10738,12 @@ Current user's request: ${currentInput}`;
 
       let routedExcludeTools: string[];
       let resolvedDecision: ToolRoutingDecision | undefined;
+      let auditEvidence: JevRoutingAuditEvidence | null = null;
+      const auditEnabled = routingConfig.audit?.enabled === true;
+      let auditPolicyExclusions: string[] = [];
+      if (auditEnabled) {
+        auditPolicyExclusions = [...(options.excludeTools ?? [])];
+      }
       // Intercept the decision so we can store it in the cache.
       const captureDecision = (decision: ToolRoutingDecision): void => {
         resolvedDecision = decision;
@@ -10823,11 +10837,30 @@ Current user's request: ${currentInput}`;
         // configured. siteDecide returns null without one, so the resolver
         // falls straight through to the generative router as before. The
         // outer request's credentials, abort signal and ids ride along.
-        decideFn: (decisionOptions) =>
-          this.siteDecide(
+        decideFn: async (decisionOptions) => {
+          let auditInput: JevRoutingAuditInput | null = null;
+          if (auditEnabled) {
+            auditInput = buildJevRoutingAuditInput(decisionOptions.state);
+          }
+          const result = await this.siteDecide(
             decisionOptions,
             this.decisionSiteContext(options, sessionId || undefined),
-          ),
+          );
+          if (auditInput !== null && result !== null) {
+            try {
+              if (result.provider === JEV_ROUTING_AUDIT_PROVIDER) {
+                auditEvidence = {
+                  input: auditInput,
+                  provider: result.provider,
+                  model: result.model,
+                };
+              }
+            } catch (error) {
+              logJevRoutingAuditFailure(error);
+            }
+          }
+          return result;
+        },
         decisionMinDropConfidence: routingConfig.minDropConfidence,
         emitDecision: captureDecision,
         // L2 / ITEM D — only populated when embedding is configured.
@@ -10910,6 +10943,15 @@ Current user's request: ${currentInput}`;
           ...(options.excludeTools ?? []),
           ...routedExcludeTools,
         ];
+      }
+      if (auditEnabled) {
+        recordJevRoutingAudit(
+          auditEvidence,
+          resolvedDecision,
+          catalog,
+          options.excludeTools ?? [],
+          auditPolicyExclusions,
+        );
       }
     } catch (error) {
       if (isAbortError(error)) {

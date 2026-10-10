@@ -20,6 +20,21 @@ Master switch. Routing runs only when true AND the server catalog is non-empty.
 
 ---
 
+### audit?
+
+> `optional` **audit?**: `object`
+
+Record bounded JEV routing evidence through the existing tracing exporter.
+Defaults off because queries and descriptions may contain user data.
+Hosts can pass true directly; a feature flag is not required.
+No extra inference calls. Cache hits and non-JEV routing are omitted.
+
+#### enabled
+
+> **enabled**: `boolean`
+
+---
+
 ### servers?
 
 > `optional` **servers?**: [`ToolRoutingServerDescriptor`](ToolRoutingServerDescriptor.md)[]

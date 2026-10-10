@@ -399,6 +399,9 @@ export default [
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
             "test/continuous-test-suite-proxy-telemetry.ts",
+            // Routing audit evidence needs deterministic provider results,
+            // concurrent turns, sticky guards and an isolated external exporter.
+            "test/continuous-test-suite-jev-routing-audit.ts",
             // Exact isolated transport, cancellation, batching, budget and updater failures.
             "test/continuous-test-suite-proxy-request-lifecycle.ts",
             "test/continuous-test-suite-proxy-http-disconnect.ts",

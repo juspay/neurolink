@@ -115,6 +115,13 @@ export type ToolRoutingConfig = {
   /** Master switch. Routing runs only when true AND the server catalog is non-empty. */
   enabled: boolean;
   /**
+   * Record bounded JEV routing evidence through the existing tracing exporter.
+   * Defaults off because queries and descriptions may contain user data.
+   * Hosts can pass true directly; a feature flag is not required.
+   * No extra inference calls. Cache hits and non-JEV routing are omitted.
+   */
+  audit?: { enabled: boolean };
+  /**
    * Routable server catalog. Hosts that only know their servers after
    * constructing NeuroLink can supply it later via
    * `neurolink.setToolRoutingServers()` instead.
@@ -197,6 +204,38 @@ export type ToolRoutingCatalogEntry = {
   description: string;
   /** Registered tool names for this server, i.e. `${serverId}_${toolName}`. */
   toolNames: string[];
+};
+
+export type JevRoutingAuditAvailableServer = {
+  name: string;
+  does: string;
+};
+
+export type JevRoutingAuditCandidate = {
+  id: string;
+  capability: string;
+};
+
+/** Bounded server-level evidence consumed by routing evaluators. */
+export type JevRoutingAuditInput = {
+  queryWithRoutingContext: string;
+  candidateServers: JevRoutingAuditCandidate[];
+  catalogueVersion: string;
+  evidenceComplete: boolean;
+};
+
+/** Per-call snapshot; never stored on the NeuroLink instance or in a cache. */
+export type JevRoutingAuditEvidence = {
+  input: JevRoutingAuditInput;
+  provider: string;
+  model: string;
+};
+
+export type JevRoutingAuditSelection = {
+  retainedServers: string[];
+  excludedServers: string[];
+  selectionComplete: boolean;
+  excludedToolCount: number;
 };
 
 /** Internal cache entry for `ToolRoutingCache`. */

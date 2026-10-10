@@ -109,6 +109,53 @@ first version produced.
   servers than necessary — it cannot register a server that wasn't already
   configured.
 
+## Opt-in JEV routing audits
+
+Hosts can record routing evidence for an offline judge without another inference
+call. Collection is **off by default** because queries and server descriptions
+may contain user data. Enable collection explicitly; a feature flag is optional:
+
+```typescript
+const nl = new NeuroLink({
+  toolRouting: {
+    enabled: true,
+    audit: { enabled: true },
+  },
+});
+```
+
+After successful TypeSafe/JEV server routing, NeuroLink creates one native
+`jev-routing-audit` child on the existing active trace. The existing exporter
+sends it; this also works when the host owns the OpenTelemetry provider. There
+is no separate environment, Langfuse client or audit exporter to configure.
+
+- **Input:** the actual context-enriched decision query, candidate server
+  descriptions, catalogue fingerprint and evidence-completeness flag. Tool
+  schemas, credentials and unrelated state are not copied.
+- **Output:** final retained/excluded candidate servers after routing guards,
+  excluded tool count, strategy, outcome and `evaluable`.
+- **Bounds:** 6,000 query characters, 64 candidates, 256 characters per ID,
+  1,000 per description and 24,000 serialized input characters. Truncated
+  evidence is non-evaluable; an oversized serialized payload is omitted.
+- Cache hits, generative fallback, other decision providers, unapplied/cancelled
+  decisions and non-recording traces do not create a JEV audit. Existing manual
+  exclusions and partial server availability are non-evaluable so a judge cannot
+  falsely attribute policy removals to JEV. This is server-level routing evidence,
+  not a check of arguments, executed tools or the final answer.
+
+In Langfuse, filter observations by name `jev-routing-audit` and the host's
+existing environment. Map evaluator variables to that observation's input and
+output; an evaluator must treat `evaluable: false` as unknown. Judge execution is
+configured separately in Langfuse and is not triggered by this SDK option alone.
+
+When adopting this SDK support, remove any application-level decision wrapper
+and synthetic audit-span processor before enabling it. Running both would
+duplicate audit children. Keep the host's existing exporter; collection can be
+controlled by a boolean or the host's feature flag.
+
+Offline proof: `pnpm run test:jev-routing-audit`. It also runs as part of
+`pnpm run test:tool-routing` / `pnpm run test:unit`.
+
 ## See also
 
 - [The `decide` inference type](/docs/features/decide-inference-type)

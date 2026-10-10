@@ -372,6 +372,19 @@ export const SYSTEM_LIMITS = {
 // Pre-call tool routing: hard ceiling for the router LLM call before failing open
 export const DEFAULT_TOOL_ROUTING_TIMEOUT_MS = 15000;
 
+export const JEV_ROUTING_AUDIT_LIMITS = {
+  queryCharacters: 6000,
+  candidateServers: 64,
+  serverIdCharacters: 256,
+  capabilityCharacters: 1000,
+  serializedInputCharacters: 24000,
+} as const;
+
+export const JEV_ROUTING_AUDIT_OBSERVATION_NAME = "jev-routing-audit";
+export const JEV_ROUTING_AUDIT_PROVIDER = "typesafe";
+export const JEV_ROUTING_AUDIT_SCHEMA_VERSION = "1";
+export const JEV_ROUTING_AUDIT_COMPONENT = "[JevRoutingAudit]";
+
 // Environment Variable Support (for future use)
 export const ENV_DEFAULTS = {
   maxTokens: (() => {
