@@ -118,10 +118,11 @@ import {
   resolve as resolvePath,
 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { spawn as spawnProcess } from "node:child_process";
+import { spawn as spawnProcess, spawnSync } from "node:child_process";
 import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import http from "node:http";
 import AdmZip from "adm-zip";
+import { parse as parseDotenv } from "dotenv";
 
 const CLI_DIST_PATH = pathJoin(process.cwd(), "dist", "cli", "index.js");
 
@@ -408,6 +409,118 @@ function appendDecoyMediaBox(
     `\n999 0 obj\n<< /Type /XObject /Subtype /Form /MediaBox [0 0 ${widthPoints} ${heightPoints}] >>\nendobj\n`,
   );
   return Buffer.concat([pdf, decoy]);
+}
+
+type PromptStep = {
+  /** Text that must have been printed since the previous answer was sent. */
+  waitFor: string;
+  /** Keystrokes to send once it has, and the output has gone quiet. */
+  send: string;
+  /** What the previous answer was, for the diagnostic when this step stalls. */
+  label?: string;
+  /**
+   * Text that means the CLI took a different branch than the case expects.
+   * Stops at once instead of waiting out the bound.
+   */
+  failOn?: string;
+};
+
+type DrivenCli = {
+  output: string;
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stepsDone: number;
+  aborted?: string;
+};
+
+const KEY_ENTER = "\r";
+const KEY_DOWN = `${String.fromCharCode(27)}[B`;
+const KEY_CLEAR_LINE = String.fromCharCode(21);
+const ANSI_ESCAPE = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`,
+  "g",
+);
+
+/**
+ * Run the built CLI with its stdin and stdout piped and answer its inquirer
+ * prompts one at a time. An answer is sent only after the prompt it belongs to
+ * has been printed and the output has been quiet for 200 ms, so a re-render
+ * of the same prompt is never mistaken for the next one. HOME and the working
+ * directory are the caller's temp directory and the environment carries
+ * nothing else, so no real credential is read and nothing real is written.
+ */
+function driveCliPrompts(options: {
+  args: readonly string[];
+  nodeArgs?: readonly string[];
+  cwd: string;
+  steps: readonly PromptStep[];
+  env?: Readonly<Record<string, string>>;
+  limitMs?: number;
+}): Promise<DrivenCli> {
+  return new Promise((resolve) => {
+    const child = spawnProcess(
+      process.execPath,
+      [...(options.nodeArgs ?? []), CLI_DIST_PATH, ...options.args],
+      {
+        cwd: options.cwd,
+        env: {
+          PATH: process.env.PATH ?? "",
+          HOME: options.cwd,
+          NO_COLOR: "1",
+          ...options.env,
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    child.stdin.on("error", () => {});
+    let raw = "";
+    let cursor = 0;
+    let next = 0;
+    let aborted: string | undefined;
+    let quiet: NodeJS.Timeout | undefined;
+
+    const answer = () => {
+      const step = options.steps[next];
+      if (!step) {
+        return;
+      }
+      const seen = raw.slice(cursor).replace(ANSI_ESCAPE, "");
+      if (step.failOn && seen.includes(step.failOn)) {
+        aborted = `step ${next} (${step.label ?? step.waitFor}): saw the later prompt instead`;
+        child.kill("SIGKILL");
+        return;
+      }
+      if (seen.includes(step.waitFor)) {
+        cursor = raw.length;
+        next += 1;
+        child.stdin.write(step.send);
+      }
+    };
+    const onData = (chunk: Buffer) => {
+      raw += chunk.toString();
+      clearTimeout(quiet);
+      quiet = setTimeout(answer, 200);
+    };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+
+    const bound = setTimeout(() => {
+      aborted ??= `step ${next} never appeared before the ${options.limitMs ?? 40_000} ms bound`;
+      child.kill("SIGKILL");
+    }, options.limitMs ?? 40_000);
+
+    child.on("close", (status, signal) => {
+      clearTimeout(bound);
+      clearTimeout(quiet);
+      resolve({
+        output: raw.replace(ANSI_ESCAPE, ""),
+        status,
+        signal,
+        stepsDone: next,
+        aborted,
+      });
+    });
+  });
 }
 
 // ============================================================================
@@ -11524,6 +11637,368 @@ exit 127
         if (failed.length > 0) {
           console.log(
             `    [diagnostic] setup wizard output mismatch in: ${failed.join("; ")}`,
+          );
+        }
+        return failed.length === 0;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- setup: prompts driven through the built CLI ----------
+  // Three setup paths hold input the user types at a prompt, and each had a
+  // flaw only a typed answer reaches: the Azure endpoint check, the Vertex
+  // private key written into .env, and the SageMaker credential-store handle.
+  // Each case answers the real inquirer prompts of dist/cli/index.js through
+  // driveCliPrompts, with HOME and the working directory in a temp directory
+  // and no credential in the environment.
+  {
+    name: "CLI setup azure: the endpoint prompt takes only hosts under openai.azure.com, compared on the parsed hostname",
+    category: "cli",
+    fn: async () => {
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error("Build the CLI before running Azure endpoint coverage");
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-azure-endpoint-"));
+      try {
+        const rejection = "Endpoint should be an Azure OpenAI URL";
+        const nextPrompt = "Do you want to specify an Azure OpenAI model";
+        // The first has the suffix only in its query string. The others carry
+        // it in a host that is not a subdomain of openai.azure.com: a longer
+        // host that merely starts with it, a label glued on in front of it,
+        // and userinfo that makes the real host evil.example.
+        const lookalikes = [
+          "https://evil.example/?x=.openai.azure.com",
+          "https://openai.azure.com.evil.example/",
+          "https://evilopenai.azure.com/",
+          "https://x.openai.azure.com@evil.example/",
+          "https://evil.example/.openai.azure.com",
+        ];
+        const accepted = "https://my-resource.openai.azure.com/";
+        const steps: PromptStep[] = [
+          {
+            waitFor: "Enter your Azure OpenAI API key:",
+            send: `${"0123456789abcdef".repeat(2)}${KEY_ENTER}`,
+          },
+          {
+            waitFor: "Enter your Azure OpenAI endpoint URL:",
+            send: `${lookalikes[0]}${KEY_ENTER}`,
+          },
+          ...lookalikes.slice(1).map((url, index) => ({
+            waitFor: rejection,
+            label: `${lookalikes[index]} should be refused`,
+            failOn: nextPrompt,
+            send: `${KEY_CLEAR_LINE}${url}${KEY_ENTER}`,
+          })),
+          {
+            waitFor: rejection,
+            label: `${lookalikes[lookalikes.length - 1]} should be refused`,
+            failOn: nextPrompt,
+            send: `${KEY_CLEAR_LINE}${accepted}${KEY_ENTER}`,
+          },
+          { waitFor: nextPrompt, send: `n${KEY_ENTER}` },
+        ];
+        const r = await driveCliPrompts({
+          args: ["setup", "azure"],
+          cwd: dir,
+          steps,
+        });
+        const envFile = pathJoin(dir, ".env");
+        const written = existsSync(envFile)
+          ? readFileSync(envFile, "utf8")
+          : "";
+        const failed: string[] = [];
+        const check = (label: string, ok: boolean) => {
+          if (!ok) {
+            failed.push(label);
+          }
+        };
+        check("the run was not aborted", r.aborted === undefined);
+        check(
+          "ended on its own with exit 0",
+          r.status === 0 && r.signal === null,
+        );
+        check("every answer was consumed", r.stepsDone === steps.length);
+        check(
+          "the refusal was printed once per look-alike",
+          r.output.split(rejection).length - 1 >= lookalikes.length,
+        );
+        check(
+          "the genuine endpoint was written to .env",
+          written.split("\n").includes(`AZURE_OPENAI_ENDPOINT=${accepted}`),
+        );
+        check("no look-alike host reached .env", !written.includes("evil"));
+        if (failed.length > 0) {
+          console.log(
+            `    [diagnostic] azure endpoint mismatch in: ${failed.join("; ")}${r.aborted ? ` (${r.aborted})` : ""}`,
+          );
+        }
+        return failed.length === 0;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI setup vertex: a typed private key cannot close its quoted .env value, and a pasted \\n still reads back as a line break",
+    category: "cli",
+    fn: async () => {
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error("Build the CLI before running Vertex key coverage");
+      }
+      const failed: string[] = [];
+      const check = (label: string, ok: boolean) => {
+        if (!ok) {
+          failed.push(label);
+        }
+      };
+      const answerVertex = (dir: string, key: string): Promise<DrivenCli> =>
+        driveCliPrompts({
+          args: ["setup", "--provider", "vertex"],
+          cwd: dir,
+          steps: [
+            {
+              waitFor: "Which authentication method would you like to use?",
+              send: `${KEY_DOWN}${KEY_DOWN}${KEY_ENTER}`,
+            },
+            {
+              waitFor: "Enter your service account client email",
+              send: `svc@proj-123.iam.gserviceaccount.com${KEY_ENTER}`,
+            },
+            {
+              waitFor: "Enter your service account private key:",
+              send: `${key}${KEY_ENTER}`,
+            },
+            {
+              waitFor: "Enter your Google Cloud Project ID:",
+              send: `my-test-project${KEY_ENTER}`,
+            },
+            {
+              waitFor: "Enter your Google Vertex AI location",
+              send: KEY_ENTER,
+            },
+          ],
+        });
+      const escapeDir = mkdtempSync(
+        pathJoin(tmpdir(), "cli-setup-vertex-escape-"),
+      );
+      const newlineDir = mkdtempSync(
+        pathJoin(tmpdir(), "cli-setup-vertex-newlines-"),
+      );
+      try {
+        // A backslash typed in front of a quote. The validator only asks for
+        // the BEGIN and END markers, so this is an accepted key. Written with
+        // the quote escaped but the backslash not, the value closes at that
+        // quote and `touch` runs as its own command when a shell sources the
+        // .env file; here it would create `marker` in the temp directory.
+        const marker = "ESCAPED-THE-VALUE";
+        const typed = `-----BEGIN PRIVATE KEY-----\\"; touch ${marker}; echo \\"-----END PRIVATE KEY-----`;
+        const escaped = await answerVertex(escapeDir, typed);
+        const sourced = spawnSync(
+          "sh",
+          ["-c", '. ./.env; printf %s "$GOOGLE_AUTH_PRIVATE_KEY"'],
+          {
+            cwd: escapeDir,
+            env: { PATH: process.env.PATH ?? "" },
+            encoding: "utf8",
+            timeout: 10_000,
+            killSignal: "SIGKILL",
+          },
+        );
+        check(
+          "typed key: the run was not aborted",
+          escaped.aborted === undefined,
+        );
+        check(
+          "typed key: ended on its own with exit 0",
+          escaped.status === 0 && escaped.signal === null,
+        );
+        check(
+          "typed key: the wizard reported the setup complete",
+          /Google Vertex setup complete with Method 3/.test(escaped.output),
+        );
+        check(
+          "typed key: sourcing the .env file exited 0",
+          sourced.status === 0,
+        );
+        check(
+          "typed key: no command ran out of the key value",
+          !existsSync(pathJoin(escapeDir, marker)),
+        );
+        check(
+          "typed key: the shell reads back exactly the key that was typed",
+          sourced.stdout === typed,
+        );
+
+        // How a key arrives from a service-account JSON file: the two
+        // characters backslash-n where a line break belongs. Escaping every
+        // backslash blindly would turn each into a doubled backslash that the
+        // .env loader no longer expands, so the second half of this case
+        // pins that it still is. The original code passes this half; a
+        // naive fix does not.
+        const pem =
+          "-----BEGIN PRIVATE KEY-----\nQUJDREVGRw==\n-----END PRIVATE KEY-----";
+        const pasted = await answerVertex(
+          newlineDir,
+          pem.replace(/\n/g, "\\n"),
+        );
+        const envFile = pathJoin(newlineDir, ".env");
+        const loaded = existsSync(envFile)
+          ? parseDotenv(readFileSync(envFile, "utf8"))
+          : {};
+        check(
+          "pasted key: the run was not aborted",
+          pasted.aborted === undefined,
+        );
+        check(
+          "pasted key: ended on its own with exit 0",
+          pasted.status === 0 && pasted.signal === null,
+        );
+        check(
+          "pasted key: dotenv reads the key back with real line breaks",
+          loaded.GOOGLE_AUTH_PRIVATE_KEY === pem,
+        );
+        check(
+          "pasted key: the lines after the key are intact",
+          loaded.GOOGLE_VERTEX_PROJECT === "my-test-project" &&
+            loaded.GOOGLE_VERTEX_LOCATION === "us-central1",
+        );
+        if (failed.length > 0) {
+          console.log(
+            `    [diagnostic] vertex key escaping mismatch in: ${failed.join("; ")}${escaped.aborted ? ` (typed key: ${escaped.aborted})` : ""}${pasted.aborted ? ` (pasted key: ${pasted.aborted})` : ""}`,
+          );
+        }
+        return failed.length === 0;
+      } finally {
+        rmSync(escapeDir, { recursive: true, force: true });
+        rmSync(newlineDir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI setup sagemaker: the interactive setup completes and draws no credential-store handle from Math.random",
+    category: "cli",
+    fn: async () => {
+      if (!existsSync(CLI_DIST_PATH)) {
+        throw new Error(
+          "Build the CLI before running SageMaker setup coverage",
+        );
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-sagemaker-"));
+      try {
+        // Preloaded into the CLI process. It wraps Math.random and, at exit,
+        // writes down the immediate caller of every call that came from a file
+        // named sagemakerCommandFactory. The handle is only a key into a
+        // private in-process map, so nothing the CLI prints shows how it was
+        // made; the callers of Math.random are the one place it can be seen.
+        const probe = pathJoin(dir, "math-random-probe.mjs");
+        writeFileSync(
+          probe,
+          [
+            'import { writeFileSync } from "node:fs";',
+            "const real = Math.random;",
+            "const callers = [];",
+            "Math.random = function probedRandom() {",
+            '  const frames = (new Error().stack ?? "").split("\\n").slice(2, 4).join(" ");',
+            '  if (frames.includes("sagemakerCommandFactory")) callers.push(frames.trim());',
+            "  return real.call(Math);",
+            "};",
+            'process.on("exit", () => {',
+            "  writeFileSync(process.env.MATH_RANDOM_PROBE_OUT, JSON.stringify(callers));",
+            "});",
+            "",
+          ].join("\n"),
+        );
+        const probeArg = pathToFileURL(probe).href;
+
+        // Positive control: the same probe must catch a Math.random call made
+        // from a file with that name, or an empty list below says nothing.
+        const controlOut = pathJoin(dir, "control.json");
+        const controlFile = pathJoin(dir, "sagemakerCommandFactory.mjs");
+        writeFileSync(controlFile, "Math.random();\n");
+        const control = spawnSync(
+          process.execPath,
+          ["--import", probeArg, controlFile],
+          {
+            cwd: dir,
+            env: {
+              PATH: process.env.PATH ?? "",
+              MATH_RANDOM_PROBE_OUT: controlOut,
+            },
+            encoding: "utf8",
+            timeout: 20_000,
+            killSignal: "SIGKILL",
+          },
+        );
+        const controlCallers: unknown = existsSync(controlOut)
+          ? JSON.parse(readFileSync(controlOut, "utf8"))
+          : null;
+
+        const probeOut = pathJoin(dir, "calls.json");
+        const r = await driveCliPrompts({
+          args: ["sagemaker", "setup"],
+          nodeArgs: ["--import", probeArg],
+          env: { MATH_RANDOM_PROBE_OUT: probeOut },
+          cwd: dir,
+          steps: [
+            { waitFor: "want to proceed?", send: `y${KEY_ENTER}` },
+            {
+              waitFor: "AWS Access Key ID:",
+              send: `AKIAFAKEFAKEFAKE${KEY_ENTER}`,
+            },
+            {
+              waitFor: "AWS Secret Access Key:",
+              send: `fakesecretfakesecretfakesecret${KEY_ENTER}`,
+            },
+            { waitFor: "AWS Region:", send: KEY_ENTER },
+            {
+              waitFor: "Default SageMaker Endpoint Name:",
+              send: `my-endpoint${KEY_ENTER}`,
+            },
+            { waitFor: "Request timeout (ms):", send: KEY_ENTER },
+            { waitFor: "Maximum retry attempts:", send: KEY_ENTER },
+          ],
+        });
+        const callers: unknown = existsSync(probeOut)
+          ? JSON.parse(readFileSync(probeOut, "utf8"))
+          : null;
+
+        const failed: string[] = [];
+        const check = (label: string, ok: boolean) => {
+          if (!ok) {
+            failed.push(label);
+          }
+        };
+        check(
+          "control: the probe sees Math.random called from that file name",
+          control.status === 0 &&
+            Array.isArray(controlCallers) &&
+            controlCallers.length === 1,
+        );
+        check("the run was not aborted", r.aborted === undefined);
+        check(
+          "ended on its own with exit 0",
+          r.status === 0 && r.signal === null,
+        );
+        check(
+          "the setup reached its completion banner",
+          r.output.includes("SageMaker setup complete!"),
+        );
+        check(
+          "the validated-configuration summary was printed",
+          r.output.includes("Secure configuration validated"),
+        );
+        check(
+          "the probe wrote its list from the CLI process",
+          Array.isArray(callers),
+        );
+        check(
+          "no Math.random call came out of sagemakerCommandFactory",
+          Array.isArray(callers) && callers.length === 0,
+        );
+        if (failed.length > 0) {
+          console.log(
+            `    [diagnostic] sagemaker setup mismatch in: ${failed.join("; ")}${r.aborted ? ` (${r.aborted})` : ""}${Array.isArray(callers) && callers.length > 0 ? ` (first caller: ${String(callers[0]).slice(0, 160)})` : ""}`,
           );
         }
         return failed.length === 0;
