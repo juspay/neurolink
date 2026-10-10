@@ -430,6 +430,7 @@ console.log(result.content);
 - [Schema](type-aliases/Schema.md)
 - [FlexibleSchema](type-aliases/FlexibleSchema.md)
 - [InferSchema](type-aliases/InferSchema.md)
+- [ToolCallOptions](type-aliases/ToolCallOptions.md)
 - [ToolExecuteFunction](type-aliases/ToolExecuteFunction.md)
 - [Tool](type-aliases/Tool.md)
 - [ToolSet](type-aliases/ToolSet.md)

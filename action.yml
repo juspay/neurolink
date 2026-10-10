@@ -230,5 +230,9 @@ outputs:
     description: "Error message if execution failed"
 
 runs:
-  using: "node20"
+  # GitHub deprecated the node20 action runtime in September 2025 and runs
+  # actions on Node 24 by default from March 2026. node24 needs runner
+  # v2.328.0 or later, which every GitHub-hosted runner has; a self-hosted
+  # runner older than that cannot start this action.
+  using: "node24"
   main: "action-dist/index.js"

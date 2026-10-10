@@ -1,9 +1,11 @@
 {
   // Typecheck the scripts and tools that CI actually depends on.
   //
-  // The root tsconfig excludes `tools` and `scripts` wholesale, and ESLint
-  // ignores `scripts/**`. That blind spot is not theoretical: the provider
-  // onboarding gate shipped with a cast asserting a field
+  // The root tsconfig excludes `tools` and `scripts` wholesale. ESLint does
+  // read both directories now, but only at the syntactic tier (no `project`,
+  // see eslint.config.js), so no type error in them is reported anywhere but
+  // here. That blind spot is not theoretical: the provider onboarding gate
+  // shipped with a cast asserting a field
   // (`OpenAICompatCatalogEntry.provider`) that does not exist, so its catalog
   // lookup silently produced {undefined} and half the gate never ran. Nothing
   // could have caught it, because the file that gates a required CI check was

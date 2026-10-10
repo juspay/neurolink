@@ -25,6 +25,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # The issue step authenticates gh with GH_TOKEN; nothing touches
+          # git remotes. Keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4

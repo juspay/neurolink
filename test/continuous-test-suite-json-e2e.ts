@@ -541,11 +541,21 @@ async function runCell(cell: Cell, sc: SchemaCase): Promise<void> {
   // output. Logged for weak breadth models (valid JSON is still guaranteed).
   const sp = sc.schema.safeParse(parsed);
   if (cell.strictSchema) {
+    // The issues describe the model's payload, so they go to the log, not into
+    // the assertion message: a message that quotes provider-ish text can be
+    // reclassified as an expected provider error and downgraded to a skip.
+    if (!sp.success) {
+      console.log(
+        `      · ${cell.provider}/${sc.name}: schema issues: ${JSON.stringify(
+          sp.error.issues.slice(0, 3),
+        )}`,
+      );
+    }
     assert(
       sp.success,
-      `schema validation failed: ${JSON.stringify(
-        sp.success ? [] : sp.error.issues.slice(0, 3),
-      )}`,
+      `schema validation failed with ${
+        sp.success ? 0 : sp.error.issues.length
+      } issue(s) (logged above)`,
     );
   } else if (!sp.success) {
     console.log(

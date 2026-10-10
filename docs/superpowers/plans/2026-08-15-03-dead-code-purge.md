@@ -8,14 +8,7 @@
 
 **Tech Stack:** TypeScript, pnpm, ESLint (custom rules enforcing this repo's 14 Critical Rules), the `tsx`-based `continuous-test-suite-*.ts` test harness (no vitest runner despite `vitest.config.ts` existing).
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/05-local-runtime-aggregator-provider-family-ollama-li.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap2-model-metadata-subsystem-model-registry-modelresol.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/04-cloud-enterprise-provider-family-googlevertex-amaz.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

@@ -35,6 +35,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Nothing after this step pushes; Pages deploys from the uploaded
+          # artifact. Keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

@@ -5,8 +5,7 @@
  * Demonstrates advanced registry patterns with optional methods
  */
 
-// @ts-expect-error -- createMCPRegistry may not have published types
-import { createMCPRegistry } from "@juspay/neurolink/mcp";
+import { MCPToolRegistry } from "@juspay/neurolink";
 import { fileURLToPath } from "url";
 
 async function registryInterfaceDemo() {
@@ -15,11 +14,7 @@ async function registryInterfaceDemo() {
 
   try {
     console.log("1. Creating MCP registry with optional methods...");
-    const registry = await createMCPRegistry({
-      autoDiscovery: true,
-      caching: true,
-      fallback: true,
-    });
+    const registry = new MCPToolRegistry();
 
     console.log("2. Testing optional method patterns...");
 

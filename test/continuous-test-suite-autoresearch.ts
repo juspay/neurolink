@@ -1349,6 +1349,33 @@ let g2TaskResult: import("../src/lib/types/index.js").TaskRunResult | null =
   null;
 let g2EmittedEvents: string[] = [];
 
+const CHILD_STDERR_LOG_LIMIT = 4000;
+
+/**
+ * The tail of a child's stderr, safe to print to a CI log: every value of a
+ * credential-shaped environment variable is masked, as are bearer tokens and
+ * `key=`/`token:` style assignments the child may have echoed.
+ */
+function childStderrForLog(stderr: string): string {
+  let text = stderr.slice(-CHILD_STDERR_LOG_LIMIT);
+  for (const [name, value] of Object.entries(process.env)) {
+    if (
+      value &&
+      value.length >= 8 &&
+      /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(name)
+    ) {
+      text = text.split(value).join("***");
+    }
+  }
+  return text
+    .replace(/(bearer\s+)[\w.~+/=-]+/gi, "$1***")
+    .replace(
+      /((?:api[_-]?key|token|secret|password|authorization)["']?\s*[:=]\s*["']?)[^\s"',]+/gi,
+      "$1***",
+    )
+    .trim();
+}
+
 async function testG2ExecuteAutoresearchTick(): Promise<boolean | null> {
   harnessLog(
     "\n--- Group 2.1: Create and run an autoresearch task through nl.tasks ---",
@@ -1373,8 +1400,15 @@ async function testG2ExecuteAutoresearchTick(): Promise<boolean | null> {
           }),
         ],
         { timeout: 180_000, killSignal: "SIGKILL", maxBuffer: 4 * 1024 * 1024 },
-        (error, output) => {
+        (error, output, stderr) => {
           if (error) {
+            // The child's stderr is the only record of WHY it failed, so it is
+            // printed — but to the log, never into the error message: the
+            // message is what the harness classifies, and stderr full of
+            // provider text could turn a real failure into a skip.
+            console.error(
+              `    [child stderr, last ${CHILD_STDERR_LOG_LIMIT} chars, credentials masked]\n${childStderrForLog(String(stderr))}`,
+            );
             reject(
               new Error("the public TaskManager child failed", {
                 cause: error,

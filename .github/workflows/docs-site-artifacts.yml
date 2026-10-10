@@ -52,6 +52,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Only `git status` runs after this, which needs no credentials.
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -79,6 +82,17 @@ jobs:
       - name: Install docs-site dependencies
         working-directory: docs-site
         run: pnpm install --frozen-lockfile
+
+      # The plugin's own regression test: two filesystem enumeration orders
+      # must emit the same bytes, and object ids must survive an inserted
+      # document and a URL collision. It ran in no workflow. It lives here, not
+      # in a required job, because it needs the docs-site dependency tree
+      # (gray-matter), which only this job installs, for the reason given at
+      # the top of this file. The path filter covers the plugin, so every
+      # change to it runs this. About 1s.
+      - name: Search-index plugin reproducibility
+        working-directory: docs-site
+        run: pnpm run test:search-index-reproducibility
 
       # `pnpm run build` is sync-docs + build:llms-txt + docusaurus build. The
       # search index is a postBuild hook on the docusaurus build, so there is no

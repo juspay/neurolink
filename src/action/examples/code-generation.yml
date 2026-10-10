@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate Code
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@v12
         id: codegen
         with:
           google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}

@@ -15,6 +15,8 @@ import "dotenv/config";
  *   scripts/migration-symbol-diff.mjs review helper for refactors that move code
  *   scripts/codex-replay-listener.ts  local Codex Responses replay server
  *   pre-commit.sh                    the git hook: what it re-stages after format:staged
+ *   scripts/check-docs-api.ts         the `check:docs-api` pre-push gate (docs/api drift)
+ *   single-commit-enforcement.yml     the "Reject CI-Skip Directives" step's script
  *
  * ## Why this does not go through NeuroLink (CLAUDE.md rule 15)
  *
@@ -39,7 +41,9 @@ import "dotenv/config";
  * `npm` is stubbed for the hook cases for the same reason: codegen, tsc and
  * lint are not what is under test, and `format:staged` is replaced by a
  * formatter that rewrites the working-tree copy of every staged file, which
- * is what prettier does to a partially staged one.
+ * is what prettier does to a partially staged one. For check-docs-api, `pnpm`
+ * stands in for typedoc, prettier and svelte-kit, and rewrites a fixture
+ * docs/api the way each case needs.
  *
  * Run: npx tsx test/continuous-test-suite-tooling-scripts.ts
  *      pnpm run test:tooling-scripts
@@ -53,6 +57,7 @@ import {
   readFileSync,
   symlinkSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { request } from "node:http";
@@ -999,6 +1004,301 @@ await runSuite(async () => {
       );
     } finally {
       listener.child.kill("SIGKILL");
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  logSection("check-docs-api: regenerate docs/api and diff it");
+  // -------------------------------------------------------------------------
+
+  // The script derives the repository root from its own location, so it is
+  // copied into a fixture repository rather than run in place. typedoc,
+  // prettier and svelte-kit are not under test: `pnpm` is stubbed with a
+  // script that logs each call and, for `run docs:api`, rewrites docs/api the
+  // way STUB_MODE says. What is under test is the verdict the script reads
+  // from git afterwards, and the proof that the generator wrote something.
+  // One above the script's MINIMUM_FILES floor (1,000), so a case that removes
+  // a page still clears it and is judged on drift, not on the floor.
+  const DOCS_API_PAGES = 1_001;
+  const DOCS_API_REGEN = [
+    'const { readdirSync, writeFileSync, rmSync } = require("node:fs");',
+    'const { join } = require("node:path");',
+    'const dir = "docs/api";',
+    "const mode = process.env.STUB_MODE;",
+    'if (mode === "fail") { process.exit(2); }',
+    'if (mode === "nothing") { process.exit(0); }',
+    "const pages = readdirSync(dir).sort();",
+    "for (const name of pages) {",
+    '  const body = `# ${name}\\n` + (mode === "drift" && name === pages[0] ? "changed\\n" : "");',
+    "  writeFileSync(join(dir, name), body);",
+    "}",
+    'if (mode === "added") { writeFileSync(join(dir, "zz-new.md"), "# new\\n"); }',
+    'if (mode === "removed") { rmSync(join(dir, pages[pages.length - 1])); }',
+    "",
+  ].join("\n");
+
+  const docsApiRepo = async (prefix: string): Promise<string> => {
+    const repo = tempDir(prefix);
+    assertEqual((await git(repo, "init", "-q")).exitCode, 0, "git init failed");
+    const pages: Record<string, string> = {};
+    for (let i = 0; i < DOCS_API_PAGES; i++) {
+      const name = `page-${String(i).padStart(4, "0")}.md`;
+      pages[`docs/api/${name}`] = `# ${name}\n`;
+    }
+    writeTree(repo, pages);
+    assertEqual(
+      (await git(repo, "add", "--", "docs/api")).exitCode,
+      0,
+      "git add failed",
+    );
+    assertEqual(
+      (await git(repo, "commit", "-q", "-m", "seed")).exitCode,
+      0,
+      "git commit failed",
+    );
+    // Back-date every page, so a page the stub does not rewrite is provably
+    // older than the run, whatever the filesystem's mtime resolution.
+    const past = new Date(Date.now() - 3_600_000);
+    for (const relativePath of Object.keys(pages)) {
+      utimesSync(join(repo, relativePath), past, past);
+    }
+    mkdirSync(join(repo, "scripts"), { recursive: true });
+    copyFileSync(
+      join(REPO_ROOT, "scripts", "check-docs-api.ts"),
+      join(repo, "scripts", "check-docs-api.ts"),
+    );
+    return repo;
+  };
+
+  const runCheckDocsApi = (
+    repo: string,
+    mode: string,
+  ): Promise<{ result: ProcessResult; calls: string[] }> => {
+    const binDir = tempDir("tooling-docs-api-bin-");
+    const regen = join(binDir, "regen.cjs");
+    writeFileSync(regen, DOCS_API_REGEN);
+    const log = join(binDir, "calls.log");
+    writeFileSync(log, "");
+    const pnpm = join(binDir, "pnpm");
+    writeFileSync(
+      pnpm,
+      [
+        "#!/bin/sh",
+        `echo "$*" >> "${log}"`,
+        'case "$*" in',
+        '  "exec svelte-kit sync") exit 0 ;;',
+        `  "run docs:api") exec "${process.execPath}" "${regen}" ;;`,
+        '  "exec prettier --write docs/api") exit 0 ;;',
+        "esac",
+        "exit 97",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(pnpm, 0o755);
+    return runCommand(TSX, [join(repo, "scripts", "check-docs-api.ts")], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        DOTENV_CONFIG_PATH: "/dev/null",
+        PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
+        STUB_MODE: mode,
+      },
+      timeoutMs: 90_000,
+    }).then((result) => ({
+      result,
+      calls: readFileSync(log, "utf8").split("\n").filter(Boolean),
+    }));
+  };
+
+  await test("check-docs-api passes when the regenerated pages match the committed ones", async () => {
+    const repo = await docsApiRepo("tooling-docs-api-same-");
+    const { result, calls } = await runCheckDocsApi(repo, "same");
+    expectOutput(
+      "check-docs-api same",
+      result,
+      result.exitCode === 0 && result.stdout.includes("matches the source"),
+      "a regeneration that changes nothing must pass",
+    );
+    assertEqual(
+      calls.join("|"),
+      "exec svelte-kit sync|run docs:api|exec prettier --write docs/api",
+      "the script must run the CI step's commands in the CI step's order",
+    );
+  });
+
+  await test("check-docs-api fails on a changed, an added and a removed page", async () => {
+    for (const mode of ["drift", "added", "removed"]) {
+      const repo = await docsApiRepo(`tooling-docs-api-${mode}-`);
+      const { result } = await runCheckDocsApi(repo, mode);
+      expectOutput(
+        `check-docs-api ${mode}`,
+        result,
+        result.exitCode === 1 && result.stderr.includes("is out of date"),
+        `a regeneration that leaves docs/api different (${mode}) must fail as stale`,
+      );
+    }
+  });
+
+  await test("check-docs-api refuses to run over uncommitted docs/api edits and changes nothing", async () => {
+    const repo = await docsApiRepo("tooling-docs-api-dirty-");
+    writeTree(repo, { "docs/api/page-0000.md": "# hand edit\n" });
+    const { result, calls } = await runCheckDocsApi(repo, "same");
+    expectOutput(
+      "check-docs-api dirty",
+      result,
+      result.exitCode === 1 &&
+        result.stderr.includes("already has uncommitted changes"),
+      "a dirty docs/api must be refused before regenerating",
+    );
+    assertEqual(calls.length, 0, "no generator may run over a dirty docs/api");
+    assertEqual(
+      readFileSync(join(repo, "docs/api/page-0000.md"), "utf8"),
+      "# hand edit\n",
+      "the uncommitted edit must be left in place",
+    );
+  });
+
+  await test("check-docs-api does not trust a generator that exited 0 but wrote nothing", async () => {
+    const repo = await docsApiRepo("tooling-docs-api-nothing-");
+    const { result } = await runCheckDocsApi(repo, "nothing");
+    // An empty `git status` is exactly what this run leaves, so only the
+    // mtime proof can tell it from a real pass.
+    expectOutput(
+      "check-docs-api nothing",
+      result,
+      result.exitCode === 1 && result.stderr.includes("did not write"),
+      "a run that rewrote no page must not be reported as current",
+    );
+  });
+
+  await test("check-docs-api fails when the generator fails", async () => {
+    const repo = await docsApiRepo("tooling-docs-api-fail-");
+    const { result, calls } = await runCheckDocsApi(repo, "fail");
+    expectOutput(
+      "check-docs-api fail",
+      result,
+      result.exitCode === 1 &&
+        result.stderr.includes("`pnpm run docs:api` failed"),
+      "a failing typedoc step must fail the check",
+    );
+    assert(
+      !calls.includes("exec prettier --write docs/api"),
+      "nothing may run after the generator fails",
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  logSection("single-commit-enforcement.yml: the CI-skip directive step");
+  // -------------------------------------------------------------------------
+
+  // The step's own `run:` script, read out of the workflow and run with the
+  // shell options GitHub uses, against real commits. The directives are
+  // assembled at runtime so this file never spells one: it is a backstop for
+  // commit messages, and a source line is not one, but there is no reason to
+  // make a reader wonder.
+  const skipStep = async (): Promise<string> => {
+    const yaml = (await import("js-yaml")).default;
+    const workflow = yaml.load(
+      readFileSync(
+        join(REPO_ROOT, ".github/workflows/single-commit-enforcement.yml"),
+        "utf8",
+      ),
+    ) as {
+      jobs: Record<string, { steps: Array<{ name?: string; run?: string }> }>;
+    };
+    const step = Object.values(workflow.jobs)
+      .flatMap((job) => job.steps)
+      .find((s) => s.name === "Reject CI-Skip Directives");
+    assertNotNull(
+      step?.run,
+      "the workflow has no Reject CI-Skip Directives step",
+    );
+    return step.run;
+  };
+
+  const runSkipStep = async (
+    script: string,
+    message: string,
+  ): Promise<ProcessResult> => {
+    const repo = tempDir("tooling-ci-skip-");
+    assertEqual((await git(repo, "init", "-q")).exitCode, 0, "git init failed");
+    writeTree(repo, { "a.txt": "a\n" });
+    await git(repo, "add", "a.txt");
+    const commit = await git(
+      repo,
+      "commit",
+      "-q",
+      "--cleanup=verbatim",
+      "-m",
+      message,
+    );
+    assertEqual(commit.exitCode, 0, "git commit failed");
+    const head = (await git(repo, "rev-parse", "HEAD")).stdout.trim();
+    const scriptFile = join(tempDir("tooling-ci-skip-step-"), "step.sh");
+    writeFileSync(scriptFile, script);
+    return runCommand(
+      "bash",
+      ["--noprofile", "--norc", "-eo", "pipefail", scriptFile],
+      {
+        cwd: repo,
+        env: { ...process.env, COMMIT_HASH: head },
+        timeoutMs: 30_000,
+      },
+    );
+  };
+
+  const bracketed = (...words: string[]): string => `[${words.join(" ")}]`;
+  const trailer = (sep: string): string => ["skip-checks", "true"].join(sep);
+
+  await test("the CI-skip step rejects every bracketed directive and a skip-checks trailer", async () => {
+    const script = await skipStep();
+    const rejected: Array<[string, string]> = [
+      ["bracketed, subject", `fix(x): thing ${bracketed("skip", "ci")}`],
+      [
+        "bracketed, body",
+        `fix(x): thing\n\nquoting ${bracketed("ci", "skip")} here`,
+      ],
+      ["no ci", `fix(x): thing\n\n${bracketed("no", "ci")}`],
+      ["skip actions", `fix(x): thing\n\n${bracketed("skip", "actions")}`],
+      ["actions skip", `fix(x): thing\n\n${bracketed("actions", "skip")}`],
+      ["trailer with a space", `fix(x): thing\n\nbody\n\n\n${trailer(": ")}`],
+      ["trailer without a space", `fix(x): thing\n\nbody\n\n\n${trailer(":")}`],
+      ["trailer, any case", `fix(x): thing\n\n${trailer(": ").toUpperCase()}`],
+    ];
+    for (const [label, message] of rejected) {
+      const result = await runSkipStep(script, message);
+      expectOutput(
+        `ci-skip ${label}`,
+        result,
+        result.exitCode === 1 && result.stdout.includes("POLICY VIOLATION"),
+        `the step must reject a message carrying a directive (${label})`,
+      );
+    }
+  });
+
+  await test("the CI-skip step accepts a broken-up directive and a trailer that is not one", async () => {
+    const script = await skipStep();
+    const accepted: Array<[string, string]> = [
+      ["plain", "fix(x): an ordinary message\n\nwith a body"],
+      ["hyphenated", "docs(ci): explain why skip-ci must not appear"],
+      [
+        "trailer set to false",
+        `fix(x): thing\n\n${["skip-checks", "false"].join(": ")}`,
+      ],
+      [
+        "trailer quoted mid-line",
+        `fix(x): thing\n\nGitHub honours ${trailer(": ")} too`,
+      ],
+    ];
+    for (const [label, message] of accepted) {
+      const result = await runSkipStep(script, message);
+      expectOutput(
+        `ci-skip ${label}`,
+        result,
+        result.exitCode === 0 &&
+          result.stdout.includes("No CI-skip directives"),
+        `the step must accept a message with no directive (${label})`,
+      );
     }
   });
 });

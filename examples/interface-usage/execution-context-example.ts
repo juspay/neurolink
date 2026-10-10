@@ -5,8 +5,7 @@
  * Demonstrates the new ExecutionContext interface with 15+ fields
  */
 
-// @ts-expect-error -- createMCPRegistry may not have published types
-import { createMCPRegistry } from "@juspay/neurolink/mcp";
+import { MCPToolRegistry } from "@juspay/neurolink";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 
@@ -16,10 +15,7 @@ async function executionContextDemo() {
 
   try {
     // Create MCP registry
-    const registry = await createMCPRegistry({
-      autoDiscovery: true,
-      caching: true,
-    });
+    const registry = new MCPToolRegistry();
 
     console.log("1. Basic ExecutionContext...");
 

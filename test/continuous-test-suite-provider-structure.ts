@@ -746,10 +746,35 @@ await test("verify:provider-onboarding rejects a manifest missing addedInPR, fil
       output.includes(`✓ ${control}`),
       "the intact manifest must still pass in the scratch tree, or the tree measured nothing",
     );
+    // The gate prints `✗ <provider>` followed by one `    - <problem>` line per
+    // problem. A ✗ alone would also appear for an unrelated failure (a missing
+    // test row, a bad catalog entry), so each dropped provider must be
+    // rejected for the manifest field specifically.
+    const lines = output.split("\n");
+    const problemsFor = (provider: string): string[] => {
+      const start = lines.findIndex((line) => line.trim() === `✗ ${provider}`);
+      if (start === -1) {
+        return [];
+      }
+      const problems: string[] = [];
+      for (const line of lines.slice(start + 1)) {
+        if (!line.startsWith("    - ")) {
+          break;
+        }
+        problems.push(line.slice("    - ".length));
+      }
+      return problems;
+    };
     for (const { provider, field } of dropped) {
       assert(
         output.includes(`✗ ${provider}`),
         `a ${provider} manifest without ${field} must be rejected by the gate`,
+      );
+      assert(
+        problemsFor(provider).some((problem) =>
+          problem.startsWith("manifest missing required field(s)"),
+        ),
+        `the gate must reject the ${provider} manifest for its missing ${field}, not for some other problem`,
       );
     }
     assert(

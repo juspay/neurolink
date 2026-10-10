@@ -523,6 +523,8 @@ await test("the documented /autoresearch package entry is exported", async () =>
  * package root (where the package name refers to itself) against the built
  * tree. docs/api is typedoc output for the main entry and docs/plans is design
  * notes; neither tells a reader what to import, so both are out of scope.
+ * examples/ is in scope: it is code a reader runs as written, and seven of its
+ * imports named `/config` and `/mcp`, which the package never exported.
  */
 
 /** `@juspay/neurolink/` plus a subpath. The subpath may contain dots
@@ -614,12 +616,14 @@ function scanDocumentedSubpaths(): {
   found: DocumentedSpecifier[];
 } {
   const docsDir = path.join(ROOT, "docs");
+  const examplesDir = path.join(ROOT, "examples");
   const files = [
     path.join(ROOT, "README.md"),
     ...listScannedFiles(
       docsDir,
       new Set([path.join(docsDir, "api"), path.join(docsDir, "plans")]),
     ),
+    ...listScannedFiles(examplesDir, new Set()),
   ];
   const found = files.flatMap((file) => {
     const text = fs.readFileSync(file, "utf8");
@@ -675,7 +679,7 @@ console.log(JSON.stringify(outcomes));
 `;
 }
 
-await test("every @juspay/neurolink/<subpath> specifier in README.md and docs/ resolves through the package exports map", () => {
+await test("every @juspay/neurolink/<subpath> specifier in README.md, docs/ and examples/ resolves through the package exports map", () => {
   const { fileCount, found } = scanDocumentedSubpaths();
   assert(
     fileCount > 300,

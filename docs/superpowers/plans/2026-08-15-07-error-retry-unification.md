@@ -8,12 +8,7 @@
 
 **Tech Stack:** TypeScript, tsx (test suites run directly via `npx tsx`, no build step, no vitest despite `vitest.config.ts` existing), pnpm.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/09-cross-cutting-provider-concerns-tools-mcp-injectio.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

@@ -8,12 +8,7 @@
 
 **Tech Stack:** TypeScript (strict, ESM, `NodeNext` module resolution), pnpm, `tsx` for direct TS execution of test suites and CLI-only consumers, the repo's `defineSuite`/`test`/`assert`/`runSuite` harness (`test/helpers/harness.ts`) for regression suites, ESLint with this repo's custom `neurolink/*` rules for the type-placement/naming constraints.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/02-sdk-entry-orchestration-src-lib-neurolink-ts-gener.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/07-cli-env-config-surface-for-ai-providers.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

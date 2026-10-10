@@ -8,10 +8,7 @@
 
 **Tech Stack:** TypeScript (strict), pnpm, tsx-run test suites (no vitest runner), the existing `OpenAIChatCompletionsProvider` template-method base class, `test/utils/mockFetch.ts` route-based fetch interception.
 
-**Spec:**
-
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
-- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+**Spec:** derived from uncommitted audit session notes that are not in this repository; this plan is self-contained.
 
 ## Global Constraints
 

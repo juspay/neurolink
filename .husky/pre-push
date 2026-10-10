@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Cheap no-API tier: build freshness + mocked provider contracts + registry
-# structure. Keeps local pushes fast; live-credential suites run in the
-# separate nightly live-matrix.yml workflow, not on every push.
+# Cheap no-API tier: banned deps, docs/api currency, a build, then registry
+# structure and model manifests (the `pre-push` script in package.json is the
+# list). The mocked provider contracts are NOT run here — at ~4 minutes they
+# are left to CI's required provider-safety-net check. Live-credential suites
+# run in the separate nightly live-matrix.yml workflow, not on every push.
 pnpm run pre-push

@@ -8,12 +8,14 @@
  *
  *   1. the end of the last sentence that fits, if that keeps at least half the
  *      limit. A dot inside "5.6" or "v1.2" is never a sentence end, and neither
- *      is the dot that closes "e.g.", "i.e.", "cf.", "vs.", "approx.", "incl."
- *      or "resp." (case-insensitive, as a whole word): the example or the
- *      second term comes next, so a cut there would leave "... for example,
- *      e.g." with the example missing. "etc." can close a real sentence, so it
- *      counts as one only when the next word starts with an uppercase letter
- *      or the text ends;
+ *      is the dot that closes "e.g.", "i.e.", "cf.", "vs.", "viz.", "approx.",
+ *      "incl.", "resp.", "fig.", "figs.", "eq." or "eqs." (case-insensitive, as
+ *      a whole word): the example or the second term comes next, so a cut there
+ *      would leave "... for example, e.g." with the example missing. "No.",
+ *      "Nos." and "Vol." are abbreviations only before a number ("No. 5"):
+ *      "no." is also a word that ends a sentence ("The answer was no."). "etc."
+ *      can close a real sentence, so it counts as one only when the next word
+ *      starts with an uppercase letter or the text ends;
  *   2. else the last whitespace that fits, if that keeps at least half;
  *   3. else the limit itself, backed off by one if it would split a surrogate
  *      pair. That is an unbroken run (a URL, a hash, text with no spaces);
@@ -33,7 +35,11 @@
 const SECTION_CONTENT_LIMIT = 2000;
 
 const NEVER_ENDS_SENTENCE =
-  /(?:^|[^\p{L}\p{N}_])(?:e\.g|i\.e|cf|vs|approx|incl|resp)$/iu;
+  /(?:^|[^\p{L}\p{N}_])(?:e\.g|i\.e|cf|vs|viz|approx|incl|resp|figs?|eqs?)$/iu;
+// Abbreviations that are also ordinary words, so they are read as one only
+// when a number follows: "No. 5", "Nos. 3 and 4", "Vol. 2".
+const BEFORE_A_NUMBER = /(?:^|[^\p{L}\p{N}_])(?:nos?|vol)$/iu;
+const STARTS_A_NUMBER = /^\s*[#(]?\p{N}/u;
 const ETC = /(?:^|[^\p{L}\p{N}_])etc$/iu;
 // Opening quotes and brackets (\p{Pi}, \p{Ps}, and the ASCII quotes) may sit between
 // "etc." and the capital that starts the next sentence: etc. “Next ...
@@ -59,6 +65,9 @@ function closesAbbreviation(text, dotIndex, afterIndex) {
   const before = text.slice(Math.max(0, dotIndex - TOKEN_LOOKBEHIND), dotIndex);
   if (NEVER_ENDS_SENTENCE.test(before)) {
     return true;
+  }
+  if (BEFORE_A_NUMBER.test(before)) {
+    return STARTS_A_NUMBER.test(text.slice(afterIndex));
   }
   return ETC.test(before) && !STARTS_A_SENTENCE.test(text.slice(afterIndex));
 }

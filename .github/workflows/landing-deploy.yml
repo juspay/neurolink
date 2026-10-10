@@ -49,6 +49,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Vercel deploys with VERCEL_TOKEN and the comment uses the API
+          # token; nothing here pushes. Keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
 
       # package.json pins "packageManager": "pnpm@10.15.1", so `vercel build`
       # shells out to pnpm for the install. Without pnpm on the runner it dies
