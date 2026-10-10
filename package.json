@@ -161,6 +161,7 @@
     "test:decide": "pnpm exec tsx test/continuous-test-suite-decide.ts",
     "test:agent-mode": "pnpm exec tsx test/continuous-test-suite-agent-mode.ts",
     "test:servers": "pnpm exec tsx test/continuous-test-suite-servers.ts",
+    "test:server-boundaries": "pnpm exec tsx test/continuous-test-suite-server-boundaries.ts",
     "test:websocket-agent-handler": "pnpm exec tsx test/continuous-test-suite-websocket-agent-handler.ts",
     "test:tool-reliability": "pnpm exec tsx test/continuous-test-suite-tool-reliability.ts",
     "test:video-abort": "pnpm exec tsx test/continuous-test-suite-video-abort.ts",

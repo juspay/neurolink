@@ -7,8 +7,10 @@
 import { fileURLToPath, pathToFileURL } from "url";
 import { createRequire } from "node:module";
 import path from "path";
+import { lstatSync, realpathSync } from "fs";
 import dotenv from "dotenv";
 import express, { Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { NeuroLink } from "neurolink";
 import { createAIProvider } from "neurolink";
@@ -602,7 +604,7 @@ async function generateTextWithFallback(providerName, prompt, options = {}) {
 
       const responseTime = Date.now() - startTime;
 
-      console.log(`[DEBUG ${currentProvider}] Result structure:`, {
+      console.log("[DEBUG %s] Result structure:", currentProvider, {
         hasResult: !!result,
         hasText: !!(result && result.text),
         resultKeys: result ? Object.keys(result) : [],
@@ -623,7 +625,7 @@ async function generateTextWithFallback(providerName, prompt, options = {}) {
         result.message?.content;
 
       if (!content) {
-        console.error(`[${currentProvider}] Invalid response structure:`, {
+        console.error("[%s] Invalid response structure:", currentProvider, {
           resultKeys: Object.keys(result),
           resultSample: JSON.stringify(result).substring(0, 500),
         });
@@ -1472,7 +1474,14 @@ Please provide:
 app.post(
   "/api/business/summarize",
   asyncHandler(async (req: Request, res: Response) => {
-    const { text, length = "medium" } = req.body;
+    const body: unknown = req.body;
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res
+        .status(400)
+        .json(createErrorResponse("Request body must be a JSON object"));
+      return;
+    }
+    const { text, length = "medium" } = body as Record<string, unknown>;
 
     if (
       typeof text !== "string" ||
@@ -4308,42 +4317,189 @@ Note: This is AI-generated content based on training data, not real-time search.
   }),
 );
 
+function positiveIntegerFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    console.warn(
+      "[FileOps] Ignoring %s: expected a positive integer, using %d",
+      name,
+      fallback,
+    );
+    return fallback;
+  }
+  return parsed;
+}
+
+// The file route reads and writes the working directory, so it gets its own
+// per-client budget. A person using the demo makes a request per click; the
+// defaults leave that untouched and only bound a client that is looping on it.
+const fileOperationsRateLimit = rateLimit({
+  windowMs: positiveIntegerFromEnv(
+    "DEMO_FILE_OPS_RATE_LIMIT_WINDOW_MS",
+    60_000,
+  ),
+  limit: positiveIntegerFromEnv("DEMO_FILE_OPS_RATE_LIMIT_MAX", 60),
+  standardHeaders: "draft-6",
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res
+      .status(429)
+      .json(createErrorResponse("Too many file operations, try again shortly"));
+  },
+});
+
+function denyOutsideDemoDir(res: Response): void {
+  res
+    .status(403)
+    .json(
+      createErrorResponse(
+        "Access denied: Cannot operate outside demo directory",
+      ),
+    );
+}
+
+// The containment tests on this route are written out in the function that
+// uses the path, as `const inside = p === root ? root : p.startsWith(root +
+// path.sep) ? p : null`, and the filesystem call takes `inside`. The
+// separator matters, `/work/demo-evil` starts with `/work/demo`. They are not
+// a helper returning a boolean because CodeQL's js/path-injection query
+// recognises a prefix test made on the variable that reaches the call, and
+// does not follow one made inside another function.
+
+/** Where `target` really lives once every symlink on the way is followed. A
+ * path that does not exist yet (a file about to be written) is resolved
+ * through its nearest existing ancestor, which must itself stay inside
+ * `root`. Returns null for a dangling symlink, whose destination cannot be
+ * checked, or when the walk leaves `root`; other errors propagate. */
+function resolveRealPath(root: string, target: string): string | null {
+  const missing: string[] = [];
+  let existing = target;
+  for (;;) {
+    const inside =
+      existing === root
+        ? root
+        : existing.startsWith(root + path.sep)
+          ? existing
+          : null;
+    if (inside === null) {
+      return null;
+    }
+    try {
+      return path.join(realpathSync(inside), ...missing);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+    try {
+      lstatSync(inside);
+      return null;
+    } catch {
+      // Nothing is there at all, so look one level up.
+    }
+    const parent = path.dirname(inside);
+    if (parent === inside) {
+      return null;
+    }
+    missing.unshift(path.basename(inside));
+    existing = parent;
+  }
+}
+
 app.post(
   "/api/developer/file-operations",
+  fileOperationsRateLimit,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { operation, path: filePath, content } = req.body;
+    const { operation, path: filePath, content } = req.body ?? {};
 
     if (!operation) {
       res.status(400).json(createErrorResponse("Operation is required"));
       return;
     }
+    if (typeof operation !== "string") {
+      res.status(400).json(createErrorResponse("Operation must be a string"));
+      return;
+    }
+    if (
+      filePath !== undefined &&
+      filePath !== null &&
+      typeof filePath !== "string"
+    ) {
+      res.status(400).json(createErrorResponse("Path must be a string"));
+      return;
+    }
 
-    console.log(`[FileOps] Operation: ${operation}`);
+    console.log("[FileOps] Operation: %s", sanitizeForLog(operation));
 
     try {
       const fs = await import("fs");
-      const path = await import("path");
 
-      // Security: Only allow operations within demo directory
+      // Security: only allow operations within the demo directory, judged on
+      // where the path really lives (symlinks followed), not on its spelling.
       const demoDir = process.cwd();
-      const resolvedPath = filePath ? path.resolve(demoDir, filePath) : demoDir;
+      const rootDir = realpathSync(demoDir);
+      const requestedPath = filePath
+        ? path.resolve(demoDir, filePath)
+        : demoDir;
+      const resolvedPath =
+        requestedPath === demoDir
+          ? demoDir
+          : requestedPath.startsWith(demoDir + path.sep)
+            ? requestedPath
+            : null;
 
-      if (!resolvedPath.startsWith(demoDir)) {
-        res
-          .status(403)
-          .json(
-            createErrorResponse(
-              "Access denied: Cannot operate outside demo directory",
-            ),
-          );
+      if (resolvedPath === null) {
+        denyOutsideDemoDir(res);
+        return;
+      }
+
+      const followedPath = resolveRealPath(demoDir, resolvedPath);
+      const realPath =
+        followedPath === rootDir
+          ? rootDir
+          : followedPath !== null && followedPath.startsWith(rootDir + path.sep)
+            ? followedPath
+            : null;
+
+      if (realPath === null) {
+        denyOutsideDemoDir(res);
         return;
       }
 
       switch (operation) {
         case "list": {
-          const items = fs.readdirSync(resolvedPath);
+          const items = fs.readdirSync(realPath);
           const details = items.map((item) => {
-            const itemPath = path.join(resolvedPath, item);
+            const itemPath = path.resolve(realPath, item);
+            if (!itemPath.startsWith(rootDir + path.sep)) {
+              throw new Error(
+                "Access denied: Cannot operate outside demo directory",
+              );
+            }
+            const linkStats = fs.lstatSync(itemPath);
+            const linkTarget = linkStats.isSymbolicLink()
+              ? resolveRealPath(rootDir, itemPath)
+              : itemPath;
+            if (
+              linkTarget === null ||
+              !(
+                linkTarget === rootDir ||
+                linkTarget.startsWith(rootDir + path.sep)
+              )
+            ) {
+              // A link that leaves the demo directory is listed as a link;
+              // its target's size and mtime are not ours to report.
+              return {
+                name: item,
+                type: "symlink",
+                size: 0,
+                modified: linkStats.mtime.toISOString(),
+              };
+            }
             const stats = fs.statSync(itemPath);
             return {
               name: item,
@@ -4367,8 +4523,8 @@ app.post(
               );
             return;
           }
-          const fileContent = fs.readFileSync(resolvedPath, "utf-8");
-          const stats = fs.statSync(resolvedPath);
+          const fileContent = fs.readFileSync(realPath, "utf-8");
+          const stats = fs.statSync(realPath);
           res.json(
             createSuccessResponse({
               path: resolvedPath,
@@ -4391,7 +4547,13 @@ app.post(
               );
             return;
           }
-          fs.writeFileSync(resolvedPath, content, "utf-8");
+          if (typeof content !== "string") {
+            res
+              .status(400)
+              .json(createErrorResponse("Content must be a string"));
+            return;
+          }
+          fs.writeFileSync(realPath, content, "utf-8");
           res.json(
             createSuccessResponse({
               path: resolvedPath,
@@ -4405,7 +4567,11 @@ app.post(
         default:
           res
             .status(400)
-            .json(createErrorResponse(`Unknown operation: ${operation}`));
+            .json(
+              createErrorResponse(
+                `Unknown operation: ${sanitizeForLog(operation)}`,
+              ),
+            );
       }
     } catch (error) {
       const errorMessage = (error as Error).message || String(error);

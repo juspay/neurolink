@@ -620,6 +620,7 @@ jobs:
         run: |
           pnpm run test:bugfixes
           pnpm run test:file-tool-roots
+          pnpm run test:server-boundaries
           pnpm run test:tool-replay
           pnpm run test:stream-tool-telemetry
           pnpm run test:memory:hippocampus
