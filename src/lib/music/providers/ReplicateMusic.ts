@@ -23,8 +23,9 @@ import {
   downloadPredictionOutput,
   predict,
 } from "../../adapters/replicate/predictionLifecycle.js";
-import { MAX_AUDIO_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { redactUrlForError } from "../../utils/logSanitize.js";
+import { safeDownload } from "../../utils/safeFetch.js";
+import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
 
 const DEFAULT_MODEL =
   "meta/musicgen:7be0f12c54a8d033a0fbd14418c9af98962da9a86f5ff7811f9b3423a1f0b7d7";
@@ -182,61 +183,25 @@ export class ReplicateMusic implements MusicHandler {
         retriable: false,
       });
     }
+    // safeDownload vets the URL, dials only the addresses it cleared (or the
+    // configured proxy), refuses redirects and stops at the size cap. A
+    // separate check followed by a plain fetch followed redirects, so a public
+    // host answering 302 to an internal address was fetched anyway.
     try {
-      await assertSafeUrl(input);
+      return await safeDownload(input, {
+        maxBytes: MAX_AUDIO_BYTES,
+        label: "Replicate reference audio",
+        timeoutMs: 60_000,
+      });
     } catch (err) {
       throw new MusicError({
         code: MUSIC_ERROR_CODES.INVALID_INPUT,
-        message: `Unsafe URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
-      });
-    }
-    const FETCH_TIMEOUT_MS = 60_000;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let r: Response;
-    try {
-      r = await fetch(input, { signal: controller.signal });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new MusicError({
-          code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-          message: `Replicate music reference-audio fetch timed out after ${FETCH_TIMEOUT_MS / 1000}s: ${input}`,
-          category: ErrorCategory.NETWORK,
-          severity: ErrorSeverity.MEDIUM,
-          retriable: true,
-        });
-      }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-    if (!r.ok) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Failed to fetch reference audio: ${input}: ${r.status}`,
+        message: `Replicate reference audio download rejected: ${err instanceof Error ? err.message : String(err)}`,
         category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: r.status >= 500,
-      });
-    }
-    try {
-      return await readBoundedBuffer(
-        r,
-        MAX_AUDIO_BYTES,
-        "Replicate reference audio",
-      );
-    } catch (err) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.INVALID_INPUT,
-        message: `Replicate reference audio too large: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
         severity: ErrorSeverity.HIGH,
         retriable: false,
-        context: { url: input },
+        context: { url: redactUrlForError(input) },
+        originalError: err instanceof Error ? err : undefined,
       });
     }
   }

@@ -38,6 +38,8 @@ import {
   ValidationError,
   createValidationSummary,
 } from "../../utils/parameterValidation.js";
+import { messageNamesStatus } from "../../utils/errorClassifier.js";
+import { duckTypedStatusCode } from "../../utils/providerRetry.js";
 import { STEP_LIMITS } from "../constants.js";
 
 /**
@@ -462,11 +464,14 @@ export class Utilities {
       );
     }
 
-    // Common rate limit errors
+    // Common rate limit errors. A 429 counts from the error's status or where
+    // the text writes it as a status, not from any "429" in the message (a
+    // token count, an id, a validation message quoting a limit).
     if (
       message.includes("rate limit") ||
       message.includes("quota") ||
-      message.includes("429")
+      duckTypedStatusCode(error) === 429 ||
+      messageNamesStatus(message, 429)
     ) {
       return new Error(
         `Rate limit exceeded for ${this.providerName}. Please wait before making more requests.`,

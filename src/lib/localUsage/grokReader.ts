@@ -115,11 +115,14 @@ function emptyTotals(): LocalUsageTotals {
   };
 }
 
+/** Whether `value` is a count: a finite, non-negative safe integer. */
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
 /** A finite, non-negative safe integer, or 0. */
 function count(value: unknown): number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-    ? value
-    : 0;
+  return isCount(value) ? value : 0;
 }
 
 function isMissing(error: unknown): boolean {
@@ -221,6 +224,14 @@ function continuesRun(
 
 const USAGE_COUNTERS = ["inputTokens", "outputTokens", "modelCalls"] as const;
 
+/** Every field `readTurn()` reads through `count()`. */
+const COUNTED_FIELDS = [
+  ...USAGE_COUNTERS,
+  "cachedReadTokens",
+  "cacheCreationTokens",
+  "numTurns",
+] as const;
+
 /**
  * Whether `usage` is shaped like the ledger Grok writes: an object, not an
  * array, with at least one of the counters a turn that reached a model always
@@ -233,12 +244,18 @@ function isTurnUsage(usage: unknown): usage is LocalUsageGrokTurnUsage {
     return false;
   }
   const record = usage as Record<string, unknown>;
-  // `1e999` parses as Infinity, which is a number but not a count: `count()`
-  // reads it as 0, so one such field made a malformed turn a zero-token request.
-  const counters = USAGE_COUNTERS.map((key) => record[key]).filter(
-    (value): value is number => typeof value === "number",
+  // `count()` reads anything that is not a count as 0: `1e999` (which parses as
+  // Infinity), `-5`, `2.5`, `2**60`, a numeric string. A turn carrying one was
+  // billed as a request with that counter at zero, so it is rejected here, by
+  // the same rule `count()` applies, and reported as unrecognised instead. A
+  // field that is absent (or null) still reads as 0; at least one of the core
+  // counters must be present.
+  const absent = (value: unknown): boolean =>
+    value === undefined || value === null;
+  return (
+    USAGE_COUNTERS.some((key) => !absent(record[key])) &&
+    COUNTED_FIELDS.every((key) => absent(record[key]) || isCount(record[key]))
   );
-  return counters.length > 0 && counters.every(Number.isFinite);
 }
 
 function completedTurn(parsed: unknown): {

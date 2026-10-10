@@ -2834,6 +2834,64 @@ async function testGrokReader(): Promise<void> {
     );
   });
 
+  await test("Grok Build reader rejects a negative, fractional or unsafe usage counter, like a non-finite one", async () => {
+    // `count()` reads anything that is not a non-negative safe integer as 0,
+    // but the shape check only refused non-finite numbers, so each of these
+    // turns was billed as one request with that counter at zero. They must be
+    // refused and reported the same way, and the good turn still counted.
+    const bad = (promptId: string, usage: Record<string, unknown>) =>
+      grokUpdate(
+        A,
+        { sessionUpdate: "turn_completed", prompt_id: promptId, usage },
+        2,
+      );
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "good",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          bad("negative", { inputTokens: -5, outputTokens: 1, modelCalls: 1 }),
+          bad("fraction", { inputTokens: 7, outputTokens: 2.5, modelCalls: 1 }),
+          bad("unsafe", {
+            inputTokens: 2 ** 60,
+            outputTokens: 1,
+            modelCalls: 1,
+          }),
+          bad("string", { inputTokens: "9", outputTokens: 1, modelCalls: 1 }),
+          bad("cache", {
+            inputTokens: 3,
+            outputTokens: 1,
+            modelCalls: 1,
+            cachedReadTokens: -1,
+          }),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the session stream was never opened",
+    );
+    assert(
+      result.totals.requests === 1 &&
+        result.totals.inputTokens === 100 &&
+        result.totals.outputTokens === 10,
+      "Grok reader counted a turn whose usage counter is not a non-negative integer",
+    );
+    assert(
+      result.errors.length === 1 && result.errors[0]?.cliId === "grok",
+      "Grok reader dropped an invalid usage counter silently instead of reporting it",
+    );
+  });
+
   await test("Grok Build reader drops the earlier turn when its later replacement cannot be read", async () => {
     // A prompt id seen twice keeps its later record (last write wins). When
     // that later record has no recognisable usage, the earlier reading used to

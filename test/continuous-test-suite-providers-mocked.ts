@@ -19,6 +19,7 @@ import type { ZodType } from "zod";
 import type { JSONSchema7 } from "json-schema";
 import {
   IDEOGRAM_FIXTURE_HOST,
+  MEDIA_FIXTURE_HOST,
   RECRAFT_FIXTURE_HOST,
   withImageDownloadProxy,
   withImageDownloadTransport,
@@ -3992,6 +3993,746 @@ async function runImageDnsRebindingSection(): Promise<void> {
         err instanceof Error ? err.message : String(err),
       );
     }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: status digits in a vendor's error text (embedding, image-gen
+// and Replicate providers)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * These providers' error formatters once tested the bare digits ("401",
+ * "429", "404") against the message, so a validation 400 whose body merely
+ * mentions one — a quoted limit, an id, a token count — was reported as an
+ * auth failure, a rate limit (and retried) or a missing model. Each case
+ * answers a 400 (or a 404 that names no model, which is what a wrong base URL
+ * answers) and requires the vendor's own generic error, not the override.
+ * The "names the status" cases keep the other half honest: a 400 whose text
+ * writes the status as a status (a relay wrapping an upstream reply) is still
+ * caught, so the tightening did not simply delete the rules.
+ */
+const STATUS_DIGIT_BODY = (code: number): unknown => ({
+  error: { message: `the offset value (${code}) is not accepted here` },
+});
+
+/** What the status-digit mocks answer next; each case sets it before its call. */
+let currentDigitResponse: {
+  status: number;
+  json: unknown;
+  headers?: Record<string, string>;
+} = { status: 400, json: {} };
+
+async function runStatusDigitsSection(): Promise<void> {
+  console.log("\n=== status digits in vendor error text ===");
+  const {
+    NeuroLink,
+    ProviderFactory,
+    AuthenticationError,
+    RateLimitError,
+    InvalidModelError,
+  } = await import("../dist/index.js");
+
+  /** Run `call`, return the error's message and whether it is each class. */
+  const failureOf = async (
+    call: () => Promise<unknown>,
+  ): Promise<{
+    threw: boolean;
+    message: string;
+    auth: boolean;
+    rate: boolean;
+    model: boolean;
+  }> => {
+    try {
+      await call();
+      return {
+        threw: false,
+        message: "",
+        auth: false,
+        rate: false,
+        model: false,
+      };
+    } catch (err) {
+      return {
+        threw: true,
+        message: err instanceof Error ? err.message : String(err),
+        auth: err instanceof AuthenticationError,
+        rate: err instanceof RateLimitError,
+        model: err instanceof InvalidModelError,
+      };
+    }
+  };
+
+  type DigitCase = {
+    provider: string;
+    model: string;
+    envVar: string;
+    url: string;
+    /** The provider's generic-error prefix, which a fall-through must carry. */
+    generic: string;
+    rateLimit: string;
+    auth: string;
+    /** Its own missing-model wording, when it has one. */
+    missingModel?: string;
+    call: () => Promise<unknown>;
+  };
+
+  const embed = (provider: string, model: string) => async () => {
+    const created = (await ProviderFactory.createProvider(
+      provider,
+      model,
+    )) as unknown as { embed: (s: string) => Promise<number[]> };
+    return created.embed("hello world");
+  };
+  const image = (provider: string, model: string) => () =>
+    new NeuroLink({ conversationMemory: { enabled: false } }).generate({
+      provider,
+      model,
+      input: { text: "A poster" },
+      disableTools: true,
+    });
+
+  const cases: DigitCase[] = [
+    {
+      provider: "voyage",
+      model: "voyage-3.5",
+      envVar: "VOYAGE_API_KEY",
+      url: "api.voyageai.com/v1/embeddings",
+      generic: "Voyage AI error:",
+      rateLimit: "Voyage AI rate limit exceeded",
+      auth: "Invalid Voyage AI API key",
+      missingModel: "Voyage AI model",
+      call: embed("voyage", "voyage-3.5"),
+    },
+    {
+      provider: "jina",
+      model: "jina-embeddings-v3",
+      envVar: "JINA_API_KEY",
+      url: "api.jina.ai/v1/embeddings",
+      generic: "Jina AI error:",
+      rateLimit: "Jina AI rate limit exceeded",
+      auth: "Invalid Jina AI API key",
+      missingModel: "Jina AI model",
+      call: embed("jina", "jina-embeddings-v3"),
+    },
+    {
+      provider: "ideogram",
+      model: "V_3",
+      envVar: "IDEOGRAM_API_KEY",
+      url: "api.ideogram.ai/v1/ideogram-v3/generate",
+      generic: "Ideogram error:",
+      rateLimit: "Ideogram rate limit exceeded",
+      auth: "Invalid Ideogram API key",
+      call: image("ideogram", "V_3"),
+    },
+    {
+      provider: "recraft",
+      model: "recraftv3",
+      envVar: "RECRAFT_API_KEY",
+      url: "external.api.recraft.ai/v1/images/generations",
+      generic: "Recraft error:",
+      rateLimit: "Recraft rate limit exceeded",
+      auth: "Invalid Recraft API key",
+      missingModel: "Recraft model",
+      call: image("recraft", "recraftv3"),
+    },
+    {
+      provider: "stability",
+      model: "stable-image-core",
+      envVar: "STABILITY_API_KEY",
+      url: "api.stability.ai/v2beta/stable-image/generate",
+      generic: "Stability AI error:",
+      rateLimit: "Stability AI rate limit exceeded",
+      auth: "Invalid Stability AI API key",
+      missingModel: "Stability AI model",
+      call: image("stability", "stable-image-core"),
+    },
+  ];
+
+  for (const c of cases) {
+    setEnv(c.envVar, `test-fake-${c.provider}-credential`);
+    const name = `STATUS ${c.provider}: digits in a 400's text are not a status, a route 404 is not a missing model`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: c.url,
+            respond: () => currentDigitResponse,
+          },
+        ],
+        async ({ calls }) => {
+          for (const code of [429, 401, 404]) {
+            currentDigitResponse = {
+              status: 400,
+              json: STATUS_DIGIT_BODY(code),
+            };
+            const before = calls.length;
+            const f = await failureOf(c.call);
+            expect(
+              calls.length > before,
+              `${code}: the request reached the mock`,
+            );
+            expect(f.threw, `${code}: the 400 surfaced as an error`);
+            expect(
+              f.message.includes(c.generic),
+              `${code}: the 400 falls through to the provider's generic error`,
+            );
+            expect(!f.rate, `${code}: not a RateLimitError`);
+            expect(
+              !f.message.includes(c.rateLimit),
+              `${code}: not reported as a rate limit`,
+            );
+            expect(!f.auth, `${code}: not an AuthenticationError`);
+            expect(
+              !f.message.includes(c.auth),
+              `${code}: not reported as a bad key`,
+            );
+            expect(!f.model, `${code}: not an InvalidModelError`);
+          }
+
+          // A relay that wraps an upstream reply writes the status as one.
+          currentDigitResponse = {
+            status: 400,
+            json: {
+              error: { message: "upstream HTTP 401 relayed by the gateway" },
+            },
+          };
+          // (Checked by message: generate() rewraps a provider's error in a
+          // plain Error naming the provider, so only embed() keeps the class.)
+          const named = await failureOf(c.call);
+          expect(
+            named.message.includes(c.auth),
+            "a 400 whose text names HTTP 401 is still reported as a bad key",
+          );
+
+          // A 404 that names no model is what a wrong base URL answers.
+          currentDigitResponse = {
+            status: 404,
+            json: { error: { message: "no route matches this path" } },
+          };
+          const route = await failureOf(c.call);
+          expect(!route.model, "a route 404 is not an InvalidModelError");
+          expect(
+            route.message.includes("returned HTTP 404"),
+            "a route 404 keeps its status in the message",
+          );
+          if (c.missingModel) {
+            expect(
+              !route.message.includes(c.missingModel),
+              "a route 404 is not reported as a missing model",
+            );
+            // ...while a 404 that does name the model still is.
+            currentDigitResponse = {
+              status: 404,
+              json: {
+                error: { message: `model '${c.model}' does not exist` },
+              },
+            };
+            const missing = await failureOf(c.call);
+            expect(
+              missing.message.includes(c.missingModel),
+              "a 404 naming the model is still reported as a missing model",
+            );
+          }
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // Replicate's errors are NeuroLinkErrors, so it is checked by message.
+  setEnv("REPLICATE_API_TOKEN", "test-fake-replicate-credential");
+  const replicateName =
+    "STATUS replicate: digits in a 400's text are not a status, a route 404 is not a missing model";
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.replicate.com/v1/models/meta/meta-llama-3-70b-instruct/predictions",
+          respond: () => currentDigitResponse,
+        },
+      ],
+      async ({ calls }) => {
+        const run = () =>
+          new NeuroLink({ conversationMemory: { enabled: false } }).generate({
+            provider: "replicate",
+            model: "meta/meta-llama-3-70b-instruct",
+            input: { text: "ping" },
+            disableTools: true,
+            disableInternalFallback: true,
+          });
+        for (const code of [429, 401, 402, 404]) {
+          currentDigitResponse = {
+            status: 400,
+            json: { detail: `the offset value (${code}) is not accepted here` },
+          };
+          const before = calls.length;
+          const f = await failureOf(run);
+          expect(
+            calls.length > before,
+            `${code}: the request reached the mock`,
+          );
+          expect(f.threw, `${code}: the 400 surfaced as an error`);
+          expect(
+            f.message.includes("Replicate error:"),
+            `${code}: the 400 falls through to Replicate's generic error`,
+          );
+          for (const override of [
+            "rate limit exceeded",
+            "Invalid Replicate API token",
+            "insufficient credit",
+            "not found. Use owner/name",
+          ]) {
+            expect(
+              !f.message.includes(override),
+              `${code}: not reported as a status the response did not have`,
+            );
+          }
+        }
+        currentDigitResponse = {
+          status: 404,
+          json: { detail: "The requested resource could not be found." },
+        };
+        const route = await failureOf(run);
+        expect(
+          route.message.includes("returned HTTP 404"),
+          "a route 404 keeps its status in the message",
+        );
+        expect(
+          !route.message.includes("not found. Use owner/name"),
+          "a route 404 is not reported as a missing model",
+        );
+        record(results, replicateName, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      replicateName,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── a cancel during the rate-limit wait ends the submit at once ─────
+  // createPrediction retries a 429 after its Retry-After. Without the
+  // caller's signal it sat out that wait and then sent the request again,
+  // after the caller had already gone.
+  const abortName =
+    "STATUS replicate: a cancel during the rate-limit wait stops the retry";
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.replicate.com/v1/models/meta/meta-llama-3-70b-instruct/predictions",
+          respond: {
+            status: 429,
+            json: { detail: "Request was throttled." },
+            headers: { "retry-after": "2" },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const controller = new AbortController();
+        const started = Date.now();
+        setTimeout(() => controller.abort(), 300);
+        const f = await failureOf(() =>
+          new NeuroLink({ conversationMemory: { enabled: false } }).generate({
+            provider: "replicate",
+            model: "meta/meta-llama-3-70b-instruct",
+            input: { text: "ping" },
+            disableTools: true,
+            disableInternalFallback: true,
+            abortSignal: controller.signal,
+          }),
+        );
+        const elapsed = Date.now() - started;
+        expect(calls.length >= 1, "precondition: the first submit was sent");
+        expect(f.threw, "the cancelled call rejected");
+        expect(elapsed < 1_500, "the call ended soon after the cancel");
+        // Outlast the 2 s Retry-After: a wait that ignored the signal would
+        // now send the second submit.
+        await new Promise((resolve) => setTimeout(resolve, 2_700));
+        expect(
+          calls.length === 1,
+          "no submit was sent after the caller cancelled",
+        );
+        record(results, abortName, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      abortName,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: avatar and music downloads (D-ID, Replicate, Beatoven)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * A provider-returned result URL (D-ID's result_url, Beatoven's track_url)
+ * and a caller-supplied input URL (Replicate's avatar image and reference
+ * audio) were each vetted by assertSafeUrl and then fetched with a plain
+ * `fetch`, which follows redirects and resolves the name again. A public
+ * host answering 302 to an internal address was therefore fetched anyway.
+ * They now go through safeDownload, like the image providers: the connection
+ * dials only the vetted address, and a 3xx is refused. The redirect cases
+ * use withRedirectFollowingMocks, the model of a fetch that follows
+ * redirects, so they fail against the old code path.
+ *
+ * The result URLs carry a signed query, as real ones do, and the refusal
+ * must not repeat it, nor the token in the Location it refused.
+ */
+const SIGNED_QUERY = "X-Amz-Signature=sig-secret-do-not-log";
+const LOCATION_TOKEN = "token=location-secret-do-not-log";
+const INTERNAL_REDIRECT = `https://169.254.169.254/latest/meta-data/?${LOCATION_TOKEN}`;
+const FAKE_MP4_BYTES = new Uint8Array([
+  0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+]);
+
+async function runMediaDownloadSection(): Promise<void> {
+  console.log("\n=== avatar + music downloads ===");
+  await withPublicDns(runMediaDownloadCases);
+}
+
+async function runMediaDownloadCases(probe: {
+  pinnedLookups: number;
+}): Promise<void> {
+  const { NeuroLink } = await import("../dist/index.js");
+  setEnv("DID_API_KEY", "test-fake-did-credential");
+  setEnv("BEATOVEN_API_KEY", "test-fake-beatoven-credential");
+  setEnv("REPLICATE_API_TOKEN", "test-fake-replicate-credential");
+  const nl = () => new NeuroLink({ conversationMemory: { enabled: false } });
+  const failure = async (call: () => Promise<unknown>): Promise<string> => {
+    try {
+      await call();
+      return "";
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  };
+  const didRoutes = (resultPath: string) => [
+    {
+      method: "POST",
+      url: "api.d-id.com/talks",
+      respond: { status: 201, json: { id: "tlk_mock", status: "created" } },
+    },
+    {
+      method: "GET",
+      url: "api.d-id.com/talks/tlk_mock",
+      respond: {
+        status: 200,
+        json: {
+          id: "tlk_mock",
+          status: "done",
+          result_url: `https://${MEDIA_FIXTURE_HOST}${resultPath}?${SIGNED_QUERY}`,
+        },
+      },
+    },
+  ];
+  const didTalk = () =>
+    nl().generate({
+      input: { text: "Say hello" },
+      output: {
+        mode: "avatar",
+        avatar: {
+          provider: "d-id",
+          image: `https://${MEDIA_FIXTURE_HOST}/portrait.png`,
+          text: "Hello there",
+        },
+      },
+    });
+
+  // ── D-ID result: downloaded over the pinned connection ──────────────
+  {
+    const name = "MEDIA d-id: the result_url download dials the vetted address";
+    try {
+      await withMocks(
+        [
+          ...didRoutes("/talk.mp4"),
+          {
+            method: "GET",
+            url: `${MEDIA_FIXTURE_HOST}/talk.mp4`,
+            respond: {
+              status: 200,
+              bytes: FAKE_MP4_BYTES,
+              contentType: "video/mp4",
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const before = probe.pinnedLookups;
+          const result = await didTalk();
+          expect(
+            calls.some((c) => c.url.includes(`${MEDIA_FIXTURE_HOST}/talk.mp4`)),
+            "the result download reached the fixture",
+          );
+          expect(
+            probe.pinnedLookups > before,
+            "the result connection used the validated DNS answer",
+          );
+          expectEq(
+            result.avatar?.size,
+            FAKE_MP4_BYTES.length,
+            "the downloaded bytes are the avatar result",
+          );
+          record(results, name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // ── a redirect is refused, not followed, and not echoed ─────────────
+  const redirectCases: Array<{
+    name: string;
+    routes: Parameters<typeof withMocks>[0];
+    download: string;
+    call: () => Promise<unknown>;
+  }> = [
+    {
+      name: "MEDIA d-id: a redirected result_url is refused, not followed",
+      routes: didRoutes("/moved.mp4"),
+      download: `${MEDIA_FIXTURE_HOST}/moved.mp4`,
+      call: didTalk,
+    },
+    {
+      name: "MEDIA beatoven: a redirected track_url is refused, not followed",
+      routes: [
+        {
+          method: "POST",
+          url: "public-api.beatoven.ai/api/v1/tracks/compose",
+          respond: {
+            status: 200,
+            json: { status: "started", task_id: "task_mock" },
+          },
+        },
+        {
+          method: "GET",
+          url: "public-api.beatoven.ai/api/v1/tasks/task_mock",
+          respond: {
+            status: 200,
+            json: {
+              status: "composed",
+              meta: {
+                track_url: `https://${MEDIA_FIXTURE_HOST}/moved.mp3?${SIGNED_QUERY}`,
+              },
+            },
+          },
+        },
+      ],
+      download: `${MEDIA_FIXTURE_HOST}/moved.mp3`,
+      call: () =>
+        nl().generate({
+          input: { text: "lofi" },
+          output: {
+            mode: "music",
+            music: { provider: "beatoven", prompt: "lofi beat" },
+          },
+        }),
+    },
+    {
+      name: "MEDIA replicate music: a redirected reference audio URL is refused, not followed",
+      routes: [],
+      download: `${MEDIA_FIXTURE_HOST}/moved.wav`,
+      call: () =>
+        nl().generate({
+          input: { text: "lofi" },
+          output: {
+            mode: "music",
+            music: {
+              provider: "replicate",
+              prompt: "lofi beat",
+              referenceAudio: `https://${MEDIA_FIXTURE_HOST}/moved.wav?${SIGNED_QUERY}`,
+            },
+          },
+        }),
+    },
+    {
+      name: "MEDIA replicate avatar: a redirected image URL is refused, not followed",
+      routes: [],
+      download: `${MEDIA_FIXTURE_HOST}/moved.png`,
+      call: () =>
+        nl().generate({
+          input: { text: "talk" },
+          output: {
+            mode: "avatar",
+            avatar: {
+              provider: "replicate",
+              image: `https://${MEDIA_FIXTURE_HOST}/moved.png?${SIGNED_QUERY}`,
+              audio: Buffer.from("RIFF0000WAVE"),
+            },
+          },
+        }),
+    },
+  ];
+  for (const c of redirectCases) {
+    try {
+      await withRedirectFollowingMocks(
+        [
+          ...c.routes,
+          {
+            method: "GET",
+            url: c.download,
+            respond: {
+              status: 302,
+              text: "",
+              headers: { location: INTERNAL_REDIRECT },
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const message = await failure(c.call);
+          expect(
+            calls.some((call) => call.url.includes(c.download)),
+            "the download was attempted",
+          );
+          expect(
+            !calls.some((call) => call.url.includes("169.254.169.254")),
+            "the redirect target was never requested",
+          );
+          expect(/redirect/i.test(message), "the redirect is refused");
+          expect(
+            message.includes(MEDIA_FIXTURE_HOST),
+            "the refusal still names the host",
+          );
+          expect(
+            !message.includes("sig-secret") &&
+              !message.includes("location-secret"),
+            "the refusal repeats neither the signed query nor the Location's token",
+          );
+          record(results, c.name, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        c.name,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: scheme-less user:pass@host in logged URLs
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * `user:pass@host:8080` has no `//`, so it parses as the scheme `user:` with
+ * an opaque path: a URL-based masker finds no username to mask and hands the
+ * whole string back, and a `//`-anchored redactor never looks at it. Both
+ * leaked: the proxy masker (an HTTPS_PROXY written without its scheme, logged
+ * when a provider builds its fetch) and the credential redactor the
+ * OpenAI-wire providers log their base URL through (LM Studio here). A drive
+ * path keeps its `@`, which is not a credential.
+ */
+async function runSchemelessCredentialSection(): Promise<void> {
+  console.log("\n=== scheme-less credentials in logged URLs ===");
+  const name =
+    "REDACT: a scheme-less user:pass@host stays out of the proxy and base-URL debug logs";
+  const { logger, ProviderFactory } = await import("../dist/index.js");
+  const originalDebug = console.debug;
+  const priorDebugFlag = process.env.NEUROLINK_DEBUG;
+  // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+  const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+  const priorLogLevel =
+    loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+      ? loadLevel
+      : "info";
+  const lines: string[] = [];
+  const priorProxyEnv = PROXY_ENV.map((n) => process.env[n]);
+  try {
+    setEnv("NEUROLINK_DEBUG", "true");
+    logger.setLogLevel("debug");
+    console.debug = (...args: unknown[]) => {
+      lines.push(
+        args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" "),
+      );
+    };
+
+    // HTTPS_PROXY without a scheme, logged when Voyage builds its fetch.
+    setEnv("VOYAGE_API_KEY", "test-fake-voyage-credential");
+    setProxyEnv("ops:hunter2-proxy@proxy.internal.test:8080", "");
+    lines.length = 0;
+    await ProviderFactory.createProvider("voyage", "voyage-3.5");
+    const proxyLine = lines.find((l) =>
+      l.includes("[Proxy Fetch] HTTPS_PROXY:"),
+    );
+    expect(proxyLine !== undefined, "the proxy configuration line is logged");
+    expect(
+      proxyLine?.includes("proxy.internal.test:8080") === true,
+      "the proxy host stays in the log for diagnostics",
+    );
+    expect(
+      !lines.some((l) => l.includes("hunter2-proxy")),
+      "no password from a scheme-less proxy URL is logged",
+    );
+    PROXY_ENV.forEach((n, i) => setEnv(n, priorProxyEnv[i]));
+
+    // LM Studio's base URL without a scheme, logged on construction.
+    const lmStudioInit = async (base: string): Promise<string> => {
+      lines.length = 0;
+      setEnv("LM_STUDIO_BASE_URL", base);
+      await ProviderFactory.createProvider("lm-studio", "local-model");
+      return lines
+        .filter((l) => l.includes("LM Studio Provider initialized"))
+        .join("\n");
+    };
+    const bare = await lmStudioInit(
+      "ops:hunter2-basic@lmstudio.internal.test:1234/v1",
+    );
+    expect(bare.length > 0, "the LM Studio construction line is captured");
+    expect(
+      !bare.includes("hunter2"),
+      "no password from a scheme-less base URL is logged",
+    );
+    expect(
+      bare.includes("lmstudio.internal.test:1234/v1"),
+      "the host and path stay in the log for diagnostics",
+    );
+    expect(
+      (await lmStudioInit("C:\\srv\\ops@corp\\lmstudio")).includes("ops@corp"),
+      "a Windows drive path keeps its @",
+    );
+    record(results, name, true);
+  } catch (err) {
+    record(
+      results,
+      name,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    console.debug = originalDebug;
+    logger.setLogLevel(priorLogLevel);
+    setEnv("NEUROLINK_DEBUG", priorDebugFlag);
+    PROXY_ENV.forEach((n, i) => setEnv(n, priorProxyEnv[i]));
+    setEnv("LM_STUDIO_BASE_URL", undefined);
   }
 }
 
@@ -15429,7 +16170,15 @@ async function main(): Promise<void> {
   // Focused modes keep source-reversal proofs bounded; the default still
   // runs the complete provider contract suite.
   const FOCUSED_RUNS: Record<string, Array<() => Promise<void>>> = {
-    "--image-downloads-only": [runImageGenSection, runImageDnsRebindingSection],
+    "--image-downloads-only": [
+      runImageGenSection,
+      runImageDnsRebindingSection,
+      runMediaDownloadSection,
+    ],
+    "--status-digits-only": [
+      runStatusDigitsSection,
+      runSchemelessCredentialSection,
+    ],
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
     "--embeddings-only": [runEmbeddingsSection],
     "--catalog-per-model-tools-only": [runCatalogPerModelToolsSection],
@@ -15460,6 +16209,9 @@ async function main(): Promise<void> {
     await runEmbeddingsSection();
     await runImageGenSection();
     await runImageDnsRebindingSection();
+    await runMediaDownloadSection();
+    await runStatusDigitsSection();
+    await runSchemelessCredentialSection();
     await runDecideSection();
     await runOpenAISection();
     await runAzureSection();

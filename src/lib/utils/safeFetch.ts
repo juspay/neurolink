@@ -24,6 +24,7 @@
  */
 
 import type { PinnedAddress, SafeDownloadOptions } from "../types/index.js";
+import { redactUrlForError, sanitizeErrorCause } from "./logSanitize.js";
 import { readBoundedBuffer } from "./sizeGuard.js";
 import { assertSafeUrlForProxy, validateAndResolveUrl } from "./ssrfGuard.js";
 
@@ -120,14 +121,18 @@ async function readDownloadResponse(
   url: string,
   options: SafeDownloadOptions,
 ): Promise<Buffer> {
+  // Provider-returned URLs are often signed (a token or signature in the
+  // query), and so can be a redirect's Location: the messages keep scheme,
+  // host and path for diagnosis and drop the rest.
   if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
     throw new Error(
-      `safeDownload(${options.label}): refused to follow redirect ${response.status} → ${response.headers.get("location") ?? "<no-location>"} (for ${url})`,
+      `safeDownload(${options.label}): refused to follow redirect ${response.status} → ${location ? redactUrlForError(location) : "<no-location>"} (for ${redactUrlForError(url)})`,
     );
   }
   if (!response.ok) {
     throw new Error(
-      `safeDownload(${options.label}) failed: HTTP ${response.status} for ${url}`,
+      `safeDownload(${options.label}) failed: HTTP ${response.status} for ${redactUrlForError(url)}`,
     );
   }
 
@@ -164,16 +169,21 @@ export async function safeDownload(
   let validatedUrl: string;
   let dispatcher: import("undici").Dispatcher;
   let closeDispatcher = false;
-  if (proxyDispatcher) {
-    assertSafeUrlForProxy(url);
-    validatedUrl = url;
-    dispatcher = proxyDispatcher;
-  } else {
-    const resolved = await validateAndResolveUrl(url);
-    validatedUrl = resolved.url;
-    const hostname = new URL(validatedUrl).hostname.replace(/^\[|\]$/g, "");
-    dispatcher = await buildPinnedAgent(hostname, resolved.addresses);
-    closeDispatcher = true;
+  try {
+    if (proxyDispatcher) {
+      assertSafeUrlForProxy(url);
+      validatedUrl = url;
+      dispatcher = proxyDispatcher;
+    } else {
+      const resolved = await validateAndResolveUrl(url);
+      validatedUrl = resolved.url;
+      const hostname = new URL(validatedUrl).hostname.replace(/^\[|\]$/g, "");
+      dispatcher = await buildPinnedAgent(hostname, resolved.addresses);
+      closeDispatcher = true;
+    }
+  } catch (error) {
+    // The guard quotes the URL it refused; keep the reason, not the query.
+    throw sanitizeErrorCause(error);
   }
 
   const timeoutCtrl = new AbortController();

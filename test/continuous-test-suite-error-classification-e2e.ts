@@ -1612,234 +1612,311 @@ async function main(): Promise<void> {
     // case passes disableInternalFallback: a failed turn must not be rescued by
     // another provider that holds a placeholder credential from the sections
     // above.
-    // =========================================================================
-    {
-      setEnv("GOOGLE_API_KEY", undefined);
+    // ==================================================================    {
+    setEnv("GOOGLE_API_KEY", undefined);
 
-      const rateLimited = "Google Vertex AI rate limit";
-      const serverError = "Google Vertex AI server error";
-      const invalidRequest = "Google Vertex AI Invalid Request";
+    const rateLimited = "Google Vertex AI rate limit";
+    const serverError = "Google Vertex AI server error";
+    const invalidRequest = "Google Vertex AI Invalid Request";
 
-      const genVertex = (origin: string) =>
-        gen({
-          provider: "vertex",
-          model: "gemini-2.5-flash",
-          credentials: {
-            vertex: {
-              apiKey: "test-fake-vertex-express-credential",
-              baseURL: origin,
-            },
+    const genVertex = (origin: string) =>
+      gen({
+        provider: "vertex",
+        model: "gemini-2.5-flash",
+        credentials: {
+          vertex: {
+            apiKey: "test-fake-vertex-express-credential",
+            baseURL: origin,
           },
-          disableInternalFallback: true,
-        });
-      const vertexCase = async (
-        name: string,
-        handler: MockHandler,
-        expected: {
-          expectClass?: ErrorCtor;
-          notClasses?: ErrorCtor[];
-          messageIncludes?: string[];
-          messageExcludes?: string[];
         },
-      ): Promise<void> => {
-        setHandler(handler);
-        await expectGenerateError({
-          name: `vertex (express): ${name}`,
-          run: () => genVertex(mockOrigin),
-          ...expected,
-        });
-      };
-      const badRequest = (message: string) =>
-        googleError(400, { code: 400, message, status: "INVALID_ARGUMENT" });
+        disableInternalFallback: true,
+      });
+    const vertexCase = async (
+      name: string,
+      handler: MockHandler,
+      expected: {
+        expectClass?: ErrorCtor;
+        notClasses?: ErrorCtor[];
+        messageIncludes?: string[];
+        messageExcludes?: string[];
+      },
+    ): Promise<void> => {
+      setHandler(handler);
+      await expectGenerateError({
+        name: `vertex (express): ${name}`,
+        run: () => genVertex(mockOrigin),
+        ...expected,
+      });
+    };
+    const badRequest = (message: string) =>
+      googleError(400, { code: 400, message, status: "INVALID_ARGUMENT" });
 
-      // --- the rate-limit rule (429) --------------------------------------
-      for (const { label, text } of [
-        {
-          label: "a limit in parentheses",
-          text: "max_tokens (429) exceeds the model limit",
-        },
-        {
-          label: "inside a longer number",
-          text: "request 14290 failed validation",
-        },
-      ]) {
-        await vertexCase(
-          `an unrelated 429 (${label}) in a 400's text is not read as a rate limit`,
-          badRequest(text),
-          {
-            notClasses: [RateLimitError],
-            messageIncludes: [invalidRequest],
-            messageExcludes: [rateLimited],
-          },
-        );
-      }
-      for (const { shape, text } of [
-        { shape: "HTTP", text: "upstream HTTP 429 relayed by the gateway" },
-        { shape: "status code", text: "relay failed with status code 429" },
-        { shape: "error", text: "upstream returned error 429" },
-        {
-          shape: "trailing error",
-          text: "429 error from the upstream gateway",
-        },
-      ]) {
-        await vertexCase(
-          `a 400 whose text names ${shape} 429 is still read as a rate limit`,
-          badRequest(text),
-          { expectClass: RateLimitError, messageIncludes: [rateLimited] },
-        );
-      }
-      // The body of every Google error spells its code the same way, so a
-      // relay that answers 400 around an upstream 429 body still names it.
+    // --- the rate-limit rule (429) --------------------------------------
+    for (const { label, text } of [
+      {
+        label: "a limit in parentheses",
+        text: "max_tokens (429) exceeds the model limit",
+      },
+      {
+        label: "inside a longer number",
+        text: "request 14290 failed validation",
+      },
+    ]) {
       await vertexCase(
-        "a 400 whose body names code 429 is still read as a rate limit",
-        googleError(400, {
-          code: 429,
-          message: "relayed by the gateway",
-          status: "RESOURCE_EXHAUSTED",
-        }),
+        `an unrelated 429 (${label}) in a 400's text is not read as a rate limit`,
+        badRequest(text),
+        {
+          notClasses: [RateLimitError],
+          messageIncludes: [invalidRequest],
+          messageExcludes: [rateLimited],
+        },
+      );
+    }
+    for (const { shape, text } of [
+      { shape: "HTTP", text: "upstream HTTP 429 relayed by the gateway" },
+      { shape: "status code", text: "relay failed with status code 429" },
+      { shape: "error", text: "upstream returned error 429" },
+      {
+        shape: "trailing error",
+        text: "429 error from the upstream gateway",
+      },
+    ]) {
+      await vertexCase(
+        `a 400 whose text names ${shape} 429 is still read as a rate limit`,
+        badRequest(text),
         { expectClass: RateLimitError, messageIncludes: [rateLimited] },
       );
-      for (const { word, text } of [
-        { word: "QUOTA_EXCEEDED", text: "QUOTA_EXCEEDED for this project" },
-        {
-          word: "RATE_LIMIT_EXCEEDED",
-          text: "RATE_LIMIT_EXCEEDED for this project",
-        },
-        { word: "rate limit", text: "rate limit exceeded, slow down" },
-      ]) {
-        await vertexCase(
-          `a 400 saying ${word} is read as a rate limit without a status number`,
-          badRequest(text),
-          { expectClass: RateLimitError, messageIncludes: [rateLimited] },
-        );
-      }
+    }
+    // The body of every Google error spells its code the same way, so a
+    // relay that answers 400 around an upstream 429 body still names it.
+    await vertexCase(
+      "a 400 whose body names code 429 is still read as a rate limit",
+      googleError(400, {
+        code: 429,
+        message: "relayed by the gateway",
+        status: "RESOURCE_EXHAUSTED",
+      }),
+      { expectClass: RateLimitError, messageIncludes: [rateLimited] },
+    );
+    for (const { word, text } of [
+      { word: "QUOTA_EXCEEDED", text: "QUOTA_EXCEEDED for this project" },
+      {
+        word: "RATE_LIMIT_EXCEEDED",
+        text: "RATE_LIMIT_EXCEEDED for this project",
+      },
+      { word: "rate limit", text: "rate limit exceeded, slow down" },
+    ]) {
+      await vertexCase(
+        `a 400 saying ${word} is read as a rate limit without a status number`,
+        badRequest(text),
+        { expectClass: RateLimitError, messageIncludes: [rateLimited] },
+      );
+    }
 
-      // --- the server-error rule (500, 502, 503, 504) ---------------------
-      for (const { code, label, text } of [
-        {
-          code: 500,
-          label: "a request id",
-          text: "request id 500 could not be validated",
-        },
-        {
-          code: 502,
-          label: "a request id",
-          text: "request id 502 could not be validated",
-        },
-        {
-          code: 503,
-          label: "a request id",
-          text: "request id 503 could not be validated",
-        },
-        {
-          code: 504,
-          label: "a request id",
-          text: "request id 504 could not be validated",
-        },
-        {
-          code: 500,
-          label: "inside a longer number",
-          text: "the prompt holds 1500 tokens, more than this model accepts",
-        },
-      ]) {
-        await vertexCase(
-          `an unrelated ${code} (${label}) in a 400's text is not read as a server error`,
-          badRequest(text),
-          { messageIncludes: [invalidRequest], messageExcludes: [serverError] },
-        );
-      }
-      for (const { code, shape, text } of [
-        {
-          code: 500,
-          shape: "status code",
-          text: "relay failed with status code 500",
-        },
-        { code: 502, shape: "error", text: "upstream returned error 502" },
-        {
-          code: 503,
-          shape: "HTTP",
-          text: "upstream HTTP 503 relayed by the gateway",
-        },
-        {
-          code: 504,
-          shape: "trailing error",
-          text: "504 error from the upstream gateway",
-        },
-      ]) {
-        await vertexCase(
-          `a 400 whose text names ${shape} ${code} is still read as a server error`,
-          badRequest(text),
-          { messageIncludes: [serverError] },
-        );
-      }
-      for (const { word, text } of [
-        { word: "server error", text: "the backend reported a server error" },
-        {
-          word: "Internal Server Error",
-          text: "Internal Server Error from the backend",
-        },
-        { word: "INTERNAL", text: "INTERNAL: the backend failed" },
-        {
-          word: "UNAVAILABLE",
-          text: "UNAVAILABLE: the backend is not answering",
-        },
-      ]) {
-        await vertexCase(
-          `a 400 saying ${word} is read as a server error without a status number`,
-          badRequest(text),
-          { messageIncludes: [serverError] },
-        );
-      }
+    // --- the server-error rule (500, 502, 503, 504) ---------------------
+    for (const { code, label, text } of [
+      {
+        code: 500,
+        label: "a request id",
+        text: "request id 500 could not be validated",
+      },
+      {
+        code: 502,
+        label: "a request id",
+        text: "request id 502 could not be validated",
+      },
+      {
+        code: 503,
+        label: "a request id",
+        text: "request id 503 could not be validated",
+      },
+      {
+        code: 504,
+        label: "a request id",
+        text: "request id 504 could not be validated",
+      },
+      {
+        code: 500,
+        label: "inside a longer number",
+        text: "the prompt holds 1500 tokens, more than this model accepts",
+      },
+    ]) {
+      await vertexCase(
+        `an unrelated ${code} (${label}) in a 400's text is not read as a server error`,
+        badRequest(text),
+        { messageIncludes: [invalidRequest], messageExcludes: [serverError] },
+      );
+    }
+    for (const { code, shape, text } of [
+      {
+        code: 500,
+        shape: "status code",
+        text: "relay failed with status code 500",
+      },
+      { code: 502, shape: "error", text: "upstream returned error 502" },
+      {
+        code: 503,
+        shape: "HTTP",
+        text: "upstream HTTP 503 relayed by the gateway",
+      },
+      {
+        code: 504,
+        shape: "trailing error",
+        text: "504 error from the upstream gateway",
+      },
+    ]) {
+      await vertexCase(
+        `a 400 whose text names ${shape} ${code} is still read as a server error`,
+        badRequest(text),
+        { messageIncludes: [serverError] },
+      );
+    }
+    for (const { word, text } of [
+      { word: "server error", text: "the backend reported a server error" },
+      {
+        word: "Internal Server Error",
+        text: "Internal Server Error from the backend",
+      },
+      { word: "INTERNAL", text: "INTERNAL: the backend failed" },
+      {
+        word: "UNAVAILABLE",
+        text: "UNAVAILABLE: the backend is not answering",
+      },
+    ]) {
+      await vertexCase(
+        `a 400 saying ${word} is read as a server error without a status number`,
+        badRequest(text),
+        { messageIncludes: [serverError] },
+      );
+    }
 
-      // --- real statuses --------------------------------------------------
-      // A reply with no code in its body can only be classified by the
-      // structured status; the Google-shaped replies also spell the code in
-      // their text, as a real Vertex reply does.
-      await Promise.all(
-        [
-          {
-            name: "a real 429 with no number in its text is a rate limit",
-            reply: jsonError(429, "slow down"),
-            includes: rateLimited,
-          },
-          {
-            name: "a real 429 RESOURCE_EXHAUSTED reply is a rate limit",
-            reply: googleError(429, {
-              code: 429,
-              message: "Resource has been exhausted (e.g. check quota).",
-              status: "RESOURCE_EXHAUSTED",
-            }),
-            includes: rateLimited,
-          },
-          {
-            name: "a real 502 with no number in its text is a server error",
-            reply: jsonError(502, "the backend is down"),
-            includes: serverError,
-          },
-          {
-            name: "a real 503 UNAVAILABLE reply is a server error",
-            reply: googleError(503, {
-              code: 503,
-              message: "The service is currently unavailable.",
-              status: "UNAVAILABLE",
-            }),
-            includes: serverError,
-          },
-        ].map(async ({ name, reply, includes }) => {
-          const standIn = await startReplyServer(reply);
-          try {
-            await expectGenerateError({
-              name: `vertex (express): ${name}`,
-              run: () => genVertex(standIn.origin),
-              messageIncludes: [includes],
-            });
-          } finally {
-            await standIn.close();
-          }
-        }),
+    // --- real statuses --------------------------------------------------
+    // A reply with no code in its body can only be classified by the
+    // structured status; the Google-shaped replies also spell the code in
+    // their text, as a real Vertex reply does.
+    await Promise.all(
+      [
+        {
+          name: "a real 429 with no number in its text is a rate limit",
+          reply: jsonError(429, "slow down"),
+          includes: rateLimited,
+        },
+        {
+          name: "a real 429 RESOURCE_EXHAUSTED reply is a rate limit",
+          reply: googleError(429, {
+            code: 429,
+            message: "Resource has been exhausted (e.g. check quota).",
+            status: "RESOURCE_EXHAUSTED",
+          }),
+          includes: rateLimited,
+        },
+        {
+          name: "a real 502 with no number in its text is a server error",
+          reply: jsonError(502, "the backend is down"),
+          includes: serverError,
+        },
+        {
+          name: "a real 503 UNAVAILABLE reply is a server error",
+          reply: googleError(503, {
+            code: 503,
+            message: "The service is currently unavailable.",
+            status: "UNAVAILABLE",
+          }),
+          includes: serverError,
+        },
+      ].map(async ({ name, reply, includes }) => {
+        const standIn = await startReplyServer(reply);
+        try {
+          await expectGenerateError({
+            name: `vertex (express): ${name}`,
+            run: () => genVertex(standIn.origin),
+            messageIncludes: [includes],
+          });
+        } finally {
+          await standIn.close();
+        }
+      }),
+    );
+
+    setEnv("GOOGLE_API_KEY", undefined);
+    // SECTION: a status number in the message text, and a route 404
+    // (Cohere, LM Studio)
+    // -------------------------------------------------------------------------
+    // The same two defects as the section above, on the two OpenAI-wire
+    // providers whose own rules still read bare digits: Cohere's auth, rate
+    // limit and missing-model rules, and LM Studio's missing-model rule. An
+    // unrelated number in a 400 must fall through to the generic error, a 400
+    // whose text names the status must still be caught, and a 404 that names
+    // no model (a wrong base URL answers exactly that) must keep the status
+    // and the server's text instead of claiming the model is missing — so it
+    // is also not walked across the fallback models.
+    // =========================================================================
+    {
+      setEnv("COHERE_API_KEY", "test-fake-cohere-credential");
+      setEnv("COHERE_BASE_URL", mockOrigin);
+      setEnv("LM_STUDIO_BASE_URL", mockOrigin);
+      const cohere = () => gen({ provider: "cohere", model: "command-r-plus" });
+      const lmStudio = () =>
+        gen({ provider: "lm-studio", model: "local-model" });
+
+      setHandler(jsonError(400, "the offset value (429) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 429 in a 400's text is not read as a rate limit",
+        run: cohere,
+        notClasses: [RateLimitError],
+        messageIncludes: ["cohere error:"],
+        messageExcludes: ["Cohere rate limit exceeded"],
+      });
+      setHandler(jsonError(400, "the offset value (401) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 401 in a 400's text is not read as an auth failure",
+        run: cohere,
+        notClasses: [AuthenticationError],
+        messageIncludes: ["cohere error:"],
+        messageExcludes: ["COHERE_API_KEY"],
+      });
+      setHandler(jsonError(400, "the offset value (404) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 404 in a 400's text is not read as a missing model",
+        run: cohere,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["cohere error:"],
+      });
+      setHandler(jsonError(400, "upstream HTTP 429 relayed by the gateway"));
+      await expectGenerateError({
+        name: "cohere: a 400 whose text names HTTP 429 is still read as a rate limit",
+        run: cohere,
+        messageIncludes: ["Cohere rate limit exceeded"],
+      });
+      setHandler(jsonError(404, "no route matches this path"));
+      await expectGenerateError({
+        name: "cohere: a 404 that names no model is a route answer, not a missing model",
+        run: cohere,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["cohere returned HTTP 404", "no route matches"],
+      });
+      record(
+        "cohere: a route 404 is sent once, not once per fallback model",
+        hitCount === 1,
+        hitCount === 1 ? undefined : `request count ${hitCount}`,
       );
 
-      setEnv("GOOGLE_API_KEY", undefined);
+      setHandler(jsonError(404, "no route matches this path"));
+      await expectGenerateError({
+        name: "lm-studio: a 404 that names no model is a route answer, not an unloaded model",
+        run: lmStudio,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["lm-studio returned HTTP 404", "no route matches"],
+        messageExcludes: ["is not loaded"],
+      });
+      setHandler(jsonError(400, "the offset value (404) is not accepted here"));
+      await expectGenerateError({
+        name: "lm-studio: an unrelated 404 in a 400's text is not read as an unloaded model",
+        run: lmStudio,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["lm-studio error:"],
+        messageExcludes: ["is not loaded"],
+      });
     }
 
     // =========================================================================

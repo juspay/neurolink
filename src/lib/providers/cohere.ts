@@ -14,6 +14,8 @@ import type {
 import {
   classifyProviderError,
   DEFAULT_ERROR_RULES,
+  messageNamesStatus,
+  namesMissingModel,
 } from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
@@ -102,23 +104,29 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
       // "invalid api token" is checked lowercase (case-sensitive substring, as
       // in the original) — deliberately NOT normalized to match the family's
       // more common "Invalid API key" capitalization, since Cohere's actual
-      // wire message differs.
+      // wire message differs. A status number counts only where it is written
+      // as a status (messageNamesStatus): a 400 that merely mentions "401" or
+      // "429" — a count, an id — is not an auth failure or a rate limit.
       {
         match: (ctx) =>
-          /invalid api token|Authentication|401|invalid_api_token/.test(
+          /invalid api token|Authentication|invalid_api_token/.test(
             ctx.message,
-          ),
+          ) || messageNamesStatus(ctx.message, 401),
         errorClass: AuthenticationError,
         message:
           "Invalid Cohere API key. Check COHERE_API_KEY. Get one at https://dashboard.cohere.com/api-keys",
       },
       {
-        match: (ctx) => /rate limit|429/.test(ctx.message),
+        match: (ctx) =>
+          /rate limit/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
         errorClass: RateLimitError,
         message: "Cohere rate limit exceeded. Back off and retry.",
       },
       {
-        match: (ctx) => /model_not_found|404/.test(ctx.message),
+        // A 404 is a missing model only when its text says so; a wrong base
+        // URL answers 404 too and falls through to the shared 404 rule.
+        match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
         errorClass: InvalidModelError,
         message: () =>
           `Cohere model '${this.modelName}' not found. Use command-r, command-r-plus, or command-r7b-12-2024.`,

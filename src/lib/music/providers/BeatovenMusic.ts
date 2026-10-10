@@ -19,8 +19,9 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { MUSIC_ERROR_CODES, MusicError } from "../../utils/musicProcessor.js";
-import { MAX_AUDIO_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { redactUrlForError } from "../../utils/logSanitize.js";
+import { safeDownload } from "../../utils/safeFetch.js";
+import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
 
 const DEFAULT_BASE_URL = "https://public-api.beatoven.ai";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -313,75 +314,30 @@ export class BeatovenMusic implements MusicHandler {
     return (await response.json()) as BeatovenTaskStatus;
   }
 
+  /**
+   * Download the composed track. `safeDownload` vets the provider-returned URL
+   * and dials only the addresses it cleared (or the configured proxy), refuses
+   * redirects — a public host answering 302 to an internal address must not be
+   * followed — and stops at the size cap. A separate check followed by a plain
+   * `fetch` left both the redirect and a DNS-rebinding window open.
+   */
   private async downloadTrack(url: string): Promise<Buffer> {
     try {
-      await assertSafeUrl(url);
+      return await safeDownload(url, {
+        maxBytes: MAX_AUDIO_BYTES,
+        label: "Beatoven track",
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      });
     } catch (err: unknown) {
       throw new MusicError({
         code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
+        message: `Beatoven track download rejected: ${err instanceof Error ? err.message : String(err)}`,
+        category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.HIGH,
         retriable: false,
-        context: { url },
-      });
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    let response: Response;
-    try {
-      response = await fetch(url, { signal: controller.signal });
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new MusicError({
-          code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-          message: `Beatoven track download timed out after ${REQUEST_TIMEOUT_MS / 1000}s`,
-          category: ErrorCategory.NETWORK,
-          severity: ErrorSeverity.MEDIUM,
-          retriable: true,
-          originalError: err,
-        });
-      }
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download network error: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: true,
+        // The track URL is signed: keep its host and path, never its query.
+        context: { url: redactUrlForError(url) },
         originalError: err instanceof Error ? err : undefined,
-        context: { url },
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download failed: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { status: response.status, url },
-      });
-    }
-
-    try {
-      return await readBoundedBuffer(
-        response,
-        MAX_AUDIO_BYTES,
-        "Beatoven track",
-      );
-    } catch (err: unknown) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download exceeded size limit: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.EXECUTION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url },
       });
     }
   }

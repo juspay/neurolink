@@ -2,9 +2,10 @@
  * Shared provider-error classification. Migrated providers'
  * `formatProviderError(error)` delegate here instead of hand-rolling their
  * own TimeoutError-check → .includes()-chain → `new XError(...)` ladder.
- * Not yet migrated (they do not call it): Google AI Studio, SageMaker, the
- * media and embedding providers (Ideogram, Recraft, Stability, Replicate,
- * Jina, Voyage) and the System One decision provider.
+ * Not yet migrated (they do not call it): Google AI Studio, SageMaker,
+ * Replicate (whose errors are `NeuroLinkError`s, not `ProviderError`s; it
+ * reuses `messageNamesStatus` and `namesMissingModel` instead) and the System
+ * One decision provider.
  *
  * `classifyProviderError` picks the Error subclass + message; it does NOT
  * stamp statusCode/isRetryable/retryAfterMs onto the result — that
@@ -169,6 +170,25 @@ const MODEL_404_TEXT = new RegExp(
 );
 
 /**
+ * True when an error says a model is missing, as opposed to a route that is: a
+ * "model not found" / `model_not_found` text at any status, or a 404 whose text
+ * names the model or deployment as absent. A 404 alone is not enough — a wrong
+ * base URL answers the same status — so it stays a plain provider error. This
+ * is the test the shared missing-model rule in `DEFAULT_ERROR_RULES` applies;
+ * a provider that keeps its own missing-model wording calls it so the two
+ * cannot drift apart.
+ */
+export function namesMissingModel(
+  message: string,
+  statusCode: number | undefined,
+): boolean {
+  return (
+    /model_not_found|model not found/i.test(message) ||
+    (statusCode === 404 && MODEL_404_TEXT.test(message))
+  );
+}
+
+/**
  * True when `status` is written in `message` as an HTTP status, as opposed to
  * an unrelated number that happens to have the same digits ("max_tokens (429)
  * exceeds the model limit", a request id, a token count). Provider rules that
@@ -229,9 +249,7 @@ export const DEFAULT_ERROR_RULES: ProviderErrorRule[] = [
       `${ctx.provider} rate limit exceeded. Please try again later.`,
   },
   {
-    match: (ctx) =>
-      /model_not_found|model not found/i.test(ctx.message) ||
-      (ctx.statusCode === 404 && MODEL_404_TEXT.test(ctx.message)),
+    match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
     errorClass: InvalidModelError,
     message: (ctx) =>
       ctx.modelName

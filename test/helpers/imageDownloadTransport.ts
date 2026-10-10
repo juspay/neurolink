@@ -20,9 +20,12 @@ import tls from "node:tls";
 
 export const IDEOGRAM_FIXTURE_HOST = "cdn.ideogram-fixture.invalid";
 export const RECRAFT_FIXTURE_HOST = "cdn.recraft-fixture.invalid";
+/** Avatar and music downloads (D-ID, Replicate, Beatoven): results and inputs. */
+export const MEDIA_FIXTURE_HOST = "cdn.media-fixture.invalid";
 const FIXTURE_HOSTS: readonly string[] = [
   IDEOGRAM_FIXTURE_HOST,
   RECRAFT_FIXTURE_HOST,
+  MEDIA_FIXTURE_HOST,
 ];
 
 type Fixture = {
@@ -167,21 +170,44 @@ export async function withImageDownloadTransport<T>(
   const fixture = await startFixture();
   const probe = { pinnedLookups: 0 };
   const originalConnect = tls.connect;
+  // These checks run inside the SDK's connector, not in the case: one thrown
+  // from tls.connect surfaces as a download error the case may well expect
+  // (a refused redirect, a size cap), and one thrown from the lookup callback
+  // escapes the case entirely. Each failure is recorded and rethrown once the
+  // case returns, so a broken transport fails the case that used it.
+  const failures: unknown[] = [];
+  const check = <R>(assertion: () => R): R => {
+    try {
+      return assertion();
+    } catch (error) {
+      failures.push(error);
+      throw error;
+    }
+  };
+  let result: T;
   try {
     tls.connect = ((options: tls.ConnectionOptions) => {
-      const host = options.host;
-      assert(typeof host === "string", "download hostname missing");
-      assert(FIXTURE_HOSTS.includes(host), "unexpected download host");
-      const lookup = options.lookup;
-      assert(lookup, "download did not supply a pinned DNS lookup");
-      lookup(host, { all: true }, (error, addresses) => {
-        assert.ifError(error);
-        assert.deepEqual(
-          addresses,
-          [{ address: "93.184.215.14", family: 4 }],
-          "download dialed an unvalidated address",
-        );
-        probe.pinnedLookups++;
+      const { host: pinnedHost, lookup } = check(() => {
+        const host = options.host;
+        assert(typeof host === "string", "download hostname missing");
+        assert(FIXTURE_HOSTS.includes(host), "unexpected download host");
+        assert(options.lookup, "download did not supply a pinned DNS lookup");
+        return { host, lookup: options.lookup };
+      });
+      lookup(pinnedHost, { all: true }, (error, addresses) => {
+        try {
+          check(() => {
+            assert.ifError(error);
+            assert.deepEqual(
+              addresses,
+              [{ address: "93.184.215.14", family: 4 }],
+              "download dialed an unvalidated address",
+            );
+          });
+          probe.pinnedLookups++;
+        } catch {
+          // Recorded by check(); rethrown after the case returns.
+        }
       });
       return originalConnect({
         ...options,
@@ -189,14 +215,23 @@ export async function withImageDownloadTransport<T>(
         port: fixture.port,
         lookup: undefined,
         ca: fixture.certificatePem,
-        servername: host,
+        servername: pinnedHost,
       });
     }) as typeof tls.connect;
-    return await fn(probe);
+    try {
+      result = await fn(probe);
+    } catch (error) {
+      // A recorded transport failure is the cause; report it, not its symptom.
+      throw failures[0] ?? error;
+    }
   } finally {
     tls.connect = originalConnect;
     await fixture.close();
   }
+  if (failures.length > 0) {
+    throw failures[0];
+  }
+  return result;
 }
 
 /** A local forward proxy that records every CONNECT it is asked for. */

@@ -42,7 +42,9 @@
  *
  * Run: npx tsx test/continuous-test-suite-pdf-image-streaming.ts
  */
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
 import { NeuroLink } from "../dist/index.js";
@@ -126,9 +128,10 @@ function textPartsOf(body: unknown): string {
 /**
  * A one-page PDF that draws a filled rectangle and no text, so it has no text
  * layer to extract — the shape of a scanned document. Built with real xref
- * offsets rather than checked in as a fixture.
+ * offsets rather than checked in as a fixture. `padBytes` adds a comment of
+ * that size after the header, for a caller that needs a larger file.
  */
-function buildTextlessPdf(): Buffer {
+function buildTextlessPdf(padBytes = 0): Buffer {
   const content = "0 0 150 150 re f";
   const objects = [
     "<</Type/Catalog/Pages 2 0 R>>",
@@ -137,6 +140,9 @@ function buildTextlessPdf(): Buffer {
     `<</Length ${content.length}>>\nstream\n${content}\nendstream`,
   ];
   let out = "%PDF-1.4\n";
+  if (padBytes > 0) {
+    out += `%${"0".repeat(padBytes)}\n`;
+  }
   const offsets: number[] = [];
   objects.forEach((body, i) => {
     offsets.push(out.length);
@@ -379,6 +385,96 @@ await test("a PDF with a text layer is not labelled as scanned", async () => {
     );
   } finally {
     handle.unset();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 4. The same scan detection on the two other PDF text paths: the file
+//    registry behind the file tools (the package's `./files` export) and the
+//    RAG PDF loader. Both checked pdf-parse's joined text, which is never
+//    empty because of the "-- n of N --" marker after every page, so a scan
+//    was read as a document whose content was its page markers.
+// ---------------------------------------------------------------------------
+
+/** pdf-parse's per-page marker, which must never be passed on as content. */
+const PAGE_MARKER = /--\s*1\s+of\s+1\s*--/;
+
+await test("the file registry reports a scanned PDF as having no text layer, not as its page markers", async () => {
+  // Surface: the package's `./files` export. Above the tiny-file limit, so the
+  // registry persists the file and extracts it on demand, which is the path
+  // the file tools read.
+  const { FileReferenceRegistry } = await import("../dist/files/index.js");
+  const tempDir = mkdtempSync(join(tmpdir(), "neurolink-scan-registry-"));
+  const registry = new FileReferenceRegistry({ tempDir });
+  try {
+    const ref = await registry.register(buildTextlessPdf(12 * 1024), "buffer", {
+      filename: "scan.pdf",
+    });
+    assert(
+      ref.detectedType === "pdf",
+      "precondition failed: the fixture was not registered as a PDF",
+    );
+    await registry.ensureProcessed(ref.id);
+    const processed = registry.get(ref.id)?.processedContent ?? "";
+    assert(
+      processed.includes("scanned images or non-extractable content"),
+      "the on-demand extraction did not report the PDF as having no text layer",
+    );
+    assert(
+      !PAGE_MARKER.test(processed),
+      "the on-demand extraction passed pdf-parse's page marker on as content",
+    );
+
+    const pages = await registry.extractContent({
+      file_id: ref.id,
+      pages: [1],
+    });
+    assert(pages.success, "precondition failed: the page extraction failed");
+    assert(
+      (pages.text ?? "").includes("(No text found on the requested pages)"),
+      "the page extraction did not say the requested page has no text",
+    );
+    assert(
+      !PAGE_MARKER.test(pages.text ?? ""),
+      "the page extraction passed pdf-parse's page marker on as content",
+    );
+  } finally {
+    await registry.clear();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+await test("the RAG PDF loader reports a scanned PDF as having no text layer, not as its page markers", async () => {
+  const { PDFLoader } = await import("../dist/index.js");
+  const tempDir = mkdtempSync(join(tmpdir(), "neurolink-scan-loader-"));
+  try {
+    const scanPath = join(tempDir, "scan.pdf");
+    writeFileSync(scanPath, buildTextlessPdf());
+    const scan = await new PDFLoader().load(scanPath);
+    assert(
+      scan.getContent().includes("no extractable text layer"),
+      "the loader did not say the PDF has no text layer",
+    );
+    assert(
+      !PAGE_MARKER.test(scan.getContent()),
+      "the loader indexed pdf-parse's page marker as the document's content",
+    );
+    assert(
+      scan.getMetadata().pageCount === 1,
+      "the loader lost the scanned PDF's page count",
+    );
+
+    // Control: a PDF with a text layer still loads as its text.
+    const textPath = join(tempDir, "text.pdf");
+    writeFileSync(textPath, readFileSync("test/fixtures/multi-page.pdf"));
+    const text = await new PDFLoader().load(textPath);
+    assert(
+      !text.getContent().includes("no extractable text layer") &&
+        text.getContent().trim().length > 0,
+      "a PDF with a text layer was reported as scanned",
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
   }
 });
 

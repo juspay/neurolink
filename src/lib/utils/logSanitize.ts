@@ -200,12 +200,28 @@ export function safeDebugSerialize(value: unknown, maxLen = 10_000): string {
  *     `/` and `*` (e.g. `//user:pa*ss/word@host/path`, legal under RFC 3986)
  *     slip through both passes entirely in an earlier version of this
  *     function.
+ *  3. Scheme-less credentials — `user:pass@host:8080`, with no `//` at all —
+ *     which a base URL or proxy URL written without its scheme carries. A
+ *     word of two or more characters, a colon and a non-empty password up to
+ *     the last `@` before any `/` are redacted, starting at the beginning of
+ *     the text or after whitespace, a quote, `(`, `,` or `=`. The two-character
+ *     floor keeps a Windows drive path (`C:\ops@corp`) intact, and a password
+ *     may not hold a `/`, so a URL with a `//` authority (already handled
+ *     above) and a file URL never match. An address written as
+ *     `mailto:name@host` loses its mailbox name, which is acceptable here.
  *
  * @param url - The URL (or URL-shaped string) to redact.
  */
 export function redactUrlCredentials(url: string): string {
   const wellFormed = url.replace(/\/\/[^/\s"'<>]*@/g, "//***@");
-  return wellFormed.replace(/\/\/(?:(?!\/\/)[^\s"'<>])*@/g, "//***@");
+  const anyAuthority = wellFormed.replace(
+    /\/\/(?:(?!\/\/)[^\s"'<>])*@/g,
+    "//***@",
+  );
+  return anyAuthority.replace(
+    /(^|[\s"'<>(,=])[^\s"'<>/@:]{2,}:[^\s"'<>/]+@/g,
+    "$1***@",
+  );
 }
 
 /**

@@ -38,6 +38,7 @@ import {
   sanitizeColumnName,
 } from "../../utils/csvProcessor.js";
 import { splitCSVFields } from "../../utils/csvUtils.js";
+import { pdfTextLayer } from "../../utils/pdfText.js";
 import type {
   DocumentType,
   LoaderOptions,
@@ -340,6 +341,29 @@ export class PDFLoader implements DocumentLoader {
     try {
       const data = await parser.getText();
       const text = data.text;
+
+      // pdf-parse appends a "-- n of N --" marker after every page, so `text`
+      // is never empty, not even for a scan; indexing it would store the page
+      // markers as the document's content. A PDF without a text layer is
+      // reported the way an unparseable one is: a note naming the file.
+      if (pdfTextLayer(data).length === 0) {
+        logger.warn(
+          "[PDFLoader] PDF has no extractable text layer (likely a scanned document)",
+          { source: basename(source), pageCount: data.total },
+        );
+        return new MDocument(
+          `[PDF Document: ${basename(source)}]\n\nNote: this PDF has no extractable text layer (likely a scanned document); its contents could not be read.`,
+          {
+            type: "pdf",
+            metadata: {
+              source: basename(source),
+              pageCount: data.total,
+              parseError: "no extractable text layer",
+              ...options?.metadata,
+            },
+          },
+        );
+      }
 
       // Handle page range if specified
       if (options?.pageRange) {

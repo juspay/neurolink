@@ -7,6 +7,7 @@ import { InvalidModelError } from "../types/index.js";
 import {
   classifyProviderError,
   DEFAULT_ERROR_RULES,
+  namesMissingModel,
 } from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
@@ -79,7 +80,10 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
           `Open the LM Studio app, load a model, and click "Start Server".`,
       ),
       {
-        match: (ctx) => /model_not_found|404/.test(ctx.message),
+        // A 404 is an unloaded model only when its text names the model; a
+        // wrong base URL answers 404 too and falls through to the shared 404
+        // rule, which keeps the status and the server's own text.
+        match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
         errorClass: InvalidModelError,
         message: () =>
           `LM Studio model '${this.modelName}' is not loaded. Load it in the LM Studio app first.`,

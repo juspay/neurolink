@@ -9,6 +9,7 @@ import type {
   JinaEmbeddingsResponse,
   JinaRerankResponse,
   NeurolinkCredentials,
+  ProviderErrorRule,
   StreamOptions,
   StreamResult,
   ValidationSchema,
@@ -19,6 +20,12 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+  messageNamesStatus,
+  namesMissingModel,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import {
   createJinaConfig,
@@ -106,40 +113,48 @@ export class JinaProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : "Unknown error";
-    if (
-      message.includes("401") ||
-      message.toLowerCase().includes("unauthorized")
-    ) {
-      return new AuthenticationError(
-        "Invalid Jina AI API key. Get one at https://jina.ai/?sui=apikey",
-        "jina",
-      );
-    }
-    if (
-      message.includes("429") ||
-      message.toLowerCase().includes("rate limit")
-    ) {
-      return new RateLimitError(
-        "Jina AI rate limit exceeded. Back off and retry.",
-        "jina",
-      );
-    }
-    if (
-      message.includes("404") ||
-      message.toLowerCase().includes("model_not_found")
-    ) {
-      return new InvalidModelError(
-        `Jina AI model '${this.modelName}' not found. See https://jina.ai/embeddings/`,
-        "jina",
-      );
-    }
-    return new ProviderError(`Jina AI error: ${message}`, "jina");
+    // A status number counts only from the response status or where the text
+    // writes it as a status (messageNamesStatus): a 400 whose body mentions
+    // "429" or "404" — a count, an id — is not a rate limit or a missing model.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /unauthorized/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 401),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Jina AI API key. Get one at https://jina.ai/?sui=apikey",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          /rate limit/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
+        errorClass: RateLimitError,
+        message: "Jina AI rate limit exceeded. Back off and retry.",
+      },
+      {
+        // A 404 is a missing model only when its text says so; a wrong base
+        // URL answers 404 too and is left to the shared 404 rule below.
+        match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
+        errorClass: InvalidModelError,
+        message: () =>
+          `Jina AI model '${this.modelName}' not found. See https://jina.ai/embeddings/`,
+      },
+      ...DEFAULT_ERROR_RULES,
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Jina AI error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   override async embed(
@@ -239,7 +254,10 @@ export class JinaProvider extends BaseProvider {
     if (!response.ok) {
       const text = await response.text();
       throw this.formatProviderError(
-        new Error(`Jina rerank failed: ${response.status} — ${text}`),
+        Object.assign(
+          new Error(`Jina rerank failed: ${response.status} — ${text}`),
+          { status: response.status },
+        ),
       );
     }
 
@@ -295,7 +313,10 @@ export class JinaProvider extends BaseProvider {
     if (!response.ok) {
       const text = await response.text();
       throw this.formatProviderError(
-        new Error(`Jina embeddings failed: ${response.status} — ${text}`),
+        Object.assign(
+          new Error(`Jina embeddings failed: ${response.status} — ${text}`),
+          { status: response.status },
+        ),
       );
     }
 

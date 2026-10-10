@@ -18,17 +18,16 @@ import type {
   DIDTalkResponse,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-import { sanitizeForLog } from "../../utils/logSanitize.js";
+import { redactUrlForError, sanitizeForLog } from "../../utils/logSanitize.js";
 import {
   AVATAR_ERROR_CODES,
   AvatarError,
 } from "../../utils/avatarProcessor.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { safeDownload } from "../../utils/safeFetch.js";
 import {
   MAX_AUDIO_BYTES,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
-  readBoundedBuffer,
 } from "../../utils/sizeGuard.js";
 
 const DEFAULT_BASE_URL = "https://api.d-id.com";
@@ -123,23 +122,14 @@ export class DIDAvatar implements AvatarHandler {
       });
     }
 
-    // 5. Guard the provider-returned URL before fetching (SSRF — same threat
-    //    model as caller-supplied URLs: the API response could be tampered).
-    try {
-      await assertSafeUrl(completed.result_url);
-    } catch (err) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.GENERATION_FAILED,
-        message: `D-ID result_url rejected as unsafe: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { talkId, url: completed.result_url },
-      });
-    }
-
-    // 6. Download the MP4.
-    const buffer = await this.downloadResult(completed.result_url);
+    // 5. Download the MP4. The provider-returned URL gets the same SSRF
+    //    treatment as a caller-supplied one (the API response could be
+    //    tampered): see downloadResult.
+    const buffer = await this.downloadResult(
+      completed.result_url,
+      talkId,
+      (options as { abortSignal?: AbortSignal }).abortSignal,
+    );
 
     const latency = Date.now() - startTime;
     logger.info(
@@ -375,20 +365,25 @@ export class DIDAvatar implements AvatarHandler {
     });
   }
 
-  private async downloadResult(url: string): Promise<Buffer> {
-    const response = await this.fetchWithTimeout(url, { method: "GET" });
-    if (!response.ok) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.GENERATION_FAILED,
-        message: `D-ID result download failed: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { status: response.status, url },
-      });
-    }
+  /**
+   * Download the talk's result. `safeDownload` vets the URL and dials only the
+   * addresses it cleared (or the configured proxy), refuses redirects — a
+   * public host answering 302 to an internal address must not be followed —
+   * and stops at the size cap. A separate check followed by a plain `fetch`
+   * left both the redirect and a DNS-rebinding window open.
+   */
+  private async downloadResult(
+    url: string,
+    talkId: string,
+    abortSignal?: AbortSignal,
+  ): Promise<Buffer> {
     try {
-      return await readBoundedBuffer(response, MAX_VIDEO_BYTES, "D-ID result");
+      return await safeDownload(url, {
+        maxBytes: MAX_VIDEO_BYTES,
+        label: "D-ID result",
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        signal: abortSignal,
+      });
     } catch (err) {
       throw new AvatarError({
         code: AVATAR_ERROR_CODES.GENERATION_FAILED,
@@ -396,7 +391,8 @@ export class DIDAvatar implements AvatarHandler {
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.HIGH,
         retriable: false,
-        context: { url },
+        // The result URL is signed: keep its host and path, never its query.
+        context: { talkId, url: redactUrlForError(url) },
         originalError: err instanceof Error ? err : undefined,
       });
     }
@@ -416,34 +412,17 @@ export class DIDAvatar implements AvatarHandler {
         retriable: false,
       });
     }
-    try {
-      await assertSafeUrl(input);
-    } catch (err) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Unsafe URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
-      });
-    }
-    const response = await this.fetchWithTimeout(input, { method: "GET" });
-    if (!response.ok) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Failed to fetch input from ${input}: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { url: input, status: response.status },
-      });
-    }
     // Use the larger of the two input caps (audio 50 MiB > image 25 MiB) so
     // both audio and image URLs are bounded without falsely rejecting valid audio.
     const inputCap = Math.max(MAX_AUDIO_BYTES, MAX_IMAGE_BYTES);
+    // safeDownload vets the URL, pins the connection to the vetted addresses
+    // (or uses the configured proxy) and refuses redirects; see downloadResult.
     try {
-      return await readBoundedBuffer(response, inputCap, "D-ID input");
+      return await safeDownload(input, {
+        maxBytes: inputCap,
+        label: "D-ID input",
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      });
     } catch (err) {
       throw new AvatarError({
         code: AVATAR_ERROR_CODES.INVALID_INPUT,
@@ -451,7 +430,7 @@ export class DIDAvatar implements AvatarHandler {
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.HIGH,
         retriable: false,
-        context: { url: input },
+        context: { url: redactUrlForError(input) },
         originalError: err instanceof Error ? err : undefined,
       });
     }

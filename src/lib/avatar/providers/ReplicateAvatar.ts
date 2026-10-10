@@ -26,13 +26,13 @@ import {
   downloadPredictionOutput,
   predict,
 } from "../../adapters/replicate/predictionLifecycle.js";
+import { redactUrlForError } from "../../utils/logSanitize.js";
+import { safeDownload } from "../../utils/safeFetch.js";
 import {
   MAX_AUDIO_BYTES,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
-  readBoundedBuffer,
 } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
 
 const DEFAULT_MODEL =
   "douwantech/musetalk:5501004e78525e4bbd9fa20d1e75ad51fddce5a274bec07b9b16d685e34eeaf8";
@@ -175,57 +175,25 @@ export class ReplicateAvatar implements AvatarHandler {
         retriable: false,
       });
     }
+    // safeDownload vets the URL, dials only the addresses it cleared (or the
+    // configured proxy), refuses redirects and stops at the size cap. A
+    // separate check followed by a plain fetch followed redirects, so a public
+    // host answering 302 to an internal address was fetched anyway.
     try {
-      await assertSafeUrl(input);
-    } catch (err) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Unsafe URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
+      return await safeDownload(input, {
+        maxBytes,
+        label,
+        timeoutMs: 60_000,
       });
-    }
-    const FETCH_TIMEOUT_MS = 60_000;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let r: Response;
-    try {
-      r = await fetch(input, { signal: controller.signal });
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new AvatarError({
-          code: AVATAR_ERROR_CODES.INVALID_INPUT,
-          message: `Replicate avatar input fetch timed out after ${FETCH_TIMEOUT_MS / 1000}s: ${input}`,
-          category: ErrorCategory.NETWORK,
-          severity: ErrorSeverity.MEDIUM,
-          retriable: true,
-        });
-      }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-    if (!r.ok) {
       throw new AvatarError({
         code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Failed to fetch ${input}: ${r.status}`,
+        message: `${label} download rejected: ${err instanceof Error ? err.message : String(err)}`,
         category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: r.status >= 500,
-      });
-    }
-    try {
-      return await readBoundedBuffer(r, maxBytes, label);
-    } catch (err) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `${label} too large: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
         severity: ErrorSeverity.HIGH,
         retriable: false,
-        context: { url: input },
+        context: { url: redactUrlForError(input) },
+        originalError: err instanceof Error ? err : undefined,
       });
     }
   }
