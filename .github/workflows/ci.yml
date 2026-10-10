@@ -630,6 +630,7 @@ jobs:
           pnpm run test:provider-wiring
           pnpm run test:cli-fallback
           pnpm run test:embedding-response-validation
+          pnpm run test:rag-bounds
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test
