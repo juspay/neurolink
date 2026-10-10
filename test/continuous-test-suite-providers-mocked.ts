@@ -416,6 +416,90 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
     );
   }
 
+  // ── Perplexity attribution on stream() ─────────────────────────────
+  // stream() builds its own request headers rather than going through the
+  // generate path's model handle, so the attribution header has to be proven
+  // on the streamed request too, not only on generate().
+  if (spec.provider === "perplexity") {
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: spec.urlMatch,
+            respond: {
+              status: 200,
+              contentType: "text/event-stream",
+              text: sseBody([
+                {
+                  id: "chatcmpl-pplx-stream",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model: spec.model,
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { role: "assistant", content: "pong" },
+                      finish_reason: null,
+                    },
+                  ],
+                },
+                {
+                  id: "chatcmpl-pplx-stream",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model: spec.model,
+                  choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                },
+              ]),
+            },
+          },
+        ],
+        async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await nl.stream({
+            provider: spec.provider,
+            model: spec.model,
+            input: { text: "ping" },
+            disableTools: true,
+            disableInternalFallback: true,
+          });
+          let content = "";
+          for await (const chunk of result.stream) {
+            if ("content" in chunk && typeof chunk.content === "string") {
+              content += chunk.content;
+            }
+          }
+          const chatCalls = calls.filter((call) =>
+            call.url.includes(spec.urlMatch),
+          );
+          expect(chatCalls.length === 1, "stream() made one chat request");
+          expect(
+            (chatCalls[0]?.bodyJson as { stream?: unknown })?.stream === true,
+            "the request was a streamed chat completion",
+          );
+          expectEq(
+            chatCalls[0]?.headers["x-pplx-integration"],
+            "neurolink",
+            "Perplexity integration attribution on stream()",
+          );
+          expect(
+            content.includes("pong"),
+            "the streamed answer reached the caller",
+          );
+          record(results, `${section}: stream() sends the attribution`, true);
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        `${section}: stream() sends the attribution`,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
   // ── 401 ─────────────────────────────────────────────────────────────
   try {
     await withMocks(

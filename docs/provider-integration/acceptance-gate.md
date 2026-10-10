@@ -43,6 +43,10 @@ row.
    served (`${model}::mock-server-resolved`), not what was requested. See
    "The stream-identity defect" below — this cell is the reason that defect
    was caught and fixed.
+   - **3b. Generate identity** (OpenAI-compatible rows only) — the same
+     served-model rewrite on a non-streaming `generate()`: `result.model`
+     and `result.analytics.model` must both name the served model, not the
+     requested one, so a turn is priced from what was actually served.
 4. **Tool-nonce proof** — the test tool's `execute()` returns a fresh
    `randomUUID()` nonce that exists nowhere else. The final answer is
    asserted to contain `ACCEPTANCE_GATE_TOOL_CONFIRMED:<nonce>`, which the

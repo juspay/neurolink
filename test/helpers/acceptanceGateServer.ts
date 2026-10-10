@@ -66,7 +66,8 @@ export const GATE_EXACT_VALUE = "NEUROLINK_ACCEPTANCE_GATE_EXACT_7f3a9c2e";
 
 /**
  * Appended to the REQUESTED model id to build the model the mock server
- * echoes back on the wire for a streamed cell-3 call. Deliberately
+ * echoes back on the wire for a cell-3 call (streamed) and a cell-3b call
+ * (generate). Deliberately
  * different from what was requested — a gateway/router rewriting an alias
  * to a concrete served model is the real-world case cell 3 exists to catch
  * — so the assertion can tell "reports the request" from "reports what the
@@ -354,6 +355,26 @@ function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
 
   if (marker === GATE_MARKERS.STREAM) {
     const resolvedModel = `${requestedModel}${GATE_SERVER_MODEL_SUFFIX}`;
+    if (!streaming) {
+      // Cell 3b: the same served-model rewrite on a non-streaming call, so
+      // generate()'s `.model` (and its analytics) can be told apart from the
+      // request too.
+      writeJson({
+        id: chunkId,
+        object: "chat.completion",
+        created,
+        model: resolvedModel,
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: GATE_STREAM_VALUE },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+      });
+      return;
+    }
     writeStream([
       { content: GATE_STREAM_VALUE, model: resolvedModel },
       { finish_reason: "stop", model: resolvedModel },
@@ -363,9 +384,10 @@ function handleOpenAIChat(bodyStr: string, res: GateServerResponse): void {
 
   if (marker === GATE_MARKERS.EXACT) {
     // Cell-1 identity ping + cell 2 (exact-output generate): echo the
-    // requested model verbatim (generate()'s `.model` reports the pre-call
-    // resolved model, not a server-echoed one — see docs/provider-
-    // integration/acceptance-gate.md), with the exact cell-2 content.
+    // requested model verbatim, so the served model and the request agree
+    // and cell 1 can compare `.model` against the wire request (cell 3b
+    // covers a server that serves a different model), with the exact
+    // cell-2 content.
     if (streaming) {
       writeStream([{ content: GATE_EXACT_VALUE }, { finish_reason: "stop" }]);
       return;

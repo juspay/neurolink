@@ -606,6 +606,46 @@ async function main(): Promise<void> {
             },
           );
 
+          // Cell 3b: generate() reports the served model too. The same
+          // rewrite as cell 3 on a non-streaming call; generate() used to
+          // report the requested id while stream() reported the served one,
+          // and analytics priced the turn from the requested id. Only the
+          // OpenAI-compatible protocol can serve a different model (see
+          // cell 3), so the other rows have nothing to assert here.
+          if (row.protocol === "openai") {
+            await runCell(
+              test,
+              state,
+              `${label} cell3b: generate identity reports the served model`,
+              async () => {
+                const result: GenerateResult = await nl.generate({
+                  input: { text: GATE_MARKERS.STREAM },
+                  provider: row.provider,
+                  model: row.model,
+                  disableInternalFallback: true,
+                  disableTools: true,
+                  enableAnalytics: true,
+                });
+                assertEqual(
+                  result.content.trim(),
+                  GATE_STREAM_VALUE,
+                  `cell3b generate content did not equal the exact expected value`,
+                );
+                const servedModel = `${lastRequestedModel(server)}${GATE_SERVER_MODEL_SUFFIX}`;
+                assertEqual(
+                  result.model,
+                  servedModel,
+                  `cell3b identity: GenerateResult.model did not report what the mock server actually served`,
+                );
+                assertEqual(
+                  result.analytics?.model,
+                  servedModel,
+                  `cell3b identity: GenerateResult.analytics.model did not report what the mock server actually served`,
+                );
+              },
+            );
+          }
+
           // Cell 4: tool-nonce proof, gated on the row's declared tools
           // capability.
           if (!row.capabilities.tools) {

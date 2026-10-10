@@ -978,6 +978,89 @@ await test("a summary row under the user role is not mistaken for the tool batch
   }
 });
 
+section("a turn that carries files");
+
+/** A cell only the CSV can have put in the prompt. */
+const CSV_CELL = "csv_cell_7731";
+
+for (const mode of ["full", "marker"] as const) {
+  await test(`${mode}: a turn carrying only a CSV keeps the session history and replays the tool step`, async () => {
+    // A turn whose only attachments are text-routable (CSV, plain text,
+    // office documents) takes the multimodal builder's non-vision branch,
+    // which handed the history to a builder that never read it: the request
+    // went out with no prior turns and no replayed tool steps at all.
+    const sessionId = `replay-file-${mode}-${Date.now()}`;
+    const server = await startStandIn(twoTurnScript);
+    const restore = withAnthropicEnv(server.port);
+    const { nl, executions } = createSdk(mode === "full" ? "full" : undefined);
+    try {
+      const common = {
+        provider: "anthropic",
+        model: MODEL,
+        disableInternalFallback: true,
+        maxTokens: 64,
+        maxSteps: 3,
+        context: { sessionId },
+      } as const;
+      await nl.generate({
+        ...common,
+        input: { text: "where is order ord_4471?" },
+      });
+      await nl.generate({
+        ...common,
+        input: {
+          text: "which carrier does the attached sheet list?",
+          csvFiles: [Buffer.from(`order,carrier\n${CSV_CELL},DHL\n`)],
+        },
+      });
+      assert(
+        server.bodies.length === 3,
+        "precondition failed: two turns should take exactly three requests",
+      );
+      assert(executions() === 1, "precondition failed: tool ran != 1 time");
+      const body = server.bodies[2];
+      const text = textOf(body);
+      assert(
+        text.includes(CSV_CELL),
+        "precondition failed: the CSV did not reach turn 2's prompt",
+      );
+      assert(
+        text.includes("where is order ord_4471?"),
+        "the file turn dropped the session's earlier user turn",
+      );
+      assert(
+        text.includes("answer 1"),
+        "the file turn dropped the session's earlier assistant answer",
+      );
+      const blocks = blocksOf(body);
+      if (mode === "full") {
+        const use = blocks.find((b) => b.type === "tool_use");
+        const result = blocks.find((b) => b.type === "tool_result");
+        assert(
+          use?.name === TOOL_NAME,
+          "the file turn did not replay the tool step as a tool_use block",
+        );
+        assert(
+          result !== undefined && use?.id === result.tool_use_id,
+          "the file turn did not replay the tool step's paired result",
+        );
+      } else {
+        assert(
+          text.includes(MARKER),
+          "the file turn did not replay the tool step's marker",
+        );
+        assert(
+          !blocks.some((b) => b.type === "tool_use"),
+          "the default mode replayed raw tool blocks on a file turn",
+        );
+      }
+    } finally {
+      restore();
+      await server.close();
+    }
+  });
+}
+
 section("multi-step turns");
 
 /** Requests 0 and 1 each call the tool (two sequential steps); 2 answers; 3 is turn 2. */
