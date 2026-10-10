@@ -9,6 +9,7 @@ import type {
   ChunkerConfig,
   ChunkingStrategy,
 } from "../../types/index.js";
+import { removeHtmlMarkup } from "../../utils/htmlText.js";
 import { BaseChunker, DEFAULT_CHUNKER_CONFIG } from "./BaseChunker.js";
 
 /**
@@ -46,10 +47,12 @@ export class HTMLChunker extends BaseChunker {
    * Strip HTML tags from content
    */
   private stripHtml(html: string): string {
-    return html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
+    return removeHtmlMarkup(html, {
+      tagReplacement: " ",
+      commentReplacement: " ",
+      lineBreakEndTags: [],
+      lineBreakVoidTags: [],
+    })
       .replace(/\s+/g, " ")
       .trim();
   }
