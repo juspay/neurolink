@@ -189,14 +189,18 @@ function extractToken(
 
   switch (type) {
     case "bearer": {
-      // Extract token from "Bearer <token>"
-      const match = headerValue.match(/^Bearer\s+(.+)$/i);
+      // Extract token from "Bearer <token>". The token must open with a
+      // non-whitespace character. With `\s+(.+)` the whitespace run and the
+      // token could both claim the same tabs, so a header that failed to match
+      // (a line terminator after a long run of tabs) was retried at every
+      // split, which is quadratic in the header length.
+      const match = headerValue.match(/^Bearer\s+(\S.*)$/i);
       return match ? match[1] : null;
     }
 
     case "basic": {
-      // Extract credentials from "Basic <base64>"
-      const match = headerValue.match(/^Basic\s+(.+)$/i);
+      // Extract credentials from "Basic <base64>" (same shape as above).
+      const match = headerValue.match(/^Basic\s+(\S.*)$/i);
       return match ? match[1] : null;
     }
 

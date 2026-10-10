@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import fs from "fs";
 import http from "http";
 import path from "path";
@@ -35,6 +36,28 @@ function resolvePublicPath(): string {
   return compiled; // let express.static handle the 404
 }
 
+// Per-client request budget for the HTTP surface (the page and its static
+// assets). One page load is a handful of requests, so the default leaves normal
+// use untouched and only bounds a client that is hammering the file-serving
+// routes. Both values are operator settings, read once at startup.
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_RATE_LIMIT_MAX = 300;
+
+function positiveIntegerFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    logger.warn(
+      `[SERVER] Ignoring ${name}: expected a positive integer, using ${fallback}`,
+    );
+    return fallback;
+  }
+  return parsed;
+}
+
 export async function startVoiceServer(port = 3000): Promise<void> {
   const app = express();
 
@@ -54,6 +77,32 @@ export async function startVoiceServer(port = 3000): Promise<void> {
   // set custom headers — see voiceWebSocketHandler.verifyClient. HTTP routes
   // intentionally reject `?token=` (would leak via Referer + access logs).
   const authToken = process.env.VOICE_SERVER_AUTH_TOKEN;
+
+  /* ---------- RATE LIMIT ---------- */
+
+  // Registered first so it also bounds failed-auth attempts and oversized
+  // bodies. /health stays exempt for the same reason the auth middleware skips
+  // it: a load balancer probes it on a fixed cadence with no credentials.
+  const rateLimitWindowMs = positiveIntegerFromEnv(
+    "VOICE_SERVER_RATE_LIMIT_WINDOW_MS",
+    DEFAULT_RATE_LIMIT_WINDOW_MS,
+  );
+  const rateLimitMax = positiveIntegerFromEnv(
+    "VOICE_SERVER_RATE_LIMIT_MAX",
+    DEFAULT_RATE_LIMIT_MAX,
+  );
+  app.use(
+    rateLimit({
+      windowMs: rateLimitWindowMs,
+      limit: rateLimitMax,
+      standardHeaders: "draft-6",
+      legacyHeaders: false,
+      skip: (req) => req.path === "/health",
+      handler: (_req, res) => {
+        res.status(429).json({ error: "Too many requests" });
+      },
+    }),
+  );
 
   /* ---------- BODY LIMITS + AUTH ---------- */
 
@@ -142,7 +191,7 @@ export async function startVoiceServer(port = 3000): Promise<void> {
         ? `bound publicly on ${host}:${port} (VOICE_SERVER_ALLOW_PUBLIC=1)`
         : `bound to loopback ${host}:${port} (set VOICE_SERVER_ALLOW_PUBLIC=1 to expose externally)`;
       logger.info(
-        `[SERVER] Voice server running — ${exposure}${authToken ? " (auth required)" : " (no auth — token via VOICE_SERVER_AUTH_TOKEN recommended)"}`,
+        `[SERVER] Voice server running — ${exposure}${authToken ? " (auth required)" : " (no auth — token via VOICE_SERVER_AUTH_TOKEN recommended)"}; rate limit ${rateLimitMax} requests per ${rateLimitWindowMs}ms per client`,
       );
       resolve();
     });

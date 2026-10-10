@@ -162,6 +162,7 @@ Visit **http://localhost:9876** in your browser
 - `POST /api/developer/code` - Code generation across languages
 - `POST /api/developer/api-doc` - API documentation generation
 - `POST /api/developer/debug` - Error analysis and debugging help
+- `POST /api/developer/file-operations` - List, read and write files under the directory the server was started in (links that leave it are refused). Limited to 60 requests per client per minute; set `DEMO_FILE_OPS_RATE_LIMIT_MAX` and `DEMO_FILE_OPS_RATE_LIMIT_WINDOW_MS` to change that
 
 ### Analytics
 
