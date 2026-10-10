@@ -171,8 +171,8 @@ export type TTSOptions = {
    */
   sanitize?: boolean | SpeechSanitizeOptions;
   /**
-   * Cancels synthesis. A handler that supports it (ElevenLabs) aborts the
-   * request in flight and makes no further retry attempt once this fires.
+   * Cancels synthesis. A handler that supports it (ElevenLabs, 60db) aborts
+   * the request in flight and makes no further retry attempt once this fires.
    * `generate()` derives one from its own synthesis timeout and the caller's
    * `abortSignal`, so a handler's retry loop cannot outlive the call that
    * started it and issue a billable request nobody is waiting for.

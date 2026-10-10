@@ -18,7 +18,11 @@ Buffered synthesis; NeuroLink's processor handles sentence streaming.
 
 > **new SixtyDBTTS**(`apiKey?`, `baseUrl?`): `SixtyDBTTS`
 
-Explicit endpoint supports deployments using their own API proxy.
+Explicit endpoint supports deployments using their own API proxy; the
+`SIXTYDB_BASE_URL` environment variable sets the same thing for the
+auto-registered handler (and so for the CLI), the way
+`ELEVENLABS_BASE_URL` does for ElevenLabs. An explicit argument wins;
+with neither, the endpoint is `https://api.60db.ai`.
 HTTP is accepted only for a loopback host (offline tests dial
 http://127.0.0.1:<port>); every other override must be HTTPS, since
 requests carry `Authorization: Bearer <key>` (CodeRabbit finding on
@@ -34,7 +38,7 @@ matches proxyReplay.ts's own HTTPS-except-loopback check, including
 
 ##### baseUrl?
 
-`string` = `"https://api.60db.ai"`
+`string`
 
 #### Returns
 

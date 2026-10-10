@@ -478,9 +478,15 @@ export class CLICommandFactory {
         "mp4",
         "mpeg",
         "mpga",
+        "pcm16",
       ],
-      default: "mp3",
-      description: "Audio output format",
+      // No yargs default: an unset format reaches the handler as undefined
+      // and each handler applies its own default (mp3 for most, wav for
+      // 60db, which synthesizes only wav/pcm16). A CLI-wide "mp3" default
+      // made `--ttsProvider sixtydb` fail validation unless --ttsFormat was
+      // passed explicitly.
+      description:
+        "Audio output format (default: the TTS provider's own, mp3 for most and wav for sixtydb; pcm16 is raw headerless PCM)",
     },
     ttsSpeed: {
       type: "number" as const,

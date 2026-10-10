@@ -99,9 +99,9 @@ Large local `--image`/`--csv`/`--pdf`/`--video` files emit a soft-limit size war
 **Text-to-Speech (TTS):**
 
 - `--tts` – enable text-to-speech output (default `false`).
-- `--ttsProvider` – TTS provider: `google-ai`, `vertex`, `openai-tts`, `elevenlabs`, `azure-tts`, `fish-audio`, `cartesia` (overrides `--provider` for speech synthesis; default auto-selects from configured credentials). The CLI always speaks the model's reply (`tts.mode: "response"`); see [TTS](/docs/features/tts) for the SDK's `direct` / `response` modes and `tts.sanitize`.
+- `--ttsProvider` – TTS provider: `google-ai`, `vertex`, `openai-tts`, `elevenlabs`, `azure-tts`, `fish-audio`, `cartesia`, `sixtydb` (overrides `--provider` for speech synthesis; default auto-selects from configured credentials). The CLI always speaks the model's reply (`tts.mode: "response"`); see [TTS](/docs/features/tts) for the SDK's `direct` / `response` modes and `tts.sanitize`.
 - `--ttsVoice` – TTS voice to use (e.g., `en-US-Neural2-C`, `Rachel` for ElevenLabs).
-- `--ttsFormat` – audio output format: `mp3` (default), `wav`, `ogg`, `opus`, `m4a`, `flac`, `webm`, `mp4`, `mpeg`, `mpga`. On ElevenLabs `ogg`/`opus` produce Ogg/Opus at 48 kHz (`opus_48000_64`); `wav` is raw PCM.
+- `--ttsFormat` – audio output format: `mp3`, `wav`, `ogg`, `opus`, `m4a`, `flac`, `webm`, `mp4`, `mpeg`, `mpga`, `pcm16` (raw headerless PCM). When omitted, the provider's own default applies: `mp3` for every provider except `sixtydb`, which defaults to `wav` and accepts only `wav` and `pcm16`. On ElevenLabs `ogg`/`opus` produce Ogg/Opus at 48 kHz (`opus_48000_64`); `wav` is raw PCM.
 - `--ttsSpeed` – speaking rate 0.25–4.0 (default `1.0`). ElevenLabs accepts 0.7–1.2 and clamps anything outside with a warning.
 - `--ttsQuality` – audio quality level: `standard` (default) or `hd`.
 - `--ttsOutput` – save TTS audio to file (supports absolute and relative paths).

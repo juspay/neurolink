@@ -333,25 +333,26 @@ await model.call([new HumanMessage("Hello")]);
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({ provider: "openai" });
+const neurolink = new NeuroLink();
 
-// Use middleware for callbacks
-neurolink.useMiddleware({
-  name: "logging",
-  requestHook: async (options) => {
-    console.log("Request:", options);
-    return options;
-  },
-  responseHook: async (result) => {
-    console.log("Response:", result);
-    return result;
-  },
+// Lifecycle events play the role of LangChain callbacks
+const emitter = neurolink.getEventEmitter();
+emitter.on("generation:start", (event) => {
+  console.log("Request:", event); // { provider, timestamp }
+});
+emitter.on("generation:end", (event) => {
+  console.log("Response:", event); // { provider, responseTime, result, ... }
 });
 
 await neurolink.generate({
   input: { text: "Hello" },
+  provider: "openai",
 });
 ```
+
+To change the request or the response rather than observe them, pass a
+custom middleware on the call (`middleware.middleware` plus
+`enabledMiddleware`); see [Custom Middleware](../../custom-middleware-guide.md).
 
 **Built-in middleware:**
 

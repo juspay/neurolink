@@ -453,9 +453,15 @@ const metadata = {
   description:
     "Tracks token usage, response times, and model performance metrics",
   priority: 100, // High priority to ensure capture
-  defaultEnabled: true,
+  defaultEnabled: true, // informational only; see below
 };
 ```
+
+`defaultEnabled` does not switch a middleware on. Every call builds its chain
+with each registered middleware disabled, and only `preset`,
+`middlewareConfig.<id>.enabled: true` or `enabledMiddleware` enables one. (The
+`default` preset, which enables analytics, applies only when the call's
+`middleware` sets none of `preset`, `middlewareConfig` or `enabledMiddleware`.)
 
 ### Custom Analytics Collection
 
@@ -473,7 +479,6 @@ function createCustomAnalyticsMiddleware(): NeuroLinkMiddleware {
       name: "Custom Analytics",
       description: "Custom analytics tracking",
       priority: 90,
-      defaultEnabled: true,
     },
 
     wrapGenerate: async ({ doGenerate, params }) => {
@@ -501,6 +506,15 @@ function createCustomAnalyticsMiddleware(): NeuroLinkMiddleware {
     },
   };
 }
+
+// Register it and enable it on the call; registering alone runs nothing.
+await neurolink.generate({
+  input: { text: "Hello" },
+  middleware: {
+    middleware: [createCustomAnalyticsMiddleware()],
+    enabledMiddleware: ["custom-analytics"],
+  },
+});
 ```
 
 ## Integration with Observability Tools

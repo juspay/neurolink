@@ -77,11 +77,12 @@ const ai = new NeuroLink({
   ],
 });
 
-// Use MCP tools
+// Use MCP tools: every connected server's tools are offered to the model
+// automatically. There is no `tools: "auto"` switch; `tools` takes extra
+// tool definitions, and `disableTools: true` turns all tools off for a call.
 const result = await ai.generate({
   input: { text: "List files in my Documents folder" },
   provider: "anthropic",
-  tools: "auto", // Automatically uses MCP tools
 });
 ```
 
@@ -601,7 +602,6 @@ const result = await ai.generate({
   },
   provider: "anthropic",
   model: "claude-3-5-sonnet-20241022",
-  tools: "auto",
 });
 ```
 
@@ -713,7 +713,6 @@ const ai = new NeuroLink({
 
 const result = await ai.generate({
   input: { text: "Review all open PRs in my repo and suggest improvements" },
-  tools: "auto",
 });
 ```
 
@@ -738,7 +737,6 @@ const result = await ai.generate({
   input: {
     text: "Analyze user signup trends for the past 3 months and identify patterns",
   },
-  tools: "auto",
 });
 ```
 
@@ -777,7 +775,6 @@ const result = await ai.generate({
       4. Alert #support channel in Slack for P0 issues
     `,
   },
-  tools: "auto",
 });
 ```
 
@@ -832,13 +829,13 @@ const neurolink = new NeuroLink();
 
 const result = await neurolink.generate({
   input: { text: "Your prompt" },
-  tools: "auto",
   enableAnalytics: true,
 });
 
-// Analytics data is available in the result metadata
-// You can also enable debug logging to see tool execution details:
-// DEBUG=neurolink:* npx neurolink generate "Your prompt"
+// Analytics data is available in result.analytics, and the tools that ran in
+// result.toolsUsed. For tool execution details, turn on NeuroLink's logging:
+// NEUROLINK_DEBUG=true in the SDK process (add NEUROLINK_LOG_LEVEL=debug for
+// debug-level detail), or `npx @juspay/neurolink generate "..." --debug`
 ```
 
 ### 5. ✅ Handle Server Failures Gracefully
@@ -848,7 +845,6 @@ const result = await neurolink.generate({
 try {
   const result = await ai.generate({
     input: { text: "Search GitHub for TypeScript repos" },
-    tools: "auto",
   });
 } catch (error) {
   if (error.message.includes("MCP server")) {
@@ -903,13 +899,13 @@ echo $GITHUB_PERSONAL_ACCESS_TOKEN
 
 ```typescript
 // Verify server is loaded
-console.log(ai.listMCPServers());
+console.log(await ai.listMCPServers());
 
-// Explicitly enable tools
+// MCP tools are on by default: make sure the call does not turn them off
 const result = await ai.generate({
   input: { text: "Your prompt" },
-  tools: "auto", // Must be 'auto' or specific tool list
-  provider: "anthropic", // MCP requires Claude 3.5+
+  provider: "anthropic", // any provider with tool support
+  // disableTools: true, // <- this would hide every MCP tool
 });
 ```
 

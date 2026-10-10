@@ -190,7 +190,7 @@
   "docs/guides/migration/from-langchain.md": {
     "fallbackProviders": 1,
     "model": 3,
-    "provider": 17,
+    "provider": 16,
     "temperature": 1
   },
   "docs/guides/migration/from-vercel-ai-sdk.md": {

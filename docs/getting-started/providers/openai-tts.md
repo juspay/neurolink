@@ -241,9 +241,10 @@ neurolink generate "Professional narration." \
 neurolink generate "Tell me a short story." \
   --provider openai \
   --tts --tts-provider openai-tts \
-  --tts-voice fable \
-  --tts-use-ai-response
+  --tts-voice fable
 ```
+
+The CLI always speaks the model's reply, so no extra flag is needed.
 
 ### Speed Adjustment
 

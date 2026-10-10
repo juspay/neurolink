@@ -1,8 +1,10 @@
 #!/usr/bin/env tsx
-/** Exercise the built public SDK and a real local HTTP transport, without vendor credentials. */
+/** Exercise the built public SDK, the built CLI and a real local HTTP transport, without vendor credentials. */
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { strict as assert } from "node:assert";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import {
   NeuroLink,
   SixtyDBTTS,
@@ -11,9 +13,16 @@ import {
   registerDefaultTTSHandlers,
 } from "../dist/index.js";
 import type { TTSOptions } from "../dist/index.js";
-import { defineSuite } from "./helpers/harness.js";
+import { defineSuite, runCommand, tempDir } from "./helpers/harness.js";
+import {
+  chatCompletion,
+  startScriptedChatServer,
+} from "./helpers/mockChatServer.js";
 
-const { test, runSuite } = defineSuite("60db TTS", { offline: true });
+const { test, runSuite } = defineSuite("60db TTS", {
+  offline: true,
+  perTestTimeoutMs: 90_000,
+});
 const voice = "038cf0d1-eef8-45a6-81b0-99c5e57a33d2";
 const fastVoice = "fbb75ed2-975a-40c7-9e06-38e30524a9a1";
 const pcm = Buffer.from([255, 255, 0, 0, 1, 0, 0, 128]);
@@ -74,6 +83,7 @@ assert(address && typeof address === "object");
 const endpoint = `http://127.0.0.1:${address.port}`;
 const priorKey = process.env.SIXTYDB_API_KEY;
 const priorVoice = process.env.SIXTYDB_DEFAULT_VOICE;
+const priorBaseUrl = process.env.SIXTYDB_BASE_URL;
 const priorHandlers = TTSProcessor.listProviders().map(
   (name) => [name, TTSProcessor.getHandler(name)] as const,
 );
@@ -232,6 +242,68 @@ await runSuite(async () => {
         hangBody = false;
       }
     });
+    await test("Caller signal cancels an in-flight request without waiting for the timeout", async () => {
+      hangBody = true;
+      hangingBodyClosed = false;
+      const before = requests.length;
+      const controller = new AbortController();
+      const started = Date.now();
+      try {
+        const pending = TTSProcessor.synthesize("Check.", "sixtydb", {
+          voice,
+          signal: controller.signal,
+        });
+        setTimeout(() => controller.abort(), 200);
+        await assert.rejects(
+          pending,
+          (error: unknown) =>
+            error instanceof TTSError &&
+            !error.retriable &&
+            error.message.includes("cancelled"),
+        );
+        // Precondition: the request reached the server, so the abort hit a
+        // live transfer rather than short-circuiting before any I/O.
+        assert.equal(requests.length, before + 1);
+        assert(Date.now() - started < 10_000, "cancellation waited too long");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert(hangingBodyClosed, "unfinished HTTP stream was left open");
+      } finally {
+        hangBody = false;
+      }
+    });
+    await test("An already-aborted signal never reaches HTTP", async () => {
+      const before = requests.length;
+      await assert.rejects(
+        TTSProcessor.synthesize("Check.", "sixtydb", {
+          voice,
+          signal: AbortSignal.abort(),
+        }),
+        (error: unknown) =>
+          error instanceof TTSError &&
+          !error.retriable &&
+          error.message.includes("cancelled"),
+      );
+      assert.equal(requests.length, before);
+    });
+    await test("generate forwards tts.signal to the 60db request", async () => {
+      hangBody = true;
+      hangingBodyClosed = false;
+      const before = requests.length;
+      const controller = new AbortController();
+      const started = Date.now();
+      try {
+        setTimeout(() => controller.abort(), 200);
+        const result = await generate({ signal: controller.signal });
+        assert.equal(result.ttsMetadata?.success, false);
+        assert.equal(result.audio, undefined);
+        assert.equal(requests.length, before + 1);
+        assert(Date.now() - started < 10_000, "cancellation waited too long");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert(hangingBodyClosed, "unfinished HTTP stream was left open");
+      } finally {
+        hangBody = false;
+      }
+    });
     await test("Voice discovery loads both tiers and caches before filtering", async () => {
       const before = requests.length;
       const voices = await TTSProcessor.getVoices("sixtydb");
@@ -260,12 +332,137 @@ await runSuite(async () => {
         regional.map((item) => item.id),
         [voice],
       );
+      // A POSIX-style locale ("en_US", "hi_IN") reduces to the same
+      // primary subtag; splitting on "-" alone matched nothing.
+      const posix = await TTSProcessor.getVoices("sixtydb", {
+        languageCode: "en_US",
+      });
+      assert.deepEqual(
+        posix.map((item) => item.id),
+        [voice],
+      );
+      const posixUpper = await TTSProcessor.getVoices("sixtydb", {
+        languageCode: "HI_IN",
+      });
+      assert.deepEqual(
+        posixUpper.map((item) => item.id),
+        [fastVoice],
+      );
       const nonMatching = await TTSProcessor.getVoices("sixtydb", {
         languageCode: "fr-FR",
       });
       assert.deepEqual(nonMatching, []);
       assert.equal(requests.length, before + 2);
     });
+    await test("SIXTYDB_BASE_URL points the auto-registered handler at the override", async () => {
+      responseBody = JSON.stringify({
+        success: true,
+        audio_base64: pcm.toString("base64"),
+        sample_rate: 24000,
+      });
+      try {
+        TTSProcessor.clearHandlers();
+        process.env.SIXTYDB_BASE_URL = "http://example.com";
+        registerDefaultTTSHandlers();
+        // A non-loopback HTTP override is refused, so the handler is skipped
+        // rather than registered against a cleartext endpoint.
+        assert.equal(TTSProcessor.supports("sixtydb"), false);
+        TTSProcessor.clearHandlers();
+        process.env.SIXTYDB_BASE_URL = endpoint;
+        registerDefaultTTSHandlers();
+        const before = requests.length;
+        const result = await TTSProcessor.synthesize("Check.", "sixtydb", {
+          voice,
+        });
+        assert.equal(requests.length, before + 1);
+        assert.equal(requests.at(-1)?.path, "/tts-synthesize");
+        assert.equal(result.format, "wav");
+      } finally {
+        delete process.env.SIXTYDB_BASE_URL;
+        TTSProcessor.registerHandler(
+          "sixtydb",
+          new SixtyDBTTS("offline-test-key", endpoint),
+        );
+      }
+    });
+    // The CLI used to default --ttsFormat to mp3, which 60db rejects before
+    // any request, and offered no pcm16 choice. Drive the built CLI end to
+    // end: a scripted LLM endpoint for the reply (the CLI speaks the reply)
+    // and this suite's 60db mock for synthesis, from an empty cwd/HOME so a
+    // developer's .env cannot leak in.
+    const chat = await startScriptedChatServer([
+      chatCompletion({ content: "Spoken reply." }),
+    ]);
+    const runSpeakingCli = async (extra: string[]) => {
+      const home = tempDir("neurolink-sixtydb-cli-");
+      const result = await runCommand(
+        "node",
+        [
+          resolve("dist/cli/index.js"),
+          "generate",
+          "Say something.",
+          "--provider",
+          "openai-compatible",
+          "--model",
+          "fixture-model",
+          "--disableTools",
+          "--tts",
+          "--ttsProvider",
+          "sixtydb",
+          "--ttsVoice",
+          voice,
+          "--ttsOutput",
+          join(home, "speech"),
+          ...extra,
+        ],
+        {
+          cwd: home,
+          env: {
+            ...process.env,
+            HOME: home,
+            OPENAI_COMPATIBLE_BASE_URL: chat.baseURL.replace(/\/v1$/, ""),
+            OPENAI_COMPATIBLE_API_KEY: "offline-test-key",
+            SIXTYDB_API_KEY: "offline-test-key",
+            SIXTYDB_BASE_URL: endpoint,
+            NEUROLINK_SKIP_MCP: "true",
+            NEUROLINK_DISABLE_BUILTIN_TOOLS: "true",
+          },
+          timeoutMs: 60_000,
+        },
+      );
+      return { result, home };
+    };
+    try {
+      await test("CLI with --ttsProvider sixtydb and no --ttsFormat saves WAV", async () => {
+        responseBody = JSON.stringify({
+          success: true,
+          audio_base64: pcm.toString("base64"),
+          sample_rate: 24000,
+        });
+        const before = requests.length;
+        const { result, home } = await runSpeakingCli([]);
+        assert.equal(result.exitCode, 0, "CLI exited non-zero");
+        assert.equal(requests.length, before + 1, "60db was not called");
+        assert.equal(requests.at(-1)?.path, "/tts-synthesize");
+        assert.equal(requests.at(-1)?.body.text, "Spoken reply.");
+        const saved = join(home, "speech.wav");
+        assert(existsSync(saved), "no WAV file was saved");
+        const bytes = readFileSync(saved);
+        assert.equal(bytes.toString("ascii", 0, 4), "RIFF");
+        assert.deepEqual(bytes.subarray(44), pcm);
+      });
+      await test("CLI accepts --ttsFormat pcm16 and saves raw PCM", async () => {
+        const before = requests.length;
+        const { result, home } = await runSpeakingCli(["--ttsFormat", "pcm16"]);
+        assert.equal(result.exitCode, 0, "CLI exited non-zero");
+        assert.equal(requests.length, before + 1, "60db was not called");
+        const saved = join(home, "speech.pcm");
+        assert(existsSync(saved), "no PCM file was saved");
+        assert.deepEqual(readFileSync(saved), pcm);
+      });
+    } finally {
+      await chat.close();
+    }
     await test("Endpoint override rejects non-loopback HTTP and malformed URLs", () => {
       assert.throws(
         () => new SixtyDBTTS("key", "http://example.com"),
@@ -298,6 +495,11 @@ await runSuite(async () => {
       delete process.env.SIXTYDB_DEFAULT_VOICE;
     } else {
       process.env.SIXTYDB_DEFAULT_VOICE = priorVoice;
+    }
+    if (priorBaseUrl === undefined) {
+      delete process.env.SIXTYDB_BASE_URL;
+    } else {
+      process.env.SIXTYDB_BASE_URL = priorBaseUrl;
     }
     TTSProcessor.clearHandlers();
     for (const [name, handler] of priorHandlers) {
