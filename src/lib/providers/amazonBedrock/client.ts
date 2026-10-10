@@ -1,6 +1,8 @@
 import type {
   Tool as BedrockTool,
   ContentBlock,
+  ConverseCommandInput,
+  ConverseStreamCommandInput,
   Message,
   ToolConfiguration,
   ToolSpecification,
@@ -17,7 +19,10 @@ import { createAnalytics } from "../../core/analytics.js";
 import { BaseProvider } from "../../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
-import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
+import {
+  resolveToolExecutionRecords,
+  toolCallsFromSummaries,
+} from "../../core/toolExecutionRecorder.js";
 import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { composeAbortSignals } from "../../utils/timeout.js";
 import { createBedrockLoopAdapter } from "./loopAdapter.js";
@@ -32,6 +37,7 @@ import {
 } from "./modelBridge.js";
 import type { NeuroLink } from "../../neurolink.js";
 import type {
+  AgenticLoopAdapter,
   AgenticLoopChunk,
   AgenticLoopResult,
   AgenticLoopStepRequest,
@@ -53,9 +59,14 @@ import type {
   MultimodalChatMessage,
   EnhancedGenerateResult,
   TextGenerationOptions,
+  BedrockContentBlock,
   BedrockMessage,
+  MemoryToolCallRecord,
+  MemoryToolResultRecord,
   ProviderErrorRule,
   StreamGenerationEndContext,
+  StreamToolResult,
+  ToolExecutionSummaryInternal,
 } from "../../types/index.js";
 import {
   AuthenticationError,
@@ -66,12 +77,19 @@ import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { isAbortError, withTimeout } from "../../utils/errorHandling.js";
 import { ImageProcessor } from "../../utils/imageProcessor.js";
 import { logger } from "../../utils/logger.js";
-import { resolveSamplingParams } from "../../models/modelRegistry.js";
+import {
+  claudeDisabledThinkingReplacement,
+  resolveSamplingParams,
+} from "../../models/modelRegistry.js";
 import { buildMultimodalMessagesArray } from "../../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../../utils/multimodalOptionsBuilder.js";
 import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import { type Span, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 
+import {
+  createAWSProxyHandler,
+  resolveAWSEndpointForProxy,
+} from "../../proxy/awsProxyIntegration.js";
 import { bedrockTracer } from "./constants.js";
 import { loadBedrockControl } from "./utils.js";
 
@@ -129,6 +147,24 @@ export class AmazonBedrockProvider extends BaseProvider {
     return match?.[1] ?? null;
   }
 
+  /**
+   * The control-plane client (`bedrock`, not `bedrock-runtime`) gets the same
+   * proxy treatment as the runtime client: a proxy-aware handler when the
+   * environment configures a proxy for its endpoint, nothing otherwise.
+   */
+  private static controlPlaneProxyOptions(region: string): {
+    requestHandler?: NonNullable<ReturnType<typeof createAWSProxyHandler>>;
+  } {
+    const handler = createAWSProxyHandler(
+      resolveAWSEndpointForProxy({
+        serviceEndpointEnvVar: "AWS_ENDPOINT_URL_BEDROCK",
+        hostPrefix: "bedrock",
+        region,
+      }),
+    );
+    return handler ? { requestHandler: handler } : {};
+  }
+
   constructor(
     modelName?: string,
     neurolink?: NeuroLink,
@@ -168,14 +204,23 @@ export class AmazonBedrockProvider extends BaseProvider {
     );
 
     try {
-      // Create BedrockRuntimeClient with clean configuration like working Bedrock-MCP-Connector
-      // Absolutely no proxy interference - let AWS SDK handle everything natively
+      // The AWS SDK does not read HTTP(S)_PROXY, so with a proxy configured
+      // for this endpoint the client gets a proxy-aware handler; otherwise the
+      // SDK keeps its own default transport, untouched.
       logger.debug(
         "[AmazonBedrockProvider] Creating BedrockRuntimeClient with clean configuration",
       );
 
+      const proxyHandler = createAWSProxyHandler(
+        resolveAWSEndpointForProxy({
+          serviceEndpointEnvVar: "AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
+          hostPrefix: "bedrock-runtime",
+          region: this.region,
+        }),
+      );
       this.bedrockClient = new BedrockRuntimeClient({
         region: this.region,
+        ...(proxyHandler ? { requestHandler: proxyHandler } : {}),
         // Clean configuration - AWS SDK will handle credentials via:
         // 1. IAM roles (preferred in production)
         // 2. Environment variables
@@ -215,6 +260,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       await loadBedrockControl();
     const bedrockClient = new BedrockClient({
       region: this.region,
+      ...AmazonBedrockProvider.controlPlaneProxyOptions(this.region),
     });
 
     try {
@@ -380,9 +426,16 @@ export class AmazonBedrockProvider extends BaseProvider {
     let finishReason: string | undefined;
     let rawFinishReason: string | undefined;
     let toolExecutions: AgenticLoopResult<BedrockMessage[]>["toolExecutions"];
+    let toolSteps: ToolExecutionSummaryInternal[][];
     try {
-      ({ text, usage, finishReason, rawFinishReason, toolExecutions } =
-        await this.conversationLoop(options));
+      ({
+        text,
+        usage,
+        finishReason,
+        rawFinishReason,
+        toolExecutions,
+        toolSteps,
+      } = await this.conversationLoop(options));
     } catch (error) {
       // Emit failure generation:end so Pipeline B records the failed generation
       const failEmitter = this.neurolink?.getEventEmitter();
@@ -491,6 +544,8 @@ export class AmazonBedrockProvider extends BaseProvider {
       }
     )._generationEndEmitted = true;
 
+    await this.storeGenerateToolSteps(options, toolSteps);
+
     return generateResult;
   }
 
@@ -511,6 +566,8 @@ export class AmazonBedrockProvider extends BaseProvider {
      * no tools for turns that ran them.
      */
     toolExecutions: AgenticLoopResult<BedrockMessage[]>["toolExecutions"];
+    /** The same dispatches grouped by loop step, for conversation memory. */
+    toolSteps: ToolExecutionSummaryInternal[][];
   }> {
     // The step cap is now the same `maxSteps || DEFAULT_MAX_STEPS` the
     // streaming path has always used. It used to be a hardcoded 10 that
@@ -530,6 +587,8 @@ export class AmazonBedrockProvider extends BaseProvider {
       { temperature: options.temperature ?? 0.7 },
       "bedrock.converse",
     );
+    const thinking = this.resolveClaudeThinking(options);
+    const toolSteps: ToolExecutionSummaryInternal[][] = [];
 
     const systemPromptText =
       options.systemPrompt ||
@@ -547,23 +606,24 @@ export class AmazonBedrockProvider extends BaseProvider {
       temperature: number | undefined,
       signal: AbortSignal | undefined,
     ): Promise<AgenticLoopResult<BedrockMessage[]>> => {
-      const adapter = createBedrockLoopAdapter({
-        client: this.bedrockClient,
-        streaming: false,
-        region: this.region,
-        maxSteps,
-        buildCommandInput: (conv) => ({
-          modelId: this.modelName || this.getDefaultModel(),
-          messages: this.convertToAWSMessages(conv),
-          // Converse rejects a blank block; transformParams may empty this.
-          ...(system ? { system: [{ text: system }] } : {}),
-          inferenceConfig: {
-            maxTokens,
-            ...(temperature !== undefined && { temperature }),
-          },
-          ...(toolConfig ? { toolConfig } : {}),
+      const adapter = this.recordToolSteps(
+        createBedrockLoopAdapter({
+          client: this.bedrockClient,
+          streaming: false,
+          region: this.region,
+          maxSteps,
+          buildCommandInput: (conv) =>
+            this.buildConverseInput({
+              conversation: conv,
+              system,
+              maxTokens,
+              temperature,
+              toolConfig,
+              thinking,
+            }),
         }),
-      });
+        (step) => toolSteps.push(step),
+      );
       const { resultPromise } = runAgenticLoop(adapter, conversation, {
         tools: this.toEngineTools(tools),
         abortSignal: signal,
@@ -762,6 +822,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         finishReason,
         rawFinishReason,
         toolExecutions,
+        toolSteps,
       };
     } catch (error) {
       logger.error(
@@ -769,6 +830,209 @@ export class AmazonBedrockProvider extends BaseProvider {
         error,
       );
       throw this.handleProviderError(error);
+    }
+  }
+
+  /**
+   * One Converse / ConverseStream request. Shared by the generate and stream
+   * turns so the thinking field, and the sampling rule it imposes, cannot
+   * drift between them.
+   */
+  private buildConverseInput(params: {
+    conversation: BedrockMessage[];
+    system: string;
+    maxTokens: number | undefined;
+    temperature: number | undefined;
+    toolConfig: ToolConfiguration | null;
+    thinking: { type: string; budget_tokens?: number } | undefined;
+  }): ConverseCommandInput & ConverseStreamCommandInput {
+    const { system, maxTokens, toolConfig, thinking } = params;
+    // Extended thinking fixes sampling: Claude rejects any temperature but 1
+    // while thinking is on (and Converse sends no top_p here at all). The CLI
+    // always sends a default temperature, so forwarding it alongside thinking
+    // would turn the call into a 400. Same rule as the direct Anthropic
+    // client: only `enabled` constrains sampling.
+    const thinkingOn = thinking?.type === "enabled";
+    const temperature = thinkingOn ? undefined : params.temperature;
+    if (thinkingOn && params.temperature !== undefined) {
+      logger.debug(
+        "[AmazonBedrockProvider] extended thinking is enabled, so temperature is omitted — Claude rejects any temperature but 1 while thinking is set",
+      );
+    }
+    return {
+      modelId: this.modelName || this.getDefaultModel(),
+      messages: this.convertToAWSMessages(params.conversation),
+      // Converse rejects a blank block; transformParams may empty this.
+      ...(system ? { system: [{ text: system }] } : {}),
+      inferenceConfig: {
+        maxTokens,
+        ...(temperature !== undefined && { temperature }),
+      },
+      ...(toolConfig ? { toolConfig } : {}),
+      ...(thinking
+        ? { additionalModelRequestFields: { thinking } as DocumentType }
+        : {}),
+    };
+  }
+
+  /**
+   * Claude's `thinking` field for this turn, or undefined to send none.
+   *
+   * Converse has no thinking parameter of its own; Bedrock passes
+   * `additionalModelRequestFields` through to the model's native request, so
+   * the field takes Anthropic's own shape. The mapping mirrors the direct
+   * Anthropic client: an explicit token budget turns thinking on, and
+   * `type: "disabled"` is sent rather than dropped, because on a model that
+   * thinks by default an absent field means "think". Sonnet 5.5, Opus 5.5 and
+   * Fable 5.1 refuse `disabled`; for them `claudeDisabledThinkingReplacement`
+   * picks `between_tools` or no field at all.
+   *
+   * Only Claude models get the field. It is Anthropic's request shape, and a
+   * model from another vendor would reject or misread it, so every other
+   * Bedrock model is sent exactly what it was before.
+   */
+  private resolveClaudeThinking(
+    options: TextGenerationOptions | StreamOptions,
+  ): { type: string; budget_tokens?: number } | undefined {
+    const modelId = this.modelName || this.getDefaultModel();
+    const config = options.thinkingConfig;
+    if (!config || !/claude/i.test(modelId)) {
+      return undefined;
+    }
+    if ((config.enabled || config.type === "enabled") && config.budgetTokens) {
+      return { type: "enabled", budget_tokens: config.budgetTokens };
+    }
+    if (config.type !== "disabled") {
+      return undefined;
+    }
+    const replacement = claudeDisabledThinkingReplacement(
+      modelId,
+      config.thinkingLevel,
+    );
+    if (replacement === "keep") {
+      return { type: "disabled" };
+    }
+    logger.debug(
+      `[AmazonBedrockProvider] ${modelId} rejects thinking "disabled"; ${replacement === "omit" ? "omitting thinking" : "sending between_tools"}`,
+    );
+    return replacement === "between_tools"
+      ? { type: "between_tools" }
+      : undefined;
+  }
+
+  /**
+   * Wraps `buildToolResultMessages`, the engine's only per-step hook and the
+   * only one that sees a step's calls and results together, so each step's
+   * dispatches reach `onStep` as soon as they settle, in step order. Per-tool
+   * timing is not available there (the engine reports a step's results after
+   * the batch has settled); `toolExecutions` prefers the execution
+   * recorder's own records, which carry it.
+   */
+  private recordToolSteps(
+    adapter: AgenticLoopAdapter<BedrockMessage[], BedrockContentBlock[]>,
+    onStep: (step: ToolExecutionSummaryInternal[]) => void,
+  ): AgenticLoopAdapter<BedrockMessage[], BedrockContentBlock[]> {
+    return {
+      ...adapter,
+      buildToolResultMessages: (
+        conversation,
+        stepResult,
+        toolResults,
+        engineStep,
+      ) => {
+        const settledAt = new Date();
+        onStep(
+          toolResults.map((result) => ({
+            toolCallId: result.id,
+            toolName: result.name,
+            input: result.args,
+            ...(result.error !== undefined
+              ? { error: result.error }
+              : { output: result.output }),
+            startTime: settledAt,
+            endTime: settledAt,
+            stepIndex: engineStep,
+          })),
+        );
+        return adapter.buildToolResultMessages(
+          conversation,
+          stepResult,
+          toolResults,
+          engineStep,
+        );
+      },
+    };
+  }
+
+  /** One loop step's dispatches as conversation-memory call/result rows. */
+  private toolStepStorageRecords(step: ToolExecutionSummaryInternal[]): {
+    toolCalls: MemoryToolCallRecord[];
+    toolResults: MemoryToolResultRecord[];
+  } {
+    return {
+      toolCalls: step.map((s) => ({
+        toolCallId: s.toolCallId,
+        toolName: s.toolName,
+        args:
+          s.input !== null &&
+          typeof s.input === "object" &&
+          !Array.isArray(s.input)
+            ? (s.input as Record<string, unknown>)
+            : {},
+        ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        timestamp: s.startTime,
+      })),
+      toolResults: step.map((s) => ({
+        toolCallId: s.toolCallId,
+        toolName: s.toolName,
+        ...(s.error !== undefined ? { error: s.error } : { output: s.output }),
+        ...(s.stepIndex !== undefined ? { stepIndex: s.stepIndex } : {}),
+        timestamp: s.endTime,
+      })),
+    };
+  }
+
+  /**
+   * Persist a generate() turn's tool steps into conversation memory, one
+   * storage call per step and in step order, the same as
+   * `BaseProvider.finalizeNativeGenerate` does for the other native generate
+   * paths. Bedrock overrides `generate()` outright and never reaches that
+   * method, so a session held tool rows for none of its generated turns.
+   *
+   * Awaited, so the rows land before the turn's own messages are written
+   * after `generate()` returns. Gated on a real session id for the reason
+   * the base gives: without one the storage helper invents a throwaway
+   * `session-<nanoid>` key, which on the in-memory backend evicts real
+   * sessions, and there is no later turn to replay the rows into anyway.
+   */
+  private async storeGenerateToolSteps(
+    options: TextGenerationOptions,
+    steps: ToolExecutionSummaryInternal[][],
+  ): Promise<void> {
+    const sessionId =
+      options.context?.sessionId ??
+      (options as { sessionId?: unknown }).sessionId;
+    if (typeof sessionId !== "string" || sessionId.length === 0) {
+      return;
+    }
+    for (const step of steps) {
+      if (step.length === 0) {
+        continue;
+      }
+      const { toolCalls, toolResults } = this.toolStepStorageRecords(step);
+      try {
+        await this.handleToolExecutionStorage(
+          toolCalls,
+          toolResults,
+          options,
+          new Date(),
+        );
+      } catch (error) {
+        logger.warn("[AmazonBedrockProvider] Failed to store tool executions", {
+          provider: this.providerName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 
@@ -1419,6 +1683,8 @@ export class AmazonBedrockProvider extends BaseProvider {
               usage: generateResult.usage,
               model: this.modelName || this.getDefaultModel(),
               provider: this.getProviderName(),
+              toolCalls: generateResult.toolCalls,
+              toolsUsed: generateResult.toolsUsed,
               metadata: {
                 fallback: true,
               },
@@ -1696,6 +1962,15 @@ export class AmazonBedrockProvider extends BaseProvider {
       { temperature: options.temperature ?? 0.7 },
       "bedrock.converseStream",
     );
+    const thinking = this.resolveClaudeThinking(options);
+
+    // Every tool the turn dispatches, appended as each step settles. The
+    // result's `toolCalls` / `toolResults` / `toolExecutions` are live
+    // getters over this and `toolsUsed` is this list's own array, so a read
+    // after the stream drains sees the whole turn: the loop runs in the
+    // background, and a value copied into the result now would be empty.
+    const toolSummaries: ToolExecutionSummaryInternal[] = [];
+    const toolsSucceeded: string[] = [];
 
     const systemPromptText =
       options.systemPrompt ||
@@ -1758,23 +2033,30 @@ export class AmazonBedrockProvider extends BaseProvider {
       stream: AsyncIterable<AgenticLoopChunk>;
       resultPromise: Promise<AgenticLoopResult<BedrockMessage[]>>;
     } => {
-      const baseAdapter = createBedrockLoopAdapter({
-        client: this.bedrockClient,
-        streaming: true,
-        region: this.region,
-        maxSteps,
-        buildCommandInput: (conv) => ({
-          modelId: this.modelName || this.getDefaultModel(),
-          messages: this.convertToAWSMessages(conv),
-          // Converse rejects a blank block; transformParams may empty this.
-          ...(system ? { system: [{ text: system }] } : {}),
-          inferenceConfig: {
-            maxTokens,
-            ...(temperature !== undefined && { temperature }),
-          },
-          ...(toolConfig ? { toolConfig } : {}),
+      const baseAdapter = this.recordToolSteps(
+        createBedrockLoopAdapter({
+          client: this.bedrockClient,
+          streaming: true,
+          region: this.region,
+          maxSteps,
+          buildCommandInput: (conv) =>
+            this.buildConverseInput({
+              conversation: conv,
+              system,
+              maxTokens,
+              temperature,
+              toolConfig,
+              thinking,
+            }),
         }),
-      });
+        (step) =>
+          this.recordStreamToolStep(
+            step,
+            toolSummaries,
+            toolsSucceeded,
+            options,
+          ),
+      );
       const adapter = {
         ...baseAdapter,
         executeStep: async (
@@ -1966,7 +2248,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       },
     };
 
-    return {
+    const result: StreamResult = {
       stream: wrappedStreamIterable,
       // No usage key here on purpose: the real aggregate resolves through
       // `analytics` after the stream drains. A literal zero object is truthy
@@ -1975,7 +2257,93 @@ export class AmazonBedrockProvider extends BaseProvider {
       provider: this.getProviderName(),
       analytics: analyticsPromise,
       metadata,
+      toolsUsed: toolsSucceeded,
     };
+    this.defineLiveStreamToolFields(result, toolSummaries, options);
+    return result;
+  }
+
+  /**
+   * One settled stream step: append it to the turn's records and persist it.
+   * Stored per step, as the other native stream loops store, so a step's
+   * calls and results sit together and a later turn replays them in order.
+   */
+  private recordStreamToolStep(
+    step: ToolExecutionSummaryInternal[],
+    toolSummaries: ToolExecutionSummaryInternal[],
+    toolsSucceeded: string[],
+    options: StreamOptions,
+  ): void {
+    toolSummaries.push(...step);
+    for (const summary of step) {
+      // "Ran, not asked for", the same rule as the generate path.
+      if (summary.error === undefined) {
+        toolsSucceeded.push(summary.toolName);
+      }
+    }
+    const { toolCalls, toolResults } = this.toolStepStorageRecords(step);
+    this.handleToolExecutionStorage(
+      toolCalls,
+      toolResults,
+      options,
+      new Date(),
+    ).catch((storageErr: unknown) => {
+      logger.warn("[AmazonBedrockProvider] Failed to store tool executions", {
+        provider: this.providerName,
+        error:
+          storageErr instanceof Error ? storageErr.message : String(storageErr),
+      });
+    });
+  }
+
+  /**
+   * Live `toolCalls` / `toolResults` / `toolExecutions` over the stream's
+   * tool records, in the shape generate() returns (`toolCallId` included).
+   * The wrapper layers (BaseProvider.stream, NeuroLink.stream) re-apply
+   * accessor descriptors rather than spreading values, so these resolve when
+   * read, after the background loop has run the tools.
+   */
+  private defineLiveStreamToolFields(
+    result: StreamResult,
+    toolSummaries: ToolExecutionSummaryInternal[],
+    options: StreamOptions,
+  ): void {
+    Object.defineProperty(result, "toolCalls", {
+      enumerable: true,
+      configurable: true,
+      get: () => toolCallsFromSummaries(toolSummaries),
+    });
+    Object.defineProperty(result, "toolResults", {
+      enumerable: true,
+      configurable: true,
+      get: (): StreamToolResult[] =>
+        toolSummaries.map((s) => ({
+          toolName: s.toolName,
+          id: s.toolCallId,
+          status: s.error !== undefined ? "failure" : "success",
+          ...(s.error !== undefined ? { error: s.error } : {}),
+          ...(s.output !== undefined
+            ? { output: s.output as StreamToolResult["output"] }
+            : {}),
+        })),
+    });
+    Object.defineProperty(result, "toolExecutions", {
+      enumerable: true,
+      configurable: true,
+      get: () =>
+        resolveToolExecutionRecords(
+          options,
+          transformToolExecutions(
+            toolSummaries.map((s) => ({
+              id: s.toolCallId,
+              name: s.toolName,
+              input: s.input,
+              output: s.output,
+              ...(s.error !== undefined ? { error: s.error } : {}),
+            })),
+          ),
+        ),
+    });
   }
 
   /**
@@ -1987,11 +2355,12 @@ export class AmazonBedrockProvider extends BaseProvider {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     // Create a separate BedrockClient for health checks (not BedrockRuntimeClient)
-    // Use simple configuration like working example - no custom proxy handler
     const { BedrockClient, ListFoundationModelsCommand } =
       await loadBedrockControl();
+    const healthRegion = process.env.AWS_REGION || "us-east-1";
     const healthCheckClient = new BedrockClient({
-      region: process.env.AWS_REGION || "us-east-1",
+      region: healthRegion,
+      ...AmazonBedrockProvider.controlPlaneProxyOptions(healthRegion),
     });
 
     try {

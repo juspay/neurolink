@@ -26,6 +26,7 @@ import { createServer, type Server } from "node:http";
 import { z } from "zod";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { NeuroLinkMiddleware } from "../dist/index.js";
 
 assertDistFresh();
 
@@ -614,6 +615,154 @@ await test("generate forwards the SageMaker JSON schema and returns structured d
     assert(
       schema.safeParse(result.structuredData).success,
       "SageMaker structured result was lost",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+// Stream middleware. `stream()` called the language model's `doStream`
+// directly while only `generate()` wrapped the model, so a caller's
+// transformParams and wrapStream, and the guardrails output filter, never ran
+// on a SageMaker stream. The rewrite marker is what separates "the hook ran"
+// from "the hook changed the request": the stand-in sees the wire body.
+const SAGEMAKER_MIDDLEWARE_MARKER = "SAGEMAKER_MIDDLEWARE_TOUCHED_THE_PROMPT";
+
+function sageMakerStreamProbe(record: {
+  transformParamsTypes: string[];
+  wrapStreamCalls: number;
+}): NeuroLinkMiddleware {
+  return {
+    specificationVersion: "v3",
+    // Without metadata the probe registers under an undefined id and never
+    // runs, which would measure the probe rather than the provider.
+    metadata: { id: "sagemaker-stream-probe", name: "SageMaker stream probe" },
+    transformParams: async ({ type, params }) => {
+      record.transformParamsTypes.push(type);
+      return {
+        ...params,
+        prompt: [
+          ...params.prompt,
+          {
+            role: "user",
+            content: [{ type: "text", text: SAGEMAKER_MIDDLEWARE_MARKER }],
+          },
+        ],
+      };
+    },
+    wrapStream: async ({ doStream }) => {
+      record.wrapStreamCalls += 1;
+      return doStream();
+    },
+  };
+}
+
+await test("stream applies caller middleware: transformParams reaches the endpoint and wrapStream runs", async () => {
+  const bodies: string[] = [];
+  const server = await startStandIn((_, raw) => {
+    bodies.push(raw);
+    return {
+      status: 200,
+      body: JSON.stringify([{ generated_text: "streamed through middleware" }]),
+    };
+  });
+  const restoreEnv = withoutAwsEnv();
+  const record = { transformParamsTypes: [] as string[], wrapStreamCalls: 0 };
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "hi" },
+      provider: "sagemaker",
+      model: "test-endpoint",
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+      middleware: {
+        middleware: [sageMakerStreamProbe(record)],
+        enabledMiddleware: ["sagemaker-stream-probe"],
+      },
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += ("content" in chunk ? chunk.content : undefined) ?? "";
+    }
+    assert(
+      server.requests > 0,
+      "precondition: the stream never reached the endpoint",
+    );
+    assert(
+      record.transformParamsTypes.includes("stream"),
+      "transformParams never ran with type stream on the SageMaker stream path",
+    );
+    assert(
+      record.wrapStreamCalls === 1,
+      `wrapStream should run once per stream, ran ${record.wrapStreamCalls} times`,
+    );
+    assert(
+      bodies.some((body) => body.includes(SAGEMAKER_MIDDLEWARE_MARKER)),
+      "the transformParams rewrite did not reach the endpoint",
+    );
+    assert(
+      text.includes("streamed through middleware"),
+      "the endpoint's text did not reach the caller through the wrapped stream",
+    );
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+});
+
+await test("stream applies the guardrails output filter to SageMaker text", async () => {
+  const server = await startStandIn(() => ({
+    status: 200,
+    body: JSON.stringify([{ generated_text: "forbidden reply" }]),
+  }));
+  const restoreEnv = withoutAwsEnv();
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.stream({
+      input: { text: "hi" },
+      provider: "sagemaker",
+      model: "test-endpoint",
+      maxTokens: 32,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+      middleware: {
+        middlewareConfig: {
+          guardrails: {
+            enabled: true,
+            config: {
+              badWords: {
+                enabled: true,
+                list: ["forbidden"],
+                replacementText: "CLEAN",
+              },
+            },
+          },
+        },
+      },
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += ("content" in chunk ? chunk.content : undefined) ?? "";
+    }
+    assert(server.requests > 0, "precondition: endpoint never ran");
+    assert(
+      text.includes("reply"),
+      "precondition: the endpoint's text did not reach the caller",
+    );
+    assert(
+      !text.includes("forbidden"),
+      "the guardrails bad-word filter did not run on the SageMaker stream",
+    );
+    assert(
+      text.includes("CLEAN"),
+      "the guardrails replacement text did not reach the caller",
     );
   } finally {
     await sdk.shutdown();

@@ -290,6 +290,8 @@
     "test:anthropic-execution-control": "tsx test/continuous-test-suite-anthropic-execution-control.ts",
     "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts",
     "test:google-genai-proxy": "tsx test/continuous-test-suite-google-genai-proxy.ts",
+    "test:aws-proxy": "tsx test/continuous-test-suite-aws-proxy.ts",
+    "test:embedding-integrity": "tsx test/continuous-test-suite-embedding-integrity.ts",
     "test:google-genai-sdk": "tsx test/continuous-test-suite-google-genai-sdk.ts",
     "test:docs-mcp": "pnpm exec tsx test/continuous-test-suite-docs-mcp.ts",
     "test:docs-search-index": "pnpm exec tsx test/continuous-test-suite-docs-search-index.ts",

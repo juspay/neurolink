@@ -4,7 +4,16 @@
  * Ensures BedrockRuntimeClient and other AWS services respect proxy settings
  */
 
+import type {
+  HttpHandlerOptions,
+  HttpRequest,
+  HttpResponse,
+  RequestHandler,
+} from "@smithy/types";
+import type { Dispatcher } from "undici";
 import { logger } from "../utils/logger.js";
+import { getProxyDispatcherForUrl, maskProxyUrl } from "./proxyFetch.js";
+import { shouldBypassProxy } from "./utils/noProxyUtils.js";
 
 /**
  * Configure global Node.js agents for AWS SDK proxy support
@@ -14,7 +23,7 @@ export async function configureAWSProxySupport(): Promise<void> {
   try {
     // Check if proxy is needed for AWS endpoints
     const testUrl = "https://bedrock-runtime.us-east-1.amazonaws.com";
-    const proxyUrl = await getProxyUrlForTarget(testUrl);
+    const proxyUrl = getProxyUrlForTarget(testUrl);
 
     if (!proxyUrl) {
       logger.debug("[AWS Proxy] No proxy configuration needed for AWS SDK");
@@ -115,76 +124,188 @@ async function _configureMinimalHttpAgents(_proxyUrl: string): Promise<void> {
 }
 
 /**
- * Create a proxy-aware HTTP handler for AWS SDK clients
- * This is the proper way to inject proxy support into AWS SDK v3 clients
+ * Characters `encodeURIComponent` leaves alone that RFC 3986 reserves. The
+ * AWS SDK's own query builder escapes them too, and SigV4 canonicalises the
+ * query the same way, so the wire form has to agree.
  */
-export async function createAWSProxyHandler(
-  targetUrl?: string,
-): Promise<unknown | null> {
-  try {
-    const testUrl =
-      targetUrl || "https://bedrock-runtime.us-east-1.amazonaws.com";
-    const proxyUrl = await getProxyUrlForTarget(testUrl);
+function escapeUri(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
 
-    if (!proxyUrl) {
-      logger.debug(
-        "[AWS Proxy] No proxy configured, using default HTTP handler",
-      );
-      return null;
-    }
-
-    logger.debug("[AWS Proxy] Creating proxy-aware HTTP handler for AWS SDK", {
-      proxyUrl: proxyUrl.replace(/\/\/[^:]+:[^@]+@/, "//*****:*****@"),
-    });
-
-    // Dynamically import proxy agent modules
-    const parsed = new URL(proxyUrl);
-
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      try {
-        // Use undici ProxyAgent for HTTP/HTTPS proxies
-        const { ProxyAgent } = await import("undici");
-        const proxyAgent = new ProxyAgent(proxyUrl);
-
-        // Create a custom dispatcher wrapper for AWS SDK
-        return {
-          async handle(request: unknown) {
-            const { fetch } = await import("undici");
-            const req = request as {
-              url: string;
-              method?: string;
-              headers?: Record<string, string>;
-              body?: unknown;
-            };
-            return fetch(req.url, {
-              method: req.method,
-              headers: req.headers,
-              body: req.body as import("undici").BodyInit,
-              dispatcher: proxyAgent,
-            });
-          },
-        };
-      } catch (undiciError) {
-        logger.warn("[AWS Proxy] No suitable proxy agent available", {
-          undiciError:
-            undiciError instanceof Error
-              ? undiciError.message
-              : String(undiciError),
-        });
-        return null;
+/** The request's absolute URL, built the way the SDK's own handlers build it. */
+function awsRequestUrl(request: HttpRequest): string {
+  const parts: string[] = [];
+  for (const key of Object.keys(request.query ?? {}).sort()) {
+    const value = request.query?.[key];
+    const name = escapeUri(key);
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        parts.push(`${name}=${escapeUri(item)}`);
       }
+    } else if (typeof value === "string") {
+      parts.push(`${name}=${escapeUri(value)}`);
     } else {
-      logger.warn("[AWS Proxy] Unsupported proxy protocol for AWS SDK", {
-        protocol: parsed.protocol,
-      });
-      return null;
+      parts.push(name);
     }
-  } catch (error) {
-    logger.error("[AWS Proxy] Failed to create proxy-aware HTTP handler", {
-      error,
+  }
+  const port = request.port ? `:${request.port}` : "";
+  const query = parts.length > 0 ? `?${parts.join("&")}` : "";
+  return `${request.protocol}//${request.hostname}${port}${request.path}${query}`;
+}
+
+/**
+ * Hop-by-hop headers undici refuses or manages itself. SigV4 never signs any
+ * of them, so dropping them cannot invalidate a signature.
+ */
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "expect",
+  "keep-alive",
+  "proxy-connection",
+  "transfer-encoding",
+  "upgrade",
+]);
+
+/**
+ * A request handler for an AWS SDK v3 client that sends every request through
+ * the HTTP(S) proxy the environment configures for `targetUrl`, or `null` when
+ * none applies: no proxy variable for the endpoint's scheme, the endpoint is
+ * listed in NO_PROXY, or the proxy is a SOCKS URL, which this handler cannot
+ * speak. On `null` the caller passes no handler at all, so the SDK keeps its
+ * default transport exactly as before.
+ *
+ * `targetUrl` is the endpoint the client will call. The decision is made once,
+ * when the client is built, the same way `createProxyFetch` snapshots the
+ * environment. Each request then takes the dispatcher for its own URL, so a
+ * request the environment says to send direct still goes direct.
+ *
+ * The handler speaks HTTP/1.1 through undici's `ProxyAgent` (CONNECT for an
+ * https endpoint). Bedrock Runtime defaults to an HTTP/2 handler, but Converse,
+ * ConverseStream, InvokeModel and the SageMaker Runtime operations are all
+ * served over HTTP/1.1; only bidirectional streams need HTTP/2, and nothing
+ * here uses one.
+ *
+ * The shape is the SDK's `HttpHandler`: `handle` plus the two config hooks
+ * its runtime extensions call. `@smithy/protocol-http`, which names that type,
+ * is not a direct dependency, so it is spelled out from `@smithy/types`.
+ */
+export function createAWSProxyHandler(
+  targetUrl: string,
+  options: { requestTimeout?: number } = {},
+):
+  | (RequestHandler<HttpRequest, HttpResponse, HttpHandlerOptions> & {
+      updateHttpClientConfig(key: "requestTimeout", value?: number): void;
+      httpHandlerConfigs(): { requestTimeout?: number };
+    })
+  | null {
+  const proxyUrl = getProxyUrlForTarget(targetUrl);
+  if (!proxyUrl) {
+    return null;
+  }
+  let protocol: string;
+  try {
+    protocol = new URL(proxyUrl).protocol;
+  } catch {
+    logger.warn("[AWS Proxy] Proxy URL could not be parsed; not proxying", {
+      proxyUrl: maskProxyUrl(proxyUrl),
     });
     return null;
   }
+  if (protocol !== "http:" && protocol !== "https:") {
+    logger.warn(
+      "[AWS Proxy] Only HTTP/HTTPS proxies are supported for AWS SDK clients; not proxying",
+      { protocol },
+    );
+    return null;
+  }
+
+  logger.debug("[AWS Proxy] Routing AWS SDK requests through proxy", {
+    proxyUrl: maskProxyUrl(proxyUrl),
+    targetUrl,
+  });
+
+  let requestTimeout = options.requestTimeout;
+  return {
+    metadata: { handlerProtocol: "http/1.1" },
+    async handle(request, handlerOptions) {
+      const url = awsRequestUrl(request);
+      const headers: Record<string, string> = {};
+      for (const [name, value] of Object.entries(request.headers)) {
+        if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) {
+          headers[name] = value;
+        }
+      }
+      // A deprecated SDK-shaped signal (no addEventListener) cannot be handed
+      // to undici; the SDK itself only ever passes a native one.
+      const abortSignal = handlerOptions?.abortSignal;
+      const signal =
+        abortSignal instanceof AbortSignal ? abortSignal : undefined;
+      const timeout = handlerOptions?.requestTimeout ?? requestTimeout;
+      const dispatcher = await getProxyDispatcherForUrl(url);
+      const { request: send } = await import("undici");
+      const response = await send(url, {
+        method: request.method as Dispatcher.HttpMethod,
+        headers,
+        body: (request.body ?? null) as Dispatcher.RequestOptions["body"],
+        ...(dispatcher ? { dispatcher } : {}),
+        ...(signal ? { signal } : {}),
+        ...(timeout ? { headersTimeout: timeout, bodyTimeout: timeout } : {}),
+      });
+      const responseHeaders: Record<string, string> = {};
+      for (const [name, value] of Object.entries(response.headers)) {
+        if (value !== undefined) {
+          responseHeaders[name] = Array.isArray(value)
+            ? value.join(", ")
+            : value;
+        }
+      }
+      return {
+        response: {
+          statusCode: response.statusCode,
+          headers: responseHeaders,
+          body: response.body,
+        },
+      };
+    },
+    updateHttpClientConfig(key, value) {
+      if (key === "requestTimeout") {
+        requestTimeout = value;
+      }
+    },
+    httpHandlerConfigs() {
+      return { requestTimeout };
+    },
+  };
+}
+
+/**
+ * The endpoint an AWS SDK client will call, resolved the way the SDK resolves
+ * it: an explicit endpoint, then `AWS_ENDPOINT_URL_<SERVICE>`, then
+ * `AWS_ENDPOINT_URL`, then the service's regional host. Used only to decide
+ * whether the proxy applies (NO_PROXY is matched against this host).
+ */
+export function resolveAWSEndpointForProxy(params: {
+  explicitEndpoint?: string;
+  /** e.g. `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` */
+  serviceEndpointEnvVar: string;
+  /** The regional host prefix, e.g. `bedrock-runtime` or `runtime.sagemaker`. */
+  hostPrefix: string;
+  region: string;
+}): string {
+  const configured =
+    params.explicitEndpoint ||
+    process.env[params.serviceEndpointEnvVar] ||
+    process.env.AWS_ENDPOINT_URL;
+  if (configured) {
+    return configured;
+  }
+  const domain = params.region.startsWith("cn-")
+    ? "amazonaws.com.cn"
+    : "amazonaws.com";
+  return `https://${params.hostPrefix}.${params.region}.${domain}`;
 }
 
 /**
@@ -205,70 +326,32 @@ function getDefaultPort(protocol: string): number {
   }
 }
 
-// Import shared NO_PROXY utility
-import { shouldBypassProxySimple } from "./utils/noProxyUtils.js";
-
 /**
- * Get proxy URL for specific target (reuse existing logic)
+ * The proxy a request to `targetUrl` should use, or null. The same selection
+ * `proxyFetch` makes for every other provider: NO_PROXY first, then the
+ * scheme's own variable, then ALL_PROXY. An https endpoint never falls back to
+ * HTTP_PROXY. SOCKS_PROXY is not consulted: an AWS SDK client cannot use it.
  */
-async function getProxyUrlForTarget(targetUrl: string): Promise<string | null> {
-  try {
-    // Simple fallback proxy detection using environment variables
-    // This is more reliable than trying to import internal functions
-    const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
-    const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
-    const allProxy = process.env.ALL_PROXY || process.env.all_proxy;
-    const noProxy = process.env.NO_PROXY || process.env.no_proxy;
-
-    // Check if target should bypass proxy using shared utility
-    if (noProxy && shouldBypassProxySimple(targetUrl, noProxy)) {
-      return null;
-    }
-
-    // Use HTTPS proxy for HTTPS URLs, HTTP proxy for HTTP URLs
-    const url = new URL(targetUrl);
-    if (url.protocol === "https:" && (httpsProxy || allProxy)) {
-      return httpsProxy || allProxy || null;
-    } else if (url.protocol === "http:" && httpProxy) {
-      return httpProxy;
-    } else if (httpProxy) {
-      // Fallback to HTTP proxy for any protocol
-      return httpProxy;
-    } else if (allProxy) {
-      return allProxy;
-    }
-
-    return null;
-  } catch (error) {
-    // Fallback to simple environment variable check
-    // (Ensure any logged URLs here are masked before emitting.)
-    logger.warn("[AWS Proxy] Error in proxy detection, using simple fallback", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    // Check NO_PROXY bypass first in fallback path too
-    const noProxy = process.env.NO_PROXY || process.env.no_proxy;
-    if (noProxy && shouldBypassProxySimple(targetUrl, noProxy)) {
-      return null;
-    }
-
-    const url = new URL(targetUrl);
-    const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
-    const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
-    const allProxy = process.env.ALL_PROXY || process.env.all_proxy;
-
-    if (url.protocol === "https:" && httpsProxy) {
-      return httpsProxy;
-    }
-    if (url.protocol === "http:" && httpProxy) {
-      return httpProxy;
-    }
-    if (allProxy) {
-      return allProxy;
-    }
-
+function getProxyUrlForTarget(targetUrl: string): string | null {
+  if (shouldBypassProxy(targetUrl)) {
     return null;
   }
+  let protocol: string;
+  try {
+    protocol = new URL(targetUrl).protocol;
+  } catch {
+    return null;
+  }
+  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
+  const allProxy = process.env.ALL_PROXY || process.env.all_proxy;
+  if (protocol === "https:" && httpsProxy) {
+    return httpsProxy;
+  }
+  if (protocol === "http:" && httpProxy) {
+    return httpProxy;
+  }
+  return allProxy || null;
 }
 
 /**
@@ -295,7 +378,7 @@ export async function cleanupAWSProxySupport(): Promise<void> {
 export async function testAWSProxyConnectivity(): Promise<boolean> {
   try {
     const testUrl = "https://bedrock-runtime.us-east-1.amazonaws.com";
-    const proxyUrl = await getProxyUrlForTarget(testUrl);
+    const proxyUrl = getProxyUrlForTarget(testUrl);
 
     if (!proxyUrl) {
       logger.debug("[AWS Proxy] No proxy configured, direct connection test");
