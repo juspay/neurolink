@@ -903,10 +903,14 @@ export type ProviderName = keyof typeof PROVIDERS;
  * set. Before this, a row with only its fallback var populated (e.g.
  * HF_TOKEN with no HUGGINGFACE_API_KEY set) was marked unavailable even
  * though the runtime provider authenticates fine off that same fallback.
+ *
+ * Bedrock is never reported as available: ambient AWS credentials would make
+ * the matrix suites run real generate/stream calls against a model the
+ * account may not be allowed to call. `--provider=bedrock` still force-includes it.
  */
 export function hasProviderEnv(providerName: string): boolean {
   const entry = PROVIDERS[providerName];
-  if (!entry) {
+  if (!entry || providerName === "bedrock") {
     return false;
   }
   const [primaryEnvVar, ...remainingEnvVars] = entry.envVars;
