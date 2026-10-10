@@ -11,6 +11,7 @@ import type {
   SpanData,
 } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Braintrust exporter for AI evaluation and scoring
@@ -35,7 +36,7 @@ export class BraintrustExporter extends BaseExporter {
 
     // Verify API key
     try {
-      const response = await fetch(`${this.endpoint}/v1/project`, {
+      const response = await proxyAwareFetch(`${this.endpoint}/v1/project`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
 
@@ -61,7 +62,7 @@ export class BraintrustExporter extends BaseExporter {
     try {
       const log = this.convertToBraintrustLog(span);
 
-      const response = await fetch(
+      const response = await proxyAwareFetch(
         `${this.endpoint}/v1/project_logs/${this.projectName}/insert`,
         {
           method: "POST",
@@ -93,7 +94,7 @@ export class BraintrustExporter extends BaseExporter {
     try {
       const events = spans.map((s) => this.convertToBraintrustLog(s));
 
-      const response = await fetch(
+      const response = await proxyAwareFetch(
         `${this.endpoint}/v1/project_logs/${this.projectName}/insert`,
         {
           method: "POST",
@@ -146,7 +147,7 @@ export class BraintrustExporter extends BaseExporter {
    * Verify connectivity to Braintrust API
    */
   protected async ping(): Promise<void> {
-    const response = await fetch(`${this.endpoint}/v1/project`, {
+    const response = await proxyAwareFetch(`${this.endpoint}/v1/project`, {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     });
 

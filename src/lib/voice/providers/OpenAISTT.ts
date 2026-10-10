@@ -17,6 +17,7 @@ import type {
   WhisperSTTOptions,
   WhisperVerboseResponse,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * OpenAI Whisper Speech-to-Text Handler
@@ -207,7 +208,7 @@ export class OpenAISTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(endpoint, {
+        response = await proxyAwareFetch(endpoint, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${this.apiKey}`,

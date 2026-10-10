@@ -24,7 +24,7 @@ OpenAI provides API access to the GPT model family, including the GPT-6 family, 
 - **Embeddings**: `text-embedding-3-small` and other embedding models
 - **Tool/Function Calling**: Full support for agent workflows
 - **Streaming**: Real-time streaming responses with tool execution
-- **Proxy Support**: Route requests through HTTP/HTTPS/SOCKS proxies
+- **Proxy Support**: Route requests through HTTP/HTTPS proxies
 
 ### Provider Aliases
 
@@ -360,14 +360,11 @@ HTTP_PROXY=http://proxy.example.com:8080
 # Catch-all proxy
 ALL_PROXY=http://proxy.example.com:8080
 
-# SOCKS proxy
-SOCKS_PROXY=socks5://proxy.example.com:1080
-
 # Bypass proxy for specific hosts
 NO_PROXY=localhost,127.0.0.1,.internal.example.com
 ```
 
-Priority order: protocol-specific (`HTTPS_PROXY` / `HTTP_PROXY`) > `ALL_PROXY` > `SOCKS_PROXY`.
+Priority order: protocol-specific (`HTTPS_PROXY` / `HTTP_PROXY`) > `ALL_PROXY`. SOCKS proxies (`SOCKS_PROXY`, or a `socks5://` URL) are not supported: the request falls back to a direct connection with a warning, or fails when `NEUROLINK_PROXY_STRICT=true`. See [Enterprise & Proxy Setup](../enterprise-proxy-setup.md).
 
 Both the generation/streaming requests and embedding requests use proxy-aware fetch.
 

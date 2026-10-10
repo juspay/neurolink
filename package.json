@@ -176,6 +176,7 @@
     "test:dynamic": "pnpm exec tsx test/continuous-test-suite-dynamic.ts",
     "test:proxy": "pnpm exec tsx test/continuous-test-suite-proxy.ts",
     "test:proxy-connect-retry": "pnpm exec tsx test/continuous-test-suite-proxy-connect-retry.ts",
+    "test:proxy-egress": "pnpm exec tsx test/continuous-test-suite-proxy-egress.ts",
     "test:proxy-reliability": "node scripts/run-proxy-reliability.mjs",
     "test:proxy-telemetry": "pnpm exec tsx test/continuous-test-suite-proxy-telemetry.ts",
     "test:proxy-restart": "pnpm exec tsx test/continuous-test-suite-proxy-restart.ts",

@@ -19,6 +19,7 @@ import type {
   CodexImportedCredential,
   CodexTokenResponse,
 } from "../types/index.js";
+import { proxyAwareFetch } from "../proxy/proxyFetch.js";
 
 // OAuth client + endpoints (Codex CLI values).
 export const CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -194,7 +195,7 @@ export async function refreshCodexToken(
     scope: CODEX_DEFAULT_SCOPES.join(" "),
   });
 
-  const response = await fetch(CODEX_TOKEN_URL, {
+  const response = await proxyAwareFetch(CODEX_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

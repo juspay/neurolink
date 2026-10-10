@@ -17,6 +17,7 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.fish.audio";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -102,7 +103,7 @@ export class FishAudioTTS implements TTSHandler {
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/v1/tts`, {
+      response = await proxyAwareFetch(`${this.baseUrl}/v1/tts`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,

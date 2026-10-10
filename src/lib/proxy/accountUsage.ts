@@ -37,6 +37,7 @@ import type {
   AnthropicUsageResponse,
   ProxyPassthroughAccount,
 } from "../types/index.js";
+import { proxyAwareFetch } from "./proxyFetch.js";
 
 export const ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 
@@ -83,7 +84,7 @@ async function requestUsage(
   token: string,
 ): Promise<{ response?: Response; networkError?: string }> {
   try {
-    const response = await fetch(ANTHROPIC_USAGE_URL, {
+    const response = await proxyAwareFetch(ANTHROPIC_USAGE_URL, {
       method: "GET",
       headers: {
         authorization: `Bearer ${token}`,

@@ -20,6 +20,7 @@ import type {
   VideoHandler,
   VideoOutputOptions,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.dev.runwayml.com/v1";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -307,7 +308,7 @@ export class RunwayVideoHandler implements VideoHandler {
     const onCallerAbort = (): void => controller.abort();
     callerAbortSignal?.addEventListener("abort", onCallerAbort, { once: true });
     try {
-      return await fetch(url, { ...init, signal: controller.signal });
+      return await proxyAwareFetch(url, { ...init, signal: controller.signal });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
         throw new VideoError({

@@ -21,6 +21,7 @@ import {
 } from "./tokenStorage.js";
 import { logger } from "../../utils/logger.js";
 import { withTimeout } from "../../utils/errorHandling.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /** Default timeout for OAuth token operations (30 seconds) */
 const OAUTH_TOKEN_TIMEOUT_MS = 30000;
@@ -200,7 +201,7 @@ export class NeuroLinkOAuthProvider {
 
     // Request tokens with timeout protection
     const response = await withTimeout(
-      fetch(this.config.tokenUrl, {
+      proxyAwareFetch(this.config.tokenUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -258,7 +259,7 @@ export class NeuroLinkOAuthProvider {
 
     // Refresh tokens with timeout protection
     const response = await withTimeout(
-      fetch(this.config.tokenUrl, {
+      proxyAwareFetch(this.config.tokenUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -318,7 +319,7 @@ export class NeuroLinkOAuthProvider {
     try {
       // Revoke tokens with timeout protection
       await withTimeout(
-        fetch(revocationUrl, {
+        proxyAwareFetch(revocationUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",

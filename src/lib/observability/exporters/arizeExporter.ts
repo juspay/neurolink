@@ -10,6 +10,7 @@ import type {
   SpanData,
 } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Arize exporter for ML monitoring and prediction logs
@@ -44,7 +45,7 @@ export class ArizeExporter extends BaseExporter {
     try {
       const prediction = this.convertToArizePrediction(span);
 
-      const response = await fetch(`${this.endpoint}/log`, {
+      const response = await proxyAwareFetch(`${this.endpoint}/log`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -114,7 +115,7 @@ export class ArizeExporter extends BaseExporter {
    * Verify connectivity to Arize API
    */
   protected async ping(): Promise<void> {
-    const response = await fetch(`${this.endpoint}/health`, {
+    const response = await proxyAwareFetch(`${this.endpoint}/health`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,

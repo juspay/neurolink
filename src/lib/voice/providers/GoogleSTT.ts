@@ -22,6 +22,7 @@ import type {
   TranscriptionSegment,
   WordTiming,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Google Cloud Speech-to-Text Handler
@@ -247,7 +248,7 @@ export class GoogleSTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await proxyAwareFetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

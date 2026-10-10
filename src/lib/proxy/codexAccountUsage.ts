@@ -26,6 +26,7 @@ import type {
   CodexUsageResponse,
   ProxyPassthroughAccount,
 } from "../types/index.js";
+import { proxyAwareFetch } from "./proxyFetch.js";
 
 export const CODEX_ACCOUNT_PREFIX = "codex:";
 
@@ -277,7 +278,7 @@ export async function fetchCodexAccountUsage(
   }
   const accountId = resolveCodexAccountId(account.token);
   try {
-    const response = await fetch(CODEX_USAGE_URL, {
+    const response = await proxyAwareFetch(CODEX_USAGE_URL, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${account.token}`,

@@ -30,6 +30,7 @@ import type { ClaudeCodeIdentity } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
+import { proxyAwareFetch } from "../proxy/proxyFetch.js";
 
 /**
  * HTML-escape a string to prevent XSS when embedding in HTML responses.
@@ -644,7 +645,7 @@ export class AnthropicOAuth {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10_000);
       try {
-        const response = await fetch(url, {
+        const response = await proxyAwareFetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -768,7 +769,7 @@ export class AnthropicOAuth {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10_000);
       try {
-        const response = await fetch(url, {
+        const response = await proxyAwareFetch(url, {
           method: "POST",
           headers,
           body: new URLSearchParams(body).toString(),
@@ -853,7 +854,7 @@ export class AnthropicOAuth {
     logger.debug("Validating access token");
 
     try {
-      const response = await fetch(this.validationUrl, {
+      const response = await proxyAwareFetch(this.validationUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -902,7 +903,7 @@ export class AnthropicOAuth {
     logger.debug("Validating access token with details");
 
     try {
-      const response = await fetch(this.validationUrl, {
+      const response = await proxyAwareFetch(this.validationUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -997,7 +998,7 @@ export class AnthropicOAuth {
     }
 
     try {
-      const response = await fetch(this.revocationUrl, {
+      const response = await proxyAwareFetch(this.revocationUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -1373,7 +1374,7 @@ export async function exchangeSubscriptionCode(params: {
   scope?: string;
   accountEmail?: string;
 }> {
-  const response = await fetch(ANTHROPIC_TOKEN_URL, {
+  const response = await proxyAwareFetch(ANTHROPIC_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

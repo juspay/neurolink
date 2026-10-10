@@ -19,6 +19,7 @@ import type {
   MusicOptions,
   MusicResult,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = "lyria-3-pro-preview";
@@ -112,7 +113,7 @@ export class LyriaMusic implements MusicHandler {
 
     let response: Response;
     try {
-      response = await fetch(
+      response = await proxyAwareFetch(
         `${this.baseUrl}/models/${this.model}:generateContent?key=${this.apiKey}`,
         {
           method: "POST",

@@ -22,6 +22,7 @@ import type {
 import { logger } from "../../utils/logger.js";
 import { attachStreamCancel } from "../../utils/streamCancellation.js";
 import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * OpenAI Text-to-Speech Handler
@@ -276,7 +277,7 @@ export class OpenAITTS implements TTSHandler {
   ): Promise<Response> {
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/audio/speech`, {
+      response = await proxyAwareFetch(`${this.baseUrl}/audio/speech`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.requireApiKey()}`,

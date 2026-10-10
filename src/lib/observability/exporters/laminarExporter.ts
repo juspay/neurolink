@@ -13,6 +13,7 @@ import type {
 } from "../../types/index.js";
 import { SpanStatus, SpanType } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Laminar exporter for LLM pipeline tracing and monitoring
@@ -37,7 +38,7 @@ export class LaminarExporter extends BaseExporter {
 
     // Verify API key by making a test call
     try {
-      const response = await fetch(`${this.baseUrl}/v1/health`, {
+      const response = await proxyAwareFetch(`${this.baseUrl}/v1/health`, {
         headers: this.getHeaders(),
       });
 
@@ -81,7 +82,7 @@ export class LaminarExporter extends BaseExporter {
     try {
       const trace = this.convertToLaminarTrace(span);
 
-      const response = await fetch(`${this.baseUrl}/v1/traces`, {
+      const response = await proxyAwareFetch(`${this.baseUrl}/v1/traces`, {
         method: "POST",
         headers: this.getHeaders(),
         body: JSON.stringify(trace),
@@ -107,11 +108,14 @@ export class LaminarExporter extends BaseExporter {
     try {
       const traces = spans.map((s) => this.convertToLaminarTrace(s));
 
-      const response = await fetch(`${this.baseUrl}/v1/traces/batch`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify({ traces }),
-      });
+      const response = await proxyAwareFetch(
+        `${this.baseUrl}/v1/traces/batch`,
+        {
+          method: "POST",
+          headers: this.getHeaders(),
+          body: JSON.stringify({ traces }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error(`Batch export failed: ${response.statusText}`);
@@ -154,7 +158,7 @@ export class LaminarExporter extends BaseExporter {
    * Verify connectivity to Laminar API
    */
   protected async ping(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/v1/health`, {
+    const response = await proxyAwareFetch(`${this.baseUrl}/v1/health`, {
       headers: this.getHeaders(),
     });
 

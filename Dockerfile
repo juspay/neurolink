@@ -8,10 +8,17 @@
 # Configuration is environment only, so one image serves every environment:
 #   PORT                      listen port (default 3000)
 #   NEUROLINK_SERVER_API_KEY  comma-separated keys; required on every route
-#                             except /api/health/*. Unset = no authentication.
+#                             except <base path>/health/*. Unset = no
+#                             authentication.
+#   NEUROLINK_SERVER_BASE_PATH  route base path (default /api). Move the routes
+#                             with this variable, not with --basePath or a
+#                             config file: the HEALTHCHECK below reads it too,
+#                             and a base path it cannot see marks the
+#                             container unhealthy.
 #   <provider>_API_KEY ...    at least one provider (see .env.example)
 #
-# Probes: GET /api/health/live (liveness), /api/health/ready (readiness).
+# Probes: GET <base path>/health/live (liveness), <base path>/health/ready
+# (readiness); /api/health/live and /api/health/ready by default.
 
 ARG NODE_VERSION=22
 
@@ -55,7 +62,7 @@ COPY scripts/observability ./scripts/observability
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health/live').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+    CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + ((process.env.NEUROLINK_SERVER_BASE_PATH || '').trim() || '/api') + '/health/live').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 # exec form: node is PID 1 and receives SIGTERM directly; `serve` drains and exits.
 ENTRYPOINT ["node", "/app/dist/cli/index.js"]
 CMD ["serve", "--host", "0.0.0.0", "--quiet"]

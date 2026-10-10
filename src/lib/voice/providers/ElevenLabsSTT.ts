@@ -23,6 +23,7 @@ import type {
   STTResult,
   WordTiming,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const PROVIDER = "elevenlabs-stt";
 const DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
@@ -228,7 +229,7 @@ export class ElevenLabsSTT implements STTHandler {
       try {
         let response: Response;
         try {
-          response = await fetch(`${baseUrl}/speech-to-text`, {
+          response = await proxyAwareFetch(`${baseUrl}/speech-to-text`, {
             method: "POST",
             headers: { "xi-api-key": this.apiKey },
             body: formData,

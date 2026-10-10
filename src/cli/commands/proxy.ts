@@ -21,6 +21,7 @@ import type { CommandModule, Argv } from "yargs";
 import { registerCliShutdownOwner } from "../lifecycle.js";
 import { writeFileAtomic } from "../proxy-clients/snapshot.js";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -634,6 +635,29 @@ async function isLaunchdManaging(): Promise<boolean> {
 
 function isLaunchdManagedProcess(): boolean {
   return process.platform === "darwin" && process.ppid === 1;
+}
+
+/**
+ * Whether this process is the main process of a systemd unit, under the system
+ * manager or a user manager (`systemctl --user`). systemd puts INVOCATION_ID in
+ * every unit's environment (and NOTIFY_SOCKET in a Type=notify one), but a
+ * shell in a terminal that systemd started inherits them as well, so the
+ * parent must also be the systemd manager itself.
+ */
+function isSystemdManagedProcess(): boolean {
+  if (process.platform !== "linux") {
+    return false;
+  }
+  if (!process.env.INVOCATION_ID && !process.env.NOTIFY_SOCKET) {
+    return false;
+  }
+  try {
+    return (
+      readFileSync(`/proc/${process.ppid}/comm`, "utf8").trim() === "systemd"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isProxySocketWorkerProcess(): boolean {
@@ -3644,11 +3668,16 @@ async function startProxyRuntime(params: {
   await shareListener?.poll();
 
   const managedByLaunchd = isLaunchdManagedProcess() || socketWorker;
-  // launchd already owns restart supervision. A second detached supervisor can
-  // outlive its parent and terminate a healthy replacement, so the guard is
-  // reserved for foreground mode where it only cleans stale client settings.
+  // A service manager restarts this process, so a restart must leave client
+  // routing as the user set it (#1891). launchd is the supervisor
+  // `proxy install` sets up on macOS; on Linux it points at systemd.
+  const managedByService = managedByLaunchd || isSystemdManagedProcess();
+  // The service manager already owns restart supervision. A second detached
+  // supervisor can outlive its parent and terminate a healthy replacement, so
+  // the guard is reserved for foreground mode where it only cleans stale
+  // client settings.
   const guardPid =
-    params.argv.dev || managedByLaunchd
+    params.argv.dev || managedByService
       ? undefined
       : spawnFailOpenGuard(params.host, params.port, process.pid);
   const readinessHost = params.host === "0.0.0.0" ? "127.0.0.1" : params.host;
@@ -3865,7 +3894,7 @@ async function startProxyRuntime(params: {
     for (const result of await applyClientsOnProxyStart(
       url,
       { configPath: params.configPath },
-      managedByLaunchd,
+      managedByService,
     )) {
       if (result.error) {
         // Visible, not debug-level. A client whose config could not be written
@@ -3897,7 +3926,7 @@ async function startProxyRuntime(params: {
         );
       }
     }
-    if (managedByLaunchd) {
+    if (managedByService) {
       logger.always(
         "  Service startup preserves client settings; use 'neurolink proxy setup' to change client routing.",
       );

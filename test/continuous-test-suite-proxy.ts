@@ -87,7 +87,7 @@
  * - Stops the proxy
  *
  * Run with: npx tsx test/continuous-test-suite-proxy.ts
- * Requires: Built CLI (pnpm run build:cli), valid OAuth token
+ * Requires: a current build (pnpm run build), valid OAuth token
  */
 
 import { spawn, ChildProcess } from "child_process";
@@ -164,6 +164,12 @@ import {
   rankAccounts,
 } from "../src/lib/proxy/accountRanking.js";
 import { sessionAffinity } from "../src/lib/proxy/sessionAffinity.js";
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Most cases spawn the built CLI (dist/cli/index.js): fail loudly rather than
+// exercise a stale build (see distFreshness.ts). Naming the CLI bundle catches
+// a partial build that rewrote dist/index.js but not the CLI.
+assertDistFresh({ entrypoints: ["dist/cli/index.js"] });
 
 const { recordTest, runSuite } = defineSuite("Claude Proxy");
 
@@ -12848,6 +12854,19 @@ function readProxyTestGuardPid(home: string): number | undefined {
 }
 
 /**
+ * The launcher `startProxyForTests({ underFakeSystemd })` runs: it starts the
+ * CLI, passes stop signals on, and exits with it.
+ */
+const FAKE_SYSTEMD_LAUNCHER = `
+const { spawn } = require("node:child_process");
+const child = spawn(process.execPath, process.argv.slice(1), { stdio: "inherit" });
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => child.kill(signal));
+}
+child.on("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+`;
+
+/**
  * Stop a proxy from `startProxyForTests` and wait until nothing it started is
  * left running. A foreground proxy also spawns a detached fail-open guard that
  * polls for its parent and exits shortly after it. The guard is outside this
@@ -12900,6 +12919,11 @@ async function startProxyForTests(options: {
   env?: Record<string, string>;
   /** Runs on the throwaway HOME before the child starts, to stage its files. */
   seed?: (home: string) => void;
+  /**
+   * Run the CLI as the child of a process named `systemd`, which is how the
+   * main process of a systemd unit sees its manager in /proc.
+   */
+  underFakeSystemd?: boolean;
 }): Promise<ProxyTestInstance> {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-proxy-cli-home-"));
   try {
@@ -12908,42 +12932,51 @@ async function startProxyForTests(options: {
     fs.rmSync(home, { recursive: true, force: true });
     throw error;
   }
-  const child = spawn(
-    process.execPath,
-    [
-      path.resolve("dist/cli/index.js"),
-      "proxy",
-      "start",
-      "--port",
-      String(options.port),
-      "--config",
-      options.configPath,
-      "--quiet",
-    ],
-    {
-      // The CLI entry loads a `.env` from its cwd. The checkout's own `.env`
-      // must not reach a proxy that is supposed to be isolated.
-      cwd: home,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        HOME: home,
-        USERPROFILE: home,
-        XDG_CONFIG_HOME: path.join(home, ".config"),
-        // `proxy start` configures every client it finds, and Grok's config
-        // directory comes from this variable first, so an inherited value would
-        // point the spawned proxy at a real directory.
-        GROK_HOME: path.join(home, ".grok"),
-        NEUROLINK_SKIP_MCP: "true",
-        NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
-        // Neither is under test. The share listener would bind a second port,
-        // and the updater is a detached process that could outlive the case.
-        NEUROLINK_PROXY_SHARE_LISTENER: "off",
-        NEUROLINK_PROXY_AUTO_UPDATE: "off",
-        ...(options.env ?? {}),
-      },
+  const cliArgs = [
+    path.resolve("dist/cli/index.js"),
+    "proxy",
+    "start",
+    "--port",
+    String(options.port),
+    "--config",
+    options.configPath,
+    "--quiet",
+  ];
+  let command = process.execPath;
+  let args = cliArgs;
+  if (options.underFakeSystemd) {
+    // The kernel names a process after the path it was exec'd through, so a
+    // symlink called `systemd` gives the launcher that name, and the CLI it
+    // starts sees a parent named `systemd`.
+    const fakeDir = path.join(home, ".fake-systemd");
+    fs.mkdirSync(fakeDir);
+    command = path.join(fakeDir, "systemd");
+    fs.symlinkSync(process.execPath, command);
+    args = ["-e", FAKE_SYSTEMD_LAUNCHER, ...cliArgs];
+  }
+  const child = spawn(command, args, {
+    // The CLI entry loads a `.env` from its cwd. The checkout's own `.env`
+    // must not reach a proxy that is supposed to be isolated.
+    cwd: home,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      XDG_CONFIG_HOME: path.join(home, ".config"),
+      // `proxy start` configures every client it finds, and Grok's config
+      // directory comes from this variable first, so an inherited value would
+      // point the spawned proxy at a real directory.
+      GROK_HOME: path.join(home, ".grok"),
+      NEUROLINK_SKIP_MCP: "true",
+      NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
+      // Neither is under test. The share listener would bind a second port,
+      // and the updater is a detached process that could outlive the case.
+      NEUROLINK_PROXY_SHARE_LISTENER: "off",
+      NEUROLINK_PROXY_AUTO_UPDATE: "off",
+      ...(options.env ?? {}),
     },
-  );
+  });
   // Drained so a chatty child cannot block on a full pipe, and kept short so a
   // failed start can say why without the log growing unbounded.
   let output = "";
@@ -13040,6 +13073,98 @@ function readCopilotEnvScript(proxy: ProxyTestInstance): string | null {
     );
   } catch {
     return null;
+  }
+}
+
+/**
+ * #1891: a proxy that a service manager restarts must leave client routing as
+ * the user set it. That held only for launchd; on Linux `proxy install` points
+ * at systemd, and a systemd-supervised proxy rewrote Claude Code's settings on
+ * every restart. Both runs start the built CLI under a parent named `systemd`
+ * with a user-owned ~/.claude/settings.json. The control has no INVOCATION_ID
+ * and must configure the client, which proves the harness reaches client
+ * configuration at all; the managed run carries INVOCATION_ID, as every
+ * systemd unit does, and must leave the file byte-for-byte and start no
+ * fail-open guard.
+ */
+async function testSystemdManagedStartPreservesClientSettings(): Promise<
+  boolean | null
+> {
+  if (process.platform !== "linux") {
+    log("systemd supervision is detected on Linux only", "yellow");
+    return null;
+  }
+  const userSettings =
+    '{"env":{"ANTHROPIC_BASE_URL":"https://user.example"},"hooks":{"owned":"user"}}\n';
+  const seed = (home: string): void => {
+    fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(home, ".claude", "settings.json"), userSettings);
+  };
+  const settingsOf = (proxy: ProxyTestInstance): string =>
+    fs.readFileSync(path.join(proxy.home, ".claude", "settings.json"), "utf8");
+  const waitForOutput = async (
+    proxy: ProxyTestInstance,
+    text: string,
+  ): Promise<boolean> => {
+    const deadline = Date.now() + 30_000;
+    while (!proxy.output().includes(text) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return proxy.output().includes(text);
+  };
+  const configPath = await writeThrowawayProxyConfig({ routing: {} });
+  // A CI runner is often a systemd service itself, so the variables are
+  // blanked for the control rather than merely left out.
+  const unmanagedEnv = { INVOCATION_ID: "", NOTIFY_SOCKET: "" };
+
+  const control = await startProxyForTests({
+    port: await findFreeProxyTestPort(),
+    configPath,
+    seed,
+    env: unmanagedEnv,
+    underFakeSystemd: true,
+  });
+  try {
+    if (!(await waitForOutput(control, "Auto-configured Claude Code"))) {
+      log("control: the built proxy never configured Claude Code", "red");
+      return false;
+    }
+    if (!settingsOf(control).includes(`127.0.0.1:${control.port}`)) {
+      log("control: Claude Code settings were not pointed at the proxy", "red");
+      return false;
+    }
+  } finally {
+    await stopProxyForTests(control);
+  }
+
+  const managed = await startProxyForTests({
+    port: await findFreeProxyTestPort(),
+    configPath,
+    seed,
+    env: { INVOCATION_ID: "0123456789abcdef0123456789abcdef" },
+    underFakeSystemd: true,
+  });
+  try {
+    if (
+      !(await waitForOutput(
+        managed,
+        "Service startup preserves client settings",
+      ))
+    ) {
+      log("a systemd-managed start did not report preserving clients", "red");
+      return false;
+    }
+    if (settingsOf(managed) !== userSettings) {
+      log("a systemd-managed start rewrote Claude Code settings", "red");
+      return false;
+    }
+    if (readProxyTestGuardPid(managed.home) !== undefined) {
+      log("a systemd-managed start spawned the fail-open guard", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    await stopProxyForTests(managed);
   }
 }
 
@@ -16100,6 +16225,12 @@ const tests: TestFunction[] = [
     // Reads /status over HTTP, so it needs the spawned proxy — it must stay
     // outside IN_PROCESS_CATEGORIES or a launchd-managed environment turns its
     // skip into a failed fetch.
+    category: "proxy-infra",
+  },
+  {
+    name: "CLI: a systemd-managed start preserves client settings",
+    fn: testSystemdManagedStartPreservesClientSettings,
+    // Spawns its own proxies from the built CLI.
     category: "proxy-infra",
   },
   {

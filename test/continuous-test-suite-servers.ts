@@ -2611,17 +2611,20 @@ type ServeProcess = {
  * Run the built CLI's `serve` the way a container does. HOME is a fresh
  * directory so the "already running" state file never collides with another
  * case or the developer's own server, and so is cwd, so the repository's .env
- * cannot leak a PORT or an API key into the run.
+ * cannot leak a PORT or an API key into the run. `command` runs `server
+ * start` instead, which reads the same environment.
  */
 function startServe(
   args: string[],
   env: Record<string, string> = {},
   home: string = fs.mkdtempSync(path.join(os.tmpdir(), "nl-serve-test-")),
+  command: readonly string[] = ["serve"],
 ): ServeProcess {
   const inherited = { ...process.env };
   delete inherited.PORT;
   delete inherited.NEUROLINK_SERVER_API_KEY;
-  const proc = spawn("node", [CLI_ENTRY, "serve", "--quiet", ...args], {
+  delete inherited.NEUROLINK_SERVER_BASE_PATH;
+  const proc = spawn("node", [CLI_ENTRY, ...command, "--quiet", ...args], {
     cwd: home,
     env: { ...inherited, HOME: home, NEUROLINK_SKIP_MCP: "true", ...env },
     stdio: "ignore",
@@ -2636,6 +2639,7 @@ function startServe(
 async function waitForServe(
   serve: ServeProcess,
   port: number,
+  basePath = "/api",
 ): Promise<boolean> {
   let exited = false;
   void serve.exited.then(() => {
@@ -2646,7 +2650,7 @@ async function waitForServe(
     try {
       const res = await httpRequest(
         "GET",
-        `http://127.0.0.1:${port}/api/health/live`,
+        `http://127.0.0.1:${port}${basePath}/health/live`,
       );
       if (res.status === 200) {
         return true;
@@ -2918,6 +2922,222 @@ async function testServeCliStateGuard(): Promise<boolean | null> {
 }
 
 /**
+ * `server start` got the same API key and $PORT handling as `serve`, and the
+ * same NEUROLINK_SERVER_BASE_PATH, but every case above spawns only `serve`.
+ */
+async function testServerStartCli(): Promise<boolean | null> {
+  logSection("Testing `neurolink server start` (built CLI)");
+  const failures: string[] = [];
+  const startCommand = ["server", "start"] as const;
+
+  const port = 9150;
+  const base = `http://127.0.0.1:${port}`;
+  const keyed = startServe(
+    ["--port", `${port}`],
+    { NEUROLINK_SERVER_API_KEY: "start-one, start-two" },
+    undefined,
+    startCommand,
+  );
+  try {
+    if (!(await waitForServe(keyed, port))) {
+      failures.push("API key: never answered /api/health/live");
+    } else {
+      const tools = `${base}/api/tools`;
+      const checks: Array<[string, () => Promise<HttpResponse>, number]> = [
+        [
+          "readiness without a key",
+          () => httpRequest("GET", `${base}/api/health/ready`),
+          200,
+        ],
+        ["no key", () => httpRequest("GET", tools), 401],
+        [
+          "Bearer key",
+          () =>
+            httpRequest("GET", tools, undefined, {
+              Authorization: "Bearer start-two",
+            }),
+          200,
+        ],
+        [
+          "X-API-Key",
+          () =>
+            httpRequest("GET", tools, undefined, { "X-API-Key": "start-one" }),
+          200,
+        ],
+      ];
+      for (const [label, request, expected] of checks) {
+        try {
+          const res = await request();
+          if (res.status !== expected) {
+            failures.push(
+              `API key: ${label} returned ${res.status}, expected ${expected}`,
+            );
+          }
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code ?? "request error";
+          failures.push(`API key: ${label} request failed (${code})`);
+        }
+      }
+    }
+  } finally {
+    const code = await stopServe(keyed);
+    if (code !== 0) {
+      failures.push(`API key: SIGTERM exit code ${code}, expected 0`);
+    }
+    fs.rmSync(keyed.home, { recursive: true, force: true });
+  }
+
+  const fromEnv = startServe([], { PORT: "9151" }, undefined, startCommand);
+  try {
+    if (!(await waitForServe(fromEnv, 9151))) {
+      failures.push("$PORT: not listening on 9151");
+    }
+  } finally {
+    await stopServe(fromEnv);
+    fs.rmSync(fromEnv.home, { recursive: true, force: true });
+  }
+
+  const moved = startServe(
+    ["--port", "9152"],
+    { NEUROLINK_SERVER_BASE_PATH: "/v9" },
+    undefined,
+    startCommand,
+  );
+  try {
+    if (!(await waitForServe(moved, 9152, "/v9"))) {
+      failures.push("base path: never answered /v9/health/live");
+    }
+  } finally {
+    await stopServe(moved);
+    fs.rmSync(moved.home, { recursive: true, force: true });
+  }
+
+  if (failures.length === 0) {
+    logTest("server start", "PASS", "API key, $PORT, base path, stop");
+  }
+  for (const failure of failures) {
+    logTest("server start", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+/**
+ * The container's HEALTHCHECK must follow a moved base path. `serve` reads
+ * NEUROLINK_SERVER_BASE_PATH after the config file, and the Dockerfile's own
+ * probe command, run here as the image runs it, reads the same variable. The
+ * control runs the probe without the variable against the same server and
+ * must fail: that is the unhealthy container this replaces.
+ */
+async function testServeBasePathEnvAndHealthcheck(): Promise<boolean | null> {
+  logSection("Testing NEUROLINK_SERVER_BASE_PATH and the image HEALTHCHECK");
+  const failures: string[] = [];
+  const dockerfile = fs.readFileSync(
+    path.join(__dirname, "..", "Dockerfile"),
+    "utf8",
+  );
+  const match = /^HEALTHCHECK[^\n]*\\\n\s*CMD (\[.*\])\s*$/m.exec(dockerfile);
+  if (!match) {
+    logTest(
+      "HEALTHCHECK",
+      "FAIL",
+      "no HEALTHCHECK CMD found in the Dockerfile",
+    );
+    return false;
+  }
+  const probe = JSON.parse(match[1]) as string[];
+  const runProbe = (env: Record<string, string>): Promise<number | null> =>
+    new Promise((resolve) => {
+      const inherited = { ...process.env };
+      delete inherited.PORT;
+      delete inherited.NEUROLINK_SERVER_BASE_PATH;
+      const child = spawn(probe[0], probe.slice(1), {
+        env: { ...inherited, ...env },
+        stdio: "ignore",
+      });
+      const timer = setTimeout(() => child.kill("SIGKILL"), 15000);
+      child.on("exit", (code) => {
+        clearTimeout(timer);
+        resolve(code);
+      });
+    });
+
+  const port = 9155;
+  const base = `http://127.0.0.1:${port}`;
+  const serve = startServe(["--port", `${port}`], {
+    NEUROLINK_SERVER_BASE_PATH: "/v9",
+    NEUROLINK_SERVER_API_KEY: "base-key",
+  });
+  try {
+    if (!(await waitForServe(serve, port, "/v9"))) {
+      failures.push("serve: never answered /v9/health/live");
+    } else {
+      const checks: Array<[string, () => Promise<HttpResponse>, number]> = [
+        [
+          "moved route with key",
+          () =>
+            httpRequest("GET", `${base}/v9/tools`, undefined, {
+              "X-API-Key": "base-key",
+            }),
+          200,
+        ],
+        [
+          "moved route without key",
+          () => httpRequest("GET", `${base}/v9/tools`),
+          401,
+        ],
+      ];
+      for (const [label, request, expected] of checks) {
+        try {
+          const res = await request();
+          if (res.status !== expected) {
+            failures.push(
+              `serve: ${label} returned ${res.status}, expected ${expected}`,
+            );
+          }
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code ?? "request error";
+          failures.push(`serve: ${label} request failed (${code})`);
+        }
+      }
+      const old = await httpRequest("GET", `${base}/api/health/live`).catch(
+        () => null,
+      );
+      if (old?.status === 200) {
+        failures.push("serve: /api/health/live still answers after the move");
+      }
+      const healthy = await runProbe({
+        PORT: `${port}`,
+        NEUROLINK_SERVER_BASE_PATH: "/v9",
+      });
+      if (healthy !== 0) {
+        failures.push(`HEALTHCHECK with the base path exited ${healthy}`);
+      }
+      const unaware = await runProbe({ PORT: `${port}` });
+      if (unaware === 0) {
+        failures.push(
+          "control: HEALTHCHECK without the base path passed, so the case proves nothing",
+        );
+      }
+    }
+  } finally {
+    await stopServe(serve);
+    fs.rmSync(serve.home, { recursive: true, force: true });
+  }
+
+  if (failures.length === 0) {
+    logTest(
+      "base path env",
+      "PASS",
+      "routes, auth exemption and HEALTHCHECK follow it",
+    );
+  }
+  for (const failure of failures) {
+    logTest("base path env", "FAIL", failure);
+  }
+  return failures.length === 0;
+}
+
+/**
  * The documented SDK pattern registers middleware and routes before
  * initialize(). Adapters build their app inside initialize(), so the base
  * class queues those registrations; middleware must still guard the routes
@@ -3099,6 +3319,11 @@ async function runAllTests(): Promise<void> {
     { name: "Serve CLI - Without API Key", fn: testServeCliWithoutApiKey },
     { name: "Serve CLI - Port Resolution", fn: testServeCliPortResolution },
     { name: "Serve CLI - State Guard", fn: testServeCliStateGuard },
+    { name: "Server Start CLI", fn: testServerStartCli },
+    {
+      name: "Serve CLI - Base Path Env and HEALTHCHECK",
+      fn: testServeBasePathEnvAndHealthcheck,
+    },
   ];
 
   // Run all tests

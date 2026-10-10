@@ -39,6 +39,8 @@ import {
   getMetricsAggregator,
 } from "../observability/index.js";
 import { getActiveTraceContext } from "../telemetry/traceContext.js";
+import { proxyAwareFetch } from "../proxy/proxyFetch.js";
+
 /**
  * Default timeout for MCP client creation in milliseconds.
  * Configurable via MCP_CLIENT_TIMEOUT env var.
@@ -476,7 +478,10 @@ export class MCPClientFactory {
       const url = new URL(config.url);
       const { SSEClientTransport } =
         await import("@modelcontextprotocol/sdk/client/sse.js");
-      const transport = new SSEClientTransport(url);
+      // The SDK's own default is global fetch, which ignores HTTP(S)_PROXY.
+      const transport = new SSEClientTransport(url, {
+        fetch: proxyAwareFetch,
+      });
 
       return { transport };
     } catch (error) {
@@ -608,7 +613,10 @@ export class MCPClientFactory {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        return await fetch(input, { ...init, signal: controller.signal });
+        return await proxyAwareFetch(input, {
+          ...init,
+          signal: controller.signal,
+        });
       } finally {
         clearTimeout(timeoutId);
       }

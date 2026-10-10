@@ -57,25 +57,26 @@ CLI configuration is stored at:
 ### Running `neurolink serve` as a Service
 
 `neurolink serve` resolves each setting from, in order: its command-line flag, the
-`--config` JSON file, then the built-in default. The listen port additionally
-reads the `PORT` environment variable after the config file, which is what
-container platforms set:
+`--config` JSON file, then the built-in default. The listen port and the base
+path additionally read an environment variable after the config file — `PORT`,
+which is what container platforms set, and `NEUROLINK_SERVER_BASE_PATH`:
 
-| Setting   | Order                                                 |
-| --------- | ----------------------------------------------------- |
-| Port      | `--port` → config `port` → `$PORT` → `3000`           |
-| Host      | `--host` → config `host` → `0.0.0.0`                  |
-| Framework | `--framework` → config `framework` → `hono`           |
-| Base path | `--basePath` → config `basePath` → `/api`             |
-| CORS      | `--cors` → config `cors.enabled` → enabled            |
-| Rate      | `--rate-limit` → config `rateLimit.maxRequests` → 100 |
+| Setting   | Order                                                                     |
+| --------- | ------------------------------------------------------------------------- |
+| Port      | `--port` → config `port` → `$PORT` → `3000`                               |
+| Host      | `--host` → config `host` → `0.0.0.0`                                      |
+| Framework | `--framework` → config `framework` → `hono`                               |
+| Base path | `--basePath` → config `basePath` → `$NEUROLINK_SERVER_BASE_PATH` → `/api` |
+| CORS      | `--cors` → config `cors.enabled` → enabled                                |
+| Rate      | `--rate-limit` → config `rateLimit.maxRequests` → 100                     |
 
 **API key.** Set `NEUROLINK_SERVER_API_KEY` to one key, or several separated by
 commas for rotation, and every route except `<basePath>/health*` requires one,
 sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Rejected requests get
 `401`. Without the variable the server is unauthenticated — keep it on a private
 network — and the startup banner says so. `neurolink server start` reads the
-same variable.
+same variables (`NEUROLINK_SERVER_API_KEY`, `PORT`, `NEUROLINK_SERVER_BASE_PATH`);
+it takes no config file.
 
 ```bash
 NEUROLINK_SERVER_API_KEY=change-me PORT=8080 neurolink serve
@@ -95,6 +96,13 @@ docker run -p 3000:3000 \
 
 Use `GET /api/health/live` for the liveness probe and `GET /api/health/ready` for
 readiness; both stay open when an API key is set. `SIGTERM` drains and exits `0`.
+
+To serve the routes under another base path in the container, set
+`NEUROLINK_SERVER_BASE_PATH` (for example `-e NEUROLINK_SERVER_BASE_PATH=/v1`),
+not `--basePath` or a config file: the image's `HEALTHCHECK` probes
+`$NEUROLINK_SERVER_BASE_PATH/health/live` (default `/api/health/live`) on `$PORT`,
+so a base path or port it cannot see marks the container unhealthy. Point your
+orchestrator's probes at the same path.
 
 The CLI configuration provides default values that can be overridden programmatically:
 

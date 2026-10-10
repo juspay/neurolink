@@ -12,6 +12,7 @@ import type {
 } from "../../types/index.js";
 import { SpanStatus } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Datadog exporter for enterprise APM integration
@@ -50,7 +51,7 @@ export class DatadogExporter extends BaseExporter {
           ? "https://api.datadoghq.com/api/v1/validate"
           : `https://api.${this.site}.datadoghq.com/api/v1/validate`;
 
-      const response = await fetch(validateUrl, {
+      const response = await proxyAwareFetch(validateUrl, {
         headers: {
           "DD-API-KEY": this.apiKey,
           ...(this.appKey && { "DD-APPLICATION-KEY": this.appKey }),
@@ -80,7 +81,7 @@ export class DatadogExporter extends BaseExporter {
     try {
       const log = this.convertToDatadogLog(span);
 
-      const response = await fetch(this.logsEndpoint, {
+      const response = await proxyAwareFetch(this.logsEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -109,7 +110,7 @@ export class DatadogExporter extends BaseExporter {
     try {
       const logs = spans.map((s) => this.convertToDatadogLog(s));
 
-      const response = await fetch(this.logsEndpoint, {
+      const response = await proxyAwareFetch(this.logsEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +165,7 @@ export class DatadogExporter extends BaseExporter {
         ? "https://api.datadoghq.com/api/v1/validate"
         : `https://api.${this.site}.datadoghq.com/api/v1/validate`;
 
-    const response = await fetch(validateUrl, {
+    const response = await proxyAwareFetch(validateUrl, {
       headers: { "DD-API-KEY": this.apiKey },
     });
 

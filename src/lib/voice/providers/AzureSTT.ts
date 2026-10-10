@@ -18,6 +18,7 @@ import type {
   STTResult,
   TranscriptionSegment,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Azure Cognitive Services Speech-to-Text Handler
@@ -202,7 +203,7 @@ export class AzureSTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await proxyAwareFetch(url, {
           method: "POST",
           headers: {
             "Ocp-Apim-Subscription-Key": this.apiKey,

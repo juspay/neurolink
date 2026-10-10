@@ -36,6 +36,7 @@ import {
   isOtherServerRunning,
   isProcessRunning,
   readServerApiKeys,
+  resolveServerBasePath,
   resolveServerPort,
   SERVER_API_KEY_ENV,
   StateFileManager,
@@ -241,7 +242,8 @@ export class ServeCommandFactory {
           .option("basePath", {
             type: "string",
             alias: "b",
-            description: "Base path for all routes (default: /api)",
+            description:
+              "Base path for all routes (default: config file, then $NEUROLINK_SERVER_BASE_PATH, then /api)",
           })
           .option("cors", {
             type: "boolean",
@@ -360,7 +362,10 @@ export class ServeCommandFactory {
       const port = resolveServerPort(argv.port, fileConfig.port);
       const host = argv.host ?? fileConfig.host ?? "0.0.0.0";
       const framework = argv.framework ?? fileConfig.framework ?? "hono";
-      const basePath = argv.basePath ?? fileConfig.basePath ?? "/api";
+      const basePath = resolveServerBasePath(
+        argv.basePath,
+        fileConfig.basePath,
+      );
 
       // Build server adapter config from merged values
       const serverConfig = ServeCommandFactory.buildServerConfig(

@@ -13,6 +13,7 @@ import type {
 } from "../../types/index.js";
 import { SpanStatus, SpanType } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * PostHog exporter for product analytics and LLM event tracking
@@ -37,7 +38,7 @@ export class PostHogExporter extends BaseExporter {
 
     // Verify API key by making a test call
     try {
-      const response = await fetch(`${this.host}/api/projects/`, {
+      const response = await proxyAwareFetch(`${this.host}/api/projects/`, {
         headers: this.getHeaders(),
       });
 
@@ -81,7 +82,7 @@ export class PostHogExporter extends BaseExporter {
     try {
       const event = this.convertToPostHogEvent(span);
 
-      const response = await fetch(`${this.host}/capture/`, {
+      const response = await proxyAwareFetch(`${this.host}/capture/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -109,7 +110,7 @@ export class PostHogExporter extends BaseExporter {
     try {
       const events = spans.map((s) => this.convertToPostHogEvent(s));
 
-      const response = await fetch(`${this.host}/batch/`, {
+      const response = await proxyAwareFetch(`${this.host}/batch/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -166,7 +167,7 @@ export class PostHogExporter extends BaseExporter {
    */
   protected async ping(): Promise<void> {
     // PostHog doesn't have a dedicated health endpoint, so we use decide endpoint
-    const response = await fetch(`${this.host}/decide/?v=3`, {
+    const response = await proxyAwareFetch(`${this.host}/decide/?v=3`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

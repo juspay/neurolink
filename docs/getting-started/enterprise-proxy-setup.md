@@ -1,10 +1,10 @@
 # 🏢 Enterprise & Proxy Setup Guide
 
-NeuroLink provides comprehensive proxy support for enterprise environments, enabling AI integration behind corporate firewalls and proxy servers.
+NeuroLink can send its outbound traffic through a corporate HTTP or HTTPS proxy, so it works behind firewalls that only allow egress through one.
 
-## ✨ Zero Configuration Proxy Support
+## ✨ Configuration by Environment Variables
 
-NeuroLink automatically detects and uses proxy settings when environment variables are configured. **No code changes required.**
+NeuroLink reads the standard proxy environment variables on every request. **No code changes are required.**
 
 ### Quick Setup
 
@@ -13,42 +13,75 @@ NeuroLink automatically detects and uses proxy settings when environment variabl
 export HTTPS_PROXY=http://your-corporate-proxy:port
 export HTTP_PROXY=http://your-corporate-proxy:port
 
-# NeuroLink will automatically use these settings
+# NeuroLink uses them for its outbound requests
 npx @juspay/neurolink generate "Hello from behind corporate proxy"
 ```
 
+NeuroLink is a library, so it never installs a process-wide proxy for your application: only NeuroLink's own requests are routed. Your other code keeps whatever networking it already has.
+
 ## 🔧 Environment Variables
 
-### Required Proxy Variables
+### Proxy Variables
 
-| Variable      | Description                     | Example                         |
-| ------------- | ------------------------------- | ------------------------------- |
-| `HTTPS_PROXY` | Proxy server for HTTPS requests | `http://proxy.company.com:8080` |
-| `HTTP_PROXY`  | Proxy server for HTTP requests  | `http://proxy.company.com:8080` |
+| Variable      | Description                                                 | Example                         |
+| ------------- | ----------------------------------------------------------- | ------------------------------- |
+| `HTTPS_PROXY` | Proxy for `https://` destinations                           | `http://proxy.company.com:8080` |
+| `HTTP_PROXY`  | Proxy for `http://` destinations                            | `http://proxy.company.com:8080` |
+| `ALL_PROXY`   | Fallback for either scheme when the specific one is not set | `http://proxy.company.com:8080` |
+| `NO_PROXY`    | Hosts that connect directly (see the pattern list below)    | `localhost,127.0.0.1,.corp`     |
 
-### Optional Proxy Variables
+Lowercase spellings (`https_proxy`, `no_proxy`, …) are read too. The proxy URL itself must be `http://` or `https://`.
 
-| Variable   | Description             | Default               |
-| ---------- | ----------------------- | --------------------- |
-| `NO_PROXY` | Domains to bypass proxy | `localhost,127.0.0.1` |
+`NO_PROXY` accepts a comma-separated list of exact host names, `.example.com` domain suffixes (which also match `example.com`), `host:port`, IPv4 CIDR ranges such as `10.0.0.0/8`, and `*` for everything. Nothing is bypassed by default: list `localhost` and `127.0.0.1` yourself if local endpoints (Ollama, LM Studio, a local MCP server) must stay direct.
 
-## 🌐 Provider-Specific Proxy Support
+### Proxy Failure Handling
 
-### ✅ Full Proxy Support
+| Variable                 | Description                                                                             | Default |
+| ------------------------ | --------------------------------------------------------------------------------------- | ------- |
+| `NEUROLINK_PROXY_STRICT` | `true` makes a request whose proxy attempt failed fail, instead of retrying it directly | unset   |
 
-All NeuroLink providers automatically work through corporate proxies:
+By default, when a request cannot go through the proxy (the proxy refuses the connection, is unreachable, or is configured with an unsupported URL), NeuroLink logs a warning naming the destination host and retries the request **over a direct connection that bypasses the proxy**. That keeps existing setups working, but on a network where egress is allowed only through the proxy it means a broken proxy is silently worked around wherever a direct route happens to exist.
 
-| Provider             | Proxy Method                        | Status               |
-| -------------------- | ----------------------------------- | -------------------- |
-| **Anthropic Claude** | Direct fetch calls with proxy       | ✅ Verified + Tested |
-| **OpenAI**           | Global fetch handling               | ✅ Verified + Tested |
-| **Google Vertex AI** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Google AI Studio** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Mistral AI**       | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **Ollama**           | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
-| **HuggingFace**      | Custom fetch with undici ProxyAgent | ✅ Implemented       |
-| **Azure OpenAI**     | Custom fetch with undici ProxyAgent | ✅ Implemented       |
-| **Amazon Bedrock**   | Global fetch handling               | ✅ Implemented       |
+Set `NEUROLINK_PROXY_STRICT=true` (`1`, `yes` and `on` also work) to fail closed: the request fails with the proxy error and no direct connection is attempted. Downloads of provider-returned media URLs (`safeDownload`) and the `neurolink proxy` server's Claude and Codex upstream requests always fail closed, whatever this variable says.
+
+### SOCKS Proxies Are Not Supported
+
+`SOCKS_PROXY` and `socks4://` / `socks5://` URLs in `ALL_PROXY` are recognized but cannot be used: no SOCKS client ships with the package. Such a request falls back to a direct connection with a warning, or fails under `NEUROLINK_PROXY_STRICT`. Use an HTTP(S) proxy, or an HTTP-to-SOCKS bridge in front of the SOCKS proxy.
+
+## 🌐 What Goes Through the Proxy
+
+### Providers and Features Routed Through the Proxy
+
+| Area                                                                          | How the proxy is applied                                                                                                                                  |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI**, **Anthropic** (direct API)                                        | The provider SDK is given NeuroLink's proxy-aware fetch                                                                                                   |
+| **Google AI Studio**, **Google Vertex AI**                                    | `@google/genai` `httpOptions.fetch` for Gemini; the Anthropic Vertex SDK for Claude                                                                       |
+| **Amazon Bedrock**, **Amazon SageMaker**                                      | The AWS SDK clients get a proxy-aware request handler                                                                                                     |
+| OpenAI-compatible providers                                                   | Azure OpenAI, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, the catalog providers and the other OpenAI-wire providers share one proxy-aware client |
+| LiteLLM, OpenRouter, Ollama, Cohere                                           | Proxy-aware fetch                                                                                                                                         |
+| Embeddings (Voyage, Jina) and image generation (Stability, Ideogram, Recraft) | Proxy-aware fetch                                                                                                                                         |
+| `decide` providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef)         | Proxy-aware fetch                                                                                                                                         |
+| Voice: TTS and STT                                                            | ElevenLabs, OpenAI, Azure, Deepgram, Google STT, Cartesia, Fish Audio, 60db                                                                               |
+| Music and video                                                               | ElevenLabs Music, Lyria, Kling, Runway; HeyGen avatars                                                                                                    |
+| Provider-returned media downloads                                             | `safeDownload` goes through the proxy and refuses a direct fallback                                                                                       |
+| MCP                                                                           | The Streamable HTTP and SSE transports, and their OAuth token requests                                                                                    |
+| Subscription logins                                                           | Claude and Codex OAuth token refresh, exchange, validation and revocation                                                                                 |
+| Observability exporters (HTTP API)                                            | Langfuse, LangSmith, Datadog, Arize, Braintrust, Laminar, PostHog, OTLP HTTP exporter classes                                                             |
+| `neurolink proxy` server upstreams                                            | `api.anthropic.com`, `chatgpt.com` (Codex) and the account quota endpoints                                                                                |
+
+### Not Routed Through the Proxy
+
+These still connect directly, whatever the proxy variables say:
+
+- **WebSockets**: Gemini Live, OpenAI Realtime, LiveKit voice sessions, and the MCP WebSocket transport.
+- **Google Application Default Credentials**: the OAuth token requests `google-auth-library` makes for Vertex AI service accounts. Allow the Google token endpoints through your firewall, or supply an access token another way.
+- **Remote model catalogs** loaded by URL (dynamic model configuration).
+- **Peer-to-peer proxy sharing** (`neurolink proxy share` / peers), which talks to other NeuroLink proxies, usually on a private network.
+- **Local endpoint probes** such as the Ollama availability check on `localhost`.
+- **OpenTelemetry trace export** through NeuroLink's `TracerProvider` (the OTLP trace exporter and the Langfuse span processor), which sends with Node's own HTTP client.
+- The browser client SDK (`@juspay/neurolink/client`), which uses the browser's own networking and proxy settings.
+
+The `neurolink proxy` server honours `HTTPS_PROXY` for its upstream calls too. Its Claude (`/v1/messages`) and Codex upstream requests never fall back to a direct connection: a proxy failure fails the attempt, and the server's normal account retry and failover handle it. Its account quota polling follows the default rules above.
 
 ## 🚀 Quick Validation
 
@@ -59,40 +92,31 @@ All NeuroLink providers automatically work through corporate proxies:
 export HTTPS_PROXY=http://your-proxy:port
 export HTTP_PROXY=http://your-proxy:port
 
-# 2. Test with any provider
+# 2. Fail instead of silently going direct, so a misconfiguration shows
+export NEUROLINK_PROXY_STRICT=true
+
+# 3. Test with any provider
 npx @juspay/neurolink generate "Test proxy connection" --provider google-ai
 
-# 3. Check proxy logs for connection intercepts
+# 4. Check proxy logs for connection intercepts
 ```
 
 ### Verify Proxy Usage
 
-When proxy is working correctly, you should see:
+When the proxy is working correctly, you should see:
 
 - ✅ AI responses generated successfully
-- ✅ Proxy server logs showing intercepted connections
-- ✅ No direct internet access required
-- ✅ Enterprise MCP tools work alongside proxy
+- ✅ Proxy server logs showing the CONNECT tunnels to provider hosts
+- ✅ No `[Proxy Fetch] Request to … through the proxy failed` warnings in NeuroLink's log
 
-### Enterprise Grade Testing
+### Automated Coverage
 
-NeuroLink includes comprehensive proxy validation tests:
+The repository's `test:proxy-egress` suite drives a local forward proxy and checks that a sample of call sites (ElevenLabs TTS and STT, ElevenLabs Music, the MCP HTTP transport, a Codex OAuth refresh, the proxy server's Codex upstream and a multipart image request) go through it, that `NO_PROXY` keeps listed hosts direct, that strict mode fails closed and that SOCKS is refused. `test:google-genai-proxy` covers the Google GenAI SDK path.
 
 ```bash
-# Run enterprise proxy tests
-npm test -- test/proxy/proxySupport.test.ts
-
-# Test all providers with proxy + MCP
-npm test -- test/proxy/proxySupport.test.ts --run
+pnpm run build
+pnpm run test:proxy-egress
 ```
-
-**Test Coverage:**
-
-- ✅ Proxy usage validation (negative/positive testing)
-- ✅ All enterprise providers (Anthropic, OpenAI, Vertex, Mistral, Ollama)
-- ✅ MCP + Proxy compatibility (enterprise grade)
-- ✅ Real-world timeout handling
-- ✅ SDK and CLI interface testing
 
 ## 🔍 Enterprise Configuration Examples
 
@@ -103,6 +127,8 @@ npm test -- test/proxy/proxySupport.test.ts --run
 export HTTPS_PROXY=http://proxy.company.com:8080
 export HTTP_PROXY=http://proxy.company.com:8080
 export NO_PROXY=localhost,127.0.0.1,.company.com
+# Egress is proxy-only: never fall back to a direct connection
+export NEUROLINK_PROXY_STRICT=true
 ```
 
 ### Authenticated Proxy
@@ -112,6 +138,8 @@ export NO_PROXY=localhost,127.0.0.1,.company.com
 export HTTPS_PROXY=http://username:password@proxy.company.com:8080
 export HTTP_PROXY=http://username:password@proxy.company.com:8080
 ```
+
+Credentials in a proxy URL are masked in NeuroLink's logs.
 
 ### Multiple Environment Setup
 
@@ -127,24 +155,26 @@ export HTTPS_PROXY=http://prod-proxy.company.com:8080
 
 ### Architecture Overview
 
-NeuroLink uses the **undici ProxyAgent** for reliable proxy support:
+NeuroLink routes requests with undici's `ProxyAgent`, one per proxy URL, shared by every request:
 
 ```typescript
-// Automatic proxy detection and configuration
+// Provider SDKs that accept a custom fetch get one that knows about the proxy
 const proxyFetch = createProxyFetch();
 
-// Provider integration varies by SDK capabilities:
-// - Custom fetch parameter (Google AI, Vertex AI)
-// - Direct fetch calls (Anthropic)
-// - Global fetch handling (OpenAI, Bedrock)
+// Plain outbound calls (voice, media, OAuth, MCP, exporters) use a drop-in
+// for global fetch: identical to fetch when no proxy applies to the URL,
+// and routed through the proxy's dispatcher when one does.
+const response = await proxyAwareFetch(url, init);
 ```
+
+Both read the environment on every request, honour `NO_PROXY`, and apply the same fallback rules (`NEUROLINK_PROXY_STRICT`). With no proxy variable set, requests are sent exactly as before.
 
 ### Key Benefits
 
-- 🔄 **Automatic Detection** - Zero configuration for standard setups
-- 🏢 **Enterprise Ready** - Works with corporate authentication
-- ⚡ **High Performance** - Optimized undici implementation
-- 🛡️ **Security Compliant** - Respects corporate security policies
+- 🔄 **Environment Driven** - Standard proxy variables, no code changes
+- 🏢 **Enterprise Ready** - Authenticated proxies and `NO_PROXY` patterns, including CIDR ranges
+- 🛡️ **Fail-Closed Option** - `NEUROLINK_PROXY_STRICT` for proxy-only egress policies
+- 📚 **Library Safe** - No global dispatcher is installed in your process
 
 ## 🔧 Troubleshooting
 
@@ -156,17 +186,17 @@ const proxyFetch = createProxyFetch();
 # Check environment variables
 echo $HTTPS_PROXY
 echo $HTTP_PROXY
+echo $NO_PROXY
 
 # Verify proxy server accessibility
 curl -I --proxy $HTTPS_PROXY https://api.openai.com
 ```
 
-#### Connection Timeouts
+If requests succeed but your proxy shows no traffic for them, check whether the destination is in the "Not routed through the proxy" list above, or whether `NO_PROXY` matches it.
 
-```bash
-# Increase timeout for slow proxies
-export NEUROLINK_TIMEOUT=60000  # 60 seconds
-```
+#### Requests Bypassing the Proxy
+
+A warning like `[Proxy Fetch] Request to api.example.com through the proxy failed (…); falling back to a direct connection` means the proxy rejected or could not carry the request and NeuroLink went direct. Fix the proxy error it names, and set `NEUROLINK_PROXY_STRICT=true` if direct egress must never be attempted.
 
 #### Authentication Issues
 
@@ -179,9 +209,8 @@ export HTTPS_PROXY=http://user%40domain.com:pass%3Aword@proxy:8080
 ### Debug Mode
 
 ```bash
-# Enable detailed proxy logging
-export DEBUG=neurolink:proxy
-npx @juspay/neurolink generate "Debug proxy connection" --debug
+# Enable debug logging
+NEUROLINK_DEBUG=true npx @juspay/neurolink generate "Debug proxy connection" --debug
 ```
 
 ## 🚀 AWS & Cloud Deployment
@@ -200,6 +229,7 @@ HTTP_PROXY=http://corporate-proxy.amazonaws.com:8080
 # Dockerfile
 ENV HTTPS_PROXY=http://proxy.company.com:8080
 ENV HTTP_PROXY=http://proxy.company.com:8080
+ENV NO_PROXY=localhost,127.0.0.1
 RUN npm install @juspay/neurolink
 ```
 
@@ -219,6 +249,10 @@ spec:
               value: "http://proxy.company.com:8080"
             - name: HTTP_PROXY
               value: "http://proxy.company.com:8080"
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,.svc.cluster.local"
+            - name: NEUROLINK_PROXY_STRICT
+              value: "true"
 ```
 
 ## 📋 Checklist for Enterprise Deployment
@@ -229,11 +263,12 @@ spec:
 - [ ] Network connectivity tested with curl/wget
 - [ ] Authentication credentials secured
 - [ ] Firewall rules configured for AI provider domains
+- [ ] Direct egress allowed for anything in "Not routed through the proxy" that you use
 
 ### Testing
 
 - [ ] Environment variables set correctly
-- [ ] NeuroLink proxy test successful
+- [ ] NeuroLink proxy test successful with `NEUROLINK_PROXY_STRICT=true`
 - [ ] All required providers accessible
 - [ ] Production environment validated
 

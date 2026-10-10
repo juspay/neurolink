@@ -19,6 +19,7 @@ import type {
   TranscriptionSegment,
   WordTiming,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Deepgram Speech-to-Text Handler
@@ -240,7 +241,7 @@ export class DeepgramSTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await proxyAwareFetch(url, {
           method: "POST",
           headers: {
             Authorization: `Token ${this.apiKey}`,

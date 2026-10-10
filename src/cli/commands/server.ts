@@ -20,6 +20,7 @@ import {
   createServerApiKeyMiddleware,
   isOtherServerRunning,
   readServerApiKeys,
+  resolveServerBasePath,
   resolveServerPort,
   SERVER_API_KEY_ENV,
 } from "../utils/serverUtils.js";
@@ -250,8 +251,8 @@ export class ServerCommandFactory {
       })
       .option("basePath", {
         type: "string",
-        default: "/api",
-        description: "Base path for all routes",
+        description:
+          "Base path for all routes (default: $NEUROLINK_SERVER_BASE_PATH, then /api)",
       })
       .option("cors", {
         type: "boolean",
@@ -461,6 +462,7 @@ export class ServerCommandFactory {
         await import("../../lib/server/index.js");
 
       const port = resolveServerPort(argv.port);
+      const basePath = resolveServerBasePath(argv.basePath);
       const framework = (argv.framework ?? "hono") as
         | "hono"
         | "express"
@@ -473,7 +475,7 @@ export class ServerCommandFactory {
         config: {
           port,
           host: argv.host ?? "0.0.0.0",
-          basePath: argv.basePath ?? "/api",
+          basePath,
           cors: {
             enabled: argv.cors ?? true,
           },
@@ -488,12 +490,12 @@ export class ServerCommandFactory {
       const apiKeys = readServerApiKeys();
       if (apiKeys.length > 0) {
         server.registerMiddleware(
-          createServerApiKeyMiddleware(apiKeys, argv.basePath ?? "/api"),
+          createServerApiKeyMiddleware(apiKeys, basePath),
         );
       }
 
       // Register all routes
-      registerAllRoutes(server, argv.basePath ?? "/api");
+      registerAllRoutes(server, basePath);
 
       // Initialize and start with timeout
       await withTimeout(
@@ -514,7 +516,7 @@ export class ServerCommandFactory {
         host: argv.host ?? "0.0.0.0",
         framework,
         startTime: new Date().toISOString(),
-        basePath: argv.basePath ?? "/api",
+        basePath,
       };
       saveServerState(state);
       clearStateOnExit(clearServerState);

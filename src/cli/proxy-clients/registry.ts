@@ -96,9 +96,9 @@ export async function applyAllClients(
 export async function applyClientsOnProxyStart(
   proxyBaseUrl: string,
   options: CliProxyClientApplyOptions,
-  managedByLaunchd: boolean,
+  managedByService: boolean,
 ): Promise<CliProxyClientApplyResult[]> {
-  return managedByLaunchd ? [] : applyAllClients(proxyBaseUrl, options);
+  return managedByService ? [] : applyAllClients(proxyBaseUrl, options);
 }
 
 /** Restore every client's previous configuration. See applyAllClients. */

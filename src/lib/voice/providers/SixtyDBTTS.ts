@@ -9,6 +9,7 @@ import type {
 import { logger } from "../../utils/logger.js";
 import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
 import { createWavFile } from "../audio-utils.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const RATE = 24_000;
 const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
@@ -209,7 +210,7 @@ export class SixtyDBTTS implements TTSHandler {
     }, 30_000);
     let status: number | undefined;
     try {
-      const response = await fetch(
+      const response = await proxyAwareFetch(
         `${this.baseUrl.replace(/\/$/, "")}${path}`,
         {
           method: body ? "POST" : "GET",

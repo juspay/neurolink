@@ -12,6 +12,7 @@ import type {
 import { SpanType } from "../../types/index.js";
 import { SpanSerializer } from "../utils/spanSerializer.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Langfuse exporter for LLM observability
@@ -134,12 +135,15 @@ export class LangfuseExporter extends BaseExporter {
       `${this.publicKey}:${this.secretKey}`,
     ).toString("base64");
 
-    const response = await fetch(`${this.baseUrl}/api/public/health`, {
-      method: "GET",
-      headers: {
-        Authorization: `Basic ${credentials}`,
+    const response = await proxyAwareFetch(
+      `${this.baseUrl}/api/public/health`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+        },
       },
-    });
+    );
 
     if (!response.ok && response.status !== 404) {
       // 404 is acceptable as health endpoint may not exist
@@ -226,7 +230,7 @@ export class LangfuseExporter extends BaseExporter {
       `${this.publicKey}:${this.secretKey}`,
     ).toString("base64");
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await proxyAwareFetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
