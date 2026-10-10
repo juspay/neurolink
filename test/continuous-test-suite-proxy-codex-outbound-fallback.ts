@@ -212,7 +212,32 @@ const anthropicServedFrames = (): string[] => [
 // When > 0, the anthropic stub sends message_start, pauses this long, then
 // sends the rest, so a scenario can outlast the loopback headers timeout.
 let anthropicStreamPauseMs = 0;
+// When true, the stub sends message_start and then its body errors, the way a
+// connection reset mid-stream surfaces to a reader.
+let anthropicStreamBreaks = false;
 const anthropicServes = (): Response => {
+  if (anthropicStreamBreaks) {
+    const [first] = anthropicServedFrames();
+    const encoder = new TextEncoder();
+    let sentFirst = false;
+    return new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (!sentFirst) {
+            sentFirst = true;
+            controller.enqueue(encoder.encode(first));
+            return;
+          }
+          controller.error(
+            Object.assign(new Error("fixture upstream reset"), {
+              code: "ECONNRESET",
+            }),
+          );
+        },
+      }),
+      { headers: { "content-type": "text/event-stream" } },
+    );
+  }
   if (anthropicStreamPauseMs <= 0) {
     return new Response(anthropicFrames().join(""), {
       headers: { "content-type": "text/event-stream" },
@@ -868,6 +893,112 @@ try {
     }
     console.log(
       "PASS streaming outbound path: 1h cache-write breakdown reaches the envelope and final record; absent breakdown is unchanged",
+    );
+  }
+
+  // --- Scenario B6 (#1863): usage ownership holds on every final, not only
+  // a completed one. The outer entry names the loopback child as its usage
+  // owner unconditionally, because a cancelled or failed outer turn does not
+  // un-happen the provider call the child already made. Scenario B pins the
+  // completed final; these pin the cancelled (499) and stream-error (502)
+  // finals, which the billing pass relies on in exactly the same way. Still
+  // the anthropic target from Scenario B, still zero Codex accounts. ---
+  {
+    const assertLoopbackOwnsUsage = (
+      outer: Record<string, unknown>,
+      outcome: string,
+    ): void => {
+      const child = childFinal();
+      assert.notEqual(
+        child.requestId,
+        outer.requestId,
+        `${outcome}: the loopback child must log under its own request id`,
+      );
+      assert.equal(
+        outer.accountingScope,
+        "client",
+        `${outcome}: the outer entry must keep the client accounting scope`,
+      );
+      assert.equal(
+        outer.usageOwnerRequestId,
+        child.requestId,
+        `${outcome}: the outer Codex entry must name the loopback child as its usage owner`,
+      );
+      assert.ok(
+        child.usageOwnerRequestId === undefined ||
+          child.usageOwnerRequestId === child.requestId,
+        `${outcome}: the child must own its own usage`,
+      );
+      for (const field of [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "cacheCreationTokens",
+      ]) {
+        assert.equal(
+          Object.prototype.hasOwnProperty.call(outer, field),
+          false,
+          `${outcome}: the delegating outer entry must not carry ${field}`,
+        );
+      }
+      assert.equal(
+        reconcileProxyUsageOwnership([outer, child]).status,
+        "pass",
+        `${outcome}: the outer/child pair must reconcile as one owned provider call`,
+      );
+    };
+
+    // Cancelled: the client reads the first frame and disconnects while the
+    // upstream is still mid-stream.
+    received.length = 0;
+    anthropicUpstreamCalls = 0;
+    anthropicStreamPauseMs = 1_000;
+    try {
+      const response = await sendCodex(codexFixtureBody());
+      assert.equal(response.status, 200, "the fallback must dispatch");
+      const reader = response.body!.getReader();
+      await reader.read();
+      await reader.cancel();
+      await waitForProxyIdle();
+      await flushAll();
+      assert.equal(
+        anthropicUpstreamCalls,
+        1,
+        "precondition: the loopback reached the upstream once",
+      );
+      const outer = lastFinal();
+      assert.equal(outer.terminalOutcome, "client_cancelled");
+      assert.equal(outer.responseStatus, 499);
+      assertLoopbackOwnsUsage(outer, "cancelled");
+    } finally {
+      anthropicStreamPauseMs = 0;
+    }
+
+    // Stream error: the upstream body breaks after message_start, so the
+    // committed fallback stream fails rather than completing.
+    received.length = 0;
+    anthropicUpstreamCalls = 0;
+    anthropicStreamBreaks = true;
+    try {
+      const response = await sendCodex(codexFixtureBody());
+      assert.equal(response.status, 200, "the stream was already committed");
+      await response.text().catch(() => "");
+      await waitForProxyIdle();
+      await flushAll();
+      assert.equal(
+        anthropicUpstreamCalls,
+        1,
+        "precondition: the loopback reached the upstream once",
+      );
+      const outer = lastFinal();
+      assert.equal(outer.terminalOutcome, "stream_error");
+      assert.equal(outer.responseStatus, 502);
+      assertLoopbackOwnsUsage(outer, "stream error");
+    } finally {
+      anthropicStreamBreaks = false;
+    }
+    console.log(
+      "PASS anthropic loopback: cancelled and stream-error finals keep the child as usage owner",
     );
   }
 

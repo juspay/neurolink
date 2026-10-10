@@ -18,6 +18,7 @@ import type {
   MusicOptions,
   MusicResult,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
 const REQUEST_TIMEOUT_MS = 60_000; // longer because synchronous generation
@@ -110,7 +111,7 @@ export class ElevenLabsMusic implements MusicHandler {
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/sound-generation`, {
+      response = await proxyAwareFetch(`${this.baseUrl}/sound-generation`, {
         method: "POST",
         headers: {
           "xi-api-key": this.apiKey,

@@ -1,0 +1,91 @@
+name: Docker Image Build
+
+# Builds the production image from the repository's Dockerfile and checks that
+# its HEALTHCHECK passes, so a change that breaks the image is caught on the
+# pull request instead of by whoever builds it next. Nothing is pushed and no
+# secret is used.
+#
+# Deliberately NOT a required status check. It runs only when the image's
+# inputs change (the path filter below), and a required check that a pull
+# request never triggers is reported as missing, which blocks the merge. Keep it
+# out of branch protection and out of ruleset 11413189.
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/docker-build.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - ".pnpmfile.cjs"
+      - "patches/**"
+      - "tsconfig*.json"
+      - "src/cli/**"
+      - "src/lib/server/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build:
+    name: docker build (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCKER_BUILDKIT: "1"
+      IMAGE: neurolink-ci:${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build the production image
+        timeout-minutes: 20
+        run: docker build --target production --tag "$IMAGE" .
+
+      # The image's own HEALTHCHECK, run with short intervals so the job does
+      # not wait out the 30s production cadence. Once at the default base path
+      # and once with NEUROLINK_SERVER_BASE_PATH moved, which the probe must
+      # follow. No provider key is needed: the liveness route answers without
+      # one.
+      - name: Check the container becomes healthy
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          check() {
+            local name="$1"; shift
+            docker run -d --name "$name" \
+              --health-interval=2s --health-start-period=60s \
+              --health-retries=3 --health-timeout=5s \
+              "$@" "$IMAGE" >/dev/null
+            local status=""
+            for _ in $(seq 1 60); do
+              status="$(docker inspect --format '{{.State.Health.Status}}' "$name")"
+              if [ "$status" = "healthy" ] || [ "$status" = "unhealthy" ]; then
+                break
+              fi
+              if [ "$(docker inspect --format '{{.State.Running}}' "$name")" != "true" ]; then
+                status="exited"
+                break
+              fi
+              sleep 2
+            done
+            echo "$name: $status"
+            if [ "$status" != "healthy" ]; then
+              docker logs "$name" || true
+              docker rm -f "$name" >/dev/null || true
+              return 1
+            fi
+            docker rm -f "$name" >/dev/null
+          }
+          check nl-default
+          check nl-base-path -e NEUROLINK_SERVER_BASE_PATH=/v9

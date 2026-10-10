@@ -15,6 +15,7 @@ import { homedir } from "os";
 import { promises as fs } from "fs";
 import type { AccountQuota, AccountQuotaWindow } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
+import { withBestEffortFileLock } from "./fileLock.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 // ---------------------------------------------------------------------------
@@ -482,14 +483,17 @@ async function flushToDisk(): Promise<void> {
       // Another worker (a draining one during a rolling restart) may have
       // written the file since this one loaded it: fold only this worker's
       // changes onto the file as it is now, never rewrite it from this copy.
-      // Best-effort: the mutexes are per process, so two workers flushing
-      // within the same few ms can still lose one update.
-      const onDisk = await readQuotasFromDisk(filePath, fallback);
-      const merged = { ...onDisk };
-      for (const [key, quota] of Object.entries(flushing)) {
-        merged[key] = foldNewerQuota(onDisk[key], quota);
-      }
-      await writeJsonSnapshotAtomically(filePath, merged, 0o600);
+      // The mutexes cover this process; the file lock covers the other
+      // workers, so two flushes cannot read one version and drop an update.
+      const merged = await withBestEffortFileLock(filePath, async () => {
+        const onDisk = await readQuotasFromDisk(filePath, fallback);
+        const next = { ...onDisk };
+        for (const [key, quota] of Object.entries(flushing)) {
+          next[key] = foldNewerQuota(onDisk[key], quota);
+        }
+        await writeJsonSnapshotAtomically(filePath, next, 0o600);
+        return next;
+      });
       await stateMutex.runExclusive(async () => {
         if (getQuotaFilePath() !== filePath) {
           return;

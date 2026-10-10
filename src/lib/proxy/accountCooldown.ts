@@ -11,6 +11,7 @@ import {
   ACCOUNT_COOLING_REASONS,
   MAX_COOLDOWN_MS_BY_REASON,
 } from "./routingEvidence.js";
+import { withBestEffortFileLock } from "./fileLock.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 const COOLDOWN_FILE = "account-cooldowns.json";
@@ -137,20 +138,22 @@ export async function saveAccountCooldown(
     await ensureAccountCooldownsLoaded();
     // Another worker (a draining one during a rolling restart) may have written
     // the file since this one loaded it, so the change folds onto the file as
-    // it is now rather than onto this worker's copy. Best-effort: the mutex is
-    // per process, so two workers writing within the same few ms can still
-    // lose one update.
-    const onDisk = await readCooldownsFromDisk(memoryCache);
-    memoryCache = onDisk;
-    const current = onDisk[accountKey];
-    if (current && current.coolingUntil > coolingUntil) {
-      return;
-    }
-    memoryCache = {
-      ...onDisk,
-      [accountKey]: { coolingUntil, reason, updatedAt: Date.now() },
-    };
-    await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
+    // it is now rather than onto this worker's copy. The mutex covers this
+    // process; the file lock covers the other workers, so two of them writing
+    // at once cannot both read one version and drop each other's update.
+    await withBestEffortFileLock(getCooldownFilePath(), async () => {
+      const onDisk = await readCooldownsFromDisk(memoryCache);
+      memoryCache = onDisk;
+      const current = onDisk[accountKey];
+      if (current && current.coolingUntil > coolingUntil) {
+        return;
+      }
+      memoryCache = {
+        ...onDisk,
+        [accountKey]: { coolingUntil, reason, updatedAt: Date.now() },
+      };
+      await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
+    });
   });
 }
 
@@ -161,23 +164,25 @@ export async function clearAccountCooldown(
   await mutationMutex.runExclusive(async () => {
     await ensureAccountCooldownsLoaded();
     // Compare against the file, not this worker's copy: another worker may
-    // have extended this cooldown since, and that one must survive. Same
-    // best-effort limit as saveAccountCooldown: no cross-process lock.
-    const onDisk = await readCooldownsFromDisk(memoryCache);
-    memoryCache = onDisk;
-    const current = onDisk[accountKey];
-    if (!current) {
-      return;
-    }
-    if (
-      expectedCoolingUntil !== undefined &&
-      current.coolingUntil !== expectedCoolingUntil
-    ) {
-      return;
-    }
-    const next = { ...onDisk };
-    delete next[accountKey];
-    memoryCache = next;
-    await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
+    // have extended this cooldown since, and that one must survive. Under the
+    // same file lock as saveAccountCooldown.
+    await withBestEffortFileLock(getCooldownFilePath(), async () => {
+      const onDisk = await readCooldownsFromDisk(memoryCache);
+      memoryCache = onDisk;
+      const current = onDisk[accountKey];
+      if (!current) {
+        return;
+      }
+      if (
+        expectedCoolingUntil !== undefined &&
+        current.coolingUntil !== expectedCoolingUntil
+      ) {
+        return;
+      }
+      const next = { ...onDisk };
+      delete next[accountKey];
+      memoryCache = next;
+      await writeJsonSnapshotAtomically(getCooldownFilePath(), memoryCache);
+    });
   });
 }

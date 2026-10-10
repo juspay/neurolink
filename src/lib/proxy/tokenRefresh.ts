@@ -16,6 +16,7 @@ import type {
   StoredOAuthTokens,
   TokenPersistTarget,
 } from "../types/index.js";
+import { proxyAwareFetch } from "./proxyFetch.js";
 
 const BUFFER_MS = 5 * 60 * 1000;
 const SUCCESS_CACHE_MS = 60_000;
@@ -69,7 +70,7 @@ async function performTokenRefresh(
 
   for (const url of urls) {
     try {
-      const resp = await fetch(url, {
+      const resp = await proxyAwareFetch(url, {
         method: "POST",
         headers,
         body: requestBody,

@@ -1,10 +1,20 @@
 /**
  * Enhanced proxy-aware fetch implementation for AI SDK providers
- * Supports HTTP/HTTPS, SOCKS4/5, authentication, and NO_PROXY bypass
- * Lightweight implementation extracted from research of major proxy packages
+ * Supports HTTP and HTTPS proxies (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY),
+ * proxy authentication, and NO_PROXY bypass.
+ *
+ * SOCKS proxies are NOT supported: a `socks4://` / `socks5://` URL (in
+ * SOCKS_PROXY or ALL_PROXY) is detected but cannot be used, so the request
+ * falls back to a direct connection with a warning, or fails when
+ * NEUROLINK_PROXY_STRICT is set.
+ *
+ * The SDK is a library and never installs a process-global dispatcher.
+ * Outbound calls opt in instead, through {@link createProxyFetch} or the
+ * {@link proxyAwareFetch} drop-in for global `fetch`.
  */
 
 import { logger } from "../utils/logger.js";
+import { redactUrlForError } from "../utils/logSanitize.js";
 import { SpanStatusCode, propagation, context } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
 import type { ProxyAgent } from "undici";
@@ -13,6 +23,7 @@ import type {
   GoogleGenAIHttpOptions,
   LangfuseContext,
   ParsedProxyConfig,
+  ProxyAgentTimeouts,
   ProxyEnvironmentSnapshot,
 } from "../types/index.js";
 import { createHash } from "node:crypto";
@@ -374,9 +385,12 @@ function getDefaultPort(protocol: string): number {
  * Select appropriate proxy URL based on target and environment
  */
 function selectProxyUrl(targetUrl: string): string | null {
-  // Check NO_PROXY bypass first
+  // Check NO_PROXY bypass first. Logged without the query string: callers
+  // such as Lyria put the API key there.
   if (shouldBypassProxy(targetUrl)) {
-    logger.debug("[Proxy] Bypassing proxy due to NO_PROXY", { targetUrl });
+    logger.debug("[Proxy] Bypassing proxy due to NO_PROXY", {
+      targetUrl: redactUrlForError(targetUrl),
+    });
     return null;
   }
 
@@ -403,7 +417,10 @@ function selectProxyUrl(targetUrl: string): string | null {
 
     return null;
   } catch (error) {
-    logger.warn("[Proxy] Error selecting proxy URL", { targetUrl, error });
+    logger.warn("[Proxy] Error selecting proxy URL", {
+      targetUrl: redactUrlForError(targetUrl),
+      error,
+    });
     return null;
   }
 }
@@ -411,7 +428,10 @@ function selectProxyUrl(targetUrl: string): string | null {
 /**
  * Create appropriate proxy agent based on protocol
  */
-async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
+async function createProxyAgent(
+  proxyUrl: string,
+  timeouts: ProxyAgentTimeouts = {},
+): Promise<ProxyAgent> {
   const parsed = parseProxyUrl(proxyUrl);
 
   logger.debug("[Proxy] Creating proxy agent", {
@@ -426,15 +446,18 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
     case "https:": {
       // Use existing undici ProxyAgent for HTTP/HTTPS
       const { ProxyAgent } = await import("undici");
-      return new ProxyAgent(proxyUrl);
+      return Object.keys(timeouts).length > 0
+        ? new ProxyAgent({ uri: proxyUrl, ...timeouts })
+        : new ProxyAgent(proxyUrl);
     }
 
     case "socks4:":
     case "socks5:": {
-      // SOCKS proxy support is not included in the build to avoid optional dependencies
+      // Not implemented: no SOCKS dispatcher ships with the package, and
+      // installing one alongside it does not change that.
       throw new Error(
-        `SOCKS proxy support requires 'proxy-agent' package. ` +
-          `Install it with: npm install proxy-agent`,
+        `SOCKS proxies are not supported (${parsed.protocol}); ` +
+          `configure an HTTP or HTTPS proxy in HTTPS_PROXY / HTTP_PROXY instead`,
       );
     }
 
@@ -444,11 +467,15 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
 }
 
 /**
- * One ProxyAgent per proxy URL for the whole process, so connections to the
- * proxy are pooled and an agent is not rebuilt per request. The cache key is
- * a hash of the masked URL: credentials never sit in the map.
+ * One ProxyAgent per proxy URL (and transport timeouts) for the whole process,
+ * so connections to the proxy are pooled and an agent is not rebuilt per
+ * request. The cache key is a hash of the masked URL: credentials never sit in
+ * the map.
  */
-async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
+async function getOrCreateProxyAgent(
+  proxyUrl: string,
+  timeouts: ProxyAgentTimeouts = {},
+): Promise<ProxyAgent> {
   const globalWithCache = globalThis as {
     __NL_PROXY_AGENT_CACHE__?: Map<string, ProxyAgent>;
   };
@@ -457,11 +484,15 @@ async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
   }
   const agentCache: Map<string, ProxyAgent> =
     globalWithCache.__NL_PROXY_AGENT_CACHE__;
+  const timeoutKey =
+    timeouts.headersTimeout !== undefined || timeouts.bodyTimeout !== undefined
+      ? `|${timeouts.headersTimeout ?? ""}|${timeouts.bodyTimeout ?? ""}`
+      : "";
   const cacheKey = createHash("sha256")
-    .update(maskProxyUrl(proxyUrl) ?? proxyUrl)
+    .update((maskProxyUrl(proxyUrl) ?? proxyUrl) + timeoutKey)
     .digest("hex");
   const dispatcher =
-    agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl));
+    agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl, timeouts));
   agentCache.set(cacheKey, dispatcher);
   return dispatcher;
 }
@@ -475,12 +506,16 @@ async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
  * request to be proxied or refused (a download whose destination was vetted
  * under proxy rules) gets no fallback to a direct connection from this: a proxy
  * that cannot be used (an unsupported SOCKS URL, an unparsable URL) throws.
+ *
+ * `timeouts` sets the agent's undici headers/body timeouts, for a caller whose
+ * direct path uses an agent with longer deadlines than undici's defaults.
  */
 export async function getProxyDispatcherForUrl(
   targetUrl: string,
+  timeouts: ProxyAgentTimeouts = {},
 ): Promise<ProxyAgent | null> {
   const proxyUrl = selectProxyUrl(targetUrl);
-  return proxyUrl ? getOrCreateProxyAgent(proxyUrl) : null;
+  return proxyUrl ? getOrCreateProxyAgent(proxyUrl, timeouts) : null;
 }
 
 function sanitizeProxyUrl(url: string | undefined): string {
@@ -550,6 +585,74 @@ function createDirectFetchHandler(): typeof fetch {
       throw error;
     }
   };
+}
+
+/**
+ * Whether NEUROLINK_PROXY_STRICT asks for a request whose proxy attempt failed
+ * to fail, instead of being retried over a direct connection. Off by default,
+ * which keeps the long-standing fallback; turn it on where egress is allowed
+ * only through the proxy, so a broken proxy cannot be silently bypassed.
+ */
+export function isProxyStrictMode(): boolean {
+  return /^(1|true|yes|on)$/i.test(
+    process.env.NEUROLINK_PROXY_STRICT?.trim() ?? "",
+  );
+}
+
+/**
+ * A FormData body built with the global `FormData` (Node's bundled undici)
+ * fails the npm undici's brand check, and its fetch then sends the string
+ * "[object FormData]" as text/plain. Copy the entries into the npm undici's
+ * own FormData so a multipart upload (speech-to-text, file uploads) keeps its
+ * parts on the proxied path.
+ */
+async function toProxiedBody(
+  body: RequestInit["body"],
+): Promise<RequestInit["body"] | import("undici").FormData> {
+  if (typeof FormData === "undefined" || !(body instanceof FormData)) {
+    return body;
+  }
+  const { FormData: UndiciFormData } = await import("undici");
+  const converted = new UndiciFormData();
+  for (const [name, value] of body.entries()) {
+    if (typeof value === "string") {
+      converted.append(name, value);
+    } else {
+      converted.append(name, value, value.name);
+    }
+  }
+  return converted;
+}
+
+/**
+ * Decide what a failed proxy attempt turns into. Throws `error` when the
+ * caller cancelled (a direct retry would only be cancelled again, and a proxy
+ * failure would be misreported) or when NEUROLINK_PROXY_STRICT is set;
+ * otherwise warns that the request is about to bypass the proxy and returns,
+ * so the caller can retry it directly.
+ */
+function rethrowUnlessDirectFallbackAllowed(
+  error: unknown,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  targetUrl: string,
+): void {
+  const signal =
+    init?.signal ?? (input instanceof Request ? input.signal : undefined);
+  if (signal?.aborted) {
+    throw error;
+  }
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const host = extractHostname(targetUrl);
+  if (isProxyStrictMode()) {
+    logger.warn(
+      `[Proxy Fetch] Request to ${host} through the proxy failed (${errorMessage}); NEUROLINK_PROXY_STRICT is set, so it is not retried over a direct connection`,
+    );
+    throw error;
+  }
+  logger.warn(
+    `[Proxy Fetch] Request to ${host} through the proxy failed (${errorMessage}); falling back to a direct connection that bypasses the proxy. Set NEUROLINK_PROXY_STRICT=true to fail instead.`,
+  );
 }
 
 async function executeProxiedFetch(
@@ -646,6 +749,7 @@ async function executeProxiedFetch(
       // (overlap-checked) back to the DOM flavor at the return boundary.
       const response = (await undici.fetch(fetchInput, {
         ...fetchInit,
+        body: await toProxiedBody(fetchInit.body),
         dispatcher,
       } as import("undici").RequestInit)) as
         | Response
@@ -695,12 +799,9 @@ async function executeProxiedFetch(
       requestId,
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      willFallback: true,
       timestamp: new Date().toISOString(),
     });
-    logger.warn(
-      `[Proxy Fetch] Enhanced proxy failed (${errorMessage}), falling back to direct connection`,
-    );
+    rethrowUnlessDirectFallbackAllowed(error, input, init, targetUrl);
   }
 
   logger.debug(`[Proxy Fetch] ENHANCED FALLBACK TO STANDARD FETCH`, {
@@ -769,7 +870,9 @@ function createProxiedFetchHandler(
 
 /**
  * Create a proxy-aware fetch function with enhanced capabilities
- * Supports HTTP/HTTPS, SOCKS4/5, authentication, and NO_PROXY bypass
+ * Supports HTTP/HTTPS proxies, proxy authentication, and NO_PROXY bypass (no
+ * SOCKS). When the proxy attempt fails the request is retried over a direct
+ * connection with a warning, unless NEUROLINK_PROXY_STRICT is set.
  */
 export function createProxyFetch(): typeof fetch {
   // Detect ALL proxy-related environment variables
@@ -831,6 +934,41 @@ export function createProxyFetch(): typeof fetch {
 }
 
 /**
+ * Drop-in for global `fetch` on outbound calls that must honour the proxy
+ * environment (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY, minus NO_PROXY hosts).
+ *
+ * Every request is sent by global `fetch`, looked up per call, so a patched
+ * global still applies and the result is a global `Response`; no trace headers
+ * or retries are added. When no proxy applies to the URL (none is configured,
+ * or NO_PROXY lists the host) that is all it does, so a call site moved here
+ * from raw `fetch` behaves exactly as before. When one applies, the request
+ * carries the proxy's undici dispatcher; if that attempt fails it is retried
+ * once directly with a warning, or fails when NEUROLINK_PROXY_STRICT is set.
+ * The environment is read on every call. SOCKS proxies are not supported.
+ */
+export async function proxyAwareFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const targetUrl = getTargetUrl(input);
+  const proxyUrl = selectProxyUrl(targetUrl);
+  if (!proxyUrl) {
+    return fetch(input, init);
+  }
+  // A Request's body can be read only once; keep an intact copy for the
+  // direct retry.
+  const retryInput = input instanceof Request ? input.clone() : input;
+  try {
+    const dispatcher = await getOrCreateProxyAgent(proxyUrl);
+    // Global fetch takes undici's non-standard `dispatcher` option.
+    return await fetch(input, { ...init, dispatcher } as RequestInit);
+  } catch (error: unknown) {
+    rethrowUnlessDirectFallbackAllowed(error, input, init, targetUrl);
+    return fetch(retryInput, init);
+  }
+}
+
+/**
  * Mask credentials in a proxy URL for safe logging/reporting.
  *
  * Exported so provider-side fetch loggers (lmStudio, llamaCpp, deepseek,
@@ -878,7 +1016,6 @@ export function getProxyStatus() {
     method: "enhanced-proxy-agent",
     capabilities: [
       "HTTP/HTTPS Proxy",
-      "SOCKS4/SOCKS5 Proxy",
       "Proxy Authentication",
       "NO_PROXY Bypass",
       "CIDR Range Matching",

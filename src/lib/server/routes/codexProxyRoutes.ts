@@ -130,6 +130,7 @@ import type {
 import { raceWithAbort } from "../../utils/async/withTimeout.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
+import { getProxyDispatcherForUrl } from "../../proxy/proxyFetch.js";
 
 const CODEX_UPSTREAM_TIMEOUT_MS = 15 * 60 * 1000; // 15 min, matches Claude path
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 60_000;
@@ -138,6 +139,23 @@ const MAX_TRANSIENT_COOLDOWN_MS = 15 * 60 * 1000;
 const CODEX_AUTH_COOLDOWN_MS = 60_000;
 const CODEX_ACCOUNT_TYPE = "codex-oauth";
 const CODEX_FALLBACK_METADATA_KEY = "neurolink.codexFallback";
+
+/**
+ * Global fetch to a ChatGPT backend URL, through the proxy that HTTPS_PROXY /
+ * ALL_PROXY configures for it (unless NO_PROXY lists the host). As on the
+ * Anthropic side, a proxied upstream never falls back to a direct connection:
+ * a proxy failure is a transport error for the account loop to handle.
+ */
+async function fetchCodexUpstream(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const dispatcher = await getProxyDispatcherForUrl(url);
+  return fetch(
+    url,
+    dispatcher ? ({ ...init, dispatcher } as RequestInit) : init,
+  );
+}
 
 function getCodexTransportErrorCode(error: unknown): string | undefined {
   if (!error || typeof error !== "object") {
@@ -1854,7 +1872,7 @@ async function executeCodexResponsesRequest(
             ...tracer?.getTraceContext(),
           });
           budgetDispatched = true;
-          upstream = await fetch(CODEX_RESPONSES_URL, {
+          upstream = await fetchCodexUpstream(CODEX_RESPONSES_URL, {
             method: "POST",
             headers: upstreamHeaders,
             body: bodyStr,
@@ -2519,7 +2537,7 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
     for (;;) {
       let upstream: Response;
       try {
-        upstream = await fetch(url, {
+        upstream = await fetchCodexUpstream(url, {
           method: "GET",
           headers: buildCodexUpstreamHeaders(ctx.headers ?? {}, account),
           // Bound the upstream call, as the responses route does. Without a

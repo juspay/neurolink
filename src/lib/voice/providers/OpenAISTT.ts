@@ -18,6 +18,7 @@ import type {
   WhisperSTTOptions,
   WhisperVerboseResponse,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const OPENAI_STT_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -338,7 +339,7 @@ export class OpenAISTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       let response: Response;
       try {
-        response = await fetch(endpoint, {
+        response = await proxyAwareFetch(endpoint, {
           method: "POST",
           headers: this.apiKey
             ? { Authorization: `Bearer ${this.apiKey}` }

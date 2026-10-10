@@ -21,6 +21,7 @@ import type {
   TranscriptionSegment,
   WordTiming,
 } from "../../types/index.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.deepgram.com/v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -306,7 +307,7 @@ export class DeepgramSTT implements STTHandler {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await proxyAwareFetch(url, {
           method: "POST",
           headers: {
             Authorization: `Token ${this.apiKey}`,

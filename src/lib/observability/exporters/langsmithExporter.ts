@@ -4,6 +4,7 @@
  */
 
 import { logger } from "../../utils/logger.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Build a LangSmith dotted_order value: "{datetime}.{id}"
@@ -51,7 +52,7 @@ export class LangSmithExporter extends BaseExporter {
 
     // Verify API key with a test request
     try {
-      const response = await fetch(`${this.endpoint}/api/v1/info`, {
+      const response = await proxyAwareFetch(`${this.endpoint}/api/v1/info`, {
         headers: { "x-api-key": this.apiKey },
       });
 
@@ -79,7 +80,7 @@ export class LangSmithExporter extends BaseExporter {
     try {
       const langsmithRun = SpanSerializer.toLangSmithFormat(span);
 
-      const response = await fetch(`${this.endpoint}/api/v1/runs`, {
+      const response = await proxyAwareFetch(`${this.endpoint}/api/v1/runs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -124,14 +125,17 @@ export class LangSmithExporter extends BaseExporter {
         };
       });
 
-      const response = await fetch(`${this.endpoint}/api/v1/runs/batch`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
+      const response = await proxyAwareFetch(
+        `${this.endpoint}/api/v1/runs/batch`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": this.apiKey,
+          },
+          body: JSON.stringify({ post }),
         },
-        body: JSON.stringify({ post }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Batch export failed: ${response.statusText}`);
@@ -174,7 +178,7 @@ export class LangSmithExporter extends BaseExporter {
    * Verify connectivity to LangSmith API
    */
   protected async ping(): Promise<void> {
-    const response = await fetch(`${this.endpoint}/api/v1/info`, {
+    const response = await proxyAwareFetch(`${this.endpoint}/api/v1/info`, {
       headers: { "x-api-key": this.apiKey },
     });
 

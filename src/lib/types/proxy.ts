@@ -2380,6 +2380,12 @@ export type ProxyEnvironmentSnapshot = {
   noProxy?: string;
 };
 
+/** undici transport deadlines for a proxy dispatcher (milliseconds). */
+export type ProxyAgentTimeouts = {
+  headersTimeout?: number;
+  bodyTimeout?: number;
+};
+
 // =============================================================================
 // QUIET DETECTOR (from proxy/quietDetector.ts)
 // =============================================================================

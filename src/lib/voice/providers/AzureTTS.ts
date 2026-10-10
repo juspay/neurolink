@@ -18,6 +18,7 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * Azure Cognitive Services Text-to-Speech Handler
@@ -77,7 +78,7 @@ export class AzureTTS implements TTSHandler {
       const voicesTimeoutId = setTimeout(() => voicesController.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(
+        response = await proxyAwareFetch(
           `https://${this.region}.tts.speech.microsoft.com/cognitiveservices/voices/list`,
           {
             method: "GET",
@@ -188,7 +189,7 @@ export class AzureTTS implements TTSHandler {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let response: Response;
       try {
-        response = await fetch(
+        response = await proxyAwareFetch(
           `https://${this.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
           {
             method: "POST",

@@ -36,6 +36,28 @@ export function resolveServerPort(cliPort?: number, filePort?: number): number {
   return port;
 }
 
+/**
+ * Route base path from the environment. The container image's HEALTHCHECK
+ * reads the same variable, so its probe follows a moved base path.
+ */
+export const SERVER_BASE_PATH_ENV = "NEUROLINK_SERVER_BASE_PATH";
+
+export const DEFAULT_SERVER_BASE_PATH = "/api";
+
+/**
+ * Resolve the route base path: --basePath, then the config file, then
+ * NEUROLINK_SERVER_BASE_PATH, then /api (the same order as the port).
+ */
+export function resolveServerBasePath(
+  cliBasePath?: string,
+  fileBasePath?: string,
+): string {
+  const envBasePath = process.env[SERVER_BASE_PATH_ENV]?.trim();
+  return (
+    cliBasePath ?? fileBasePath ?? (envBasePath || DEFAULT_SERVER_BASE_PATH)
+  );
+}
+
 export function readServerApiKeys(): string[] {
   return (process.env[SERVER_API_KEY_ENV] ?? "")
     .split(",")

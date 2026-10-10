@@ -232,11 +232,13 @@ HTTP_PROXY="http://proxy.company.com:8080"
 NO_PROXY="localhost,127.0.0.1,.company.com"
 ```
 
-| Variable      | Description                     | Example                            |
-| ------------- | ------------------------------- | ---------------------------------- |
-| `HTTPS_PROXY` | Proxy server for HTTPS requests | `http://proxy.company.com:8080`    |
-| `HTTP_PROXY`  | Proxy server for HTTP requests  | `http://proxy.company.com:8080`    |
-| `NO_PROXY`    | Domains to bypass proxy         | `localhost,127.0.0.1,.company.com` |
+| Variable                 | Description                                                               | Example                            |
+| ------------------------ | ------------------------------------------------------------------------- | ---------------------------------- |
+| `HTTPS_PROXY`            | Proxy server for HTTPS requests                                           | `http://proxy.company.com:8080`    |
+| `HTTP_PROXY`             | Proxy server for HTTP requests                                            | `http://proxy.company.com:8080`    |
+| `ALL_PROXY`              | Proxy for either scheme when the specific variable is not set             | `http://proxy.company.com:8080`    |
+| `NO_PROXY`               | Domains to bypass proxy                                                   | `localhost,127.0.0.1,.company.com` |
+| `NEUROLINK_PROXY_STRICT` | `true`: fail a request whose proxy attempt failed instead of going direct | `true`                             |
 
 The shared HTTP proxy fetch accepts comma- or whitespace-separated `NO_PROXY` entries. Entries are case-insensitive: `*` bypasses all; `example.com`, `.example.com` and `*.example.com` cover the host and its subdomains; `example.com:8443` restricts a match to that effective port (HTTP defaults to 80, HTTPS to 443). One trailing dot is normalized for domain names. IPv4/IPv6 literals match exactly, including `[::1]:8080`; IPv4 CIDR entries apply only to literal IPv4 targets, and IPv6 CIDR is unsupported. Dot-only entries (`.` or `..`) match nothing.
 
@@ -250,7 +252,7 @@ HTTPS_PROXY="http://username:password@proxy.company.com:8080"
 HTTP_PROXY="http://username:password@proxy.company.com:8080"
 ```
 
-**All NeuroLink providers automatically use proxy settings when configured.**
+Provider, voice, media, MCP HTTP, OAuth and exporter requests use these settings; WebSocket sessions, Google ADC token requests and a few other paths still connect directly. SOCKS proxies are not supported.
 
 **For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](enterprise-proxy-setup.md)
 

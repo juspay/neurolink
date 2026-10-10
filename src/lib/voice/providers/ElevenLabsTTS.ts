@@ -25,6 +25,7 @@ import { delay } from "../../utils/async/delay.js";
 import { calculateBackoff } from "../../utils/async/retry.js";
 import { logger } from "../../utils/logger.js";
 import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -173,7 +174,7 @@ export class ElevenLabsTTS implements TTSHandler {
       );
       let response: Response;
       try {
-        response = await fetch(`${this.baseUrl}/voices`, {
+        response = await proxyAwareFetch(`${this.baseUrl}/voices`, {
           method: "GET",
           headers: {
             "xi-api-key": this.apiKey,
@@ -507,7 +508,10 @@ export class ElevenLabsTTS implements TTSHandler {
     try {
       let response: Response;
       try {
-        response = await fetch(url, { ...init, signal: controller.signal });
+        response = await proxyAwareFetch(url, {
+          ...init,
+          signal: controller.signal,
+        });
       } catch (fetchErr: unknown) {
         throw asAttemptError(fetchErr);
       }

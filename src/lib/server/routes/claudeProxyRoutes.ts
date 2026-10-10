@@ -21,7 +21,7 @@ import { join } from "node:path";
 // Type-only: erased at compile time, so this does not force-load undici.
 // The value is imported dynamically at the single construction site below.
 // See test/continuous-test-suite-import-cost.ts.
-import type { Agent } from "undici";
+import type { Agent, ProxyAgent } from "undici";
 import {
   buildStableClaudeCodeBillingHeader,
   CLAUDE_CLI_USER_AGENT,
@@ -406,6 +406,7 @@ import {
   getProxyTokenBudgetSessionKey,
 } from "../../proxy/proxyTokenBudget.js";
 import { observeAnthropicBudgetResponse } from "../../proxy/anthropicBudgetResponse.js";
+import { getProxyDispatcherForUrl } from "../../proxy/proxyFetch.js";
 import {
   readCacheCreation1hTokens,
   oneHourCacheWriteFields,
@@ -474,6 +475,27 @@ async function getAnthropicUpstreamDispatcher(): Promise<Agent> {
   return anthropicUpstreamDispatcherPromise;
 }
 
+/**
+ * The dispatcher for one upstream Anthropic request: through the proxy that
+ * HTTPS_PROXY / ALL_PROXY configures for `url` (unless NO_PROXY lists the
+ * host), else the direct agent. Both carry the same transport deadlines.
+ *
+ * A proxied upstream never falls back to a direct connection: a proxy that
+ * refuses or cannot be reached fails the attempt like any other transport
+ * error, and the route's account retry handles it. The proxy server is a
+ * long-running egress point, so it must not quietly bypass a proxy-only
+ * egress policy the way the SDK's opt-out fallback can.
+ */
+async function getAnthropicUpstreamDispatcherFor(
+  url: string,
+): Promise<Agent | ProxyAgent> {
+  const viaProxy = await getProxyDispatcherForUrl(url, {
+    headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+    bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+  });
+  return viaProxy ?? getAnthropicUpstreamDispatcher();
+}
+
 async function fetchAnthropicUpstream(
   url: string,
   init: RequestInit,
@@ -507,7 +529,7 @@ async function fetchAnthropicUpstream(
     throw init.signal?.reason ?? ctx.abortSignal?.reason;
   }
   try {
-    const upstreamDispatcher = await getAnthropicUpstreamDispatcher();
+    const upstreamDispatcher = await getAnthropicUpstreamDispatcherFor(url);
     const dispatchedBody = String(init.body);
     recordAttempt(dispatch.accountLabel, dispatch.accountType);
     dispatch.tracer?.logUpstreamRequestHeaders(

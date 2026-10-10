@@ -1435,4 +1435,105 @@ await test("legacy supervisor state keeps HTTP and CLI status readable without r
   }
 });
 
+/**
+ * #1896: during a rolling replacement the draining worker and its successor
+ * write the same cooldown and quota files. Each write folds onto the file as
+ * it is now, but without a cross-process lock two workers could read one
+ * version and the second rename dropped the first one's entry. Four real
+ * processes, released together, each write their own accounts through the
+ * built persistence modules; every entry from every worker must survive.
+ */
+await test("cooldown and quota writes from concurrent workers never drop an entry", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "neurolink-proxy-file-lock-"));
+  const cooldownFile = join(dir, "account-cooldowns.json");
+  const quotaFile = join(dir, "account-quotas.json");
+  const goFile = join(dir, "go");
+  const workers = 4;
+  const accountsPerWorker = 25;
+  const distUrl = (file: string): string =>
+    new URL(`../dist/proxy/${file}`, import.meta.url).href;
+  const workerSource = `
+    import { existsSync } from "node:fs";
+    import { initAccountCooldown, saveAccountCooldown } from ${JSON.stringify(distUrl("accountCooldown.js"))};
+    import { initAccountQuota, saveAccountQuota, flushAccountQuotas } from ${JSON.stringify(distUrl("accountQuota.js"))};
+    const [worker, cooldownFile, quotaFile, goFile, count] = process.argv.slice(1);
+    initAccountCooldown(cooldownFile);
+    initAccountQuota(quotaFile);
+    while (!existsSync(goFile)) {
+      await new Promise((r) => setTimeout(r, 2));
+    }
+    for (let i = 0; i < Number(count); i++) {
+      const key = "anthropic:w" + worker + "-a" + i;
+      await saveAccountCooldown(key, Date.now() + 600000, "session");
+      await saveAccountQuota(key, {
+        sessionUsed: 0.1, sessionStatus: "allowed", sessionResetAt: 1,
+        weeklyUsed: 0.1, weeklyStatus: "allowed", weeklyResetAt: 1,
+        fallbackPercentage: 0, overageStatus: "rejected", lastUpdated: Date.now(),
+      });
+      await flushAccountQuotas();
+    }
+  `;
+  try {
+    const exits = Array.from({ length: workers }, (_, worker) => {
+      const child = spawn(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          workerSource,
+          String(worker),
+          cooldownFile,
+          quotaFile,
+          goFile,
+          String(accountsPerWorker),
+        ],
+        { stdio: ["ignore", "ignore", "pipe"] },
+      );
+      let stderr = "";
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+      return new Promise<number | null>((resolve) => {
+        child.on("close", (code) => {
+          if (code !== 0) {
+            console.error(stderr.slice(-2000));
+          }
+          resolve(code);
+        });
+      });
+    });
+    // Let every worker load its modules before releasing them together.
+    await delay(1_500);
+    await writeFile(goFile, "");
+    const codes = await Promise.all(exits);
+    assert(
+      codes.every((code) => code === 0),
+      "a writer process failed before finishing its writes",
+    );
+    const expected = Array.from({ length: workers }, (_, worker) =>
+      Array.from(
+        { length: accountsPerWorker },
+        (_, i) => `anthropic:w${worker}-a${i}`,
+      ),
+    ).flat();
+    const cooldowns = JSON.parse(
+      await readFile(cooldownFile, "utf8"),
+    ) as Record<string, unknown>;
+    const quotas = JSON.parse(await readFile(quotaFile, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const lostCooldowns = expected.filter((key) => !(key in cooldowns)).length;
+    const lostQuotas = expected.filter((key) => !(key in quotas)).length;
+    assertEqual(
+      lostCooldowns,
+      0,
+      "concurrent workers dropped cooldown entries",
+    );
+    assertEqual(lostQuotas, 0, "concurrent workers dropped quota entries");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 await runSuite();

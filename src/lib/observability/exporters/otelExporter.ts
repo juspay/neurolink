@@ -13,6 +13,7 @@ import type {
 } from "../../types/index.js";
 import { SpanSerializer } from "../utils/spanSerializer.js";
 import { BaseExporter } from "./baseExporter.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 /**
  * OpenTelemetry exporter for OTLP-compatible backends
@@ -134,7 +135,7 @@ export class OtelExporter extends BaseExporter {
    * Verify connectivity to OTLP endpoint
    */
   protected async ping(): Promise<void> {
-    const response = await fetch(this.endpoint, { method: "HEAD" });
+    const response = await proxyAwareFetch(this.endpoint, { method: "HEAD" });
     // 405 (Method Not Allowed) is acceptable for HEAD requests
     if (!response.ok && response.status !== 405) {
       throw new Error(`OTLP endpoint unreachable: ${response.status}`);
@@ -183,7 +184,7 @@ export class OtelExporter extends BaseExporter {
       Object.assign(headers, this.config.headers);
     }
 
-    const response = await fetch(endpoint, {
+    const response = await proxyAwareFetch(endpoint, {
       method: "POST",
       headers,
       body: bodyData,

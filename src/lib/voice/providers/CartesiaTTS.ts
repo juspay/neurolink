@@ -23,6 +23,7 @@ import type {
 import { withTimeout, TimeoutError } from "../../utils/async/withTimeout.js";
 import { logger } from "../../utils/logger.js";
 import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const DEFAULT_BASE_URL = "https://api.cartesia.ai";
 const DEFAULT_API_VERSION = "2025-04-16";
@@ -98,7 +99,7 @@ export class CartesiaTTS implements TTSHandler {
     let response: Response;
     try {
       response = await withTimeout(
-        fetch(`${this.baseUrl}/tts/bytes`, {
+        proxyAwareFetch(`${this.baseUrl}/tts/bytes`, {
           method: "POST",
           headers: {
             "X-API-Key": this.apiKey,

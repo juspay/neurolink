@@ -7,15 +7,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import {
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { readFile, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { normalizeAnthropicAccountKey } from "./accountSelection.js";
 import type {
@@ -26,7 +18,6 @@ import type {
   ProxyTerminalErrorDetails,
   ProxyTerminalErrorJournal,
   ProxyTerminalErrorSummary,
-  ProxyStatsLockOwner,
   ProxyStats,
   ProxyStatsPersistenceStatus,
   ProxyUsageStatsSnapshot,
@@ -35,12 +26,12 @@ import type {
 import { AsyncMutex } from "../utils/asyncMutex.js";
 import { redactUrlsInText, sanitizeForLog } from "../utils/logSanitize.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
+import { acquireFileLock } from "./fileLock.js";
 
 const SNAPSHOT_SCHEMA_VERSION = 1;
 const DEFAULT_FLUSH_INTERVAL_MS = 1_000;
 const DEFAULT_LOCK_TIMEOUT_MS = 2_000;
 const DEFAULT_STALE_LOCK_MS = 30_000;
-const LOCK_RETRY_MS = 25;
 const MAX_CORRUPT_SNAPSHOTS = 3;
 const MAX_RECENT_TERMINAL_ERRORS = 20;
 const MAX_TERMINAL_ERROR_FIELD_LENGTH = 128;
@@ -543,111 +534,6 @@ function isCorruptSnapshotError(error: unknown): boolean {
     error instanceof SyntaxError ||
     error instanceof InvalidProxyStatsSnapshotError
   );
-}
-
-function processIsRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function readLockOwner(
-  lockPath: string,
-): Promise<ProxyStatsLockOwner | null> {
-  try {
-    const parsed = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-    const candidate = parsed as Partial<ProxyStatsLockOwner>;
-    if (
-      typeof candidate.token !== "string" ||
-      !finiteNonNegativeInteger(candidate.pid) ||
-      candidate.pid === 0 ||
-      !finiteNonNegativeInteger(candidate.acquiredAt)
-    ) {
-      return null;
-    }
-    return candidate as ProxyStatsLockOwner;
-  } catch {
-    return null;
-  }
-}
-
-async function removeAbandonedLock(
-  lockPath: string,
-  staleLockMs: number,
-  now: number,
-): Promise<boolean> {
-  const owner = await readLockOwner(lockPath);
-  try {
-    const lockStat = await stat(lockPath);
-    const oldEnough = now - lockStat.mtimeMs >= staleLockMs;
-    const ownerIsRunning = owner ? processIsRunning(owner.pid) : false;
-    if (owner && ownerIsRunning && !oldEnough) {
-      return false;
-    }
-    if ((owner && !ownerIsRunning) || oldEnough) {
-      await rm(lockPath, { force: true });
-      return true;
-    }
-  } catch (error) {
-    return isMissingFileError(error);
-  }
-  return false;
-}
-
-async function acquireFileLock(
-  lockPath: string,
-  timeoutMs: number,
-  staleLockMs: number,
-  now: () => number,
-): Promise<() => Promise<void>> {
-  await mkdir(dirname(lockPath), { recursive: true, mode: 0o700 });
-  const deadline = Date.now() + timeoutMs;
-  while (true) {
-    const owner: ProxyStatsLockOwner = {
-      token: randomUUID(),
-      pid: process.pid,
-      acquiredAt: now(),
-    };
-    let handle: Awaited<ReturnType<typeof open>> | undefined;
-    try {
-      handle = await open(lockPath, "wx", 0o600);
-      await handle.writeFile(JSON.stringify(owner));
-      const acquiredHandle = handle;
-      return async () => {
-        await acquiredHandle.close().catch(() => undefined);
-        const current = await readLockOwner(lockPath);
-        if (current?.token === owner.token) {
-          await rm(lockPath, { force: true }).catch(() => undefined);
-        }
-      };
-    } catch (error) {
-      if (handle) {
-        await handle.close().catch(() => undefined);
-        await rm(lockPath, { force: true }).catch(() => undefined);
-      }
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw error;
-      }
-    }
-
-    if (await removeAbandonedLock(lockPath, staleLockMs, now())) {
-      continue;
-    }
-    if (Date.now() >= deadline) {
-      throw new Error(`Timed out acquiring proxy stats lock ${lockPath}`);
-    }
-    await sleep(LOCK_RETRY_MS);
-  }
 }
 
 export class ProxyUsageStatsStore {

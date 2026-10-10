@@ -9,6 +9,7 @@ import type {
 import { logger } from "../../utils/logger.js";
 import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
 import { createWavFile } from "../audio-utils.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const RATE = 24_000;
 const DEFAULT_BASE_URL = "https://api.60db.ai";
@@ -247,7 +248,7 @@ export class SixtyDBTTS implements TTSHandler {
     signal?.addEventListener("abort", abort, { once: true });
     let status: number | undefined;
     try {
-      const response = await fetch(
+      const response = await proxyAwareFetch(
         `${this.baseUrl.replace(/\/$/, "")}${path}`,
         {
           method: body ? "POST" : "GET",
