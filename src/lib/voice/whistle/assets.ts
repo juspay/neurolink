@@ -28,6 +28,7 @@ import type {
 import { STT_ERROR_CODES } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { STTError } from "../errors.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 const NEEDLE_REVISION = "2ae11323dc000f5e70c49f7403efa6af12ba9e67";
 const WHISTLE_REVISION = "b358ddadd89b7a713b5aa131f23032d3cca1b251";
@@ -256,7 +257,7 @@ function hashFile(path: string): Promise<string> {
 }
 
 async function download(asset: WhistleAsset, dir: string): Promise<void> {
-  const response = await fetch(asset.url, {
+  const response = await proxyAwareFetch(asset.url, {
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     redirect: "follow",
   });

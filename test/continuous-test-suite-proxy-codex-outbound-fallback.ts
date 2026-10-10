@@ -30,7 +30,10 @@ import {
   saveAccountCooldown,
   clearAccountCooldown,
 } from "../src/lib/proxy/accountCooldown.js";
-import { setVertexAccessTokenProviderForTests } from "../src/lib/proxy/vertexAnthropicFallback.js";
+import {
+  dispatchVertexAnthropicPassthrough,
+  setVertexAccessTokenProviderForTests,
+} from "../src/lib/proxy/vertexAnthropicFallback.js";
 import { codexAnthropicAffinityKey } from "../src/lib/proxy/codexOutboundCache.js";
 import { logger } from "../src/lib/utils/logger.js";
 import { analyzeProxyLogs } from "../src/lib/proxy/proxyAnalysis.js";
@@ -1890,6 +1893,77 @@ try {
     console.log(
       "PASS fallback stream: a client disconnect settles as cancelled, not as a stream error",
     );
+  }
+
+  // --- Scenario V (G8): the Vertex upstream honours HTTPS_PROXY / NO_PROXY.
+  // The hop is the proxy server's own upstream, like the Anthropic and Codex
+  // ones: with a proxy configured for the host the request must carry the
+  // proxy's dispatcher, with the host in NO_PROXY or no proxy at all it must
+  // not. fetch is the recorder installed above, so nothing leaves the process.
+  {
+    const proxyVars = [
+      "HTTPS_PROXY",
+      "https_proxy",
+      "HTTP_PROXY",
+      "http_proxy",
+      "ALL_PROXY",
+      "all_proxy",
+      "NO_PROXY",
+      "no_proxy",
+    ];
+    const savedEnv = new Map(proxyVars.map((k) => [k, process.env[k]]));
+    const savedFetch = globalThis.fetch;
+    let sawDispatcher: boolean | undefined;
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      sawDispatcher =
+        (init as { dispatcher?: unknown } | undefined)?.dispatcher !==
+        undefined;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    const dispatchOnce = async (): Promise<boolean | undefined> => {
+      sawDispatcher = undefined;
+      await dispatchVertexAnthropicPassthrough({
+        projectId: "fixture-project",
+        location: "us-east5",
+        model: "claude-sonnet-4-5",
+        body: { model: "claude-sonnet-4-5", max_tokens: 8, messages: [] },
+      });
+      return sawDispatcher;
+    };
+    try {
+      for (const k of proxyVars) {
+        delete process.env[k];
+      }
+      assert.equal(
+        await dispatchOnce(),
+        false,
+        "no proxy configured: the Vertex request must be sent as before",
+      );
+      process.env.HTTPS_PROXY = "http://127.0.0.1:9";
+      assert.equal(
+        await dispatchOnce(),
+        true,
+        "HTTPS_PROXY set: the Vertex request must go through the proxy dispatcher",
+      );
+      process.env.NO_PROXY = "us-east5-aiplatform.googleapis.com";
+      assert.equal(
+        await dispatchOnce(),
+        false,
+        "NO_PROXY lists the Vertex host: the request must stay direct",
+      );
+      console.log(
+        "PASS vertex upstream: HTTPS_PROXY and NO_PROXY are honoured",
+      );
+    } finally {
+      globalThis.fetch = savedFetch;
+      for (const [k, v] of savedEnv) {
+        if (v === undefined) {
+          delete process.env[k];
+        } else {
+          process.env[k] = v;
+        }
+      }
+    }
   }
 
   console.log(

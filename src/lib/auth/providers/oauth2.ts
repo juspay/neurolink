@@ -1,7 +1,7 @@
 // src/lib/auth/providers/oauth2.ts
 
 import * as jose from "jose";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { createProxyFetch, proxyAwareFetch } from "../../proxy/proxyFetch.js";
 import type {
   AuthHealthCheck,
   AuthProviderConfig,
@@ -96,7 +96,11 @@ export class OAuth2Provider extends BaseAuthProvider {
     if (this.jwksUrl) {
       try {
         const jwksUrl = new URL(this.jwksUrl);
-        this.jwks = jose.createRemoteJWKSet(jwksUrl);
+        this.jwks = jose.createRemoteJWKSet(jwksUrl, {
+          // jose downloads the key set with global fetch unless told otherwise,
+          // which ignores HTTP(S)_PROXY.
+          [jose.customFetch]: proxyAwareFetch,
+        });
         logger.debug(`OAuth2 provider initialized with JWKS: ${this.jwksUrl}`);
       } catch (error) {
         throw AuthError.create(

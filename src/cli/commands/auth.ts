@@ -63,6 +63,7 @@ import {
   usageToQuota,
 } from "../../lib/proxy/accountUsage.js";
 import { importCodexAuthFile } from "../../lib/auth/codexOAuth.js";
+import { proxyAwareFetch } from "../../lib/proxy/proxyFetch.js";
 import {
   fetchCodexAccountUsage,
   listCodexAccountsForUsage,
@@ -1364,19 +1365,22 @@ export async function handleRefresh(argv: AuthCommandArgs): Promise<void> {
 
       // Refresh the token with Claude CLI User-Agent
       // IMPORTANT: Uses JSON body, not URLSearchParams
-      const tokenResponse = await fetch(ANTHROPIC_OAUTH_CONFIG.tokenUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "User-Agent": ANTHROPIC_OAUTH_CONFIG.userAgent,
+      const tokenResponse = await proxyAwareFetch(
+        ANTHROPIC_OAUTH_CONFIG.tokenUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "User-Agent": ANTHROPIC_OAUTH_CONFIG.userAgent,
+          },
+          body: JSON.stringify({
+            grant_type: "refresh_token",
+            refresh_token: credentials.oauth.refreshToken,
+            client_id: ANTHROPIC_OAUTH_CONFIG.clientId,
+          }),
         },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          refresh_token: credentials.oauth.refreshToken,
-          client_id: ANTHROPIC_OAUTH_CONFIG.clientId,
-        }),
-      });
+      );
 
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
@@ -2623,20 +2627,23 @@ async function handleCreateApiKeyOAuth(
   const actualVerifier = codeState;
 
   // Exchange code for tokens using JSON body (per opencode-anthropic-auth)
-  const tokenResponse = await fetch(ANTHROPIC_CONSOLE_OAUTH_CONFIG.tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const tokenResponse = await proxyAwareFetch(
+    ANTHROPIC_CONSOLE_OAUTH_CONFIG.tokenUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code: actualCode,
+        state: codeState,
+        grant_type: "authorization_code",
+        client_id: ANTHROPIC_CONSOLE_OAUTH_CONFIG.clientId,
+        redirect_uri: ANTHROPIC_CONSOLE_OAUTH_CONFIG.redirectUri,
+        code_verifier: actualVerifier,
+      }),
     },
-    body: JSON.stringify({
-      code: actualCode,
-      state: codeState,
-      grant_type: "authorization_code",
-      client_id: ANTHROPIC_CONSOLE_OAUTH_CONFIG.clientId,
-      redirect_uri: ANTHROPIC_CONSOLE_OAUTH_CONFIG.redirectUri,
-      code_verifier: actualVerifier,
-    }),
-  });
+  );
 
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text();
@@ -2660,7 +2667,7 @@ async function handleCreateApiKeyOAuth(
   const apiKeySpinner = ora("Creating API key...").start();
 
   try {
-    const apiKeyResponse = await fetch(
+    const apiKeyResponse = await proxyAwareFetch(
       ANTHROPIC_CONSOLE_OAUTH_CONFIG.createApiKeyUrl,
       {
         method: "POST",
@@ -2844,7 +2851,7 @@ async function handleOAuthAuth(provider: SupportedProvider): Promise<void> {
 
   // Exchange code for tokens with Claude CLI User-Agent
   // IMPORTANT: Uses JSON body, not URLSearchParams
-  const tokenResponse = await fetch(ANTHROPIC_OAUTH_CONFIG.tokenUrl, {
+  const tokenResponse = await proxyAwareFetch(ANTHROPIC_OAUTH_CONFIG.tokenUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

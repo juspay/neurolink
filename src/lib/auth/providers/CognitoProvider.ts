@@ -18,6 +18,7 @@ import type {
 } from "../../types/index.js";
 import { AuthError } from "../errors.js";
 import { BaseAuthProvider } from "./BaseAuthProvider.js";
+import { proxyAwareFetch } from "../../proxy/proxyFetch.js";
 
 // =============================================================================
 // JWKS CACHE
@@ -265,7 +266,7 @@ export class CognitoProvider extends BaseAuthProvider {
     }
 
     try {
-      const response = await fetch(this.jwksUri, {
+      const response = await proxyAwareFetch(this.jwksUri, {
         signal: AbortSignal.timeout(5000),
       });
 

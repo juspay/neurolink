@@ -42,7 +42,11 @@ Lowercase spellings (`https_proxy`, `no_proxy`, …) are read too. The proxy URL
 
 By default, when a request cannot go through the proxy (the proxy refuses the connection, is unreachable, or is configured with an unsupported URL), NeuroLink logs a warning naming the destination host and retries the request **over a direct connection that bypasses the proxy**. That keeps existing setups working, but on a network where egress is allowed only through the proxy it means a broken proxy is silently worked around wherever a direct route happens to exist.
 
-Set `NEUROLINK_PROXY_STRICT=true` (`1`, `yes` and `on` also work) to fail closed: the request fails with the proxy error and no direct connection is attempted. Downloads of provider-returned media URLs (`safeDownload`) and the `neurolink proxy` server's Claude and Codex upstream requests always fail closed, whatever this variable says.
+Set `NEUROLINK_PROXY_STRICT=true` (`1`, `yes` and `on` also work) to fail closed: the request fails with the proxy error and no direct connection is attempted. The variable covers every request NeuroLink sends through its own proxy-aware fetch (the provider SDK clients and the voice, media, OAuth, MCP and exporter call sites below). These never fall back, whatever the variable says:
+
+- downloads of provider-returned media URLs (`safeDownload`);
+- the `neurolink proxy` server's Claude, Codex and Vertex upstream requests;
+- the Amazon Bedrock and SageMaker clients, whose proxy-aware handler fails the request when the proxy cannot carry it. The one exception is a proxy URL it cannot use (a SOCKS or unparsable URL): the handler logs a warning and the client connects directly, strict mode or not.
 
 ### SOCKS Proxies Are Not Supported
 
@@ -52,36 +56,43 @@ Set `NEUROLINK_PROXY_STRICT=true` (`1`, `yes` and `on` also work) to fail closed
 
 ### Providers and Features Routed Through the Proxy
 
-| Area                                                                          | How the proxy is applied                                                                                                                                  |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OpenAI**, **Anthropic** (direct API)                                        | The provider SDK is given NeuroLink's proxy-aware fetch                                                                                                   |
-| **Google AI Studio**, **Google Vertex AI**                                    | `@google/genai` `httpOptions.fetch` for Gemini; the Anthropic Vertex SDK for Claude                                                                       |
-| **Amazon Bedrock**, **Amazon SageMaker**                                      | The AWS SDK clients get a proxy-aware request handler                                                                                                     |
-| OpenAI-compatible providers                                                   | Azure OpenAI, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, the catalog providers and the other OpenAI-wire providers share one proxy-aware client |
-| LiteLLM, OpenRouter, Ollama, Cohere                                           | Proxy-aware fetch                                                                                                                                         |
-| Embeddings (Voyage, Jina) and image generation (Stability, Ideogram, Recraft) | Proxy-aware fetch                                                                                                                                         |
-| `decide` providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef)         | Proxy-aware fetch                                                                                                                                         |
-| Voice: TTS and STT                                                            | ElevenLabs, OpenAI, Azure, Deepgram, Google STT, Cartesia, Fish Audio, 60db                                                                               |
-| Music and video                                                               | ElevenLabs Music, Lyria, Kling, Runway; HeyGen avatars                                                                                                    |
-| Provider-returned media downloads                                             | `safeDownload` goes through the proxy and refuses a direct fallback                                                                                       |
-| MCP                                                                           | The Streamable HTTP and SSE transports, and their OAuth token requests                                                                                    |
-| Subscription logins                                                           | Claude and Codex OAuth token refresh, exchange, validation and revocation                                                                                 |
-| Observability exporters (HTTP API)                                            | Langfuse, LangSmith, Datadog, Arize, Braintrust, Laminar, PostHog, OTLP HTTP exporter classes                                                             |
-| `neurolink proxy` server upstreams                                            | `api.anthropic.com`, `chatgpt.com` (Codex) and the account quota endpoints                                                                                |
+| Area                                                                          | How the proxy is applied                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI**, **Anthropic** (direct API)                                        | The provider SDK is given NeuroLink's proxy-aware fetch; so is the Anthropic OAuth token refresh the provider performs                                                                                              |
+| **Google AI Studio**, **Google Vertex AI** (Gemini)                           | `@google/genai` `httpOptions.fetch`; Vertex's REST image generation and inline image-URL downloads are proxy-aware too                                                                                              |
+| **Google Vertex AI** (Claude)                                                 | The Anthropic Vertex SDK is given the proxy-aware fetch                                                                                                                                                             |
+| **Amazon Bedrock**, **Amazon SageMaker**                                      | The Bedrock runtime and control-plane clients and the SageMaker runtime client get a proxy-aware request handler                                                                                                    |
+| OpenAI-compatible providers                                                   | Azure OpenAI, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, the catalog providers and the other OpenAI-wire providers share one proxy-aware client                                                           |
+| LiteLLM, OpenRouter, Ollama, Cohere                                           | Proxy-aware fetch (the Ollama availability check included: list `localhost` in `NO_PROXY` to keep it direct)                                                                                                        |
+| Embeddings (Voyage, Jina) and image generation (Stability, Ideogram, Recraft) | Proxy-aware fetch                                                                                                                                                                                                   |
+| `decide` providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef)         | Proxy-aware fetch                                                                                                                                                                                                   |
+| Voice: TTS and STT (request/response)                                         | ElevenLabs, OpenAI, Azure, Deepgram, Google STT, Cartesia, Fish Audio, 60db; the Whistle model downloads                                                                                                            |
+| Music, video and avatars                                                      | ElevenLabs Music, Lyria, Kling, Runway, HeyGen                                                                                                                                                                      |
+| Provider-returned media downloads                                             | `safeDownload` (Kling, Runway, HeyGen, D-ID, Replicate, Beatoven, Ideogram, Recraft, OpenAI, Google AI Studio) goes through the proxy and refuses a direct fallback                                                 |
+| MCP                                                                           | The Streamable HTTP and SSE transports, and their OAuth token requests                                                                                                                                              |
+| Subscription logins                                                           | Claude and Codex OAuth token refresh, exchange, validation and revocation, in the SDK and in `neurolink auth` (login, refresh, API-key creation)                                                                    |
+| Server authentication providers                                               | User-info, token and JWKS requests of Auth0, Clerk, Firebase, WorkOS, Supabase, Better Auth, OAuth2, Keycloak and Cognito                                                                                           |
+| Observability exporters (HTTP API)                                            | Langfuse, LangSmith, Datadog, Arize, Braintrust, Laminar, PostHog, OTLP HTTP exporter classes                                                                                                                       |
+| `neurolink proxy` server upstreams                                            | `api.anthropic.com`, `chatgpt.com` (Codex), the Vertex AI Claude passthrough and the account quota endpoints                                                                                                        |
+| Google Application Default Credentials                                        | The token requests `google-auth-library` makes for Vertex AI service accounts read `HTTPS_PROXY` and `NO_PROXY` themselves (an `http://` proxy URL). They follow that library's rules, not `NEUROLINK_PROXY_STRICT` |
 
 ### Not Routed Through the Proxy
 
 These still connect directly, whatever the proxy variables say:
 
-- **WebSockets**: Gemini Live, OpenAI Realtime, LiveKit voice sessions, and the MCP WebSocket transport.
-- **Google Application Default Credentials**: the OAuth token requests `google-auth-library` makes for Vertex AI service accounts. Allow the Google token endpoints through your firewall, or supply an access token another way.
+- **WebSockets**: Gemini Live, OpenAI Realtime, LiveKit voice sessions, Deepgram streaming transcription, and the MCP WebSocket transport.
+- **API calls of the Replicate, Beatoven and D-ID providers** (Replicate image/music/avatar generation, Beatoven music, D-ID avatars). Their media _downloads_ are proxied (see above); the requests that start and poll a job are not.
+- **Other AWS clients and credential lookups**: the S3 skill store, the `neurolink sagemaker` management commands, and the AWS credential chain (STS, SSO, instance metadata) use the AWS SDK's own transport. Only the Bedrock and SageMaker inference clients above are proxy-aware.
+- **Vertex AI video generation** (Veo): the REST calls use global `fetch`. Only its Application Default Credentials token request is proxied, by the library above.
+- **URLs you pass as input** that NeuroLink downloads for you: document and image URLs handled by the file processors and the generic image path, RAG web loaders, audio URLs given to speech-to-text, slide-image URLs and the video director pipeline's asset downloads. Gemini inline image URLs are the exception (proxied, see above).
 - **Remote model catalogs** loaded by URL (dynamic model configuration).
 - **Peer-to-peer proxy sharing** (`neurolink proxy share` / peers), which talks to other NeuroLink proxies, usually on a private network.
-- **Local endpoint probes** such as the Ollama availability check on `localhost`.
-- **OpenTelemetry trace export** through NeuroLink's `TracerProvider` (the OTLP trace exporter and the Langfuse span processor), which sends with Node's own HTTP client.
-- The browser client SDK (`@juspay/neurolink/client`), which uses the browser's own networking and proxy settings.
+- **The `neurolink proxy` CLI's calls to the local proxy server** (health and status checks on `127.0.0.1`).
+- **OpenTelemetry export** through NeuroLink's providers (the OTLP HTTP trace, metric and log exporters and the Langfuse span processor), which send with Node's own HTTP client, and the **Sentry exporter**, which uses the Sentry SDK's own transport.
+- **The client SDK** (`@juspay/neurolink/client`): it uses global `fetch`, so the browser's networking and proxy settings apply in a browser and none apply in Node.
+- Anything not listed above, such as database, Redis and vector-store clients, which use their own networking.
 
-The `neurolink proxy` server honours `HTTPS_PROXY` for its upstream calls too. Its Claude (`/v1/messages`) and Codex upstream requests never fall back to a direct connection: a proxy failure fails the attempt, and the server's normal account retry and failover handle it. Its account quota polling follows the default rules above.
+The `neurolink proxy` server honours `HTTPS_PROXY` for its upstream calls too. Its Claude (`/v1/messages`), Codex and Vertex upstream requests never fall back to a direct connection: a proxy failure fails the attempt, and the server's normal account retry and failover handle it. Its account quota polling follows the default rules above.
 
 ## 🚀 Quick Validation
 
@@ -111,7 +122,7 @@ When the proxy is working correctly, you should see:
 
 ### Automated Coverage
 
-The repository's `test:proxy-egress` suite drives a local forward proxy and checks that a sample of call sites (ElevenLabs TTS and STT, ElevenLabs Music, the MCP HTTP transport, a Codex OAuth refresh, the proxy server's Codex upstream and a multipart image request) go through it, that `NO_PROXY` keeps listed hosts direct, that strict mode fails closed and that SOCKS is refused. `test:google-genai-proxy` covers the Google GenAI SDK path.
+The repository's `test:proxy-egress` suite drives a local forward proxy and checks that a sample of call sites (ElevenLabs TTS and STT, ElevenLabs Music, the MCP HTTP transport, the Keycloak and OAuth2 JWKS downloads, Codex and Anthropic OAuth refreshes through the CLI, the proxy server's Codex upstream and a multipart image request) go through it, that `NO_PROXY` keeps listed hosts direct, that strict mode fails closed and that SOCKS is refused. `test:proxy-codex-outbound-fallback` covers the Vertex upstream of the proxy server, and `test:google-genai-proxy` the Google GenAI SDK path.
 
 ```bash
 pnpm run build
@@ -167,7 +178,7 @@ const proxyFetch = createProxyFetch();
 const response = await proxyAwareFetch(url, init);
 ```
 
-Both read the environment on every request, honour `NO_PROXY`, and apply the same fallback rules (`NEUROLINK_PROXY_STRICT`). With no proxy variable set, requests are sent exactly as before.
+Both honour `NO_PROXY` and apply the same fallback rules (`NEUROLINK_PROXY_STRICT`). `proxyAwareFetch` reads the environment on every request. A client built with `createProxyFetch` checks whether any proxy variable is set when it is created, so set the variables before your application creates its `NeuroLink` instance; a client created while none was set keeps connecting directly. With no proxy variable set, requests are sent exactly as before.
 
 ### Key Benefits
 
