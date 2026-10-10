@@ -37,3 +37,10 @@ Provider to use for embeddings if not specified in ragConfig
 `Promise`\<[`RAGPreparedTool`](../type-aliases/RAGPreparedTool.md)\>
 
 Prepared RAG tool to inject into the tools record
+
+## Throws
+
+When `files` is empty, when no source can be loaded, and when the
+built-in hash embedding is given a chunk longer than 1,048,576 characters (it
+is the default, and the fallback when a configured embedding provider fails).
+The returned tool rejects a query over the same length the same way.
