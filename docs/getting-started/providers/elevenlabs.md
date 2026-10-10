@@ -315,13 +315,16 @@ neurolink generate "Custom voice ID." \
 
 ### Synthesise AI Response
 
+The CLI always speaks the model's reply, so no extra flag is needed:
+
 ```bash
 neurolink generate "Write a product tagline for a fintech app." \
   --provider openai \
   --tts --tts-provider elevenlabs \
-  --tts-use-ai-response \
   --tts-output tagline.mp3
 ```
+
+To speak a fixed text verbatim instead, use the SDK with `tts.mode: "direct"`.
 
 ### Multilingual
 

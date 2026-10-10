@@ -11,6 +11,7 @@ import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
 import { createWavFile } from "../audio-utils.js";
 
 const RATE = 24_000;
+const DEFAULT_BASE_URL = "https://api.60db.ai";
 const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -139,7 +140,11 @@ export class SixtyDBTTS implements TTSHandler {
   private readonly baseUrl: string;
 
   /**
-   * Explicit endpoint supports deployments using their own API proxy.
+   * Explicit endpoint supports deployments using their own API proxy; the
+   * `SIXTYDB_BASE_URL` environment variable sets the same thing for the
+   * auto-registered handler (and so for the CLI), the way
+   * `ELEVENLABS_BASE_URL` does for ElevenLabs. An explicit argument wins;
+   * with neither, the endpoint is `https://api.60db.ai`.
    * HTTP is accepted only for a loopback host (offline tests dial
    * http://127.0.0.1:<port>); every other override must be HTTPS, since
    * requests carry `Authorization: Bearer <key>` (CodeRabbit finding on
@@ -147,14 +152,16 @@ export class SixtyDBTTS implements TTSHandler {
    * matches proxyReplay.ts's own HTTPS-except-loopback check, including
    * "localhost" for a deployer's local proxy, not just the IP forms.
    */
-  constructor(apiKey?: string, baseUrl = "https://api.60db.ai") {
+  constructor(apiKey?: string, baseUrl?: string) {
+    const url =
+      baseUrl ?? (process.env.SIXTYDB_BASE_URL?.trim() || DEFAULT_BASE_URL);
     let parsed: URL;
     try {
-      parsed = new URL(baseUrl);
+      parsed = new URL(url);
     } catch {
       throw new TTSError({
         code: TTS_ERROR_CODES.INVALID_INPUT,
-        message: `SixtyDBTTS endpoint is not a valid URL: ${baseUrl}`,
+        message: `SixtyDBTTS endpoint is not a valid URL: ${url}`,
         category: ErrorCategory.CONFIGURATION,
         severity: ErrorSeverity.HIGH,
         retriable: false,
@@ -175,7 +182,7 @@ export class SixtyDBTTS implements TTSHandler {
         retriable: false,
       });
     }
-    this.baseUrl = baseUrl;
+    this.baseUrl = url;
     this.apiKey = (apiKey ?? process.env.SIXTYDB_API_KEY ?? "").trim() || null;
   }
 
@@ -196,17 +203,48 @@ export class SixtyDBTTS implements TTSHandler {
     return this.apiKey;
   }
 
+  /** The non-retriable error a caller-cancelled request surfaces as. */
+  private static cancelledError(signal: AbortSignal): TTSError {
+    const reason: unknown = signal.reason;
+    return new TTSError({
+      code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+      message: "60db request cancelled by the caller's signal",
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.LOW,
+      retriable: false,
+      originalError: reason instanceof Error ? reason : undefined,
+    });
+  }
+
+  /**
+   * One request, bounded by a 30 s timer that covers the response headers
+   * AND the body. The caller's `signal` (`TTSOptions.signal`, which
+   * `generate()` derives from its own synthesis budget and `abortSignal`)
+   * aborts the same controller, so a cancelled caller no longer leaves the
+   * request running to the 30 s timer; an abort it caused is reported as a
+   * cancellation, not a timeout.
+   */
   private async request(
     path: string,
     body?: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<string> {
     const key = this.requireKey();
+    if (signal?.aborted) {
+      throw SixtyDBTTS.cancelledError(signal);
+    }
     const controller = new AbortController();
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-    const timeout = setTimeout(() => {
+    let timedOut = false;
+    const abort = (): void => {
       controller.abort();
       void reader?.cancel().catch(() => undefined);
+    };
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      abort();
     }, 30_000);
+    signal?.addEventListener("abort", abort, { once: true });
     let status: number | undefined;
     try {
       const response = await fetch(
@@ -256,7 +294,7 @@ export class SixtyDBTTS implements TTSHandler {
           text += decoder.decode(value, { stream: true });
         }
         if (controller.signal.aborted) {
-          throw new Error("60db response timed out");
+          throw new Error("60db response aborted");
         }
         text += decoder.decode();
         complete = true;
@@ -271,9 +309,12 @@ export class SixtyDBTTS implements TTSHandler {
       if (error instanceof TTSError) {
         throw error;
       }
+      if (signal?.aborted && !timedOut) {
+        throw SixtyDBTTS.cancelledError(signal);
+      }
       throw new TTSError({
         code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
-        message: controller.signal.aborted
+        message: timedOut
           ? "60db request timed out after 30s"
           : "60db request failed",
         category: ErrorCategory.NETWORK,
@@ -284,6 +325,7 @@ export class SixtyDBTTS implements TTSHandler {
       });
     } finally {
       clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
     }
   }
 
@@ -311,13 +353,17 @@ export class SixtyDBTTS implements TTSHandler {
       });
     }
     const start = Date.now();
-    const response = await this.request("/tts-synthesize", {
-      text,
-      voice_id: voice,
-      audio_config: { audio_encoding: "LINEAR16", sample_rate_hertz: RATE },
-      speed,
-      timestamp_type: "NONE",
-    });
+    const response = await this.request(
+      "/tts-synthesize",
+      {
+        text,
+        voice_id: voice,
+        audio_config: { audio_encoding: "LINEAR16", sample_rate_hertz: RATE },
+        speed,
+        timestamp_type: "NONE",
+      },
+      options.signal,
+    );
     let pcm: Buffer;
     try {
       // JSON can be pretty-printed; NDJSON records are parsed individually.
@@ -427,11 +473,14 @@ export class SixtyDBTTS implements TTSHandler {
     // catalog entry of "en-GB", which 60db's bare-code catalog never
     // presents in practice (AzureTTS does the narrower startsWith match,
     // in the other direction, since its catalog does carry regions).
-    const wanted = languageCode.toLowerCase();
-    const wantedPrimary = wanted.split("-")[0];
+    // Both separators count, so a POSIX-style "en_US" reduces to "en" the
+    // same way "en-US" does (ElevenLabs TTS/STT split on /[-_]/ too).
+    const primary = (code: string): string => code.split(/[-_]/, 1)[0] ?? code;
+    const wanted = languageCode.trim().toLowerCase();
+    const wantedPrimary = primary(wanted);
     return this.voices.values.filter((voice) => {
-      const have = voice.languageCode.toLowerCase();
-      return have === wanted || have.split("-")[0] === wantedPrimary;
+      const have = voice.languageCode.trim().toLowerCase();
+      return have === wanted || primary(have) === wantedPrimary;
     });
   }
 }

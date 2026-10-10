@@ -195,33 +195,34 @@ NeuroLink provides Text-to-Speech output via Google Cloud TTS. TTS can be combin
 ### CLI Usage
 
 ```bash
-# Generate text and convert to speech
-neurolink generate "Hello, world!" \
+# Generate a reply and convert it to speech
+neurolink generate "Tell me a joke" \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Neural2-C
 
 # Save audio to file
-neurolink generate "Welcome to NeuroLink" \
+neurolink generate "Write a one-line welcome to NeuroLink." \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Neural2-C \
   --tts-output welcome.mp3
 
 # Customize voice parameters
-neurolink generate "This is a test" \
+neurolink generate "Say something short to test my speakers." \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Wavenet-D \
   --tts-speed 1.2 \
-  --tts-pitch 2.0 \
   --tts-format mp3 \
   --tts-output test.mp3
-
-# Synthesize AI response (not input text)
-neurolink generate "Tell me a joke" \
-  --provider google-ai \
-  --tts-voice en-US-Neural2-C \
-  --tts-use-ai-response \
-  --tts-output joke.mp3
 ```
+
+`--tts` turns synthesis on; the other `--tts-*` flags do nothing without it.
+The CLI always speaks the model's **reply** to the prompt (there is no flag
+for speaking the input verbatim, and none for pitch). To synthesize fixed text
+without a model call, or to set `pitch`, use the SDK's `tts` options below with
+`mode: "direct"` (the SDK default).
 
 ### SDK Usage
 

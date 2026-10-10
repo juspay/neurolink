@@ -1035,7 +1035,11 @@ STT handler and `elevenlabs-music`.
 
 ```bash
 # API base URL including the /v1 prefix — for a proxy or a test stub.
+# Shared by TTS, Scribe STT and music.
 ELEVENLABS_BASE_URL="https://api.elevenlabs.io/v1"
+# TTS defaults; a per-request voice / model still wins.
+ELEVENLABS_VOICE_ID="21m00Tcm4TlvDq8ikWAM"   # default: Rachel
+ELEVENLABS_MODEL="eleven_multilingual_v2"     # default
 ```
 
 #### How to Get ElevenLabs API Key
@@ -1131,6 +1135,32 @@ GOOGLE_AI_API_KEY="AIza-your-google-ai-studio-key"   # canonical
 | `GOOGLE_API_KEY`      | ❌       | -       | Legacy alias for `GOOGLE_AI_API_KEY`                |
 | `ELEVENLABS_API_KEY`  | ❌       | -       | ElevenLabs key, if using ElevenLabs alongside       |
 | `DEEPGRAM_API_KEY`    | ❌       | -       | Deepgram key, if using Deepgram alongside           |
+
+---
+
+### 20. 60db TTS
+
+#### Required Variables
+
+```bash
+SIXTYDB_API_KEY="your-60db-workspace-api-key"
+```
+
+#### Optional Variables
+
+```bash
+# Workspace voice UUID used when a request names no voice. There is no
+# shared default voice: without this, every request must pass tts.voice
+# (or --tts-voice on the CLI).
+SIXTYDB_DEFAULT_VOICE="00000000-0000-0000-0000-000000000000"
+# API endpoint override for a proxy or a test stub. Must be HTTPS unless it
+# is a loopback host.
+SIXTYDB_BASE_URL="https://api.60db.ai"
+```
+
+60db synthesizes WAV (the default) or raw PCM16 at 24 kHz only. See the
+[60db provider guide](/docs/getting-started/providers/sixtydb) for voice
+discovery and limits.
 
 ---
 

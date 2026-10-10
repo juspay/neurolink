@@ -73,17 +73,26 @@ If using API key authentication for Google, enable both APIs in Google Cloud Con
 **CLI:**
 
 ```bash
-# Generate and play audio automatically
-neurolink generate "Hello, world!" \
+# Speak the model's reply and play it
+neurolink generate "Say hello to a new user in one sentence." \
   --provider google-ai \
-  --tts-voice en-US-Neural2-C
+  --tts \
+  --tts-voice en-US-Neural2-C \
+  --tts-play
 
 # Save to file
-neurolink generate "Welcome to our application" \
+neurolink generate "Write a one-line welcome for our application." \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Neural2-C \
   --tts-output welcome.mp3
 ```
+
+`--tts` is required: the other `--tts-*` flags do nothing without it. The CLI
+always synthesizes the model's **reply** (it sends `mode: "response"`), so the
+prompt is an instruction, not the text to be read. To speak a fixed text
+verbatim, use the SDK's `tts.mode: "direct"` (the SDK default) — see
+[TTS Synthesis Modes](#tts-synthesis-modes).
 
 **SDK:**
 
@@ -436,7 +445,7 @@ tts: {
 
 - **WAV** requires ALSA (`aplay`) or PulseAudio (`paplay`), but no compressed-format decoder.
 - **Compressed formats (mp3/ogg/opus)** need a real decoder — NeuroLink tries `ffplay` (ffmpeg), then `mpv`, `mpg123` (mp3), then `cvlc` (VLC), in that order. Install any one of them.
-- `paplay`/`aplay` **cannot** decode mp3, so with none of the above installed a default `--tts-play` (which defaults to mp3) will report a clear error naming the decoders — or use `--tts-format wav` when `aplay` or `paplay` is available.
+- `paplay`/`aplay` **cannot** decode mp3, so with none of the above installed a default `--tts-play` (mp3 for every provider except `sixtydb`, which defaults to wav) will report a clear error naming the decoders — or use `--tts-format wav` when `aplay` or `paplay` is available.
 
 ---
 
@@ -469,8 +478,9 @@ tts: {
 **CLI:**
 
 ```bash
-neurolink generate "This is faster speech" \
+neurolink generate "Describe fast speech in one sentence." \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Neural2-C \
   --tts-speed 1.5
 ```
@@ -499,14 +509,8 @@ tts: {
 }
 ```
 
-**CLI:**
-
-```bash
-neurolink generate "Higher pitch test" \
-  --provider google-ai \
-  --tts-voice en-US-Neural2-C \
-  --tts-pitch 3.0
-```
+Pitch is SDK-only (`tts.pitch`): the CLI has no pitch flag, and because the
+parser is strict an unknown `--tts-pitch` is rejected rather than ignored.
 
 ### Volume Adjustment
 
@@ -564,25 +568,31 @@ if (result.audio?.buffer) {
 ### CLI Flags
 
 ```bash
-neurolink generate "Your text" \
+neurolink generate "Your prompt" \
   --provider google-ai \
   --tts \
   --tts-provider <provider> \
   --tts-voice <voice-id> \
   --tts-format <format> \
   --tts-speed <rate> \
-  --tts-pitch <pitch> \
+  --tts-quality <standard|hd> \
   --tts-output <file> \
-  --tts-use-ai-response
-# --tts                  : enable TTS (boolean flag, required)
-# --tts-provider         : google-ai|vertex|openai-tts|elevenlabs|azure-tts|fish-audio|cartesia|sixtydb
-# --tts-voice            : voice id (optional — provider default applies)
-# --tts-format           : mp3|wav|ogg (default: mp3)
-# --tts-speed            : 0.25-4.0 (default: 1.0)
-# --tts-pitch            : -20.0 to 20.0 (default: 0.0)
-# --tts-output           : save to file
-# --tts-use-ai-response  : synthesize AI response instead of input text
+  --tts-play
+# --tts          : enable TTS (boolean flag, required)
+# --tts-provider : google-ai|vertex|openai-tts|elevenlabs|azure-tts|fish-audio|cartesia|sixtydb
+# --tts-voice    : voice id (optional — provider default applies; sixtydb needs a
+#                  workspace voice UUID unless SIXTYDB_DEFAULT_VOICE is set)
+# --tts-format   : mp3|wav|ogg|opus|m4a|flac|webm|mp4|mpeg|mpga|pcm16
+#                  (default: the provider's own — mp3, or wav for sixtydb; each
+#                  provider accepts only a subset, see the provider table above)
+# --tts-speed    : 0.25-4.0 (default: 1.0)
+# --tts-quality  : standard|hd (default: standard)
+# --tts-output   : save to file (the extension follows the format when omitted)
+# --tts-play     : play the audio after synthesis
 ```
+
+The CLI always synthesizes the model's reply (`mode: "response"`); there is no
+flag for direct mode. Pitch, volume and `mode: "direct"` are SDK-only.
 
 **Discovering voice ids for `--tts-voice`:**
 
@@ -609,6 +619,9 @@ neurolink generate "Hello" --tts --tts-provider fish-audio
 
 # Use Cartesia
 neurolink generate "Hello" --tts --tts-provider cartesia
+
+# Use 60db (a workspace voice UUID is required; output defaults to WAV)
+neurolink generate "Hello" --tts --tts-provider sixtydb --tts-voice <voice-uuid>
 ```
 
 ---
@@ -658,8 +671,9 @@ const narration = await neurolink.generate({
 Generate professional podcast intros:
 
 ```bash
-neurolink generate "Welcome to Tech Insights Podcast, episode 42. Today we're discussing the future of AI development." \
+neurolink generate "Write a two-sentence intro for episode 42 of the Tech Insights Podcast, about the future of AI development." \
   --provider google-ai \
+  --tts \
   --tts-voice en-US-Wavenet-D \
   --tts-speed 0.95 \
   --tts-format mp3 \
@@ -668,22 +682,31 @@ neurolink generate "Welcome to Tech Insights Podcast, episode 42. Today we're di
 
 ### 4. Language Learning
 
-Slow pronunciation for language learners:
+Slow pronunciation for language learners. The sentence must be spoken
+verbatim, so this uses the SDK's direct mode (the CLI always speaks a model
+reply):
 
-```bash
-# Slow French pronunciation
-neurolink generate "Je m'appelle Claude. Comment allez-vous?" \
-  --provider google-ai \
-  --tts-voice fr-FR-Neural2-A \
-  --tts-speed 0.7 \
-  --tts-output french-slow.mp3
+```typescript
+import { writeFileSync } from "fs";
 
-# Normal speed for comparison
-neurolink generate "Je m'appelle Claude. Comment allez-vous?" \
-  --provider google-ai \
-  --tts-voice fr-FR-Neural2-A \
-  --tts-speed 1.0 \
-  --tts-output french-normal.mp3
+for (const [speed, file] of [
+  [0.7, "french-slow.mp3"], // Slow French pronunciation
+  [1.0, "french-normal.mp3"], // Normal speed for comparison
+] as const) {
+  const result = await neurolink.generate({
+    input: { text: "Je m'appelle Claude. Comment allez-vous?" },
+    provider: "google-ai",
+    tts: {
+      enabled: true,
+      mode: "direct",
+      voice: "fr-FR-Neural2-A",
+      speed,
+    },
+  });
+  if (result.audio) {
+    writeFileSync(file, result.audio.buffer);
+  }
+}
 ```
 
 ### 5. Multilingual Support
