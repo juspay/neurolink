@@ -24,7 +24,11 @@ import type {
   TerminalAgentModeVersion,
 } from "./agentMode.js";
 import type { Content, ImageWithAltText } from "./content.js";
-import type { ChatMessage, ToolReplayMode } from "./conversation.js";
+import type {
+  ChatMessage,
+  ConversationModality,
+  ToolReplayMode,
+} from "./conversation.js";
 import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
 import type {
   GenerateStopReason,
@@ -768,6 +772,14 @@ export type StreamOptions = {
   workflowConfig?: WorkflowConfig; // Or inline workflow config
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
+
+  /**
+   * How this turn was entered. Stamped on the stored messages' metadata so
+   * history readers can tell a spoken turn from a typed one. Leave it unset
+   * for typed input: the stored turn is then identical to what it was before
+   * the field existed.
+   */
+  modality?: ConversationModality;
 
   /**
    * Maximum cumulative cost (USD) for this session.

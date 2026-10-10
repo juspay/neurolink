@@ -21,6 +21,7 @@ import { ensureVertexAdc, clearGeminiApiKeyEnv } from "./vertexAuth.js";
 import { readCallContextFromRoom } from "./roomContext.js";
 import { attachRealtimeEventBridge } from "./realtimeEventBridge.js";
 import { buildRealtimeMcpTools } from "./realtimeMcpTools.js";
+import { setUpRealtimeCallMemory } from "./realtimeMemory.js";
 import type {
   RealtimeVoiceAgentConfig,
   RealtimeVoiceConfig,
@@ -170,6 +171,7 @@ export function defineRealtimeVoiceAgent(
   const eventsTopic = config.eventsTopic;
   const controlTopic = config.controlTopic;
   const onLog = config.onLog;
+  const memoryConfig = config.memory;
 
   async function entry(ctx: JobContext): Promise<void> {
     // The Gemini Live WS authenticates to Vertex via ADC; materialise it and
@@ -223,6 +225,10 @@ export function defineRealtimeVoiceAgent(
       ms: sinceConnect(),
     });
 
+    // Decide whether this call may be remembered BEFORE the lifecycle installs
+    // its process reaper, so the shutdown flush is registered first.
+    const memory = await setUpRealtimeCallMemory(ctx, memoryConfig);
+
     await installRealtimeJobLifecycle(ctx, cfg);
 
     const { voice } = await import("@livekit/agents");
@@ -238,6 +244,7 @@ export function defineRealtimeVoiceAgent(
     ctx.addShutdownCallback(async () => {
       bridge.dispose();
     });
+    memory?.setPublisher(bridge.publishEvent);
 
     let agentTools: llmNs.ToolContext | undefined;
     if (cfg.toolsEnabled) {
@@ -257,6 +264,12 @@ export function defineRealtimeVoiceAgent(
             xContext,
             publishEvent: bridge.publishEvent,
             requestConfirmation: bridge.requestConfirmation,
+            ...(memory
+              ? {
+                  onToolStart: (call) => memory.recorder.toolStart(call),
+                  onToolEnd: (call) => memory.recorder.toolEnd(call),
+                }
+              : {}),
           });
           agentTools = toolset.tools;
           logger.info("realtime.mcp.enabled", {
@@ -305,9 +318,23 @@ export function defineRealtimeVoiceAgent(
     const session = new voice.AgentSession({
       llm: new google.realtime.RealtimeModel(modelOptions),
     });
+    // The conversation so far, so a call that appends to an open conversation
+    // starts knowing it. Empty (and omitted) when there is nothing to seed.
+    let seededChatCtx: llmNs.ChatContext | undefined;
+    if (memory && memory.seed.length > 0) {
+      const { llm } = await import("@livekit/agents");
+      seededChatCtx = llm.ChatContext.empty();
+      for (const message of memory.seed) {
+        seededChatCtx.addMessage({
+          role: message.role,
+          content: message.content,
+        });
+      }
+    }
     const agent = new voice.Agent({
       instructions: cfg.systemPrompt,
       ...(agentTools ? { tools: agentTools } : {}),
+      ...(seededChatCtx ? { chatCtx: seededChatCtx } : {}),
     });
 
     agent.transcriptionNode = async (textStream, _modelSettings) => {
@@ -332,6 +359,7 @@ export function defineRealtimeVoiceAgent(
                 });
               }
               bridge.publishEvent("text", { delta: chunk });
+              memory?.recorder.assistantDelta(chunk);
             }
           }
         } catch {
@@ -371,6 +399,10 @@ export function defineRealtimeVoiceAgent(
         text: ev.transcript,
         final: ev.isFinal,
       });
+      memory?.recorder.userTranscript({
+        text: ev.transcript,
+        final: ev.isFinal,
+      });
     });
     session.on(voice.AgentSessionEventTypes.AgentStateChanged, (ev) => {
       logger.debug("realtime.session.stateChanged", {
@@ -387,7 +419,14 @@ export function defineRealtimeVoiceAgent(
         ev.item.textContent
       ) {
         logger.debug("realtime.session.turnDone", { ms: sinceConnect() });
-        bridge.publishEvent("done", {});
+        // The id the stored messages carry, so a client can merge its live
+        // copy of the turn with history instead of showing it twice.
+        bridge.publishEvent("done", memory ? { turnId: ev.item.id } : {});
+        memory?.recorder.assistantMessage({
+          id: ev.item.id,
+          text: ev.item.textContent,
+          interrupted: ev.item.interrupted,
+        });
       }
     });
     session.on(voice.AgentSessionEventTypes.Error, (ev) => {
@@ -404,6 +443,7 @@ export function defineRealtimeVoiceAgent(
 
     if (cfg.greeting.trim().length > 0) {
       logger.info("realtime.session.greeting", { ms: sinceConnect() });
+      memory?.recorder.expectGreeting();
       session.generateReply({ instructions: cfg.greeting });
     }
   }

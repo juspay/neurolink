@@ -570,6 +570,101 @@ How it behaves:
 > Memory persists only when the instance is configured with
 > `conversationMemory.enabled`. Without it, each turn is independent.
 
+### Remembering a realtime call in the user's own conversation
+
+A speech-to-speech call (`defineRealtimeVoiceAgent`) never goes through
+`stream()` or `generate()`, so by default nothing it says is stored. Opt in with
+`memory` and the call's turns are written, through
+`NeuroLink.recordConversationTurn`, to the same conversation memory typed chat
+uses, appended to the conversation the person already has open. The model is
+also seeded with that conversation's recent history when the call starts, so it
+knows what was said before.
+
+```ts
+export default defineRealtimeVoiceAgent({
+  memory: {
+    // Same store, key prefix and lifetime as the web app's NeuroLink instance.
+    createNeuroLink: async () =>
+      new NeuroLink({ conversationMemory: { enabled: true } }),
+  },
+});
+```
+
+**Whose conversation is never taken from the client.** The host that creates
+the room signs a binding and puts it in the room metadata next to `authToken`
+and `mcpContext`. The worker stores nothing unless it verifies.
+
+```ts
+import { signVoiceMemoryBinding } from "@juspay/neurolink/livekit";
+
+const memory = signVoiceMemoryBinding({
+  room, // the LiveKit room name you create
+  userId, // the verified session's user id, composed as chat composes it
+  sessionId, // "voice-<uuid>", or an existing conversation id (see below)
+  secret: process.env.NEUROLINK_VOICE_MEMORY_SECRET!,
+});
+const metadata = Buffer.from(
+  JSON.stringify({ authToken, mcpContext, memory }),
+).toString("base64");
+```
+
+- The signature is `HMAC-SHA256` over `["neurolink.voice.memory.v1", room,
+userId, sessionId, exp]` (a JSON array, so no choice of values can make two
+  bindings collide), `base64url`-encoded. It covers the room name, so a binding
+  copied into another room does not verify. `exp` is Unix seconds; the default
+  lifetime is two hours, the cap 24 hours.
+- The shared secret is at least 16 characters, read from
+  `NEUROLINK_VOICE_MEMORY_SECRET` unless `memory.secret` is set on the worker.
+- `sessionId` matches `^[A-Za-z0-9_-]{1,128}$` (no `:`, which is part of the
+  stored key). `userId` is 1 to 256 characters with no whitespace or control
+  characters; `:` is allowed because chat user ids contain it.
+- **Fail closed.** No secret, no binding, a malformed or expired binding, or a
+  bad signature: the call runs normally, nothing is stored, and a warning
+  names the reason (never the ids).
+- A client may name the conversation to append to. The host accepts the name
+  only when `neurolink.conversationExists({ sessionId, userId })` is true for
+  the verified user. Otherwise it mints a new `voice-<uuid>`.
+
+**What is stored.** Each finished exchange becomes a user message and an
+assistant message with the ids `${turnId}:user` and `${turnId}:assistant`, where
+`turnId` is the realtime session's assistant message id, and
+`metadata.modality: "voice"`. Recording the same `turnId` again is a no-op. Tool
+calls are stored as `tool:start` / `tool:end` events on the assistant message,
+with arguments and results bounded to 4000 characters. A reply cut off by the
+person speaking over it is stored as far as it got with `metadata.interrupted`.
+A call that ends mid-turn stores what was said plus a short note, with
+`metadata.interrupted` and `metadata.callEnded`; a user turn the call ended
+before answering gets the note alone as the reply. Typed chat turns are stored
+exactly as before. A message with no `modality` is a typed message.
+
+**Out-of-order transcripts.** The user's final transcript can arrive after the
+assistant has started or finished replying. A complete reply with no user text
+waits 1.5 seconds (`memory.settleMs`) for one; a reply that never gets one (the
+opening greeting) is not stored, because a stored turn needs both sides.
+
+**Not saved.** Writes are retried and run one at a time, in order. If a turn
+still cannot be stored, the call carries on, the data-channel event
+`{ type: "memory", data: { state: "not-saved", turnId } }` is published so a
+client can show a quiet note on that turn, and the turn is not retried again.
+The `done` event carries `turnId` while memory is on, so a client can merge its
+live copy of a turn with history instead of showing it twice.
+
+**Shutdown.** The flush is registered before the worker's process reaper and
+waits for pending writes for at most 800 ms (`memory.flushBudgetMs`); the
+reaper exits the process about a second after shutdown begins.
+
+**Cascaded agents** (`defineVoiceAgent`) already store through `stream()`.
+Setting `memory: {}` makes them read the same binding: a verified one replaces
+the static `userId` and the room-derived conversation id for that call, and
+the opening greeting is run without touching memory so it is not filed as
+something the person said. Every turn the brain streams is stamped
+`modality: "voice"`.
+
+Not covered here: titles and summaries are produced by background tasks that the
+worker exit can cut off, so a conversation created by a call may keep the title
+"New Conversation"; and a typed turn and a voice turn written to the same
+conversation at the same moment are not serialised against each other.
+
 ---
 
 ## Implementation Plan

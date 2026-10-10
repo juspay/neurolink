@@ -102,7 +102,11 @@ import type {
   NeurolinkConstructorConfig,
   ChatMessage,
   ConversationMemoryConfig,
+  ConversationSeedMessage,
+  ConversationSeedOptions,
   ProviderDetails,
+  RecordConversationTurnOptions,
+  RecordConversationTurnResult,
   ExternalMCPOperationResult,
   ExternalMCPServerInstance,
   ExternalMCPServerHealth,
@@ -12655,6 +12659,9 @@ Current user's request: ${currentInput}`;
           ...(pendingSkillMessages.length > 0
             ? { skillMessages: pendingSkillMessages }
             : {}),
+          ...(enhancedOptions.modality
+            ? { modality: enhancedOptions.modality }
+            : {}),
         });
 
         this.recordMemorySpan(
@@ -17395,6 +17402,250 @@ Current user's request: ${currentInput}`;
     }
 
     return await this.conversationMemory.getSessionMessages(sessionId, userId);
+  }
+
+  /**
+   * Record one finished turn from a transport that does not go through
+   * generate()/stream() — a voice call — into the same conversation memory
+   * typed chat uses: same key, same manager, same summarization and title
+   * handling, same optional long-term memory write.
+   *
+   * Identity is never defaulted: `userId` is required, because typed chat falls
+   * back to a shared placeholder user when it is missing and a spoken turn must
+   * never be filed there. Recording the same `turnId` twice stores it once, so
+   * a caller can retry after an ambiguous failure.
+   *
+   * A turn with a blank user message, or a blank response and no tool events,
+   * is not stored (an empty assistant message makes some providers reject the
+   * next request); the result says which. Storage failures throw — the caller
+   * decides whether to retry or to carry on without the turn.
+   *
+   * @throws NeuroLinkError (INVALID_PARAMETERS) for a bad sessionId or userId
+   * @throws NeuroLinkError (MISSING_CONFIGURATION) when conversation memory is not enabled
+   * @throws ConversationMemoryError (STORAGE_ERROR) when the store rejects the write
+   */
+  async recordConversationTurn(
+    options: RecordConversationTurnOptions,
+  ): Promise<RecordConversationTurnResult> {
+    const { sessionId, userId, turnId } = options;
+    NeuroLink.assertConversationIdentity(sessionId, userId);
+    const identity = { sessionId, userId, ...(turnId ? { turnId } : {}) };
+
+    if (!options.userMessage.trim()) {
+      return { recorded: false, reason: "empty-user-message", ...identity };
+    }
+    const hasToolEvents = (options.events ?? []).some(
+      (event) => event.type === "tool:start" || event.type === "tool:end",
+    );
+    if (!options.aiResponse.trim() && !hasToolEvents) {
+      return { recorded: false, reason: "empty-response", ...identity };
+    }
+
+    await this.initializeConversationMemoryForGeneration(
+      options.requestId ?? `record-turn-${Date.now()}`,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+    if (!this.conversationMemory) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.MISSING_CONFIGURATION,
+        message: "Conversation memory is not enabled",
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+      });
+    }
+
+    if (await this.isOwnedByAnotherUser(sessionId, userId)) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.INVALID_PARAMETERS,
+        message: "The conversation belongs to another user",
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: false,
+      });
+    }
+
+    const memStoreStart = Date.now();
+    try {
+      await this.conversationMemory.storeConversationTurn({
+        sessionId,
+        userId,
+        userMessage: options.userMessage,
+        aiResponse: options.aiResponse,
+        startTimeStamp: options.startTime,
+        ...(options.provider && options.model
+          ? {
+              providerDetails: {
+                provider: options.provider,
+                model: options.model,
+              },
+            }
+          : {}),
+        enableSummarization: options.enableSummarization,
+        events: options.events?.length ? options.events : undefined,
+        requestId: options.requestId,
+        ...(options.modality ? { modality: options.modality } : {}),
+        ...(turnId ? { turnId } : {}),
+        ...(options.interrupted ? { interrupted: true } : {}),
+        ...(options.callEnded ? { callEnded: true } : {}),
+      });
+      this.recordMemorySpan(
+        "memory.store",
+        { "memory.operation": "store", "memory.path": "record" },
+        Date.now() - memStoreStart,
+        SpanStatus.OK,
+      );
+    } catch (error) {
+      this.recordMemorySpan(
+        "memory.store",
+        { "memory.operation": "store", "memory.path": "record" },
+        Date.now() - memStoreStart,
+        SpanStatus.ERROR,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+
+    if (this.shouldWriteMemory(options.memory, userId, options.aiResponse)) {
+      this.storeMemoryInBackground(
+        {
+          prompt: options.userMessage,
+          response: options.aiResponse.trim(),
+          userId,
+          sessionId,
+          provider: options.provider ?? "",
+          model: options.model,
+        },
+        options.memory,
+        { sessionId },
+      );
+    }
+
+    return { recorded: true, ...identity };
+  }
+
+  /**
+   * The most recent user/assistant messages of a conversation, bounded, for
+   * seeding a model that has no history of its own — a voice model at call
+   * start. Summaries, pinned skills, tool traffic and blank messages are left
+   * out; the oldest messages are dropped first when `maxChars` would be
+   * exceeded. Best effort: a missing conversation, disabled memory or a read
+   * failure yields an empty seed and never throws, because a call must start
+   * either way.
+   */
+  async getConversationSeed(
+    options: ConversationSeedOptions,
+  ): Promise<ConversationSeedMessage[]> {
+    const { sessionId, userId } = options;
+    const maxTurns = Math.max(0, Math.floor(options.maxTurns ?? 10));
+    const maxChars = Math.max(0, Math.floor(options.maxChars ?? 6000));
+    try {
+      NeuroLink.assertConversationIdentity(sessionId, userId);
+      const stored = await this.getSessionMessages(sessionId, userId);
+      const spoken: ConversationSeedMessage[] = [];
+      for (const message of stored) {
+        if (
+          (message.role !== "user" && message.role !== "assistant") ||
+          message.metadata?.isSummary ||
+          message.metadata?.isSkill ||
+          typeof message.content !== "string" ||
+          !message.content.trim()
+        ) {
+          continue;
+        }
+        spoken.push({
+          role: message.role,
+          content: message.content,
+          ...(message.metadata?.modality
+            ? { modality: message.metadata.modality }
+            : {}),
+        });
+      }
+      const recent = spoken.slice(-(maxTurns * 2));
+      let used = 0;
+      let firstKept = recent.length;
+      for (let index = recent.length - 1; index >= 0; index -= 1) {
+        used += recent[index].content.length;
+        if (used > maxChars) {
+          break;
+        }
+        firstKept = index;
+      }
+      return recent.slice(firstKept);
+    } catch (error) {
+      logger.warn("[NeuroLink] getConversationSeed failed, starting unseeded", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Whether a conversation already holds messages under this user. A client
+   * may name the conversation a call appends to; the server accepts the name
+   * only when this is true for the user the session is verified as.
+   */
+  async conversationExists(options: {
+    sessionId: string;
+    userId: string;
+  }): Promise<boolean> {
+    NeuroLink.assertConversationIdentity(options.sessionId, options.userId);
+    const stored = await this.getSessionMessages(
+      options.sessionId,
+      options.userId,
+    );
+    if (stored.length === 0) {
+      return false;
+    }
+    return !(await this.isOwnedByAnotherUser(
+      options.sessionId,
+      options.userId,
+    ));
+  }
+
+  /**
+   * Whether a stored conversation is owned by someone other than `userId`.
+   *
+   * The Redis manager includes the user in the key, so a different user simply
+   * never finds the conversation. The in-process manager keys sessions by id
+   * alone and only records the owner, so ownership is checked here: a session
+   * that exists with no recorded owner, or another one, is not `userId`'s.
+   */
+  private async isOwnedByAnotherUser(
+    sessionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const memory = this.conversationMemory;
+    if (!memory || memory.isRedisConfigured) {
+      return false;
+    }
+    const session = await memory.getSession(sessionId);
+    return session !== undefined && session.userId !== userId;
+  }
+
+  /** Shared identity check for the voice-memory methods. */
+  private static assertConversationIdentity(
+    sessionId: unknown,
+    userId: unknown,
+  ): void {
+    const problem =
+      typeof sessionId !== "string" || !sessionId.trim()
+        ? "sessionId must be a non-empty string"
+        : sessionId.includes(":")
+          ? 'sessionId must not contain ":"'
+          : typeof userId !== "string" || !userId.trim()
+            ? "userId must be a non-empty string"
+            : undefined;
+    if (problem) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.INVALID_PARAMETERS,
+        message: problem,
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: false,
+      });
+    }
   }
 
   /**

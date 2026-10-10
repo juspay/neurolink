@@ -119,6 +119,42 @@ Step index for reconstructing parallel vs sequential tool calls
 
 ---
 
+### modality?
+
+> `optional` **modality?**: [`ConversationModality`](ConversationModality.md)
+
+How the message was entered: typed (`"text"`) or spoken (`"voice"`).
+Absent on every message stored before this field existed, and on typed
+turns that did not set it; readers treat absence as `"text"`.
+
+---
+
+### turnId?
+
+> `optional` **turnId?**: `string`
+
+Stable id of the voice turn this message belongs to. The stored message
+ids are `${turnId}:user` and `${turnId}:assistant`, which is what makes
+recording the same turn twice a no-op.
+
+---
+
+### interrupted?
+
+> `optional` **interrupted?**: `boolean`
+
+True when the message was cut off (barge-in, or the call ended) before it finished.
+
+---
+
+### callEnded?
+
+> `optional` **callEnded?**: `boolean`
+
+True when the call ended while this turn was still open.
+
+---
+
 ### toolOutputPreview?
 
 > `optional` **toolOutputPreview?**: `string`

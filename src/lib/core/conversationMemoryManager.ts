@@ -21,6 +21,7 @@ import type {
   SessionMemory,
   StoreConversationTurnOptions,
   IConversationMemoryManager,
+  TurnMessageIdentity,
 } from "../types/index.js";
 import { ConversationMemoryError } from "../types/index.js";
 import {
@@ -28,6 +29,11 @@ import {
   getEffectiveTokenThreshold,
 } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
+import {
+  assistantTurnIdentity,
+  isTurnAlreadyStored,
+  userTurnIdentity,
+} from "../utils/conversationTurnIdentity.js";
 import { extractIsErrorText } from "../utils/toolResultStatus.js";
 
 export class ConversationMemoryManager implements IConversationMemoryManager {
@@ -116,6 +122,10 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
             this.sessions.set(options.sessionId, session);
           }
 
+          if (isTurnAlreadyStored(session.messages, options.turnId)) {
+            return;
+          }
+
           const tokenThreshold = options.providerDetails
             ? getEffectiveTokenThreshold(
                 options.providerDetails.provider,
@@ -129,11 +139,13 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
             options.userMessage,
             "user",
             tokenThreshold,
+            userTurnIdentity(options),
           );
           const assistantMsg = await this.validateAndPrepareMessage(
             options.aiResponse,
             "assistant",
             tokenThreshold,
+            assistantTurnIdentity(options),
           );
 
           if (options.events && options.events.length > 0) {
@@ -220,8 +232,9 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     content: string,
     role: ChatMessage["role"],
     threshold: number,
+    identity?: TurnMessageIdentity,
   ): Promise<ChatMessage> {
-    const id = randomUUID();
+    const id = identity?.id ?? randomUUID();
     const tokenCount = TokenUtils.estimateTokenCount(content);
 
     const maxMessageSize = Math.floor(threshold * MEMORY_THRESHOLD_PERCENTAGE);
@@ -245,6 +258,7 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
         content: truncated,
         timestamp: new Date().toISOString(),
         metadata: {
+          ...identity?.metadata,
           truncated: true,
         },
       };
@@ -255,6 +269,7 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
       role,
       content,
       timestamp: new Date().toISOString(),
+      ...(identity?.metadata ? { metadata: identity.metadata } : {}),
     };
   }
 

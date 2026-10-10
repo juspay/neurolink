@@ -95,6 +95,19 @@ Optional user id recorded alongside memory.
 
 ---
 
+### memory?
+
+> `optional` **memory?**: [`LiveKitVoiceAgentMemoryConfig`](LiveKitVoiceAgentMemoryConfig.md)
+
+Per-call memory identity. When set, the call's room metadata is checked
+for a signed memory binding (see `signVoiceMemoryBinding`); a binding that
+verifies replaces `userId` and the room-derived conversation id for that
+call, and the turns the brain streams are stamped as voice. A call whose
+binding is missing or does not verify runs with the static `userId` and
+the room-derived conversation id exactly as before.
+
+---
+
 ### greeting?
 
 > `optional` **greeting?**: `string`

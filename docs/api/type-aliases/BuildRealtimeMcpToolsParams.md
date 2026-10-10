@@ -62,3 +62,55 @@ Without one, a stalled MCP server holds the realtime turn open forever:
 Gemini waits on the function result, so the user gets silence rather than
 an error. Bounding the call turns that into a normal tool failure the
 model can talk about.
+
+---
+
+### onToolStart?
+
+> `optional` **onToolStart?**: (`call`) => `void`
+
+Observes a tool call as it starts. A throwing observer never affects the call.
+
+#### Parameters
+
+##### call
+
+###### name
+
+`string`
+
+###### args
+
+`Record`\<`string`, `unknown`\>
+
+#### Returns
+
+`void`
+
+---
+
+### onToolEnd?
+
+> `optional` **onToolEnd?**: (`call`) => `void`
+
+Observes a tool call as it ends, with its result as text or its error.
+
+#### Parameters
+
+##### call
+
+###### name
+
+`string`
+
+###### result?
+
+`string`
+
+###### error?
+
+`string`
+
+#### Returns
+
+`void`

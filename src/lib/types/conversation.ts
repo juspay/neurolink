@@ -351,6 +351,9 @@ export type ToolResultData = {
   error?: string;
 };
 
+/** How a conversation turn was entered. */
+export type ConversationModality = "text" | "voice";
+
 /** Metadata associated with a ChatMessage. */
 export type ChatMessageMetadata = {
   /** Is this a summary message? */
@@ -384,6 +387,25 @@ export type ChatMessageMetadata = {
   thinkingExpanded?: boolean;
   /** Step index for reconstructing parallel vs sequential tool calls */
   stepIndex?: number;
+
+  // --- Modality (voice persistence) ---
+
+  /**
+   * How the message was entered: typed (`"text"`) or spoken (`"voice"`).
+   * Absent on every message stored before this field existed, and on typed
+   * turns that did not set it; readers treat absence as `"text"`.
+   */
+  modality?: ConversationModality;
+  /**
+   * Stable id of the voice turn this message belongs to. The stored message
+   * ids are `${turnId}:user` and `${turnId}:assistant`, which is what makes
+   * recording the same turn twice a no-op.
+   */
+  turnId?: string;
+  /** True when the message was cut off (barge-in, or the call ended) before it finished. */
+  interrupted?: boolean;
+  /** True when the call ended while this turn was still open. */
+  callEnded?: boolean;
 
   // --- Tool output management (SDK-2) ---
 
@@ -608,6 +630,99 @@ export type StoreConversationTurnOptions = {
    * for the canonical partition-and-reanchor pattern).
    */
   skillMessages?: ChatMessage[];
+  /**
+   * How the turn was entered. Stamped on both stored messages' metadata when
+   * set; a typed turn that leaves it unset is stored exactly as before.
+   */
+  modality?: ConversationModality;
+  /**
+   * Idempotency key for the turn. When set, the user and assistant messages
+   * are stored with the ids `${turnId}:user` and `${turnId}:assistant`, and a
+   * turn whose assistant id is already in the session's recent messages is
+   * skipped, so a retry after an ambiguous failure cannot duplicate it.
+   */
+  turnId?: string;
+  /** The assistant message was cut off before it finished. */
+  interrupted?: boolean;
+  /** The call ended while this turn was open. */
+  callEnded?: boolean;
+};
+
+/** Id and metadata a memory manager gives one stored message of a turn. */
+export type TurnMessageIdentity = {
+  /** Stable id for the message, or undefined to let the manager mint a random one. */
+  id: string | undefined;
+  /** Metadata to set on the message, or undefined when there is none to add. */
+  metadata: ChatMessageMetadata | undefined;
+};
+
+/**
+ * Input to `NeuroLink.recordConversationTurn`: one finished turn from a
+ * transport that does not go through generate()/stream() (a voice call),
+ * written to the same conversation memory typed chat uses.
+ */
+export type RecordConversationTurnOptions = {
+  /** Conversation to append to. Must not contain ":" (it is part of the stored key). */
+  sessionId: string;
+  /**
+   * Owner of the conversation. Required: typed chat falls back to a shared
+   * placeholder user when it is missing, and a spoken turn must never land
+   * there.
+   */
+  userId: string;
+  /** What the person said. Must be non-blank. */
+  userMessage: string;
+  /** What the assistant said (or the closing note for a cut-off turn). Must be non-blank unless `events` carries tool activity. */
+  aiResponse: string;
+  /** How the turn was entered. Stamped on both stored messages. */
+  modality?: ConversationModality;
+  /** Idempotency key. Recording the same `turnId` again is a no-op. */
+  turnId?: string;
+  /** The assistant message was cut off before it finished. */
+  interrupted?: boolean;
+  /** The call ended while this turn was open. */
+  callEnded?: boolean;
+  /** Tool and UI events of the turn, in the shape typed chat stores. */
+  events?: StreamEventSequence[];
+  /** When the turn started. */
+  startTime?: Date;
+  /** Provider and model that answered, for token-threshold selection. */
+  provider?: string;
+  model?: string;
+  /** Observability request identifier. */
+  requestId?: string;
+  /** Per-call override of summarization, as on generate()/stream(). */
+  enableSummarization?: boolean;
+  /** Per-call long-term memory switches, as on generate()/stream(). */
+  memory?: { enabled?: boolean; write?: boolean };
+};
+
+/** Outcome of `NeuroLink.recordConversationTurn`. */
+export type RecordConversationTurnResult = {
+  /** False when the turn was deliberately not stored; see `reason`. */
+  recorded: boolean;
+  /** Why nothing was stored. Only set when `recorded` is false. */
+  reason?: "empty-user-message" | "empty-response";
+  sessionId: string;
+  userId: string;
+  turnId?: string;
+};
+
+/** Options for `NeuroLink.getConversationSeed`. */
+export type ConversationSeedOptions = {
+  sessionId: string;
+  userId: string;
+  /** Most recent user/assistant exchanges to return (default 10). */
+  maxTurns?: number;
+  /** Cap on the total characters returned; the oldest messages are dropped first (default 6000). */
+  maxChars?: number;
+};
+
+/** One message of a conversation seed. */
+export type ConversationSeedMessage = {
+  role: "user" | "assistant";
+  content: string;
+  modality?: ConversationModality;
 };
 
 /**

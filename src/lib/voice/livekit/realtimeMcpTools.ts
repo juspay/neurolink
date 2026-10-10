@@ -125,7 +125,20 @@ export async function buildRealtimeMcpTools(
     publishEvent,
     requestConfirmation,
     toolTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS,
+    onToolStart,
+    onToolEnd,
   } = params;
+
+  // Observers feed the turn recorder; a fault in one must never reach the tool.
+  const observe = (notify: () => void): void => {
+    try {
+      notify();
+    } catch (error) {
+      logger.warn("realtime.tool.observerFailed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   const { llm } = await import("@livekit/agents");
   const { Client: McpClient } =
@@ -193,6 +206,9 @@ export async function buildRealtimeMcpTools(
             args: args ?? {},
           });
           publishEvent("tool-start", { name: mcpTool.name });
+          observe(() =>
+            onToolStart?.({ name: mcpTool.name, args: args ?? {} }),
+          );
           const startedAt = Date.now();
           try {
             // Third argument is RequestOptions; the SDK aborts the in-flight
@@ -217,6 +233,14 @@ export async function buildRealtimeMcpTools(
             // Forward the RAW result so the client can extract a
             // chart/UIComponent and clear the in-progress indicator.
             publishEvent("tool-result", { name: mcpTool.name, result });
+            observe(() =>
+              onToolEnd?.({
+                name: mcpTool.name,
+                ...(result.isError === true
+                  ? { error: text }
+                  : { result: text }),
+              }),
+            );
             return text;
           } catch (error) {
             logger.error("realtime.tool.error", {
@@ -225,6 +249,9 @@ export async function buildRealtimeMcpTools(
               error: error instanceof Error ? error.message : String(error),
             });
             publishEvent("tool-result", { name: mcpTool.name, result: null });
+            observe(() =>
+              onToolEnd?.({ name: mcpTool.name, error: String(error) }),
+            );
             return `Tool ${mcpTool.name} failed: ${String(error)}`;
           }
         },

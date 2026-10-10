@@ -58,18 +58,19 @@ export function createVoiceBrain(
   async function* streamReply(
     turn: LiveKitBrainTurn,
   ): AsyncGenerator<string, void, unknown> {
-    const { transcript, conversationId, signal } = turn;
+    const { transcript, conversationId, signal, ephemeral } = turn;
 
     if (signal?.aborted) {
       return;
     }
 
-    const context: Record<string, string> = {
-      sessionId: conversationId,
-      conversationId,
-    };
-    if (userId !== undefined) {
-      context.userId = userId;
+    // No sessionId means no history read and no turn stored for this call.
+    const context: Record<string, string> = ephemeral
+      ? {}
+      : { sessionId: conversationId, conversationId };
+    const turnUserId = turn.userId ?? userId;
+    if (!ephemeral && turnUserId !== undefined) {
+      context.userId = turnUserId;
     }
 
     const result = await neurolink.stream({
@@ -80,6 +81,8 @@ export function createVoiceBrain(
       temperature,
       maxTokens,
       context,
+      // Every turn through this brain is spoken; stored messages are marked so.
+      modality: "voice",
       abortSignal: signal,
       disableTools: false,
     });

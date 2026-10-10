@@ -28,6 +28,16 @@ export {
 export { ensureVertexAdc, clearGeminiApiKeyEnv } from "./vertexAuth.js";
 export { readCallContextFromRoom } from "./roomContext.js";
 export {
+  signVoiceMemoryBinding,
+  verifyVoiceMemoryBinding,
+  isValidVoiceSessionId,
+  isValidVoiceUserId,
+  VOICE_MEMORY_SECRET_ENV,
+  VOICE_MEMORY_BINDING_VERSION,
+  VOICE_MEMORY_MAX_TTL_SECONDS,
+} from "./memoryBinding.js";
+export { createVoiceTurnRecorder } from "./turnRecorder.js";
+export {
   sanitizeSchema,
   sanitizeToolParameters,
   findSchemaIssue,

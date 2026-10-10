@@ -12,6 +12,13 @@
 
 import type { NeuroLinkEvents, TypedEventEmitter } from "./common.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
+import type {
+  ConversationSeedMessage,
+  ConversationSeedOptions,
+  RecordConversationTurnOptions,
+  RecordConversationTurnResult,
+  StreamEventSequence,
+} from "./conversation.js";
 
 /**
  * Minimal structural shape of the NeuroLink instance the brain depends on.
@@ -61,6 +68,18 @@ export type LiveKitBrainTurn = {
   conversationId: string;
   /** Cancellation signal; aborting stops the in-flight LLM and tool calls. */
   signal?: AbortSignal;
+  /**
+   * User the conversation belongs to for THIS call, overriding the brain's
+   * static `userId`. A call whose memory binding verified passes the bound
+   * user here so the turn is stored under the person on the call.
+   */
+  userId?: string;
+  /**
+   * Run this turn without reading or writing conversation memory. Used for the
+   * agent's opening greeting on a bound call, which is an instruction to the
+   * agent and must not land in the person's conversation as something they said.
+   */
+  ephemeral?: boolean;
 };
 
 /**
@@ -170,6 +189,15 @@ export type LiveKitVoiceAgentConfig = {
   conversationIdPrefix?: string;
   /** Optional user id recorded alongside memory. */
   userId?: string;
+  /**
+   * Per-call memory identity. When set, the call's room metadata is checked
+   * for a signed memory binding (see `signVoiceMemoryBinding`); a binding that
+   * verifies replaces `userId` and the room-derived conversation id for that
+   * call, and the turns the brain streams are stamped as voice. A call whose
+   * binding is missing or does not verify runs with the static `userId` and
+   * the room-derived conversation id exactly as before.
+   */
+  memory?: LiveKitVoiceAgentMemoryConfig;
   greeting?: string;
   /** Silero VAD tuning (stricter = ignores background noise). */
   vad?: LiveKitVadConfig;
@@ -184,6 +212,12 @@ export type LiveKitVoiceAgentConfig = {
    * unless `enabled` is `true`.
    */
   events?: LiveKitEventBridgeConfig;
+};
+
+/** Per-call memory identity for the cascaded voice agent. */
+export type LiveKitVoiceAgentMemoryConfig = {
+  /** Shared secret the binding is signed with. Defaults to `NEUROLINK_VOICE_MEMORY_SECRET`. */
+  secret?: string;
 };
 
 /** Options for `startVoiceAgentWorker` — launches the LiveKit Agents worker. */
@@ -235,7 +269,8 @@ export type LiveKitVoiceEventType =
   | "tool-result"
   | "status"
   | "hitl-prompt"
-  | "done";
+  | "done"
+  | "memory";
 
 /**
  * A user STT transcript for display. Interim partials stream with
@@ -301,10 +336,24 @@ export type LiveKitVoiceHitlPromptEvent = {
   };
 };
 
-/** The current turn has finished. */
+/**
+ * The current turn has finished. `turnId` is set when the call's turns are
+ * being recorded: it is the id the stored messages carry (`${turnId}:user`,
+ * `${turnId}:assistant`), so a client can merge its live copy with history.
+ */
 export type LiveKitVoiceDoneEvent = {
   type: "done";
-  data: { reason?: string };
+  data: { reason?: string; turnId?: string };
+};
+
+/**
+ * Something about how the call is being remembered. `not-saved` means a turn
+ * could not be stored after retries; the call carries on, and a client may
+ * show a quiet note on that turn.
+ */
+export type LiveKitVoiceMemoryEvent = {
+  type: "memory";
+  data: { state: "not-saved"; turnId: string };
 };
 
 /** Discriminated union of all outbound voice events (before enveloping). */
@@ -315,7 +364,8 @@ export type LiveKitVoiceEvent =
   | LiveKitVoiceToolResultEvent
   | LiveKitVoiceStatusEvent
   | LiveKitVoiceHitlPromptEvent
-  | LiveKitVoiceDoneEvent;
+  | LiveKitVoiceDoneEvent
+  | LiveKitVoiceMemoryEvent;
 
 /**
  * Wire format published to the browser: a `LiveKitVoiceEvent` plus a monotonic
@@ -483,6 +533,14 @@ export type RealtimeVoiceAgentConfig = {
     enabled?: boolean;
     mcpUrl?: string;
   };
+  /**
+   * Persist the call's turns to conversation memory and seed the model with
+   * the conversation's recent history. Off unless set. Takes effect only for
+   * a call whose room metadata carries a verified memory binding; otherwise
+   * the call runs exactly as it would without this option, and nothing is
+   * stored.
+   */
+  memory?: RealtimeVoiceMemoryConfig;
   /** Data-channel topic for outbound events (default "ai-events"). */
   eventsTopic?: string;
   /** Data-channel topic for inbound control messages (default "ai-control"). */
@@ -496,6 +554,198 @@ export type RealtimeVoiceAgentConfig = {
    */
   onLog?: (entry: RealtimeVoiceLogEntry, ctx: RealtimeVoiceLogContext) => void;
 };
+
+/**
+ * The part of a NeuroLink instance a voice agent needs to persist and seed a
+ * call's turns. The real `NeuroLink` instance satisfies it.
+ */
+export type LiveKitMemoryNeuroLink = {
+  recordConversationTurn: (
+    options: RecordConversationTurnOptions,
+  ) => Promise<RecordConversationTurnResult>;
+  getConversationSeed?: (
+    options: ConversationSeedOptions,
+  ) => Promise<ConversationSeedMessage[]>;
+};
+
+/** Memory options for `defineRealtimeVoiceAgent`. */
+export type RealtimeVoiceMemoryConfig = {
+  /**
+   * Builds the NeuroLink instance, with conversation memory configured the
+   * same way the web app's is (same store, key prefix and lifetime), inside
+   * the job process. Called once per call, only after a binding verified.
+   */
+  createNeuroLink: () =>
+    | LiveKitMemoryNeuroLink
+    | Promise<LiveKitMemoryNeuroLink>;
+  /** Shared secret the binding is signed with. Defaults to `NEUROLINK_VOICE_MEMORY_SECRET`. */
+  secret?: string;
+  /** How long a closed reply waits for its user transcript before being dropped (default 1500 ms). */
+  settleMs?: number;
+  /** How long shutdown waits for pending writes (default 800 ms; the worker is reaped about 1 s after shutdown starts). */
+  flushBudgetMs?: number;
+  /** History seeding at call start. `false` turns it off. Defaults: 10 exchanges, 6000 characters. */
+  seed?: false | { maxTurns?: number; maxChars?: number };
+};
+
+/** One finished exchange of a voice call, as handed to the writer. */
+export type VoiceTurnRecord = {
+  /** The assistant message id, or a synthetic id for a turn cut off by shutdown or barge-in. */
+  turnId: string;
+  userMessage: string;
+  aiResponse: string;
+  /** The reply was cut off. */
+  interrupted: boolean;
+  /** The call ended while this exchange was open. */
+  callEnded: boolean;
+  startTime: Date;
+  /** Tool events of the exchange, in the shape typed chat stores. */
+  events?: StreamEventSequence[];
+};
+
+/** A recorder's current exchange: what has been heard and said since the last reply closed. */
+export type VoiceTurnOpenExchange = {
+  userSegments: string[];
+  assistantPartial: string;
+  assistantStarted: boolean;
+  events: StreamEventSequence[];
+  startedAt: number;
+};
+
+/** A reply that finished before its user transcript arrived, waiting out the settle window. */
+export type VoiceTurnClosedExchange = {
+  turnId: string;
+  assistantText: string;
+  interrupted: boolean;
+  events: StreamEventSequence[];
+  startedAt: number;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+/** The recorder returned by `createVoiceTurnRecorder`. */
+export type VoiceTurnRecorder = {
+  /** A final transcript segment of what the user said. Interim segments are ignored. */
+  userTranscript: (segment: { text: string; final: boolean }) => void;
+  /** A piece of the assistant's reply as it is produced. */
+  assistantDelta: (delta: string) => void;
+  /** The assistant's message was added: the reply is complete (or was cut off). */
+  assistantMessage: (message: {
+    id: string;
+    text: string;
+    interrupted?: boolean;
+  }) => void;
+  /**
+   * The next assistant-only reply is the agent's opening greeting, not an
+   * answer: it is skipped and never paired with the user's first question.
+   * Call it once, when the agent is about to speak its greeting.
+   */
+  expectGreeting: () => void;
+  /** A tool call started in the current exchange. */
+  toolStart: (call: { name: string; args?: unknown }) => void;
+  /** A tool call finished in the current exchange. */
+  toolEnd: (call: { name: string; result?: unknown; error?: string }) => void;
+  /**
+   * Shutdown: close what is open, then wait for pending writes — but no longer
+   * than `budgetMs`. Safe to call more than once.
+   */
+  flush: (budgetMs: number) => Promise<VoiceTurnRecorderStats>;
+  /** Counters, for logs and tests. */
+  stats: () => VoiceTurnRecorderStats;
+};
+
+/** What a realtime call needs from its memory once its binding verified. */
+export type RealtimeCallMemory = {
+  recorder: VoiceTurnRecorder;
+  /** Recent history to seed the model with; empty when there is none or seeding is off. */
+  seed: ConversationSeedMessage[];
+  /** Late-bound publisher, set once the event bridge exists, for the not-saved notice. */
+  setPublisher: (
+    publish: (
+      type: LiveKitVoiceEventType,
+      data: Record<string, unknown>,
+    ) => void,
+  ) => void;
+};
+
+/** Counters of a recorder, for logs and tests. */
+export type VoiceTurnRecorderStats = {
+  written: number;
+  failed: number;
+  dropped: number;
+  pending: number;
+};
+
+/** Options for `createVoiceTurnRecorder`. */
+export type VoiceTurnRecorderOptions = {
+  /** Stores one exchange. Throwing means "not stored"; the recorder retries. */
+  write: (record: VoiceTurnRecord) => Promise<void>;
+  /** A write succeeded. */
+  onRecorded?: (record: VoiceTurnRecord) => void;
+  /** A write failed after every retry. The call continues. */
+  onPermanentFailure?: (record: VoiceTurnRecord, error: unknown) => void;
+  /** How long a closed reply waits for its user transcript (default 1500 ms). */
+  settleMs?: number;
+  /** Retries after the first failed attempt (default 2). */
+  retries?: number;
+  /** Base delay between attempts; grows linearly (default 250 ms). */
+  retryDelayMs?: number;
+  /** Appended to a reply that was cut off by the call ending. */
+  callEndedNote?: string;
+  /** Stored as the reply when the call ended with the user's turn unanswered. */
+  noReplyNote?: string;
+  /** Prefix of synthetic turn ids (default: a random id). */
+  callId?: string;
+  /** Clock, for tests. */
+  now?: () => number;
+};
+
+/** A signed memory binding as it appears in room metadata under `memory`. */
+export type VoiceMemoryBinding = {
+  userId: string;
+  sessionId: string;
+  /** Expiry, Unix seconds. */
+  exp: number;
+  /** base64url(HMAC-SHA256) over the room name, userId, sessionId and exp. */
+  sig: string;
+};
+
+/** Input to `signVoiceMemoryBinding`. */
+export type VoiceMemoryBindingInput = {
+  /** The LiveKit room name the binding is for. */
+  room: string;
+  userId: string;
+  sessionId: string;
+  secret: string;
+  /** Lifetime in seconds (default 7200, at most 86400). */
+  ttlSeconds?: number;
+  /** Current time, Unix seconds (default: now). */
+  now?: number;
+};
+
+/** Input to `verifyVoiceMemoryBinding`. */
+export type VoiceMemoryBindingVerifyInput = {
+  /** The room's base64(JSON) metadata string. */
+  roomMetadata: string | undefined;
+  /** The room name as LiveKit reports it for the joined room. */
+  roomName: string | undefined;
+  secret: string | undefined;
+  /** Current time, Unix seconds (default: now). */
+  now?: number;
+};
+
+/** Why a binding was not accepted. */
+export type VoiceMemoryBindingRejection =
+  | "no-secret"
+  | "no-binding"
+  | "malformed"
+  | "bad-signature"
+  | "expired"
+  | "expiry-too-far";
+
+/** Result of `verifyVoiceMemoryBinding`. */
+export type VoiceMemoryBindingVerdict =
+  | { ok: true; userId: string; sessionId: string; exp: number }
+  | { ok: false; reason: VoiceMemoryBindingRejection };
 
 /** Auth token + base64 MCP execution context decoded from a room's metadata. */
 export type LiveKitRoomCallContext = {
@@ -562,4 +812,8 @@ export type BuildRealtimeMcpToolsParams = {
    * model can talk about.
    */
   toolTimeoutMs?: number;
+  /** Observes a tool call as it starts. A throwing observer never affects the call. */
+  onToolStart?: (call: { name: string; args: Record<string, unknown> }) => void;
+  /** Observes a tool call as it ends, with its result as text or its error. */
+  onToolEnd?: (call: { name: string; result?: string; error?: string }) => void;
 };

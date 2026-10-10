@@ -353,6 +353,15 @@ export default [
             // branch is reached by no shipped call site at all. Its header
             // states the exception in full.
             "test/continuous-test-suite-forced-tool-declared.ts",
+            // A voice call's recorder, binding verifier and realtime wiring
+            // have no path through generate()/stream(); what is asserted is
+            // stored message ids, metadata, ordering and the Redis key, plus
+            // out-of-order transcripts, duplicate deliveries, barge-in and a
+            // shutdown with about a second left, none of which a live model
+            // can be made to produce. Offline: Redis is an in-process fake and
+            // LiveKit is driven with synthetic events. Its header states the
+            // exception in full.
+            "test/continuous-test-suite-voice-turn-memory.ts",
             // Chunk boundaries and reranker ordering are exact outcomes;
             // generate({ rag }) only ever shows the model's answer.
             "test/continuous-test-suite-rag.ts",

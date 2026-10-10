@@ -8,7 +8,9 @@
 
 > **LiveKitVoiceDoneEvent** = `object`
 
-The current turn has finished.
+The current turn has finished. `turnId` is set when the call's turns are
+being recorded: it is the id the stored messages carry (`${turnId}:user`,
+`${turnId}:assistant`), so a client can merge its live copy with history.
 
 ## Properties
 
@@ -25,3 +27,7 @@ The current turn has finished.
 #### reason?
 
 > `optional` **reason?**: `string`
+
+#### turnId?
+
+> `optional` **turnId?**: `string`

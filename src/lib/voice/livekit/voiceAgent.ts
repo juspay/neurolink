@@ -26,6 +26,10 @@ import { logger } from "../../utils/logger.js";
 import { createVoiceBrain } from "./brain.js";
 import { resolveBrainDefaults, resolveEouTurnDetection } from "./config.js";
 import { attachEventBridge } from "./eventBridge.js";
+import {
+  VOICE_MEMORY_SECRET_ENV,
+  verifyVoiceMemoryBinding,
+} from "./memoryBinding.js";
 import type {
   LiveKitSttConfig,
   LiveKitTtsConfig,
@@ -59,19 +63,56 @@ function latestUserText(chatCtx: llmNs.ChatContext): string | undefined {
 }
 
 /**
+ * Who a call belongs to and which conversation it appends to.
+ *
+ * A verified memory binding names both. Without one (no `memory` option, or a
+ * binding that does not verify) the call keeps the static identity and the
+ * room-derived conversation id, exactly as it always did.
+ */
+function resolveCallIdentity(
+  ctx: Pick<JobContext, "room" | "job">,
+  config: LiveKitVoiceAgentConfig,
+  conversationPrefix: string,
+): { conversationId: string; userId?: string; bound: boolean } {
+  const fallbackId = `${conversationPrefix}-${ctx.room.name ?? ctx.job.id}`;
+  if (!config.memory) {
+    return { conversationId: fallbackId, bound: false };
+  }
+  const verdict = verifyVoiceMemoryBinding({
+    roomMetadata: ctx.room.metadata,
+    roomName: ctx.room.name,
+    secret: config.memory.secret ?? process.env[VOICE_MEMORY_SECRET_ENV],
+  });
+  if (!verdict.ok) {
+    logger.warn("voice.agent.memoryBindingRejected", {
+      reason: verdict.reason,
+      action: "continuing-with-static-identity",
+    });
+    return { conversationId: fallbackId, bound: false };
+  }
+  return {
+    conversationId: verdict.sessionId,
+    userId: verdict.userId,
+    bound: true,
+  };
+}
+
+/**
  * Build a text stream for a single turn from the brain, abortable on cancel.
  * When the framework cancels the stream (barge-in), the brain's turn is aborted.
  */
 function brainTurnStream(
   brain: LiveKitVoiceBrain,
   transcript: string,
-  conversationId: string,
+  call: { conversationId: string; userId?: string; ephemeral?: boolean },
   onAbortedBeforeOutput?: () => void,
 ): ReadableStream<string> {
   const controller = new AbortController();
   const generator = brain.streamReply({
     transcript,
-    conversationId,
+    conversationId: call.conversationId,
+    ...(call.userId !== undefined ? { userId: call.userId } : {}),
+    ...(call.ephemeral ? { ephemeral: true } : {}),
     signal: controller.signal,
   });
   const iterator = generator[Symbol.asyncIterator]();
@@ -269,7 +310,7 @@ export function defineVoiceAgent(config: LiveKitVoiceAgentConfig): JobAgent {
       userId: config.userId,
     });
 
-    const conversationId = `${conversationPrefix}-${ctx.room.name ?? ctx.job.id}`;
+    const callIdentity = resolveCallIdentity(ctx, config, conversationPrefix);
 
     const { voice, llm } = await import("@livekit/agents");
     const [vad, stt, tts, eouTurnDetector] = await Promise.all([
@@ -354,7 +395,7 @@ export function defineVoiceAgent(config: LiveKitVoiceAgentConfig): JobAgent {
             ms: Date.now() - userStoppedSpeakingAt,
           });
         }
-        return brainTurnStream(brain, promptText, conversationId, () => {
+        return brainTurnStream(brain, promptText, callIdentity, () => {
           // Interrupted before producing any reply → carry this turn's text
           // forward; the next turn merges it (prompt + UI).
           pendingPrefix = promptText;
@@ -489,11 +530,12 @@ export function defineVoiceAgent(config: LiveKitVoiceAgentConfig): JobAgent {
     await session.start({ agent, room: ctx.room });
 
     if (config.greeting !== undefined && config.greeting.trim().length > 0) {
-      const greetingStream = brainTurnStream(
-        brain,
-        config.greeting,
-        conversationId,
-      );
+      const greetingStream = brainTurnStream(brain, config.greeting, {
+        ...callIdentity,
+        // The greeting is an instruction to the agent; on a bound call it must
+        // not be filed in the person's conversation as something they said.
+        ephemeral: callIdentity.bound,
+      });
       session.say(greetingStream, {
         addToChatCtx: true,
         allowInterruptions: true,

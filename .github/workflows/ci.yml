@@ -627,6 +627,7 @@ jobs:
           pnpm run test:tool-replay
           pnpm run test:stream-tool-telemetry
           pnpm run test:forced-tool-declared
+          pnpm run test:voice-turn-memory
           pnpm run test:memory:hippocampus
           pnpm run test:security-check-filter
           pnpm run test:decide

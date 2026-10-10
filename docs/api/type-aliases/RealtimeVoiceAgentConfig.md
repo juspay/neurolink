@@ -73,6 +73,18 @@ MCP tool bridging overrides.
 
 ---
 
+### memory?
+
+> `optional` **memory?**: [`RealtimeVoiceMemoryConfig`](RealtimeVoiceMemoryConfig.md)
+
+Persist the call's turns to conversation memory and seed the model with
+the conversation's recent history. Off unless set. Takes effect only for
+a call whose room metadata carries a verified memory binding; otherwise
+the call runs exactly as it would without this option, and nothing is
+stored.
+
+---
+
 ### eventsTopic?
 
 > `optional` **eventsTopic?**: `string`

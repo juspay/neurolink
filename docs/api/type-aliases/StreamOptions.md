@@ -828,6 +828,17 @@ Default: false (backward compatible — tool schemas are injected into system pr
 
 ---
 
+### modality?
+
+> `optional` **modality?**: [`ConversationModality`](ConversationModality.md)
+
+How this turn was entered. Stamped on the stored messages' metadata so
+history readers can tell a spoken turn from a typed one. Leave it unset
+for typed input: the stored turn is then identical to what it was before
+the field existed.
+
+---
+
 ### maxBudgetUsd?
 
 > `optional` **maxBudgetUsd?**: `number`

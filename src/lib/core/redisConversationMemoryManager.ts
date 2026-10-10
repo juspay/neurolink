@@ -36,6 +36,12 @@ import {
 } from "../utils/conversationMemory.js";
 import { runWithCurrentLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
 import { logger } from "../utils/logger.js";
+import {
+  assistantTurnIdentity,
+  isTurnAlreadyStored,
+  turnMessageFields,
+  userTurnIdentity,
+} from "../utils/conversationTurnIdentity.js";
 import { extractIsErrorText } from "../utils/toolResultStatus.js";
 import {
   createRedisClient,
@@ -592,6 +598,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             deserializeConversation(conversationData),
             redisKey,
           );
+          if (
+            isTurnAlreadyStored(conversation?.messages ?? [], options.turnId)
+          ) {
+            return;
+          }
           // Split-storage bookkeeping: whether this session already keeps its
           // messages in the companion LIST, and how many it held before this
           // turn — so only the new ones are appended rather than rewriting the
@@ -691,7 +702,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             : this.config.tokenThreshold || 50000;
 
           const userMsg: ChatMessage = {
-            id: randomUUID(),
+            ...turnMessageFields(userTurnIdentity(options)),
             timestamp:
               options.startTimeStamp?.toISOString() || this.generateTimestamp(),
             role: "user",
@@ -713,14 +724,13 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           }
 
           const assistantMsg: ChatMessage = {
-            id: randomUUID(),
+            ...turnMessageFields(
+              assistantTurnIdentity(options, options.thoughtSignature),
+            ),
             timestamp: this.generateTimestamp(),
             role: "assistant",
             content: options.aiResponse,
             events: options.events || undefined,
-            ...(options.thoughtSignature && {
-              metadata: { thoughtSignature: options.thoughtSignature },
-            }),
           };
           conversation.messages.push(assistantMsg);
 

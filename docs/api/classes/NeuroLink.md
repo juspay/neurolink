@@ -2166,6 +2166,99 @@ Array of ChatMessage objects, or empty array if session doesn't exist
 
 ---
 
+#### recordConversationTurn()
+
+> **recordConversationTurn**(`options`): `Promise`\<[`RecordConversationTurnResult`](../type-aliases/RecordConversationTurnResult.md)\>
+
+Record one finished turn from a transport that does not go through
+generate()/stream() — a voice call — into the same conversation memory
+typed chat uses: same key, same manager, same summarization and title
+handling, same optional long-term memory write.
+
+Identity is never defaulted: `userId` is required, because typed chat falls
+back to a shared placeholder user when it is missing and a spoken turn must
+never be filed there. Recording the same `turnId` twice stores it once, so
+a caller can retry after an ambiguous failure.
+
+A turn with a blank user message, or a blank response and no tool events,
+is not stored (an empty assistant message makes some providers reject the
+next request); the result says which. Storage failures throw — the caller
+decides whether to retry or to carry on without the turn.
+
+##### Parameters
+
+###### options
+
+[`RecordConversationTurnOptions`](../type-aliases/RecordConversationTurnOptions.md)
+
+##### Returns
+
+`Promise`\<[`RecordConversationTurnResult`](../type-aliases/RecordConversationTurnResult.md)\>
+
+##### Throws
+
+NeuroLinkError (INVALID_PARAMETERS) for a bad sessionId or userId
+
+##### Throws
+
+NeuroLinkError (MISSING_CONFIGURATION) when conversation memory is not enabled
+
+##### Throws
+
+ConversationMemoryError (STORAGE_ERROR) when the store rejects the write
+
+---
+
+#### getConversationSeed()
+
+> **getConversationSeed**(`options`): `Promise`\<[`ConversationSeedMessage`](../type-aliases/ConversationSeedMessage.md)[]\>
+
+The most recent user/assistant messages of a conversation, bounded, for
+seeding a model that has no history of its own — a voice model at call
+start. Summaries, pinned skills, tool traffic and blank messages are left
+out; the oldest messages are dropped first when `maxChars` would be
+exceeded. Best effort: a missing conversation, disabled memory or a read
+failure yields an empty seed and never throws, because a call must start
+either way.
+
+##### Parameters
+
+###### options
+
+[`ConversationSeedOptions`](../type-aliases/ConversationSeedOptions.md)
+
+##### Returns
+
+`Promise`\<[`ConversationSeedMessage`](../type-aliases/ConversationSeedMessage.md)[]\>
+
+---
+
+#### conversationExists()
+
+> **conversationExists**(`options`): `Promise`\<`boolean`\>
+
+Whether a conversation already holds messages under this user. A client
+may name the conversation a call appends to; the server accepts the name
+only when this is true for the user the session is verified as.
+
+##### Parameters
+
+###### options
+
+###### sessionId
+
+`string`
+
+###### userId
+
+`string`
+
+##### Returns
+
+`Promise`\<`boolean`\>
+
+---
+
 #### setSessionMessages()
 
 > **setSessionMessages**(`sessionId`, `messages`, `userId?`): `Promise`\<`void`\>

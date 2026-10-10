@@ -118,3 +118,39 @@ user → skill(user-role, metadata.isSkill) → assistant triplet, so
 stored history is NOT strictly pair-wise alternating. Pair-based
 logic must filter `metadata.isSkill` first (see slidingWindowTruncator
 for the canonical partition-and-reanchor pattern).
+
+---
+
+### modality?
+
+> `optional` **modality?**: [`ConversationModality`](ConversationModality.md)
+
+How the turn was entered. Stamped on both stored messages' metadata when
+set; a typed turn that leaves it unset is stored exactly as before.
+
+---
+
+### turnId?
+
+> `optional` **turnId?**: `string`
+
+Idempotency key for the turn. When set, the user and assistant messages
+are stored with the ids `${turnId}:user` and `${turnId}:assistant`, and a
+turn whose assistant id is already in the session's recent messages is
+skipped, so a retry after an ambiguous failure cannot duplicate it.
+
+---
+
+### interrupted?
+
+> `optional` **interrupted?**: `boolean`
+
+The assistant message was cut off before it finished.
+
+---
+
+### callEnded?
+
+> `optional` **callEnded?**: `boolean`
+
+The call ended while this turn was open.

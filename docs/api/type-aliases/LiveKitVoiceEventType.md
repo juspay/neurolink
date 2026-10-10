@@ -6,6 +6,6 @@
 
 # Type Alias: LiveKitVoiceEventType
 
-> **LiveKitVoiceEventType** = `"user-text"` \| `"text"` \| `"tool-start"` \| `"tool-result"` \| `"status"` \| `"hitl-prompt"` \| `"done"`
+> **LiveKitVoiceEventType** = `"user-text"` \| `"text"` \| `"tool-start"` \| `"tool-result"` \| `"status"` \| `"hitl-prompt"` \| `"done"` \| `"memory"`
 
 Discriminant tags for outbound voice events.
