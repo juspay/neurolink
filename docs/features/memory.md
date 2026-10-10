@@ -378,7 +378,7 @@ Memory integrates automatically with both `generate()` and `stream()`:
 
 - **Before the LLM call**: Memory is retrieved and prepended to the input text
 - **After the LLM call**: The conversation turn is stored in the background via `setImmediate()`
-- **Timeouts**: Retrieval has a 3-second timeout; storage has a 10-second timeout (includes LLM condensation)
+- **Timeouts**: Storage is bounded at 30 seconds (including LLM condensation; the `shouldWrite` and `onBeforeStore` hooks get 30 seconds each), and `shutdown()` / `dispose()` wait at most that long for a pending write. Retrieval has no timeout of its own: a slow `client.get()` delays the call it serves
 - **Errors are non-blocking**: If memory retrieval or storage fails, the generate/stream call continues normally
 
 ### Requirements

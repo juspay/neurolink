@@ -137,6 +137,7 @@ import type {
   RoutingDecision,
   MetricsTraceContext,
   StreamGenerationEndContext,
+  ToolCacheTurnState,
   HITLExecutionState,
   ToolRoutingConfig,
   ToolRoutingDecision,
@@ -391,7 +392,10 @@ import {
 import { interleaveTTSStream } from "./utils/ttsStream.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
-import { preserveLiveStreamAccessors } from "./utils/streamResultAccessors.js";
+import {
+  pickLiveStreamDescriptors,
+  preserveLiveStreamAccessors,
+} from "./utils/streamResultAccessors.js";
 import {
   coerceJsonToSchema,
   recoverScalarRoot,
@@ -464,6 +468,7 @@ import {
   isNonRetryableForPool as sharedIsNonRetryableForPool,
 } from "./utils/providerErrorClassification.js";
 import { getErrorStatusCode } from "./utils/providerRetry.js";
+import { messageNamesStatus } from "./utils/errorClassifier.js";
 import { detectAndRedactPII } from "./utils/piiDetector.js";
 import { validateResponse } from "./utils/responseValidator.js";
 
@@ -654,6 +659,61 @@ const MEMORY_WRITE_TIMEOUT_MS = 30_000;
 const metricsTraceContextStorage = new AsyncLocalStorage<MetricsTraceContext>();
 
 /**
+ * Tool-result-cache state of the `generate()` / `stream()` turn the current
+ * async chain belongs to (#1912). It used to live on instance fields, so two
+ * concurrent turns on one instance overwrote each other's `disableToolCache`
+ * flag and repeat-call keys, and whichever turn finished first switched the
+ * other's repeat bypass off. Each turn now runs inside its own `run()`; a turn
+ * nested in another (the tool and classifier routers re-enter `generate()`)
+ * gets its own state, and the outer turn's is back in scope when it returns.
+ * Outside any turn — a host's direct `executeTool()` — there is no store, and
+ * full cache semantics apply.
+ */
+const toolCacheTurnStorage = new AsyncLocalStorage<ToolCacheTurnState>();
+
+/**
+ * A stream's tools run while the CALLER drains it: a provider loop that lives
+ * in an async generator executes each step inside the `next()` that pulled it,
+ * in the caller's async context rather than the turn's. Re-entering the turn's
+ * store around every `next()` / `return()` / `throw()` keeps those tool calls
+ * attributed to the turn that produced the stream, however and wherever the
+ * caller iterates it.
+ */
+function bindStreamToToolCacheTurn<T>(
+  source: AsyncIterable<T>,
+  turn: ToolCacheTurnState,
+): AsyncIterableIterator<T> {
+  let iterator: AsyncIterator<T> | undefined;
+  const inner = (): AsyncIterator<T> =>
+    (iterator ??= source[Symbol.asyncIterator]());
+  const inTurn = <R>(step: () => R): R => toolCacheTurnStorage.run(turn, step);
+  // Shaped like the async generator it wraps — its own iterator, with
+  // `return` / `throw` — so a caller that drives `next()` by hand or closes
+  // the stream early sees no difference.
+  return {
+    next: (...args: [] | [unknown]) => inTurn(() => inner().next(...args)),
+    return: async (value?: unknown) => {
+      const it = inner();
+      const close = it.return;
+      return close
+        ? inTurn(() => close.call(it, value))
+        : { done: true as const, value };
+    },
+    throw: async (error?: unknown) => {
+      const it = inner();
+      const raise = it.throw;
+      if (raise) {
+        return inTurn(() => raise.call(it, error));
+      }
+      throw error;
+    },
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  };
+}
+
+/**
  * Curator P2-4 dedup (concurrency-safe): native providers emit
  * `generation:end` on the shared SDK emitter. We attach a fresh
  * mutable `dedupContext` object directly to the per-call
@@ -836,24 +896,6 @@ export class NeuroLink {
   private ownsArtifactStore = false;
   /** Normalizer settings, kept so `setArtifactStore()` can rebuild it. */
   private mcpOutputNormalizerConfig?: McpOutputNormalizerConfig;
-  private _disableToolCacheForCurrentRequest = false;
-  /**
-   * (toolName + args) keys already served during the CURRENT request.
-   * A repeat occurrence within one request bypasses the tool-result cache:
-   * when the model deliberately re-calls a tool with identical args in the
-   * same turn (a counter, a poll, "check status again"), it wants fresh
-   * state — serving the memoized first result silently freezes stateful
-   * tools (observed live: a 5-round counter loop executed once). Cross-
-   * request dedup — BZ-664's actual goal — is untouched: the first
-   * occurrence in a request may still be served from cache. Request-scoped
-   * like _disableToolCacheForCurrentRequest above (assigned a fresh Set at
-   * request start so `preservingTurnState`'s save/restore-by-reference works).
-   */
-  private _toolCacheKeysServedThisRequest = new Set<string>();
-  /** True only while a generate()/stream() turn is executing — the
-   *  repeat-call cache bypass applies inside a turn; direct executeTool
-   *  calls keep full BZ-664 cache semantics. */
-  private _generationTurnActive = false;
   private mcpEnhancementsConfig?: MCPEnhancementsConfig;
 
   // Enhanced error handling support
@@ -1459,7 +1501,7 @@ export class NeuroLink {
    * that point skips instead of rebuilding the child.
    */
   private async releaseMemoryCondenser(): Promise<void> {
-    await this.drainPendingMemoryWrites();
+    await this.drainPendingMemoryWritesWhileFlushingTelemetry();
     this.memoryCondenserReleased = true;
     const condenser = this.memoryCondenser;
     if (!condenser) {
@@ -1467,6 +1509,34 @@ export class NeuroLink {
     }
     this.memoryCondenser = undefined;
     await condenser.shutdown();
+  }
+
+  /**
+   * {@link drainPendingMemoryWrites}, with the turn's telemetry flushed while
+   * it waits rather than after. A stuck write holds the drain for up to
+   * `MEMORY_WRITE_TIMEOUT_MS`, and `shutdown()` / `dispose()` flush only once
+   * it returns — so a host that stops the process on a shorter grace period
+   * lost the spans of the very turn that scheduled the write. The caller's own
+   * flush and shutdown still run after the drain, which is what exports the
+   * spans the memory write itself produces. Nothing to drain, nothing extra to
+   * flush: the common path is unchanged.
+   */
+  private async drainPendingMemoryWritesWhileFlushingTelemetry(): Promise<void> {
+    if (this.pendingMemoryWrites.size === 0) {
+      return;
+    }
+    const earlyFlush = flushOpenTelemetry().catch((error: unknown) => {
+      // The caller's own flush after the drain retries and reports.
+      logger.debug(
+        "[NeuroLink] Telemetry flush during the memory-write drain failed",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    });
+    try {
+      await this.drainPendingMemoryWrites();
+    } finally {
+      await earlyFlush;
+    }
   }
 
   /**
@@ -1780,12 +1850,12 @@ export class NeuroLink {
     // generate() (marked so it never recursively re-routes). Fails open.
     this.classifierRouter = config?.classifierRouter?.enabled
       ? new ClassifierRouter(config.classifierRouter, {
+          // Re-enters generate(), which opens a tool-cache turn of its own
+          // and leaves the outer turn's state untouched.
           generate: (genOptions) =>
-            this.preservingTurnState(() =>
-              this.generate({
-                ...genOptions,
-              }),
-            ),
+            this.generate({
+              ...genOptions,
+            }),
           // Fail-open by construction: siteDecide returns null rather than
           // throwing, so an absent or broken decision provider leaves routing
           // exactly as it was. The per-call credentials and ids arrive on the
@@ -5427,8 +5497,30 @@ Current user's request: ${currentInput}`;
     return metricsTraceContextStorage.run(
       this.createMetricsTraceContext(),
       () =>
-        this.executeGenerateRequest(optionsOrPrompt, generateSpan, isRootSpan),
+        toolCacheTurnStorage.run(this.newToolCacheTurn(), () =>
+          this.executeGenerateRequest(
+            optionsOrPrompt,
+            generateSpan,
+            isRootSpan,
+          ),
+        ),
     );
+  }
+
+  /** A fresh tool-cache turn; `disableToolCache` is set once options resolve. */
+  private newToolCacheTurn(): ToolCacheTurnState {
+    return { disableToolCache: false, keysServed: new Set<string>() };
+  }
+
+  /**
+   * Record the turn's resolved `disableToolCache` option on the turn state in
+   * scope. Dynamic options are resolved first, so the flag is the final value.
+   */
+  private applyToolCacheTurnOptions(disableToolCache: boolean | undefined) {
+    const turn = toolCacheTurnStorage.getStore();
+    if (turn) {
+      turn.disableToolCache = !!disableToolCache;
+    }
   }
 
   private async executeGenerateRequest(
@@ -5513,9 +5605,6 @@ Current user's request: ${currentInput}`;
       );
       throw error;
     } finally {
-      this._disableToolCacheForCurrentRequest = false;
-      this._toolCacheKeysServedThisRequest = new Set();
-      this._generationTurnActive = false;
       generateSpan.end();
     }
   }
@@ -5546,9 +5635,7 @@ Current user's request: ${currentInput}`;
     await this.resolveDynamicOptions(options as Record<string, unknown>);
 
     options.model = resolveModel(options.model, this.modelAliasConfig);
-    this._disableToolCacheForCurrentRequest = !!options.disableToolCache;
-    this._toolCacheKeysServedThisRequest = new Set();
-    this._generationTurnActive = true;
+    this.applyToolCacheTurnOptions(options.disableToolCache);
 
     generateSpan.setAttribute(
       "neurolink.provider",
@@ -8069,11 +8156,17 @@ Current user's request: ${currentInput}`;
             generateInternalId,
           },
         );
-        const memCfg = this.conversationMemoryConfig?.conversationMemory;
+        // The fallback keeps every setting the failed manager was built with
+        // — `replayToolSteps`, summarisation, token threshold, compaction,
+        // the Hippocampus block — and drops only the Redis connection, which
+        // an in-memory store has no use for. Rebuilding it from a few fields
+        // silently reverted the rest to defaults (replay back to "marker",
+        // summarisation off) for as long as Redis stayed down.
+        const { redisConfig: _redisConfig, ...fallbackConfig } =
+          this.conversationMemory.config;
         this.conversationMemory = new ConversationMemoryManager({
+          ...fallbackConfig,
           enabled: true,
-          maxSessions: memCfg?.maxSessions ?? 100,
-          maxTurnsPerSession: memCfg?.maxTurnsPerSession ?? 50,
         });
         await this.conversationMemory.initialize();
       }
@@ -10168,7 +10261,7 @@ Current user's request: ${currentInput}`;
       "stream",
       (opts) =>
         metricsTraceContextStorage.run(this.createMetricsTraceContext(), () =>
-          this.executeStreamRequest({ ...(opts as StreamOptions) }),
+          this.executeStreamTurn({ ...(opts as StreamOptions) }),
         ),
     );
 
@@ -10271,7 +10364,7 @@ Current user's request: ${currentInput}`;
           attemptedRequestedModel = next.model ?? attemptedRequestedModel;
           currentResult = await metricsTraceContextStorage.run(
             self.createMetricsTraceContext(),
-            () => self.executeStreamRequest({ ...retriedOptions }),
+            () => self.executeStreamTurn({ ...retriedOptions }),
           );
         }
       }
@@ -10293,6 +10386,23 @@ Current user's request: ${currentInput}`;
       ...result,
       stream: wrappedStream as StreamResult["stream"],
     });
+  }
+
+  /**
+   * One stream attempt inside a tool-cache turn of its own. The returned
+   * stream is bound to that turn, so the tools it runs while the caller drains
+   * it — after this method has returned — still see this turn's
+   * `disableToolCache` flag and repeat-call keys, not another turn's.
+   */
+  private async executeStreamTurn(
+    options: StreamOptions,
+  ): Promise<StreamResult> {
+    const turn = this.newToolCacheTurn();
+    const result = await toolCacheTurnStorage.run(turn, () =>
+      this.executeStreamRequest(options),
+    );
+    result.stream = bindStreamToToolCacheTurn(result.stream, turn);
+    return result;
   }
 
   private async executeStreamRequest(
@@ -10324,9 +10434,7 @@ Current user's request: ${currentInput}`;
     // pre-set context.userId would stamp the root span as guest.
     const streamIsRoot = !trace.getSpan(context.active());
     const spanStartTime = Date.now();
-    this._disableToolCacheForCurrentRequest = !!options.disableToolCache;
-    this._toolCacheKeysServedThisRequest = new Set();
-    this._generationTurnActive = true;
+    this.applyToolCacheTurnOptions(options.disableToolCache);
 
     try {
       options.model = resolveModel(options.model, this.modelAliasConfig);
@@ -10495,30 +10603,6 @@ Current user's request: ${currentInput}`;
       }
       streamSpan.end();
       throw error;
-    }
-  }
-
-  /**
-   * Runs an internal call that re-enters the public generate() (the tool-routing
-   * router, the classifier router) without ending the outer turn's tool-cache
-   * state. generate()'s own `finally` resets these fields, so the outer turn
-   * would otherwise lose its repeat-call cache bypass for every later tool
-   * call. Restored by reference: the nested call assigns a new Set rather than
-   * mutating the outer one.
-   *
-   * Covers one turn re-entering itself. Two concurrent turns on one instance
-   * still share these fields.
-   */
-  private async preservingTurnState<T>(run: () => Promise<T>): Promise<T> {
-    const disableToolCache = this._disableToolCacheForCurrentRequest;
-    const keysServed = this._toolCacheKeysServedThisRequest;
-    const turnActive = this._generationTurnActive;
-    try {
-      return await run();
-    } finally {
-      this._disableToolCacheForCurrentRequest = disableToolCache;
-      this._toolCacheKeysServedThisRequest = keysServed;
-      this._generationTurnActive = turnActive;
     }
   }
 
@@ -10814,12 +10898,10 @@ Current user's request: ${currentInput}`;
         // Forward the abort signal so a cancelled turn aborts the router
         // call promptly instead of waiting out the routing timeout.
         generateFn: (generateOptions) =>
-          this.preservingTurnState(() =>
-            this.generate({
-              ...generateOptions,
-              abortSignal: options.abortSignal,
-            }),
-          ),
+          this.generate({
+            ...generateOptions,
+            abortSignal: options.abortSignal,
+          }),
         // Calibrated per-server routing when a decision provider is
         // configured. siteDecide returns null without one, so the resolver
         // falls straight through to the generative router as before. The
@@ -11167,7 +11249,6 @@ Current user's request: ${currentInput}`;
       params.startTime,
     );
     const originalWorkflowStream = result.stream;
-    const self = this;
     result.stream = (async function* () {
       try {
         for await (const chunk of originalWorkflowStream) {
@@ -11181,9 +11262,6 @@ Current user's request: ${currentInput}`;
         });
         throw error;
       } finally {
-        self._disableToolCacheForCurrentRequest = false;
-        self._toolCacheKeysServedThisRequest = new Set();
-        self._generationTurnActive = false;
         params.streamSpan.setAttribute(
           "neurolink.response_time_ms",
           Date.now() - params.spanStartTime,
@@ -11626,9 +11704,6 @@ Current user's request: ${currentInput}`;
             }
           }
 
-          self._disableToolCacheForCurrentRequest = false;
-          self._toolCacheKeysServedThisRequest = new Set();
-          self._generationTurnActive = false;
           cleanupListeners();
 
           streamSpan.setAttribute(
@@ -13476,14 +13551,12 @@ Current user's request: ${currentInput}`;
       }
     })(this);
 
-    return {
+    const fallbackResponse: StreamResult = {
       stream: fallbackProcessedStream,
       provider: providerName,
       model: options.model,
       usage: fallbackStreamResult.usage,
       finishReason: fallbackStreamResult.finishReason || "stop",
-      toolCalls: fallbackStreamResult.toolCalls || [],
-      toolResults: fallbackStreamResult.toolResults || [],
       analytics: fallbackStreamResult.analytics,
       evaluation: fallbackStreamResult.evaluation,
       metadata: {
@@ -13493,6 +13566,34 @@ Current user's request: ${currentInput}`;
         fallback: true,
       },
     };
+    // A background-loop provider (native Anthropic, native Vertex+Claude, the
+    // OpenAI-compatible loop) fills its tool fields while the stream is
+    // drained — after this method returns. Copying them here, as this did,
+    // froze the empty snapshot taken before the first chunk, so a fallback
+    // that ran tools reported none. Carry `toolsUsed` / `toolExecutions` over
+    // as the provider defined them (getter or live array), and read
+    // `toolCalls` / `toolResults` when the caller does — the same values the
+    // in-stream fallback re-reads after its drain.
+    Object.defineProperties(
+      fallbackResponse,
+      pickLiveStreamDescriptors(fallbackStreamResult, [
+        "toolsUsed",
+        "toolExecutions",
+      ]),
+    );
+    Object.defineProperties(fallbackResponse, {
+      toolCalls: {
+        enumerable: true,
+        configurable: true,
+        get: () => fallbackStreamResult.toolCalls ?? [],
+      },
+      toolResults: {
+        enumerable: true,
+        configurable: true,
+        get: () => fallbackStreamResult.toolResults ?? [],
+      },
+    });
+    return fallbackResponse;
   }
 
   /**
@@ -13884,7 +13985,10 @@ Current user's request: ${currentInput}`;
       }
       if (
         lower.includes("authentication") ||
-        lower.includes("401") ||
+        // The status, not any "401" in the text: a 400 whose message quotes
+        // a number such as "max_tokens: 4010" is not a rejected credential.
+        getErrorStatusCode(err) === 401 ||
+        messageNamesStatus(msg, 401) ||
         lower.includes("invalid api key") ||
         lower.includes("incorrect api key") ||
         lower.includes("api_key_invalid") ||
@@ -15445,10 +15549,11 @@ Current user's request: ${currentInput}`;
 
     // === MCP ENHANCEMENT: Infer annotations for cache/retry decisions ===
     const toolAnnotations = this.getToolAnnotationsForExecution(toolName);
+    const turn = toolCacheTurnStorage.getStore();
     const isCacheEnabled =
       this.mcpToolResultCache &&
       !options.disableToolCache &&
-      !this._disableToolCacheForCurrentRequest &&
+      !turn?.disableToolCache &&
       !this.uncacheableTools.has(toolName) &&
       !toolAnnotations?.destructiveHint;
     const toolResultCache = this.mcpToolResultCache;
@@ -15462,14 +15567,13 @@ Current user's request: ${currentInput}`;
             __ctx: options.authContext ?? this.toolExecutionContext,
           }
         : params;
-    const repeatKey = this._generationTurnActive
+    const repeatKey = turn
       ? this.toolCacheRepeatKey(toolName, cacheParams)
       : undefined;
     const isRepeatCallThisRequest =
-      repeatKey !== undefined &&
-      this._toolCacheKeysServedThisRequest.has(repeatKey);
+      repeatKey !== undefined && !!turn?.keysServed.has(repeatKey);
     if (repeatKey !== undefined) {
-      this._toolCacheKeysServedThisRequest.add(repeatKey);
+      turn?.keysServed.add(repeatKey);
     }
     if (isCacheEnabled && toolResultCache && !isRepeatCallThisRequest) {
       const cached = toolResultCache.getCachedResult(toolName, cacheParams);
@@ -17547,9 +17651,10 @@ Current user's request: ${currentInput}`;
       // - Scope cache key by serverId (two servers can expose same tool name)
       //   and toolExecutionContext (prevents cross-session/user leaks)
       const toolAnnotations = this.getToolAnnotationsForExecution(toolName);
+      const turn = toolCacheTurnStorage.getStore();
       const cacheEnabled =
         !!this.mcpToolResultCache &&
-        !this._disableToolCacheForCurrentRequest &&
+        !turn?.disableToolCache &&
         !toolAnnotations?.destructiveHint;
       const cacheKeyArgs = {
         __serverId: serverId,
@@ -17560,14 +17665,14 @@ Current user's request: ${currentInput}`;
       };
       // Same repeat-within-request bypass as executeToolInternal: a model
       // re-calling the identical tool+args in one turn wants fresh state.
-      const externalRepeatKey = this._generationTurnActive
+      const externalRepeatKey = turn
         ? this.toolCacheRepeatKey(toolName, cacheKeyArgs)
         : undefined;
       const isExternalRepeatThisRequest =
         externalRepeatKey !== undefined &&
-        this._toolCacheKeysServedThisRequest.has(externalRepeatKey);
+        !!turn?.keysServed.has(externalRepeatKey);
       if (externalRepeatKey !== undefined) {
-        this._toolCacheKeysServedThisRequest.add(externalRepeatKey);
+        turn?.keysServed.add(externalRepeatKey);
       }
       if (
         cacheEnabled &&
@@ -18574,12 +18679,12 @@ Current user's request: ${currentInput}`;
    * 2. Each host question is validated (invalid ones dropped, with a warning)
    *    and namespaced `host__N` on the wire, so it can never collide with
    *    NeuroLink's own ids (`difficulty`, `server__N`, `msg__N`, …).
-   * 3. Additions are capped at the provider's `maxQuestions` minus
-   *    NeuroLink's own count. Without the cap a host adding one question too
-   *    many would have the WHOLE request refused, and NeuroLink's own routing
-   *    would silently degrade to the heuristic — the host's problem would
-   *    become NeuroLink's. A provider that declares no `maxQuestions`
-   *    (TypeSafe, XOR) takes every well-formed addition.
+   * 3. Additions are not capped. The call goes through `tryRunDecide`, which
+   *    splits a question map longer than the provider's `maxQuestions` into
+   *    batches it accepts, so a host adding questions past the cap costs an
+   *    extra batch, never the whole request — NeuroLink's own questions come
+   *    first and keep their batch. (Only the strict `decide()` refuses an
+   *    over-cap map, and no hook runs on that path.)
    * 4. Answers are split: the consumer sees only its own ids, exactly as it
    *    would without hooks; `onAnswers` gets the host's answers under the
    *    host's original ids plus the full result.
@@ -18647,7 +18752,6 @@ Current user's request: ${currentInput}`;
     let obtained: DecisionResult | null | undefined;
     try {
       const ownQuestions = merged.questions;
-      const ownCount = Object.keys(ownQuestions).length;
       const hooks = this.decisionHooks;
       const hookTimeoutMs = this.decisionHookTimeout();
 
@@ -18693,33 +18797,21 @@ Current user's request: ${currentInput}`;
         }
         const proposedEntries = proposed ? Object.entries(proposed) : [];
         if (proposedEntries.length > 0) {
-          const limits = this.decisionLimits({
-            provider: merged.provider,
-            model: merged.model,
-            credentials: merged.credentials,
-          });
-          // A provider without a question-count cap (TypeSafe, XOR) takes
-          // every well-formed addition; its token/byte limits still apply
-          // and are what `decisionLimits()` reports for sizing.
-          const room =
-            limits?.maxQuestions !== undefined
-              ? Math.max(0, limits.maxQuestions - ownCount)
-              : Number.POSITIVE_INFINITY;
+          // No count cap here: the call below goes through tryRunDecide,
+          // which splits a map longer than the provider's `maxQuestions` into
+          // batches the provider accepts, so a host adding questions past the
+          // cap costs an extra batch rather than the whole request. NeuroLink's
+          // own questions come first and so land in the earliest batches.
           const combined: Record<string, DecisionQuestion> = {
             ...ownQuestions,
           };
           let invalidCount = 0;
-          let overflowCount = 0;
           for (const [hostId, proposal] of proposedEntries) {
             // The wire carries a snapshot of the host's question, never the
             // host's object: validated as a copy, sent as that copy.
             const question = snapshotDecisionQuestion(proposal);
             if (question === undefined) {
               invalidCount += 1;
-              continue;
-            }
-            if (hostIdByWireId.size >= room) {
-              overflowCount += 1;
               continue;
             }
             const wireId = decisionKey(
@@ -18732,11 +18824,6 @@ Current user's request: ${currentInput}`;
           if (invalidCount > 0) {
             logger.warn(
               `[Decision] dropped ${invalidCount} malformed host question(s) for site "${site}"`,
-            );
-          }
-          if (overflowCount > 0 && limits) {
-            logger.warn(
-              `[Decision] dropped ${overflowCount} host question(s) for site "${site}": ${limits.provider} accepts ${limits.maxQuestions} per request and NeuroLink asks ${ownCount}`,
             );
           }
           questions = combined;
@@ -19017,8 +19104,12 @@ Current user's request: ${currentInput}`;
    * It also takes more questions than a provider's per-request cap: the map is
    * split at the cap, the batches run a few at a time, and the answers come
    * back joined. A batch that fails costs only its own answers, which every
-   * consumer already reads as "no decision"; null comes back only when every
-   * batch failed. `decide()` itself stays strict and refuses an over-cap request.
+   * consumer already reads as "no decision". A split request returns null
+   * when no batch answered — every batch failed, or the signal aborted before
+   * any answered, since no new group starts once it has — and any request
+   * returns null when no decision provider is configured or the call fails
+   * before it is split. `decide()` itself stays strict and refuses an over-cap
+   * request.
    *
    * A request stamped with a `site` — every built-in consumer stamps its own,
    * so a `RAGPipeline` or `ClassifierRouter` a host wired to this method gets
@@ -19316,39 +19407,51 @@ Current user's request: ${currentInput}`;
       return this.decide(options);
     }
 
-    const answered: DecisionResult[] = [];
+    const startedAt = Date.now();
+    const answeredGroups: DecisionResult[][] = [];
+    let answeredCount = 0;
     let firstFailure: unknown;
     for (
       let from = 0;
       from < batches.length;
       from += MAX_PARALLEL_DECISION_BATCHES
     ) {
+      // Groups run one after another, so a cancelled turn must stop here
+      // rather than start another group of billable requests whose answers
+      // nobody will read. The batches never started count as failed.
+      if (options.signal?.aborted) {
+        firstFailure ??= options.signal.reason;
+        break;
+      }
       const settled = await Promise.allSettled(
         batches
           .slice(from, from + MAX_PARALLEL_DECISION_BATCHES)
           .map((batch) => this.decide(batch)),
       );
+      const group: DecisionResult[] = [];
       for (const outcome of settled) {
         if (outcome.status === "fulfilled") {
-          answered.push(outcome.value);
+          group.push(outcome.value);
         } else {
           firstFailure ??= outcome.reason;
         }
       }
+      answeredGroups.push(group);
+      answeredCount += group.length;
     }
 
-    const [first, ...rest] = answered;
-    if (first === undefined) {
+    const merged = mergeDecisionResults(answeredGroups, Date.now() - startedAt);
+    if (merged === undefined) {
       throw firstFailure instanceof Error
         ? firstFailure
-        : new Error(String(firstFailure));
+        : new Error(String(firstFailure ?? "every decision batch failed"));
     }
-    if (rest.length + 1 < batches.length) {
+    if (answeredCount < batches.length) {
       logger.debug(
-        `decide: ${batches.length - answered.length} of ${batches.length} batches failed; using the answers of the rest`,
+        `decide: ${batches.length - answeredCount} of ${batches.length} batches failed or were not started; using the answers of the rest`,
       );
     }
-    return mergeDecisionResults([first, ...rest]);
+    return merged;
   }
 
   /**

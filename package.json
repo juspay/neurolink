@@ -185,6 +185,7 @@
     "test:proxy-restart": "pnpm exec tsx test/continuous-test-suite-proxy-restart.ts",
     "test:codex": "pnpm exec tsx test/continuous-test-suite-codex.ts",
     "test:bugfixes": "pnpm exec tsx test/continuous-test-suite-bugfixes.ts",
+    "test:sdk-core": "pnpm exec tsx test/continuous-test-suite-sdk-core.ts",
     "test:json-e2e": "pnpm exec tsx test/continuous-test-suite-json-e2e.ts",
     "test:workflow": "pnpm exec tsx test/continuous-test-suite-workflow.ts",
     "test:hitl": "pnpm exec tsx test/continuous-test-suite-hitl.ts",

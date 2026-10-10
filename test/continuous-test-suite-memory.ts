@@ -31,6 +31,11 @@ import { NeuroLink } from "../dist/index.js";
 import type { ChatMessage } from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  mockOpenAICredentials,
+  startMockChatServer,
+} from "./helpers/mockChatServer.js";
+import { createServer } from "node:http";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -3873,6 +3878,134 @@ async function testFilterPreservesToolBearingTurns(): Promise<boolean | null> {
   }
 }
 
+// ============================================================
+// TEST #30: Redis-init fallback keeps the memory config (offline)
+// ============================================================
+
+/** A loopback port nothing listens on: bound, read, released. */
+async function closedLoopbackPort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const address = probe.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  return port;
+}
+
+/**
+ * When Redis cannot be reached, the instance falls back to in-memory storage.
+ * That fallback used to be rebuilt from `enabled` / `maxSessions` /
+ * `maxTurnsPerSession` alone, so every other setting — `replayToolSteps`
+ * among them — silently reverted to its default for as long as Redis stayed
+ * down. Observed on the wire: with `replayToolSteps: "off"`, a stored tool
+ * step must not be replayed into the next prompt. Offline: the Redis port is
+ * closed and the model is a loopback OpenAI stand-in.
+ */
+async function testRedisFallbackKeepsMemoryConfig(): Promise<boolean | null> {
+  const name = "30. Redis-init fallback keeps replayToolSteps and the rest";
+  logTest(name, "TESTING");
+  const server = await startMockChatServer();
+  const marker = "[called lookup_order";
+  const storedTurn = (): ChatMessage[] => [
+    makeMessage("user", "Where is order ord_7?"),
+    {
+      ...makeMessage("tool_call", ""),
+      tool: "lookup_order",
+      toolCallId: "call_ord_7",
+      args: { orderId: "ord_7" },
+    },
+    {
+      ...makeMessage("tool_result", '{"status":"shipped"}'),
+      tool: "lookup_order",
+      toolCallId: "call_ord_7",
+      result: { success: true },
+    },
+    makeMessage("assistant", "It has shipped."),
+  ];
+  const promptAfterStoredTurn = async (
+    sdk: InstanceType<typeof NeuroLink>,
+  ): Promise<string> => {
+    const sessionId = generateTestSessionId("redis-fallback");
+    const userId = "user-redis-fallback";
+    await sdk.setSessionMessages(sessionId, storedTurn(), userId);
+    const before = server.getAllRequestBodies().length;
+    await sdk.generate({
+      input: { text: "And when will it arrive?" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      credentials: mockOpenAICredentials(server),
+      context: { sessionId, userId },
+      disableTools: true,
+      disableInternalFallback: true,
+    });
+    return server.getAllRequestBodies().slice(before).join("\n");
+  };
+
+  // Control: the default replay mode puts the stored step in the prompt, so
+  // its absence below is the config at work, not a step that never loaded.
+  const control = new NeuroLink({
+    conversationMemory: { enabled: true, enableSummarization: false },
+  });
+  const fellBack = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      enableSummarization: false,
+      replayToolSteps: "off",
+      redisConfig: {
+        host: "127.0.0.1",
+        port: await closedLoopbackPort(),
+        connectionOptions: { maxRetriesPerRequest: 0, connectTimeout: 1000 },
+      },
+    },
+  });
+  try {
+    const controlPrompt = await promptAfterStoredTurn(control);
+    if (!controlPrompt.includes(marker)) {
+      logTest(
+        name,
+        "FAIL",
+        "precondition: the default replay mode did not replay the stored tool step",
+      );
+      return false;
+    }
+    const fallbackPrompt = await promptAfterStoredTurn(fellBack);
+    if (
+      fellBack.conversationMemory?.constructor?.name !==
+      "ConversationMemoryManager"
+    ) {
+      logTest(
+        name,
+        "FAIL",
+        "precondition: the unreachable Redis did not fall back to in-memory storage",
+      );
+      return false;
+    }
+    if (fallbackPrompt.includes(marker)) {
+      logTest(
+        name,
+        "FAIL",
+        'the in-memory fallback replayed a tool step although replayToolSteps is "off"',
+      );
+      return false;
+    }
+    logTest(name, "PASS", "the fallback kept the configured replay mode");
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest(name, "FAIL", msg);
+    return false;
+  } finally {
+    for (const sdk of [control, fellBack]) {
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
+    }
+    await server.close();
+  }
+}
+
 async function runAllTests(): Promise<void> {
   const startTime = Date.now();
   log("\n\uD83D\uDE80 NeuroLink Continuous Test Suite: Memory", "bright");
@@ -4147,6 +4280,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "29. CLI Memory Commands - clearAllConversations",
       fn: testCLIMemoryClearAll,
+    },
+    {
+      name: "30. Redis-init fallback keeps replayToolSteps and the rest",
+      fn: testRedisFallbackKeepsMemoryConfig,
     },
   ];
 
