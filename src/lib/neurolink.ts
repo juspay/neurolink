@@ -194,6 +194,7 @@ import {
 import { AIProviderFactory } from "./core/factory.js";
 import {
   describeDecisionProviderKeys,
+  describeDecisionProviderOverride,
   PROVIDER_ALIAS_INDEX,
   PROVIDER_DESCRIPTORS_BY_NAME,
   resolveDefaultDecisionProvider,
@@ -18825,7 +18826,7 @@ Current user's request: ${currentInput}`;
     );
     if (!providerName) {
       throw new Error(
-        `No decision provider is configured. Set ${describeDecisionProviderKeys()} (in the environment or in \`credentials\`), or pass \`provider\` explicitly.`,
+        `No decision provider is configured. Set ${describeDecisionProviderKeys()} (in the environment or in \`credentials\`), or pass \`provider\` explicitly.${describeDecisionProviderOverride()}`,
       );
     }
 

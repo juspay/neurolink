@@ -20,9 +20,12 @@ import type {
   StreamResult,
   ValidationSchema,
 } from "../types/index.js";
-import { prepareDecisionMedia } from "../utils/decisionMedia.js";
+import {
+  describeRequestBytesRefusal,
+  prepareDecisionMedia,
+} from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
-import { redactUrlsInText } from "../utils/logSanitize.js";
+import { redactUrlForError, redactUrlsInText } from "../utils/logSanitize.js";
 import {
   estimateDecisionStateTokens,
   resolveDecisionLimitsReading,
@@ -184,6 +187,73 @@ export function redactCredentials(message: string, apiKey: string): string {
     .replace(/\b[0-9a-f]{32,}\b/gi, "[redacted]")
     .replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, "[media]")
     .trim();
+}
+
+/**
+ * The hosts a plain `http:` base URL may name — the same list as SixtyDBTTS's
+ * and proxyReplay.ts's HTTPS-except-loopback checks. Every decision request
+ * carries the API key as a bearer token, so anything else must be HTTPS.
+ */
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+  "localhost",
+]);
+
+/**
+ * Why a decision provider's base URL cannot be used, or undefined when it can.
+ * The text of the URL is never repeated: `fetch` rejects a URL with userinfo
+ * and echoes it in the error, the route is appended after a query string or
+ * fragment, and any of them can hold a credential. `fix` says which variable
+ * or credential field to change.
+ */
+export function decisionBaseURLProblem(
+  baseURL: string,
+  vendor: string,
+  fix: string,
+): string | undefined {
+  try {
+    const url = new URL(baseURL);
+    // `new URL()` accepts any scheme, so a host:port with no scheme parses as
+    // one (`xor.internal:8080` has the scheme `xor.internal:`) and would reach
+    // `fetch` as a network error instead of this message.
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return `The ${vendor} base URL must start with https:// (or http:// for a loopback host). ${fix}`;
+    }
+    if (url.protocol === "http:" && !LOOPBACK_HOSTS.has(url.hostname)) {
+      return `The ${vendor} base URL must use https:// unless it names a loopback host (localhost, 127.0.0.1 or [::1]): every request carries the API key, which plain http:// would send in cleartext. ${fix}`;
+    }
+    // `url.search` and `url.hash` are empty for a bare trailing `?` or `#`,
+    // which would still put the route into the query or the fragment, so the
+    // text is checked as well.
+    return url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      /[?#]/.test(baseURL)
+      ? `The ${vendor} base URL must not carry credentials, a query string or a fragment. ${fix}`
+      : undefined;
+  } catch {
+    return `The ${vendor} base URL is not a valid absolute URL. ${fix}`;
+  }
+}
+
+/**
+ * How a decision provider's base URL appears in its construction log: unset as
+ * "(not set)", a refused one as "(invalid)" — never redacted, because a value
+ * that is not a usable URL can hold a secret anywhere and no redactor can be
+ * trusted to find it — and a usable one with its host and path, for
+ * diagnostics.
+ */
+export function describeDecisionBaseURLForLog(
+  baseURL: string,
+  problem: string | undefined,
+): string {
+  if (!baseURL) {
+    return "(not set)";
+  }
+  return problem ? "(invalid)" : redactUrlForError(baseURL);
 }
 
 /**
@@ -618,6 +688,9 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   /**
    * Turn the request's images and video into data URLs, or refuse it. Refused
    * as a non-retryable `invalid_request`: resending the same media cannot help.
+   * Reading files honours the request's signal, and an abort during it fails
+   * the call the way an abort during the request does: a non-retryable
+   * `network` error.
    */
   private async prepareMedia(
     request: DecisionRequest,
@@ -625,12 +698,27 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     const limits = PROVIDER_DESCRIPTORS_BY_NAME.get(
       this.providerName,
     )?.decisionLimits;
-    const prepared = await prepareDecisionMedia(
-      request,
-      limits?.media,
-      this.vendorLabel(),
-      listMediaDecisionProviders({ video: request.video !== undefined }),
-    );
+    let prepared: Awaited<ReturnType<typeof prepareDecisionMedia>>;
+    try {
+      prepared = await prepareDecisionMedia(
+        request,
+        limits?.media,
+        this.vendorLabel(),
+        listMediaDecisionProviders({ video: request.video !== undefined }),
+        request.signal,
+      );
+    } catch (error) {
+      if (request.signal?.aborted) {
+        throw this.decisionError({
+          kind: "network",
+          message: redactUrlsInText(
+            error instanceof Error ? error.message : String(error),
+          ),
+          retryable: false,
+        });
+      }
+      throw error;
+    }
     if (prepared.status === "refused") {
       throw this.decisionError({
         kind: "invalid_request",
@@ -643,7 +731,10 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
   /**
    * The encoded body, not just the media, is what the server's size limit
-   * applies to.
+   * applies to. Media that is over the limit on its own was already refused
+   * while it was prepared, before the rest of it was read or any of it was
+   * copied into a body; this catches a body that the state and questions push
+   * over the limit.
    */
   private assertWithinRequestBytes(body: string): void {
     const media = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)
@@ -656,7 +747,12 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     if (bytes > limit) {
       throw this.decisionError({
         kind: "invalid_request",
-        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images${media?.video ? ", or a shorter video" : ""}.`,
+        message: describeRequestBytesRefusal(
+          `${bytes} bytes`,
+          limit,
+          this.vendorLabel(),
+          media?.video === true,
+        ),
         retryable: false,
       });
     }

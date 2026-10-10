@@ -35,7 +35,11 @@ import {
  * limits declare a rate for that class — a tokenizer that reads each digit,
  * and most punctuation, on its own makes a number-heavy or JSON-heavy state
  * several times longer than the ~4-characters-per-token estimate suggests. A
- * non-string state is serialized first, as it is on the wire.
+ * non-string state is serialized first, as it is on the wire. When the limits
+ * declare a `structuredNonAsciiTokensPerChar` rate, a non-string state's
+ * non-ASCII characters are charged at it instead, once per `\uXXXX` escape (two
+ * for an astral character), because that server reads such a state as
+ * ASCII-escaped JSON.
  *
  * This is the estimator the pre-flight refusal uses: a state this reports at
  * or under `maxStateTokens` is sent, one over it is refused before any
@@ -49,6 +53,7 @@ export function estimateDecisionStateTokens(
     | "digitTokensPerChar"
     | "symbolTokensPerChar"
     | "astralTokensPerChar"
+    | "structuredNonAsciiTokensPerChar"
   >,
 ): number {
   const text = serializeForEstimate(state);
@@ -56,11 +61,18 @@ export function estimateDecisionStateTokens(
   const digit = limits?.digitTokensPerChar;
   const symbol = limits?.symbolTokensPerChar;
   const astral = limits?.astralTokensPerChar;
+  // Only a non-string state is escaped on the way to the model; a string
+  // state reaches it as written.
+  const escaped =
+    typeof state === "string"
+      ? undefined
+      : limits?.structuredNonAsciiTokensPerChar;
   if (
     nonAsciiTokensPerChar === undefined &&
     digit === undefined &&
     symbol === undefined &&
-    astral === undefined
+    astral === undefined &&
+    escaped === undefined
   ) {
     return estimateTokens(text);
   }
@@ -74,10 +86,15 @@ export function estimateDecisionStateTokens(
   let symbols = 0;
   let astrals = 0;
   let nonAscii = 0;
+  let escapes = 0;
   const rest: string[] = [];
   for (const c of text) {
     const code = c.codePointAt(0) ?? 0;
-    if (code > 0xffff && astral !== undefined) {
+    if (code > 0x7f && escaped !== undefined) {
+      // One `\uXXXX` per UTF-16 code unit: an astral character is a
+      // surrogate pair, so it is escaped twice.
+      escapes += code > 0xffff ? 2 : 1;
+    } else if (code > 0xffff && astral !== undefined) {
       astrals += 1;
     } else if (code > 0x7f) {
       nonAscii += 1;
@@ -94,7 +111,8 @@ export function estimateDecisionStateTokens(
     Math.ceil(digits * (digit ?? 0)) +
     Math.ceil(symbols * (symbol ?? 0)) +
     Math.ceil(astrals * (astral ?? 0)) +
-    Math.ceil(nonAscii * (nonAsciiTokensPerChar ?? 1 / CHARS_PER_TOKEN))
+    Math.ceil(nonAscii * (nonAsciiTokensPerChar ?? 1 / CHARS_PER_TOKEN)) +
+    Math.ceil(escapes * (escaped ?? 0))
   );
 }
 
@@ -126,7 +144,7 @@ export function resolveDecisionLimitsReading(
       : {}),
     ...(nonAsciiTokensPerChar !== undefined ? { nonAsciiTokensPerChar } : {}),
     // Not model-overridable — `models` only carries `maxStateTokens` and
-    // `nonAsciiTokensPerChar` — so these three come from the base limits only.
+    // `nonAsciiTokensPerChar` — so these four come from the base limits only.
     ...(limits.digitTokensPerChar !== undefined
       ? { digitTokensPerChar: limits.digitTokensPerChar }
       : {}),
@@ -135,6 +153,12 @@ export function resolveDecisionLimitsReading(
       : {}),
     ...(limits.astralTokensPerChar !== undefined
       ? { astralTokensPerChar: limits.astralTokensPerChar }
+      : {}),
+    ...(limits.structuredNonAsciiTokensPerChar !== undefined
+      ? {
+          structuredNonAsciiTokensPerChar:
+            limits.structuredNonAsciiTokensPerChar,
+        }
       : {}),
     ...(limits.media !== undefined ? { media: limits.media } : {}),
     enforcedLocally: limits.advisory !== true,

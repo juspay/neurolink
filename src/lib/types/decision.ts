@@ -202,6 +202,17 @@ export type DecisionLimits = {
    * `nonAsciiTokensPerChar`.
    */
   astralTokensPerChar?: number;
+  /**
+   * Tokens charged per non-ASCII character of a NON-string state (an object or
+   * an array), for a server that serializes such a state as JSON with ASCII
+   * escapes before the model reads it: every such character then arrives as a
+   * `\uXXXX` escape, and one outside the Basic Multilingual Plane as two, so it
+   * costs several times what the same character costs in a string state. When
+   * set, it replaces `nonAsciiTokensPerChar` and `astralTokensPerChar` for a
+   * non-string state, charged once per escape. A string state is unaffected.
+   * Absent = a non-string state is charged like a string one.
+   */
+  structuredNonAsciiTokensPerChar?: number;
   /** Per-model limits, keyed by model id; each field overrides the one above. */
   models?: Readonly<
     Record<string, { maxStateTokens: number; nonAsciiTokensPerChar?: number }>
@@ -244,6 +255,8 @@ export type DecisionLimitsReading = {
   symbolTokensPerChar?: number;
   /** Tokens charged per astral character; see {@link DecisionLimits.astralTokensPerChar}. */
   astralTokensPerChar?: number;
+  /** Tokens charged per escaped non-ASCII character of a non-string state; see {@link DecisionLimits.structuredNonAsciiTokensPerChar}. */
+  structuredNonAsciiTokensPerChar?: number;
   /** What the provider accepts besides text; absent means text only. */
   media?: DecisionMediaLimits;
   /**

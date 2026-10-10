@@ -8,9 +8,10 @@ import type {
   NeurolinkCredentials,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import {
+  decisionBaseURLProblem,
+  describeDecisionBaseURLForLog,
   isRecord,
   redactCredentials,
   SystemOneDecisionProvider,
@@ -55,31 +56,15 @@ function normalizeBaseURL(raw: string): string {
 }
 
 /**
- * A base URL that cannot work is refused up front, and its text is never
- * repeated: `fetch` rejects a URL with userinfo and echoes it in the error, the
- * route is appended after a query string or fragment, and any of them can hold
- * a credential.
+ * A base URL that cannot work is refused up front; see
+ * {@link decisionBaseURLProblem}.
  */
 function baseURLProblem(baseURL: string): string | undefined {
-  const fix = `Set CLOUDFLARE_CLEF_BASE_URL or pass credentials.cloudflareClef.baseURL to a base URL, or leave both unset to use ${CLOUDFLARE_DEFAULT_BASE_URL}.`;
-  try {
-    const url = new URL(baseURL);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return `The Cloudflare base URL must start with https:// or http://. ${fix}`;
-    }
-    // `url.search` and `url.hash` are empty for a bare trailing `?` or `#`, which
-    // would still put the route into the query or the fragment, so the text is
-    // checked as well.
-    return url.username ||
-      url.password ||
-      url.search ||
-      url.hash ||
-      /[?#]/.test(baseURL)
-      ? `The Cloudflare base URL must not carry credentials, a query string or a fragment. ${fix}`
-      : undefined;
-  } catch {
-    return `The Cloudflare base URL is not a valid absolute URL. ${fix}`;
-  }
+  return decisionBaseURLProblem(
+    baseURL,
+    "Cloudflare",
+    `Set CLOUDFLARE_CLEF_BASE_URL or pass credentials.cloudflareClef.baseURL to a base URL, or leave both unset to use ${CLOUDFLARE_DEFAULT_BASE_URL}.`,
+  );
 }
 
 /**
@@ -256,9 +241,10 @@ export class CloudflareClefProvider extends SystemOneDecisionProvider {
       "Cloudflare Clef decision provider initialized (decide only)",
       {
         modelName: this.modelName,
-        baseURL: baseURLProblem(this.baseURL)
-          ? "(invalid)"
-          : redactUrlForError(this.baseURL),
+        baseURL: describeDecisionBaseURLForLog(
+          this.baseURL,
+          baseURLProblem(this.baseURL),
+        ),
         accountConfigured: this.accountId !== "",
       },
     );

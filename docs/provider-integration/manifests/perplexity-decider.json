@@ -1,7 +1,7 @@
 {
   "provider": "perplexity-decider",
   "tier": 3,
-  "addedInPR": "pending",
+  "addedInPR": "https://github.com/juspay/neurolink/pull/1883",
   "addedDate": "2026-10-02",
   "mockedContractSection": "DECIDE perplexity-decider",
   "manualTestStatus": "verified-live",

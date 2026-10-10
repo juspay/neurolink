@@ -65,11 +65,27 @@ function describePath(path: string): string {
     : `(a ${path.length}-character string)`;
 }
 
+/**
+ * Why a request is over a provider's encoded-body limit, with what to do about
+ * it. `size` is the measured size ("N bytes", or "more than N bytes" when only
+ * part of the body was measured). Shared with the check on the finished body,
+ * so a refusal reads the same wherever it is made.
+ */
+export function describeRequestBytesRefusal(
+  size: string,
+  limit: number,
+  vendor: string,
+  video: boolean,
+): string {
+  return `The request is ${size}; ${vendor} accepts at most ${limit}. Send fewer or smaller images${video ? ", or a shorter video" : ""}.`;
+}
+
 /** A file over the limit is refused from `stat`, before it is read into memory. */
 async function readMediaFile(
   path: string,
   label: string,
   maxBytes: number,
+  signal: AbortSignal | undefined,
 ): Promise<DecisionMediaFileRead> {
   try {
     const stats = await fs.stat(path);
@@ -85,8 +101,12 @@ async function readMediaFile(
         message: `${label} ${describePath(path)} is ${stats.size} bytes; a request may carry at most ${maxBytes}.`,
       };
     }
-    return { status: "ok", buffer: await fs.readFile(path) };
+    return { status: "ok", buffer: await fs.readFile(path, { signal }) };
   } catch (error) {
+    // An abort is the caller tearing the request down, not an unreadable file.
+    if (signal?.aborted) {
+      throw error;
+    }
     const reason =
       error instanceof Error && "code" in error
         ? String(error.code)
@@ -107,6 +127,7 @@ async function toDataUrl(
   kind: DecisionMediaKind,
   label: string,
   maxBytes: number,
+  signal: AbortSignal | undefined,
 ): Promise<DecisionMediaConversion> {
   if (typeof source !== "string") {
     return source.length === 0
@@ -137,13 +158,18 @@ async function toDataUrl(
       message: `${label} uses an unsupported URL scheme. Pass a Buffer, a file path or a data: URL.`,
     };
   }
-  const file = await readMediaFile(value, label, maxBytes);
+  const file = await readMediaFile(value, label, maxBytes, signal);
   return file.status === "ok" ? encode(file.buffer, kind, label) : file;
 }
 
 /**
  * Turn the caller's images and video into `data:` URLs, or say why not.
  * Runs before any request, so every refusal costs nothing and none is retried.
+ *
+ * Media whose encoded size alone is over the provider's body limit is refused
+ * as soon as the running total crosses it, so the remaining files are never
+ * read and no body is built just to be measured. `signal` is honoured between
+ * items and while a file is read: an abort rejects with the signal's reason.
  */
 export async function prepareDecisionMedia(
   request: {
@@ -153,6 +179,7 @@ export async function prepareDecisionMedia(
   limits: DecisionMediaLimits | undefined,
   vendor: string,
   alternatives: readonly string[],
+  signal?: AbortSignal,
 ): Promise<DecisionMediaResult> {
   const images = request.images ?? [];
   if (images.length === 0 && request.video === undefined) {
@@ -178,36 +205,55 @@ export async function prepareDecisionMedia(
     return { status: "refused", message: `${vendor} does not accept video.` };
   }
 
+  // A data URL is ASCII, so its length is its encoded size in bytes.
+  let bytes = 0;
+  const overLimit = (): DecisionMediaResult => ({
+    status: "refused",
+    message: describeRequestBytesRefusal(
+      `more than ${bytes} bytes`,
+      limits.maxRequestBytes,
+      vendor,
+      limits.video,
+    ),
+  });
   const prepared: string[] = [];
   for (const [index, image] of images.entries()) {
+    signal?.throwIfAborted();
     const converted = await toDataUrl(
       image,
       "image",
       `Image ${index + 1}`,
       limits.maxRequestBytes,
+      signal,
     );
     if (converted.status === "error") {
       return { status: "refused", message: converted.message };
     }
     prepared.push(converted.dataUrl);
+    bytes += converted.dataUrl.length;
+    if (bytes > limits.maxRequestBytes) {
+      return overLimit();
+    }
   }
   let video: string | undefined;
   if (request.video !== undefined) {
+    signal?.throwIfAborted();
     const converted = await toDataUrl(
       request.video,
       "video",
       "The video",
       limits.maxRequestBytes,
+      signal,
     );
     if (converted.status === "error") {
       return { status: "refused", message: converted.message };
     }
     video = converted.dataUrl;
+    bytes += video.length;
+    if (bytes > limits.maxRequestBytes) {
+      return overLimit();
+    }
   }
-  const bytes = prepared.reduce(
-    (sum, url) => sum + url.length,
-    video?.length ?? 0,
-  );
   return {
     status: "prepared",
     media: { images: prepared, ...(video ? { video } : {}), bytes },

@@ -1,7 +1,7 @@
 {
   "provider": "typesafe",
   "tier": 3,
-  "addedInPR": "pending",
+  "addedInPR": "https://github.com/juspay/neurolink/pull/1761",
   "addedDate": "2026-09-20",
   "mockedContractSection": "DECIDE typesafe",
   "manualTestStatus": "verified-live",

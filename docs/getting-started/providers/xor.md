@@ -222,6 +222,11 @@ Workers AI text provider reads. A caller can always name XOR with
 - **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef:** everything
   behaves exactly as it did without a decision model.
 
+`NEUROLINK_DECISION_PROVIDER` overrides that order: `xor` makes XOR the default
+while it is configured and never falls back to another provider, and `none`
+turns the default off. A caller that names a provider is not affected. See
+[Turning the default off, or pinning it](../../features/decide-inference-type.md#turning-the-default-off-or-pinning-it).
+
 ---
 
 ## Limits
@@ -229,10 +234,22 @@ Workers AI text provider reads. A caller can always name XOR with
 **The window is large, but shared.** NeuroLink allows about 200,000 estimated
 tokens of state, and refuses more before any network call, with
 `max_tokens_exceeded`. The size is an estimate, not XOR's tokenizer: about four
-characters per token for ASCII text, and one token per character for other
-scripts, which errs toward refusing. The 200,000 figure is a conservative
-default under the deployment's 250,000-token prefill, and that prefill is shared
-by the state, the questions and any media.
+characters per token for ASCII text, one token per character for other scripts
+in a string state, and five tokens per character for other scripts in an object
+or array state. The 200,000 figure is a conservative default under the
+deployment's 250,000-token prefill, and that prefill is shared by the state, the
+questions and any media.
+
+**None of XOR's limits has been measured against an XOR deployment.** The
+200,000-token window and the one-token rate for a string state are placeholders,
+and the provider's manual test status is still CI-mocked only. The five-token
+rate for an object or array state is the one figure taken from a measurement:
+the structured state of 100,000 Chinese characters described below, which the
+server counted as 485,774 tokens, about 4.86 per character. That fits a server
+that serializes a non-string state as JSON with ASCII escapes, so that each such
+character arrives as a `\uXXXX` escape (two for an emoji), and NeuroLink charges
+one rate per escape. The escaping is inferred from that figure, not read from the
+server's code.
 
 The figures in this paragraph are measurements of one live LiteLLM route, not
 limits of XOR: the model behind the route's name has not been confirmed as XOR,
@@ -247,13 +264,14 @@ averaged about 5.6 characters per token on the route, so the estimate
 over-counts it. Dense JSON averaged about 1.8, so the estimate under-counts it
 by more than half, and a dense state estimated under the limit can still be
 longer than the server's context. A structured (non-string) state of 100,000
-Chinese characters passed NeuroLink's local check and was refused by the
-server, which counted it as 485,774 tokens.
+Chinese characters passed NeuroLink's local check at the time and was refused by
+the server, which counted it as 485,774 tokens; NeuroLink now estimates such a
+state at 500,000 tokens and refuses it locally.
 
 A state near the limit, or a lot of media, can therefore still be refused by the
-server as too long. A 413, or a 5xx other than 503 whose message says the
-context was too long, arrives as `max_tokens_exceeded` and is not retried; every
-other reply is classified as in the Errors table below. Built-in consumers treat
+server as too long. A 413, or a 400, 422 or 5xx other than 503 whose message
+says the context was too long, arrives as `max_tokens_exceeded` and is not
+retried; every other reply is classified as in the Errors table below. Built-in consumers treat
 a refusal as "carry on as before".
 
 **A proxy may cap parallel requests.** On that route the key allowed 5 at a
@@ -271,18 +289,18 @@ with `--timeout` on the CLI.
 
 ## Errors
 
-| Reply                                                        | Kind                                                      | Retried   |
-| ------------------------------------------------------------ | --------------------------------------------------------- | --------- |
-| 401                                                          | `authentication` — the provider instance stops retrying   | no        |
-| 403 / 402                                                    | `invalid_request` — fixable; the instance is not disabled | no        |
-| 413, or a 5xx other than 503 saying the context was exceeded | `max_tokens_exceeded`                                     | no        |
-| any other 4xx (for example 422, 404)                         | `invalid_request`                                         | no        |
-| 429                                                          | `rate_limit`                                              | yes, once |
-| 503                                                          | `overloaded`                                              | yes, once |
-| other 5xx                                                    | `server`                                                  | yes, once |
-| state over the window (local)                                | `max_tokens_exceeded`, with no network call               | no        |
-| unusable media (local)                                       | `invalid_request`, with no network call                   | no        |
-| no base URL configured (local)                               | `invalid_request`, with no network call                   | no        |
+| Reply                                                                    | Kind                                                      | Retried   |
+| ------------------------------------------------------------------------ | --------------------------------------------------------- | --------- |
+| 401                                                                      | `authentication` — the provider instance stops retrying   | no        |
+| 403 / 402                                                                | `invalid_request` — fixable; the instance is not disabled | no        |
+| 413, or a 400, 422 or 5xx other than 503 saying the context was exceeded | `max_tokens_exceeded`                                     | no        |
+| any other 4xx (for example 422, 404)                                     | `invalid_request`                                         | no        |
+| 429                                                                      | `rate_limit`                                              | yes, once |
+| 503                                                                      | `overloaded`                                              | yes, once |
+| other 5xx                                                                | `server`                                                  | yes, once |
+| state over the window (local)                                            | `max_tokens_exceeded`, with no network call               | no        |
+| unusable media (local)                                                   | `invalid_request`, with no network call                   | no        |
+| no base URL, or an unusable one, configured (local)                      | `invalid_request`, with no network call                   | no        |
 
 A 403 or 402 is deliberately not `authentication`. On a LiteLLM proxy a 403
 means the key's team does not allow the model you asked for
@@ -294,7 +312,14 @@ key does not fix itself.
 
 "Unusable media" covers a missing file, a directory, an empty Buffer or file,
 something that is not an image or a video, a remote URL, more than 8 images and
-a request body over 8 MB.
+a request body over 8 MB. Media whose encoded size alone is over 8 MB is refused
+as soon as the running total passes it, before the remaining files are read.
+
+"Context exceeded" is read from the reply's text: it says the input is longer
+than the model's context length, as the live route's 500 did, or names the
+context, the prefill or the prompt as too long. A server that cannot decode an
+image answers in words that have not been recorded, so that refusal is still a
+`server` error, retried once.
 
 A proxy's error text can echo the key. Before a message reaches a log or an
 error, the provider removes the configured key, anything shaped like a LiteLLM
@@ -307,12 +332,15 @@ key, long hex runs and embedded `data:` URLs.
 - **`XOR requires a base URL`** — set `XOR_BASE_URL`, or pass
   `credentials.xor.baseURL`. There is no default endpoint.
 - **`The XOR base URL must not carry credentials…`** — the base URL has a user
-  name, a password, a query string or a fragment. Set it to the origin only, for
-  example `https://your-proxy.example.com`, and give the key through
-  `XOR_API_KEY` or `credentials.xor.apiKey`.
-- **`The XOR base URL must start with https:// or http://`** — the value has no
-  scheme (for example `xor.internal:8080`) or uses another scheme. Add
-  `https://` or `http://`.
+  name, a password, a query string or a fragment (a trailing `?` or `#` counts).
+  Set it to the origin only, for example `https://your-proxy.example.com`, and
+  give the key through `XOR_API_KEY` or `credentials.xor.apiKey`.
+- **`The XOR base URL must use https:// unless it names a loopback host`** —
+  every request carries the key as a bearer token, so plain `http://` is
+  accepted only for `localhost`, `127.0.0.1` and `[::1]`. Use `https://`, or
+  reach a deployment on another host through a TLS-terminating proxy.
+- **`The XOR base URL must start with https://`** — the value has no scheme (for
+  example `xor.internal:8080`) or uses another scheme. Add `https://`.
 - **`The XOR base URL is not a valid absolute URL`** — the value cannot be
   parsed as a URL. Set it to an absolute origin.
 - **`XOR requires an API key`** — set `XOR_API_KEY`, or pass
@@ -332,7 +360,8 @@ key, long hex runs and embedded `data:` URLs.
   cannot detect that. Send a red image and a blue image and check that the two
   answers differ. Video is not affected.
 - **Built-in routing never uses XOR** — a TypeSafe key, or Laya's key and base
-  URL, is also set and takes precedence, or XOR has no base URL.
+  URL, is also set and takes precedence, XOR has no base URL, or
+  `NEUROLINK_DECISION_PROVIDER` is set to `none` or to another provider.
 
 ---
 

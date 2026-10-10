@@ -17,7 +17,10 @@ import chalk from "chalk";
 import ora from "ora";
 import fs from "node:fs";
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
-import { describeDecisionProviderKeys } from "../../lib/factories/providerDescriptors.js";
+import {
+  describeDecisionProviderKeys,
+  describeDecisionProviderOverride,
+} from "../../lib/factories/providerDescriptors.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import { readDecisionChoice } from "../../lib/utils/decisionAnswers.js";
 import { calculateCost, hasPricing } from "../../lib/utils/pricing.js";
@@ -119,7 +122,7 @@ function describeDecideError(error: unknown): string {
   }
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("No decision provider is configured")) {
-    return `No decision provider is configured. Set ${describeDecisionProviderKeys()}.`;
+    return `No decision provider is configured. Set ${describeDecisionProviderKeys()}.${describeDecisionProviderOverride()}`;
   }
   return message;
 }

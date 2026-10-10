@@ -182,6 +182,12 @@ with none of the first four, but with `CLOUDFLARE_API_KEY` and
 as its default decision provider. Naming `provider: "cloudflare-clef"` reaches it
 whatever else is configured.
 
+`NEUROLINK_DECISION_PROVIDER` overrides that choice: `none` turns the default
+off while the two variables stay set for the text provider, and a provider's
+name (`cloudflare-clef`, or another one) makes that provider the default while it
+is configured, never falling back to another. See
+[Turning the default off, or pinning it](../../features/decide-inference-type.md#turning-the-default-off-or-pinning-it).
+
 Because of the state window below, a built-in feature whose state is longer than
 about 1,500 estimated tokens gets a refusal from Clef, which each of them treats
 as "carry on as before". Clef suits short decisions: routing a request, a
@@ -240,10 +246,15 @@ own credentials slice, so the two cannot be mixed up:
 
 `credentials.cloudflare` does **not** configure `decide`. Setting the two
 variables for the text provider also lets `decide()` use Clef when no other
-decision provider is configured, and no switch turns that off while the two
-variables are set in the environment. A host that wants the Workers AI text
-provider without Clef can give the text provider its token and account id only
-through `credentials.cloudflare`, and leave the environment variables unset.
+decision provider is configured. A host that wants the Workers AI text provider
+without Clef sets `NEUROLINK_DECISION_PROVIDER=none` (or names the decision
+provider it does want), or gives the text provider its token and account id only
+through `credentials.cloudflare` and leaves the environment variables unset.
+
+A `credentials.cloudflareClef` that names its own `baseURL` must bring its own
+`apiKey`: the shared `CLOUDFLARE_API_KEY` is never sent to an endpoint a caller
+chose, so such a slice without a key does not count as configured either, and
+built-in features do not pick Clef for it.
 
 ## Limits
 
@@ -440,14 +451,22 @@ means one retry, after about 250 to 500 ms; the base class retries once.
   served as `clef` and `clef-flash`, and the base URL must end in `/client/v4`.
 - **A 429 "Capacity temporarily exceeded"** — retried for you; if it keeps
   happening, send fewer requests at once.
-- **An image is refused as "The request is N bytes; Cloudflare accepts at most
-  256000"** — Cloudflare counts the base64 text of the image, so NeuroLink
+- **An image is refused as "The request is (more than) N bytes; Cloudflare
+  accepts at most 256000"** — Cloudflare counts the base64 text of the image, so NeuroLink
   refuses it locally under the retained conservative cap. Resize or compress it
   to well under 190 KB; a 195 KB PNG, which Cloudflare accepted, is about 260,000
   characters in base64 and is refused here.
 - **`decide()` uses Clef although you never chose it** — you have the Workers AI
   token and account id set and no other decision provider; see
-  [When NeuroLink uses it](#when-neurolink-uses-it).
+  [When NeuroLink uses it](#when-neurolink-uses-it). Set
+  `NEUROLINK_DECISION_PROVIDER=none` to stop it.
+- **"The Cloudflare base URL must use https:// unless it names a loopback
+  host"** — every request carries the token as a bearer token, so plain
+  `http://` is accepted only for `localhost`, `127.0.0.1` and `[::1]`.
+- **"The Cloudflare base URL must not carry credentials, a query string or a
+  fragment"** — remove the user name, password, `?…` or `#…` (a trailing `?` or
+  `#` counts); give the token through `CLOUDFLARE_API_KEY` or
+  `credentials.cloudflareClef.apiKey`.
 
 ## See also
 

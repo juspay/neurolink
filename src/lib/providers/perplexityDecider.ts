@@ -10,9 +10,10 @@ import type {
 } from "../types/index.js";
 import { sniffImageMimeType } from "../utils/imageDetection.js";
 import { logger } from "../utils/logger.js";
-import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import {
+  decisionBaseURLProblem,
+  describeDecisionBaseURLForLog,
   isRecord,
   redactCredentials,
   SystemOneDecisionProvider,
@@ -54,26 +55,15 @@ function normalizeBaseURL(raw: string): string {
 }
 
 /**
- * A base URL that cannot work is refused up front, and its text is never
- * repeated: `fetch` rejects a URL with userinfo and echoes it in the error, the
- * route is appended after a query string or fragment, and any of them can hold a
- * credential.
+ * A base URL that cannot work is refused up front; see
+ * {@link decisionBaseURLProblem}.
  */
 function baseURLProblem(baseURL: string): string | undefined {
-  const fix = `Set PERPLEXITY_DECIDER_BASE_URL or pass credentials.perplexityDecider.baseURL to an origin, or leave both unset to use ${PERPLEXITY_DEFAULT_BASE_URL}.`;
-  try {
-    const url = new URL(baseURL);
-    // `new URL()` accepts any scheme, so a host:port with no scheme parses as
-    // one and would reach `fetch` as a network error instead of this message.
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return `The Perplexity base URL must start with https:// or http://. ${fix}`;
-    }
-    return url.username || url.password || url.search || url.hash
-      ? `The Perplexity base URL must not carry credentials, a query string or a fragment. ${fix}`
-      : undefined;
-  } catch {
-    return `The Perplexity base URL is not a valid absolute URL. ${fix}`;
-  }
+  return decisionBaseURLProblem(
+    baseURL,
+    "Perplexity",
+    `Set PERPLEXITY_DECIDER_BASE_URL or pass credentials.perplexityDecider.baseURL to an origin, or leave both unset to use ${PERPLEXITY_DEFAULT_BASE_URL}.`,
+  );
 }
 
 function isPerplexityApiHost(baseURL: string): boolean {
@@ -295,14 +285,13 @@ export class PerplexityDeciderProvider extends SystemOneDecisionProvider {
     );
 
     // A base URL that `baseURLProblem` refuses is not logged at all: it can
-    // carry `user:pass@` or a `?token=`, and `redactUrlForError` cannot be
-    // trusted with one that has no scheme, because `user:pass@host:80` parses as
-    // the scheme `user:` and is rebuilt with the password intact.
+    // carry `user:pass@` or a `?token=`.
     logger.debug("Perplexity decision provider initialized (decide only)", {
       modelName: this.modelName,
-      baseURL: baseURLProblem(this.baseURL)
-        ? "(invalid)"
-        : redactUrlForError(this.baseURL),
+      baseURL: describeDecisionBaseURLForLog(
+        this.baseURL,
+        baseURLProblem(this.baseURL),
+      ),
     });
   }
 

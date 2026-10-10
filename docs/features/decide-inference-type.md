@@ -144,8 +144,10 @@ Perplexity comes after XOR in descriptor order, so it never displaces one that
 is. Context compaction's relevance stage and summary gate need no opt-in of their
 own, so earlier conversation text starts going to Perplexity the first time a
 conversation outgrows its budget; model routing, tool routing and RAG planning do
-nothing unless enabled. To keep the shared key from activating decisions, pass
-the text provider's key as `credentials.perplexity` instead of through the
+nothing unless enabled. To keep the shared key from activating decisions, set
+`NEUROLINK_DECISION_PROVIDER=none` (or name the decision provider you do want; see
+[Turning the default off, or pinning it](#turning-the-default-off-or-pinning-it)),
+pass the text provider's key as `credentials.perplexity` instead of through the
 environment, and keep it out of `.env` too, because the SDK and the CLI load that
 file into the environment, or configure one of TypeSafe, Laya and XOR, which then
 receives those texts instead. The Perplexity provider guide lists
@@ -188,16 +190,49 @@ decisions.
 provider.** A host that set them only to use Workers AI text has therefore also
 configured `decide`, and built-in features will use Clef whenever none of
 TypeSafe, Laya, XOR or Perplexity is configured. Clef comes last in the order, so
-it never displaces one that is. No switch turns it off while the two variables
-are set. The Clef provider guide explains
+it never displaces one that is. `NEUROLINK_DECISION_PROVIDER=none` turns it off
+while the two variables are set; see
+[Turning the default off, or pinning it](#turning-the-default-off-or-pinning-it).
+The Clef provider guide explains
 [when NeuroLink uses it](../getting-started/providers/cloudflare-clef.md#when-neurolink-uses-it)
 and
 [how the two providers share the token](../getting-started/providers/cloudflare-clef.md#one-token-two-providers).
 It reads images but no video; see [Images and video](#images-and-video).
 
+### Turning the default off, or pinning it
+
+A shared key configures `decide` as a side effect: `PERPLEXITY_API_KEY` set for
+Sonar, or `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` set for Workers AI
+text, make that decision provider the default for every built-in consumer when
+nothing ahead of it is configured. `NEUROLINK_DECISION_PROVIDER` overrides the
+choice of default:
+
+```bash
+export NEUROLINK_DECISION_PROVIDER=none   # no default decision provider, whatever is configured
+export NEUROLINK_DECISION_PROVIDER=xor    # only xor, and only while xor is configured
+```
+
+- **Unset or blank** — the default is the first configured provider in the order
+  above, as before.
+- **`none`** — there is no default. Every built-in consumer behaves as it does
+  with no decision provider configured, and `decide()` without a `provider`
+  fails with "No decision provider is configured", naming the variable.
+- **A decision provider's name or alias** (`typesafe`, `jev`, `laya`, `xor`,
+  `perplexity-decider`, `cloudflare-clef`) — that provider is the default while it
+  is configured, and when it is not there is no default: no other provider is
+  used in its place.
+- **Anything else** — treated like `none`, with a warning naming the accepted
+  values: a value set to narrow where decision text goes must not widen it.
+
+It decides the default only. A call that names a provider
+(`decide({ provider: "perplexity-decider", ... })`, or `--provider` on the CLI)
+still reaches that provider. The variable is read on every call, so a change
+takes effect without constructing a new `NeuroLink`.
+
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider is configured (a key, plus a base URL for
-Laya and XOR, or an account id for Cloudflare Clef), and `tryDecide()` returns
+Laya and XOR, or an account id for Cloudflare Clef) or
+`NEUROLINK_DECISION_PROVIDER` rules every configured one out, and `tryDecide()` returns
 `null` on any failure. There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour — it only ever falls back to what it did
@@ -209,7 +244,9 @@ than paying a round trip on every later call to be told so again. An XOR 403 or
 or the budget, which an admin can fix, so the instance is not disabled. For
 Perplexity only a 401 is that case: a 413 or a 400 over the model's context length
 is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4xx
-is a non-retried `invalid_request`. For Cloudflare Clef only a 401 is that case
+is a non-retried `invalid_request`. For XOR a 413, or a 400, 422 or 5xx (other
+than 503) whose text says the context length was exceeded, is
+`max_tokens_exceeded`. For Cloudflare Clef only a 401 is that case
 (a 403 was never seen, and would be a non-retried `invalid_request`, so a
 permission fixed in the dashboard works at once), a 413 is `max_tokens_exceeded`,
 a 429 is `rate_limit` (retried), and a 400 or 422 is a non-retried
@@ -717,6 +754,7 @@ const limits = neurolink.decisionLimits(); // null with no decision provider
 // typesafe → { maxStateTokens: 33000, enforcedLocally: false }
 //   (no maxQuestions key: TypeSafe caps by tokens, not by count)
 // xor → { maxStateTokens: 200000, nonAsciiTokensPerChar: 1,
+//   structuredNonAsciiTokensPerChar: 5,
 //   media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
 //   enforcedLocally: true }
 //   (no maxQuestions key either; `media` is absent for the text-only providers)
@@ -758,14 +796,19 @@ refusing.
 
 **XOR shares one prefill between the state, the questions and any media.**
 NeuroLink allows about 200,000 estimated tokens of state (about four characters
-per token for ASCII, one token per character for other scripts) and refuses more
-locally with `max_tokens_exceeded`. That figure is a conservative default under
-the deployment's 250,000-token prefill, which the questions and any images or
-video also draw on; it has not been measured against a live deployment. A
-request that passes the local check can therefore still be refused by the
-server as too long. That arrives as `max_tokens_exceeded` (not retried) when
-the status is 413 or the message says the context was too long, and otherwise as
-`server`, retried once. XOR has no question cap in NeuroLink, and its server takes 2 to 255
+per token for ASCII, one token per character for other scripts in a string
+state, and five per character for other scripts in an object or array state)
+and refuses more locally with `max_tokens_exceeded`. **The 200,000 window and the
+one-token rate are unmeasured placeholders**: a conservative default under the
+deployment's 250,000-token prefill, which the questions and any images or video
+also draw on, never checked against an XOR deployment. The five-token rate is
+the one measured figure: an object state of 100,000 Chinese characters was
+counted by a live route as 485,774 tokens, which fits a server that serializes a
+non-string state as ASCII-escaped JSON (`\uXXXX` per character). A request that
+passes the local check can still be refused by the server as too long. That
+arrives as `max_tokens_exceeded` (not retried) when the status is 413, or the
+status is 400, 422 or a 5xx other than 503 and the message says the context was
+too long; any other 5xx is `server`, retried once. XOR has no question cap in NeuroLink, and its server takes 2 to 255
 options on a `choice` or `score`.
 
 **Perplexity's input ceiling covers more than the state.** Measured on a real
