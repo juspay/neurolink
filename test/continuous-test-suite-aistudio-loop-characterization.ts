@@ -35,6 +35,10 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import {
+  createServer as createNetServer,
+  type Server as NetServer,
+} from "node:net";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
 import {
   InMemorySpanExporter,
@@ -270,6 +274,30 @@ async function startDribblingStandIn(): Promise<StandIn> {
   };
 }
 
+/**
+ * A TCP listener that counts the connections made to it and closes each one
+ * at once. It stands in for an internal service an image URL must not reach,
+ * so a connection is the evidence, whatever protocol the client then spoke.
+ */
+async function startConnectionCounter(): Promise<{
+  port: number;
+  connections: () => number;
+  close: () => Promise<void>;
+}> {
+  let count = 0;
+  const server: NetServer = createNetServer((socket) => {
+    count++;
+    socket.destroy();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    port: typeof address === "object" && address ? address.port : 0,
+    connections: () => count,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
 function credentialsFor(port: number) {
   return {
     googleAiStudio: {
@@ -372,6 +400,24 @@ await test("a caller's own tool is declared, executed, and its result returns to
       "the tool result was not carried back to the model",
     );
     assert(text.includes("done"), "the final turn's text was not surfaced");
+    // The same call record generate() returns: name, args and an id. The
+    // stream path recorded name and args only.
+    const recorded = (result.toolCalls ?? []).find(
+      (call) => call.toolName === "lookup",
+    );
+    assert(
+      recorded !== undefined,
+      "toolCalls did not record the executed tool after the stream drained",
+    );
+    assert(
+      typeof recorded?.toolCallId === "string" &&
+        recorded.toolCallId.length > 0,
+      "the recorded stream tool call carried no toolCallId",
+    );
+    assert(
+      recorded?.args?.q === "x",
+      "the recorded stream tool call's args did not match what the model sent",
+    );
   } finally {
     restore();
     await server.close();
@@ -385,7 +431,9 @@ await test("the generate path declares and executes a caller's tools", async () 
   // Pinning it separately matters because Task 9 migrates BOTH onto one
   // adapter, and a regression in either would otherwise be invisible.
   const server = await startStandIn((i) =>
-    i === 0 ? toolTurn("lookup", {}) : textTurn("generated done"),
+    i === 0
+      ? toolTurn("lookup", { query: "something" })
+      : textTurn("generated done"),
   );
   const restore = withAiStudioEnv();
   const counter = { calls: 0 };
@@ -430,6 +478,25 @@ await test("the generate path declares and executes a caller's tools", async () 
       typeof result?.content === "string" &&
         result.content.includes("generated done"),
       "the final turn's text was not returned",
+    );
+    // generate() never set toolCalls here, so a tool the loop ran reached
+    // toolsUsed but not the caller's toolCalls (the gap #1843 closed on
+    // Vertex).
+    const recorded = (result?.toolCalls ?? []).find(
+      (call) => call.toolName === "lookup",
+    );
+    assert(
+      recorded !== undefined,
+      "toolCalls did not record the internally-executed tool",
+    );
+    assert(
+      typeof recorded?.toolCallId === "string" &&
+        recorded.toolCallId.length > 0,
+      "the recorded tool call carried no toolCallId",
+    );
+    assert(
+      recorded?.args?.query === "something",
+      "the recorded tool call's args did not match what the model sent",
     );
   } finally {
     restore();
@@ -1509,5 +1576,58 @@ await test("a turn aborted after a tool step reads the same whether that step en
     "an aborted turn delivered different text depending only on the raw finish reason of its tool step",
   );
 });
+
+section("caller-supplied image URLs");
+
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} turn does not fetch an image URL that points at a loopback address`, async () => {
+    // A plain fetch of a caller-supplied URL let anyone who can set
+    // input.images make the server connect to an internal address. The
+    // download now goes through safeDownload, which refuses it before any
+    // connection is made, and the image is skipped as a failed fetch was.
+    const internal = await startConnectionCounter();
+    const server = await startStandIn(() => textTurn("answered without it"));
+    const restore = withAiStudioEnv();
+    try {
+      const nl = new NeuroLink();
+      const options = {
+        input: {
+          text: "describe the picture",
+          images: [`https://127.0.0.1:${internal.port}/pixel.png`],
+        },
+        provider: "google-ai",
+        model: MODEL,
+        maxTokens: 32,
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: credentialsFor(server.port),
+      };
+      try {
+        if (path === "stream") {
+          const result = await nl.stream(options);
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        } else {
+          await nl.generate(options);
+        }
+      } catch {
+        // Only the connection count and the request are pinned.
+      }
+    } finally {
+      restore();
+      await server.close();
+      await internal.close();
+    }
+    assert(
+      server.calls.length >= 1,
+      "precondition failed: the turn never reached the stand-in",
+    );
+    assert(
+      internal.connections() === 0,
+      `the provider connected to a loopback image URL (${internal.connections()} connections)`,
+    );
+  });
+}
 
 await runSuite();

@@ -53,15 +53,26 @@
  * resolver, not for anything this package ships, so the suite is still driven
  * only through `../dist`.
  *
+ * Also covered: Claude on Vertex (the `@anthropic-ai/vertex-sdk` client takes
+ * the same proxy-aware fetch), the Vertex project/location (ADC) branch, and
+ * the download of a caller-supplied image URL. The ADC case authenticates with
+ * an `external_account` credential file whose `token_url` names an
+ * unresolvable host, so the token exchange (google-auth-library sends it
+ * through HTTP_PROXY on its own) and the model request can both only be
+ * answered by the fake proxy. The image URL is HTTPS on purpose (the download
+ * accepts nothing else), so the fake proxy cannot answer it; the CONNECT it
+ * receives for the image host is the evidence instead.
+ *
  * Not covered, and not claimed: the two GoogleGenAI clients in the video
  * analyzer (src/lib/adapters/video/videoAnalyzer.ts). Nothing reachable from
  * `NeuroLink.generate()`, `stream()` or the CLI builds them in this release:
  * the analyzer is called only from BaseProvider's video-frame route, every
  * text provider overrides `generate()`, and the providers that do reach that
  * route throw before it. They are changed the same way as the direct tool and
- * are exercised only by that shared helper. Also not covered: Gemini Live
- * websockets and the Vertex ADC token requests. Neither goes through the SDK's
- * fetch hook.
+ * are exercised only by that shared helper. Also not covered: the Vertex REST
+ * image-generation request, whose endpoint is Google's fixed HTTPS host, so a
+ * fake proxy cannot answer it and the proxy-aware fetch's fallback to a direct
+ * connection would then reach the real endpoint; and Gemini Live websockets.
  *
  * Run: npx tsx test/continuous-test-suite-google-genai-proxy.ts
  *      pnpm run test:google-genai-proxy
@@ -91,6 +102,11 @@ const { test, section, runSuite } = defineSuite("Google GenAI proxy", {
 const { NeuroLink } = await import("../dist/index.js");
 
 const MODEL = "gemini-2.0-flash";
+const CLAUDE_MODEL = "claude-3-5-sonnet-v2@20241022";
+const ADC_PROJECT = "adc-proxy-project";
+const ADC_ACCESS_TOKEN = "adc-access-token";
+const STS_HOST = "sts-upstream.invalid";
+const IMAGE_HOST = "images-upstream.invalid";
 const UPSTREAM_HOST = "genai-upstream.invalid";
 const UPSTREAM_ORIGIN = `http://${UPSTREAM_HOST}`;
 const GOOGLE_HOST = "generativelanguage.googleapis.com";
@@ -143,6 +159,10 @@ const TOUCHED_ENV_VARS = [
   "VERTEX_LOCATION",
   "GOOGLE_VERTEX_LOCATION",
   "GOOGLE_APPLICATION_CREDENTIALS",
+  "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
+  "GOOGLE_SERVICE_ACCOUNT_KEY",
+  "GOOGLE_AUTH_CLIENT_EMAIL",
+  "GOOGLE_AUTH_PRIVATE_KEY",
   "NEUROLINK_WEBSEARCH_LOCATION",
   "NEUROLINK_WEBSEARCH_MODEL",
 ] as const;
@@ -191,12 +211,47 @@ function sse(text: string): string {
   return `data: ${JSON.stringify(generateContentPayload(text))}\r\n\r\n`;
 }
 
+/** An Anthropic Messages SSE turn that says `text` and stops. */
+function anthropicSse(text: string): string {
+  const event = (type: string, payload: Record<string, unknown>) =>
+    `event: ${type}\ndata: ${JSON.stringify({ type, ...payload })}\n\n`;
+  return [
+    event("message_start", {
+      message: {
+        id: "msg_1",
+        type: "message",
+        role: "assistant",
+        model: CLAUDE_MODEL,
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 5, output_tokens: 0 },
+      },
+    }),
+    event("content_block_start", {
+      index: 0,
+      content_block: { type: "text", text: "" },
+    }),
+    event("content_block_delta", {
+      index: 0,
+      delta: { type: "text_delta", text },
+    }),
+    event("content_block_stop", { index: 0 }),
+    event("message_delta", {
+      delta: { stop_reason: "end_turn" },
+      usage: { output_tokens: 4 },
+    }),
+    event("message_stop", {}),
+  ].join("");
+}
+
 type ServedCall = {
   /** The upstream the request was addressed to, `host[:port]`. */
   host: string;
   /** Request path without the query string. */
   path: string;
   apiKeyHeader: string | undefined;
+  authorization: string | undefined;
 };
 
 type FakeServer = {
@@ -222,14 +277,32 @@ function answer(
       host,
       path,
       apiKeyHeader: Array.isArray(header) ? header[0] : header,
+      authorization: req.headers.authorization,
     });
+    // The token exchange of the external_account credential (ADC case).
+    if (path.endsWith("/v1/token")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          access_token: ADC_ACCESS_TOKEN,
+          issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          token_type: "Bearer",
+          expires_in: 3600,
+        }),
+      );
+      return;
+    }
     if (path.endsWith(":generateContent")) {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(generateContentPayload(marker)));
       return;
     }
     res.writeHead(200, { "content-type": "text/event-stream" });
-    res.end(sse(marker));
+    res.end(
+      path.includes("/publishers/anthropic/")
+        ? anthropicSse(marker)
+        : sse(marker),
+    );
   });
 }
 
@@ -378,16 +451,53 @@ function vertexCredentials(baseURL: string) {
   return { vertex: { apiKey: EXPRESS_KEY, baseURL } };
 }
 
+function vertexAdcCredentials(baseURL: string) {
+  return {
+    vertex: { projectId: ADC_PROJECT, location: "us-central1", baseURL },
+  };
+}
+
+/**
+ * Writes an `external_account` credential file whose token exchange goes to
+ * STS_HOST, which does not resolve: only the fake proxy can answer it. Returns
+ * the env that selects it.
+ */
+function adcCredentialEnv(): Record<string, string> {
+  const dir = tempDir("genai-proxy-adc-");
+  const subjectTokenFile = join(dir, "subject-token.txt");
+  writeFileSync(subjectTokenFile, "subject-token");
+  const credentialFile = join(dir, "external-account.json");
+  writeFileSync(
+    credentialFile,
+    JSON.stringify({
+      type: "external_account",
+      audience:
+        "//iam.googleapis.com/projects/1/locations/global/workloadIdentityPools/p/providers/q",
+      subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+      token_url: `http://${STS_HOST}/v1/token`,
+      credential_source: { file: subjectTokenFile },
+    }),
+  );
+  return {
+    GOOGLE_APPLICATION_CREDENTIALS: credentialFile,
+    GOOGLE_VERTEX_PROJECT: ADC_PROJECT,
+    GOOGLE_VERTEX_LOCATION: "us-central1",
+  };
+}
+
 function streamFrom(
   provider: "google-ai" | "vertex",
   credentials:
     | ReturnType<typeof aiStudioCredentials>
-    | ReturnType<typeof vertexCredentials>,
+    | ReturnType<typeof vertexCredentials>
+    | ReturnType<typeof vertexAdcCredentials>,
+  model: string = MODEL,
+  images?: string[],
 ): Promise<StreamLike> {
   return new NeuroLink().stream({
-    input: { text: "hi" },
+    input: { text: "hi", ...(images ? { images } : {}) },
     provider,
-    model: MODEL,
+    model,
     maxTokens: 32,
     disableInternalFallback: true,
     credentials,
@@ -554,6 +664,113 @@ await test("Google GenAI proxy: Vertex Express traffic goes through HTTP_PROXY",
     assert(
       proxy.calls[0]?.apiKeyHeader === EXPRESS_KEY,
       "the proxied request did not carry the Express Mode key",
+    );
+  } finally {
+    restore();
+    await proxy.close();
+  }
+});
+
+await test("Google GenAI proxy: Vertex Claude traffic goes through HTTP_PROXY", async () => {
+  // The Claude half of the Vertex provider uses @anthropic-ai/vertex-sdk, not
+  // @google/genai, and was built without a fetch, so it went direct.
+  assertGlobalFetchDoesNotProxyItself();
+  const proxy = await startForwardProxy();
+  const restore = withEnv({ HTTP_PROXY: `http://127.0.0.1:${proxy.port}` });
+  try {
+    const text = await drainOrFail(
+      () =>
+        streamFrom("vertex", vertexCredentials(UPSTREAM_ORIGIN), CLAUDE_MODEL),
+      NO_ANSWER_VIA_PROXY,
+    );
+    assert(
+      text.includes(PROXY_MARKER),
+      "the answer did not come through the configured proxy",
+    );
+    const call = proxy.calls.find((c) =>
+      c.path.includes("/publishers/anthropic/"),
+    );
+    assert(call !== undefined, "the proxy received no Claude request");
+    assert(
+      (call?.host ?? "").startsWith(UPSTREAM_HOST),
+      "the proxy was asked for a different upstream than the configured endpoint",
+    );
+    assert(
+      (call?.path ?? "").includes(`/models/${CLAUDE_MODEL}:`),
+      "the proxied request did not address the requested model",
+    );
+    assert(
+      call?.authorization === `Bearer ${EXPRESS_KEY}`,
+      "the proxied request did not carry the Express key as its bearer credential",
+    );
+  } finally {
+    restore();
+    await proxy.close();
+  }
+});
+
+await test("Google GenAI proxy: Vertex project/location (ADC) traffic goes through HTTP_PROXY", async () => {
+  assertGlobalFetchDoesNotProxyItself();
+  const proxy = await startForwardProxy();
+  const restore = withEnv({
+    HTTP_PROXY: `http://127.0.0.1:${proxy.port}`,
+    ...adcCredentialEnv(),
+  });
+  try {
+    const text = await drainOrFail(
+      () => streamFrom("vertex", vertexAdcCredentials(UPSTREAM_ORIGIN)),
+      NO_ANSWER_VIA_PROXY,
+    );
+    assert(
+      text.includes(PROXY_MARKER),
+      "the answer did not come through the configured proxy",
+    );
+    assert(
+      proxy.calls.some((c) => c.host.startsWith(STS_HOST)),
+      "the credential's token exchange did not go through the proxy",
+    );
+    const call = proxy.calls.find((c) => c.host.startsWith(UPSTREAM_HOST));
+    assert(call !== undefined, "the proxy received no model request");
+    // The location is not pinned: Gemini models are routed to the global
+    // endpoint whatever location is configured.
+    assert(
+      (call?.path ?? "").includes(`/projects/${ADC_PROJECT}/locations/`) &&
+        (call?.path ?? "").includes(`/publishers/google/models/${MODEL}:`),
+      "the proxied request did not address the configured project and model",
+    );
+    assert(
+      call?.authorization === `Bearer ${ADC_ACCESS_TOKEN}`,
+      "the proxied request did not carry the token the credential exchanged for",
+    );
+  } finally {
+    restore();
+    await proxy.close();
+  }
+});
+
+await test("Google GenAI proxy: a caller-supplied image URL is downloaded through HTTPS_PROXY", async () => {
+  // The download only accepts HTTPS, so the fake proxy sees a CONNECT for the
+  // image host and cannot complete it; the image is then skipped and the turn
+  // still answers through the proxy.
+  assertGlobalFetchDoesNotProxyItself();
+  const proxy = await startForwardProxy();
+  const proxyUrl = `http://127.0.0.1:${proxy.port}`;
+  const restore = withEnv({ HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl });
+  try {
+    const text = await drainOrFail(
+      () =>
+        streamFrom("vertex", vertexCredentials(UPSTREAM_ORIGIN), MODEL, [
+          `https://${IMAGE_HOST}/pixel.png`,
+        ]),
+      NO_ANSWER_VIA_PROXY,
+    );
+    assert(
+      proxy.connects.some((target) => target === `${IMAGE_HOST}:443`),
+      "the image URL was not downloaded through the proxy",
+    );
+    assert(
+      text.includes(PROXY_MARKER),
+      "the turn did not answer through the proxy after the image was skipped",
     );
   } finally {
     restore();
