@@ -529,9 +529,10 @@ means one retry, after about 250 to 500 ms; the base class retries once.
 
 - **"requires the account id"** — set `CLOUDFLARE_ACCOUNT_ID` or
   `credentials.cloudflareClef.accountId`.
-- **"The state is ~N tokens; Cloudflare's … model reads at most 1500"** — shorten
-  the state, or send only the part the question is about. Cloudflare would have
-  cut the rest without telling you.
+- **"The state is ~N tokens; Cloudflare's … model reads at most 16000"** — shorten
+  the state, or send only the part the question is about. NeuroLink refuses it
+  before any request so that a state the model may not read in full is never
+  decided on.
 - **"No route for that URI"** — the model name or the base URL is wrong. Clef is
   served as `clef` and `clef-flash`, and the base URL must end in `/client/v4`.
 - **A 429 "Capacity temporarily exceeded"** — retried for you; if it keeps

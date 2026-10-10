@@ -925,7 +925,7 @@ tokens, which log lines and arrays of numbers reach well inside the window. The
 [provider guide](../getting-started/providers/perplexity-decider.md#latency-and-the-timeout)
 lists the timeout setting for each built-in consumer. On 2026-10-03 Cloudflare Clef
 answered a small request in 0.3 to 1.0 s, and 64 questions in 1.1 s on `clef-flash`
-and 1.3 s on `clef` (1.5 s and 2.3 s on 2026-10-04); its default timeout is 5 s, and `timeoutMs` changes it for one call.
+and 1.3 s on `clef` (1.5 s and 2.3 s on 2026-10-04); its default timeout is 5 s plus 250 ms for each full 1,000 estimated state tokens, and `timeoutMs` changes it for one call.
 
 **Privacy**: when enabled, the `state` you send leaves the machine. For model
 routing that is the prompt text; for compaction and tool routing it is earlier
