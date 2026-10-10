@@ -640,6 +640,7 @@ jobs:
           pnpm run test:model-pool
           pnpm run test:tool-routing-semantic
           pnpm run test:mcp-result-cache
+          pnpm run test:workflow-deadlines
           pnpm run test:vector-chroma
           pnpm run test:vector-pgvector
           pnpm run test:vector-pinecone

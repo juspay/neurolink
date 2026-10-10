@@ -3,6 +3,7 @@
  * Provides structured error management for tool execution and system operations
  */
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+import { MAX_TIMER_MS } from "../constants/timeouts.js";
 import type { StructuredError } from "../types/index.js";
 import { logger } from "./logger.js";
 import { CircuitBreakerOpenError } from "../types/index.js";
@@ -1274,7 +1275,17 @@ export class ErrorFactory {
 }
 
 /**
- * Timeout wrapper for async operations
+ * Timeout wrapper for async operations.
+ *
+ * Races an already-created promise against a deadline. It cannot cancel that
+ * promise: when the deadline wins the operation keeps running as an abandoned
+ * ghost. A caller that owns the abortable operation (an HTTP request, a
+ * provider call) must hand it an `AbortSignal` itself and abort it when this
+ * rejects.
+ *
+ * `timeoutMs` is held at `MAX_TIMER_MS`: a longer deadline would otherwise be
+ * handed to `setTimeout`, which fires after 1 ms and so rejected an operation
+ * that had asked for the longest wait available.
  */
 export async function withTimeout<T>(
   promise: Promise<T>,
@@ -1282,12 +1293,16 @@ export async function withTimeout<T>(
   timeoutError?: Error,
 ): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  // An explicit upper-bound comparison, and `>` rather than `<=`: NaN fails
+  // `>`, so NaN, zero and negative deadlines reach `setTimeout` as they always
+  // did, and only a value above the limit is replaced by it.
+  const delayMs = timeoutMs > MAX_TIMER_MS ? MAX_TIMER_MS : timeoutMs;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       reject(
         timeoutError || new Error(`Operation timed out after ${timeoutMs}ms`),
       );
-    }, timeoutMs);
+    }, delayMs);
   });
 
   try {
