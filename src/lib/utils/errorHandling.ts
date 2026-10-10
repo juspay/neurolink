@@ -1465,6 +1465,9 @@ export function isRetriableError(error: Error): boolean {
     /temporary/i,
     /rate limit/i,
     /quota/i,
+    // The reason phrases of 502/503/504 are transient whatever the number's
+    // placement in the text; only the bare digits are not evidence.
+    /service unavailable|bad gateway|gateway time-?out/i,
   ];
 
   return (

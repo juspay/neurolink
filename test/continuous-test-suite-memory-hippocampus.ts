@@ -1561,6 +1561,10 @@ void runSuite(async () => {
       },
     });
     try {
+      // The constructor starts OpenTelemetry in the background, and a span
+      // opened before it finishes is a no-op that nothing will ever export.
+      // Wait for it, so the turn below is recorded however fast it runs.
+      await nl.initializeLangfuseObservability();
       await nl.generate(generateArgs(undefined));
       assert(
         await waitFor(() => stuck.adds.length === 1),

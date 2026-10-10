@@ -7934,7 +7934,7 @@ function patchBatchDecide(
   return () => calls;
 }
 
-await test("21.1 — a split request reports the wall-clock time of every group, not the slowest batch", async () => {
+await test("22.1 — a split request reports the wall-clock time of every group, not the slowest batch", async () => {
   const nl = new NeuroLink();
   const calls = patchBatchDecide(nl, 120);
   const startedAt = Date.now();
@@ -7964,7 +7964,7 @@ await test("21.1 — a split request reports the wall-clock time of every group,
   );
 });
 
-await test("21.2 — once the signal aborts, no further group of batches starts", async () => {
+await test("22.2 — once the signal aborts, no further group of batches starts", async () => {
   const nl = new NeuroLink();
   const controller = new AbortController();
   // Aborted as the fourth batch — the last of the first group — starts.
@@ -7990,7 +7990,7 @@ await test("21.2 — once the signal aborts, no further group of batches starts"
   );
 });
 
-await test("21.3 — a signal already aborted starts no batch, and tryDecide returns null", async () => {
+await test("22.3 — a signal already aborted starts no batch, and tryDecide returns null", async () => {
   const nl = new NeuroLink();
   const calls = patchBatchDecide(nl, 10);
   const result = await nl.tryDecide({
