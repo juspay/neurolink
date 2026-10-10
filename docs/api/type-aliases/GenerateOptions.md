@@ -869,6 +869,10 @@ compel a tool call on every step, and the loop would only end when
 `maxSteps` ran out. `"auto"` and `"none"` are applied unchanged on every
 step. Vertex, Google AI Studio and Bedrock do not honour `toolChoice`.
 
+A named tool that the request does not declare is not sent, because the
+provider would reject the request: a warning is logged and the step uses
+`"auto"`.
+
 ---
 
 ### toolChoiceSteps?
@@ -902,7 +906,9 @@ Overrides `conversationMemory.replayToolSteps` for this request.
 Optional callback that runs before each step in a multi-step generation.
 
 Honoured field of the result: `toolChoice`, applied to that step only
-and taking precedence over `toolChoice` / `toolChoiceSteps`.
+and taking precedence over `toolChoice` / `toolChoiceSteps`. A named tool
+the request does not declare is ignored with a warning, as if the hook had
+returned no `toolChoice`.
 
 Not honoured — accepted for source compatibility with the former Vercel
 AI SDK `experimental_prepareStep` shape, but ignored by every native

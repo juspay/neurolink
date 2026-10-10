@@ -46,6 +46,76 @@ const isForcedToolChoice = (choice: unknown): boolean => {
 };
 
 /**
+ * The tool a choice forces by name, when it forces one. Both wire mappers
+ * honour exactly `{ type: "tool", toolName }` with a non-empty name, so
+ * that is the only shape that names a function on the wire.
+ */
+const forcedToolName = (choice: unknown): string | undefined => {
+  if (typeof choice !== "object" || choice === null) {
+    return undefined;
+  }
+  const { type, toolName } = choice as { type?: unknown; toolName?: unknown };
+  return type === "tool" && typeof toolName === "string" && toolName !== ""
+    ? toolName
+    : undefined;
+};
+
+/**
+ * The name a choice forces when `declaredTools` is known and lacks it, else
+ * undefined. Own keys only: the live record may have a null prototype or be
+ * keyed by a name such as "constructor".
+ */
+const undeclaredForcedToolName = (
+  choice: unknown,
+  declaredTools: StepToolChoiceInput["declaredTools"],
+): string | undefined => {
+  if (!declaredTools) {
+    return undefined;
+  }
+  const name = forcedToolName(choice);
+  return name !== undefined && !Object.hasOwn(declaredTools, name)
+    ? name
+    : undefined;
+};
+
+/**
+ * A forced choice for a tool the request does not declare is dropped for the
+ * step rather than sent, so a stale hook or a platform-gated tool degrades
+ * the turn to the model's own choice instead of failing it with a 400.
+ */
+const warnUndeclaredForcedTool = (
+  toolName: string,
+  step: number,
+  source: "prepareStep" | "base",
+): void => {
+  logger.warn(
+    source === "prepareStep"
+      ? `prepareStep forced tool "${toolName}" at step ${step}, but the request does not declare it; ignoring the override for this step`
+      : `toolChoice forces tool "${toolName}" at step ${step}, but the request does not declare it; using "auto" for this step`,
+    { toolName, step, source },
+  );
+};
+
+/**
+ * The names this request actually carries, in the record shape
+ * `declaredTools` takes. The loop sends `args.tools`, built once by the
+ * caller; `args.toolsRecord` can hold more (discovery hydrates into it, and
+ * this loop never re-declares), so only `tools` answers "is it offered".
+ * Null prototype: a tool may be named `__proto__` or `constructor`.
+ */
+const declaredToolRecord = (
+  tools: NativeGenerateLoopArgs["tools"],
+): Record<string, true> => {
+  const declared = Object.create(null) as Record<string, true>;
+  for (const tool of tools ?? []) {
+    if (typeof tool.name === "string") {
+      declared[tool.name] = true;
+    }
+  }
+  return declared;
+};
+
+/**
  * `toolChoiceSteps` is a count of leading steps, so anything but a
  * non-negative integer is meaningless. Fall back to the default with a WARN
  * rather than throw: a bad knob should not fail a turn that would otherwise
@@ -161,6 +231,11 @@ const abortReason = (signal: AbortSignal): unknown => {
  * how a caller forces a tool on step 3 only. A hook that returns no
  * `toolChoice` defers to the rule. Nothing else on the hook's result is read.
  *
+ * A forced single-tool choice, from the hook or from the turn, that names a
+ * tool outside `declaredTools` is warned about and not sent. A hook's choice
+ * is then treated as "no override" and the rule decides; the turn's own
+ * choice becomes `"auto"`. Without `declaredTools` nothing is checked.
+ *
  * A hook that THROWS is logged and treated as "no override": the steps
  * already billed are kept and the rule decides. An abort of the turn while
  * the hook is pending is not a hook failure and is re-thrown. The two are
@@ -200,18 +275,33 @@ export async function resolveStepToolChoice(
     }
     warnIgnoredPrepareStepFields(prepared);
     if (prepared?.toolChoice !== undefined) {
-      return prepared.toolChoice;
+      const undeclaredPrepared = undeclaredForcedToolName(
+        prepared.toolChoice,
+        input.declaredTools,
+      );
+      if (undeclaredPrepared === undefined) {
+        return prepared.toolChoice;
+      }
+      warnUndeclaredForcedTool(undeclaredPrepared, input.step, "prepareStep");
     }
   }
   if (input.base === undefined) {
     return undefined;
   }
-  if (
-    !isForcedToolChoice(input.base) ||
-    input.step < normalizeToolChoiceSteps(input.toolChoiceSteps)
-  ) {
+  if (!isForcedToolChoice(input.base)) {
     return input.base;
   }
+  if (input.step >= normalizeToolChoiceSteps(input.toolChoiceSteps)) {
+    return "auto";
+  }
+  const undeclaredBase = undeclaredForcedToolName(
+    input.base,
+    input.declaredTools,
+  );
+  if (undeclaredBase === undefined) {
+    return input.base;
+  }
+  warnUndeclaredForcedTool(undeclaredBase, input.step, "base");
   return "auto";
 }
 
@@ -463,6 +553,7 @@ export async function runNativeGenerateLoop(
           steps: stepRecords,
           maxSteps: args.maxSteps,
           model: args.modelId,
+          declaredTools: declaredToolRecord(args.tools),
           ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
         })
       : undefined;

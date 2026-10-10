@@ -2586,6 +2586,7 @@ export class AnthropicProvider extends BaseProvider {
                     steps: stepRecords,
                     maxSteps,
                     model: modelId,
+                    declaredTools: toolsRecord,
                     ...(abortSignal ? { abortSignal } : {}),
                   }),
                 ),

@@ -2264,6 +2264,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
                     steps,
                     maxSteps,
                     model: modelId,
+                    declaredTools: toolsRecord,
                     ...(abortSignal ? { abortSignal } : {}),
                   }),
                   wireNameMaps?.toWire,
