@@ -30,10 +30,11 @@ export function skipUnlessProviderAvailable(providerName: string): void {
     throw new Skip(`unknown provider: ${providerName}`);
   }
   if (!hasProviderEnv(providerName)) {
+    const missing = entry.envVars.filter((v) => !process.env[v]);
     throw new Skip(
-      `provider ${providerName} unavailable: missing env ${entry.envVars
-        .filter((v) => !process.env[v])
-        .join(", ")}`,
+      missing.length > 0
+        ? `provider ${providerName} unavailable: missing env ${missing.join(", ")}`
+        : `provider ${providerName} is never treated as available (see hasProviderEnv in test/helpers/providerMatrix.ts)`,
     );
   }
 }

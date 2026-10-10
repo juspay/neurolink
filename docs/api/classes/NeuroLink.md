@@ -1531,6 +1531,10 @@ Tool execution result
 Get comprehensive status of all AI providers
 Primary method for provider health checking and diagnostics
 
+Bedrock and SageMaker are never called live: their entries come back as
+`status: "not-configured"` with `configured: true` and the reason in
+`error`. Use `testProvider()` to check either one explicitly.
+
 ##### Parameters
 
 ###### options?
