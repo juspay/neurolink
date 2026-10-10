@@ -11,6 +11,7 @@ import { Skip } from "./harness.js";
 import {
   PROVIDERS,
   hasProviderEnv,
+  isNeverAutoAvailable,
   type Capabilities,
   type ProviderEntry,
 } from "./providerMatrix.js";
@@ -30,10 +31,16 @@ export function skipUnlessProviderAvailable(providerName: string): void {
     throw new Skip(`unknown provider: ${providerName}`);
   }
   if (!hasProviderEnv(providerName)) {
+    // Check the exclusion first: a deliberately excluded provider reports it
+    // even when its env vars are also unset, which would otherwise hide it.
+    if (isNeverAutoAvailable(providerName)) {
+      throw new Skip(
+        `provider ${providerName} is never treated as available (see hasProviderEnv in test/helpers/providerMatrix.ts)`,
+      );
+    }
+    const missing = entry.envVars.filter((v) => !process.env[v]);
     throw new Skip(
-      `provider ${providerName} unavailable: missing env ${entry.envVars
-        .filter((v) => !process.env[v])
-        .join(", ")}`,
+      `provider ${providerName} unavailable: missing env ${missing.join(", ")}`,
     );
   }
 }

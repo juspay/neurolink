@@ -900,16 +900,32 @@ for (const decideId of DECIDE_CATALOG_PROVIDER_IDS) {
 export type ProviderName = keyof typeof PROVIDERS;
 
 /**
+ * Providers `hasProviderEnv()` never reports as available, whatever the
+ * environment holds. Bedrock is here because ambient AWS credentials would
+ * make the matrix suites run real generate/stream calls against a model the
+ * account may not be allowed to call.
+ */
+const NEVER_AUTO_AVAILABLE: ReadonlySet<string> = new Set(["bedrock"]);
+
+/** True for a provider excluded from `hasProviderEnv()` by design. */
+export function isNeverAutoAvailable(providerName: string): boolean {
+  return NEVER_AUTO_AVAILABLE.has(providerName);
+}
+
+/**
  * True when the provider's primary env var (or one of its
  * `apiKeyFallbackEnvVars` alternatives) is set, AND every remaining env var
  * in `envVars` (e.g. a computed base-URL var, which has no fallback) is also
  * set. Before this, a row with only its fallback var populated (e.g.
  * HF_TOKEN with no HUGGINGFACE_API_KEY set) was marked unavailable even
  * though the runtime provider authenticates fine off that same fallback.
+ *
+ * Providers for which `isNeverAutoAvailable()` holds (Bedrock) are never
+ * reported as available. `--provider=bedrock` still force-includes it.
  */
 export function hasProviderEnv(providerName: string): boolean {
   const entry = PROVIDERS[providerName];
-  if (!entry) {
+  if (!entry || isNeverAutoAvailable(providerName)) {
     return false;
   }
   const [primaryEnvVar, ...remainingEnvVars] = entry.envVars;
