@@ -1520,6 +1520,87 @@ async function main(): Promise<void> {
     }
 
     // =========================================================================
+    // SECTION: a status number in the message text, and a route 404
+    // (Cohere, LM Studio)
+    // -------------------------------------------------------------------------
+    // The same two defects as the section above, on the two OpenAI-wire
+    // providers whose own rules still read bare digits: Cohere's auth, rate
+    // limit and missing-model rules, and LM Studio's missing-model rule. An
+    // unrelated number in a 400 must fall through to the generic error, a 400
+    // whose text names the status must still be caught, and a 404 that names
+    // no model (a wrong base URL answers exactly that) must keep the status
+    // and the server's text instead of claiming the model is missing — so it
+    // is also not walked across the fallback models.
+    // =========================================================================
+    {
+      setEnv("COHERE_API_KEY", "test-fake-cohere-credential");
+      setEnv("COHERE_BASE_URL", mockOrigin);
+      setEnv("LM_STUDIO_BASE_URL", mockOrigin);
+      const cohere = () => gen({ provider: "cohere", model: "command-r-plus" });
+      const lmStudio = () =>
+        gen({ provider: "lm-studio", model: "local-model" });
+
+      setHandler(jsonError(400, "the offset value (429) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 429 in a 400's text is not read as a rate limit",
+        run: cohere,
+        notClasses: [RateLimitError],
+        messageIncludes: ["cohere error:"],
+        messageExcludes: ["Cohere rate limit exceeded"],
+      });
+      setHandler(jsonError(400, "the offset value (401) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 401 in a 400's text is not read as an auth failure",
+        run: cohere,
+        notClasses: [AuthenticationError],
+        messageIncludes: ["cohere error:"],
+        messageExcludes: ["COHERE_API_KEY"],
+      });
+      setHandler(jsonError(400, "the offset value (404) is not accepted here"));
+      await expectGenerateError({
+        name: "cohere: an unrelated 404 in a 400's text is not read as a missing model",
+        run: cohere,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["cohere error:"],
+      });
+      setHandler(jsonError(400, "upstream HTTP 429 relayed by the gateway"));
+      await expectGenerateError({
+        name: "cohere: a 400 whose text names HTTP 429 is still read as a rate limit",
+        run: cohere,
+        messageIncludes: ["Cohere rate limit exceeded"],
+      });
+      setHandler(jsonError(404, "no route matches this path"));
+      await expectGenerateError({
+        name: "cohere: a 404 that names no model is a route answer, not a missing model",
+        run: cohere,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["cohere returned HTTP 404", "no route matches"],
+      });
+      record(
+        "cohere: a route 404 is sent once, not once per fallback model",
+        hitCount === 1,
+        hitCount === 1 ? undefined : `request count ${hitCount}`,
+      );
+
+      setHandler(jsonError(404, "no route matches this path"));
+      await expectGenerateError({
+        name: "lm-studio: a 404 that names no model is a route answer, not an unloaded model",
+        run: lmStudio,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["lm-studio returned HTTP 404", "no route matches"],
+        messageExcludes: ["is not loaded"],
+      });
+      setHandler(jsonError(400, "the offset value (404) is not accepted here"));
+      await expectGenerateError({
+        name: "lm-studio: an unrelated 404 in a 400's text is not read as an unloaded model",
+        run: lmStudio,
+        notClasses: [InvalidModelError],
+        messageIncludes: ["lm-studio error:"],
+        messageExcludes: ["is not loaded"],
+      });
+    }
+
+    // =========================================================================
     // SECTION: Google Vertex (old File3 #8-11) — VERTEX EXCEPTION
     // -------------------------------------------------------------------------
     // Real ADC OAuth makes true e2e impossible for Vertex (scout-2 #21): a

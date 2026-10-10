@@ -17,6 +17,7 @@ import type {
 } from "../types/index.js";
 import { createHash } from "node:crypto";
 import { TRANSIENT_NETWORK_CODES } from "../constants/networkErrorCodes.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 
 async function getLangfuseContext(): Promise<LangfuseContext | undefined> {
   try {
@@ -847,7 +848,11 @@ export function maskProxyUrl(url: string | null | undefined): string | null {
       u.username = "***";
       u.password = "***";
     }
-    return u.toString();
+    // `user:secret@proxy:8080` has no `//`, so it parses as the scheme `user:`
+    // with the opaque path `secret@proxy:8080`: there is no username to mask,
+    // and re-serialising it hands the password back. Without a host there is
+    // no authority to rebuild, so the shared text redactor handles it.
+    return u.host === "" ? redactUrlCredentials(url) : u.toString();
   } catch {
     return "[invalid-url]";
   }

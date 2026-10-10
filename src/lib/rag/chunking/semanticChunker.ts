@@ -208,22 +208,36 @@ export class SemanticChunker implements Chunker {
 
     const embeddings: number[][] = [];
 
-    // Process in batches to avoid rate limits
+    // Process in batches to avoid rate limits.
+    //
+    // Every segment must be embedded, in one vector space. A segment that
+    // fails, or comes back empty or with a different dimension, rejects the
+    // whole set and `chunk()` falls back to its non-semantic split (chunks
+    // marked `fallbackChunking: true`). Substituting a stand-in vector (a
+    // fixed-size zero vector, as this once did) only looks like an answer:
+    // cosine similarity against it is 0, so every such segment became an
+    // arbitrary breakpoint and the result was presented as semantic chunking.
+    // Same rule as the RAG query path: never compare vectors from different
+    // spaces.
     const batchSize = 10;
     for (let i = 0; i < segments.length; i += batchSize) {
       const batch = segments.slice(i, i + batchSize);
 
       for (const segment of batch) {
-        try {
-          const embedding = await embeddingProvider.embed(segment);
-          embeddings.push(embedding);
-        } catch (error) {
-          logger.warn("[SemanticChunker] Failed to embed segment", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          // Use zero vector as fallback
-          embeddings.push(new Array(1536).fill(0));
+        const embedding = await embeddingProvider.embed(segment);
+        const position = `segment ${embeddings.length + 1} of ${segments.length}`;
+        if (!Array.isArray(embedding) || embedding.length === 0) {
+          throw new Error(
+            `Provider ${provider} returned no embedding for ${position}`,
+          );
         }
+        const expected = embeddings[0]?.length;
+        if (expected !== undefined && embedding.length !== expected) {
+          throw new Error(
+            `Provider ${provider} returned ${embedding.length} dimensions for ${position}, expected ${expected}`,
+          );
+        }
+        embeddings.push(embedding);
       }
     }
 
@@ -306,8 +320,13 @@ export class SemanticChunker implements Chunker {
    * Calculate cosine similarity between two vectors
    */
   private cosineSimilarity(a: number[], b: number[]): number {
+    // getEmbeddings rejects a mixed set, so this cannot happen; if it ever
+    // does, a 0 here would silently become a breakpoint. Throwing sends
+    // chunk() to its documented non-semantic fallback instead.
     if (a.length !== b.length) {
-      return 0;
+      throw new Error(
+        `Cannot compare embeddings of ${a.length} and ${b.length} dimensions`,
+      );
     }
 
     let dotProduct = 0;

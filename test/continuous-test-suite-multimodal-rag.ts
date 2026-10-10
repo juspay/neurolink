@@ -8,9 +8,10 @@ import "dotenv/config";
  * `embed()` signature across the provider clients, Nova's per-request modality
  * rules, and the caption an ingested image carries into the vector store.
  *
- * Everything drives shipped entry points — `AIProviderFactory` from
- * `../dist/index.js` and `ImageLoader` from the `./rag` subpath's
- * `../dist/rag/index.js` — with nothing stubbed and no imports out of `src/`,
+ * Everything drives shipped entry points — `AIProviderFactory` and
+ * `SemanticChunker` from `../dist/index.js`, and `ImageLoader` from the
+ * `./rag` subpath's `../dist/rag/index.js` — with nothing stubbed and no
+ * imports out of `src/`,
  * so no rule-15 exception is needed. The provider cases run on deliberately
  * fake AWS credentials because every rejection they assert happens while the
  * request body is being built, before anything is sent; a case that reached the
@@ -31,6 +32,7 @@ import "dotenv/config";
 import { mkdtempSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer as createHttpServer } from "node:http";
 import { createServer as createH2Server } from "node:http2";
 import { assert, assertNotNull, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -851,6 +853,155 @@ await test("prepareRAGTool fails the search when the query embedding fails inste
       process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = previousEndpoint;
     }
     restoreAws();
+  }
+});
+
+/**
+ * A local stand-in for Voyage's `/embeddings` route. Each paragraph names its
+ * topic in its first word, and the vector is that topic's axis, so two
+ * paragraphs about the same topic score 1 and a change of topic scores 0. A
+ * paragraph whose text holds `failWhen` is answered with a 400, and one that
+ * holds `shortWhen` with a vector one dimension short.
+ */
+async function startLocalVoyageEmbed(): Promise<{
+  baseURL: string;
+  requests: () => number;
+  set: (mode: { failWhen?: string; shortWhen?: string }) => void;
+  close: () => Promise<void>;
+}> {
+  let requests = 0;
+  let mode: { failWhen?: string; shortWhen?: string } = {};
+  const axes = ["billing", "shipping", "returns", "support"];
+  const server = createHttpServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      requests++;
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+        input: string[];
+      };
+      const text = body.input[0] ?? "";
+      if (mode.failWhen && text.includes(mode.failWhen)) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ detail: "input rejected by the stand-in" }));
+        return;
+      }
+      const topic = Math.max(0, axes.indexOf(text.split(/\s/)[0] ?? ""));
+      const vector = axes.map((_, i) => (i === topic ? 1 : 0));
+      const embedding =
+        mode.shortWhen && text.includes(mode.shortWhen)
+          ? vector.slice(1)
+          : vector;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          object: "list",
+          model: "voyage-3.5",
+          data: [{ object: "embedding", index: 0, embedding }],
+          usage: { total_tokens: 1 },
+        }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve()),
+  );
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("the local embedding stand-in has no port");
+  }
+  return {
+    baseURL: `http://127.0.0.1:${address.port}`,
+    requests: () => requests,
+    set: (next) => {
+      mode = next;
+    },
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+await test("the semantic chunker falls back to a marked size split when a segment cannot be embedded, instead of inventing a vector", async () => {
+  // Three paragraphs, the first two on one topic: a semantic split puts a
+  // boundary only before the third. The chunker used to replace a failed
+  // segment's embedding with a 1536-dimension zero vector and a vector of
+  // another dimension with nothing at all; cosine similarity against either
+  // is 0, so every such segment became a boundary and the result still looked
+  // like semantic chunking. Every chunk of the size split says so instead.
+  const filler =
+    "This paragraph carries enough words to stand as its own segment for the chunker under test.";
+  const text = [
+    `billing first. ${filler}`,
+    `billing second. ${filler}`,
+    `shipping third. ${filler}`,
+  ].join("\n\n");
+  const local = await startLocalVoyageEmbed();
+  const saved = {
+    key: process.env.VOYAGE_API_KEY,
+    base: process.env.VOYAGE_BASE_URL,
+  };
+  process.env.VOYAGE_API_KEY = "test-fake-voyage-credential";
+  process.env.VOYAGE_BASE_URL = local.baseURL;
+  try {
+    const { ProviderRegistry, SemanticChunker } =
+      await import("../dist/index.js");
+    await ProviderRegistry.registerAllProviders();
+    const chunk = () =>
+      new SemanticChunker().chunk(text, {
+        provider: "voyage",
+        modelName: "voyage-3.5",
+      });
+    const isFallback = (c: { metadata: { custom?: unknown } }): boolean =>
+      (c.metadata.custom as { fallbackChunking?: unknown } | undefined)
+        ?.fallbackChunking === true;
+
+    // Control: with every segment embedded the split is semantic, so a
+    // fallback seen below is the injected failure, not a broken setup.
+    const healthy = await chunk();
+    assert(
+      local.requests() === 3,
+      "the control did not embed each of the three segments once",
+    );
+    assert(
+      healthy.length === 2 && !healthy.some(isFallback),
+      "with every segment embedded the split was not the semantic one",
+    );
+
+    for (const [label, mode] of [
+      ["a failed embedding", { failWhen: "second" }],
+      ["an embedding of another dimension", { shortWhen: "second" }],
+    ] as const) {
+      local.set(mode);
+      const before = local.requests();
+      const chunks = await chunk();
+      assert(
+        local.requests() > before,
+        `${label}: the chunker never reached the embedding endpoint`,
+      );
+      assert(
+        chunks.length > 0 && chunks.every(isFallback),
+        `${label}: the chunks were not marked as a fallback size split`,
+      );
+      assert(
+        chunks.map((c) => c.text).join("\n\n") === text,
+        `${label}: the fallback split did not keep the whole document`,
+      );
+    }
+  } finally {
+    await local.close();
+    for (const [name, value] of [
+      ["VOYAGE_API_KEY", saved.key],
+      ["VOYAGE_BASE_URL", saved.base],
+    ] as const) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
   }
 });
 

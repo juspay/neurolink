@@ -393,6 +393,13 @@ NeuroLink provides 10 chunking strategies optimized for different content types.
 | `semantic`          | Context-aware splitting     | `similarityThreshold`, `embedder`      |
 | `semantic-markdown` | Knowledge bases             | `semanticThreshold`, `embedder`        |
 
+The `semantic` chunker needs an embedding for every segment, all from one
+vector space. If any segment cannot be embedded (the provider fails, or returns
+an empty vector or a vector of a different dimension), it does not guess: the
+whole document is split by size at paragraph boundaries instead, a warning is
+logged, and every chunk carries `metadata.custom.fallbackChunking: true`, so
+you can tell a size split from a semantic one.
+
 ### Strategy Configuration
 
 ```typescript

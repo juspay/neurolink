@@ -13,12 +13,19 @@ import {
 import type {
   EmbedInput,
   NeurolinkCredentials,
+  ProviderErrorRule,
   StreamOptions,
   StreamResult,
   ValidationSchema,
   VoyageEmbeddingsResponse,
 } from "../types/index.js";
 import { withTimeout } from "../utils/errorHandling.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+  messageNamesStatus,
+  namesMissingModel,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import {
   createVoyageConfig,
@@ -116,41 +123,49 @@ export class VoyageProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : "Unknown error";
-    if (
-      message.includes("401") ||
-      message.toLowerCase().includes("unauthorized") ||
-      message.includes("invalid_api_key")
-    ) {
-      return new AuthenticationError(
-        "Invalid Voyage AI API key. Get one at https://dash.voyageai.com/api-keys",
-        "voyage",
-      );
-    }
-    if (
-      message.includes("429") ||
-      message.toLowerCase().includes("rate limit")
-    ) {
-      return new RateLimitError(
-        "Voyage AI rate limit exceeded. Back off and retry.",
-        "voyage",
-      );
-    }
-    if (
-      message.includes("404") ||
-      message.toLowerCase().includes("model_not_found")
-    ) {
-      return new InvalidModelError(
-        `Voyage AI model '${this.modelName}' not found. Browse https://docs.voyageai.com/docs/embeddings`,
-        "voyage",
-      );
-    }
-    return new ProviderError(`Voyage AI error: ${message}`, "voyage");
+    // A status number counts only from the response status or where the text
+    // writes it as a status (messageNamesStatus): a 400 whose body mentions
+    // "429" or "404" — a count, an id — is not a rate limit or a missing model.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /unauthorized/i.test(ctx.message) ||
+          /invalid_api_key/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 401),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Voyage AI API key. Get one at https://dash.voyageai.com/api-keys",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          /rate limit/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
+        errorClass: RateLimitError,
+        message: "Voyage AI rate limit exceeded. Back off and retry.",
+      },
+      {
+        // A 404 is a missing model only when its text says so; a wrong base
+        // URL answers 404 too and is left to the shared 404 rule below.
+        match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
+        errorClass: InvalidModelError,
+        message: () =>
+          `Voyage AI model '${this.modelName}' not found. Browse https://docs.voyageai.com/docs/embeddings`,
+      },
+      ...DEFAULT_ERROR_RULES,
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Voyage AI error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   // ===== Embedding implementations =====
@@ -239,7 +254,10 @@ export class VoyageProvider extends BaseProvider {
     if (!response.ok) {
       const text = await response.text();
       throw this.formatProviderError(
-        new Error(`Voyage embeddings failed: ${response.status} — ${text}`),
+        Object.assign(
+          new Error(`Voyage embeddings failed: ${response.status} — ${text}`),
+          { status: response.status },
+        ),
       );
     }
 

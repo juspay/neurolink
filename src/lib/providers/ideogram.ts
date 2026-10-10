@@ -7,6 +7,7 @@ import type {
   EnhancedGenerateResult,
   IdeogramImageResponse,
   NeurolinkCredentials,
+  ProviderErrorRule,
   StreamOptions,
   StreamResult,
   TextGenerationOptions,
@@ -17,6 +18,11 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+  messageNamesStatus,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import {
   createIdeogramConfig,
@@ -102,37 +108,46 @@ export class IdeogramProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : "Unknown error";
-    if (
-      message.includes("401") ||
-      message.toLowerCase().includes("unauthorized")
-    ) {
-      return new AuthenticationError(
-        "Invalid Ideogram API key. Get one at https://developer.ideogram.ai/",
-        "ideogram",
-      );
-    }
-    if (
-      message.includes("429") ||
-      message.toLowerCase().includes("rate limit")
-    ) {
-      return new RateLimitError(
-        "Ideogram rate limit exceeded. Back off and retry.",
-        "ideogram",
-      );
-    }
-    if (message.includes("safety") || message.includes("is_image_safe")) {
-      return new ProviderError(
-        "Ideogram declined the request due to safety filters. Adjust the prompt and retry.",
-        "ideogram",
-      );
-    }
-    return new ProviderError(`Ideogram error: ${message}`, "ideogram");
+    // A status number counts only from the response status or where the text
+    // writes it as a status (messageNamesStatus): a 400 whose body mentions
+    // "429" or "404" — a count, an id — is not a rate limit or a missing model.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /unauthorized/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 401),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Ideogram API key. Get one at https://developer.ideogram.ai/",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          /rate limit/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
+        errorClass: RateLimitError,
+        message: "Ideogram rate limit exceeded. Back off and retry.",
+      },
+      {
+        match: (ctx) => /safety|is_image_safe/.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "Ideogram declined the request due to safety filters. Adjust the prompt and retry.",
+      },
+      ...DEFAULT_ERROR_RULES,
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Ideogram error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   protected override async executeImageGeneration(
@@ -211,7 +226,10 @@ export class IdeogramProvider extends BaseProvider {
     if (!response.ok) {
       const text = await response.text();
       throw this.formatProviderError(
-        new Error(`Ideogram image-gen failed: ${response.status} — ${text}`),
+        Object.assign(
+          new Error(`Ideogram image-gen failed: ${response.status} — ${text}`),
+          { status: response.status },
+        ),
       );
     }
 

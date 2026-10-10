@@ -24,6 +24,11 @@ import type {
 import { logger } from "../utils/logger.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import {
+  messageNamesStatus,
+  namesMissingModel,
+} from "../utils/errorClassifier.js";
+import { duckTypedStatusCode } from "../utils/providerRetry.js";
+import {
   createReplicateConfig,
   getProviderModel,
   validateApiKey,
@@ -449,8 +454,21 @@ export class ReplicateProvider extends BaseProvider {
           ? error
           : "Unknown error";
     const originalError = error instanceof Error ? error : undefined;
+    // The HTTP status, when the failure carries one: predictionLifecycle puts
+    // it on the NeuroLinkError's context, other errors carry it duck-typed.
+    const contextStatus =
+      error instanceof NeuroLinkError ? error.context.status : undefined;
+    const status =
+      typeof contextStatus === "number"
+        ? contextStatus
+        : duckTypedStatusCode(error);
+    // A status number counts only from that status or where the text writes it
+    // as a status (messageNamesStatus): a validation 400 whose body mentions
+    // "(429)", an id or a token count is not a rate limit or an auth failure.
+    const isStatus = (code: number): boolean =>
+      status === code || messageNamesStatus(message, code);
     if (
-      message.includes("401") ||
+      isStatus(401) ||
       message.toLowerCase().includes("unauthorized") ||
       message.toLowerCase().includes("invalid token")
     ) {
@@ -466,7 +484,7 @@ export class ReplicateProvider extends BaseProvider {
       });
     }
     if (
-      message.includes("402") ||
+      isStatus(402) ||
       message.toLowerCase().includes("insufficient credit")
     ) {
       return new NeuroLinkError({
@@ -480,10 +498,7 @@ export class ReplicateProvider extends BaseProvider {
         originalError,
       });
     }
-    if (
-      message.includes("429") ||
-      message.toLowerCase().includes("rate limit")
-    ) {
+    if (isStatus(429) || message.toLowerCase().includes("rate limit")) {
       return new NeuroLinkError({
         code: ERROR_CODES.PROVIDER_QUOTA_EXCEEDED,
         message: "Replicate rate limit exceeded. Back off and retry.",
@@ -494,13 +509,24 @@ export class ReplicateProvider extends BaseProvider {
         originalError,
       });
     }
-    if (
-      message.toLowerCase().includes("not found") ||
-      message.includes("404")
-    ) {
+    // Missing model only when the text names a model as missing. A bare 404 is
+    // what a wrong base URL answers too, so it keeps the status and the
+    // vendor's text instead of claiming the model id is wrong.
+    if (namesMissingModel(message, status)) {
       return new NeuroLinkError({
         code: ERROR_CODES.PROVIDER_NOT_AVAILABLE,
         message: `Replicate model '${this.modelName}' not found. Use owner/name or owner/name:version format. Browse https://replicate.com/explore`,
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: false,
+        context: { provider: "replicate", model: this.modelName },
+        originalError,
+      });
+    }
+    if (isStatus(404)) {
+      return new NeuroLinkError({
+        code: ERROR_CODES.PROVIDER_NOT_AVAILABLE,
+        message: `Replicate returned HTTP 404 for model '${this.modelName}': ${message}. Check the model id (owner/name or owner/name:version) and the base URL.`,
         category: ErrorCategory.VALIDATION,
         severity: ErrorSeverity.MEDIUM,
         retriable: false,

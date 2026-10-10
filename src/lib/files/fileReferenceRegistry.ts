@@ -30,6 +30,7 @@ import type {
   SizeTier,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { pdfTextLayer } from "../utils/pdfText.js";
 import {
   mimeHintToExtension,
   mimeHintToFileType,
@@ -509,8 +510,10 @@ export class FileReferenceRegistry {
             last: lastPage,
           });
           const totalPages = textResult.total || 0;
+          // pdfTextLayer: the page markers pdf-parse appends are not text.
           const text =
-            textResult.text?.trim() || "(No text found on the requested pages)";
+            pdfTextLayer(textResult) ||
+            "(No text found on the requested pages)";
 
           // Note: pdf-parse extracts a contiguous range (first..last).
           // For non-contiguous page requests (e.g., [1, 5, 12]), the result
@@ -1165,9 +1168,11 @@ export class FileReferenceRegistry {
           last: 100,
         });
 
-        const text = textResult.text?.trim();
+        // pdf-parse appends a "-- n of N --" marker after every page, so the
+        // joined text is never empty; pdfTextLayer decides from the pages.
+        const text = pdfTextLayer(textResult);
 
-        if (!text || text.length === 0) {
+        if (text.length === 0) {
           // No text found — likely a scanned/image-only PDF
           const pageCount = textResult.total || 0;
           return (

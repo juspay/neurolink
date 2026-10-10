@@ -6,6 +6,7 @@ import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   EnhancedGenerateResult,
   NeurolinkCredentials,
+  ProviderErrorRule,
   StabilityImageResponse,
   StreamOptions,
   StreamResult,
@@ -18,6 +19,12 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+  messageNamesStatus,
+  namesMissingModel,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import type { LanguageModel } from "../types/index.js";
@@ -114,46 +121,54 @@ export class StabilityProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : "Unknown error";
-    if (
-      message.includes("401") ||
-      message.toLowerCase().includes("unauthorized")
-    ) {
-      return new AuthenticationError(
-        "Invalid Stability AI API key. Get one at https://platform.stability.ai/account/keys",
-        "stability",
-      );
-    }
-    if (
-      message.includes("429") ||
-      message.toLowerCase().includes("rate limit")
-    ) {
-      return new RateLimitError(
-        "Stability AI rate limit exceeded. Back off and retry.",
-        "stability",
-      );
-    }
-    if (
-      message.includes("content_filtered") ||
-      message.includes("CONTENT_FILTERED")
-    ) {
-      return new ProviderError(
-        "Stability AI declined the request due to content policy. Adjust the prompt and retry.",
-        "stability",
-      );
-    }
-    if (message.includes("404")) {
-      return new InvalidModelError(
-        `Stability AI model '${this.modelName}' not found. Use stable-image-ultra, stable-image-core, sd3.5-large, sd3.5-large-turbo, or sd3.5-medium.`,
-        "stability",
-      );
-    }
-    return new ProviderError(`Stability AI error: ${message}`, "stability");
+    // A status number counts only from the response status or where the text
+    // writes it as a status (messageNamesStatus): a 400 whose body mentions
+    // "429" or "404" — a count, an id — is not a rate limit or a missing model.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /unauthorized/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 401),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Stability AI API key. Get one at https://platform.stability.ai/account/keys",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          /rate limit/i.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429),
+        errorClass: RateLimitError,
+        message: "Stability AI rate limit exceeded. Back off and retry.",
+      },
+      {
+        match: (ctx) => /content_filtered|CONTENT_FILTERED/.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "Stability AI declined the request due to content policy. Adjust the prompt and retry.",
+      },
+      {
+        // A 404 is a missing model only when its text says so; a wrong base
+        // URL answers 404 too and is left to the shared 404 rule below.
+        match: (ctx) => namesMissingModel(ctx.message, ctx.statusCode),
+        errorClass: InvalidModelError,
+        message: () =>
+          `Stability AI model '${this.modelName}' not found. Use stable-image-ultra, stable-image-core, sd3.5-large, sd3.5-large-turbo, or sd3.5-medium.`,
+      },
+      ...DEFAULT_ERROR_RULES,
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Stability AI error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   protected override async executeImageGeneration(
@@ -247,7 +262,10 @@ export class StabilityProvider extends BaseProvider {
     if (!response.ok) {
       const text = await response.text();
       throw this.formatProviderError(
-        new Error(`Stability image-gen failed: ${response.status} — ${text}`),
+        Object.assign(
+          new Error(`Stability image-gen failed: ${response.status} — ${text}`),
+          { status: response.status },
+        ),
       );
     }
 
