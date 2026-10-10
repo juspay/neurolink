@@ -10,6 +10,13 @@
  */
 
 /**
+ * Largest delay `setTimeout` honours (2^31 - 1 ms, about 24.8 days). A longer
+ * delay is not "later": Node warns and fires after 1 ms, so a caller-supplied
+ * deadline above this must be held at it rather than handed to the timer.
+ */
+export const MAX_TIMER_MS = 2_147_483_647;
+
+/**
  * Tool execution timeout constants
  * These values balance reliability vs performance for AI tool operations
  */

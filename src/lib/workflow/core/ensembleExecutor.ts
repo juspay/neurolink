@@ -4,6 +4,7 @@
  */
 
 import pLimit from "p-limit";
+import { MAX_TIMER_MS } from "../../constants/timeouts.js";
 import { AIProviderFactory } from "../../core/factory.js";
 import type {
   AIProvider,
@@ -199,12 +200,13 @@ async function executeModel(
     while (true) {
       attempts++;
       result = await executeWithTimeout(
-        async () => {
+        async (abortSignal) => {
           return await provider.generate({
             prompt,
             systemPrompt: resolvedSystemPrompt,
             temperature: model.temperature,
             maxTokens: model.maxTokens,
+            abortSignal,
           });
         },
         timeout,
@@ -280,19 +282,34 @@ async function createProvider(model: WorkflowModelConfig): Promise<AIProvider> {
 }
 
 /**
- * Execute function with timeout
- * @param fn - Async function to execute
+ * Run an abortable operation under a deadline.
+ *
+ * The operation receives the signal of an `AbortController` that this function
+ * aborts the moment the deadline lapses, so the owner of the work (the provider
+ * call and its HTTP request) is cancelled rather than abandoned. `Promise.race`
+ * alone only stops this caller waiting; it cannot stop a promise that already
+ * exists, so cancelling is the operation's job once it is handed the signal.
+ *
+ * `timeoutMs` is held at `MAX_TIMER_MS`: `setTimeout` fires after 1 ms for a
+ * longer delay, which turned the longest deadline a workflow could ask for into
+ * an immediate failure.
+ * @param run - Operation to execute; observes the signal to stop early
  * @param timeoutMs - Timeout in milliseconds
  * @param timeoutMessage - Error message for timeout
- * @returns Result of function execution
+ * @returns Result of the operation
  */
 async function executeWithTimeout<T>(
-  fn: () => Promise<T>,
+  run: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
   timeoutMessage: string,
 ): Promise<T> {
-  let timeoutHandle!: NodeJS.Timeout;
+  const controller = new AbortController();
+  let timeoutHandle: NodeJS.Timeout | undefined;
 
+  // An explicit upper-bound comparison, and `>` rather than `<=`: NaN fails
+  // `>`, so NaN, zero and negative deadlines reach `setTimeout` as they always
+  // did, and only a value above the limit is replaced by it.
+  const delayMs = timeoutMs > MAX_TIMER_MS ? MAX_TIMER_MS : timeoutMs;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
       const error = new WorkflowError(timeoutMessage, {
@@ -301,21 +318,17 @@ async function executeWithTimeout<T>(
         phase: "ensemble",
         retryable: true,
       });
+      // Reject before aborting: the abort can make the operation's own
+      // promise fail, and the race must already hold the deadline error.
       reject(error);
-    }, timeoutMs);
+      controller.abort(error);
+    }, delayMs);
   });
 
   try {
-    const result = await Promise.race([fn(), timeoutPromise]);
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
-    return result;
-  } catch (error) {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
-    throw error;
+    return await Promise.race([run(controller.signal), timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 }
 
