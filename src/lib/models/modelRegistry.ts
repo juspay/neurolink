@@ -3013,6 +3013,26 @@ const FORCED_TOOL_CHOICE_REJECTING_FAMILIES: RegExp[] = [
 ];
 
 /**
+ * Claude models that answer a fixed-budget `thinking: {type: "enabled",
+ * budget_tokens}` with a 400 and take `thinking: {type: "adaptive"}` (depth set
+ * by `output_config.effort`) instead. Sonnet 5.5 was observed live on Vertex
+ * (#1880: `"thinking.type.enabled" is not supported for this model. Use
+ * "thinking.type.adaptive" and "output_config.effort"`). Opus 5.5 and
+ * Fable/Mythos 5.1 are the same always-on adaptive tier as the families above,
+ * whose refusal of `disabled` already names adaptive as the replacement (#1858).
+ *
+ * Deliberately not widened to Sonnet 5, Opus 5 or Opus 4.7/4.8: the note on
+ * CLAUDE_OPUS_5's registry entry suggests they may refuse fixed budgets too,
+ * but nothing here has been probed against them, and the fallback suites pin
+ * Sonnet 5 as keeping its fixed budget.
+ */
+const FIXED_THINKING_BUDGET_REJECTING_FAMILIES: RegExp[] = [
+  /sonnet[-_.]?5[-_.]5(?![0-9])/i,
+  /opus[-_.]?5[-_.]5(?![0-9])/i,
+  /(?:fable|mythos)[-_.]?5[-_.]1(?![0-9])/i,
+];
+
+/**
  * Of those, the ones that accept `thinking: {type: "between_tools"}` as their
  * lowest setting. The rest think adaptively, always on, and take no
  * `thinking` field in its place.
@@ -3043,6 +3063,19 @@ export function modelSupportsForcedToolChoice(
   model: string | undefined,
 ): boolean {
   return !matchesClaudeFamily(FORCED_TOOL_CHOICE_REJECTING_FAMILIES, model);
+}
+
+/**
+ * Whether a Claude model accepts a fixed thinking budget
+ * (`thinking: {type: "enabled", budget_tokens}`). When it does not, send
+ * `thinking: {type: "adaptive"}` and carry the depth in `output_config.effort`.
+ * Gateway-shaped ids (`vertex_ai/claude-opus-5-5@…`, `anthropic.claude-…`) and
+ * registry aliases match. Unknown models default to accepting it.
+ */
+export function modelSupportsFixedThinkingBudget(
+  model: string | undefined,
+): boolean {
+  return !matchesClaudeFamily(FIXED_THINKING_BUDGET_REJECTING_FAMILIES, model);
 }
 
 /**

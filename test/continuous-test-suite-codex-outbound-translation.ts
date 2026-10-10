@@ -381,6 +381,45 @@ test("reasoning.effort table produces the exact §3.5 shape or omission", () => 
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.deepEqual(result.value.thinking, expected, `effort=${effort}`);
+      assert.equal(
+        "output_config" in result.value,
+        false,
+        `effort=${effort} on a fixed-budget target must not add output_config`,
+      );
+    }
+  }
+});
+
+// Claude 5.5 / 5.1 targets answer `thinking:{type:"enabled",budget_tokens}`
+// with a 400 (the #1880 refusal names adaptive + output_config.effort as the
+// replacement). A Codex effort that reached one through the Anthropic loopback
+// target used to go out as a fixed budget and fail the turn the fallback
+// exists to rescue.
+test("reasoning.effort becomes adaptive thinking plus output_config.effort on targets that refuse a fixed budget", () => {
+  for (const model of [
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-fable-5-1",
+    "claude-opus-5-5@20260928",
+  ]) {
+    for (const effort of ["low", "medium", "high", "xhigh", "max"] as const) {
+      const result = translateCodexRequestToClaude(
+        minimalRequest({ reasoning: { effort } }),
+        { provider: "anthropic", model },
+      );
+      assert.equal(result.ok, true, `${model} effort=${effort}`);
+      if (result.ok) {
+        assert.deepEqual(
+          result.value.thinking,
+          { type: "adaptive" },
+          `${model} effort=${effort} must not carry a fixed thinking budget`,
+        );
+        assert.deepEqual(
+          result.value.output_config,
+          { effort },
+          `${model} effort=${effort} lost the requested effort level`,
+        );
+      }
     }
   }
 });

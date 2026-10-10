@@ -3,8 +3,8 @@ import "dotenv/config";
 
 /**
  * Public generate()/stream() middleware contracts for the OpenAI-compatible
- * family, plus dedicated sections for AI Studio and Bedrock near the end of
- * the file (a sibling PR adds Vertex the same way). Local HTTP fixtures
+ * family, plus dedicated sections for AI Studio, Vertex, Bedrock and the
+ * direct Anthropic stream near the end of the file. Local HTTP fixtures
  * prove prompt rewrites, real tool execution, guardrail blocking/filtering,
  * error propagation, completion and cancellation.
  * Runtime imports use only the built entry; type-only imports are erased.
@@ -6325,6 +6325,414 @@ await test("Bedrock generate: a middleware can rewrite the reply while the loop'
     });
   } finally {
     await local.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ANTHROPIC (direct) — native stream() middleware.
+//
+// generate() on the direct Anthropic provider has always wrapped its model
+// (executeNativeGenerate → getAISDKModelWithMiddleware); its stream() loop
+// never did, so transformParams, wrapStream and guardrails ran on generate()
+// and were silently skipped on stream() — a precall guardrail that should
+// have blocked the request let it through. The stand-ins are the
+// Anthropic-on-Vertex ones above (`startAnthropicStandIn`,
+// `startAnthropicHoldOpenStandIn`, `anthropicTextTurn`): the Messages wire is
+// the same, and `ANTHROPIC_BASE_URL` points the provider at them.
+// ---------------------------------------------------------------------------
+
+section("Anthropic (direct)");
+
+const DIRECT_ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929";
+
+const withDirectAnthropic = <T>(port: number, fn: () => Promise<T>) =>
+  withEnv(
+    {
+      ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
+      ANTHROPIC_API_KEY: "sk-ant-mock-local-server",
+      ANTHROPIC_AUTH_METHOD: "api_key",
+    },
+    fn,
+  );
+
+const directAnthropicStream = (extra: Record<string, unknown> = {}) => ({
+  input: { text: "hello" },
+  provider: "anthropic",
+  model: DIRECT_ANTHROPIC_MODEL,
+  disableTools: true,
+  disableInternalFallback: true,
+  ...extra,
+});
+
+await test("Anthropic: stream applies model middleware and a transformParams rewrite reaches the wire", async () => {
+  const standIn = await startAnthropicStandIn(() =>
+    anthropicTextTurn("direct reply"),
+  );
+  const record = emptyRecord();
+  try {
+    await withDirectAnthropic(standIn.port, async () => {
+      const nl = new NeuroLink();
+      try {
+        const text = await bounded(
+          readText(
+            await nl.stream(
+              directAnthropicStream({ middleware: middlewareOptions(record) }),
+            ),
+          ),
+        );
+        assert.equal(
+          standIn.calls.length,
+          1,
+          "precondition: the stream never reached the stand-in",
+        );
+        assert.equal(text, "direct reply", "the streamed reply was lost");
+        assert.ok(
+          record.transformParamsCalls.includes("stream"),
+          'transformParams never fired with type "stream" on stream()',
+        );
+        assert.ok(
+          record.wrapStreamCalls > 0,
+          "wrapStream never fired on the streaming path",
+        );
+        assert.ok(
+          JSON.stringify(standIn.calls[0]?.body.messages ?? []).includes(
+            MARKER,
+          ),
+          "the transformParams rewrite did not reach the wire on stream",
+        );
+      } finally {
+        await nl.shutdown();
+      }
+    });
+  } finally {
+    await standIn.close();
+  }
+});
+
+await test("Anthropic: wrapStream filters text and observes the V3 terminal event with usage", async () => {
+  const standIn = await startAnthropicStandIn(() =>
+    anthropicTextTurn("direct reply"),
+  );
+  const seen: LanguageModelV3StreamPart[] = [];
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "anthropic-wire-filter", name: "Anthropic wire filter" },
+    wrapStream: async ({ doStream }) => {
+      const result = await doStream();
+      return {
+        ...result,
+        stream: result.stream.pipeThrough(
+          new TransformStream({
+            transform(part: LanguageModelV3StreamPart, controller) {
+              seen.push(part);
+              controller.enqueue(
+                part.type === "text-delta"
+                  ? { ...part, delta: part.delta.toUpperCase() }
+                  : part,
+              );
+            },
+          }),
+        ),
+      };
+    },
+  };
+  try {
+    await withDirectAnthropic(standIn.port, async () => {
+      const nl = new NeuroLink();
+      try {
+        const text = await bounded(
+          readText(
+            await nl.stream(
+              directAnthropicStream({
+                middleware: {
+                  middleware: [middleware],
+                  enabledMiddleware: ["anthropic-wire-filter"],
+                },
+              }),
+            ),
+          ),
+        );
+        assert.equal(standIn.calls.length, 1, "wire request did not run");
+        assert.equal(text, "DIRECT REPLY", "wrapStream's filter was lost");
+        const finishes = seen.filter((part) => part.type === "finish");
+        assert.equal(finishes.length, 1, "terminal event not forwarded");
+        const finish = finishes[0];
+        assert.ok(
+          finish?.type === "finish" &&
+            finish.usage.inputTokens.total === 5 &&
+            finish.usage.outputTokens.total === 4,
+          "the terminal event did not carry the turn's usage",
+        );
+      } finally {
+        await nl.shutdown();
+      }
+    });
+  } finally {
+    await standIn.close();
+  }
+});
+
+await test("Anthropic: stream middleware sampling edits reach the wire", async () => {
+  const standIn = await startAnthropicStandIn(() =>
+    anthropicTextTurn("direct reply"),
+  );
+  const middleware: NeuroLinkMiddleware = {
+    specificationVersion: "v3",
+    metadata: { id: "anthropic-sampling", name: "Anthropic sampling" },
+    transformParams: async ({ params }) => ({
+      ...params,
+      maxOutputTokens: 77,
+      temperature: 0.25,
+      topP: 0.9,
+    }),
+  };
+  try {
+    await withDirectAnthropic(standIn.port, async () => {
+      const nl = new NeuroLink();
+      try {
+        await bounded(
+          readText(
+            await nl.stream(
+              directAnthropicStream({
+                maxTokens: 128,
+                temperature: 0.7,
+                middleware: {
+                  middleware: [middleware],
+                  enabledMiddleware: ["anthropic-sampling"],
+                },
+              }),
+            ),
+          ),
+        );
+        assert.equal(standIn.calls.length, 1, "sampling fixture not reached");
+        const body = standIn.calls[0]?.body ?? {};
+        assert.equal(body.max_tokens, 77, "token override lost");
+        assert.equal(body.temperature, 0.25, "temperature override lost");
+        assert.equal(body.top_p, 0.9, "top-p override lost");
+        assert.equal(body.stream, true, "stream mode changed");
+      } finally {
+        await nl.shutdown();
+      }
+    });
+  } finally {
+    await standIn.close();
+  }
+});
+
+await test("Anthropic: precall guardrail blocks stream — target never called", async () => {
+  const evaluator = await startScriptedChatServer([
+    chatCompletion({
+      content: JSON.stringify({
+        overall: "unsafe",
+        safetyScore: 1,
+        appropriatenessScore: 1,
+        confidenceLevel: 10,
+        suggestedAction: "block",
+        reasoning: "Deterministic blocking fixture",
+      }),
+    }),
+  ]);
+  const target = await startAnthropicStandIn(() =>
+    anthropicTextTurn("should never be seen"),
+  );
+  try {
+    await withEnv(
+      {
+        OPENAI_COMPATIBLE_API_KEY: "test-evaluator-key",
+        OPENAI_COMPATIBLE_BASE_URL: evaluator.baseURL,
+      },
+      () =>
+        withDirectAnthropic(target.port, async () => {
+          const nl = new NeuroLink();
+          try {
+            const result = await nl.stream(
+              directAnthropicStream({
+                input: { text: "block this request" },
+                enableAnalytics: true,
+                middleware: {
+                  middlewareConfig: {
+                    guardrails: {
+                      enabled: true,
+                      config: {
+                        precallEvaluation: {
+                          enabled: true,
+                          provider: "openai-compatible",
+                          evaluationModel: "fixture-evaluator",
+                        },
+                      },
+                    },
+                  },
+                },
+              }),
+            );
+            const content = await bounded(readText(result));
+            assert.ok(
+              evaluator.wasCalled(),
+              "guardrail evaluator was not exercised",
+            );
+            assert.equal(
+              target.calls.length,
+              0,
+              "blocked input reached the Anthropic target",
+            );
+            assert.equal(
+              content,
+              "Request contains inappropriate content and has been blocked.",
+              "Anthropic guardrail refusal was lost",
+            );
+            if (result.analytics) {
+              await bounded(Promise.resolve(result.analytics));
+            }
+          } finally {
+            await nl.shutdown();
+          }
+        }),
+    );
+  } finally {
+    await target.close();
+    await evaluator.close();
+  }
+});
+
+await test("Anthropic: guardrail bad-word filtering catches a term split across stream blocks", async () => {
+  const server = await startSplitBlockAnthropicServer(SPLIT_TERM);
+  try {
+    await withEnv(
+      {
+        ANTHROPIC_BASE_URL: server.baseURL,
+        ANTHROPIC_API_KEY: "sk-ant-mock-local-server",
+        ANTHROPIC_AUTH_METHOD: "api_key",
+      },
+      async () => {
+        const sdk = new NeuroLink();
+        try {
+          const base = directAnthropicStream({
+            model: "claude-sonnet-4-20250514",
+          });
+          const unfiltered = await bounded(readText(await sdk.stream(base)));
+          assert.equal(
+            server.requests(),
+            1,
+            "precondition: split server not exercised",
+          );
+          assert.equal(
+            unfiltered,
+            WHOLE_TERM,
+            "precondition: split blocks did not reassemble into the whole term",
+          );
+          const filtered = await bounded(
+            readText(
+              await sdk.stream({ ...base, middleware: splitTermGuardrails }),
+            ),
+          );
+          assert.equal(
+            server.requests(),
+            2,
+            "guarded stream did not reach the provider",
+          );
+          assert.equal(
+            filtered,
+            "CLEAN",
+            "term split across stream blocks escaped the guardrail",
+          );
+        } finally {
+          await sdk.shutdown();
+        }
+      },
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("Anthropic: breaking out of a wrapped stream cancels the upstream socket", async () => {
+  const standIn = await startAnthropicHoldOpenStandIn();
+  try {
+    await withDirectAnthropic(standIn.port, async () => {
+      const nl = new NeuroLink();
+      try {
+        const result = await nl.stream(
+          directAnthropicStream({
+            middleware: middlewareOptions(emptyRecord()),
+          }),
+        );
+        await bounded(
+          (async () => {
+            for await (const chunk of result.stream) {
+              if ("content" in chunk && chunk.content) {
+                break;
+              }
+            }
+          })(),
+        );
+        assert.equal(standIn.calls.length, 1, "server was never reached");
+        await bounded(
+          (async () => {
+            while (standIn.closedResponses() === 0) {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          })(),
+        );
+        assert.ok(standIn.closedResponses() > 0, "upstream socket not closed");
+      } finally {
+        await nl.shutdown();
+      }
+    });
+  } finally {
+    await standIn.close();
+  }
+});
+
+await test("Anthropic: stream() fires onChunk/onFinish exactly once per chunk through the native V3 middleware chain", async () => {
+  const standIn = await startAnthropicStandIn(() =>
+    anthropicTextTurn("should never be seen"),
+  );
+  const onChunkCalls: LifecycleChunkPayload[] = [];
+  const onFinishCalls: LifecycleFinishPayload[] = [];
+  try {
+    await withDirectAnthropic(standIn.port, async () => {
+      const nl = new NeuroLink();
+      try {
+        const result = await nl.stream(
+          directAnthropicStream({
+            middleware: {
+              middleware: [v3DeltaStream],
+              enabledMiddleware: ["v3-delta-stream"],
+            },
+            onChunk: (payload: LifecycleChunkPayload) => {
+              onChunkCalls.push(payload);
+            },
+            onFinish: (payload: LifecycleFinishPayload) => {
+              onFinishCalls.push(payload);
+            },
+          }),
+        );
+        assert.equal(
+          await bounded(readText(result)),
+          "Hello",
+          "the stream's own text content was wrong",
+        );
+        assert.equal(
+          standIn.calls.length,
+          0,
+          "the synthetic V3 stream should have pre-empted the real wire call",
+        );
+        assert.equal(
+          onChunkCalls.filter((c) => c.type === "text-delta").length,
+          2,
+          "onChunk must fire exactly once per real chunk, not duplicated",
+        );
+        assert.equal(
+          onFinishCalls.length,
+          1,
+          "onFinish fired a different number of times than exactly once",
+        );
+      } finally {
+        await nl.shutdown();
+      }
+    });
+  } finally {
+    await standIn.close();
   }
 });
 

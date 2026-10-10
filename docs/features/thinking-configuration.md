@@ -142,12 +142,33 @@ const response = await neurolink.generate({
 });
 ```
 
-NeuroLink sends `thinking: { type: "disabled" }` on both `generate()` and
-`stream()`. Turning thinking off does not change which sampling parameters a
-model accepts. On a model that takes a `temperature`, NeuroLink still sends it
-with thinking disabled; it is dropped only while thinking is on. Some models,
-`claude-sonnet-5` among them, do not accept a `temperature` at all, and NeuroLink
-leaves it off for them whatever the thinking setting.
+On the direct `anthropic` provider, NeuroLink sends `thinking: { type: "disabled" }`
+on both `generate()` and `stream()` to every model that accepts it — Claude
+Sonnet 5 and the 4.x and older families.
+
+Claude Sonnet 5.5, Opus 5.5 and Fable/Mythos 5.1 answer `type: "disabled"` with
+a 400, so for those models NeuroLink sends what each one accepts instead:
+
+| Model family      | Sent for `type: "disabled"`           | Why                                                            |
+| ----------------- | ------------------------------------- | -------------------------------------------------------------- |
+| Claude Sonnet 5.5 | `thinking: { type: "between_tools" }` | The setting this model takes in place of `disabled`.           |
+| Claude Opus 5.5   | no `thinking` field                   | Thinking is always on; the model's default (adaptive) applies. |
+| Claude Fable 5.1  | no `thinking` field                   | Thinking is always on; the model's default (adaptive) applies. |
+| Claude Mythos 5.1 | no `thinking` field                   | Thinking is always on; the model's default (adaptive) applies. |
+
+The families are matched by pattern, so dated ids and registry aliases such as
+`sonnet-5.5` get the same treatment. On Opus 5.5 and Fable/Mythos 5.1 thinking
+cannot be turned off at all. The same families also refuse a fixed
+`budgetTokens`; leave `thinkingConfig` unset for them and they think adaptively.
+
+Turning thinking off does not change which sampling parameters a model accepts.
+On a model that takes `temperature` and `topP`, NeuroLink still sends them (as
+`temperature` and `top_p`) with thinking disabled; they are dropped only while
+thinking is on. Some models do not take them at all: `claude-sonnet-5` refuses
+`temperature` and `top_p` outright, and `claude-sonnet-5-5` refuses any
+non-default value. NeuroLink leaves both off for those families — Sonnet 5 and
+5.5, Opus 4.7 and later, Opus 5 and 5.5, Fable and Mythos — whatever the
+thinking setting.
 
 `enabled: false`, or no `thinkingConfig` at all, sends nothing, so the model's own
 default applies. If `enabled: true` and `budgetTokens` are also set, thinking is

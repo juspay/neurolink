@@ -509,6 +509,7 @@ export async function runNativeGenerateLoop(
           ...(args.temperature !== undefined
             ? { temperature: args.temperature }
             : {}),
+          ...(args.topP !== undefined ? { topP: args.topP } : {}),
           ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
         }),
       );

@@ -155,6 +155,12 @@ Resolved model id, handed to `prepareStep` as its `model` argument.
 
 ---
 
+### topP?
+
+> `optional` **topP?**: `number`
+
+---
+
 ### abortSignal?
 
 > `optional` **abortSignal?**: `AbortSignal`

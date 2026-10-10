@@ -43,6 +43,12 @@ import "dotenv/config";
  * catch the fix breaking something that already worked, or switching thinking
  * on or off for callers who never asked.
  *
+ * Two later sections pin follow-ups. Claude Sonnet 5.5, Opus 5.5 and
+ * Fable/Mythos 5.1 refuse `disabled` with a 400, so those models get the same
+ * per-family replacement the proxy sends (`between_tools`, or no field); the
+ * other families must still get `disabled`. And `topP` is forwarded as
+ * `top_p` under the rules temperature already follows.
+ *
  * Run: pnpm run build && npx tsx test/continuous-test-suite-anthropic-thinking-disabled.ts
  *      pnpm run test:anthropic-thinking-disabled
  */
@@ -180,11 +186,17 @@ const startMessagesServer = async (
  * reached the stand-in zero times fails in `requestsFor` rather than
  * satisfying an `every` over an empty list.
  */
+/** Per-case overrides of the default request: another model, or a `topP`. */
+type RequestOverrides = { model?: string; topP?: number };
+
+type RequestsFor = (
+  mode: Mode,
+  thinkingConfig: ThinkingConfig,
+  overrides?: RequestOverrides,
+) => Promise<SeenBody[]>;
+
 const openStandIn = async (): Promise<{
-  requestsFor: (
-    mode: Mode,
-    thinkingConfig: ThinkingConfig,
-  ) => Promise<SeenBody[]>;
+  requestsFor: RequestsFor;
   close: () => void;
 }> => {
   const envSnapshot = snapshotEnv();
@@ -197,17 +209,15 @@ const openStandIn = async (): Promise<{
   delete process.env.CLAUDE_OAUTH_TOKEN;
   const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
 
-  const requestsFor = async (
-    mode: Mode,
-    thinkingConfig: ThinkingConfig,
-  ): Promise<SeenBody[]> => {
+  const requestsFor: RequestsFor = async (mode, thinkingConfig, overrides) => {
     seen.splice(0);
     const options = {
       provider: "anthropic",
-      model: MODEL,
+      model: overrides?.model ?? MODEL,
       input: { text: "Say ok." },
       temperature: TEMPERATURE,
       maxSteps: 1,
+      ...(overrides?.topP !== undefined ? { topP: overrides.topP } : {}),
       ...(thinkingConfig ? { thinkingConfig } : {}),
     };
     if (mode === "generate") {
@@ -245,12 +255,7 @@ void runSuite(async () => {
   }
 });
 
-const runCases = async (
-  requestsFor: (
-    mode: Mode,
-    thinkingConfig: ThinkingConfig,
-  ) => Promise<SeenBody[]>,
-): Promise<void> => {
+const runCases = async (requestsFor: RequestsFor): Promise<void> => {
   section("type: disabled is sent to Anthropic");
 
   for (const mode of MODES) {
@@ -329,6 +334,112 @@ const runCases = async (
           sameJson(body.thinking, { type: "enabled", budget_tokens: BUDGET }),
         ),
         `${mode} request changed which of enabled and type: "disabled" wins`,
+      );
+    });
+  }
+
+  // Claude Sonnet 5.5, Opus 5.5 and Fable/Mythos 5.1 answer
+  // `thinking: { type: "disabled" }` with a 400 (live probes in #1858). The
+  // proxy already sends what each family accepts instead; the direct provider
+  // sent `disabled` to every model, so a caller turning thinking off on one of
+  // these models got an error rather than a reply.
+  section("Claude 5.5 / 5.1 models get what they accept instead of disabled");
+
+  const REPLACEMENTS: ReadonlyArray<{
+    model: string;
+    expected: { type: string } | undefined;
+    label: string;
+  }> = [
+    {
+      model: "claude-sonnet-5-5",
+      expected: { type: "between_tools" },
+      label: "between_tools",
+    },
+    { model: "claude-opus-5-5", expected: undefined, label: "no thinking" },
+    { model: "claude-fable-5-1", expected: undefined, label: "no thinking" },
+    // An alias resolves before the request is built, so it gets the same
+    // treatment as the id it names.
+    {
+      model: "sonnet-5.5",
+      expected: { type: "between_tools" },
+      label: "between_tools",
+    },
+    // Controls: these families accept `disabled` and must keep getting it.
+    {
+      model: "claude-sonnet-5",
+      expected: { type: "disabled" },
+      label: "disabled",
+    },
+    {
+      model: "claude-sonnet-4-5-20250929",
+      expected: { type: "disabled" },
+      label: "disabled",
+    },
+  ];
+
+  for (const mode of MODES) {
+    for (const { model, expected, label } of REPLACEMENTS) {
+      await test(`${mode}: type "disabled" on ${model} sends ${label}`, async () => {
+        const bodies = await requestsFor(mode, { type: "disabled" }, { model });
+        assert(
+          bodies.every((body) =>
+            expected === undefined
+              ? !("thinking" in body)
+              : sameJson(body.thinking, expected),
+          ),
+          `${mode} request to ${model} did not carry the thinking shape that model accepts`,
+        );
+      });
+    }
+  }
+
+  // `topP` was dropped on both native paths, so a caller's nucleus sampling
+  // never reached Anthropic. It follows the same rules as temperature.
+  section("topP reaches the wire under the same rules as temperature");
+
+  const TOP_P = 0.85;
+
+  for (const mode of MODES) {
+    await test(`${mode}: topP is sent as top_p`, async () => {
+      const bodies = await requestsFor(mode, undefined, { topP: TOP_P });
+      assert(
+        bodies.every((body) => body.top_p === TOP_P),
+        `${mode} request dropped the caller's topP`,
+      );
+    });
+
+    await test(`${mode}: topP is still sent alongside thinking: disabled`, async () => {
+      const bodies = await requestsFor(
+        mode,
+        { type: "disabled" },
+        { topP: TOP_P },
+      );
+      assert(
+        bodies.every((body) => body.top_p === TOP_P),
+        `${mode} request dropped the caller's topP while thinking was disabled`,
+      );
+    });
+
+    await test(`${mode}: topP is dropped while thinking is enabled`, async () => {
+      const bodies = await requestsFor(
+        mode,
+        { enabled: true, budgetTokens: BUDGET },
+        { topP: TOP_P },
+      );
+      assert(
+        bodies.every((body) => !("top_p" in body)),
+        `${mode} request kept a top_p alongside enabled thinking`,
+      );
+    });
+
+    await test(`${mode}: topP is stripped for a model that rejects sampling parameters`, async () => {
+      const bodies = await requestsFor(mode, undefined, {
+        model: "claude-sonnet-5",
+        topP: TOP_P,
+      });
+      assert(
+        bodies.every((body) => !("top_p" in body) && !("temperature" in body)),
+        `${mode} request sent sampling parameters claude-sonnet-5 rejects`,
       );
     });
   }
