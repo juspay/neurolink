@@ -1214,7 +1214,15 @@ await test("generate sends a geography-prefixed Bedrock id the same max tokens a
   );
 });
 
-await test("default no-output fallback remains enabled for a capped tool-only Bedrock turn", async () => {
+await test("a capped Bedrock turn that already ran tools is not replayed on the fallback provider", async () => {
+  // This case used to assert the opposite: that the default (no
+  // fallbackOnMaxSteps) retried a capped tool-only turn on the fallback route.
+  // That held only while Bedrock's stream() reported no tool calls at all, so
+  // the no-output gate in NeuroLink.stream, which refuses to retry a turn that
+  // already dispatched tools (they may have had side effects), never saw
+  // any. Now that stream() reports them, like the Anthropic and Vertex native
+  // loops, the gate applies here too: the turn is surfaced, not replayed, and
+  // no second provider is billed for the caller's own step budget.
   const primary = MODEL;
   const fallback = "amazon.nova-pro-v1:0";
   const server = await startStandIn((index) =>
@@ -1239,20 +1247,25 @@ await test("default no-output fallback remains enabled for a capped tool-only Be
     for await (const chunk of result.stream) {
       text += "content" in chunk ? (chunk.content ?? "") : "";
     }
-    assert(text === "FALLBACK_OK", "default no-output fallback was suppressed");
     assert(
-      server.calls.length === 4,
-      "expected three native steps and one owned fallback request",
+      text === "",
+      "a capped turn that ran tools was answered by the fallback",
     );
     assert(
-      server.calls
-        .slice(0, 3)
-        .every((call) => call.streaming && call.modelId === primary),
-      "the native capped turn never reached the owned endpoint under its original model",
+      server.calls.length === 3,
+      "expected exactly the three native steps and no fallback request",
     );
     assert(
-      server.calls[3].streaming && server.calls[3].modelId === fallback,
-      "default fallback did not reach the caller's configured model",
+      server.calls.every((call) => call.streaming && call.modelId === primary),
+      "the native capped turn did not stay on its original model",
+    );
+    assert(
+      Array.isArray(result.toolCalls) && result.toolCalls.length === 3,
+      "the capped turn did not report the three tool calls it ran",
+    );
+    assert(
+      result.metadata?.stopReason === "step-cap",
+      "the capped turn did not surface stopReason step-cap",
     );
   } finally {
     restore();
