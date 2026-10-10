@@ -2098,6 +2098,315 @@ void runSuite(async () => {
     }
   });
 
+  await test("OpenAI-compatible stream(): tool:start / tool:end and the tool's own execute options carry the model's toolCallId, and toolCalls / toolResults resolve after the drain", async () => {
+    // The streamed loop called `execute(input, {})`, so the event wrapper had
+    // no call id to stamp on tool:start / tool:end, and the result exposed no
+    // live toolCalls / toolResults — `streamResult.toolCalls` stayed [] after
+    // a tool really ran. The fixture's call id is `call_fixture_1`.
+    const toolName = "get_weather";
+    const fixture = await startToolCallServer(toolName);
+    const sdk = new NeuroLink();
+    const events: Array<[string, Record<string, unknown>]> = [];
+    const emitter = sdk.getEventEmitter();
+    const onStart = (...args: unknown[]) =>
+      events.push(["start", (args[0] ?? {}) as Record<string, unknown>]);
+    const onEnd = (...args: unknown[]) =>
+      events.push(["end", (args[0] ?? {}) as Record<string, unknown>]);
+    emitter.on("tool:start", onStart);
+    emitter.on("tool:end", onEnd);
+    const seenCallIds: unknown[] = [];
+    try {
+      const result = await sdk.stream({
+        input: { text: "what is the weather in lisbon" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        maxSteps: 3,
+        disableInternalFallback: true,
+        enabledToolNames: [toolName],
+        credentials: {
+          openai: {
+            apiKey: "test-key",
+            baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+          },
+        },
+        tools: {
+          [toolName]: tool({
+            inputSchema: z.object({ city: z.string() }),
+            execute: async (
+              { city }: { city: string },
+              execOptions?: { toolCallId?: unknown },
+            ) => {
+              seenCallIds.push(execOptions?.toolCallId);
+              return { city, forecast: "sunny" };
+            },
+          }),
+        },
+      } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert.equal(
+        seenCallIds.length,
+        1,
+        "precondition failed: the tool did not run exactly once",
+      );
+      assert.equal(
+        seenCallIds[0],
+        "call_fixture_1",
+        "the tool's execute options did not carry the model's tool call id",
+      );
+      const mine = events.filter(([, p]) => p.toolName === toolName);
+      const start = mine.find(([kind]) => kind === "start")?.[1];
+      const end = mine.find(([kind]) => kind === "end")?.[1];
+      assert.ok(start && end, "precondition failed: no tool:start / tool:end");
+      assert.equal(
+        start?.toolCallId,
+        "call_fixture_1",
+        "tool:start does not carry the model's tool call id",
+      );
+      assert.equal(
+        end?.toolCallId,
+        "call_fixture_1",
+        "tool:end does not carry the model's tool call id",
+      );
+
+      const calls = result.toolCalls ?? [];
+      assert.equal(
+        calls.length,
+        1,
+        "toolCalls did not record the one call the stream made",
+      );
+      assert.equal(
+        calls[0]?.toolCallId,
+        "call_fixture_1",
+        "toolCalls entry carries the wrong call id",
+      );
+      assert.equal(
+        calls[0]?.toolName,
+        toolName,
+        "toolCalls entry names the wrong tool",
+      );
+      assert.deepEqual(
+        calls[0]?.args,
+        { city: "lisbon" },
+        "toolCalls entry lost the call's parsed arguments",
+      );
+      const results = result.toolResults ?? [];
+      assert.equal(
+        results.length,
+        1,
+        "toolResults did not record the one result the stream produced",
+      );
+      assert.equal(
+        results[0]?.id,
+        "call_fixture_1",
+        "toolResults entry is not paired with its call",
+      );
+      assert.equal(
+        results[0]?.status,
+        "success",
+        "toolResults reports a successful run as a failure",
+      );
+    } finally {
+      emitter.off("tool:start", onStart);
+      emitter.off("tool:end", onEnd);
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
+  await test("OpenAI-compatible stream(): toolsUsed names only tools that ran successfully — unregistered and throwing calls are excluded, as on generate()", async () => {
+    // Every attempted call went into the streamed loop's toolsUsed, so a
+    // hallucinated or throwing tool counted as "used" (and reached memory's
+    // shouldWrite) on stream() while generate() counted only successes. The
+    // attempt itself must still be visible in toolExecutions / toolResults.
+    const scenarios = [
+      { label: "an unregistered tool", wireName: "ghost_tool" },
+      { label: "a tool that throws", wireName: "failing_tool" },
+    ] as const;
+    for (const scenario of scenarios) {
+      for (const surface of ["stream", "generate"] as const) {
+        const fixture =
+          surface === "stream"
+            ? await startToolCallServer(scenario.wireName)
+            : await startScriptedOpenAIServer([
+                {
+                  toolCall: {
+                    name: scenario.wireName,
+                    args: { city: "lisbon" },
+                  },
+                },
+                { text: "It is sunny." },
+              ]);
+        const sdk = new NeuroLink();
+        let failingRuns = 0;
+        try {
+          const options = {
+            input: { text: "what is the weather in lisbon" },
+            provider: "openai",
+            model: "gpt-4o-mini",
+            maxSteps: 3,
+            disableInternalFallback: true,
+            enabledToolNames: ["failing_tool"],
+            credentials: {
+              openai: {
+                apiKey: "test-key",
+                baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+              },
+            },
+            tools: {
+              failing_tool: tool({
+                inputSchema: z.object({ city: z.string() }),
+                execute: async () => {
+                  failingRuns++;
+                  throw new Error("weather backend unavailable");
+                },
+              }),
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0];
+          let toolsUsed: string[] | undefined;
+          let attempts: number;
+          if (surface === "stream") {
+            const result = await sdk.stream(options);
+            for await (const _chunk of result.stream) {
+              // drain
+            }
+            toolsUsed = result.toolsUsed;
+            attempts = (result.toolResults ?? []).length;
+            assert.equal(
+              result.toolResults?.[0]?.status,
+              "failure",
+              `stream, ${scenario.label}: the failed attempt is not reported as a failure`,
+            );
+          } else {
+            const result = await sdk.generate(
+              options as Parameters<
+                InstanceType<typeof NeuroLink>["generate"]
+              >[0],
+            );
+            toolsUsed = result.toolsUsed;
+            attempts = (result.toolExecutions ?? []).length;
+          }
+          if (scenario.wireName === "failing_tool") {
+            assert.equal(
+              failingRuns,
+              1,
+              `precondition failed: ${surface}, the throwing tool did not run once`,
+            );
+          }
+          assert.equal(
+            attempts,
+            1,
+            `${surface}, ${scenario.label}: the attempt is missing from the execution record`,
+          );
+          assert.deepEqual(
+            toolsUsed ?? [],
+            [],
+            `${surface}, ${scenario.label}: toolsUsed counts a call that did not succeed`,
+          );
+        } finally {
+          await sdk.shutdown();
+          await fixture.close();
+        }
+      }
+    }
+  });
+
+  await test("OpenAI-compatible stream(): toolTimeoutMs bounds a wedged tool, and the turn still answers", async () => {
+    // The streamed loop awaited `execute` with no per-tool cap and no abort
+    // race, so a tool that never settles parked the loop forever. With the
+    // generate loop's guard the call fails after toolTimeoutMs, the model is
+    // told, and the turn completes.
+    const toolName = "get_weather";
+    const fixture = await startToolCallServer(toolName);
+    const sdk = new NeuroLink();
+    let started = 0;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const run = (async () => {
+        const result = await sdk.stream({
+          input: { text: "what is the weather in lisbon" },
+          provider: "openai",
+          model: "gpt-4o-mini",
+          maxSteps: 3,
+          disableInternalFallback: true,
+          toolTimeoutMs: 100,
+          enabledToolNames: [toolName],
+          credentials: {
+            openai: {
+              apiKey: "test-key",
+              baseURL: `http://127.0.0.1:${fixture.port}/v1`,
+            },
+          },
+          tools: {
+            [toolName]: tool({
+              inputSchema: z.object({ city: z.string() }),
+              execute: () => {
+                started++;
+                // Never settles.
+                return new Promise<never>(() => {});
+              },
+            }),
+          },
+        } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+        let text = "";
+        for await (const chunk of result.stream) {
+          if (
+            chunk &&
+            typeof chunk === "object" &&
+            "content" in chunk &&
+            typeof (chunk as { content: unknown }).content === "string"
+          ) {
+            text += (chunk as { content: string }).content;
+          }
+        }
+        return { result, text };
+      })();
+      const timedOut = new Promise<"wedged">((resolve) => {
+        watchdog = setTimeout(() => resolve("wedged"), 15_000);
+      });
+      const outcome = await Promise.race([run, timedOut]);
+      assert.notEqual(
+        outcome,
+        "wedged",
+        "the stream never finished: a tool that never settles parked the loop",
+      );
+      const { result, text } = outcome as Awaited<typeof run>;
+      assert.equal(started, 1, "precondition failed: the tool did not start");
+      assert.equal(
+        fixture.requestCountNow(),
+        2,
+        "the turn did not go back to the model after the tool timed out",
+      );
+      assert.ok(
+        text.includes("sunny"),
+        "the post-timeout answer did not reach the drained stream",
+      );
+      const toolResult = result.toolResults?.[0];
+      assert.equal(
+        toolResult?.status,
+        "failure",
+        "the timed-out call is not reported as a failure",
+      );
+      assert.ok(
+        typeof toolResult?.error === "string" &&
+          toolResult.error.includes("timed out"),
+        "the timed-out call does not say it timed out",
+      );
+      assert.deepEqual(
+        result.toolsUsed ?? [],
+        [],
+        "a timed-out call is counted in toolsUsed",
+      );
+    } finally {
+      if (watchdog) {
+        clearTimeout(watchdog);
+      }
+      await sdk.shutdown();
+      await fixture.close();
+    }
+  });
+
   await test("a forced toolChoice lapses after toolChoiceSteps on generate() over the OpenAI-compatible loop and on the Anthropic stream (offline)", async () => {
     // Both sites were covered live only, so a regression that re-sent the
     // forced choice on every step (looping to maxSteps) left offline CI
