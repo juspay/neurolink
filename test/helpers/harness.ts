@@ -283,10 +283,19 @@ export type ProcessResult = {
   exitCode: number;
 };
 
+// `command` and `args` always reach the child as an argument vector and are
+// never joined into a shell string, so a path holding spaces, quotes or `;` is
+// data. `shell` is therefore not an option here: the type refuses `true` and the
+// spawn below pins it to `false` after the spread, so an untyped caller cannot
+// switch a shell on either.
 export function runCommand(
   command: string,
   args: string[] = [],
-  options: SpawnOptions & { timeoutMs?: number; stopWhen?: RegExp } = {},
+  options: Omit<SpawnOptions, "shell"> & {
+    shell?: false;
+    timeoutMs?: number;
+    stopWhen?: RegExp;
+  } = {},
 ): Promise<ProcessResult> {
   const timeoutMs = options.timeoutMs ?? 30_000;
   const stopWhen = options.stopWhen;
@@ -297,6 +306,7 @@ export function runCommand(
       proc = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
         ...options,
+        shell: false,
       });
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));

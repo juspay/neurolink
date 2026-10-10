@@ -7,7 +7,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { execSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,22 +33,41 @@ const log_error = (message: string) =>
   console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
 
 /**
+ * Quote one word for a POSIX shell. Words made only of characters the shell
+ * never treats specially are returned as they are, so ordinary commands read the
+ * same as before; anything else is wrapped in single quotes with embedded
+ * single quotes closed, escaped and reopened.
+ */
+function shell_quote(word: string): string {
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(word)) {
+    return word;
+  }
+  return `'${word.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
  * Creates a recording for a given command if it executes successfully.
+ * The command is an argument vector (program first), never a shell string, so
+ * a path with spaces, quotes or `;` stays one argument. Only asciinema's own
+ * `--command` option takes a string that it runs through a shell, and that
+ * string is built here with every word quoted.
  * @param {string} name - The base name for the recording file.
- * @param {string} command - The command to test and record.
+ * @param {string[]} command - The program and its arguments to test and record.
  * @param {string} description - The title for the asciinema recording.
  */
 async function create_working_recording(
   name: string,
-  command: string,
+  command: string[],
   description: string,
 ) {
   log_info(`Preparing recording: ${name} - ${description}`);
 
-  log_info(`Testing command: ${command}`);
+  const [program, ...program_args] = command;
+  const command_line = command.map(shell_quote).join(" ");
+  log_info(`Testing command: ${command_line}`);
   try {
     // Test the command first to ensure it works
-    execSync(command, { stdio: "ignore", cwd: PROJECT_ROOT });
+    execFileSync(program, program_args, { stdio: "ignore", cwd: PROJECT_ROOT });
     log_success("Command works! Creating recording...");
   } catch (error: any) {
     log_error(`Command failed, skipping recording: ${name}`);
@@ -57,10 +76,21 @@ async function create_working_recording(
   }
 
   const cast_path = path.join(RECORDINGS_DIR, `${name}.cast`);
-  const record_command = `asciinema rec "${cast_path}" --title "${description}" --command "${command}" --overwrite`;
 
   try {
-    execSync(record_command, { stdio: "inherit", cwd: PROJECT_ROOT });
+    execFileSync(
+      "asciinema",
+      [
+        "rec",
+        cast_path,
+        "--title",
+        description,
+        "--command",
+        command_line,
+        "--overwrite",
+      ],
+      { stdio: "inherit", cwd: PROJECT_ROOT },
+    );
     log_success(`Recording saved: ${name}.cast`);
   } catch (error: any) {
     log_error(`Failed to create recording for ${name}: ${error.message}`);
@@ -88,42 +118,77 @@ async function run() {
   const recordings = [
     {
       name: "01-provider-status-all-9",
-      command: `node ${cli_path} status`,
+      command: ["node", cli_path, "status"],
       description: "NeuroLink - All 9 Providers Status",
     },
     {
       name: "02-openai-working",
-      command: `node ${cli_path} generate 'Hello from OpenAI' --provider openai`,
+      command: [
+        "node",
+        cli_path,
+        "generate",
+        "Hello from OpenAI",
+        "--provider",
+        "openai",
+      ],
       description: "OpenAI Text Generation Success",
     },
     {
       name: "03-ollama-working",
-      command: `node ${cli_path} generate 'Hello from Ollama local AI' --provider ollama`,
+      command: [
+        "node",
+        cli_path,
+        "generate",
+        "Hello from Ollama local AI",
+        "--provider",
+        "ollama",
+      ],
       description: "Ollama Local AI Success",
     },
     {
       name: "04-google-ai-working",
-      command: `node ${cli_path} generate 'Hello from Google AI' --provider google-ai`,
+      command: [
+        "node",
+        cli_path,
+        "generate",
+        "Hello from Google AI",
+        "--provider",
+        "google-ai",
+      ],
       description: "Google AI Studio Success",
     },
     {
       name: "05-anthropic-working",
-      command: `node ${cli_path} generate 'Hello from Anthropic Claude' --provider anthropic`,
+      command: [
+        "node",
+        cli_path,
+        "generate",
+        "Hello from Anthropic Claude",
+        "--provider",
+        "anthropic",
+      ],
       description: "Anthropic Claude Success",
     },
     {
       name: "06-auto-selection-working",
-      command: `node ${cli_path} generate 'Auto select best provider' --provider auto`,
+      command: [
+        "node",
+        cli_path,
+        "generate",
+        "Auto select best provider",
+        "--provider",
+        "auto",
+      ],
       description: "Auto Provider Selection Success",
     },
     {
       name: "07-configuration-help",
-      command: `node ${cli_path} config --help`,
+      command: ["node", cli_path, "config", "--help"],
       description: "Provider Configuration Help",
     },
     {
       name: "08-cli-help-overview",
-      command: `node ${cli_path} --help`,
+      command: ["node", cli_path, "--help"],
       description: "NeuroLink CLI Help Overview",
     },
   ];

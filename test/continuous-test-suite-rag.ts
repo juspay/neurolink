@@ -14,7 +14,6 @@ import "dotenv/config";
  * Run with: npx tsx test/continuous-test-suite-rag.ts
  */
 
-import { execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -152,6 +151,7 @@ const TEST_CONFIG = {
   verbose: process.env.VERBOSE === "true",
 };
 
+import { execFileResult, splitCommandLine } from "./helpers/execFileResult.js";
 // Color codes for output
 import {
   defineSuite,
@@ -2400,7 +2400,6 @@ Computer vision processes visual information.
   // Get the CLI path - assuming we're running from the project root
   const projectRoot = path.resolve(__dirname, "..");
   const cliPath = path.join(projectRoot, "dist", "cli", "index.js");
-  const cliCommand = `node "${cliPath}"`;
 
   // Check if CLI is built
   let cliAvailable = false;
@@ -2421,54 +2420,22 @@ Computer vision processes visual information.
     log("Could not locate CLI", "yellow");
   }
 
-  // Helper to run CLI commands
+  // Helper to run CLI commands. Arguments are an argument vector handed to
+  // execFile, so a checkout path with spaces, quotes or `;` stays one argument.
   const runCLI = (
-    args: string,
+    args: readonly string[],
     expectSuccess = true,
   ): { success: boolean; output: string; error: string } => {
-    try {
-      // Try using the compiled CLI first, fallback to npx neurolink
-      let command: string;
-      if (fs.existsSync(cliPath)) {
-        command = `${cliCommand} ${args}`;
-      } else {
-        // Fallback to npx which should work if package is set up correctly
-        command = `npx tsx "${path.join(projectRoot, "src", "cli", "index.ts")}" ${args}`;
-      }
-
-      const output = execSync(command, {
-        encoding: "utf-8",
-        timeout: 60000,
-        killSignal: "SIGTERM",
-        cwd: projectRoot,
-        env: { ...process.env, NO_COLOR: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      return { success: true, output, error: "" };
-    } catch (error: unknown) {
-      const execError = error as {
-        stdout?: Buffer;
-        stderr?: Buffer;
-        message?: string;
-        killed?: boolean;
-        signal?: string;
-        code?: string;
-      };
-      const stdout = execError.stdout?.toString() || "";
-      const stderr = execError.stderr?.toString() || "";
-      const isTimeout =
-        execError.killed ||
-        execError.signal === "SIGTERM" ||
-        execError.code === "ETIMEDOUT" ||
-        (execError.message || "").includes("ETIMEDOUT");
-      return {
-        success: false,
-        output: stdout,
-        error: isTimeout
-          ? `CLI subprocess timed out after 60s: ${stderr || execError.message || "process killed"}`
-          : stderr || execError.message || String(error),
-      };
+    // Try the compiled CLI first, fall back to npx tsx on the source entry
+    const runOptions = {
+      cwd: projectRoot,
+      env: { ...process.env, NO_COLOR: "1" },
+    };
+    if (fs.existsSync(cliPath)) {
+      return execFileResult("node", [cliPath, ...args], runOptions);
     }
+    const srcCliPath = path.join(projectRoot, "src", "cli", "index.ts");
+    return execFileResult("npx", ["tsx", srcCliPath, ...args], runOptions);
   };
 
   // ============================================================================
@@ -2476,7 +2443,13 @@ Computer vision processes visual information.
   // ============================================================================
   logSubsection("Test: neurolink rag chunk (default strategy)");
   try {
-    const result = runCLI(`rag chunk "${testMarkdownFile}" --format json`);
+    const result = runCLI([
+      "rag",
+      "chunk",
+      testMarkdownFile,
+      "--format",
+      "json",
+    ]);
 
     if (result.success) {
       // Try to parse the JSON output
@@ -2607,9 +2580,15 @@ Computer vision processes visual information.
   // ============================================================================
   logSubsection("Test: neurolink rag chunk --strategy markdown");
   try {
-    const result = runCLI(
-      `rag chunk "${testMarkdownFile}" --strategy markdown --format json`,
-    );
+    const result = runCLI([
+      "rag",
+      "chunk",
+      testMarkdownFile,
+      "--strategy",
+      "markdown",
+      "--format",
+      "json",
+    ]);
 
     if (result.success) {
       try {
@@ -2734,9 +2713,19 @@ Computer vision processes visual information.
   // ============================================================================
   logSubsection("Test: neurolink rag chunk --strategy recursive");
   try {
-    const result = runCLI(
-      `rag chunk "${testMarkdownFile}" --strategy recursive --maxSize 200 --overlap 50 --format json`,
-    );
+    const result = runCLI([
+      "rag",
+      "chunk",
+      testMarkdownFile,
+      "--strategy",
+      "recursive",
+      "--maxSize",
+      "200",
+      "--overlap",
+      "50",
+      "--format",
+      "json",
+    ]);
 
     if (result.success) {
       try {
@@ -2867,9 +2856,15 @@ Computer vision processes visual information.
   logSubsection("Test: neurolink rag chunk --output");
   const outputFile = path.join(tempDir, "chunks-output.json");
   try {
-    const result = runCLI(
-      `rag chunk "${testMarkdownFile}" --format json --output "${outputFile}"`,
-    );
+    const result = runCLI([
+      "rag",
+      "chunk",
+      testMarkdownFile,
+      "--format",
+      "json",
+      "--output",
+      outputFile,
+    ]);
 
     if (result.success) {
       // Check if output file was created
@@ -2958,9 +2953,17 @@ Computer vision processes visual information.
   let indexSucceeded = false;
   try {
     const preferred = getPreferredProvider();
-    const result = runCLI(
-      `rag index "${testMarkdownFile}" --indexName test-index --provider ${preferred.embeddingProvider} --model ${preferred.embeddingModel}`,
-    );
+    const result = runCLI([
+      "rag",
+      "index",
+      testMarkdownFile,
+      "--indexName",
+      "test-index",
+      "--provider",
+      preferred.embeddingProvider,
+      "--model",
+      preferred.embeddingModel,
+    ]);
 
     if (result.success) {
       if (
@@ -3024,9 +3027,17 @@ Computer vision processes visual information.
   logSubsection("Test: neurolink rag query");
   try {
     const preferred = getPreferredProvider();
-    const result = runCLI(
-      `rag query "machine learning" --topK 3 --provider ${preferred.embeddingProvider} --model ${preferred.embeddingModel}`,
-    );
+    const result = runCLI([
+      "rag",
+      "query",
+      "machine learning",
+      "--topK",
+      "3",
+      "--provider",
+      preferred.embeddingProvider,
+      "--model",
+      preferred.embeddingModel,
+    ]);
 
     if (result.success) {
       if (result.output.includes("Result") || result.output.includes("Found")) {
@@ -3094,7 +3105,7 @@ Computer vision processes visual information.
   // ============================================================================
   logSubsection("Test: neurolink rag --help");
   try {
-    const result = runCLI("rag --help");
+    const result = runCLI(["rag", "--help"]);
 
     if (
       result.success ||
@@ -3151,7 +3162,7 @@ Computer vision processes visual information.
   // ============================================================================
   logSubsection("Test: neurolink rag chunk (invalid file)");
   try {
-    const result = runCLI(`rag chunk "/nonexistent/file/path.md"`);
+    const result = runCLI(["rag", "chunk", "/nonexistent/file/path.md"]);
 
     if (!result.success) {
       if (
@@ -4000,52 +4011,30 @@ async function testCLIRagFiles(): Promise<boolean | null> {
     return false;
   }
 
+  // Arguments are an argument vector handed to execFile: the checkout path and
+  // the fixture paths stay single arguments whatever characters they contain.
   const runCLICommand = (
-    args: string,
-  ): { success: boolean; output: string; error: string } => {
-    try {
-      const output = execSync(`node "${cliPath}" ${args}`, {
-        encoding: "utf-8",
-        timeout: 60000,
-        killSignal: "SIGTERM",
-        cwd: projectRoot,
-        env: { ...process.env, NO_COLOR: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      return { success: true, output, error: "" };
-    } catch (error: unknown) {
-      const execError = error as {
-        stdout?: Buffer;
-        stderr?: Buffer;
-        message?: string;
-        killed?: boolean;
-        signal?: string;
-        code?: string;
-      };
-      const stdout = execError.stdout?.toString() || "";
-      const stderr = execError.stderr?.toString() || "";
-      const isTimeout =
-        execError.killed ||
-        execError.signal === "SIGTERM" ||
-        execError.code === "ETIMEDOUT" ||
-        (execError.message || "").includes("ETIMEDOUT");
-      return {
-        success: false,
-        output: stdout,
-        error: isTimeout
-          ? `CLI subprocess timed out after 60s: ${stderr || execError.message || "process killed"}`
-          : stderr || execError.message || String(error),
-      };
-    }
-  };
+    args: readonly string[],
+  ): { success: boolean; output: string; error: string } =>
+    execFileResult("node", [cliPath, ...args], {
+      cwd: projectRoot,
+      env: { ...process.env, NO_COLOR: "1" },
+    });
 
   // Test 1: CLI generate with --rag-files flag
   logSubsection("CLI generate --rag-files");
   try {
     const preferred = getPreferredProvider();
-    const result = runCLICommand(
-      `generate "What topics are covered in this document?" --provider ${preferred.provider} --rag-files "${sampleDocPath}" --maxTokens 200`,
-    );
+    const result = runCLICommand([
+      "generate",
+      "What topics are covered in this document?",
+      "--provider",
+      preferred.provider,
+      "--rag-files",
+      sampleDocPath,
+      "--maxTokens",
+      "200",
+    ]);
 
     if (result.success && result.output.length > 0) {
       logTest(
@@ -4097,9 +4086,18 @@ async function testCLIRagFiles(): Promise<boolean | null> {
   logSubsection("CLI generate --rag-files --rag-strategy");
   try {
     const preferred = getPreferredProvider();
-    const result = runCLICommand(
-      `generate "Summarize the document." --provider ${preferred.provider} --rag-files "${sampleDocPath}" --rag-strategy markdown --rag-chunk-size 500`,
-    );
+    const result = runCLICommand([
+      "generate",
+      "Summarize the document.",
+      "--provider",
+      preferred.provider,
+      "--rag-files",
+      sampleDocPath,
+      "--rag-strategy",
+      "markdown",
+      "--rag-chunk-size",
+      "500",
+    ]);
 
     if (result.success && result.output.length > 0) {
       logTest(
@@ -4161,9 +4159,16 @@ async function testCLIRagFiles(): Promise<boolean | null> {
   logSubsection("CLI stream --rag-files");
   try {
     const preferred = getPreferredProvider();
-    const result = runCLICommand(
-      `stream "What is this document about?" --provider ${preferred.provider} --rag-files "${sampleDocPath}" --maxTokens 150`,
-    );
+    const result = runCLICommand([
+      "stream",
+      "What is this document about?",
+      "--provider",
+      preferred.provider,
+      "--rag-files",
+      sampleDocPath,
+      "--maxTokens",
+      "150",
+    ]);
 
     if (result.success && result.output.length > 0) {
       logTest(
@@ -4216,9 +4221,14 @@ async function testCLIRagFiles(): Promise<boolean | null> {
   logSubsection("CLI generate --rag-files (non-existent file)");
   try {
     const preferred = getPreferredProvider();
-    const result = runCLICommand(
-      `generate "test" --provider ${preferred.provider} --rag-files "/nonexistent/file.md"`,
-    );
+    const result = runCLICommand([
+      "generate",
+      "test",
+      "--provider",
+      preferred.provider,
+      "--rag-files",
+      "/nonexistent/file.md",
+    ]);
 
     // Should either fail gracefully or generate without RAG context
     if (!result.success) {
@@ -4251,14 +4261,20 @@ async function testCLIRagFiles(): Promise<boolean | null> {
     const htmlDocPath = path.join(FIXTURES_DIR, "sample-document.html");
     const preferred = getPreferredProvider();
 
-    let filesArg = `"${sampleDocPath}"`;
+    const ragFileArgs = ["--rag-files", sampleDocPath];
     if (fs.existsSync(htmlDocPath)) {
-      filesArg += ` --rag-files "${htmlDocPath}"`;
+      ragFileArgs.push("--rag-files", htmlDocPath);
     }
 
-    const result = runCLICommand(
-      `generate "What information is in these documents?" --provider ${preferred.provider} --rag-files ${filesArg} --maxTokens 200`,
-    );
+    const result = runCLICommand([
+      "generate",
+      "What information is in these documents?",
+      "--provider",
+      preferred.provider,
+      ...ragFileArgs,
+      "--maxTokens",
+      "200",
+    ]);
 
     if (result.success && result.output.length > 0) {
       logTest(
@@ -4322,18 +4338,24 @@ async function testCLIRagFiles(): Promise<boolean | null> {
     for (const fixture of cliTests) {
       try {
         // Resolve relative fixture paths to absolute paths
-        const resolvedCommand = fixture.command
-          .replace(
-            /sample-document\.(md|html|json|tex)/g,
-            path.join(FIXTURES_DIR, "sample-document.$1"),
-          )
-          .replace(
-            /sample-documents\.txt/g,
-            path.join(FIXTURES_DIR, "sample-documents.txt"),
-          )
-          .replace(/^neurolink\s+/, ""); // Strip the "neurolink" prefix since we use node cliPath
+        // Split the command into words first and substitute the fixture paths
+        // into the words afterwards, so a path holding spaces or quotes cannot
+        // change how the command is split.
+        const resolvedArgs = splitCommandLine(fixture.command).map((word) =>
+          word
+            .replace(/sample-document\.(md|html|json|tex)/g, (_match, ext) =>
+              path.join(FIXTURES_DIR, `sample-document.${ext}`),
+            )
+            .replace(/sample-documents\.txt/g, () =>
+              path.join(FIXTURES_DIR, "sample-documents.txt"),
+            ),
+        );
+        // Strip the "neurolink" prefix since we use node cliPath
+        if (resolvedArgs[0] === "neurolink") {
+          resolvedArgs.shift();
+        }
 
-        const result = runCLICommand(resolvedCommand);
+        const result = runCLICommand(resolvedArgs);
 
         if (result.success) {
           let passMessage = `Command executed: ${fixture.description}`;

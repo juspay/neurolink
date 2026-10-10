@@ -1194,6 +1194,7 @@ jobs:
             test:browser-bundle@5
             test:tools-manager-truncation@3
             test:tooling-scripts@100
+            test:tooling-shell-safety@25
           "
           # Normalise every entry to name@weight (missing or non-numeric
           # weights become 30), then sort by weight descending. Greedy
