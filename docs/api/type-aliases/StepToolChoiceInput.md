@@ -69,3 +69,18 @@ The resolved model id (always a string at runtime), handed to `prepareStep`.
 > `optional` **abortSignal?**: `AbortSignal`
 
 The turn's abort signal; a pending `prepareStep` is released when it fires.
+
+---
+
+### declaredTools?
+
+> `optional` **declaredTools?**: `Readonly`\<`Record`\<`string`, `unknown`\>\>
+
+The tools this request declares, keyed by SDK-side tool name. When given,
+a forced single-tool choice naming a tool outside it is not sent: a
+provider answers a request that forces a function its own tools list
+lacks with a 400. A loop that re-declares hydrated tools in the same
+step (the streaming loops) passes the live record, because discovery
+hydrates tools into it between steps; a loop that sends a fixed tools
+array (the shared generate loop) passes the names of that array.
+Absent means the choice is not checked.

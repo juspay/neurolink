@@ -345,6 +345,14 @@ export default [
             // regression also needs a Zod 3 shaped schema, and this repo
             // installs only Zod 4.
             "test/continuous-test-suite-zod3-schema-native-path.ts",
+            // resolveStepToolChoice (src/lib/core/nativeGenerateLoop.ts) is
+            // exported from no package entry point. Whether a forced choice
+            // for an undeclared tool is dropped, and that a warning said so,
+            // is visible through generate() only as "the turn did not 400",
+            // which needs a provider that rejects it; the declaredTools-absent
+            // branch is reached by no shipped call site at all. Its header
+            // states the exception in full.
+            "test/continuous-test-suite-forced-tool-declared.ts",
             // Chunk boundaries and reranker ordering are exact outcomes;
             // generate({ rag }) only ever shows the model's answer.
             "test/continuous-test-suite-rag.ts",

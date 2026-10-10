@@ -112,6 +112,7 @@
     "test:agent:cost": "pnpm exec tsx test/continuous-test-suite-agent-cost.ts",
     "test:adjust-body-after-400": "pnpm exec tsx test/continuous-test-suite-adjust-body-after-400.ts",
     "test:zod3-schema-native-path": "pnpm exec tsx test/continuous-test-suite-zod3-schema-native-path.ts",
+    "test:forced-tool-declared": "pnpm exec tsx test/continuous-test-suite-forced-tool-declared.ts",
     "test:error-classification-e2e": "pnpm exec tsx test/continuous-test-suite-error-classification-e2e.ts",
     "test:error-classifier-contract": "pnpm exec tsx test/continuous-test-suite-error-classifier-contract.ts",
     "test:bedrock-inference-profile": "pnpm exec tsx test/continuous-test-suite-bedrock-inference-profile.ts",

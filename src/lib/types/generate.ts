@@ -636,6 +636,10 @@ export type GenerateOptions = {
    * compel a tool call on every step, and the loop would only end when
    * `maxSteps` ran out. `"auto"` and `"none"` are applied unchanged on every
    * step. Vertex, Google AI Studio and Bedrock do not honour `toolChoice`.
+   *
+   * A named tool that the request does not declare is not sent, because the
+   * provider would reject the request: a warning is logged and the step uses
+   * `"auto"`.
    */
   toolChoice?: ToolChoice<Record<string, Tool>>;
 
@@ -661,7 +665,9 @@ export type GenerateOptions = {
    * Optional callback that runs before each step in a multi-step generation.
    *
    * Honoured field of the result: `toolChoice`, applied to that step only
-   * and taking precedence over `toolChoice` / `toolChoiceSteps`.
+   * and taking precedence over `toolChoice` / `toolChoiceSteps`. A named tool
+   * the request does not declare is ignored with a warning, as if the hook had
+   * returned no `toolChoice`.
    *
    * Not honoured — accepted for source compatibility with the former Vercel
    * AI SDK `experimental_prepareStep` shape, but ignored by every native
@@ -2017,6 +2023,17 @@ export type StepToolChoiceInput = {
   model: string;
   /** The turn's abort signal; a pending `prepareStep` is released when it fires. */
   abortSignal?: AbortSignal;
+  /**
+   * The tools this request declares, keyed by SDK-side tool name. When given,
+   * a forced single-tool choice naming a tool outside it is not sent: a
+   * provider answers a request that forces a function its own tools list
+   * lacks with a 400. A loop that re-declares hydrated tools in the same
+   * step (the streaming loops) passes the live record, because discovery
+   * hydrates tools into it between steps; a loop that sends a fixed tools
+   * array (the shared generate loop) passes the names of that array.
+   * Absent means the choice is not checked.
+   */
+  declaredTools?: Readonly<Record<string, unknown>>;
 };
 
 /**
