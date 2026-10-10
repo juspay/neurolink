@@ -4651,6 +4651,75 @@ for (const loop of STREAM_LOOPS) {
   });
 }
 
+// A real mid-stream failure on the native Anthropic stream: the upstream sends
+// a first text delta and then an SSE `error` event, so the error surfaces while
+// the caller is iterating. Vertex's own wrapper fires onError there and stamps
+// the error; BaseProvider's catch, which sees the same error next, must read
+// that stamp and stay quiet. Each half alone would fire once; both together
+// must still fire once.
+await test("vertex Anthropic native stream: a mid-stream upstream error fires onError exactly once", async () => {
+  const frames = [
+    ...anthropicTextTurn("partial reply").slice(0, 3),
+    anthropicSse("error", {
+      error: { type: "api_error", message: "upstream failed mid-stream" },
+    }),
+  ];
+  const server = await startAnthropicStandIn(() => frames);
+  const restoreEnv = withVertexEnv();
+  const lifecycle = captureLifecycle();
+  const sdk = new NeuroLink();
+  let streamed = "";
+  let iterationFailed = false;
+  try {
+    try {
+      const result = await sdk.stream({
+        input: { text: USER_TEXT },
+        provider: "vertex",
+        model: ANTHROPIC_MODEL,
+        maxTokens: 32,
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: vertexCredentialsFor(server.port),
+        onError: lifecycle.onError,
+      });
+      await bounded(
+        (async () => {
+          for await (const chunk of result.stream) {
+            const content = (chunk as { content?: unknown }).content;
+            if (typeof content === "string") {
+              streamed += content;
+            }
+          }
+        })(),
+      );
+    } catch {
+      iterationFailed = true;
+    }
+    await settleLifecycle();
+  } finally {
+    await sdk.shutdown();
+    restoreEnv();
+    await server.close();
+  }
+  // Preconditions: the failure really happened mid-stream, after text had
+  // reached the caller, and the caller saw it fail.
+  assert.ok(server.calls.length >= 1, "the stream never reached the stand-in");
+  assert.ok(
+    streamed.includes("partial reply"),
+    "no text reached the caller before the failure, so it was not mid-stream",
+  );
+  assert.ok(iterationFailed, "the caller's iteration did not fail");
+  assert.ok(
+    lifecycle.errors.length >= 1,
+    "onError never fired for a stream that failed",
+  );
+  assert.equal(
+    lifecycle.errors.length,
+    1,
+    "onError fired more than once for one mid-stream failure",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Schema-complexity recovery is the provider's own business.
 //
