@@ -11,6 +11,7 @@ import "dotenv/config";
  *   scripts/check-banned-deps.ts      source scan the `check:deps` gate runs
  *   scripts/check-shipped-types.ts    the `check:dts` gate over `dist/*.d.ts`
  *   scripts/build-validations.ts      the `validate` gate (typedoc.json check)
+ *   scripts/security-check.ts         the `validate:security` gate (accepted-risk table)
  *   scripts/commit-validation.ts      commit-msg hook / Single Commit Policy
  *   scripts/migration-symbol-diff.mjs review helper for refactors that move code
  *   scripts/codex-replay-listener.ts  local Codex Responses replay server
@@ -37,7 +38,8 @@ import "dotenv/config";
  * Nothing here touches the network or a credential. `pnpm` is stubbed with a
  * script that exits non-zero for the banned-deps cases, so the `pnpm why`
  * probes (which need a registry and the real lockfile) are out of the picture;
- * only the source scan is under test there.
+ * only the source scan is under test there. For security-check the stub
+ * prints a fixture `pnpm audit` report instead of querying the registry.
  * `npm` is stubbed for the hook cases for the same reason: codegen, tsc and
  * lint are not what is under test, and `format:staged` is replaced by a
  * formatter that rewrites the working-tree copy of every staged file, which
@@ -464,6 +466,102 @@ await runSuite(async () => {
         combined(unanchored).includes("typedoc.json exclude"),
       "an exclude that matches a directory name anywhere in the path should fail",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  logSection("security-check: accepted-risk table");
+  // -------------------------------------------------------------------------
+
+  // `pnpm` is stubbed so the audit report is a fixture: the live audit answers
+  // for whatever the advisory database holds today, which is exactly what a
+  // test of the table's own rules must not depend on. Every other `pnpm`
+  // call (license-checker) fails, which the script already reports as a
+  // warning. The clock is pinned through NEUROLINK_SECURITY_CHECK_TODAY so
+  // both sides of a review date are reachable without waiting for one.
+  const securityCheckRun = (
+    advisories: Array<{ module_name: string; severity: string }>,
+    today: string,
+  ): Promise<ProcessResult> => {
+    const root = tempDir("tooling-security-check-");
+    const report = {
+      advisories: Object.fromEntries(
+        advisories.map((a, i) => [
+          String(i + 1),
+          { id: i + 1, title: "fixture advisory", ...a },
+        ]),
+      ),
+    };
+    writeTree(root, {
+      "package.json": JSON.stringify({ name: "fixture", license: "MIT" }),
+      "audit.json": JSON.stringify(report),
+    });
+    const binDir = join(root, ".stub-bin");
+    mkdirSync(binDir, { recursive: true });
+    const stub = join(binDir, "pnpm");
+    writeFileSync(
+      stub,
+      [
+        "#!/bin/sh",
+        // `pnpm audit` exits 1 whenever it finds advisories.
+        `if [ "$1" = "audit" ]; then cat "${join(root, "audit.json")}"; fi`,
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(stub, 0o755);
+    return runScript("scripts/security-check.ts", root, {
+      env: {
+        PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
+        NEUROLINK_SECURITY_CHECK_TODAY: today,
+      },
+    });
+  };
+
+  await test("an accepted-risk entry past its review date is reported, and still accepts", async () => {
+    const accepted = [{ module_name: "uuid", severity: "moderate" }];
+    const before = await securityCheckRun(accepted, "2000-01-01");
+    expectOutput(
+      "before every review date",
+      before,
+      before.exitCode === 0 &&
+        before.stdout.includes("PASS dependencies") &&
+        !before.stdout.includes("past their review date"),
+      "an accepted advisory should pass with no overdue-review warning while every reviewBy is in the future",
+    );
+
+    const after = await securityCheckRun(accepted, "2999-01-01");
+    const out = after.stdout;
+    expectOutput(
+      "after every review date",
+      after,
+      after.exitCode === 0 &&
+        out.includes("PASS dependencies") &&
+        out.includes("past their review date") &&
+        out.includes("uuid (reviewBy ") &&
+        out.includes("owner @juspay/neurolink-maintainers"),
+      "an overdue entry should be warned about by package, date and owner while the gate still passes",
+    );
+  });
+
+  await test("an advisory in a package with no accepted-risk entry fails the gate", async () => {
+    // undici and find-my-way used to be accepted at a high ceiling although
+    // in-range releases fixed them; their entries were removed when the
+    // lockfile moved past those advisories, so one reappearing must fail.
+    for (const moduleName of ["undici", "find-my-way"]) {
+      const result = await securityCheckRun(
+        [{ module_name: moduleName, severity: "high" }],
+        "2000-01-01",
+      );
+      expectOutput(
+        `unaccepted ${moduleName}`,
+        result,
+        result.exitCode === 1 &&
+          result.stdout.includes(
+            `Unaccepted high advisory 1 in ${moduleName} (${moduleName} is not an accepted-risk package)`,
+          ),
+        `a high advisory in ${moduleName} should fail the gate as unaccepted`,
+      );
+    }
   });
 
   // -------------------------------------------------------------------------

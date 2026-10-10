@@ -54,14 +54,14 @@ jobs:
           # token; nothing here pushes. Keep GITHUB_TOKEN out of .git/config.
           persist-credentials: false
 
-      # package.json pins "packageManager": "pnpm@10.15.1", so `vercel build`
+      # package.json pins "packageManager": "pnpm@10.34.6", so `vercel build`
       # shells out to pnpm for the install. Without pnpm on the runner it dies
       # with `spawn pnpm ENOENT` before the build starts. Version kept in step
       # with the pin and with the other workflows in this repo.
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.15.1
+          version: 10.34.6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

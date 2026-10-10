@@ -4,3 +4,10 @@
 # `pnpm ls -r` / recursive command scope, since it is not listed in that file's
 # `packages:` patterns. docs-site keeps its own lockfile and package.json; it is not
 # part of the root workspace.
+#
+# Stopping the search here also means the root file's settings never reach this
+# project, so the supply-chain cooldown is repeated below rather than inherited:
+# delay adoption of freshly published npm releases by 3 days, as the root does.
+# pnpm releases before 10.16 ignore the setting; the packageManager pin in
+# package.json is what guarantees a version that enforces it.
+minimumReleaseAge: 4320

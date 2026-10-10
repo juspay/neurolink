@@ -56,8 +56,16 @@ const CRITICAL_SECURITY_RULES = [
 // new one inside an existing ceiling is visible in the log even though it does
 // not block. Re-seed from `pnpm audit --prod --json` when this goes stale.
 //
-// Snapshot taken 2026-08-22 against `pnpm audit --prod --json`: 16 actionable
-// (moderate+) advisories across 9 packages. `--prod` structurally excludes dev
+// Each entry also names who re-reviews it (`owner`, the CODEOWNERS team for
+// package.json, where the fix for any of these lands), the date by which that
+// review is due (`reviewBy`, YYYY-MM-DD), and what upstream change would let it
+// go (`tracking`). An entry past its `reviewBy` date is reported as a warning
+// on every run until someone re-reads it and moves the date — it still
+// accepts, because failing every open pull request on a calendar date is the
+// time-dependent red gate CLAUDE.md warns about, not a review.
+//
+// Snapshot taken 2026-10-06 against `pnpm audit --prod --json`: 16 actionable
+// (moderate+) advisories across 6 packages. `--prod` structurally excludes dev
 // -only trees.
 type AdvisorySeverity = "low" | "moderate" | "high" | "critical";
 
@@ -69,57 +77,98 @@ const SEVERITY_RANK: Record<string, number> = {
   critical: 3,
 };
 
-const ACCEPTED_RISK_PACKAGES: Record<
-  string,
-  { maxSeverity: AdvisorySeverity; reason: string }
-> = {
+type AcceptedRisk = {
+  maxSeverity: AdvisorySeverity;
+  reason: string;
+  owner: string;
+  reviewBy: string;
+  tracking: string;
+};
+
+const ACCEPTED_RISK_OWNER = "@juspay/neurolink-maintainers";
+
+const ACCEPTED_RISK_PACKAGES: Record<string, AcceptedRisk> = {
   uuid: {
     maxSeverity: "moderate",
     reason:
-      "deep transitive via @anthropic-ai/vertex-sdk, bullmq and exceljs — no single direct dependency to bump",
-  },
-  "form-data": {
-    maxSeverity: "high",
-    reason:
-      "transitive via optional @livekit/agents (voice feature only), not on the default request path",
+      "deep transitive via @anthropic-ai/vertex-sdk (google-auth-library → gaxios), bullmq and exceljs, each on a pre-11.1.1 line — no single direct dependency to bump",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking:
+      "lifts when gaxios, bullmq and exceljs move to uuid >=11.1.1; a cross-major override would change the API they import",
   },
   "@opentelemetry/core": {
     maxSeverity: "moderate",
-    reason: "transitive via the optional livekit OTEL exporter chain",
+    reason:
+      "transitive via the optional @livekit/agents OTEL exporter chain, which is still on the 1.x line",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking:
+      "lifts when @livekit/agents moves to @opentelemetry/core >=2.8.0 (the only patched line)",
   },
   "adm-zip": {
     maxSeverity: "high",
     reason:
-      "transitive via optional @livekit/agents-plugin-livekit onnxruntime-node",
+      "transitive via optional @livekit/agents-plugin-livekit → onnxruntime-node, which pins the unpatched 0.5 line; the direct dependency is on patched 0.6.1",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking:
+      "lifts when onnxruntime-node accepts adm-zip >=0.6.1 (it declares ^0.5.16, which excludes the 0.6 line)",
   },
   sharp: {
     maxSeverity: "high",
     reason:
-      "optionalDependency for image handling — not required at runtime for most consumers",
-  },
-  "find-my-way": {
-    maxSeverity: "high",
-    reason: "transitive via the optional fastify server adapter",
-  },
-  undici: {
-    maxSeverity: "high",
-    reason:
-      "direct dep; patched releases fit the existing >=7.24.0 <8.0.0 range and land via lockfile bumps",
-  },
-  "ip-address": {
-    maxSeverity: "high",
-    reason: "transitive via express-rate-limit (SSRF-bypass family)",
+      "optional @livekit/agents pins sharp 0.34.5 exactly (voice feature only); the direct optionalDependency is on patched 0.35.5",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking: "lifts when @livekit/agents moves to sharp >=0.35.5",
   },
   "image-size": {
     maxSeverity: "high",
     reason:
-      "transitive via pptxgenjs — upstream has published no patched version yet",
-  },  "sprintf-js": {
+      "transitive via pptxgenjs, which declares ^1.2.1; patched only in image-size >=2.0.3, a major version an override cannot safely force",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking: "lifts when pptxgenjs moves to image-size >=2.0.3",
+  },
+  "sprintf-js": {
     maxSeverity: "moderate",
     reason:
-      "transitive via the optional @livekit/agents-plugin-livekit onnxruntime-node chain (global-agent, roarr) — no patched version exists",
+      "two paths, neither on the request path: mammoth → argparse, which mammoth loads only from its own CLI (bin/mammoth) and never from the library NeuroLink imports; and the optional @livekit/agents-plugin-livekit → onnxruntime-node → global-agent → roarr chain — no patched version exists (latest is 1.1.3, inside the advisory range)",
+    owner: ACCEPTED_RISK_OWNER,
+    reviewBy: "2027-01-06",
+    tracking: "lifts when sprintf-js publishes a release above 1.1.3",
   },
 };
+
+/** Whether `value` is a real calendar date written as YYYY-MM-DD. */
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+/**
+ * Today as YYYY-MM-DD (UTC) — the clock every `reviewBy` is compared against.
+ *
+ * `NEUROLINK_SECURITY_CHECK_TODAY=YYYY-MM-DD` pins it. The tooling suite uses
+ * that to exercise both sides of a review date without waiting for one, and a
+ * maintainer can use it to preview which entries fall due by a given day. A
+ * value that is not a real YYYY-MM-DD date is ignored in favour of the real
+ * clock, so a typo cannot silently move every review date.
+ */
+function reviewClock(): string {
+  const pinned = process.env.NEUROLINK_SECURITY_CHECK_TODAY;
+  if (pinned !== undefined && isIsoDate(pinned)) {
+    return pinned;
+  }
+  return new Date().toISOString().slice(0, 10);
+}
 
 /**
  * Run a git command, or return undefined. Never throws, never prints.
@@ -689,6 +738,39 @@ class SecurityValidator {
       );
     }
     this.results.dependencies.status = "passed";
+  }
+
+  // 1b. Accepted-risk review dates
+  //
+  // An acceptance is a judgement about one moment: which paths reach the
+  // package, whether a patched release exists, whether an upstream will move.
+  // All three drift, and the table above used to say nothing about when anyone
+  // would look again — the sprintf-js entry rested on "only livekit pulls it
+  // in" while mammoth → argparse pulled it in as well, and nothing prompted
+  // anyone to notice.
+  //
+  // Independent of the audit run, so a scan that fails or finds nothing still
+  // reports an overdue review. A malformed `reviewBy` counts as overdue: an
+  // entry whose date cannot be read has no review date at all.
+  checkAcceptedRiskReviews(): void {
+    const today = reviewClock();
+    const overdue = Object.entries(ACCEPTED_RISK_PACKAGES).filter(
+      ([, entry]) => !isIsoDate(entry.reviewBy) || entry.reviewBy < today,
+    );
+    if (overdue.length === 0) {
+      return;
+    }
+    const listed = overdue
+      .map(
+        ([pkg, entry]) =>
+          `${pkg} (reviewBy ${entry.reviewBy}, owner ${entry.owner}; ${entry.tracking})`,
+      )
+      .join("; ");
+    this.addIssue(
+      "warning",
+      "dependencies",
+      `Accepted-risk entries past their review date — re-check each premise, then move its reviewBy or remove the entry: ${listed}`,
+    );
   }
 
   // 2. Professional Secret Detection with Gitleaks Integration
@@ -1289,6 +1371,7 @@ class SecurityValidator {
     // Run all security checks
     await this.checkSecretsWithGitleaks();
     await this.checkDependencyVulnerabilities();
+    this.checkAcceptedRiskReviews();
     this.checkLicenseCompliance();
     this.checkSecurityBestPractices();
 
