@@ -33,6 +33,10 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import {
+  createServer as createNetServer,
+  type Server as NetServer,
+} from "node:net";
 import { z } from "zod";
 import { jsonSchema } from "../dist/index.js";
 import {
@@ -410,6 +414,30 @@ async function startStandIn(
       new Promise<void>((resolve) => {
         server.close(() => resolve());
       }),
+  };
+}
+
+/**
+ * A TCP listener that counts the connections made to it and closes each one
+ * at once. It stands in for an internal service an image URL must not reach,
+ * so a connection is the evidence, whatever protocol the client then spoke.
+ */
+async function startConnectionCounter(): Promise<{
+  port: number;
+  connections: () => number;
+  close: () => Promise<void>;
+}> {
+  let count = 0;
+  const server: NetServer = createNetServer((socket) => {
+    count++;
+    socket.destroy();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    port: typeof address === "object" && address ? address.port : 0,
+    connections: () => count,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
 
@@ -1556,6 +1584,7 @@ await test("stream().toolCalls includes the executed tool after the caller drain
   let nl: InstanceType<typeof NeuroLink> | undefined;
   let toolCallCountAfterDrain = -1;
   let toolCallNamesAfterDrain: string[] = [];
+  let toolCallIdsAfterDrain: Array<string | undefined> = [];
   try {
     nl = new NeuroLink();
     const result = await nl.stream({
@@ -1575,6 +1604,7 @@ await test("stream().toolCalls includes the executed tool after the caller drain
     // The read that matters: after the stream is fully drained, not before.
     toolCallCountAfterDrain = result.toolCalls?.length ?? -1;
     toolCallNamesAfterDrain = (result.toolCalls ?? []).map((t) => t.toolName);
+    toolCallIdsAfterDrain = (result.toolCalls ?? []).map((t) => t.toolCallId);
   } catch {
     // The post-drain toolCalls read is what is pinned, not the outcome.
   } finally {
@@ -1600,6 +1630,12 @@ await test("stream().toolCalls includes the executed tool after the caller drain
   assert(
     toolCallNamesAfterDrain.includes("lookup"),
     "result.toolCalls read after draining did not name the executed tool",
+  );
+  // The same record generate() returns: the stream path used to carry name
+  // and args only, with no id to pair a call with its result.
+  assert(
+    toolCallIdsAfterDrain.includes("toolu_1"),
+    "result.toolCalls read after draining did not carry the model's tool_use id",
   );
 });
 
@@ -1703,6 +1739,230 @@ for (const finalText of ["done", ""]) {
     assert(
       toolCallNamesAfterDrain.includes("lookup"),
       "result.toolCalls read after draining did not name the tool the fallback executed",
+    );
+  });
+}
+
+section("abort mid-batch on the stream path");
+
+await test("the stream path preserves a tool call that finished before an abort cut its batch short", async () => {
+  // The stream twin of the generate case above. The stream's toolCalls were
+  // built only from the buildToolResultMessages hook, which the loop engine
+  // skips for a batch an abort cut short, so a tool that had already run
+  // dropped out of result.toolCalls. They now come from the engine's own
+  // record, as on the generate path.
+  const server = await startStandIn((i) =>
+    i === 0
+      ? multiToolTurn([
+          { name: "first", input: { step: "one" }, id: "toolu_first" },
+          { name: "second", input: { step: "two" }, id: "toolu_second" },
+        ])
+      : textTurn("should never be reached"),
+  );
+  const restore = withVertexEnv();
+  const controller = new AbortController();
+  const firstCounter = { calls: 0 };
+  const secondCounter = { calls: 0 };
+  let toolCalls: Array<{
+    toolCallId?: string;
+    toolName: string;
+    args?: Record<string, unknown>;
+  }> = [];
+  let nl: InstanceType<typeof NeuroLink> | undefined;
+  try {
+    nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call both tools" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      disableInternalFallback: true,
+      abortSignal: controller.signal,
+      tools: {
+        first: {
+          description: "runs once, then cancels the whole turn",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { step: { type: "string" } },
+            additionalProperties: true,
+          }),
+          execute: async () => {
+            firstCounter.calls++;
+            controller.abort();
+            return { done: true };
+          },
+        },
+        second: {
+          description: "must never be dispatched once the batch is cut short",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { step: { type: "string" } },
+            additionalProperties: true,
+          }),
+          execute: async () => {
+            secondCounter.calls++;
+            return { done: true };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    try {
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+    } catch {
+      // An aborted stream may end by throwing; toolCalls is read either way.
+    }
+    toolCalls = result.toolCalls ?? [];
+  } catch {
+    // Only the counters and the post-drain toolCalls are pinned.
+  } finally {
+    await nl?.shutdown();
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude stream abort-mid-batch: calls=${server.calls.length} first=${firstCounter.calls} second=${secondCounter.calls} toolCalls=${toolCalls.length}`,
+  );
+  assert(
+    firstCounter.calls === 1,
+    "the first tool did not execute exactly once",
+  );
+  assert(
+    secondCounter.calls === 0,
+    "the second tool executed despite the mid-batch abort, so the scenario under test did not occur",
+  );
+  const firstCall = toolCalls.find((call) => call.toolName === "first");
+  assert(
+    firstCall !== undefined,
+    "toolCalls did not record the tool that finished executing before the abort cut the batch short",
+  );
+  assert(
+    firstCall?.toolCallId === "toolu_first",
+    "the preserved tool call did not carry the model's tool_use id",
+  );
+});
+
+section("thinkingConfig.type disabled");
+
+// `thinking: {type: "disabled"}` was never sent: buildClaudeThinkingParam
+// returned nothing unless thinking was enabled, so an explicit disable left
+// the field off, which on a model that thinks by default means "think".
+// Claude 5.5 / 5.1 refuse the disabled shape with a 400, so they get the
+// proxy's replacement instead: Sonnet 5.5 between_tools, the others no field.
+const DISABLED_THINKING_CASES = [
+  { model: MODEL, expected: "disabled" },
+  { model: "claude-sonnet-5-5", expected: "between_tools" },
+  { model: "claude-opus-5-5", expected: undefined },
+] as const;
+
+for (const path of ["stream", "generate"] as const) {
+  for (const c of DISABLED_THINKING_CASES) {
+    await test(`a ${path} turn on ${c.model} with thinking disabled sends ${c.expected ?? "no thinking field"}`, async () => {
+      const server = await startStandIn(() => textTurn("no thinking here"));
+      const restore = withVertexEnv();
+      let nl: InstanceType<typeof NeuroLink> | undefined;
+      try {
+        nl = new NeuroLink();
+        const options = {
+          input: { text: "answer without thinking" },
+          provider: "vertex",
+          model: c.model,
+          maxTokens: 64,
+          disableTools: true,
+          disableInternalFallback: true,
+          thinkingConfig: { type: "disabled" as const },
+          credentials: credentialsFor(server.port),
+        };
+        if (path === "stream") {
+          const result = await nl.stream(options);
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        } else {
+          await nl.generate(options);
+        }
+      } catch {
+        // Only the request body is pinned.
+      } finally {
+        await nl?.shutdown();
+        restore();
+        await server.close();
+      }
+      assert(
+        server.calls.length >= 1,
+        "precondition failed: no request reached the stand-in",
+      );
+      const thinking = server.calls[0]?.body?.thinking as
+        | { type?: string }
+        | undefined;
+      if (c.expected === undefined) {
+        assert(
+          !("thinking" in (server.calls[0]?.body ?? {})),
+          "a model that refuses disabled thinking was still sent a thinking field",
+        );
+      } else {
+        assert(
+          thinking?.type === c.expected,
+          "the request did not carry the expected thinking type for a disabled thinkingConfig",
+        );
+      }
+    });
+  }
+}
+
+section("caller-supplied image URLs");
+
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} turn does not fetch an image URL that points at a loopback address`, async () => {
+    // A plain fetch of a caller-supplied URL let anyone who can set
+    // input.images make the server connect to an internal address. The
+    // download now goes through safeDownload, which refuses it before any
+    // connection is made, and the image is skipped as a failed fetch was.
+    const internal = await startConnectionCounter();
+    const server = await startStandIn(() => textTurn("answered without it"));
+    const restore = withVertexEnv();
+    let nl: InstanceType<typeof NeuroLink> | undefined;
+    try {
+      nl = new NeuroLink();
+      const options = {
+        input: {
+          text: "describe the picture",
+          images: [`https://127.0.0.1:${internal.port}/pixel.png`],
+        },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: credentialsFor(server.port),
+      };
+      if (path === "stream") {
+        const result = await nl.stream(options);
+        for await (const chunk of result.stream) {
+          void chunk;
+        }
+      } else {
+        await nl.generate(options);
+      }
+    } catch {
+      // Only the connection count and the request are pinned.
+    } finally {
+      await nl?.shutdown();
+      restore();
+      await server.close();
+      await internal.close();
+    }
+    assert(
+      server.calls.length >= 1,
+      "precondition failed: the turn never reached the stand-in",
+    );
+    assert(
+      internal.connections() === 0,
+      `the provider connected to a loopback image URL (${internal.connections()} connections)`,
     );
   });
 }

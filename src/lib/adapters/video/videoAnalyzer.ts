@@ -143,6 +143,8 @@ export async function analyzeVideoWithVertexAI(
 ): Promise<string> {
   const startTime = Date.now();
   const { GoogleGenAI } = await import("@google/genai");
+  const { googleSdkProxyHttpOptions } =
+    await import("../../proxy/proxyFetch.js");
 
   // Get default config and merge with provided options
   const config = await getVertexConfig();
@@ -162,7 +164,14 @@ export async function analyzeVideoWithVertexAI(
     model,
     frameCount,
   });
-  const ai = new GoogleGenAI({ vertexai: true, project, location });
+  // httpOptions carries the proxy-aware fetch when a proxy is configured, as
+  // the Vertex provider's own client does; the SDK otherwise goes direct.
+  const ai = new GoogleGenAI({
+    vertexai: true,
+    project,
+    location,
+    httpOptions: googleSdkProxyHttpOptions(),
+  });
   const response = await ai.models.generateContent({
     model,
     config: buildConfig(),
@@ -198,6 +207,8 @@ export async function analyzeVideoWithGeminiAPI(
 ): Promise<string> {
   const startTime = Date.now();
   const { GoogleGenAI } = await import("@google/genai");
+  const { googleSdkProxyHttpOptions } =
+    await import("../../proxy/proxyFetch.js");
 
   const apiKey = options.apiKey || process.env.GOOGLE_AI_API_KEY;
   const model = options.model || DEFAULT_MODEL;
@@ -219,7 +230,10 @@ export async function analyzeVideoWithGeminiAPI(
     frameCount,
   });
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: googleSdkProxyHttpOptions(),
+  });
 
   logger.debug("[GeminiVideoAnalyzer] Generating analysis with frames");
 

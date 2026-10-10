@@ -66,6 +66,13 @@ import {
 } from "../../utils/schemaConversion.js";
 
 import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
+import { sniffImageMimeType } from "../../utils/imageDetection.js";
+import {
+  redactUrlForError,
+  redactUrlsInText,
+} from "../../utils/logSanitize.js";
+import { safeDownload } from "../../utils/safeFetch.js";
+import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { resolveLiveTool } from "../../tools/toolDiscovery.js";
 import type {
   ToolExecuteFunction,
@@ -2271,6 +2278,45 @@ export async function appendNativeVideoParts(
   }
 }
 
+/**
+ * Download a caller-supplied `http(s)` image URL so its bytes can be sent
+ * inline, the way the Google and Claude-on-Vertex request builders need them.
+ *
+ * Goes through `safeDownload`, so the URL is SSRF-checked (private, loopback
+ * and metadata addresses are refused, and the connection is pinned to the
+ * addresses that were checked), redirects are refused rather than followed,
+ * the body is capped at `MAX_IMAGE_BYTES`, and a configured proxy is used.
+ * A plain `fetch` here did none of that: any caller able to put a URL in
+ * `input.images` could make the server fetch an internal address.
+ *
+ * Returns `null` after a warning when the download is refused or fails, so
+ * the caller skips that image exactly as it skipped a failed fetch before.
+ * `mimeType` is sniffed from the bytes, or `null` when they match no known
+ * image signature; the caller keeps its own default in that case.
+ */
+export async function downloadInlineImage(
+  url: string,
+  logPrefix: string,
+): Promise<{ buffer: Buffer; mimeType: string | null } | null> {
+  try {
+    const buffer = await safeDownload(url, {
+      maxBytes: MAX_IMAGE_BYTES,
+      label: `${logPrefix} image`,
+    });
+    return { buffer, mimeType: sniffImageMimeType(buffer) };
+  } catch (error) {
+    // safeDownload names the URL in its error text, and the URL may be
+    // presigned, so the text is logged only with its URLs redacted.
+    logger.warn(
+      `${logPrefix} Image URL could not be downloaded, skipping: ${redactUrlsInText(
+        error instanceof Error ? error.message : String(error),
+      )}`,
+      { url: redactUrlForError(url) },
+    );
+    return null;
+  }
+}
+
 export async function buildUserPartsWithMultimodal(
   input: GeminiMultimodalInput | undefined,
   textOverride?: string,
@@ -2339,32 +2385,12 @@ export async function buildUserPartsWithMultimodal(
           image.startsWith("http://") ||
           image.startsWith("https://")
         ) {
-          try {
-            const response = await fetch(image);
-            if (!response.ok) {
-              logger.warn(
-                `${logPrefix} Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                { url: image },
-              );
-              continue;
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            imageBuffer = Buffer.from(arrayBuffer);
-            const headerMime = response.headers.get("content-type");
-            if (headerMime && headerMime.startsWith("image/")) {
-              mimeType = headerMime.split(";")[0];
-            }
-          } catch (fetchError) {
-            logger.warn(
-              `${logPrefix} Image URL fetch threw, skipping: ${
-                fetchError instanceof Error
-                  ? fetchError.message
-                  : String(fetchError)
-              }`,
-              { url: image },
-            );
+          const downloaded = await downloadInlineImage(image, logPrefix);
+          if (!downloaded) {
             continue;
           }
+          imageBuffer = downloaded.buffer;
+          mimeType = downloaded.mimeType ?? mimeType;
         } else {
           imageBuffer = Buffer.from(image, "base64");
         }

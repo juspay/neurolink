@@ -169,6 +169,16 @@ const MODEL_404_TEXT = new RegExp(
 );
 
 /**
+ * True when a 404's text names a model or deployment as missing — the test
+ * `DEFAULT_ERROR_RULES` applies before it reads a 404 as a missing model.
+ * Exported for providers with a hand-written model rule, so a 404 that names
+ * no model (a wrong base URL, a missing route) stays a plain 404 there too.
+ */
+export function messageNamesMissingModel(message: string): boolean {
+  return MODEL_404_TEXT.test(message);
+}
+
+/**
  * True when `status` is written in `message` as an HTTP status, as opposed to
  * an unrelated number that happens to have the same digits ("max_tokens (429)
  * exceeds the model limit", a request id, a token count). Provider rules that

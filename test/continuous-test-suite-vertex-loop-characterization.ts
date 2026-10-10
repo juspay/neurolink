@@ -38,6 +38,10 @@ import "dotenv/config";
  */
 
 import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
+import {
+  createServer as createNetServer,
+  type Server as NetServer,
+} from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import { jsonSchema } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
@@ -235,6 +239,30 @@ async function startStandIn(
 
 function credentialsWithBaseURL(baseURL: string) {
   return { vertex: { apiKey: EXPRESS_KEY, baseURL } };
+}
+
+/**
+ * A TCP listener that counts the connections made to it and closes each one
+ * at once. It stands in for an internal service an image URL must not reach,
+ * so a connection is the evidence, whatever protocol the client then spoke.
+ */
+async function startConnectionCounter(): Promise<{
+  port: number;
+  connections: () => number;
+  close: () => Promise<void>;
+}> {
+  let count = 0;
+  const server: NetServer = createNetServer((socket) => {
+    count++;
+    socket.destroy();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    port: typeof address === "object" && address ? address.port : 0,
+    connections: () => count,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
 }
 
 function credentialsFor(port: number) {
@@ -527,6 +555,24 @@ await test("a caller's own tool is declared, executed, and its result returns to
       "the tool's payload was not carried back verbatim",
     );
     assert(text.includes("done"), "the final turn's text was not surfaced");
+    // The same call record the generate path returns: name, args and an id.
+    // The stream path recorded name and args only.
+    const recorded = (result.toolCalls ?? []).find(
+      (call) => call.toolName === "lookup",
+    );
+    assert(
+      recorded !== undefined,
+      "toolCalls did not record the executed tool after the stream drained",
+    );
+    assert(
+      typeof recorded?.toolCallId === "string" &&
+        recorded.toolCallId.length > 0,
+      "the recorded stream tool call carried no toolCallId",
+    );
+    assert(
+      recorded?.args?.q === "x",
+      "the recorded stream tool call's args did not match what the model sent",
+    );
   } finally {
     restore();
     await server.close();
@@ -1452,5 +1498,58 @@ await test("the same tool call with the same arguments runs once per turn", asyn
     `the model was answered ${responses.length} times, so the turn did not keep running on cached results`,
   );
 });
+
+section("caller-supplied image URLs");
+
+for (const path of ["stream", "generate"] as const) {
+  await test(`a ${path} turn does not fetch an image URL that points at a loopback address`, async () => {
+    // A plain fetch of a caller-supplied URL let anyone who can set
+    // input.images make the server connect to an internal address. The
+    // download now goes through safeDownload, which refuses it before any
+    // connection is made, and the image is skipped as a failed fetch was.
+    const internal = await startConnectionCounter();
+    const server = await startStandIn(() => textTurn("answered without it"));
+    const restore = withVertexEnv();
+    try {
+      const nl = new NeuroLink();
+      const options = {
+        input: {
+          text: "describe the picture",
+          images: [`https://127.0.0.1:${internal.port}/pixel.png`],
+        },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        disableTools: true,
+        disableInternalFallback: true,
+        credentials: credentialsFor(server.port),
+      };
+      try {
+        if (path === "stream") {
+          const result = await nl.stream(options);
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        } else {
+          await nl.generate(options);
+        }
+      } catch {
+        // Only the connection count and the request are pinned.
+      }
+    } finally {
+      restore();
+      await server.close();
+      await internal.close();
+    }
+    assert(
+      server.calls.length >= 1,
+      "precondition failed: the turn never reached the stand-in",
+    );
+    assert(
+      internal.connections() === 0,
+      `the provider connected to a loopback image URL (${internal.connections()} connections)`,
+    );
+  });
+}
 
 await runSuite();

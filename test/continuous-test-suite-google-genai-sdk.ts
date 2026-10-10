@@ -14,10 +14,16 @@
  *    for the server's setup message and never rejects if the socket closes
  *    first, so a refused key or model left the stream pending forever.
  *
- * The same suite pins how the AI Studio client treats an embedding that comes
- * back without values (missing, or an empty array): the call rejects and names
- * the text's index, rather than handing back an empty vector that downstream
- * scoring would read as a zero.
+ * The same suite pins how the AI Studio and Vertex clients treat an embedding
+ * that comes back without values (missing, or an empty array): the call
+ * rejects and names the text's index, rather than handing back an empty vector
+ * that downstream scoring would read as a zero.
+ *
+ * And it pins how both clients classify an error the SDK raises: a status is
+ * read from the response, or from text that writes it as a status, never from
+ * an unrelated number in the message; and a 404 is a missing model only when
+ * its text names one. Vertex is reached in Express Mode through the public
+ * `credentials.vertex.baseURL`.
  *
  * Everything drives the shipped surface (`ProviderFactory`, `NeuroLink` from
  * `../dist/index.js`) against local stand-ins reached through the public
@@ -46,6 +52,9 @@ const { test, section, runSuite } = defineSuite("Google GenAI SDK behaviour", {
 
 const { NeuroLink, ProviderFactory, ProviderRegistry } =
   await import("../dist/index.js");
+// Error classes are compared by name: the classes generate() throws come from
+// the build's internal module graph, which a suite must not import (rule 15).
+const isNamed = (error: Error, name: string): boolean => error.name === name;
 
 const TOUCHED_ENV_VARS = [
   "HTTP_PROXY",
@@ -61,6 +70,17 @@ const TOUCHED_ENV_VARS = [
   "GOOGLE_GENERATIVE_AI_API_KEY",
   "GOOGLE_AI_BASE_URL",
   "GOOGLE_AI_EMBEDDING_MODEL",
+  "GOOGLE_VERTEX_API_KEY",
+  "GOOGLE_VERTEX_BASE_URL",
+  "GOOGLE_VERTEX_PROJECT",
+  "GOOGLE_CLOUD_PROJECT",
+  "GOOGLE_CLOUD_PROJECT_ID",
+  "VERTEX_PROJECT_ID",
+  "GOOGLE_CLOUD_LOCATION",
+  "VERTEX_LOCATION",
+  "GOOGLE_VERTEX_LOCATION",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "VERTEX_EMBEDDING_MODEL",
 ] as const;
 
 async function withCleanEnv<T>(run: () => Promise<T>): Promise<T> {
@@ -368,6 +388,402 @@ await test("embedMany still returns every vector when no embedding lacks values 
     } finally {
       await standIn.close();
     }
+  });
+});
+
+section("Vertex embeddings that come back without values are rejected");
+
+type VertexPredictionShape = "missing" | "empty" | "short";
+
+/**
+ * Answers Vertex's `:predict` embedding call with one prediction per
+ * instance, first character as its value. The instance whose text equals
+ * `text` gets a prediction without values, one with an empty array, or (for
+ * "short") is dropped, so the response holds one prediction too few.
+ */
+async function startVertexEmbeddingStandIn(
+  text: string,
+  shape: VertexPredictionShape,
+): Promise<{ origin: string; close: () => Promise<void> }> {
+  const sockets = new Set<Socket>();
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let instances: Array<{ content?: unknown }> = [];
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+          instances?: typeof instances;
+        };
+        instances = body.instances ?? [];
+      } catch {
+        instances = [];
+      }
+      const textOf = (content: unknown): string => {
+        if (typeof content === "string") {
+          return content;
+        }
+        const parts = (content as { parts?: Array<{ text?: string }> })?.parts;
+        return parts?.[0]?.text ?? "?";
+      };
+      const predictions = instances.flatMap((instance) => {
+        const value = textOf(instance.content);
+        if (value !== text) {
+          return [{ embeddings: { values: [value.charCodeAt(0)] } }];
+        }
+        if (shape === "short") {
+          return [];
+        }
+        return [{ embeddings: shape === "empty" ? { values: [] } : {} }];
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ predictions }));
+    });
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  const port = await listen(server);
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    close: async () => {
+      sockets.forEach((socket) => socket.destroy());
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+async function embedManyThroughVertex(
+  origin: string,
+  texts: string[],
+): Promise<{ vectors: number[][] | undefined; message: string | undefined }> {
+  await ProviderRegistry.registerAllProviders();
+  let vectors: number[][] | undefined;
+  let message: string | undefined;
+  try {
+    const provider = await ProviderFactory.createProvider(
+      "vertex",
+      "gemini-2.0-flash",
+      undefined,
+      undefined,
+      { vertex: { apiKey: "express-key", baseURL: origin } },
+    );
+    vectors = await provider.embedMany?.(texts, "text-embedding-004");
+  } catch (error) {
+    vectors = undefined;
+    message = error instanceof Error ? error.message : String(error);
+  }
+  return { vectors, message };
+}
+
+for (const shape of ["missing", "empty"] as const) {
+  await test(`Vertex embedMany rejects a ${shape} embedding and names its index`, async () => {
+    await withCleanEnv(async () => {
+      const standIn = await startVertexEmbeddingStandIn("b", shape);
+      try {
+        const { vectors, message } = await embedManyThroughVertex(
+          standIn.origin,
+          ["a", "b", "c"],
+        );
+        assert(
+          vectors === undefined,
+          "embedMany returned vectors although one embedding had no values",
+        );
+        assert(
+          /\bindex 1\b/.test(message ?? ""),
+          "the rejection did not name the index of the embedding without values",
+        );
+        assert(
+          (message ?? "").includes("vertex"),
+          "the rejection did not name the provider",
+        );
+      } finally {
+        await standIn.close();
+      }
+    });
+  });
+}
+
+await test("Vertex embedMany rejects a response with fewer vectors than texts", async () => {
+  await withCleanEnv(async () => {
+    const standIn = await startVertexEmbeddingStandIn("b", "short");
+    try {
+      const { vectors, message } = await embedManyThroughVertex(
+        standIn.origin,
+        ["a", "b", "c"],
+      );
+      assert(
+        vectors === undefined && message !== undefined,
+        "embedMany returned vectors although the response held one too few",
+      );
+    } finally {
+      await standIn.close();
+    }
+  });
+});
+
+await test("Vertex embedMany still returns every vector, in order, for a healthy response", async () => {
+  await withCleanEnv(async () => {
+    const standIn = await startVertexEmbeddingStandIn("zzz", "missing");
+    try {
+      const { vectors } = await embedManyThroughVertex(standIn.origin, [
+        "a",
+        "b",
+        "c",
+      ]);
+      assert(
+        vectors !== undefined &&
+          vectors.map((v) => v[0]).join(",") === "97,98,99",
+        "embedMany did not return the healthy vectors in order",
+      );
+    } finally {
+      await standIn.close();
+    }
+  });
+});
+
+section("error classification reads statuses, not stray numbers");
+
+/** Answers every request with `status` and a Google-style error body. */
+async function startErrorStandIn(
+  status: number,
+  error: { code: number; message: string; status: string },
+): Promise<{ origin: string; hits: () => number; close: () => Promise<void> }> {
+  const sockets = new Set<Socket>();
+  let hits = 0;
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      hits += 1;
+      res.writeHead(status, {
+        "content-type": "application/json",
+        "retry-after": "0",
+      });
+      res.end(JSON.stringify({ error }));
+    });
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  const port = await listen(server);
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    hits: () => hits,
+    close: async () => {
+      sockets.forEach((socket) => socket.destroy());
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+type ClassifiedFailure = { error: Error | undefined; hits: number };
+
+async function failGenerate(
+  provider: "google-ai" | "vertex",
+  status: number,
+  error: { code: number; message: string; status: string },
+): Promise<ClassifiedFailure> {
+  const standIn = await startErrorStandIn(status, error);
+  let caught: Error | undefined;
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  try {
+    await nl.generate({
+      input: { text: "ping" },
+      provider,
+      model: "gemini-2.0-flash",
+      maxTokens: 16,
+      disableTools: true,
+      disableInternalFallback: true,
+      credentials:
+        provider === "vertex"
+          ? { vertex: { apiKey: "express-key", baseURL: standIn.origin } }
+          : { googleAiStudio: { apiKey: "k", baseURL: standIn.origin } },
+    });
+  } catch (thrown) {
+    caught = thrown instanceof Error ? thrown : new Error(String(thrown));
+  } finally {
+    await nl.shutdown();
+    await standIn.close();
+  }
+  return { error: caught, hits: standIn.hits() };
+}
+
+/** Precondition shared by every case: the request reached the stand-in and failed. */
+function assertReachedAndFailed(outcome: ClassifiedFailure): Error {
+  assert(
+    outcome.hits > 0,
+    "precondition failed: no request reached the stand-in",
+  );
+  assert(
+    outcome.error !== undefined,
+    "generate() resolved although the endpoint answered an error",
+  );
+  return outcome.error as Error;
+}
+
+const INCIDENTAL_NUMBERS = {
+  code: 400,
+  message:
+    "max_output_tokens (429) is above the 503 this request allows for the model",
+  status: "INVALID_ARGUMENT",
+};
+const NESTED_503 = {
+  code: 503,
+  message: "The service is currently unavailable.",
+  status: "UNAVAILABLE",
+};
+const NAMED_429 = {
+  code: 400,
+  message: "upstream HTTP 429 relayed by the gateway",
+  status: "FAILED_PRECONDITION",
+};
+const ROUTE_404 = {
+  code: 404,
+  message: "Requested entity was not found.",
+  status: "NOT_FOUND",
+};
+const MODEL_404 = {
+  code: 404,
+  message:
+    "Publisher Model `projects/p/locations/us-central1/publishers/google/models/gemini-2.0-flash` was not found or your project does not have access to it.",
+  status: "NOT_FOUND",
+};
+
+await test("AI Studio: a 400 whose text holds an unrelated 429 and 503 is neither a rate limit nor a server error", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("google-ai", 400, INCIDENTAL_NUMBERS),
+    );
+    assert(
+      !isNamed(error, "RateLimitError"),
+      "the 400 was classified as a rate limit",
+    );
+    assert(
+      !error.message.includes("rate limit exceeded"),
+      "the 400 was reported as a rate limit",
+    );
+    assert(
+      !error.message.includes("server error"),
+      "the 400 was reported as a server error",
+    );
+  });
+});
+
+await test("AI Studio: a 400 whose text names HTTP 429 is still read as a rate limit", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("google-ai", 400, NAMED_429),
+    );
+    assert(
+      error.message.includes("Google AI rate limit exceeded"),
+      "a status written as a status in the text was not read as a rate limit",
+    );
+  });
+});
+
+await test("AI Studio: a nested JSON 503 body is read as a server error", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("google-ai", 400, NESTED_503),
+    );
+    assert(
+      error.message.includes("Google AI server error"),
+      "a 503 written as the body's error code was not read as a server error",
+    );
+  });
+});
+
+await test("AI Studio: a 404 that names no model is not reported as a missing model", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("google-ai", 404, ROUTE_404),
+    );
+    assert(
+      !isNamed(error, "InvalidModelError"),
+      "a route 404 was classified as a missing model",
+    );
+    assert(
+      error.message.includes("returned HTTP 404"),
+      "a route 404 did not report the status and the endpoint's text",
+    );
+  });
+});
+
+await test("AI Studio: a 404 that names the model as missing is a missing model", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("google-ai", 404, MODEL_404),
+    );
+    assert(
+      isNamed(error, "InvalidModelError"),
+      "a 404 naming the model as missing was not classified as a missing model",
+    );
+  });
+});
+
+await test("Vertex: a 400 whose text holds an unrelated 429 and 503 is neither a rate limit nor a server error", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("vertex", 400, INCIDENTAL_NUMBERS),
+    );
+    assert(
+      !isNamed(error, "RateLimitError"),
+      "the 400 was classified as a rate limit",
+    );
+    assert(
+      !error.message.includes("shared-capacity exhausted"),
+      "the 400 was reported as a rate limit",
+    );
+    assert(
+      !error.message.includes("server error"),
+      "the 400 was reported as a server error",
+    );
+    assert(
+      error.message.includes("Invalid Request"),
+      "the 400 did not reach the invalid-request rule",
+    );
+  });
+});
+
+await test("Vertex: a nested JSON 503 body is read as a server error", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("vertex", 400, NESTED_503),
+    );
+    assert(
+      error.message.includes("Google Vertex AI server error"),
+      "a 503 written as the body's error code was not read as a server error",
+    );
+  });
+});
+
+await test("Vertex: a 404 that names no model is not reported as a missing model", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("vertex", 404, ROUTE_404),
+    );
+    assert(
+      !isNamed(error, "InvalidModelError"),
+      "a route 404 was classified as a missing model",
+    );
+    assert(
+      error.message.includes("returned HTTP 404"),
+      "a route 404 did not report the status and the endpoint's text",
+    );
+  });
+});
+
+await test("Vertex: a 404 that names the model as missing is a missing model", async () => {
+  await withCleanEnv(async () => {
+    const error = assertReachedAndFailed(
+      await failGenerate("vertex", 404, MODEL_404),
+    );
+    assert(
+      isNamed(error, "InvalidModelError"),
+      "a 404 naming the model as missing was not classified as a missing model",
+    );
   });
 });
 

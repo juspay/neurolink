@@ -4,6 +4,7 @@ import fs from "fs";
 import { guardToolExecutor } from "../../core/toolExecutionGuards.js";
 import path from "path";
 import type { ZodType } from "zod";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { AnthropicVertex as AnthropicVertexType } from "@anthropic-ai/vertex-sdk";
 import {
   AIProviderName,
@@ -15,6 +16,7 @@ import { unwrapImagePayload } from "../../adapters/imageFormatSupport.js";
 import {
   appendNativeAudioParts,
   appendNativeVideoParts,
+  downloadInlineImage,
 } from "../googleNativeGemini3/utils.js";
 import { getMimeTypeForExtension } from "../../processors/config/mimeConstants.js";
 import {
@@ -28,12 +30,13 @@ import {
 import { resolveRequestKind } from "../../core/resolveRequestKind.js";
 import { ModelConfigurationManager } from "../../core/modelConfiguration.js";
 import { isSchemaComplexityError } from "../../core/modules/structuredOutputPolicy.js";
-import {
-  redactUrlForError,
-  stringifyContentSafe,
-} from "../../utils/logSanitize.js";
+import { stringifyContentSafe } from "../../utils/logSanitize.js";
 import type { NeuroLink } from "../../neurolink.js";
-import { googleSdkProxyHttpOptions } from "../../proxy/proxyFetch.js";
+import {
+  createProxyFetch,
+  getProxyStatus,
+  googleSdkProxyHttpOptions,
+} from "../../proxy/proxyFetch.js";
 import type {
   AgenticLoopOptions,
   GeminiTurnContent,
@@ -80,6 +83,7 @@ import {
 } from "../../types/index.js";
 import {
   classifyProviderError,
+  messageNamesMissingModel,
   messageNamesStatus,
 } from "../../utils/errorClassifier.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
@@ -174,6 +178,7 @@ import { calculateCost } from "../../utils/pricing.js";
 import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
 import {
+  claudeDisabledThinkingReplacement,
   modelSupportsForcedToolChoice,
   resolveSamplingParams,
 } from "../../models/modelRegistry.js";
@@ -635,6 +640,15 @@ const createVertexAnthropicSettings = async (
       : {}),
   };
 };
+
+/**
+ * `thinking: {type: "between_tools"}`, Sonnet 5.5's lowest thinking setting.
+ * It is newer than the Anthropic SDK's `ThinkingConfigParam` union, so it is
+ * declared here as that union plus the one member the SDK does not list.
+ */
+const claudeBetweenToolsThinking = ():
+  | Anthropic.ThinkingConfigParam
+  | { type: "between_tools" } => ({ type: "between_tools" });
 
 // Helper function to determine if a model is an Anthropic model
 const isAnthropicModel = (modelName: string): boolean => {
@@ -1877,33 +1891,20 @@ export class GoogleVertexProvider extends BaseProvider {
             image.startsWith("http://") ||
             image.startsWith("https://")
           ) {
-            // Image URL — fetch and base64-encode. Without this, the URL
+            // Image URL — download and base64-encode. Without this, the URL
             // string falls through to the "assume base64" branch below
-            // and Vertex returns "Provided image is not valid".
-            try {
-              const response = await fetch(image);
-              if (!response.ok) {
-                // The URL may be presigned or carry credentials in its query
-                // string, and wrapper URLs now reach this branch too.
-                logger.warn(
-                  `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: redactUrlForError(image) },
-                );
-                continue;
-              }
-              const arrayBuffer = await response.arrayBuffer();
-              imageBuffer = Buffer.from(arrayBuffer);
-              const headerMime = response.headers.get("content-type");
-              if (headerMime && headerMime.startsWith("image/")) {
-                mimeType = headerMime.split(";")[0];
-              }
-            } catch (fetchError) {
-              logger.warn(
-                `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: redactUrlForError(image) },
-              );
+            // and Vertex returns "Provided image is not valid". The
+            // download is SSRF-checked and proxy-aware; a refused or failed
+            // one skips the image, as a failed fetch always did.
+            const downloaded = await downloadInlineImage(
+              image,
+              "[GoogleVertex]",
+            );
+            if (!downloaded) {
               continue;
             }
+            imageBuffer = downloaded.buffer;
+            mimeType = downloaded.mimeType ?? mimeType;
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
@@ -2170,6 +2171,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // terminal chunk is authoritative.
     let lastFinishReason: string | undefined;
     const allToolCalls: Array<{
+      toolCallId: string;
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
@@ -2559,7 +2561,11 @@ export class GoogleVertexProvider extends BaseProvider {
         finalText = engineResult.text;
         lastFinishReason = engineResult.rawStopReason ?? lastFinishReason;
         for (const call of engineResult.toolCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
+          allToolCalls.push({
+            toolCallId: call.id,
+            toolName: call.name,
+            args: call.args,
+          });
         }
         for (const execution of engineResult.toolExecutions) {
           toolExecutions.push({
@@ -2765,6 +2771,7 @@ export class GoogleVertexProvider extends BaseProvider {
         }),
       },
       toolCalls: externalToolCalls.map((tc) => ({
+        toolCallId: tc.toolCallId,
         toolName: tc.toolName,
         args: tc.args,
       })),
@@ -2974,33 +2981,20 @@ export class GoogleVertexProvider extends BaseProvider {
             image.startsWith("http://") ||
             image.startsWith("https://")
           ) {
-            // Image URL — fetch and base64-encode. Without this, the URL
+            // Image URL — download and base64-encode. Without this, the URL
             // string falls through to the "assume base64" branch below
-            // and Vertex returns "Provided image is not valid".
-            try {
-              const response = await fetch(image);
-              if (!response.ok) {
-                // The URL may be presigned or carry credentials in its query
-                // string, and wrapper URLs now reach this branch too.
-                logger.warn(
-                  `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: redactUrlForError(image) },
-                );
-                continue;
-              }
-              const arrayBuffer = await response.arrayBuffer();
-              imageBuffer = Buffer.from(arrayBuffer);
-              const headerMime = response.headers.get("content-type");
-              if (headerMime && headerMime.startsWith("image/")) {
-                mimeType = headerMime.split(";")[0];
-              }
-            } catch (fetchError) {
-              logger.warn(
-                `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: redactUrlForError(image) },
-              );
+            // and Vertex returns "Provided image is not valid". The
+            // download is SSRF-checked and proxy-aware; a refused or failed
+            // one skips the image, as a failed fetch always did.
+            const downloaded = await downloadInlineImage(
+              image,
+              "[GoogleVertex]",
+            );
+            if (!downloaded) {
               continue;
             }
+            imageBuffer = downloaded.buffer;
+            mimeType = downloaded.mimeType ?? mimeType;
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
@@ -4035,9 +4029,16 @@ export class GoogleVertexProvider extends BaseProvider {
     // `projectId`. Naming the narrow surface in our own type and widening it
     // here is the honest version of that gap; the alternative is standing up a
     // real AuthClient to satisfy a contract the SDK does not exercise.
-    const client = new mod.AnthropicVertex(
-      settings as ConstructorParameters<typeof mod.AnthropicVertex>[0],
-    );
+    //
+    // The SDK sends its requests through global `fetch`, which does not read
+    // HTTP_PROXY / HTTPS_PROXY, so a configured proxy is honoured only by
+    // handing it the proxy-aware fetch — the same rule the Gemini client in
+    // this file follows. With no proxy configured the SDK keeps its own
+    // request path.
+    const client = new mod.AnthropicVertex({
+      ...settings,
+      ...(getProxyStatus().enabled ? { fetch: createProxyFetch() } : {}),
+    } as ConstructorParameters<typeof mod.AnthropicVertex>[0]);
     // The vertex SDK eagerly starts Google ADC resolution in its constructor
     // (`this._authClientPromise = this._auth.getClient()`) and only awaits it
     // per-request in `prepareOptions()`. A client that is constructed but never
@@ -4103,14 +4104,31 @@ export class GoogleVertexProvider extends BaseProvider {
    * tools-disabled backstop, used only outside schema mode) does not force
    * tool use — it forces the opposite — so it is not gated here, consistent
    * with oauthFetch.ts leaving `"none"` alone too.
+   *
+   * `thinkingConfig.type: "disabled"` (without an enabled budget) is sent as
+   * `thinking: {type: "disabled"}`, as the direct Anthropic provider does;
+   * leaving the field off means "think" on a model that thinks by default.
+   * Claude 5.5 / 5.1 models refuse that shape with a 400, so for them it goes
+   * through `claudeDisabledThinkingReplacement`, the same table the proxy
+   * uses: Sonnet 5.5 gets `between_tools` (its lowest setting) and the rest,
+   * which think adaptively and accept no `thinking` field in its place, get
+   * none. This path sends no effort, so the effort-dependent fallback in that
+   * table never applies here.
    */
   private buildClaudeThinkingParam(
     // Structural, not TextGenerationOptions: the streaming caller passes
-    // StreamOptions, and only these two fields are read.
-    options: { thinkingConfig?: { enabled?: boolean; budgetTokens?: number } },
+    // StreamOptions, and only these fields are read.
+    options: {
+      thinkingConfig?: {
+        enabled?: boolean;
+        type?: "enabled" | "disabled";
+        budgetTokens?: number;
+      };
+    },
+    modelName: string,
     maxTokens: number,
     forcesToolChoice: boolean,
-  ): { type: "enabled"; budget_tokens: number } | undefined {
+  ): Anthropic.ThinkingConfigParam | undefined {
     if (forcesToolChoice) {
       if (options.thinkingConfig?.enabled) {
         logger.debug(
@@ -4121,7 +4139,25 @@ export class GoogleVertexProvider extends BaseProvider {
     }
     const budget = options.thinkingConfig?.budgetTokens;
     if (!options.thinkingConfig?.enabled || !budget) {
-      return undefined;
+      if (options.thinkingConfig?.type !== "disabled") {
+        return undefined;
+      }
+      const replacement = claudeDisabledThinkingReplacement(
+        modelName,
+        undefined,
+      );
+      if (replacement === "keep") {
+        return { type: "disabled" };
+      }
+      logger.debug(
+        `[GoogleVertex] ${modelName} rejects thinking "disabled"; ${replacement === "omit" ? "omitting thinking" : "sending between_tools"}`,
+      );
+      if (replacement === "omit") {
+        return undefined;
+      }
+      // The SDK sends the body it is given, so the value reaches the wire as
+      // is; the assertion only covers a member its declared union lacks.
+      return claudeBetweenToolsThinking() as Anthropic.ThinkingConfigParam;
     }
     // Two independent floors, checked explicitly rather than folded into one
     // Math.max/min expression: Anthropic's own 1024 minimum on budget_tokens,
@@ -4284,33 +4320,20 @@ export class GoogleVertexProvider extends BaseProvider {
             image.startsWith("http://") ||
             image.startsWith("https://")
           ) {
-            // Image URL — fetch and base64-encode. Without this, the URL
+            // Image URL — download and base64-encode. Without this, the URL
             // string falls through to the "assume base64" branch below
-            // and Vertex returns "Provided image is not valid".
-            try {
-              const response = await fetch(image);
-              if (!response.ok) {
-                // The URL may be presigned or carry credentials in its query
-                // string, and wrapper URLs now reach this branch too.
-                logger.warn(
-                  `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: redactUrlForError(image) },
-                );
-                continue;
-              }
-              const arrayBuffer = await response.arrayBuffer();
-              imageBuffer = Buffer.from(arrayBuffer);
-              const headerMime = response.headers.get("content-type");
-              if (headerMime && headerMime.startsWith("image/")) {
-                mimeType = headerMime.split(";")[0];
-              }
-            } catch (fetchError) {
-              logger.warn(
-                `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: redactUrlForError(image) },
-              );
+            // and Vertex returns "Provided image is not valid". The
+            // download is SSRF-checked and proxy-aware; a refused or failed
+            // one skips the image, as a failed fetch always did.
+            const downloaded = await downloadInlineImage(
+              image,
+              "[GoogleVertex]",
+            );
+            if (!downloaded) {
               continue;
             }
+            imageBuffer = downloaded.buffer;
+            mimeType = downloaded.mimeType ?? mimeType;
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
@@ -4444,6 +4467,7 @@ export class GoogleVertexProvider extends BaseProvider {
       useFinalResultTool && modelSupportsForcedToolChoice(modelName);
     const streamThinking = this.buildClaudeThinkingParam(
       options,
+      modelName,
       streamMaxTokens,
       forceFinalResult,
     );
@@ -4497,6 +4521,7 @@ export class GoogleVertexProvider extends BaseProvider {
       ? Math.max(maxSteps - 1, 0)
       : maxSteps;
     const allToolCalls: Array<{
+      toolCallId: string;
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
@@ -5023,7 +5048,11 @@ export class GoogleVertexProvider extends BaseProvider {
             engineStep,
           ) => {
             for (const result of toolResults) {
-              allToolCalls.push({ toolName: result.name, args: result.args });
+              allToolCalls.push({
+                toolCallId: result.id,
+                toolName: result.name,
+                args: result.args,
+              });
               toolsUsedRef.push(result.name);
               toolExecutions.push({
                 name: result.name,
@@ -5149,6 +5178,20 @@ export class GoogleVertexProvider extends BaseProvider {
           }
           finishReasonRef.value =
             engineResult.rawStopReason ?? finishReasonRef.value;
+          // The engine's own record replaces the hook-fed one, as on the
+          // generate path: the engine records every dispatched batch before
+          // its abortedMidBatch check, while `buildToolResultMessages` (the
+          // only thing that fills `allToolCalls`) is skipped for a batch an
+          // abort cut short, so a tool that had already finished there would
+          // otherwise drop out of `result.toolCalls`.
+          allToolCalls.length = 0;
+          allToolCalls.push(
+            ...engineResult.toolCalls.map((call) => ({
+              toolCallId: call.id,
+              toolName: call.name,
+              args: call.args,
+            })),
+          );
           // NOT `toolCalls.length === 0`: that array accumulates across the
           // WHOLE turn, so a turn that called a tool in step 1 and answered
           // with text in step 2 would look unfinished and fall into terminal
@@ -5265,6 +5308,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 // budget requestParams' thinking was sized for.
                 thinking: this.buildClaudeThinkingParam(
                   options,
+                  modelName,
                   terminalMaxTokens,
                   forceFinalResult,
                 ),
@@ -5422,6 +5466,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 // through the spread below.
                 const backstopThinking = this.buildClaudeThinkingParam(
                   options,
+                  modelName,
                   terminalMaxTokens,
                   false,
                 );
@@ -5912,33 +5957,20 @@ export class GoogleVertexProvider extends BaseProvider {
             image.startsWith("http://") ||
             image.startsWith("https://")
           ) {
-            // Image URL — fetch and base64-encode. Without this, the URL
+            // Image URL — download and base64-encode. Without this, the URL
             // string falls through to the "assume base64" branch below
-            // and Vertex returns "Provided image is not valid".
-            try {
-              const response = await fetch(image);
-              if (!response.ok) {
-                // The URL may be presigned or carry credentials in its query
-                // string, and wrapper URLs now reach this branch too.
-                logger.warn(
-                  `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: redactUrlForError(image) },
-                );
-                continue;
-              }
-              const arrayBuffer = await response.arrayBuffer();
-              imageBuffer = Buffer.from(arrayBuffer);
-              const headerMime = response.headers.get("content-type");
-              if (headerMime && headerMime.startsWith("image/")) {
-                mimeType = headerMime.split(";")[0];
-              }
-            } catch (fetchError) {
-              logger.warn(
-                `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: redactUrlForError(image) },
-              );
+            // and Vertex returns "Provided image is not valid". The
+            // download is SSRF-checked and proxy-aware; a refused or failed
+            // one skips the image, as a failed fetch always did.
+            const downloaded = await downloadInlineImage(
+              image,
+              "[GoogleVertex]",
+            );
+            if (!downloaded) {
               continue;
             }
+            imageBuffer = downloaded.buffer;
+            mimeType = downloaded.mimeType ?? mimeType;
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
@@ -6074,6 +6106,7 @@ export class GoogleVertexProvider extends BaseProvider {
       useFinalResultTool && modelSupportsForcedToolChoice(modelName);
     const generateThinking = this.buildClaudeThinkingParam(
       options,
+      modelName,
       generateMaxTokens,
       forceFinalResult,
     );
@@ -6588,6 +6621,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 // budget requestParams' thinking was sized for.
                 thinking: this.buildClaudeThinkingParam(
                   options,
+                  modelName,
                   terminalMaxTokens,
                   forceFinalResult,
                 ),
@@ -6728,6 +6762,7 @@ export class GoogleVertexProvider extends BaseProvider {
             // spread below.
             const backstopThinking = this.buildClaudeThinkingParam(
               options,
+              modelName,
               terminalMaxTokens,
               false,
             );
@@ -8410,9 +8445,14 @@ export class GoogleVertexProvider extends BaseProvider {
           `4. Confirm your location/region has Vertex AI available`,
       },
       {
+        // A missing model only when the text names one as missing. A 404 on
+        // its own is a route answer (a wrong base URL gives the same reply),
+        // and Google's NOT_FOUND status covers any absent resource, so
+        // neither is enough by itself.
         match: (ctx) =>
-          /NOT_FOUND|model not found|Model not found/i.test(ctx.message) ||
-          statusCode === 404,
+          /model[_ ]?not[_ ]?found/i.test(ctx.message) ||
+          ((statusCode === 404 || /\bNOT_FOUND\b/.test(ctx.message)) &&
+            messageNamesMissingModel(ctx.message)),
         errorClass: InvalidModelError,
         message: () => {
           const modelSuggestions = this.getModelSuggestions(this.modelName);
@@ -8425,6 +8465,13 @@ export class GoogleVertexProvider extends BaseProvider {
             `4. For Claude models, enable Anthropic integration in Google Cloud Console`
           );
         },
+      },
+      {
+        // Any other 404: the endpoint answered that the route or resource is
+        // not there. Reported with the vendor's text, not as a missing model.
+        match: () => statusCode === 404,
+        errorClass: ProviderError,
+        message: (ctx) => `Google Vertex AI returned HTTP 404: ${ctx.message}`,
       },
       {
         // Rate limit / quota / capacity errors. Anthropic-on-Vertex capacity
@@ -9011,34 +9058,21 @@ export class GoogleVertexProvider extends BaseProvider {
               image.startsWith("http://") ||
               image.startsWith("https://")
             ) {
-              // Image URL — fetch the bytes and base64-encode them.
+              // Image URL — download the bytes and base64-encode them.
               // Without this, the URL string itself ends up in
               // inline_data.data and Vertex rejects with
-              // "Base64 decoding failed for <url>".
-              try {
-                const response = await fetch(image);
-                if (!response.ok) {
-                  logger.warn(
-                    `Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                    { url: redactUrlForError(image), index: i },
-                  );
-                  continue;
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                const fetchedBuffer = Buffer.from(arrayBuffer);
-                imageBase64 = fetchedBuffer.toString("base64");
-                const headerMime = response.headers.get("content-type");
-                mimeType =
-                  headerMime && headerMime.startsWith("image/")
-                    ? headerMime.split(";")[0]
-                    : this.detectImageType(fetchedBuffer);
-              } catch (fetchError) {
-                logger.warn(
-                  `Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                  { url: redactUrlForError(image), index: i },
-                );
+              // "Base64 decoding failed for <url>". The download is
+              // SSRF-checked and proxy-aware; a refused or failed one skips
+              // the image, as a failed fetch always did.
+              const downloaded = await downloadInlineImage(
+                image,
+                "[GoogleVertex]",
+              );
+              if (!downloaded) {
                 continue;
               }
+              imageBase64 = downloaded.buffer.toString("base64");
+              mimeType = this.detectImageType(downloaded.buffer);
             } else {
               // Assume it's already base64 encoded
               imageBase64 = image;
@@ -9107,7 +9141,9 @@ export class GoogleVertexProvider extends BaseProvider {
       // 3. The simpler Promise.race pattern is sufficient for this use case
       const timeoutMs = 120000;
 
-      const fetchPromise = fetch(url, {
+      // Proxy-aware, so HTTP_PROXY / HTTPS_PROXY / NO_PROXY apply here as they
+      // do to every other Vertex request; global `fetch` reads none of them.
+      const fetchPromise = createProxyFetch()(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken.token}`,
@@ -9416,6 +9452,7 @@ export class GoogleVertexProvider extends BaseProvider {
       count: texts.length,
     });
 
+    let rows: Array<number[] | undefined>;
     try {
       const effectiveLocation = resolveVertexRegionForModel(
         embeddingModelName,
@@ -9428,18 +9465,17 @@ export class GoogleVertexProvider extends BaseProvider {
         contents: texts,
       });
 
-      const embeddings = (result.embeddings || []).map(
-        (e: { values?: number[] }) => e.values || [],
+      rows = (result.embeddings || []).map(
+        (e: { values?: number[] }) => e.values,
       );
 
-      logger.debug("Batch embeddings generated successfully", {
-        provider: this.providerName,
-        model: embeddingModelName,
-        count: embeddings.length,
-        embeddingDimension: embeddings[0]?.length,
-      });
-
-      return embeddings;
+      // One vector per text, or fail: a silent mismatch would pair texts with
+      // the wrong vectors downstream.
+      if (rows.length !== texts.length) {
+        throw new Error(
+          `Embedding response held ${rows.length} vectors for ${texts.length} texts`,
+        );
+      }
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -9449,6 +9485,34 @@ export class GoogleVertexProvider extends BaseProvider {
 
       throw this.handleProviderError(error);
     }
+
+    // Checked after the try on purpose, as on AI Studio: a thrown error is
+    // re-worded by handleProviderError from keywords in its text, so an index
+    // such as 429 or 502 would turn this into a rate-limit or server error.
+    // An embedding with no values used to become `[]`, which downstream
+    // scoring reads as a zero vector.
+    const embeddings = rows.map((values, index) => {
+      if (!values || values.length === 0) {
+        logger.error("Batch embedding returned no values", {
+          model: embeddingModelName,
+          index,
+        });
+        throw new ProviderError(
+          `Embedding for the text at index ${index} came back without values`,
+          this.providerName,
+        );
+      }
+      return values;
+    });
+
+    logger.debug("Batch embeddings generated successfully", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: embeddings.length,
+      embeddingDimension: embeddings[0]?.length,
+    });
+
+    return embeddings;
   }
 }
 

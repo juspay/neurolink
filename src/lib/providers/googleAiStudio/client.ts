@@ -25,7 +25,7 @@ import {
 import type {
   AnalyticsData,
   EmbedInput,
-  UnknownRecord,
+  ProviderErrorRule,
   ZodUnknownSchema,
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -47,8 +47,15 @@ import {
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
+import {
+  classifyProviderError,
+  messageNamesMissingModel,
+  messageNamesStatus,
+} from "../../utils/errorClassifier.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { safeDownload } from "../../utils/safeFetch.js";
+import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { isDirectTTSRequest } from "../../core/resolveRequestKind.js";
@@ -429,91 +436,74 @@ export class GoogleAIStudioProvider extends BaseProvider {
       return new NetworkError(error.message, this.providerName);
     }
 
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-    const statusCode =
-      typeof errorRecord?.status === "number"
-        ? errorRecord.status
-        : typeof errorRecord?.statusCode === "number"
-          ? errorRecord.statusCode
-          : undefined;
-
-    // Authentication errors
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key") ||
-      statusCode === 401
-    ) {
-      return new AuthenticationError(
-        "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
-        this.providerName,
-      );
-    }
-
-    // Rate limit errors
-    if (
-      message.includes("RATE_LIMIT_EXCEEDED") ||
-      message.includes("rate limit") ||
-      message.includes("429") ||
-      statusCode === 429
-    ) {
-      return new RateLimitError(
-        "Google AI rate limit exceeded. Please try again later.",
-        this.providerName,
-      );
-    }
-
-    // Model not found errors — gate on a 404 status when available; fall
-    // back to literal phrase matching only when we have no status code at
-    // all. Avoids misclassifying permission/validation errors that happen
-    // to mention model resource paths (e.g. "...models/foo permission...").
-    if (
-      statusCode === 404 ||
-      (statusCode === undefined &&
-        (message.includes("model not found") ||
-          message.includes("Model not found")))
-    ) {
-      return new InvalidModelError(
-        `Model '${this.modelName}' not found. Please check the model name and ensure it is available.`,
-        this.providerName,
-      );
-    }
-
-    // Network connectivity errors
-    if (
-      message.includes("ECONNRESET") ||
-      message.includes("ENOTFOUND") ||
-      message.includes("ETIMEDOUT") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("network") ||
-      message.includes("connection")
-    ) {
-      return new NetworkError(
-        `Connection error: ${message}`,
-        this.providerName,
-      );
-    }
-
-    // Server errors (5xx)
-    if (
-      message.includes("500") ||
-      message.includes("502") ||
-      message.includes("503") ||
-      message.includes("504") ||
-      message.includes("server error") ||
-      message.includes("Internal Server Error") ||
-      (statusCode && statusCode >= 500 && statusCode < 600)
-    ) {
-      return new ProviderError(
-        `Google AI server error: ${message}. Please try again later.`,
-        this.providerName,
-      );
-    }
-
-    return new ProviderError(`Google AI error: ${message}`, this.providerName);
+    // Statuses are read from the structured field first, and from the text
+    // only where it is written as a status ("HTTP 429", "status code 503",
+    // `{"error":{"code":503`). A bare-digit test classified a 400 whose text
+    // merely mentioned "(429)" or "503" as a rate limit or a server error.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          /API_KEY_INVALID|Invalid API key/.test(ctx.message) ||
+          ctx.statusCode === 401,
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
+      },
+      {
+        match: (ctx) =>
+          /RATE_LIMIT_EXCEEDED|rate limit/.test(ctx.message) ||
+          messageNamesStatus(ctx.message, 429) ||
+          ctx.statusCode === 429,
+        errorClass: RateLimitError,
+        message: "Google AI rate limit exceeded. Please try again later.",
+      },
+      {
+        // A missing model only when the text names one as missing. A 404 on
+        // its own is a route answer (a wrong base URL gives the same reply).
+        match: (ctx) =>
+          /model[_ ]?not[_ ]?found/i.test(ctx.message) ||
+          (ctx.statusCode === 404 && messageNamesMissingModel(ctx.message)),
+        errorClass: InvalidModelError,
+        message: `Model '${this.modelName}' not found. Please check the model name and ensure it is available.`,
+      },
+      {
+        match: (ctx) => ctx.statusCode === 404,
+        errorClass: ProviderError,
+        message: (ctx) => `Google AI returned HTTP 404: ${ctx.message}`,
+      },
+      {
+        match: (ctx) =>
+          /ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network|connection/.test(
+            ctx.message,
+          ),
+        errorClass: NetworkError,
+        message: (ctx) => `Connection error: ${ctx.message}`,
+      },
+      {
+        match: (ctx) =>
+          /server error|Internal Server Error/.test(ctx.message) ||
+          [500, 502, 503, 504].some((code) =>
+            messageNamesStatus(ctx.message, code),
+          ) ||
+          (ctx.statusCode !== undefined &&
+            ctx.statusCode >= 500 &&
+            ctx.statusCode < 600),
+        errorClass: ProviderError,
+        message: (ctx) =>
+          `Google AI server error: ${ctx.message}. Please try again later.`,
+      },
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Google AI error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   /**
@@ -555,6 +545,15 @@ export class GoogleAIStudioProvider extends BaseProvider {
       );
     }
 
+    // A reference image given as a URL is downloaded through safeDownload:
+    // SSRF-checked, redirects refused, size-capped and proxy-aware. A failed
+    // download still fails the request, as the plain fetch it replaced did.
+    const downloadReferenceImage = (url: string): Promise<Buffer> =>
+      safeDownload(url, {
+        maxBytes: MAX_IMAGE_BYTES,
+        label: "Google AI reference image",
+      });
+
     try {
       // Build content array with multimodal support
       const imageParts = await Promise.all(
@@ -563,14 +562,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           if (typeof image === "object" && "url" in image) {
             const imageUrl = image.url as string;
             if (imageUrl.startsWith("http")) {
-              const response = await fetch(imageUrl);
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to fetch image from ${imageUrl}: ${response.status} ${response.statusText}`,
-                );
-              }
-              const arrayBuffer = await response.arrayBuffer();
-              const buffer = Buffer.from(arrayBuffer);
+              const buffer = await downloadReferenceImage(imageUrl);
               const mimeType = this.detectImageType(buffer);
               logger.debug(
                 `Downloaded and detected image MIME type: ${mimeType}`,
@@ -594,14 +586,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           }
           // Handle string URLs
           if (typeof image === "string" && image.startsWith("http")) {
-            const response = await fetch(image);
-            if (!response.ok) {
-              throw new Error(
-                `Failed to fetch image from ${image}: ${response.status} ${response.statusText}`,
-              );
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
+            const buffer = await downloadReferenceImage(image);
             const mimeType = this.detectImageType(buffer);
             logger.debug(
               `Downloaded and detected image MIME type: ${mimeType}`,
@@ -1175,6 +1160,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Shared mutable state updated by the background agentic loop.
           const allToolCalls: Array<{
+            toolCallId: string;
             toolName: string;
             args: Record<string, unknown>;
           }> = [];
@@ -1358,6 +1344,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   lastStepText = stepResult.text || lastStepText;
                   for (const call of stepResult.toolCalls) {
                     allToolCalls.push({
+                      toolCallId: call.id,
                       toolName: call.name,
                       args: call.args,
                     });
@@ -2095,6 +2082,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             let totalCacheReadTokens = 0;
             let totalReasoningTokens = 0;
             const allToolCalls: Array<{
+              toolCallId: string;
               toolName: string;
               args: Record<string, unknown>;
             }> = [];
@@ -2196,7 +2184,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     "tool.name": call.name,
                     "tool.step": step,
                   });
-                  allToolCalls.push({ toolName: call.name, args: call.args });
+                  allToolCalls.push({
+                    toolCallId: call.id,
+                    toolName: call.name,
+                    args: call.args,
+                  });
                 }
                 lastStepText = stepResult.text || lastStepText;
                 for (const result of toolResults) {
@@ -2445,6 +2437,15 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 reasoningTokens: totalReasoningTokens,
               }),
               responseTime,
+              // The attempted-call record (id/name/args), the shape the Vertex
+              // native generate paths return. It was never set here, so a
+              // tool the loop ran reached toolsUsed and toolExecutions but
+              // not the caller's result.toolCalls.
+              toolCalls: allToolCalls.map((tc) => ({
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                args: tc.args,
+              })),
               toolsUsed: allToolCalls.map((tc) => tc.toolName),
               toolExecutions: resolveToolExecutionRecords(
                 options,
