@@ -15988,6 +15988,20 @@ Current user's request: ${currentInput}`;
             };
           }
 
+          // These probes are billable generate() calls signed with ambient AWS
+          // credentials, against models the account may not be allowed to
+          // call, so they are never made here.
+          if (providerName === "bedrock" || providerName === "sagemaker") {
+            return {
+              provider: providerName,
+              status: "not-configured" as const,
+              configured: true,
+              authenticated: false,
+              error: `Live status check is skipped for ${providerName}`,
+              responseTime: Date.now() - startTime,
+            };
+          }
+
           // Special handling for Ollama
           if (providerName === "ollama") {
             try {

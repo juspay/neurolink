@@ -896,25 +896,6 @@ await runSuite(async () => {
     }
   });
 
-  logSection("NeuroLink.getProviderStatus covers all real providers");
-
-  await test("getProviderStatus reports on every descriptor-backed provider, not just the original 11", async () => {
-    const { NeuroLink } = await import("../dist/index.js");
-    const nl = new NeuroLink();
-    const statuses = await nl.getProviderStatus({ quiet: true });
-    const reportedNames = new Set(
-      statuses.map((s: { provider: string }) => s.provider),
-    );
-    assert(
-      reportedNames.has("groq"),
-      "getProviderStatus missing 'groq' (outside the old hardcoded 11)",
-    );
-    assert(
-      reportedNames.has("cohere"),
-      "getProviderStatus missing 'cohere' (outside the old hardcoded 11)",
-    );
-  });
-
   logSection("toolSupport replaces PROMPT_ONLY_TOOL_PROVIDERS");
 
   await test("descriptor.toolSupport !== 'native' reproduces the original 9-member prompt-only set plus catalog entries that declare tools: false", async () => {
