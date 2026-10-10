@@ -90,13 +90,21 @@ const runCliThroughStalledReader = (
 ): Promise<ProcessResult> => {
   const home = tempDir("neurolink-cli-output-");
   const script = `set -o pipefail; node "$@" | (dd bs=1 count=1 2>/dev/null; sleep ${stallSeconds}; cat)`;
-  return runCommand("bash", ["-c", script, "bash", CLI_PATH, ...args], {
-    cwd: home,
-    env: cliEnv(server, home, {
-      NEUROLINK_STDOUT_DRAIN_TIMEOUT_MS: DRAIN_TIMEOUT_OVERRIDE_MS,
-    }),
-    timeoutMs: 60_000,
-  });
+  // The pipeline needs a shell, but the shared runCommand never takes a shell
+  // interpreter as its command: bash is reached through env. The script is a
+  // constant; the CLI path and its arguments ride as positional parameters
+  // ("$@"), so they are data, not shell syntax.
+  return runCommand(
+    "/usr/bin/env",
+    ["bash", "-c", script, "bash", CLI_PATH, ...args],
+    {
+      cwd: home,
+      env: cliEnv(server, home, {
+        NEUROLINK_STDOUT_DRAIN_TIMEOUT_MS: DRAIN_TIMEOUT_OVERRIDE_MS,
+      }),
+      timeoutMs: 60_000,
+    },
+  );
 };
 
 const COMMON_ARGS = [

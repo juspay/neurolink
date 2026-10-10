@@ -650,7 +650,9 @@ await runSuite(async () => {
       ].join("\n"),
     );
     chmodSync(npm, 0o755);
-    return runCommand("bash", [join(REPO_ROOT, "pre-commit.sh")], {
+    // Run the hook the way git does, as an executable with its own shebang,
+    // rather than as an argument to a shell named here.
+    return runCommand(join(REPO_ROOT, "pre-commit.sh"), [], {
       cwd: repo,
       env: {
         ...process.env,

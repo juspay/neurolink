@@ -16,7 +16,7 @@ import {
 } from "fs";
 import { join, dirname, relative } from "path";
 import { fileURLToPath } from "url";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -464,7 +464,7 @@ This project is licensed under the ${packageData.license} License.
 
     try {
       // Check if TypeDoc is available
-      execSync("npx typedoc --version", { stdio: "ignore" });
+      execFileSync("npx", ["typedoc", "--version"], { stdio: "ignore" });
 
       // Generate API docs with TypeDoc
       const apiDir = join(this.docsDir, "api");
@@ -472,7 +472,9 @@ This project is licensed under the ${packageData.license} License.
         mkdirSync(apiDir, { recursive: true });
       }
 
-      execSync(`npx typedoc --out ${apiDir} src/`, {
+      // Argument vector, not a shell string: apiDir sits under the checkout,
+      // whose path may hold spaces, quotes or `;`.
+      execFileSync("npx", ["typedoc", "--out", apiDir, "src/"], {
         cwd: ROOT_DIR,
         stdio: "inherit",
       });

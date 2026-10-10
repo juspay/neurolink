@@ -26,6 +26,23 @@ type ShellConversionResults = {
   total: number;
 };
 
+/**
+ * Render `value` as a single-quoted JavaScript string literal that evaluates to
+ * exactly `value`. The backslash has to be escaped before the quote: escaping
+ * only the quote turns an input `\'` into `\\'`, which closes the literal and
+ * lets whatever follows run as code in the generated script.
+ */
+function toSingleQuotedLiteral(value: string): string {
+  const escaped = value
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+  return `'${escaped}'`;
+}
+
 class ShellConverter {
   scriptsDir: string;
   outputDir: string;
@@ -340,7 +357,7 @@ console.log(filteredLines.join('\\n'));`;
     // Fallback: execute as shell command with warning
     return `// Shell command: ${shellLine}
     try {
-      execSync('${shellLine.replace(/'/g, "\\'")}', { stdio: 'inherit' });
+      execSync(${toSingleQuotedLiteral(shellLine)}, { stdio: 'inherit' });
     } catch (error) {
       console.warn('Shell command failed:', error.message);
     }`;
