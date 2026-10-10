@@ -80,6 +80,21 @@ because it costs about twice as much. Absent = charged at
 
 ---
 
+### structuredNonAsciiTokensPerChar?
+
+> `optional` **structuredNonAsciiTokensPerChar?**: `number`
+
+Tokens charged per non-ASCII character of a NON-string state (an object or
+an array), for a server that serializes such a state as JSON with ASCII
+escapes before the model reads it: every such character then arrives as a
+`\uXXXX` escape, and one outside the Basic Multilingual Plane as two, so it
+costs several times what the same character costs in a string state. When
+set, it replaces `nonAsciiTokensPerChar` and `astralTokensPerChar` for a
+non-string state, charged once per escape. A string state is unaffected.
+Absent = a non-string state is charged like a string one.
+
+---
+
 ### models?
 
 > `optional` **models?**: `Readonly`\<`Record`\<`string`, \{ `maxStateTokens`: `number`; `nonAsciiTokensPerChar?`: `number`; \}\>\>

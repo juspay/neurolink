@@ -10,6 +10,18 @@ Supported Models for Google Vertex AI
 
 ## Enumeration Members
 
+### CLAUDE_5_5_SONNET
+
+> **CLAUDE_5_5_SONNET**: `"claude-sonnet-5-5"`
+
+---
+
+### CLAUDE_5_SONNET
+
+> **CLAUDE_5_SONNET**: `"claude-sonnet-5"`
+
+---
+
 ### CLAUDE_4_6_OPUS
 
 > **CLAUDE_4_6_OPUS**: `"claude-opus-4-6"`

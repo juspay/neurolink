@@ -3062,8 +3062,12 @@ did before the decision was available.
 It also takes more questions than a provider's per-request cap: the map is
 split at the cap, the batches run a few at a time, and the answers come
 back joined. A batch that fails costs only its own answers, which every
-consumer already reads as "no decision"; null comes back only when every
-batch failed. `decide()` itself stays strict and refuses an over-cap request.
+consumer already reads as "no decision". A split request returns null
+when no batch answered — every batch failed, or the signal aborted before
+any answered, since no new group starts once it has — and any request
+returns null when no decision provider is configured or the call fails
+before it is split. `decide()` itself stays strict and refuses an over-cap
+request.
 
 A request stamped with a `site` — every built-in consumer stamps its own,
 so a `RAGPipeline` or `ClassifierRouter` a host wired to this method gets

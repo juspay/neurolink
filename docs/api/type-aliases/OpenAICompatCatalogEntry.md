@@ -309,3 +309,12 @@ tools request that explicitly requires a tool; no silent auto downgrade.
 See CatalogQuirks.authHeaderStyle — a vendor whose chat-completions
 endpoint authenticates via `X-Api-Key` instead of the inherited
 `Authorization: Bearer` default.
+
+---
+
+### fixedSamplingModels?
+
+> `optional` **fixedSamplingModels?**: `ReadonlySet`\<`string`\>
+
+See CatalogQuirks.fixedSamplingModels — model ids whose requests must
+carry no sampling parameters.

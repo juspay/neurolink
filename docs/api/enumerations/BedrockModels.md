@@ -10,6 +10,54 @@ Supported Models for Amazon Bedrock
 
 ## Enumeration Members
 
+### CLAUDE_5_5_OPUS
+
+> **CLAUDE_5_5_OPUS**: `"anthropic.claude-opus-5-5"`
+
+---
+
+### CLAUDE_5_5_SONNET
+
+> **CLAUDE_5_5_SONNET**: `"anthropic.claude-sonnet-5-5"`
+
+---
+
+### CLAUDE_5_1_FABLE
+
+> **CLAUDE_5_1_FABLE**: `"anthropic.claude-fable-5-1"`
+
+---
+
+### CLAUDE_5_OPUS
+
+> **CLAUDE_5_OPUS**: `"anthropic.claude-opus-5"`
+
+---
+
+### CLAUDE_5_SONNET
+
+> **CLAUDE_5_SONNET**: `"anthropic.claude-sonnet-5"`
+
+---
+
+### CLAUDE_5_FABLE
+
+> **CLAUDE_5_FABLE**: `"anthropic.claude-fable-5"`
+
+---
+
+### CLAUDE_4_8_OPUS
+
+> **CLAUDE_4_8_OPUS**: `"anthropic.claude-opus-4-8"`
+
+---
+
+### CLAUDE_4_7_OPUS
+
+> **CLAUDE_4_7_OPUS**: `"anthropic.claude-opus-4-7"`
+
+---
+
 ### CLAUDE_4_6_OPUS
 
 > **CLAUDE_4_6_OPUS**: `"anthropic.claude-opus-4-6-v1"`

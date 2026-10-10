@@ -75,6 +75,14 @@ Tokens charged per astral character; see [DecisionLimits.astralTokensPerChar](De
 
 ---
 
+### structuredNonAsciiTokensPerChar?
+
+> `optional` **structuredNonAsciiTokensPerChar?**: `number`
+
+Tokens charged per escaped non-ASCII character of a non-string state; see [DecisionLimits.structuredNonAsciiTokensPerChar](DecisionLimits.md#structurednonasciitokensperchar).
+
+---
+
 ### media?
 
 > `optional` **media?**: [`DecisionMediaLimits`](DecisionMediaLimits.md)

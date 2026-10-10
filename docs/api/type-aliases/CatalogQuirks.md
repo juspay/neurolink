@@ -78,3 +78,16 @@ OpenAI-SDK-style examples elsewhere in its docs pass the key through a
 client that still emits this header under the hood). Normalized by
 ConfiguredOpenAICompatProvider.getAuthHeaders(); omitted means the
 inherited Bearer default.
+
+---
+
+### fixedSamplingModels?
+
+> `optional` **fixedSamplingModels?**: `string`[]
+
+Catalog model ids whose sampling parameters the vendor fixes: passing
+`temperature`, `top_p`, `presence_penalty` or `frequency_penalty` at
+all is an error (Moonshot's kimi-k3, kimi-k2.7-code and kimi-k2.6).
+ConfiguredOpenAICompatProvider removes those fields from every request
+to these models, so the CLI's default temperature and a caller's
+explicit one both stop being fatal. Each id must be a catalog key.

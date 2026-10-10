@@ -120,6 +120,12 @@ Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g.
 
 For an `extraRequired` name that can also be given in `credentials.<credentialsKey>`: the field of that slice that stands for it (e.g. `{ CLOUDFLARE_ACCOUNT_ID: "accountId" }`). A base URL needs no entry; it is matched through `baseURL` above.
 
+#### apiKeyEnvIgnoredForCredentialBaseURL?
+
+> `optional` **apiKeyEnvIgnoredForCredentialBaseURL?**: `boolean`
+
+True when a `credentials.<credentialsKey>` slice that names its own `baseURL` must bring its own key: the provider never sends the environment key (or its fallbacks) to an endpoint a caller chose, so such a slice does not count as configured by that key either.
+
 #### optional?
 
 > `optional` **optional?**: `boolean`

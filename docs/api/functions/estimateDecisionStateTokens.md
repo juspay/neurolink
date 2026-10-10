@@ -18,7 +18,11 @@ and astral characters (emoji) are each counted separately only when the
 limits declare a rate for that class — a tokenizer that reads each digit,
 and most punctuation, on its own makes a number-heavy or JSON-heavy state
 several times longer than the ~4-characters-per-token estimate suggests. A
-non-string state is serialized first, as it is on the wire.
+non-string state is serialized first, as it is on the wire. When the limits
+declare a `structuredNonAsciiTokensPerChar` rate, a non-string state's
+non-ASCII characters are charged at it instead, once per `\uXXXX` escape (two
+for an astral character), because that server reads such a state as
+ASCII-escaped JSON.
 
 This is the estimator the pre-flight refusal uses: a state this reports at
 or under `maxStateTokens` is sent, one over it is refused before any
@@ -32,7 +36,7 @@ network call.
 
 ### limits?
 
-`Pick`\<[`DecisionLimits`](../type-aliases/DecisionLimits.md), `"nonAsciiTokensPerChar"` \| `"digitTokensPerChar"` \| `"symbolTokensPerChar"` \| `"astralTokensPerChar"`\>
+`Pick`\<[`DecisionLimits`](../type-aliases/DecisionLimits.md), `"nonAsciiTokensPerChar"` \| `"digitTokensPerChar"` \| `"symbolTokensPerChar"` \| `"astralTokensPerChar"` \| `"structuredNonAsciiTokensPerChar"`\>
 
 ## Returns
 
