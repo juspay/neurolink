@@ -418,6 +418,14 @@ export type AnthropicLoopAdapterConfig<
  * it, so this cannot quietly give a provider behaviour its hand-rolled loops
  * never had.
  */
+/** One model-requested tool call, as recorded on the tool's observability span. */
+export type ToolSpanCall = {
+  /** Arguments the model passed to the tool. */
+  args?: Record<string, unknown>;
+  /** The model's id for this call, shared with the tool_use block that requested it. */
+  toolCallId?: string;
+};
+
 export type ToolExecutionGuards = {
   /**
    * Upper bound on a single execute(). Omit, or pass `null`, for no bound.
@@ -452,8 +460,16 @@ export type ToolExecutionGuards = {
    * mark a FAILURE THAT WAS RETURNED rather than thrown: MCP tools report
    * errors in their payload, and an observation that only watches for
    * exceptions records those calls as successful.
+   *
+   * `call` carries the arguments the model passed and the model's id for the
+   * call, so the observation can show what was asked and be paired with the
+   * request that asked it.
    */
-  withToolSpan?: <T>(name: string, run: () => Promise<T>) => Promise<T>;
+  withToolSpan?: <T>(
+    name: string,
+    run: () => Promise<T>,
+    call?: ToolSpanCall,
+  ) => Promise<T>;
 };
 
 /**

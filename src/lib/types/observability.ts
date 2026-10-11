@@ -275,6 +275,13 @@ export type TraceView = {
  * Extended context for Langfuse spans.
  * Supports all Langfuse trace attributes for rich observability.
  */
+/** A model request serialized onto a span: the system prompt plus messages, or a bare prompt. */
+export type SpanModelRequest = {
+  system?: unknown;
+  messages?: readonly unknown[];
+  prompt?: string;
+};
+
 export type LangfuseContext = {
   userId?: string | null;
   sessionId?: string | null;
@@ -286,6 +293,8 @@ export type LangfuseContext = {
   traceName?: string | null;
   /** Custom metadata to attach to spans */
   metadata?: Record<string, unknown> | null;
+  /** Langfuse trace tags, set on the trace's root span (e.g. to label what a trace is for) */
+  tags?: string[] | null;
   /**
    * Explicit operation name (e.g., "ai.streamText", "chat", "embeddings").
    * If set, overrides auto-detection from the span name.

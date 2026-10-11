@@ -53,6 +53,12 @@ Object containing context fields to merge with existing context
 
 `Record`\<`string`, `unknown`\> \| `null`
 
+#### tags?
+
+`string`[] \| `null`
+
+Langfuse trace tags, set on the trace's root span
+
 #### operationName?
 
 `string` \| `null`

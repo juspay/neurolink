@@ -387,6 +387,10 @@ class ContextEnricher implements SpanProcessor {
       span.setAttribute("trace.name", traceName);
     }
 
+    if (isRootSpan && context?.tags && context.tags.length > 0) {
+      span.setAttribute("langfuse.trace.tags", [...context.tags]);
+    }
+
     // Set operation name as separate attribute for filtering/analytics
     if (operationName) {
       span.setAttribute("gen_ai.operation.name", operationName);
@@ -1459,6 +1463,8 @@ export async function setLangfuseContext<T = void>(
     requestId?: string | null;
     traceName?: string | null;
     metadata?: Record<string, unknown> | null;
+    /** Langfuse trace tags, set on the trace's root span */
+    tags?: string[] | null;
     /** Explicit operation name (overrides auto-detection) */
     operationName?: string | null;
     /** Override global autoDetectOperationName for this context */
@@ -1492,6 +1498,7 @@ export async function setLangfuseContext<T = void>(
       context.metadata !== undefined
         ? context.metadata
         : currentContext.metadata,
+    tags: context.tags !== undefined ? context.tags : currentContext.tags,
     // Operation name support
     operationName:
       context.operationName !== undefined

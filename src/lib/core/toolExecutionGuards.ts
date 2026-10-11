@@ -41,7 +41,16 @@ export function guardToolExecutor(
     // The span wraps the CALL, not the guard: a timeout or an abort is a fact
     // about this tool invocation and belongs inside its observation.
     const wrapInSpan = guards.withToolSpan;
-    const call = wrapInSpan ? () => wrapInSpan(name, invoke) : invoke;
+    const toolCallId =
+      typeof opts === "object" &&
+      opts !== null &&
+      "toolCallId" in opts &&
+      typeof opts.toolCallId === "string"
+        ? opts.toolCallId
+        : undefined;
+    const call = wrapInSpan
+      ? () => wrapInSpan(name, invoke, { args, toolCallId })
+      : invoke;
     guards.onProgress?.();
     try {
       const raced = guards.abortSignal

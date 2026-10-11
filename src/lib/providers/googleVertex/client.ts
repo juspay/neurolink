@@ -158,7 +158,9 @@ import { resolveLiveTool } from "../../tools/toolDiscovery.js";
 import {
   ATTR,
   LANGFUSE_ATTR,
+  spanContentAttribute,
   spanJsonAttribute,
+  spanModelRequestAttribute,
   tracers,
   withClientSpan,
   withClientStreamSpan,
@@ -185,6 +187,7 @@ import type {
   ImageWithAltText,
   CollectedChunkResult,
   NativeFunctionCall,
+  ToolSpanCall,
   VertexUsageCounter,
 } from "../../types/index.js";
 
@@ -4563,7 +4566,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const offeredToolNames = (tools ?? []).map(
       (anthropicTool) => anthropicTool.name,
     );
-    const turnInputAttribute = spanJsonAttribute({
+    const turnInputAttribute = spanModelRequestAttribute({
       system: systemPromptWithSchema,
       messages: sanitizeAnthropicMessagesForTrace(messages),
     });
@@ -4652,6 +4655,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const loopPromise = (async () => {
       let step = 0;
       const currentMessages = [...messages];
+      let stepConversation = currentMessages;
       // Step-cap / abort bookkeeping (mirrors the generate twin): read by the
       // terminal recovery block after the loop and by the finishReason
       // mapping written into finishReasonRef.
@@ -4687,7 +4691,15 @@ export class GoogleVertexProvider extends BaseProvider {
         const withToolSpan = <T>(
           toolCallName: string,
           run: () => Promise<T>,
+          call?: ToolSpanCall,
         ): Promise<T> => {
+          // Arguments are inputs: honour the same opt-out the AI SDK path uses.
+          const argsAttribute =
+            call?.args !== undefined &&
+            process.env.NEUROLINK_RECORD_INPUTS?.trim().toLowerCase() !==
+              "false"
+              ? spanContentAttribute(call.args)
+              : undefined;
           const toolSpan = tracers.mcp.startSpan(
             "ai.toolCall",
             {
@@ -4696,18 +4708,25 @@ export class GoogleVertexProvider extends BaseProvider {
                 [LANGFUSE_ATTR.OBSERVATION_TYPE]: "tool",
                 [ATTR.GEN_AI_TOOL_NAME]: toolCallName,
                 "ai.toolCall.name": toolCallName,
+                ...(call?.toolCallId
+                  ? { "ai.toolCall.id": call.toolCallId }
+                  : {}),
+                ...(argsAttribute !== undefined
+                  ? {
+                      "ai.toolCall.args": argsAttribute,
+                      [LANGFUSE_ATTR.OBSERVATION_INPUT]: argsAttribute,
+                    }
+                  : {}),
               },
             },
             turnContext,
           );
           const finish = (output: unknown, errorMessage?: string) => {
-            toolSpan.setAttribute(
-              "ai.toolCall.result",
-              spanJsonAttribute(output),
-            );
+            const outputAttribute = spanContentAttribute(output);
+            toolSpan.setAttribute("ai.toolCall.result", outputAttribute);
             toolSpan.setAttribute(
               LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-              spanJsonAttribute(output),
+              outputAttribute,
             );
             if (errorMessage) {
               toolSpan.setAttribute(LANGFUSE_ATTR.OBSERVATION_LEVEL, "ERROR");
@@ -4909,6 +4928,7 @@ export class GoogleVertexProvider extends BaseProvider {
           ...baseAdapter,
           buildStepRequest: (conversation, engineStep) => {
             step = engineStep + 1;
+            stepConversation = conversation;
             turnClock.noteProgress();
             return baseAdapter.buildStepRequest(conversation, engineStep);
           },
@@ -4958,10 +4978,10 @@ export class GoogleVertexProvider extends BaseProvider {
                       temperature: requestParams.temperature,
                       top_p: requestParams.top_p,
                     }),
-                  [LANGFUSE_ATTR.OBSERVATION_INPUT]: spanJsonAttribute({
+                  [LANGFUSE_ATTR.OBSERVATION_INPUT]: spanModelRequestAttribute({
                     system: systemPromptWithSchema,
                     messages:
-                      sanitizeAnthropicMessagesForTrace(currentMessages),
+                      sanitizeAnthropicMessagesForTrace(stepConversation),
                   }),
                   [LANGFUSE_ATTR.OBSERVATION_METADATA]: spanJsonAttribute({
                     step,
@@ -5000,7 +5020,16 @@ export class GoogleVertexProvider extends BaseProvider {
               turnCacheUsage.creation1h += result.usage.cacheWrite1hTokens ?? 0;
               generationSpan.setAttribute(
                 LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-                spanJsonAttribute({ text: result.text }),
+                spanContentAttribute({
+                  text: result.text,
+                  ...(result.toolCalls.length > 0
+                    ? { toolCalls: result.toolCalls }
+                    : {}),
+                }),
+              );
+              generationSpan.setAttribute(
+                `${LANGFUSE_ATTR.OBSERVATION_METADATA}.finishReason`,
+                result.rawStopReason ?? "unknown",
               );
               return result;
             } catch (error) {
@@ -5638,7 +5667,7 @@ export class GoogleVertexProvider extends BaseProvider {
           usage.cacheCreationTokens = turnCacheUsage.creation;
         }
 
-        const turnOutputAttribute = spanJsonAttribute({
+        const turnOutputAttribute = spanContentAttribute({
           text: aggregatedTurnText,
           ...(structuredOutputRef.value
             ? { structuredOutput: structuredOutputRef.value }
@@ -5661,6 +5690,7 @@ export class GoogleVertexProvider extends BaseProvider {
             toolCallCount: metadata.totalToolExecutions,
             toolsCalled: toolsUsedRef.filter((name) => name !== "final_result"),
             structuredOutput: useFinalResultTool,
+            ...(stopReasonRef.value ? { stopReason: stopReasonRef.value } : {}),
             usage: {
               input: usage.input,
               output: usage.output,
@@ -5671,9 +5701,33 @@ export class GoogleVertexProvider extends BaseProvider {
             },
           }),
         );
+        // How the turn ended, on the trace itself, so an evaluator can select
+        // only turns that finished ("completed") and skip capped, timed-out,
+        // aborted and failed ones. A trace holding several turns keeps the last
+        // one's; each turn's own is in its observation metadata above.
+        if (stopReasonRef.value) {
+          turnSpan.setAttribute(
+            `${LANGFUSE_ATTR.TRACE_METADATA}.stopReason`,
+            stopReasonRef.value,
+          );
+        }
         turnSpan.setStatus({ code: SpanStatusCode.OK });
         channel.close();
       } catch (err) {
+        turnSpan.setAttribute(
+          LANGFUSE_ATTR.OBSERVATION_METADATA,
+          spanJsonAttribute({
+            toolsOffered: offeredToolNames,
+            toolCount: offeredToolNames.length,
+            maxSteps,
+            structuredOutput: useFinalResultTool,
+            stopReason: "provider-error",
+          }),
+        );
+        turnSpan.setAttribute(
+          `${LANGFUSE_ATTR.TRACE_METADATA}.stopReason`,
+          "provider-error",
+        );
         turnSpan.setStatus({
           code: SpanStatusCode.ERROR,
           message: err instanceof Error ? err.message : String(err),
@@ -7297,7 +7351,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
         // Set generation input before the call so error paths still carry the
         // request; output is set after the native call resolves.
-        const generationInputAttribute = spanJsonAttribute({
+        const generationInputAttribute = spanModelRequestAttribute({
           ...(mergedOptions.systemPrompt
             ? { system: mergedOptions.systemPrompt }
             : {}),
@@ -7364,7 +7418,7 @@ export class GoogleVertexProvider extends BaseProvider {
               }
               executionSpan.setAttribute(
                 LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-                spanJsonAttribute(nativeResult?.content ?? ""),
+                spanContentAttribute(nativeResult?.content ?? ""),
               );
               return nativeResult;
             },
@@ -7381,7 +7435,7 @@ export class GoogleVertexProvider extends BaseProvider {
           result = await this.synthesizeAIResponseIfNeeded(result, options);
           generateSpan.setAttribute(
             LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-            spanJsonAttribute(result?.content ?? ""),
+            spanContentAttribute(result?.content ?? ""),
           );
           // Fire onFinish lifecycle callback for the native generate path.
           // Pipeline A providers get this for free via the AI SDK middleware

@@ -422,7 +422,10 @@ function credentialsFor(port: number) {
   };
 }
 
-function customTool(counter: { calls: number }): Record<string, Tool> {
+function customTool(
+  counter: { calls: number; lastArgs?: unknown },
+  result: unknown = { found: true },
+): Record<string, Tool> {
   return {
     lookup: {
       description: "look a value up",
@@ -431,9 +434,10 @@ function customTool(counter: { calls: number }): Record<string, Tool> {
         properties: {},
         additionalProperties: true,
       }),
-      execute: async () => {
+      execute: async (args) => {
         counter.calls++;
-        return { found: true };
+        counter.lastArgs = args;
+        return result;
       },
     },
   };
@@ -1706,5 +1710,365 @@ for (const finalText of ["done", ""]) {
     );
   });
 }
+
+section("evaluation evidence on spans");
+
+// One tool round trip whose spans a judge must be able to read back: what the
+// tool was asked, which model call asked it, the user's question, and how the
+// turn ended.
+async function runObservedToolTurn(options: {
+  systemPrompt?: string;
+  maxSteps?: number;
+  question?: string;
+  neverAnswers?: boolean;
+  toolArgs?: Record<string, unknown>;
+  toolResult?: unknown;
+}) {
+  const server = await startStandIn((i) =>
+    i === 0 || options.neverAnswers
+      ? toolTurn(
+          "lookup",
+          options.toolArgs ?? { q: "needle-argument" },
+          `toolu_eval_${i + 1}`,
+        )
+      : textTurn("done"),
+  );
+  const restore = withVertexEnv();
+  const counter: { calls: number; lastArgs?: unknown } = { calls: 0 };
+  let nl: InstanceType<typeof NeuroLink> | undefined;
+  try {
+    nl = new NeuroLink();
+    spanExporter.reset();
+    const result = await nl.stream({
+      input: {
+        text: options.question ?? "QUESTION-MARKER which value matches?",
+      },
+      ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: options.maxSteps ?? 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter, options.toolResult),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // Spans are what is pinned, not the outcome.
+  } finally {
+    await nl?.shutdown();
+    restore();
+    await server.close();
+  }
+  return { spans: spanExporter.getFinishedSpans(), counter };
+}
+
+await test("a tool span records the call's arguments and id", async () => {
+  const { spans, counter } = await runObservedToolTurn({});
+  const toolSpan = spans.find(
+    (s) =>
+      s.name === "ai.toolCall" && s.attributes["ai.toolCall.name"] === "lookup",
+  );
+  assert(counter.calls === 1, "the tool did not execute once");
+  assert(toolSpan !== undefined, "no tool span was recorded for the call");
+  assert(
+    String(toolSpan?.attributes["ai.toolCall.args"] ?? "").includes(
+      "needle-argument",
+    ),
+    "the tool span does not carry the call's arguments",
+  );
+  assert(
+    String(toolSpan?.attributes["langfuse.observation.input"] ?? "").includes(
+      "needle-argument",
+    ),
+    "the tool observation has no input",
+  );
+  assert(
+    toolSpan?.attributes["ai.toolCall.id"] === "toolu_eval_1",
+    "the tool span does not carry the model's tool call id",
+  );
+});
+
+await test("the question survives a system prompt larger than the attribute cap", async () => {
+  const { spans } = await runObservedToolTurn({
+    systemPrompt: "S".repeat(60_000),
+  });
+  const turnSpan = spans.find((s) => s.name === "anthropic.vertex.stream");
+  const traceInput = String(turnSpan?.attributes["langfuse.trace.input"] ?? "");
+  let parsed: { messages?: unknown[] } | undefined;
+  try {
+    parsed = JSON.parse(traceInput) as { messages?: unknown[] };
+  } catch {
+    parsed = undefined;
+  }
+  const stepSpans = spans.filter((s) => s.name === "anthropic.messages.stream");
+  assert(turnSpan !== undefined, "no turn span was recorded");
+  assert(traceInput.length <= 40_000, "the trace input exceeds the cap");
+  assert(parsed !== undefined, "the trace input is not valid JSON");
+  assert(
+    JSON.stringify(parsed?.messages ?? []).includes("QUESTION-MARKER"),
+    "the user's question was cut from the trace input",
+  );
+  assert(stepSpans.length === 2, "a tool round trip should record two steps");
+  assert(
+    stepSpans.every((s) =>
+      String(s.attributes["langfuse.observation.input"] ?? "").includes(
+        "QUESTION-MARKER",
+      ),
+    ),
+    "a model step's input lost the user's question",
+  );
+});
+
+await test("the answering step's input holds this turn's tool call and result", async () => {
+  const { spans } = await runObservedToolTurn({});
+  const stepSpans = spans
+    .filter((s) => s.name === "anthropic.messages.stream")
+    .sort(
+      (a, b) =>
+        a.startTime[0] - b.startTime[0] || a.startTime[1] - b.startTime[1],
+    );
+  assert(stepSpans.length === 2, "a tool round trip should record two steps");
+  const [askingStep, answeringStep] = stepSpans;
+  const askingInput = String(
+    askingStep.attributes["langfuse.observation.input"] ?? "",
+  );
+  const answeringInput = String(
+    answeringStep.attributes["langfuse.observation.input"] ?? "",
+  );
+  assert(
+    !askingInput.includes("toolu_eval_1"),
+    "the first step's input already holds the call it had not made yet",
+  );
+  assert(
+    answeringInput.includes("toolu_eval_1") &&
+      answeringInput.includes("needle-argument") &&
+      answeringInput.includes("found"),
+    "the answering step's input lacks this turn's tool call or result",
+  );
+  assert(
+    answeringInput.includes("QUESTION-MARKER"),
+    "the answering step's input lost the user's question",
+  );
+});
+
+await test("a step that called a tool records the call, and every step its finish reason", async () => {
+  const { spans } = await runObservedToolTurn({});
+  const stepSpans = spans
+    .filter((s) => s.name === "anthropic.messages.stream")
+    .sort(
+      (a, b) =>
+        a.startTime[0] - b.startTime[0] || a.startTime[1] - b.startTime[1],
+    );
+  const [askingStep, answeringStep] = stepSpans;
+  assert(
+    String(askingStep.attributes["langfuse.observation.output"] ?? "").includes(
+      "needle-argument",
+    ),
+    "the asking step's output does not record the tool call it made",
+  );
+  assert(
+    askingStep.attributes["langfuse.observation.metadata.finishReason"] ===
+      "tool_use",
+    "the asking step does not record why it stopped",
+  );
+  assert(
+    answeringStep.attributes["langfuse.observation.metadata.finishReason"] ===
+      "end_turn",
+    "the answering step does not record why it stopped",
+  );
+  assert(
+    !String(
+      answeringStep.attributes["langfuse.observation.output"] ?? "",
+    ).includes("toolCalls"),
+    "a step with no tool call should not carry an empty toolCalls list",
+  );
+});
+
+await test("credentials in the question, tool arguments and tool result never reach a span", async () => {
+  const { spans, counter } = await runObservedToolTurn({
+    question:
+      "QUESTION-MARKER which value matches? password=QSECRET-cccc3333 Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345",
+    toolArgs: { q: "needle-argument", access_token: "ARGSECRET-aaaa1111" },
+    toolResult: {
+      found: true,
+      refresh_token: "RESULTSECRET-bbbb2222",
+      input_tokens: 17,
+      note: '{"client_secret":"NESTEDSECRET-dddd4444","kept":"visible-value"}',
+    },
+  });
+  const everything = spans.map((s) => JSON.stringify(s.attributes)).join("\n");
+  for (const secret of [
+    "ARGSECRET-aaaa1111",
+    "RESULTSECRET-bbbb2222",
+    "NESTEDSECRET-dddd4444",
+    "QSECRET-cccc3333",
+    "abcdefghijklmnopqrstuvwxyz012345",
+  ]) {
+    assert(!everything.includes(secret), `a span carries ${secret}`);
+  }
+  assert(everything.includes("[REDACTED]"), "nothing was masked");
+  for (const kept of [
+    "needle-argument",
+    "QUESTION-MARKER",
+    "visible-value",
+    "toolu_eval_1",
+  ]) {
+    assert(everything.includes(kept), `redaction removed ${kept}`);
+  }
+  assert(
+    everything.includes("input_tokens") && everything.includes("17"),
+    "a token count was masked as if it were a credential",
+  );
+  assert(
+    JSON.stringify(counter.lastArgs).includes("ARGSECRET-aaaa1111"),
+    "the tool no longer receives its real arguments",
+  );
+});
+
+await test("a tool result over the cap stays valid JSON and keeps its structure", async () => {
+  const { spans } = await runObservedToolTurn({
+    toolResult: { id: "result-keep", text: "x".repeat(120_000) },
+  });
+  const toolSpan = spans.find(
+    (s) =>
+      s.name === "ai.toolCall" && s.attributes["ai.toolCall.name"] === "lookup",
+  );
+  const recorded = String(toolSpan?.attributes["ai.toolCall.result"] ?? "");
+  let parsed: { id?: string; text?: string } | undefined;
+  try {
+    parsed = JSON.parse(recorded);
+  } catch {
+    parsed = undefined;
+  }
+  assert(recorded.length <= 40_000, "the recorded result exceeds the cap");
+  assert(parsed !== undefined, "the over-cap result is not valid JSON");
+  assert(
+    parsed?.id === "result-keep",
+    "trimming the text lost a sibling field",
+  );
+  assert(
+    String(parsed?.text ?? "").includes("[truncated"),
+    "the text does not say it was shortened",
+  );
+});
+
+await test("an oversized system prompt keeps its full opening beside the truncation note", async () => {
+  const { spans } = await runObservedToolTurn({
+    systemPrompt: "S".repeat(60_000),
+    question: "Q".repeat(60_000),
+  });
+  const stepSpan = spans.find((s) => s.name === "anthropic.messages.stream");
+  const parsed: { system?: string } = JSON.parse(
+    String(stepSpan?.attributes["langfuse.observation.input"] ?? "{}"),
+  );
+  const opening = (parsed.system ?? "").match(/^S*/)?.[0].length ?? 0;
+  assert(opening >= 2_000, `the system opening is ${opening} characters`);
+  assert(
+    (parsed.system ?? "").includes("[truncated"),
+    "the system prompt does not say it was shortened",
+  );
+});
+
+await test("NEUROLINK_RECORD_INPUTS=false opts out even when the value has stray spaces", async () => {
+  const previous = process.env.NEUROLINK_RECORD_INPUTS;
+  process.env.NEUROLINK_RECORD_INPUTS = " false ";
+  try {
+    const { spans } = await runObservedToolTurn({});
+    const toolSpan = spans.find(
+      (s) =>
+        s.name === "ai.toolCall" &&
+        s.attributes["ai.toolCall.name"] === "lookup",
+    );
+    assert(toolSpan !== undefined, "no tool span was recorded");
+    assert(
+      toolSpan?.attributes["ai.toolCall.args"] === undefined,
+      "the tool arguments were recorded despite the opt-out",
+    );
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NEUROLINK_RECORD_INPUTS;
+    } else {
+      process.env.NEUROLINK_RECORD_INPUTS = previous;
+    }
+  }
+});
+
+function turnObservationStopReason(
+  turnSpan: { attributes: Record<string, unknown> } | undefined,
+): unknown {
+  try {
+    return (
+      JSON.parse(
+        String(turnSpan?.attributes["langfuse.observation.metadata"] ?? "{}"),
+      ) as { stopReason?: unknown }
+    ).stopReason;
+  } catch {
+    return undefined;
+  }
+}
+
+await test("a completed turn marks its stop reason on the trace", async () => {
+  const { spans } = await runObservedToolTurn({});
+  const turnSpan = spans.find((s) => s.name === "anthropic.vertex.stream");
+  assert(
+    turnSpan?.attributes["langfuse.trace.metadata.stopReason"] === "completed",
+    "the completed turn is not marked completed",
+  );
+  assert(
+    turnObservationStopReason(turnSpan) === "completed",
+    "the turn's own observation does not record its stop reason",
+  );
+});
+
+await test("a turn cut off by its step cap is not marked completed", async () => {
+  // A stand-in that only ever asks for tools: the loop's forced final answer
+  // never arrives, which is what NeuroLink counts as a step-capped turn.
+  const { spans } = await runObservedToolTurn({
+    maxSteps: 1,
+    neverAnswers: true,
+  });
+  const turnSpan = spans.find((s) => s.name === "anthropic.vertex.stream");
+  const stopReason = turnSpan?.attributes["langfuse.trace.metadata.stopReason"];
+  assert(stopReason !== undefined, "the capped turn carries no stop reason");
+  assert(stopReason !== "completed", "the capped turn is marked completed");
+  assert(
+    turnObservationStopReason(turnSpan) === stopReason,
+    "the turn's own observation does not record its stop reason",
+  );
+});
+
+await test("a question larger than the cap keeps the system prompt's opening", async () => {
+  const { spans } = await runObservedToolTurn({
+    systemPrompt: `SYSTEM-OPENING ${"S".repeat(39_000)}`,
+    question: `QUESTION-MARKER ${"q".repeat(60_000)}`,
+  });
+  const turnSpan = spans.find((s) => s.name === "anthropic.vertex.stream");
+  let parsed: { system?: unknown; messages?: unknown[] } | undefined;
+  try {
+    parsed = JSON.parse(
+      String(turnSpan?.attributes["langfuse.trace.input"] ?? ""),
+    ) as { system?: unknown; messages?: unknown[] };
+  } catch {
+    parsed = undefined;
+  }
+  const system = typeof parsed?.system === "string" ? parsed.system : "";
+  assert(parsed !== undefined, "the trace input is not valid JSON");
+  assert(
+    system.startsWith("SYSTEM-OPENING"),
+    "the system prompt's opening was dropped",
+  );
+  assert(
+    system.includes("[truncated"),
+    "a cut system prompt does not say it was cut",
+  );
+  assert(
+    JSON.stringify(parsed?.messages ?? []).includes("QUESTION-MARKER"),
+    "the start of the question was dropped",
+  );
+});
 
 await runSuite();

@@ -13,7 +13,10 @@ export {
   ATTR,
   LANGFUSE_ATTR,
   SPAN_ATTRIBUTE_MAX_CHARS,
+  redactSpanContent,
+  spanContentAttribute,
   spanJsonAttribute,
+  spanModelRequestAttribute,
 } from "./attributes.js";
 import { logger } from "../utils/logger.js";
 

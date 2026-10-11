@@ -1204,6 +1204,49 @@ async function testGetTracer(): Promise<boolean | null> {
   }
 }
 
+async function testTagsInContext(): Promise<boolean | null> {
+  logSection("Test #10b: Trace Tags in Context");
+  logTest("Trace Tags in Context", "TESTING");
+  resetSpans();
+
+  try {
+    await setLangfuseContext(
+      { userId: "tags-test-user", tags: ["eval-chat", "turn"] },
+      async () => {
+        const span = getTracer("tags-test").startSpan("tags-root-operation");
+        span.end();
+      },
+    );
+    await new Promise((r) => setTimeout(r, 100));
+
+    const tags = findSpan("tags-root-operation")?.attributes[
+      "langfuse.trace.tags"
+    ];
+    if (
+      Array.isArray(tags) &&
+      tags.some((tag) => tag === "eval-chat") &&
+      tags.some((tag) => tag === "turn")
+    ) {
+      logTest(
+        "Trace Tags in Context",
+        "PASS",
+        "context tags reached the trace",
+      );
+      return true;
+    }
+    logTest(
+      "Trace Tags in Context",
+      "FAIL",
+      "the root span carries no langfuse.trace.tags from the context",
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("Trace Tags in Context", "FAIL", msg);
+    return false;
+  }
+}
+
 // ============================================================
 // TEST #11: All Extended Context Fields
 // ============================================================
@@ -3913,6 +3956,7 @@ async function runAllTests(): Promise<void> {
       fn: testOTELExportsAvailability,
     },
     { name: "getTracer for Custom Spans", fn: testGetTracer },
+    { name: "Trace Tags in Context", fn: testTagsInContext },
     { name: "All Extended Context Fields", fn: testAllContextFields },
     { name: "CLI with Observability", fn: testCLIWithObservability },
     { name: "Operation Name Override", fn: testOperationNameOverride },

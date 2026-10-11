@@ -8,9 +8,6 @@
 
 > **LangfuseContext** = `object`
 
-Extended context for Langfuse spans.
-Supports all Langfuse trace attributes for rich observability.
-
 ## Properties
 
 ### userId?
@@ -54,6 +51,14 @@ Custom trace name for better organization in Langfuse UI
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\> \| `null`
 
 Custom metadata to attach to spans
+
+---
+
+### tags?
+
+> `optional` **tags?**: `string`[] \| `null`
+
+Langfuse trace tags, set on the trace's root span (e.g. to label what a trace is for)
 
 ---
 

@@ -9061,14 +9061,27 @@ exit 127
         const elapsed = Date.now() - start;
         // Bounded well under the real 30s default: proves the wrap actually
         // fired rather than the call happening to finish fast on its own.
-        return (
-          elapsed >= boundedTimeoutMs &&
-          elapsed < 5000 &&
+        // A timer can fire a millisecond before the wall clock has advanced by
+        // its delay, so the lower bound allows for that rather than demanding
+        // the full delay and failing on a loaded runner.
+        const timerJitterAllowanceMs = 10;
+        // Each condition is named in the failure, so a recurrence says which
+        // one tripped and by how much instead of "assertion failed".
+        const timedOutEarly =
+          elapsed < boundedTimeoutMs - timerJitterAllowanceMs;
+        const neverTimedOut = elapsed >= 5000;
+        const reportsTimeout =
           result.type === "docx" &&
           result.content.includes(
             `Operation timed out after ${boundedTimeoutMs}ms`,
-          )
-        );
+          );
+        if (timedOutEarly || neverTimedOut || !reportsTimeout) {
+          throw new Error(
+            `elapsed=${elapsed}ms (expected ${boundedTimeoutMs - timerJitterAllowanceMs}..5000), ` +
+              `type=${result.type}, content=${JSON.stringify(result.content.slice(0, 200))}`,
+          );
+        }
+        return true;
       } finally {
         patchable.processFile = originalProcessFile;
         timeoutHolder.DEFAULT_DOCUMENT_TIMEOUT = originalTimeout;

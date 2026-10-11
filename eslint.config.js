@@ -353,6 +353,14 @@ export default [
             // branch is reached by no shipped call site at all. Its header
             // states the exception in full.
             "test/continuous-test-suite-forced-tool-declared.ts",
+            // The span content helpers are exported from no package entry
+            // point, and a live call cannot produce what is asserted: output
+            // byte-identical to the previous serializer across a thousand
+            // generated values, a value that throws when read, circular
+            // values and a __proto__ key, and the exact cut points at the
+            // size cap. The end-to-end half lives in the Vertex Claude
+            // characterization suite. Its header states the exception in full.
+            "test/continuous-test-suite-span-content-redaction.ts",
             // A voice call's recorder, binding verifier and realtime wiring
             // have no path through generate()/stream(); what is asserted is
             // stored message ids, metadata, ordering and the Redis key, plus
