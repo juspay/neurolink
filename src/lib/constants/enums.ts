@@ -65,6 +65,7 @@ export enum AIProviderName {
   LEMONFOX_AI = "lemonfox-ai",
   LILAC = "lilac",
   LLMTECH = "llmtech",
+  LONGCAT = "longcat",
   MANCER = "mancer",
   META_MODEL_API = "meta-model-api",
   MINIMAX = "minimax",
@@ -1764,6 +1765,10 @@ export enum LilacModels {
 
 export enum LlmtechModels {
   NVIDIA_QWEN3_8_27B_NVFP4 = "nvidia/Qwen3.8-27B-NVFP4",
+}
+
+export enum LongCatModels {
+  LONGCAT_2_5_PREVIEW = "LongCat-2.5-Preview",
 }
 
 export enum MancerModels {

@@ -44,6 +44,7 @@ import layaJson from "./laya.json" with { type: "json" };
 import lemonfoxAiJson from "./lemonfox-ai.json" with { type: "json" };
 import lilacJson from "./lilac.json" with { type: "json" };
 import llmtechJson from "./llmtech.json" with { type: "json" };
+import longcatJson from "./longcat.json" with { type: "json" };
 import mancerJson from "./mancer.json" with { type: "json" };
 import metaModelApiJson from "./meta-model-api.json" with { type: "json" };
 import minimaxJson from "./minimax.json" with { type: "json" };
@@ -146,6 +147,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   lemonfoxAiJson as ProviderCatalogJson,
   lilacJson as ProviderCatalogJson,
   llmtechJson as ProviderCatalogJson,
+  longcatJson as ProviderCatalogJson,
   mancerJson as ProviderCatalogJson,
   metaModelApiJson as ProviderCatalogJson,
   minimaxJson as ProviderCatalogJson,
@@ -234,6 +236,7 @@ export const CATALOG_PROVIDER_IDS = [
   "lemonfox-ai",
   "lilac",
   "llmtech",
+  "longcat",
   "mancer",
   "meta-model-api",
   "minimax",

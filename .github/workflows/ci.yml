@@ -658,6 +658,7 @@ jobs:
           pnpm run test:embedding-response-validation
           pnpm run test:xiaomi-mimo-pilot
           pnpm run test:rag-bounds
+          pnpm run test:longcat-pilot
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

@@ -293,6 +293,7 @@ export type NeurolinkCredentials = {
   lemonfoxAi?: { apiKey?: string; baseURL?: string };
   lilac?: { apiKey?: string; baseURL?: string };
   llmtech?: { apiKey?: string; baseURL?: string };
+  longcat?: { apiKey?: string; baseURL?: string };
   mancer?: { apiKey?: string; baseURL?: string };
   metaModelApi?: { apiKey?: string; baseURL?: string };
   minimax?: { apiKey?: string; baseURL?: string };

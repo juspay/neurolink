@@ -358,6 +358,12 @@ Supported AI Provider Names
 
 ---
 
+### LONGCAT
+
+> **LONGCAT**: `"longcat"`
+
+---
+
 ### MANCER
 
 > **MANCER**: `"mancer"`

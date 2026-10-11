@@ -916,6 +916,20 @@ counts as unset.
 
 ---
 
+### longcat?
+
+> `optional` **longcat?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### mancer?
 
 > `optional` **mancer?**: `object`

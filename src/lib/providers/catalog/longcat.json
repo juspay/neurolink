@@ -1,0 +1,64 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "longcat",
+  "displayName": "LongCat",
+  "enumTypeName": "LongCatModels",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.longcat.chat/openai/v1"
+  },
+  "models": {
+    "default": "LongCat-2.5-Preview",
+    "fallbacks": ["LongCat-2.5-Preview"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "LongCat-2.5-Preview": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "preview",
+        "description": "Meituan LongCat 2.5 Preview, the only model this pilot lists. The 1M-token context rests on the vendor's Retrieve Model sample for this model id, not on a normative sentence. This pilot declares text generate/stream only; tools, vision, structured output and thinking await separate evidence. Account access is unverified."
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid or expired LongCat API key. Check {apiKeyEnvVar} and the key in the LongCat platform console at {setupUrl}."
+    }
+  ],
+  "setup": {
+    "url": "https://longcat.chat/platform",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Sign in to the LongCat API platform and create an API key.",
+      "2. LongCat-2.5-Preview is usage-priced pay-as-you-go. Promotional credits, if your account has any, are consumed first, but no free allowance is stated: do not assume free usage. The vendor's Pay-As-You-Go page says account verification is required before topping up, and its FAQ scopes that requirement to users in Mainland China (not tried on an account).",
+      "3. LongCat-2.0 is served on the same route but is outside this pilot's catalog scope, so it is not a default or a fallback here.",
+      "4. Set {apiKeyEnvVar} for this provider. The base URL is https://api.longcat.chat/openai/v1 and the chat route is POST /chat/completions with Authorization: Bearer authentication."
+    ],
+    "description": "LongCat (Meituan) text/stream pilot with a usage-priced LongCat-2.5-Preview default. No free allowance is stated; no account entitlement, roster, live inference or delivery is verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-12",
+      "code": "VENDOR_DOCS_ONLY_NOT_ROSTER_VERIFIED",
+      "method": "Vendor API documentation facts supplied to this change: default model id, 1048576 context from the vendor's Retrieve Model sample plus the 1M prose, 131072 maximum output, base URL https://api.longcat.chat/openai/v1 and route POST /chat/completions with Bearer auth. No GET /models, credentials, account or inference ran; this legacy field does not assert roster verification."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1980"
+  }
+}
