@@ -598,6 +598,12 @@ Supported AI Provider Names
 
 ---
 
+### XIAOMI_MIMO
+
+> **XIAOMI_MIMO**: `"xiaomi-mimo"`
+
+---
+
 ### Z_AI
 
 > **Z_AI**: `"z-ai"`

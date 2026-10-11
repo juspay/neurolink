@@ -105,6 +105,7 @@ export enum AIProviderName {
   WAFER = "wafer",
   WANDB_INFERENCE = "wandb-inference",
   XAI = "xai",
+  XIAOMI_MIMO = "xiaomi-mimo",
   Z_AI = "z-ai",
   // ── END GENERATED(provider-members) ──
   COHERE = "cohere",
@@ -2209,6 +2210,10 @@ export enum XaiModels {
   GROK_2_LATEST = "grok-2-latest",
   GROK_2_VISION_LATEST = "grok-2-vision-latest",
   GROK_BETA = "grok-beta",
+}
+
+export enum XiaomiMimoModels {
+  MIMO_V2_6_FLASH = "mimo-v2.6-flash",
 }
 
 export enum ZAiModels {

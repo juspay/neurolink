@@ -1476,6 +1476,20 @@ counts as unset.
 
 ---
 
+### xiaomiMimo?
+
+> `optional` **xiaomiMimo?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### zAi?
 
 > `optional` **zAi?**: `object`

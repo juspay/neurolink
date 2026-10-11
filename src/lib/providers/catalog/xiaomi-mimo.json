@@ -1,0 +1,63 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "xiaomi-mimo",
+  "displayName": "Xiaomi MiMo",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.xiaomimimo.com/v1",
+    "apiKeyFallbackEnvVars": ["MIMO_API_KEY"]
+  },
+  "models": {
+    "default": "mimo-v2.6-flash",
+    "fallbacks": ["mimo-v2.6-flash"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "mimo-v2.6-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Xiaomi MiMo's usage-priced mimo-v2.6-flash, the vendor's named replacement for the retiring mimo-v2.5. The vendor's OpenClaw and OpenCode integration guides bind the integers 1048576 (context) and 131072 (output) to this exact id, and its API reference gives [1, 131072] as the required range for max_completion_tokens (visible plus reasoning tokens). The model table shows only the rounded labels 1M and 128K, so nothing was expanded from it. This pilot declares text generate/stream; tools, vision, structured output and thinking controls await separate evidence. Account/model access is unverified."
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://platform.xiaomimimo.com/#/console/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "promotional-credit",
+    "instructions": [
+      "1. Sign in to the Xiaomi MiMo platform console with a Xiaomi account and create a pay-as-you-go API key at https://platform.xiaomimimo.com/#/console/api-keys.",
+      "2. mimo-v2.6-flash is usage-priced against your account balance. The vendor's promotions page describes bonus credit, from Refer & Earn or new-user registration, that offsets pay-as-you-go API usage and is currently valid for 40 days. Eligibility and amounts vary by campaign; your own entitlement and balance are unverified, and this is not a free tier.",
+      "3. Set {apiKeyEnvVar}. The vendor's own examples name the variable MIMO_API_KEY, which is read as a fallback. The key is sent as Authorization: Bearer to https://api.xiaomimimo.com/v1/chat/completions (the vendor also accepts an api-key header, which this entry does not use).",
+      "4. Token Plan keys are a separate subscription product and are not covered by this entry. The declared scope is text generate and stream with mimo-v2.6-flash."
+    ],
+    "description": "Xiaomi MiMo text/stream pilot with a usage-priced mimo-v2.6-flash default. Bonus credit is a campaign-dependent promotion that offsets API usage; no account entitlement, roster, live inference or delivery is verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-10",
+      "code": "PUBLIC_DOCS_ONLY_NOT_ROSTER_VERIFIED",
+      "method": "Public documentation GETs only: mimo.mi.com model.md, api/chat/openai-api.md, tokenplan/integration/openclaw.md and opencode.md, quick-start/faq/promotions.md, price/pay-as-you-go.md and updates/deprecate.md. No vendor roster, auth, billing or inference probe ran; this legacy field does not assert roster verification."
+    },
+    "billingProbe": {
+      "date": "2026-10-10",
+      "code": "PUBLIC_DOCS_ONLY_ACCOUNT_NOT_TESTED",
+      "method": "Public documentation only: the pay-as-you-go page states the API consumes the account balance by actual token usage, and the promotions page states bonus credit offsets API usage and is currently valid for 40 days with campaign-dependent amounts. No account was created and no credit amount or eligibility was checked."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1977"
+  }
+}

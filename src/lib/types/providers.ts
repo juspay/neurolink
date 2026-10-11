@@ -333,6 +333,7 @@ export type NeurolinkCredentials = {
   wafer?: { apiKey?: string; baseURL?: string };
   wandbInference?: { apiKey?: string; baseURL?: string };
   xai?: { apiKey?: string; baseURL?: string };
+  xiaomiMimo?: { apiKey?: string; baseURL?: string };
   zAi?: { apiKey?: string; baseURL?: string };
   // ── END GENERATED(credentials) ──
   cohere?: { apiKey?: string; baseURL?: string };

@@ -653,6 +653,7 @@ jobs:
           pnpm run test:provider-wiring
           pnpm run test:cli-fallback
           pnpm run test:embedding-response-validation
+          pnpm run test:xiaomi-mimo-pilot
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

@@ -84,6 +84,7 @@ import vultrInferenceJson from "./vultr-inference.json" with { type: "json" };
 import waferJson from "./wafer.json" with { type: "json" };
 import wandbInferenceJson from "./wandb-inference.json" with { type: "json" };
 import xaiJson from "./xai.json" with { type: "json" };
+import xiaomiMimoJson from "./xiaomi-mimo.json" with { type: "json" };
 import zAiJson from "./z-ai.json" with { type: "json" };
 import { isDecideCatalogEntry, parseCatalogEntry } from "./schema.js";
 import type {
@@ -185,6 +186,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   waferJson as ProviderCatalogJson,
   wandbInferenceJson as ProviderCatalogJson,
   xaiJson as ProviderCatalogJson,
+  xiaomiMimoJson as ProviderCatalogJson,
   zAiJson as ProviderCatalogJson,
 ];
 
@@ -272,6 +274,7 @@ export const CATALOG_PROVIDER_IDS = [
   "wafer",
   "wandb-inference",
   "xai",
+  "xiaomi-mimo",
   "z-ai",
 ] as const;
 
