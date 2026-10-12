@@ -5157,6 +5157,33 @@ export type ProxyPackageUpgradeOptions = ProxyStagedInstallOptions & {
   onPolyfills?: (report: ProxyPackagePolyfillReport) => void;
 };
 
+/** Why a build in the package store was left alone by a retention pass. */
+export type ProxyPackagePruneRetention = "selected" | "in-use" | "recent";
+
+/** Retention pass over the immutable package store, with injectable process listing. */
+export type ProxyPackagePruneOptions = {
+  packagesDir: string;
+  /** Entry script of the calling process; its build is never removed. */
+  currentEntryScript?: string;
+  /** Builds written more recently than this are left for a later pass. */
+  minAgeMs?: number;
+  now?: number;
+  /** Report what would be removed without touching the store. */
+  dryRun?: boolean;
+  /** Checked before each removal; the pass stops as soon as it returns false. */
+  isCurrentOwner?: () => boolean;
+  /** Command lines of live processes, or null when they cannot be listed. */
+  listProcessCommandLines?: () => Promise<string[] | null>;
+};
+
+export type ProxyPackagePruneResult = {
+  /** Set when the pass declined to remove anything or stopped early, with the reason. */
+  skipped?: string;
+  removed: string[];
+  retained: { name: string; reason: ProxyPackagePruneRetention }[];
+  failed: { name: string; message: string }[];
+};
+
 /** Capture a trusted baseline for a locally patched package without activation. */
 export type ProxyPolyfillArgs = {
   action: "capture";

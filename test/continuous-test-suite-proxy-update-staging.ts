@@ -2,14 +2,20 @@
 /**
  * Determinism exception: real subprocesses act as controllable package managers
  * to reproduce idle deadlines, endless progress and failed installs without
- * touching a global installation, launchd or the live proxy. All imports share
- * the source graph; temporary HOME and local files are the only targets.
+ * touching a global installation, launchd or the live proxy. Retention tests
+ * build package stores in temporary directories and inject the live process
+ * list and clock, which no real service could be made to produce on demand.
+ * All imports share the source graph; temporary HOME and local files are the
+ * only targets.
  */
 import "./helpers/proxyTestIsolation.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
+  mkdir,
   mkdtemp,
+  symlink,
   writeFile,
   readFile,
   readdir,
@@ -19,6 +25,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  inspectProxyPackage,
   installStagedProxyPackage,
   assertProxyServiceInstallIdle,
   probeProxyLaunchdPresence,
@@ -29,6 +36,7 @@ import {
   selectProxyPackage,
   writeProxyPackageLauncher,
 } from "../src/lib/proxy/globalInstaller.js";
+import { pruneProxyPackages } from "../src/lib/proxy/packagePrune.js";
 import {
   isSameProxyServingWorker,
   parseProxyServingWorkerIdentity,
@@ -883,6 +891,277 @@ try {
       assert.equal(await readFile(path, "utf8"), invalid);
     }
     await writeFile(path, before);
+  });
+
+  const fakeBuild = async (packagesDir: string, name: string) => {
+    const version = name.match(/^\d+\.\d+\.\d+/)![0];
+    const packageRoot = join(
+      packagesDir,
+      name,
+      "node_modules",
+      "@juspay",
+      "neurolink",
+    );
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(
+      join(packageRoot, "package.json"),
+      JSON.stringify({
+        name: "@juspay/neurolink",
+        version,
+        bin: { neurolink: "index.js" },
+      }),
+    );
+    await writeFile(join(packageRoot, "index.js"), "");
+    return inspectProxyPackage(join(packageRoot, "index.js"));
+  };
+  const generatedBuildNames = () => [
+    "1.0.0",
+    `1.1.0-release-${randomUUID()}`,
+    `1.2.0-polyfills-0123456789abcdef-${randomUUID()}`,
+    `1.3.0-release-${randomUUID()}`,
+    `1.4.0-release-${randomUUID()}`,
+  ];
+  /** Five generated builds with the last two selected, plus entries that are not ours. */
+  const prunableStore = async (label: string) => {
+    const packagesDir = join(root, label);
+    const names = generatedBuildNames();
+    const selections = [];
+    for (const name of names) {
+      selections.push(await fakeBuild(packagesDir, name));
+    }
+    selectProxyPackage(packagesDir, selections[3]!);
+    selectProxyPackage(packagesDir, selections[4]!);
+    await mkdir(join(packagesDir, "1.0.0-official"));
+    await mkdir(join(packagesDir, ".install-1.5.0-abc123"));
+    await writeFile(join(packagesDir, "notes.txt"), "keep");
+    return { packagesDir, names };
+  };
+  const later = () => Date.now() + 2 * 60 * 60_000;
+  const noProcesses = async () => [] as string[];
+
+  await test("retention keeps the selected pair and removes only generated builds", async () => {
+    const { packagesDir, names } = await prunableStore("prune-basic");
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.equal(result.skipped, undefined);
+    assert.deepEqual(result.removed, [names[0], names[1], names[2]].sort());
+    assert.deepEqual(result.failed, []);
+    assert.deepEqual(
+      (await readdir(packagesDir)).sort(),
+      [
+        ".install-1.5.0-abc123",
+        "1.0.0-official",
+        names[3],
+        names[4],
+        "notes.txt",
+        "selections.json",
+      ].sort(),
+    );
+    const second = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.deepEqual(second.removed, []);
+    assert.equal(readProxyPackageSelection(packagesDir)?.version, "1.4.0");
+    assert.equal(
+      readProxyPackageSelection(packagesDir, true)?.version,
+      "1.3.0",
+    );
+  });
+  await test("retention leaves builds that a running process or the caller uses", async () => {
+    const { packagesDir, names } = await prunableStore("prune-in-use");
+    const usedByWorker = join(
+      packagesDir,
+      names[1]!,
+      "node_modules/@juspay/neurolink/index.js",
+    );
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      currentEntryScript: join(
+        packagesDir,
+        names[2]!,
+        "node_modules/@juspay/neurolink/index.js",
+      ),
+      listProcessCommandLines: async () => [
+        "/sbin/launchd",
+        `node ${usedByWorker} --port 8080`,
+      ],
+    });
+    assert.deepEqual(result.removed, [names[0]]);
+    assert.deepEqual(
+      result.retained.filter((build) => build.reason === "in-use"),
+      [
+        { name: names[1], reason: "in-use" },
+        { name: names[2], reason: "in-use" },
+      ].sort((a, b) => a.name!.localeCompare(b.name!)),
+    );
+  });
+  await test("a process on a similarly named version does not protect a build", async () => {
+    const { packagesDir, names } = await prunableStore("prune-prefix");
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      // "1.0.0-official" starts with "1.0.0" but is a different directory.
+      listProcessCommandLines: async () => [
+        `node ${join(packagesDir, "1.0.0-official")}/index.js`,
+      ],
+    });
+    assert.ok(result.removed.includes(names[0]!));
+  });
+  await test("retention leaves recently written builds for a later pass", async () => {
+    const { packagesDir, names } = await prunableStore("prune-recent");
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: Date.now(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.deepEqual(result.removed, []);
+    assert.equal(
+      result.retained.filter((build) => build.reason === "recent").length,
+      3,
+    );
+    for (const name of names) {
+      assert.ok((await readdir(packagesDir)).includes(name));
+    }
+  });
+  await test("retention removes nothing without an active selection or a process list", async () => {
+    const { packagesDir, names } = await prunableStore("prune-refusals");
+    const selections = join(packagesDir, "selections.json");
+    const good = await readFile(selections, "utf8");
+    await writeFile(selections, "{");
+    const corrupt = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.match(corrupt.skipped ?? "", /active package selection/);
+    await writeFile(selections, good);
+    const blind = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: async () => null,
+    });
+    assert.match(blind.skipped ?? "", /could not be enumerated/);
+    const missing = await pruneProxyPackages({
+      packagesDir: join(root, "prune-does-not-exist"),
+      now: later(),
+    });
+    assert.match(missing.skipped ?? "", /does not exist/);
+    for (const name of names) {
+      assert.ok((await readdir(packagesDir)).includes(name));
+    }
+  });
+  await test("a build named only by a damaged selection record is still referenced", async () => {
+    const { packagesDir, names } = await prunableStore("prune-raw");
+    const selections = join(packagesDir, "selections.json");
+    const state = JSON.parse(await readFile(selections, "utf8"));
+    // Previous no longer validates (version mismatch) but still names names[3].
+    state.previous = { ...state.previous, version: "0.0.1" };
+    await writeFile(selections, JSON.stringify(state));
+    assert.equal(readProxyPackageSelection(packagesDir, true), null);
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.ok(!result.removed.includes(names[3]!));
+    assert.ok((await readdir(packagesDir)).includes(names[3]!));
+  });
+  await test("dry run reports removals without touching the store", async () => {
+    const { packagesDir, names } = await prunableStore("prune-dry");
+    await mkdir(join(packagesDir, ".prune-leftover"));
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      dryRun: true,
+      listProcessCommandLines: noProcesses,
+    });
+    assert.equal(result.removed.length, 3);
+    const entries = await readdir(packagesDir);
+    for (const name of names) {
+      assert.ok(entries.includes(name));
+    }
+    assert.ok(entries.includes(".prune-leftover"));
+  });
+  await test("retention clears tombstones and never follows a symlinked build name", async () => {
+    const { packagesDir } = await prunableStore("prune-hostile");
+    const outside = join(root, "prune-outside");
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, "sentinel"), "keep");
+    await symlink(outside, join(packagesDir, "9.9.9"));
+    await mkdir(join(packagesDir, ".prune-1.0.0-interrupted", "node_modules"), {
+      recursive: true,
+    });
+    await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+    });
+    assert.equal(await readFile(join(outside, "sentinel"), "utf8"), "keep");
+    const entries = await readdir(packagesDir);
+    assert.ok(entries.includes("9.9.9"));
+    assert.ok(!entries.some((entry) => entry.startsWith(".prune-")));
+  });
+  await test("a selection published during the pass protects a build it had planned to remove", async () => {
+    const { packagesDir, names } = await prunableStore("prune-mid-pass");
+    const result = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      // Runs after the pass has read the store and before it removes anything,
+      // which is when a replacement updater could publish an older build.
+      listProcessCommandLines: async () => {
+        selectProxyPackage(
+          packagesDir,
+          inspectProxyPackage(
+            join(
+              packagesDir,
+              names[0]!,
+              "node_modules/@juspay/neurolink/index.js",
+            ),
+          ),
+        );
+        return [];
+      },
+    });
+    assert.deepEqual(result.removed, [names[1], names[2]].sort());
+    assert.ok((await readdir(packagesDir)).includes(names[0]!));
+    assert.equal(readProxyPackageSelection(packagesDir)?.version, "1.0.0");
+  });
+  await test("a pass stops when the selection stops validating or ownership is lost", async () => {
+    const invalid = await prunableStore("prune-selection-lost");
+    const lostSelection = await pruneProxyPackages({
+      packagesDir: invalid.packagesDir,
+      now: later(),
+      listProcessCommandLines: async () => {
+        await writeFile(join(invalid.packagesDir, "selections.json"), "{");
+        return [];
+      },
+    });
+    assert.match(lostSelection.skipped ?? "", /became invalid/);
+    assert.deepEqual(lostSelection.removed, []);
+    for (const name of invalid.names) {
+      assert.ok((await readdir(invalid.packagesDir)).includes(name));
+    }
+
+    const { packagesDir, names } = await prunableStore("prune-owner-lost");
+    let checks = 0;
+    const lostOwner = await pruneProxyPackages({
+      packagesDir,
+      now: later(),
+      listProcessCommandLines: noProcesses,
+      isCurrentOwner: () => ++checks <= 1,
+    });
+    assert.match(lostOwner.skipped ?? "", /ownership/);
+    assert.deepEqual(lostOwner.removed, [names[0]]);
+    const entries = await readdir(packagesDir);
+    assert.ok(!entries.includes(names[0]!));
+    assert.ok(entries.includes(names[1]!));
+    assert.ok(entries.includes(names[2]!));
   });
   console.log(`${passed} tests passed`);
 } finally {

@@ -135,6 +135,7 @@ import {
   resolveGlobalInstaller,
   validateInstalledVersion,
 } from "../../lib/proxy/globalInstaller.js";
+import { pruneProxyPackages } from "../../lib/proxy/packagePrune.js";
 import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
 import { openProxyWorkerLog } from "../../lib/proxy/workerLog.js";
 import { startRollingProxyServer } from "../../lib/proxy/rollingProxyServer.js";
@@ -5358,13 +5359,63 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         runtimeUpdaterPid: runtime?.updaterPid,
       });
     };
+    // Each release installs a full dependency tree into its own directory and
+    // nothing else ever removes one, so the store has to be trimmed here: on
+    // updater start for the backlog, and after each confirmed update.
     let updateInProgress = false;
     let updateRestartInProgress = false;
+    let packagePruneInFlight: Promise<void> | undefined;
+    const prunePackageStore = (trigger: string): Promise<void> => {
+      packagePruneInFlight ??= (async () => {
+        // A stale updater must not mutate package state a newer owner relies on.
+        // An update that reuses an existing unselected build would also race the
+        // rename; the post-update pass runs inside the update and is safe.
+        if (
+          !isCurrentUpdateOwner() ||
+          (updateInProgress && trigger !== "after update")
+        ) {
+          return;
+        }
+        try {
+          const outcome = await pruneProxyPackages({
+            packagesDir: PROXY_PACKAGES_DIR,
+            currentEntryScript: process.argv[1],
+            isCurrentOwner: isCurrentUpdateOwner,
+          });
+          if (outcome.skipped) {
+            logger.always(
+              `[updater] package store prune skipped (${trigger}): ${outcome.skipped}`,
+            );
+          } else if (outcome.removed.length > 0) {
+            logger.always(
+              `[updater] package store prune (${trigger}): removed ${outcome.removed.length} old build(s); retained ${outcome.retained
+                .map((build) => `${build.name} [${build.reason}]`)
+                .join(", ")}`,
+            );
+          }
+          for (const failure of outcome.failed) {
+            logger.always(
+              `[updater] WARNING: could not remove old build ${failure.name}: ${failure.message}`,
+            );
+          }
+        } catch (error) {
+          logger.always(
+            `[updater] WARNING: package store prune failed (${trigger}): ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      })().finally(() => {
+        packagePruneInFlight = undefined;
+      });
+      return packagePruneInFlight;
+    };
     const runUpdateCheck = async () => {
       if (updateInProgress || !isCurrentUpdateOwner()) {
         return;
       }
       updateInProgress = true;
+      // A pass already under way works from a snapshot of the store and could
+      // rename a build this update is about to reuse.
+      await packagePruneInFlight?.catch(() => undefined);
       let updateVersion = runningVersion;
       let drainActive = false;
       let previousPackage: ProxyPackageSelection | null;
@@ -6251,6 +6302,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           );
           updateRetryAttempts = 0;
           updateRetryVersion = null;
+          // The new version is serving and the selection pair is committed, so
+          // the build that just fell out of retention is unreferenced.
+          await prunePackageStore("after update");
           // The replacement proxy starts a worker running the new version.
           await shutdownProxyOtelLogs().catch(() => undefined);
           process.exit(0);
@@ -6409,6 +6463,18 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       }, delay);
       updateRetryTimeout.unref?.();
     };
+
+    // Not gated on canAutoUpdate: builds left by earlier runs are dead weight
+    // whether or not this process will install another one. The periodic pass
+    // is cheap (one readdir and one process listing) and covers a startup pass
+    // that ran before the supervisor had recorded this updater as the owner.
+    if (updaterOnly) {
+      setTimeout(() => void prunePackageStore("startup"), 60_000).unref();
+      setInterval(
+        () => void prunePackageStore("periodic"),
+        UPDATE_CHECK_INTERVAL_MS,
+      ).unref();
+    }
 
     // Run first check after a short delay, then on interval
     if (canAutoUpdate) {
