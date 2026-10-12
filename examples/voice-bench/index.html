@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" translate="no" class="notranslate">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta name="google" content="notranslate" />
+    <meta
+      name="description"
+      content="NeuroLink Voice Bench — live captions, engine comparison and transcript correction."
+    />
+    <title>Voice Bench · NeuroLink</title>
+    <link rel="icon" type="image/svg+xml" href="/neurolink-mark.svg" />
+    <script>
+      // paint the right ground before React mounts: saved choice, else the system's
+      try {
+        const t = JSON.parse(localStorage.getItem("voice-bench-theme"));
+        const m =
+          t === "light" || t === "dark"
+            ? t
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        document.documentElement.dataset.theme = m;
+        document.documentElement.style.background =
+          m === "dark" ? "#0f151c" : "#f7f8fa";
+      } catch {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Tamil:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+Kannada:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Sans+Malayalam:wght@400;500&display=swap"
+    />
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

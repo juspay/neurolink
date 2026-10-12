@@ -1,0 +1,6 @@
+# Standalone project — this file stops pnpm's upward workspace-root search here (same as
+# landing/ and docs-site/), so the repo root's settings do not pull this app in.
+# Supply-chain cooldown, mirrored from the root: no release younger than 3 days.
+minimumReleaseAge: 4320
+onlyBuiltDependencies:
+  - esbuild

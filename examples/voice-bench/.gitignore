@@ -8,3 +8,7 @@ indic-conformer/.venv/
 indic-conformer/hf/
 *.log
 public/samples
+
+# app build
+node_modules/
+dist/

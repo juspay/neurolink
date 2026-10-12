@@ -19,6 +19,10 @@ window.ASR_CONFIG = {
   model: "qwen3-asr", // /v1/audio/transcriptions
   diarizedModel: "qwen3-asr-diarized", // Nemotron-3 diarization + Qwen3-ASR sidecar (Files tab)
   ttsModel: "s2-pro", // /v1/audio/speech; voices listed at /s2pro/voices
+  // Speak tab: a TTS gateway URL. Left out, it uses baseUrl above, or with a NeuroLink server the
+  // `/tts` pass-through of serve.mjs (TTS_BASE_URL / TTS_API_KEY held server-side, no key in the page).
+  // ttsBaseUrl: "https://your-tts-gateway",
+  // ttsApiKey: "sk-...", // only for a gateway at ttsBaseUrl reached directly (not via serve.mjs)
   // AI4Bharat IndicConformer-600M wrapper (indic-conformer/serve.sh) on this machine. 22 Indian
   // languages, native script, auto language detection from the CTC head.
   indicBaseUrl: "http://127.0.0.1:8007",
