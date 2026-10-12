@@ -478,6 +478,12 @@ Supported AI Provider Names
 
 ---
 
+### RUNINFRA
+
+> **RUNINFRA**: `"runinfra"`
+
+---
+
 ### SAKANA_AI
 
 > **SAKANA_AI**: `"sakana-ai"`

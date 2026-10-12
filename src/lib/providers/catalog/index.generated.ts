@@ -64,6 +64,7 @@ import perplexityJson from "./perplexity.json" with { type: "json" };
 import poolsideJson from "./poolside.json" with { type: "json" };
 import primeIntellectJson from "./prime-intellect.json" with { type: "json" };
 import rekaJson from "./reka.json" with { type: "json" };
+import runinfraJson from "./runinfra.json" with { type: "json" };
 import sakanaAiJson from "./sakana-ai.json" with { type: "json" };
 import sambanovaJson from "./sambanova.json" with { type: "json" };
 import sarvamJson from "./sarvam.json" with { type: "json" };
@@ -167,6 +168,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   poolsideJson as ProviderCatalogJson,
   primeIntellectJson as ProviderCatalogJson,
   rekaJson as ProviderCatalogJson,
+  runinfraJson as ProviderCatalogJson,
   sakanaAiJson as ProviderCatalogJson,
   sambanovaJson as ProviderCatalogJson,
   sarvamJson as ProviderCatalogJson,
@@ -256,6 +258,7 @@ export const CATALOG_PROVIDER_IDS = [
   "poolside",
   "prime-intellect",
   "reka",
+  "runinfra",
   "sakana-ai",
   "sambanova",
   "sarvam",

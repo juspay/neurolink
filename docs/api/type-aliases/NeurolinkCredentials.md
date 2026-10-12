@@ -1196,6 +1196,20 @@ counts as unset.
 
 ---
 
+### runinfra?
+
+> `optional` **runinfra?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### sakanaAi?
 
 > `optional` **sakanaAi?**: `object`

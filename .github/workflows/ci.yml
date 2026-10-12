@@ -660,6 +660,7 @@ jobs:
           pnpm run test:xiaomi-mimo-pilot
           pnpm run test:rag-bounds
           pnpm run test:longcat-pilot
+          pnpm run test:runinfra-pilot
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

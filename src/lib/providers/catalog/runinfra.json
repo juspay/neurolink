@@ -1,0 +1,71 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "runinfra",
+  "displayName": "RunInfra",
+  "enumTypeName": "RunInfraModels",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.runinfra.ai/v1",
+    "envOverrides": { "apiKey": "RUNINFRA_GATEWAY_KEY" },
+    "apiKeyFallbackEnvVars": ["RUNINFRA_API_KEY"]
+  },
+  "models": {
+    "default": "nemotron-3-5-lightning-30b",
+    "fallbacks": ["nemotron-3-5-lightning-30b"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 262144,
+    "catalog": {
+      "nemotron-3-5-lightning-30b": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 262144,
+        "vision": false,
+        "status": "production",
+        "description": "Nemotron 3.5 Lightning 30B on RunInfra Model APIs, the only model this pilot lists. The vendor's copyable examples send exactly nemotron-3-5-lightning-30b as the model; the model page also shows the upstream served name nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16, which is not the id sent. The model page states a 262,144-token context window and 262,144 maximum generated output tokens. The chat-completions reference caps one request's output at the model's remaining context (its window minus your prompt) and clamps oversized values, so 262,144 output is a ceiling, not capacity beside a full prompt. This pilot declares text generate/stream only; tools, structured output, thinking and vision are not declared, which bounds this pilot and is not a claim the vendor lacks them. Availability is a runtime field and is unverified."
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "RunInfra answered 401. The vendor's authentication page lists 401 Invalid API key and 401 API key has expired. Check {apiKeyEnvVar} and the workspace API key at {setupUrl}."
+    }
+  ],
+  "setup": {
+    "url": "https://runinfra.ai/settings/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "promotional-credit",
+    "instructions": [
+      "1. Sign in to RunInfra and create a workspace API key under Settings > API keys at https://runinfra.ai/settings/api-keys. The vendor's authentication page says to send a workspace API key in an Authorization: Bearer header.",
+      "2. nemotron-3-5-lightning-30b is usage-priced per token in USD (the model page lists input, cached input and output rates per 1M tokens; rates may change). The vendor's plans page lists prepaid credits worth $1 each with a $5 minimum top-up, and a $1 signup credit, once per account, that it says never expires. Whether your account holds that credit is unverified, and this is not a free tier.",
+      "3. Set {apiKeyEnvVar}. The vendor's curl and SDK examples name RUNINFRA_GATEWAY_KEY, and its export block also sets RUNINFRA_API_KEY to the same value, which is read as a fallback. The key is sent as Authorization: Bearer to https://api.runinfra.ai/v1/chat/completions.",
+      "4. The vendor's chat-completions reference says a hosted model can be temporarily paused and then answers 503 with code hosted_model_paused. Availability of nemotron-3-5-lightning-30b to your account is unverified. The declared scope is text generate and stream with nemotron-3-5-lightning-30b."
+    ],
+    "description": "RunInfra text/stream pilot with a usage-priced nemotron-3-5-lightning-30b default. The vendor's plans page lists a one-time signup credit; no account entitlement, roster, live inference, availability or delivery is verified."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-12",
+      "code": "VENDOR_DOCS_ONLY_NOT_ROSTER_VERIFIED",
+      "method": "Public vendor page GETs only: runinfra.ai/inference-api/nemotron-3-5-lightning-30b, docs/tools-sdks/openai-compatibility, docs/api-reference/chat-completions.md and authentication.md, docs/introduction/plans.md and docs/changelog.md. No GET /v1/models, credentials, account or inference ran; this legacy field does not assert roster verification."
+    },
+    "billingProbe": {
+      "date": "2026-10-12",
+      "code": "PUBLIC_DOCS_ONLY_ACCOUNT_NOT_TESTED",
+      "method": "Public documentation only: the model page lists USD pay-per-token rates and the plans page lists $1 credits, a $5 minimum top-up and a $1 signup credit once per account that never expires. No account was created, no credit was checked and no top-up was tried."
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1983"
+  }
+}

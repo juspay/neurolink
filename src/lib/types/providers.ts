@@ -313,6 +313,7 @@ export type NeurolinkCredentials = {
   poolside?: { apiKey?: string; baseURL?: string };
   primeIntellect?: { apiKey?: string; baseURL?: string };
   reka?: { apiKey?: string; baseURL?: string };
+  runinfra?: { apiKey?: string; baseURL?: string };
   sakanaAi?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
   sarvam?: { apiKey?: string; baseURL?: string };

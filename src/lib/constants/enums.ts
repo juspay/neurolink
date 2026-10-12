@@ -85,6 +85,7 @@ export enum AIProviderName {
   POOLSIDE = "poolside",
   PRIME_INTELLECT = "prime-intellect",
   REKA = "reka",
+  RUNINFRA = "runinfra",
   SAKANA_AI = "sakana-ai",
   SAMBANOVA = "sambanova",
   SARVAM = "sarvam",
@@ -1975,6 +1976,10 @@ export enum RekaModels {
   REKA_FLASH = "reka-flash",
   REKA_EDGE = "reka-edge",
   REKA_EDGE_2603 = "reka-edge-2603",
+}
+
+export enum RunInfraModels {
+  NEMOTRON_3_5_LIGHTNING_30B = "nemotron-3-5-lightning-30b",
 }
 
 export enum SakanaAiModels {
