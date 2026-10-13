@@ -639,10 +639,10 @@ await runSuite(async () => {
     // for its own reasons.
     const elsewhere: CatalogFile = [
       "alpha-chat.json",
-      JSON.stringify(chatFile("alpha-chat")[1], null, 2).replace(
-        "{",
-        '{\n  "elsewhere": { "catalog": { "x": 1, "x": 2 } },',
-      ),
+      // The root is a serialized object. Prepend the fixed malformed property
+      // and keep its remaining bytes; this is fixture composition, not filtering.
+      '{\n  "elsewhere": { "catalog": { "x": 1, "x": 2 } },' +
+        JSON.stringify(chatFile("alpha-chat")[1], null, 2).slice(1),
     ];
     for (const file of [
       chatFile("alpha-chat", {
