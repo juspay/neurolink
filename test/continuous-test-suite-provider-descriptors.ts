@@ -38,17 +38,46 @@ import {
   logSection,
   assert,
   assertEqual,
+  type TestFn,
 } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  startDescriptorRuntimeFixtures,
+  type DescriptorRuntimeFixtures,
+} from "./helpers/descriptorRuntimeFixtures.js";
 
 // Configuration diagnostics must not consult a real instance-role endpoint.
 process.env.AWS_EC2_METADATA_DISABLED = "true";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Provider Descriptors");
+const { test: reportTest, runSuite } = defineSuite("Provider Descriptors", {
+  offline: true,
+});
 
 await runSuite(async () => {
+  const runtimeFixtures = await startDescriptorRuntimeFixtures();
+  try {
+    await runDescriptorTests(runtimeFixtures);
+  } finally {
+    await runtimeFixtures.close();
+  }
+});
+
+/** Run the original descriptor contracts while owned fixture routes stay pinned. */
+async function runDescriptorTests(
+  runtimeFixtures: DescriptorRuntimeFixtures,
+): Promise<void> {
+  /** Attribute real incoming requests without changing the shared harness verdict. */
+  const test = async (name: string, fn: TestFn): Promise<void> => {
+    runtimeFixtures.setCaseLabel(name);
+    try {
+      await reportTest(name, fn);
+    } finally {
+      runtimeFixtures.setCaseLabel("between tests");
+    }
+  };
+
   logSection("ProviderFactory.getDescriptor / getAllDescriptors");
 
   await test("getAllDescriptors returns every real provider", async () => {
@@ -743,15 +772,10 @@ await runSuite(async () => {
     const { getBestProvider } = await import("../dist/utils/providerUtils.js");
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
-    // Only one provider has a secret, and Ollama and LiteLLM are pointed at a
-    // port nothing listens on, so no preferred provider is healthy and the
-    // choice falls to the first healthy one in sweep order. LM Studio and
-    // llama.cpp read as healthy there because they need no configuration, and
-    // they come before every catalog provider in that order. Ollama and LiteLLM
-    // are the two providers that probe a local default address when no base URL
-    // is set (:11434 and :4000), so clearing their variables would let a proxy
-    // running on a developer machine win; they are pinned to a dead address
-    // instead.
+    // Only Groq has a secret. Owned HTTP fixtures report the local runtimes
+    // unavailable, so they cannot outrank it. LM Studio and llama.cpp still
+    // need no secret and precede catalog providers in sweep order; the
+    // configured-provider preference assertion below remains unchanged.
     const names = Object.keys(process.env).filter(
       (name) =>
         name !== "AWS_EC2_METADATA_DISABLED" &&
@@ -768,8 +792,8 @@ await runSuite(async () => {
       delete process.env[name];
     });
     process.env.GROQ_API_KEY = "test-credential-not-real";
-    process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
-    process.env.LITELLM_BASE_URL = "http://127.0.0.1:1";
+    // Reapply all owned routes after this test deliberately clears env.
+    runtimeFixtures.pinRuntimeEndpoints();
     // Health results are cached per provider, and earlier cases filled the
     // cache under other environments, so the choice would not see this one.
     ProviderHealthChecker.clearHealthCache();
@@ -927,8 +951,12 @@ await runSuite(async () => {
 
       const { NeuroLink } = await import("../dist/index.js");
       const nl = new NeuroLink();
-      const configured = await nl.hasProviderEnvVars("vertex");
-      assert(configured === true, "vertex fallback-var recognition mismatch");
+      try {
+        const configured = await nl.hasProviderEnvVars("vertex");
+        assert(configured === true, "vertex fallback-var recognition mismatch");
+      } finally {
+        await nl.shutdown();
+      }
     } finally {
       for (const v of controlledVars) {
         if (saved[v] === undefined) {
@@ -945,18 +973,22 @@ await runSuite(async () => {
   await test("getProviderStatus reports on every descriptor-backed provider, not just the original 11", async () => {
     const { NeuroLink } = await import("../dist/index.js");
     const nl = new NeuroLink();
-    const statuses = await nl.getProviderStatus({ quiet: true });
-    const reportedNames = new Set(
-      statuses.map((s: { provider: string }) => s.provider),
-    );
-    assert(
-      reportedNames.has("groq"),
-      "getProviderStatus missing 'groq' (outside the old hardcoded 11)",
-    );
-    assert(
-      reportedNames.has("cohere"),
-      "getProviderStatus missing 'cohere' (outside the old hardcoded 11)",
-    );
+    try {
+      const statuses = await nl.getProviderStatus({ quiet: true });
+      const reportedNames = new Set(
+        statuses.map((s: { provider: string }) => s.provider),
+      );
+      assert(
+        reportedNames.has("groq"),
+        "getProviderStatus missing 'groq' (outside the old hardcoded 11)",
+      );
+      assert(
+        reportedNames.has("cohere"),
+        "getProviderStatus missing 'cohere' (outside the old hardcoded 11)",
+      );
+    } finally {
+      await nl.shutdown();
+    }
   });
 
   logSection("toolSupport replaces PROMPT_ONLY_TOOL_PROVIDERS");
@@ -1959,6 +1991,7 @@ await runSuite(async () => {
   type FakeUpstream = {
     url: string;
     hits: () => number;
+    paths: () => string[];
     setHealthy: (healthy: boolean) => void;
     close: () => Promise<void>;
   };
@@ -1973,9 +2006,11 @@ await runSuite(async () => {
     kind: "litellm" | "ollama",
   ): Promise<FakeUpstream> {
     let hitCount = 0;
+    const requestPaths: string[] = [];
     let healthy = true;
-    const server: Server = createServer((_req, res) => {
+    const server: Server = createServer((req, res) => {
       hitCount++;
+      requestPaths.push(req.url ?? "");
       if (!healthy) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "suite-injected failure" }));
@@ -2000,6 +2035,7 @@ await runSuite(async () => {
     return {
       url: `http://127.0.0.1:${address.port}`,
       hits: () => hitCount,
+      paths: () => [...requestPaths],
       setHealthy: (value: boolean) => {
         healthy = value;
       },
@@ -2009,13 +2045,17 @@ await runSuite(async () => {
   }
 
   async function withEnv<T>(
-    vars: Record<string, string>,
+    vars: Record<string, string | undefined>,
     fn: () => Promise<T>,
   ): Promise<T> {
     const previous: Record<string, string | undefined> = {};
     for (const key of Object.keys(vars)) {
       previous[key] = process.env[key];
-      process.env[key] = vars[key];
+      if (vars[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = vars[key];
+      }
     }
     try {
       return await fn();
@@ -2029,6 +2069,104 @@ await runSuite(async () => {
       }
     }
   }
+
+  for (const suffix of ["", "/v1", "/api"]) {
+    await test(`getProviderStatus(ollama): primary endpoint${suffix || " root"} wins over the legacy alias`, async () => {
+      const { NeuroLink } = await import("../dist/index.js");
+      const { ProviderHealthChecker } =
+        await import("../dist/utils/providerHealth.js");
+      const upstream = await startFakeUpstream("ollama");
+      ProviderHealthChecker.clearHealthCache();
+      try {
+        await withEnv(
+          {
+            OLLAMA_BASE_URL: `${upstream.url}${suffix}`,
+            OLLAMA_API_BASE: runtimeFixtures.env.OLLAMA_API_BASE,
+            OLLAMA_MODEL: OLLAMA_TEST_MODEL,
+          },
+          async () => {
+            const nl = new NeuroLink({
+              conversationMemory: { enabled: false },
+            });
+            try {
+              const statuses = await nl.getProviderStatus({ quiet: true });
+              const status = statuses.find(
+                (entry) => entry.provider === "ollama",
+              );
+              assertEqual(status?.status, "working", "owned Ollama status");
+              assertEqual(
+                status?.model,
+                OLLAMA_TEST_MODEL,
+                "owned Ollama model",
+              );
+              assert(
+                upstream.hits() >= 2,
+                "both configuration and status must reach the owned runtime",
+              );
+              assert(
+                upstream.paths().every((path) => path === "/api/tags"),
+                `configuration and status must request /api/tags; received ${upstream.paths().join(", ")}`,
+              );
+            } finally {
+              await nl.shutdown();
+            }
+          },
+        );
+      } finally {
+        await upstream.close();
+        ProviderHealthChecker.clearHealthCache();
+      }
+    });
+  }
+
+  await test("getProviderStatus(ollama): legacy endpoint works without the primary override", async () => {
+    const { NeuroLink } = await import("../dist/index.js");
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const upstream = await startFakeUpstream("ollama");
+    ProviderHealthChecker.clearHealthCache();
+    try {
+      await withEnv(
+        {
+          OLLAMA_BASE_URL: undefined,
+          OLLAMA_API_BASE: upstream.url,
+          OLLAMA_MODEL: OLLAMA_TEST_MODEL,
+        },
+        async () => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          try {
+            const statuses = await nl.getProviderStatus({ quiet: true });
+            const status = statuses.find(
+              (entry) => entry.provider === "ollama",
+            );
+            assertEqual(
+              status?.status,
+              "working",
+              "owned legacy Ollama status",
+            );
+            assertEqual(
+              status?.model,
+              OLLAMA_TEST_MODEL,
+              "owned legacy Ollama model",
+            );
+            assert(
+              upstream.hits() >= 2,
+              "legacy configuration and status must reach the owned runtime",
+            );
+            assert(
+              upstream.paths().every((path) => path === "/api/tags"),
+              `configuration and status must request /api/tags; received ${upstream.paths().join(", ")}`,
+            );
+          } finally {
+            await nl.shutdown();
+          }
+        },
+      );
+    } finally {
+      await upstream.close();
+      ProviderHealthChecker.clearHealthCache();
+    }
+  });
 
   await test("checkProviderHealth(litellm): failing upstream trips the breaker after threshold, then stops probing (default options)", async () => {
     const { ProviderHealthChecker } =
@@ -2460,4 +2598,42 @@ await runSuite(async () => {
       ProviderHealthChecker.clearHealthCache();
     }
   });
-});
+
+  await test("dynamic metadata loads from the owned first source without changing shipped model defaults", async () => {
+    const { dynamicModelProvider } = await import("../dist/index.js");
+    assert(
+      runtimeFixtures.requests.some(
+        (request) =>
+          request.runtime === "metadata" &&
+          request.method === "HEAD" &&
+          request.path === "/health",
+      ),
+      "metadata health precondition did not reach its owned listener",
+    );
+    assert(
+      runtimeFixtures.requests.some(
+        (request) =>
+          request.runtime === "metadata" &&
+          request.method === "GET" &&
+          request.path === "/api/v1/models",
+      ),
+      "model metadata did not reach its owned listener",
+    );
+    const metadata = dynamicModelProvider.getMetadata();
+    assertEqual(
+      metadata?.version,
+      "descriptor-owned-v1",
+      "metadata must be validated and loaded from the owned first source",
+    );
+    assertEqual(
+      metadata?.lastUpdated,
+      "2026-10-14T00:00:00.000Z",
+      "loaded metadata must retain the owned registry identity",
+    );
+    assertEqual(
+      dynamicModelProvider.getTotalModelCount(),
+      0,
+      "owned metadata must add no model overrides",
+    );
+  });
+}

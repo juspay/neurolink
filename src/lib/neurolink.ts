@@ -578,6 +578,16 @@ const isNonRetryableForPool = sharedIsNonRetryableForPool;
  */
 const MEMORY_WRITE_TIMEOUT_MS = 30_000;
 
+/** Native tags share the health check's endpoint precedence and origin. */
+function getOllamaTagsUrl(): string {
+  const baseUrl =
+    process.env.OLLAMA_BASE_URL ||
+    process.env.OLLAMA_API_BASE ||
+    "http://localhost:11434";
+  // Native /api/tags is at the origin even if the compatible base ends /v1.
+  return new URL("/api/tags", baseUrl).toString();
+}
+
 /**
  * NeuroLink - Universal AI Development Platform
  *
@@ -3866,7 +3876,7 @@ Current user's request: ${currentInput}`;
       // For Ollama, check if service is running and model is available
       if (route.provider === "ollama") {
         try {
-          const response = await fetch("http://localhost:11434/api/tags", {
+          const response = await fetch(getOllamaTagsUrl(), {
             method: "GET",
             signal: AbortSignal.timeout(2000),
           });
@@ -4021,7 +4031,7 @@ Current user's request: ${currentInput}`;
       // For Ollama, check if service is running and model is available
       if (route.provider === "ollama") {
         try {
-          const response = await fetch("http://localhost:11434/api/tags", {
+          const response = await fetch(getOllamaTagsUrl(), {
             method: "GET",
             signal: AbortSignal.timeout(2000),
           });
@@ -16144,7 +16154,7 @@ Current user's request: ${currentInput}`;
           // Special handling for Ollama
           if (providerName === "ollama") {
             try {
-              const response = await fetch("http://localhost:11434/api/tags", {
+              const response = await fetch(getOllamaTagsUrl(), {
                 method: "GET",
                 signal: AbortSignal.timeout(PROVIDER_TIMEOUTS.AUTH_MS),
               });
