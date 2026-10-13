@@ -60,6 +60,11 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com  # or self-hosted
 # Optional defaults
 LANGFUSE_ENVIRONMENT=production
 LANGFUSE_RELEASE=1.0.0
+
+# Largest serialized span input, output or tool payload, in characters
+# (default 40000, minimum 10000). Raise it when your backend accepts larger
+# spans; anything over it is trimmed to valid JSON, keeping the user's question.
+NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS=40000
 ```
 
 ## Context Management

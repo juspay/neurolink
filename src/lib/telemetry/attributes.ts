@@ -145,9 +145,28 @@ export const LANGFUSE_ATTR = {
 
 /** Default ceiling for serialized span attribute values. */
 export const SPAN_ATTRIBUTE_MAX_CHARS = 40_000;
+/** Smallest ceiling accepted, so the system and question openings still fit. */
+const SPAN_ATTRIBUTE_MIN_CHARS = 10_000;
+
+/**
+ * The ceiling in force: `NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS` when it is a
+ * positive whole number (raised to the minimum if lower), otherwise the
+ * default. Read on every call, so a change applies to the next span.
+ */
+export function spanAttributeMaxChars(): number {
+  const configured = Number(
+    process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS?.trim(),
+  );
+  if (!Number.isSafeInteger(configured) || configured <= 0) {
+    return SPAN_ATTRIBUTE_MAX_CHARS;
+  }
+  return Math.max(SPAN_ATTRIBUTE_MIN_CHARS, configured);
+}
 
 /** Opening of the system prompt a model-request attribute always keeps. */
 const SYSTEM_PROMPT_FLOOR_CHARS = 2_000;
+/** Room the current question always gets in a model-request attribute. */
+const QUESTION_FLOOR_CHARS = 4_000;
 /** Room for the "...[truncated N chars]" note, kept outside that opening. */
 const TRUNCATION_NOTE_ALLOWANCE_CHARS = 48;
 const MIN_SHRINKABLE_STRING_CHARS = 64;
@@ -330,7 +349,7 @@ function shrinkLongestString(root: object, excess: number): boolean {
  */
 export function spanContentAttribute(
   value: unknown,
-  maxChars: number = SPAN_ATTRIBUTE_MAX_CHARS,
+  maxChars: number = spanAttributeMaxChars(),
 ): string {
   const redacted = redactSafely(value);
   if (redacted === null || typeof redacted !== "object") {
@@ -363,7 +382,7 @@ export function spanContentAttribute(
  */
 export function spanJsonAttribute(
   value: unknown,
-  maxChars: number = SPAN_ATTRIBUTE_MAX_CHARS,
+  maxChars: number = spanAttributeMaxChars(),
 ): string {
   let serialized: string;
   try {
@@ -382,19 +401,90 @@ export function spanJsonAttribute(
   return serialized;
 }
 
+/** The content blocks of an Anthropic-shaped message; none for plain text. */
+function messageBlocks(message: unknown): unknown[] {
+  if (message === null || typeof message !== "object") {
+    return [];
+  }
+  return "content" in message && Array.isArray(message.content)
+    ? message.content
+    : [];
+}
+
+/** One field of a content block, or undefined when the block lacks it. */
+function blockField(block: unknown, field: string): unknown {
+  return block !== null && typeof block === "object" && field in block
+    ? Reflect.get(block, field)
+    : undefined;
+}
+
+/** Whether a message is the user's, as opposed to the assistant's. */
+function isUserMessage(message: unknown): message is { role: "user" } {
+  return (
+    message !== null &&
+    typeof message === "object" &&
+    "role" in message &&
+    message.role === "user"
+  );
+}
+
+/** A user message that says something, not one that only returns tool results. */
+function isUserQuestion(message: unknown): boolean {
+  if (!isUserMessage(message)) {
+    return false;
+  }
+  return (
+    ("content" in message && typeof message.content === "string") ||
+    messageBlocks(message).some((block) => blockField(block, "type") === "text")
+  );
+}
+
+/**
+ * Removes every tool result whose call is not among `messages`, including one
+ * that shares a message with text, and drops messages left with nothing.
+ */
+function withoutUnansweredResults(messages: unknown[]): unknown[] {
+  const calls = new Set(
+    messages
+      .flatMap(messageBlocks)
+      .filter((block) => blockField(block, "type") === "tool_use")
+      .map((block) => blockField(block, "id")),
+  );
+  return messages.flatMap((message) => {
+    const blocks = messageBlocks(message);
+    const answered = blocks.filter(
+      (block) =>
+        blockField(block, "type") !== "tool_result" ||
+        calls.has(blockField(block, "tool_use_id")),
+    );
+    if (answered.length === blocks.length) {
+      return [message];
+    }
+    if (
+      answered.length === 0 ||
+      message === null ||
+      typeof message !== "object"
+    ) {
+      return [];
+    }
+    return [{ ...message, content: answered }];
+  });
+}
+
 /**
  * Serialize a model request for a span attribute without losing the
  * conversation to the cap.
  *
  * A head cut keeps the system prompt and drops everything after it, so a long
  * system prompt hides every message, the user's question included. Here the
- * prompt and the newest messages are budgeted first, older messages are
- * dropped whole and counted, and the system prompt gets whatever room is left.
- * The result is always valid JSON.
+ * prompt, the current question and this turn's newest messages are budgeted
+ * first, earlier messages are dropped whole and counted, and the system prompt
+ * gets whatever room is left. A tool result is never kept without the call it
+ * answers. The result is always valid JSON.
  */
 export function spanModelRequestAttribute(
   rawRequest: SpanModelRequest,
-  maxChars: number = SPAN_ATTRIBUTE_MAX_CHARS,
+  maxChars: number = spanAttributeMaxChars(),
 ): string {
   // Credentials are masked before anything is measured, so budgets apply to
   // what is actually written. Each message is masked on its own: one that
@@ -467,21 +557,92 @@ export function spanModelRequestAttribute(
     remaining -= jsonLength(prompt);
   }
 
+  // Shortens a copy of the message's longest strings; the shape survives.
+  const fitMessage = (message: unknown, budget: number): unknown => {
+    if (jsonLength(message) <= budget) {
+      return message;
+    }
+    let copy: unknown;
+    try {
+      copy = JSON.parse(serialize(message));
+    } catch {
+      copy = undefined;
+    }
+    if (copy !== null && typeof copy === "object") {
+      for (
+        let attempt = 0;
+        jsonLength(copy) > budget && attempt < MAX_SHRINK_ATTEMPTS;
+        attempt++
+      ) {
+        if (!shrinkLongestString(copy, jsonLength(copy) - budget)) {
+          break;
+        }
+      }
+      if (jsonLength(copy) <= budget) {
+        return copy;
+      }
+    }
+    return {
+      truncatedMessage: fitText(serialize(message), Math.max(0, budget - 32)),
+    };
+  };
+
   const messages = request.messages ?? [];
-  const kept: unknown[] = [];
+  // The current question is the newest user message with something to say;
+  // everything after it is this turn's tool calls and their results.
+  let questionIndex = -1;
   for (let index = messages.length - 1; index >= 0; index--) {
+    if (isUserQuestion(messages[index])) {
+      questionIndex = index;
+      break;
+    }
+  }
+  const questionFloor =
+    questionIndex >= 0
+      ? Math.min(
+          jsonLength(messages[questionIndex]) + 1,
+          QUESTION_FLOOR_CHARS + TRUNCATION_NOTE_ALLOWANCE_CHARS,
+        )
+      : 0;
+  remaining -= questionFloor;
+
+  const turn: unknown[] = [];
+  let turnComplete = true;
+  for (let index = messages.length - 1; index > questionIndex; index--) {
     const size = jsonLength(messages[index]) + 1;
     if (size <= remaining) {
-      kept.unshift(messages[index]);
+      turn.unshift(messages[index]);
       remaining -= size;
       continue;
     }
-    if (kept.length === 0 && remaining > 64) {
+    turnComplete = false;
+    if (turn.length === 0 && remaining > 64) {
       const excerpt = fitText(serialize(messages[index]), remaining - 32);
-      kept.unshift({ truncatedMessage: excerpt });
+      turn.unshift({ truncatedMessage: excerpt });
       remaining -= jsonLength(excerpt) + 32;
     }
     break;
+  }
+  remaining += questionFloor;
+
+  let kept: unknown[] = [];
+  if (questionIndex >= 0) {
+    const question = fitMessage(messages[questionIndex], remaining - 1);
+    remaining -= jsonLength(question) + 1;
+    const history: unknown[] = [];
+    for (let index = questionIndex - 1; turnComplete && index >= 0; index--) {
+      const size = jsonLength(messages[index]) + 1;
+      if (size > remaining) {
+        break;
+      }
+      history.unshift(messages[index]);
+      remaining -= size;
+    }
+    kept.push(...history, question);
+  }
+  kept.push(...turn);
+  if (kept.length < messages.length) {
+    kept = withoutUnansweredResults(kept);
   }
   const omittedMessages = messages.length - kept.length;
   remaining += systemFloor;

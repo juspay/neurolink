@@ -33,6 +33,7 @@ import { defineSuite, assert } from "./helpers/harness.js";
 import {
   redactSpanContent,
   spanContentAttribute,
+  spanAttributeMaxChars,
   spanJsonAttribute,
   spanModelRequestAttribute,
 } from "../src/lib/telemetry/attributes.js";
@@ -262,6 +263,275 @@ void runSuite(async () => {
     assert(
       (parsed.system ?? "").includes("[truncated"),
       "the system prompt does not say it was shortened",
+    );
+  });
+
+  const toolRoundTrips = (count: number, resultChars: number): unknown[] =>
+    Array.from({ length: count }, (_, step) => [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: `call_${step}`,
+            name: "lookup",
+            input: { step },
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: `call_${step}`,
+            content: `R${step}:${"r".repeat(resultChars)}`,
+          },
+        ],
+      },
+    ]).flat();
+  type TrimmedRequest = {
+    messages?: Array<{ role?: string; content?: unknown }>;
+    omittedMessages?: number;
+  };
+  const blocksOf = (message: {
+    content?: unknown;
+  }): Array<Record<string, unknown>> =>
+    Array.isArray(message.content) ? message.content : [];
+
+  await test("a turn over the cap keeps the question and never orphans a tool result", async () => {
+    const body = spanModelRequestAttribute({
+      system: "S".repeat(11_000),
+      messages: [
+        { role: "user", content: "EARLIER-QUESTION" },
+        { role: "assistant", content: "EARLIER-ANSWER" },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "CURRENT-QUESTION how many orders?" },
+          ],
+        },
+        ...toolRoundTrips(30, 2_000),
+      ],
+    });
+    const parsed: TrimmedRequest = JSON.parse(body);
+    const kept = parsed.messages ?? [];
+    assert(body.length <= 40_000, `the attribute is ${body.length} characters`);
+    assert(
+      (parsed.omittedMessages ?? 0) > 0,
+      "the request should have been over the cap",
+    );
+    assert(
+      body.includes("CURRENT-QUESTION"),
+      "the current question was dropped from an over-cap request",
+    );
+    assert(body.includes("R29:"), "the newest tool result was dropped");
+    const keptCalls = new Set(
+      kept.flatMap((message) =>
+        blocksOf(message)
+          .filter((block) => block.type === "tool_use")
+          .map((block) => block.id),
+      ),
+    );
+    const orphans = kept.flatMap((message) =>
+      blocksOf(message)
+        .filter(
+          (block) =>
+            block.type === "tool_result" && !keptCalls.has(block.tool_use_id),
+        )
+        .map((block) => block.tool_use_id),
+    );
+    assert(
+      orphans.length === 0,
+      `tool results kept without their calls: ${orphans.join(", ")}`,
+    );
+    assert(
+      !body.includes("EARLIER-QUESTION"),
+      "earlier turns must give way before this turn's tool calls",
+    );
+  });
+
+  await test("a call too large to keep takes its result with it", async () => {
+    const body = spanModelRequestAttribute({
+      messages: [
+        { role: "user", content: "QUESTION" },
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "call_big",
+              name: "lookup",
+              input: { payload: "p".repeat(50_000) },
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "call_big",
+              content: "BIG-RESULT",
+            },
+          ],
+        },
+        ...toolRoundTrips(3, 100),
+      ],
+    });
+    assert(body.length <= 40_000, `the attribute is ${body.length} characters`);
+    assert(
+      !body.includes("BIG-RESULT"),
+      "a tool result was kept after the call it answers was dropped",
+    );
+    assert(
+      body.includes("QUESTION") && body.includes("R2:"),
+      "the question and the newest round trip must survive",
+    );
+  });
+
+  await test("a question sharing a message with a tool result keeps only the question", async () => {
+    const body = spanModelRequestAttribute({
+      messages: [
+        { role: "user", content: "EARLIER" },
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "call_big",
+              name: "lookup",
+              input: { payload: "p".repeat(50_000) },
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "call_big",
+              content: "MIXED-RESULT",
+            },
+            { type: "text", text: "FOLLOW-UP-QUESTION" },
+          ],
+        },
+        ...toolRoundTrips(3, 100),
+      ],
+    });
+    assert(body.length <= 40_000, `the attribute is ${body.length} characters`);
+    assert(
+      body.includes("FOLLOW-UP-QUESTION") && body.includes("R2:"),
+      "the question and the newest round trip must survive",
+    );
+    assert(
+      !body.includes("MIXED-RESULT"),
+      "a tool result inside the question was kept after its call was dropped",
+    );
+  });
+
+  await test("a question larger than its floor is shortened, not dropped", async () => {
+    const body = spanModelRequestAttribute({
+      messages: [
+        { role: "user", content: `QUESTION-HEAD ${"q".repeat(60_000)}` },
+        ...toolRoundTrips(10, 4_000),
+      ],
+    });
+    const parsed: TrimmedRequest = JSON.parse(body);
+    const first = (parsed.messages ?? [])[0];
+    assert(body.length <= 40_000, `the attribute is ${body.length} characters`);
+    assert(
+      first?.role === "user" &&
+        typeof first.content === "string" &&
+        first.content.startsWith("QUESTION-HEAD") &&
+        first.content.includes("[truncated"),
+      "the question must keep its role, its opening and a truncation note",
+    );
+  });
+
+  await test("a request under the cap is written exactly as given", async () => {
+    const request = {
+      system: "You are helpful.",
+      messages: [
+        { role: "user", content: "first" },
+        { role: "assistant", content: "reply" },
+        { role: "user", content: [{ type: "text", text: "second" }] },
+        ...toolRoundTrips(3, 50),
+      ],
+    };
+    assert(
+      spanModelRequestAttribute(request) === JSON.stringify(request),
+      "a request that fits must serialize unchanged",
+    );
+  });
+
+  const withCapSetting = <T>(value: string | undefined, run: () => T): T => {
+    const previous = process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS;
+    if (value === undefined) {
+      delete process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS;
+    } else {
+      process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS = value;
+    }
+    try {
+      return run();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS;
+      } else {
+        process.env.NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS = previous;
+      }
+    }
+  };
+
+  await test("NEUROLINK_SPAN_ATTRIBUTE_MAX_CHARS raises the cap for every span payload", async () => {
+    const toolResult = { rows: "v".repeat(100_000) };
+    const conversation = {
+      messages: [
+        { role: "user", content: "QUESTION" },
+        ...toolRoundTrips(20, 5_000),
+      ],
+    };
+    const capped = withCapSetting(undefined, () => ({
+      result: spanContentAttribute(toolResult),
+      request: spanModelRequestAttribute(conversation),
+    }));
+    assert(
+      capped.result.length <= 40_000 && capped.request.length <= 40_000,
+      "without the setting the default cap must still apply",
+    );
+    const raised = withCapSetting(" 500000 ", () => ({
+      result: spanContentAttribute(toolResult),
+      request: spanModelRequestAttribute(conversation),
+    }));
+    assert(
+      raised.result === JSON.stringify(toolResult),
+      "a raised cap must keep a 100,000-character tool result whole",
+    );
+    assert(
+      raised.request === JSON.stringify(conversation),
+      "a raised cap must keep the whole conversation",
+    );
+  });
+
+  await test("an unusable cap setting falls back to the default or the minimum", async () => {
+    for (const unusable of ["", "abc", "-5", "0", "1.5", "Infinity"]) {
+      const cap = withCapSetting(unusable, spanAttributeMaxChars);
+      assert(cap === 40_000, `"${unusable}" gave a cap of ${cap}`);
+    }
+    const tooSmall = withCapSetting("500", spanAttributeMaxChars);
+    assert(tooSmall === 10_000, `a cap of 500 became ${tooSmall}`);
+    const body = withCapSetting("500", () =>
+      spanModelRequestAttribute({
+        system: "S".repeat(20_000),
+        messages: [
+          { role: "user", content: "QUESTION" },
+          ...toolRoundTrips(10, 2_000),
+        ],
+      }),
+    );
+    assert(
+      body.length <= 10_000 && body.includes("QUESTION"),
+      "at the minimum cap the request must fit and keep the question",
     );
   });
 });

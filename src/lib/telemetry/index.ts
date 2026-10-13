@@ -14,6 +14,7 @@ export {
   LANGFUSE_ATTR,
   SPAN_ATTRIBUTE_MAX_CHARS,
   redactSpanContent,
+  spanAttributeMaxChars,
   spanContentAttribute,
   spanJsonAttribute,
   spanModelRequestAttribute,
