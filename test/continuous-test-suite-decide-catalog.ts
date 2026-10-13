@@ -250,7 +250,7 @@ await runSuite(async () => {
       ...over,
     },
   ];
-  // order 90 stays clear of the hand-written decideOrder rows (1 to 5).
+  // order 90 stays clear of the hand-written decideOrder rows (1 to 6).
   const decideFile = (
     id: string,
     order: number,
@@ -1004,11 +1004,18 @@ await runSuite(async () => {
     const { DECISION_PROVIDERS } = await loadDescriptors();
     deepStrictEqual(
       DECISION_PROVIDERS.map((d) => d.name),
-      ["typesafe", "laya", "xor", "perplexity-decider", "cloudflare-clef"],
+      [
+        "typesafe",
+        "laya",
+        "xor",
+        "subq",
+        "perplexity-decider",
+        "cloudflare-clef",
+      ],
     );
     deepStrictEqual(
       DECISION_PROVIDERS.map((d) => d.decideOrder),
-      [1, 2, 3, 4, 5],
+      [1, 2, 3, 4, 5, 6],
     );
   });
 
@@ -1149,6 +1156,7 @@ await runSuite(async () => {
         "typesafe",
         "laya",
         "xor",
+        "subq",
         "perplexity-decider",
         "cloudflare-clef",
       ],

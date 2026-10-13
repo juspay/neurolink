@@ -17,8 +17,9 @@ returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
 of prose. The decide providers are TypeSafe's **Jev**, Convai Innovations'
 open-weights **Laya**, Juspay's open-weights **XOR**, which also reads images and
-video, Perplexity's hosted **Decisions** API, which also reads images, and
-Cloudflare's **Clef** models on Workers AI, which also read images.
+video, Subquadratic's hosted **SubQ Snap**, Perplexity's hosted **Decisions**
+API, which also reads images, and Cloudflare's **Clef** models on Workers AI,
+which also read images.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -111,11 +112,32 @@ provider, exactly as the environment does. On a LiteLLM proxy the key's team
 must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
 
 Built-in features use the first configured decision provider in the order
-TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef. XOR counts as configured only with both its key
+TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef. XOR counts as configured only with both its key
 and its base URL, and runs where a caller names it (`provider: "xor"`) or when
 neither TypeSafe nor Laya is configured. It reads images and video; see
 [Images and video](#images-and-video) and the
 [XOR provider guide](../getting-started/providers/xor.md).
+
+### SubQ, at its hosted endpoint
+
+```bash
+export SUBQ_API_KEY=...                        # required; from console.subq.ai, which shows it once
+export SUBQ_MODEL=subq-snap-preview            # optional; the only model on the Decisions endpoint
+export SUBQ_BASE_URL=https://api.subq.ai       # optional; an origin, without /v1
+```
+
+Subquadratic's `subq-snap-preview` (public preview) speaks the same System One
+wire as TypeSafe, at a public endpoint, so a key alone configures it and there
+is no base URL to set. The key and base URL can equally come from the config
+passed to the SDK, `new NeuroLink({ credentials: { subq: { apiKey, baseURL } } })`,
+or per call. The provider id is `subq`; `subquadratic` and `subq-snap` name it
+too. It comes after TypeSafe, Laya and XOR and ahead of Perplexity and Cloudflare
+Clef: its key belongs to no other provider, so it is set on purpose, whereas
+theirs are shared with text providers and must not displace it. NeuroLink sends it no images or video: SubQ's image format is not
+one the decide catalog can describe yet, so an image attached to a call is
+refused before any request. The state window NeuroLink reports for it is advisory
+(reported, never enforced, not a guarantee); see the
+[SubQ provider guide](../getting-started/providers/subq.md#limits).
 
 ### Perplexity, at its hosted endpoint
 
@@ -131,23 +153,23 @@ alone configures it and there is no base URL to set. NeuroLink calls
 can equally come from the config passed to the SDK,
 `new NeuroLink({ credentials: { perplexityDecider: { apiKey } } })`, or per call;
 config set there counts when a `decide()` call picks the default decision
-provider, exactly as the environment does. The classifier router's `auto` gate is
-read differently: it looks at the constructor's credentials and the environment
-only, so a `credentials.perplexityDecider` passed on one call does not influence
-it. The provider id is `perplexity-decider`: the `perplexity` provider is the
+provider, exactly as the environment does. The classifier router's `auto` gate
+counts them too, per-call credentials included, so a
+`credentials.perplexityDecider` passed on one call can make `auto` pick `jev`.
+The provider id is `perplexity-decider`: the `perplexity` provider is the
 Sonar text provider, which serves `generate()` and `stream()` and not `decide()`.
 
 **`PERPLEXITY_API_KEY` is shared with that text provider.** A host that set it
 only to use Sonar has therefore also configured `decide`, and built-in features
-will use Perplexity whenever none of TypeSafe, Laya or XOR is configured.
-Perplexity comes after XOR in descriptor order, so it never displaces one that
-is. Context compaction's relevance stage and summary gate need no opt-in of their
+will use Perplexity whenever none of TypeSafe, Laya, XOR or SubQ is configured.
+Perplexity comes after XOR and SubQ in descriptor order, so it never displaces
+one that is. Context compaction's relevance stage and summary gate need no opt-in of their
 own, so earlier conversation text starts going to Perplexity the first time a
 conversation outgrows its budget; model routing, tool routing and RAG planning do
 nothing unless enabled. To keep the shared key from activating decisions, pass
 the text provider's key as `credentials.perplexity` instead of through the
 environment, and keep it out of `.env` too, because the SDK and the CLI load that
-file into the environment, or configure one of TypeSafe, Laya and XOR, which then
+file into the environment, or configure one of TypeSafe, Laya, XOR and SubQ, which then
 receives those texts instead. The Perplexity provider guide lists
 [what each consumer sends](../getting-started/providers/perplexity-decider.md#what-is-sent-to-perplexity)
 and the
@@ -170,10 +192,9 @@ equally come from the config passed to the SDK,
 `new NeuroLink({ credentials: { cloudflareClef: { apiKey, accountId } } })`
 (`baseURL` is optional), or per call; config set there counts when a `decide()`
 call picks the default decision provider, exactly as the environment does. The
-classifier router's `auto` gate is read differently: it looks at the
-constructor's credentials and the environment only, so a
-`credentials.cloudflareClef` passed on one call does not influence it. The
-provider id is `cloudflare-clef`: the `cloudflare` provider is the Workers AI text
+classifier router's `auto` gate counts them too, per-call credentials included,
+so a `credentials.cloudflareClef` passed on one call can make `auto` pick `jev`.
+The provider id is `cloudflare-clef`: the `cloudflare` provider is the Workers AI text
 provider, which serves `generate()` and `stream()` and not `decide()`, and
 `credentials.cloudflare` does not configure `decide`.
 
@@ -190,8 +211,8 @@ adds 250 ms per 1,000 estimated tokens.
 **`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` are shared with that text
 provider.** A host that set them only to use Workers AI text has therefore also
 configured `decide`, and built-in features will use Clef whenever none of
-TypeSafe, Laya, XOR or Perplexity is configured. Clef comes last in the order, so
-it never displaces one that is. No switch turns it off while the two variables
+TypeSafe, Laya, XOR, SubQ or Perplexity is configured. Clef comes after
+TypeSafe, Laya, XOR, SubQ and Perplexity, so it never displaces one that is. No switch turns it off while the two variables
 are set. The Clef provider guide explains
 [when NeuroLink uses it](../getting-started/providers/cloudflare-clef.md#when-neurolink-uses-it)
 and
@@ -200,7 +221,7 @@ It reads images but no video; see [Images and video](#images-and-video).
 
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider is configured (a key, plus a base URL for
-Laya and XOR, or an account id for Cloudflare Clef), and `tryDecide()` returns
+Laya and XOR, or an account id for Cloudflare Clef; SubQ needs only its key), and `tryDecide()` returns
 `null` on any failure. There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour — it only ever falls back to what it did
@@ -360,7 +381,7 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 
 To ask about an image or a video, add `--image <path>` (repeatable) or
 `--video <path>`. XOR reads both, Perplexity and Cloudflare Clef read images only,
-and TypeSafe and Laya read neither:
+and TypeSafe, Laya and SubQ read neither:
 
 ```bash
 npx @juspay/neurolink decide "A product photo from a listing." --provider xor \
@@ -384,8 +405,8 @@ single request. This is the basis for picking from a large catalogue.
 
 A decision provider whose descriptor declares media limits reads images, and
 possibly one video, alongside `state`. XOR does, and so do Perplexity and
-Cloudflare Clef, which declare images only and no video; TypeSafe and Laya do
-not. Two optional fields on the request carry them, for `decide()` and
+Cloudflare Clef, which declare images only and no video; TypeSafe, Laya and SubQ
+do not. Two optional fields on the request carry them, for `decide()` and
 `tryDecide()` alike:
 
 - `images` — up to 8 images, the limit XOR and Perplexity each declare; Cloudflare
@@ -882,12 +903,12 @@ and 1.3 s on `clef` (1.5 s and 2.3 s on 2026-10-04); its default timeout is 5 s,
 routing that is the prompt text; for compaction and tool routing it is earlier
 conversation text. With no decision provider configured, nothing is transmitted.
 A `PERPLEXITY_API_KEY` set for the Perplexity text provider counts as a decision
-provider's key, so with it set and none of TypeSafe, Laya or XOR configured, the
+provider's key, so with it set and none of TypeSafe, Laya, XOR or SubQ configured, the
 state of a decision goes to Perplexity. The provider guide lists
 [what each consumer sends](../getting-started/providers/perplexity-decider.md#what-is-sent-to-perplexity).
 Likewise `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, set for the Workers AI
 text provider, counts as a decision provider's credentials: with them set and none
-of TypeSafe, Laya, XOR or Perplexity configured, the state of a decision goes to
+of TypeSafe, Laya, XOR, SubQ or Perplexity configured, the state of a decision goes to
 Cloudflare.
 
 **Cost**: TypeSafe, $0.042 per million input tokens, output free. Perplexity,

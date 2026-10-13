@@ -1322,6 +1322,20 @@ counts as unset.
 
 ---
 
+### subq?
+
+> `optional` **subq?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### synthetic?
 
 > `optional` **synthetic?**: `object`

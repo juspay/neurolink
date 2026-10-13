@@ -456,7 +456,7 @@ Access multiple providers through unified interfaces:
 
 The providers that serve `decide` rather than `generate`/`stream`:
 [TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md),
-[Perplexity](perplexity-decider.md) and [Cloudflare Clef](cloudflare-clef.md). Each returns typed `boolean`/`choice`/`score`
+[SubQ](subq.md), [Perplexity](perplexity-decider.md) and [Cloudflare Clef](cloudflare-clef.md). Each returns typed `boolean`/`choice`/`score`
 answers and emits no text, so none appears in generation fallback chains or the
 health sweep.
 
@@ -498,12 +498,24 @@ health sweep.
 
 [Setup Guide →](xor.md)
 
+### [SubQ](subq.md)
+
+**Hosted decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from Subquadratic's `subq-snap-preview` (public preview), at `https://api.subq.ai`
+
+- 🧭 Serves `decide` only (provider id `subq`; the aliases `subquadratic` and `subq-snap` work too); built-in features use it when it is configured and none of TypeSafe, Laya or XOR is — it comes ahead of Perplexity and Cloudflare Clef, because its key is shared with no other provider
+- 🔑 `SUBQ_API_KEY` alone configures it (keys come from console.subq.ai, shown once); `SUBQ_MODEL` is optional
+- 🖼️ No image or video input yet: SubQ's image format is not one the decide catalog can describe, so images are refused before any request
+- 📏 NeuroLink reports an advisory state window (376,000 estimated tokens; SubQ's own 400 response states a maximum model length of 393,216) and enforces none; no question cap is declared
+- 🔌 Hosted endpoint, so no base URL is needed; `SUBQ_BASE_URL` (or `credentials.subq.baseURL`) can name another origin
+
+[Setup Guide →](subq.md)
+
 ### [Perplexity Decisions](perplexity-decider.md)
 
 **Hosted decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from Perplexity's `pplx-decider-v1-27b`, at `https://api.perplexity.ai`
 
-- 🧭 Serves `decide` only (provider id `perplexity-decider`, not the Sonar text provider `perplexity`); built-in features use it when it is configured and no TypeSafe key, no `AI_GATEWAY_API_KEY`, no Laya key and base URL and no XOR key and base URL is
-- 🔑 `PERPLEXITY_API_KEY` alone configures it, and it is the same key the Perplexity text provider reads, so a key set for Sonar also lets built-in features use it when none of TypeSafe, Laya or XOR is configured; the guide lists what each consumer then sends
+- 🧭 Serves `decide` only (provider id `perplexity-decider`, not the Sonar text provider `perplexity`); built-in features use it when it is configured and no TypeSafe key, no `AI_GATEWAY_API_KEY`, no Laya key and base URL, no XOR key and base URL and no `SUBQ_API_KEY` is
+- 🔑 `PERPLEXITY_API_KEY` alone configures it, and it is the same key the Perplexity text provider reads, so a key set for Sonar also lets built-in features use it when none of TypeSafe, Laya, XOR or SubQ is configured; the guide lists what each consumer then sends
 - 🖼️ Takes up to 8 PNG, JPEG or WebP images with a decision; no video
 - 💰 $0.04 per million input tokens (image tokens included), output free, as Perplexity documents it
 - 📏 Refuses more than about 100,000 estimated tokens of state (NeuroLink's own window; the server's ceiling is 262,144 input tokens), or more than 128 questions in a `decide()` call (`tryDecide()` splits them), before any network call. The 128-question cap, the server's token ceiling and the latency were measured on a real account in October 2026
@@ -515,7 +527,7 @@ health sweep.
 
 **Hosted decision provider on Workers AI** — the same typed `boolean`/`choice`/`score` answers as Jev, from Cloudflare's `clef` (27B) and `clef-flash` (9B), at `https://api.cloudflare.com/client/v4`
 
-- 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR or Perplexity is — it comes last
+- 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ or Perplexity is — it comes last
 - 🔑 `CLOUDFLARE_API_KEY` (Workers AI permission) and `CLOUDFLARE_ACCOUNT_ID` configure it, and they are the same two variables the Cloudflare text provider reads, so a pair set for that provider also lets built-in features use it when no other decision provider is configured
 - 🖼️ Takes up to 4 PNG, JPEG or WebP images with a decision; no video
 - 💰 $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed on Cloudflare's pricing page

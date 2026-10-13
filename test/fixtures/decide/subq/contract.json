@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "id": "subq",
+  "success": {
+    "headers": {},
+    "body": {
+      "model": "subq-snap-preview",
+      "answers": {
+        "escalate": {
+          "type": "noul",
+          "noul": 0.9503210186958313
+        },
+        "queue": {
+          "type": "choice",
+          "choice": "nurse_line",
+          "probabilities": {
+            "nurse_line": 0.9565181732177734,
+            "primary_care": 0.026082415133714676,
+            "pharmacy": 0.006210224702954292,
+            "front_desk": 0.01118919812142849
+          },
+          "confidence": 0.9420242309570312
+        }
+      },
+      "usage": {
+        "input_tokens": 209,
+        "output_tokens": 0
+      }
+    },
+    "expected": {
+      "model": "subq-snap-preview",
+      "inputTokens": 209,
+      "answers": {
+        "escalate": {
+          "type": "boolean",
+          "probability": 0.9503210186958313
+        },
+        "queue": {
+          "type": "choice",
+          "choice": "nurse_line",
+          "probabilities": {
+            "nurse_line": 0.9565181732177734,
+            "primary_care": 0.026082415133714676,
+            "pharmacy": 0.006210224702954292,
+            "front_desk": 0.01118919812142849
+          },
+          "confidence": 0.9420242309570312
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "label": "bad key",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "detail": {
+          "error_type": "authentication_error",
+          "message": "The API key is not valid"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["The API key is not valid"]
+      }
+    },
+    {
+      "label": "key echoed in the message",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "detail": {
+          "error_type": "authentication_error",
+          "message": "Invalid API key {apiKey} for this request"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["Invalid API key"],
+        "messageExcludes": ["{apiKey}"]
+      }
+    },
+    {
+      "label": "no credits",
+      "provenance": "stand-in",
+      "status": 402,
+      "body": {
+        "detail": {
+          "error_type": "insufficient_credits",
+          "message": "The account has no credits left"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["no credits left"]
+      }
+    },
+    {
+      "label": "key cannot use the model",
+      "provenance": "stand-in",
+      "status": 403,
+      "body": {
+        "detail": {
+          "error_type": "permission_denied",
+          "message": "This key cannot use the requested model"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["cannot use the requested model"]
+      }
+    },
+    {
+      "label": "invalid request",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "detail": {
+          "error_type": "invalid_request",
+          "message": "A choice question needs at least 2 options"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["needs at least 2 options"]
+      }
+    },
+    {
+      "label": "rate limited",
+      "provenance": "stand-in",
+      "status": 429,
+      "body": {
+        "detail": {
+          "error_type": "rate_limit_exceeded",
+          "message": "Too many requests"
+        }
+      },
+      "expect": {
+        "kind": "rate_limit",
+        "retryable": true,
+        "messageIncludes": ["Too many requests"]
+      }
+    },
+    {
+      "label": "unavailable",
+      "provenance": "stand-in",
+      "status": 503,
+      "body": {
+        "detail": {
+          "error_type": "service_unavailable",
+          "message": "The service is unavailable"
+        }
+      },
+      "expect": {
+        "kind": "overloaded",
+        "retryable": true,
+        "messageIncludes": ["The service is unavailable"]
+      }
+    },
+    {
+      "label": "server error",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "detail": {
+          "error_type": "internal_error",
+          "message": "Something went wrong on the server"
+        }
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["went wrong on the server"]
+      }
+    },
+    {
+      "label": "bad gateway with a plain string detail",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": {
+        "detail": "Bad gateway"
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["Bad gateway"]
+      }
+    },
+    {
+      "label": "client closed request",
+      "provenance": "stand-in",
+      "status": 499,
+      "body": {
+        "detail": {
+          "error_type": "client_closed_request",
+          "message": "The client closed the request"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["client closed the request"]
+      }
+    },
+    {
+      "label": "bad request with a plain string detail",
+      "provenance": "stand-in",
+      "status": 400,
+      "body": {
+        "detail": "The request body is not valid JSON"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["The request body is not valid JSON"]
+      }
+    },
+    {
+      "label": "prompt longer than the maximum model length",
+      "provenance": "seen-live",
+      "status": 400,
+      "body": {
+        "detail": {
+          "error_type": "validation_error",
+          "message": "The decoder prompt (length 399795) is longer than the maximum model length of 393216. Make sure that `max_model_len` is no smaller than the number of text token"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["longer than the maximum model length of 393216"]
+      }
+    },
+    {
+      "label": "detail object without a message",
+      "provenance": "stand-in",
+      "status": 409,
+      "body": {
+        "detail": {
+          "error_type": "conflict"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["SubQ request failed with HTTP 409"],
+        "messageExcludes": ["conflict"]
+      }
+    }
+  ]
+}

@@ -43,7 +43,7 @@ so a key alone configures it: there is no base URL to set.
 | NeuroLink's state window | 100,000 estimated tokens: a deliberate local limit, not the server's                                              |
 | Cost                     | $0.04 per million input tokens (image tokens included); output tokens are free. Perplexity's documented price     |
 | Default timeout          | 10 seconds plus 100 ms for each question (10.1 s for one, 22.8 s for 128); `timeoutMs` or `--timeout` replaces it |
-| Precedence               | used automatically when TypeSafe, Laya and XOR are not configured                                                 |
+| Precedence               | used automatically when TypeSafe, Laya, XOR and SubQ are not configured                                           |
 
 Each limit, token rate and latency in this guide is either **measured on a real
 account in October 2026** or taken from Perplexity's documentation, and says
@@ -287,34 +287,35 @@ length (…)` above when images are in the request, and NeuroLink reports both a
 
 Every built-in consumer of `decide` asks for the default decision provider. That
 is the first one that is configured, in the environment or in the `credentials`
-passed to the SDK, in the order TypeSafe, Laya, XOR, Perplexity, then
-[Cloudflare Clef](cloudflare-clef.md). TypeSafe counts
+passed to the SDK, in the order TypeSafe, Laya, XOR, [SubQ](subq.md),
+Perplexity, then [Cloudflare Clef](cloudflare-clef.md). TypeSafe counts
 with either of its keys, `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR
-each count only with both their key and their base URL. Perplexity counts with
-its key alone, a non-blank `PERPLEXITY_API_KEY` or
-`credentials.perplexityDecider.apiKey`. Cloudflare Clef counts only with both
-`CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`. A caller can always name
-Perplexity with `provider: "perplexity-decider"`. So:
+each count only with both their key and their base URL. SubQ counts with its key
+alone, `SUBQ_API_KEY`. Perplexity counts with its key alone, a non-blank
+`PERPLEXITY_API_KEY` or `credentials.perplexityDecider.apiKey`. Cloudflare Clef
+counts only with both `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`. A caller
+can always name Perplexity with `provider: "perplexity-decider"`. So:
 
 - **Only a Perplexity key:** built-in features use Perplexity.
 - **A Perplexity key, plus TypeSafe's key, or Laya's or XOR's key and base
-  URL:** built-in features use TypeSafe, Laya or XOR, in that order, whichever
-  is configured. Perplexity runs only where a caller asks for
-  `provider: "perplexity-decider"`.
+  URL, or `SUBQ_API_KEY`:** built-in features use TypeSafe, Laya, XOR or SubQ,
+  in that order, whichever is configured. Perplexity runs only where a caller
+  asks for `provider: "perplexity-decider"`.
 - **A Perplexity key, plus `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`:**
   built-in features use Perplexity; Cloudflare Clef runs only where a caller
   asks for `provider: "cloudflare-clef"`.
 - **A key for the text provider only:** the same as the first case. The key is
   shared, so the text provider's key also configures this one. See
   [One key, two providers](#one-key-two-providers).
-- **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef configured:**
-  everything behaves exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef
+  configured:** everything behaves exactly as it did without a decision model.
 
-The classifier router's `auto` gate reads the credentials given to the
-`NeuroLink` constructor and the environment, not credentials passed on a single
-call, so a per-call `credentials.perplexityDecider` does not influence it. The
-other consumers NeuroLink wires itself (compaction and tool routing) call
-`tryDecide` without credentials too.
+The classifier router's `auto` gate counts the credentials given to the
+`NeuroLink` constructor, the environment and the request's own per-call
+credentials, so a per-call `credentials.perplexityDecider` can make `auto` pick
+`jev`. The other consumers NeuroLink wires itself (compaction and tool routing)
+send the surrounding request's credentials too, so they go to the caller's
+account.
 
 Where the built-in consumers use the default provider (what each one sends is
 listed in [What is sent to Perplexity](#what-is-sent-to-perplexity)):
@@ -428,13 +429,13 @@ provider sends, and one Perplexity asks integrations to send on its own host. A
 needs to be set, so a host that set the key only to use Sonar has also
 configured `decide`:
 
-- **With none of TypeSafe, Laya or XOR configured, the texts listed in
+- **With none of TypeSafe, Laya, XOR or SubQ configured, the texts listed in
   [What is sent to Perplexity](#what-is-sent-to-perplexity) go to Perplexity's
   Decisions API.** Context compaction needs no other opt-in, so a host with long
   conversations starts sending conversation text the first time one outgrows its
   budget. Model routing, tool routing and RAG planning do so only where you have
   turned them on. No code changes: the key is the switch.
-- **It is fail-open, and TypeSafe, Laya and XOR take precedence.** If you have
+- **It is fail-open, and TypeSafe, Laya, XOR and SubQ take precedence.** If you have
   configured any of them, the shared key changes nothing for the built-in
   consumers, and a Perplexity failure leaves behaviour as it was.
 - **With no decision provider configured at all, nothing is sent.**
@@ -468,7 +469,7 @@ these:
    made `decide()` answer. The CLI reads only the environment and the `.env`
    it loads, so a CLI run that has the variable set in either place has
    decisions configured; set it only for the commands that need it.
-2. **Configure TypeSafe, Laya or XOR.** One of them then answers every built-in
+2. **Configure TypeSafe, Laya, XOR or SubQ.** One of them then answers every built-in
    consumer, and Perplexity runs only where a caller names it. The same texts go
    to that provider instead.
 3. **Switch off the opt-in consumers, or pin the router's strategy.**
@@ -740,10 +741,10 @@ to its scheme, host and path.
 - **`rate_limit`** — the account is over its request rate, 10 per second on the
   one measured. NeuroLink retries once after `Retry-After`. Batch every question
   into one request rather than fanning out.
-- **Built-in routing never uses Perplexity** — TypeSafe, Laya or XOR is also
+- **Built-in routing never uses Perplexity** — TypeSafe, Laya, XOR or SubQ is also
   configured and takes precedence, no key is set, or the router's `auto` gate did
-  not see the key: it reads the constructor's credentials and the environment,
-  not per-call credentials.
+  not see the key: it counts the constructor's credentials, the environment and
+  the call's own credentials, so check that the key reaches one of those.
 - **State is being sent to Perplexity and I only set the key for Sonar** — see
   [What is sent to Perplexity](#what-is-sent-to-perplexity) and
   [One key, two providers](#one-key-two-providers). Check the `.env` your process
@@ -758,5 +759,6 @@ to its scheme, host and path.
 - [Laya Provider Guide](laya.md)
 - [XOR Provider Guide](xor.md)
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
+- [SubQ Provider Guide](subq.md)
 - [Perplexity text provider](perplexity.md)
 - [Perplexity Decisions API reference](https://docs.perplexity.ai/api-reference/decisions-post)

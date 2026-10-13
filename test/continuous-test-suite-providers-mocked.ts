@@ -4370,6 +4370,9 @@ async function runLayaDecide(): Promise<void> {
     "PERPLEXITY_API_KEY",
     "PERPLEXITY_DECIDER_BASE_URL",
     "PERPLEXITY_DECIDER_MODEL",
+    "SUBQ_API_KEY",
+    "SUBQ_BASE_URL",
+    "SUBQ_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -5703,6 +5706,9 @@ async function runXorDecide(): Promise<void> {
     "PERPLEXITY_API_KEY",
     "PERPLEXITY_DECIDER_BASE_URL",
     "PERPLEXITY_DECIDER_MODEL",
+    "SUBQ_API_KEY",
+    "SUBQ_BASE_URL",
+    "SUBQ_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -7175,6 +7181,9 @@ const PERPLEXITY_DECISION_ENV = [
   "PERPLEXITY_API_KEY",
   "PERPLEXITY_DECIDER_BASE_URL",
   "PERPLEXITY_DECIDER_MODEL",
+  "SUBQ_API_KEY",
+  "SUBQ_BASE_URL",
+  "SUBQ_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -9941,6 +9950,9 @@ const CLEF_DECISION_ENV = [
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_CLEF_BASE_URL",
   "CLOUDFLARE_CLEF_MODEL",
+  "SUBQ_API_KEY",
+  "SUBQ_BASE_URL",
+  "SUBQ_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -11267,7 +11279,7 @@ async function runClefCredentials(): Promise<void> {
         expectEq(
           resolveDefaultDecisionProvider(),
           "typesafe",
-          "it comes last: TypeSafe, Laya, XOR and Perplexity all outrank it",
+          "TypeSafe, Laya, XOR and Perplexity all outrank it",
         );
         setEnv("TYPESAFE_API_KEY", undefined);
         setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
@@ -11752,6 +11764,253 @@ async function runCloudflareClefDecide(): Promise<void> {
   }
 }
 
+/**
+ * SubQ Snap is described entirely by src/lib/providers/catalog/subq.json, so the
+ * generic loop (runDecideCatalogSection) already covers its error rules, answers
+ * and limits against test/fixtures/decide/subq/contract.json. What that loop
+ * cannot show is anything that depends on the built-in endpoint: it points every
+ * entry at a fake .test host through SUBQ_BASE_URL before it asks. These cases
+ * fetch-mock every request, so none reaches api.subq.ai; they read the URL the
+ * mock saw. They show where a request goes with no base URL set
+ * (https://api.subq.ai/v1/systemone), what replaces it, and where the entry sits
+ * in the decision precedence. The fixture's 200 body is the one captured on
+ * 2026-10-13, and so is its over-length 400; its other error bodies are
+ * stand-ins written from SubQ's documentation.
+ */
+const SUBQ_SPEC = {
+  provider: "subq",
+  keyEnv: "SUBQ_API_KEY",
+  baseURLEnvVar: "SUBQ_BASE_URL",
+  key: "test-fake-subq-credential",
+  endpoint: "https://api.subq.ai/v1/systemone",
+  model: "subq-snap-preview",
+};
+
+const SUBQ_ONE_QUESTION = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+} satisfies DecisionQuestionMap;
+
+function subqRoute() {
+  return {
+    method: "POST",
+    url: "/v1/systemone",
+    respond: {
+      status: 200,
+      json: {
+        model: SUBQ_SPEC.model,
+        answers: { urgent: { type: "noul", noul: 0.75 } },
+        usage: { input_tokens: 3, output_tokens: 0 },
+      },
+    },
+  };
+}
+
+/** Only the SubQ key set: no other decision provider is configured. */
+function resetSubqEnv(): void {
+  for (const name of CLEF_DECISION_ENV) {
+    setEnv(name, undefined);
+  }
+  setEnv(SUBQ_SPEC.keyEnv, SUBQ_SPEC.key);
+}
+
+const subqCase = perplexityCase;
+
+async function runSubqDecide(): Promise<void> {
+  const { provider, keyEnv, baseURLEnvVar, key, endpoint, model } = SUBQ_SPEC;
+  const { NeuroLink, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const prior = CLEF_DECISION_ENV.map((name) => process.env[name]);
+  // A NeuroLink instance may also fetch its model config in the background;
+  // only the decision is a POST.
+  const posts = (calls: ReturnType<typeof installMockFetch>["calls"]) =>
+    calls.filter((c) => c.method === "POST");
+  const ask = (nl: InstanceType<typeof NeuroLink>, named?: string) =>
+    nl.decide({
+      ...(named === undefined ? {} : { provider: named }),
+      state: "short",
+      questions: SUBQ_ONE_QUESTION,
+    });
+
+  try {
+    await subqCase(
+      "DECIDE subq: SUBQ_API_KEY alone makes it the default, and a request with no base URL goes to the built-in endpoint",
+      async () => {
+        resetSubqEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "the key alone selects it",
+        );
+        await withMocks([subqRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await nl.tryDecide({
+            state: "short",
+            questions: SUBQ_ONE_QUESTION,
+          });
+          expectEq(result?.provider, provider, "chosen without being named");
+          const sent = posts(calls);
+          expectEq(sent.length, 1, "one decision request");
+          expectEq(sent[0]?.url, endpoint, "to the built-in endpoint");
+          expectEq(
+            sent[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "with the environment key",
+          );
+          expectEq(
+            (sent[0]?.bodyJson as { model?: string } | undefined)?.model,
+            model,
+            "naming the default model",
+          );
+        });
+      },
+    );
+
+    await subqCase(
+      "DECIDE subq: SUBQ_BASE_URL replaces the origin, a trailing slash is dropped, and a blank value is no override",
+      async () => {
+        resetSubqEnv();
+        const routes = [subqRoute()];
+        setEnv(baseURLEnvVar, "https://subq.proxy.example/gw//");
+        await withMocks(routes, async ({ calls }) => {
+          await ask(new NeuroLink(), provider);
+          expectEq(
+            posts(calls)[0]?.url,
+            "https://subq.proxy.example/gw/v1/systemone",
+            "the override carries the route",
+          );
+        });
+        setEnv(baseURLEnvVar, "   ");
+        await withMocks(routes, async ({ calls }) => {
+          await ask(new NeuroLink(), provider);
+          expectEq(
+            posts(calls)[0]?.url,
+            endpoint,
+            "a blank override leaves the built-in endpoint",
+          );
+        });
+      },
+    );
+
+    await subqCase(
+      "DECIDE subq: SDK credentials beat the environment, key and base URL alike",
+      async () => {
+        resetSubqEnv();
+        setEnv(baseURLEnvVar, "https://subq.env.example");
+        await withMocks([subqRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({
+            credentials: {
+              subq: {
+                apiKey: "test-fake-config-credential",
+                baseURL: "https://subq.config.example/",
+              },
+            },
+          });
+          await ask(nl, provider);
+          const sent = posts(calls)[0];
+          expectEq(
+            sent?.url,
+            "https://subq.config.example/v1/systemone",
+            "endpoint from credentials.subq.baseURL",
+          );
+          expectEq(
+            sent?.headers.authorization,
+            "Bearer test-fake-config-credential",
+            "key from credentials.subq.apiKey",
+          );
+        });
+        setEnv(baseURLEnvVar, undefined);
+        setEnv(keyEnv, undefined);
+        expectEq(
+          resolveDefaultDecisionProvider({
+            subq: { apiKey: "test-fake-config-credential" },
+          }),
+          provider,
+          "credentials.subq.apiKey alone selects it",
+        );
+      },
+    );
+
+    await subqCase(
+      "DECIDE subq: both aliases name it, and the result says subq",
+      async () => {
+        resetSubqEnv();
+        for (const alias of ["subquadratic", "subq-snap"]) {
+          await withMocks([subqRoute()], async ({ calls }) => {
+            const result = await ask(new NeuroLink(), alias);
+            expectEq(result.provider, provider, `${alias} resolves to subq`);
+            expectEq(posts(calls)[0]?.url, endpoint, `${alias} endpoint`);
+          });
+        }
+      },
+    );
+
+    await subqCase(
+      "DECIDE subq: it outranks the shared-key providers but not TypeSafe, Laya or XOR, and a blank key is no key",
+      async () => {
+        resetSubqEnv();
+        expectEq(resolveDefaultDecisionProvider(), provider, "alone");
+        // Perplexity and Clef share their keys with text providers, so a key set
+        // for those must never displace a SubQ key a host set on purpose.
+        setEnv("CLOUDFLARE_API_KEY", "test-fake-cloudflare-credential");
+        setEnv("CLOUDFLARE_ACCOUNT_ID", "0123456789abcdef0123456789abcdef");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "subq wins over clef",
+        );
+        setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "subq wins over perplexity",
+        );
+        setEnv(keyEnv, undefined);
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          "perplexity-decider",
+          "without subq, perplexity still wins over clef",
+        );
+        setEnv(keyEnv, key);
+        setEnv("XOR_API_KEY", "test-fake-xor-credential");
+        setEnv("XOR_BASE_URL", "https://xor.test.example/proxy");
+        expectEq(resolveDefaultDecisionProvider(), "xor", "xor wins");
+        setEnv("LAYA_API_KEY", "test-fake-laya-credential");
+        setEnv("LAYA_BASE_URL", "https://laya.test.example/base");
+        expectEq(resolveDefaultDecisionProvider(), "laya", "laya wins");
+        setEnv("TYPESAFE_API_KEY", "test-fake-typesafe-credential");
+        expectEq(resolveDefaultDecisionProvider(), "typesafe", "typesafe wins");
+        resetSubqEnv();
+        setEnv(keyEnv, "   ");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "a blank key selects nothing",
+        );
+      },
+    );
+
+    await subqCase(
+      "DECIDE subq: its state limit is reported and left to the server, with no question cap",
+      async () => {
+        resetSubqEnv();
+        const reading = new NeuroLink().decisionLimits({ provider });
+        expectEq(reading?.maxStateTokens, 376000, "the declared state window");
+        expectEq(reading?.enforcedLocally, false, "advisory, not enforced");
+        expect(
+          reading !== null && !("maxQuestions" in reading),
+          "no question cap is declared, so none is reported",
+        );
+        expect(
+          reading !== null && !("media" in reading),
+          "no media is declared",
+        );
+      },
+    );
+  } finally {
+    CLEF_DECISION_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
 type DialectUnderTest = ReturnType<
   (typeof import("../dist/providers/decide/dialects/index.js"))["getDecisionDialect"]
 >;
@@ -11944,10 +12203,11 @@ async function runDecideDialect(): Promise<void> {
 }
 
 // Positive control for the loop below: an empty DECIDE_CATALOG_JSON_ENTRIES (a
-// broken codegen, a deleted laya.json, a generated list that lost its decide
-// entries) fails this section instead of passing it trivially. Raise it when
-// another decide entry joins the catalog; never lower it.
-const MIN_DECIDE_CATALOG_ENTRIES = 2;
+// broken codegen, a deleted laya.json, xor.json or subq.json, a generated list
+// that lost its decide entries) fails this section instead of passing it
+// trivially. Raise it when another decide entry joins the catalog; never lower
+// it.
+const MIN_DECIDE_CATALOG_ENTRIES = 3;
 
 async function runDecideCatalogSection(): Promise<void> {
   const { DECIDE_CATALOG_JSON_ENTRIES } =
@@ -11975,17 +12235,21 @@ async function runDecideCatalogSection(): Promise<void> {
 
 async function runDecideSection(): Promise<void> {
   console.log(
-    "\n=== Decision providers (TypeSafe, Laya, XOR, Perplexity, Cloudflare Clef) ===",
+    "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef) ===",
   );
-  // A developer's .env can hold a real Cloudflare token and account id, which
-  // would make Clef the default decision provider in every section above it
-  // that expects none. They are cleared for the whole section and put back
-  // after; the Clef section sets what it needs itself.
+  // A developer's .env can hold a real Cloudflare token and account id, or a
+  // SubQ key, which would make Clef or SubQ the default decision provider in
+  // every section above it that expects none. They are cleared for the whole
+  // section and put back after; the Clef and SubQ sections set what they need
+  // themselves.
   const cloudflareEnv = [
     "CLOUDFLARE_API_KEY",
     "CLOUDFLARE_ACCOUNT_ID",
     "CLOUDFLARE_CLEF_BASE_URL",
     "CLOUDFLARE_CLEF_MODEL",
+    "SUBQ_API_KEY",
+    "SUBQ_BASE_URL",
+    "SUBQ_MODEL",
   ];
   const ambient = cloudflareEnv.map((name) => process.env[name]);
   try {
@@ -11996,6 +12260,7 @@ async function runDecideSection(): Promise<void> {
     await runXorDecide();
     await runPerplexityDecide();
     await runCloudflareClefDecide();
+    await runSubqDecide();
     await runDecideCatalogSection();
   } finally {
     cloudflareEnv.forEach((name, i) => setEnv(name, ambient[i]));
@@ -15385,6 +15650,9 @@ async function main(): Promise<void> {
   setEnv("PERPLEXITY_DECIDER_BASE_URL", undefined);
   setEnv("PERPLEXITY_DECIDER_MODEL", undefined);
   setEnv("CLOUDFLARE_CLEF_MODEL", undefined);
+  setEnv("SUBQ_API_KEY", undefined);
+  setEnv("SUBQ_BASE_URL", undefined);
+  setEnv("SUBQ_MODEL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

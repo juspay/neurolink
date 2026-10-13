@@ -182,7 +182,7 @@ const PROVIDERS: SetupProviderInfo[] = [
  * perplexity, sambanova, together-ai, xai — mistral is the 9th catalog
  * provider but keeps its own handleMistralSetup() flow above, so it's
  * excluded here), spread directly from the catalog JSON via
- * buildCatalogConfigOptions(); decide-kind catalog entries (laya, xor) are
+ * buildCatalogConfigOptions(); decide-kind catalog entries (laya, xor, subq) are
  * spread the same way from getDecideCatalogEntries(). The hand rows listed
  * first reuse the existing createXConfig() factories in providerConfig.ts; the
  * remaining 5 (ollama, litellm, sagemaker, lm-studio, llamacpp) don't have a

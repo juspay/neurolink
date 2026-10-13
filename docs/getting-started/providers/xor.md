@@ -198,11 +198,12 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured, in the environment or in the
 `credentials` passed to the SDK, in the order TypeSafe, Laya, XOR,
-[Perplexity](perplexity-decider.md), then [Cloudflare Clef](cloudflare-clef.md).
+[SubQ](subq.md), [Perplexity](perplexity-decider.md), then
+[Cloudflare Clef](cloudflare-clef.md).
 TypeSafe counts with either of its keys,
 `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR each count only with
-both their key and their base URL. Perplexity counts with its key alone, which is
-shared with Perplexity's text provider. Cloudflare Clef counts only with both
+both their key and their base URL. SubQ counts with its key alone. Perplexity
+counts with its key alone, which is shared with Perplexity's text provider. Cloudflare Clef counts only with both
 `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same two variables the
 Workers AI text provider reads. A caller can always name XOR with
 `provider: "xor"`. So:
@@ -210,6 +211,8 @@ Workers AI text provider reads. A caller can always name XOR with
 - **A TypeSafe key, or Laya's key and base URL, plus XOR's key and base URL:**
   built-in features use TypeSafe or Laya, in that order; XOR runs only where a
   caller asks for `provider: "xor"`.
+- **XOR's key and base URL, plus `SUBQ_API_KEY`:** built-in features use XOR;
+  SubQ runs only where a caller asks for `provider: "subq"`.
 - **XOR's key and base URL, plus a Perplexity key:** built-in features use XOR;
   Perplexity runs only where a caller asks for
   `provider: "perplexity-decider"`.
@@ -219,8 +222,8 @@ Workers AI text provider reads. A caller can always name XOR with
 - **Only XOR's key and base URL:** built-in features use XOR.
 - **An XOR key with no base URL:** XOR is not configured. Built-in features
   ignore it, and `provider: "xor"` fails with `XOR requires a base URL`.
-- **None of TypeSafe, Laya, XOR, Perplexity or Cloudflare Clef:** everything
-  behaves exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef:**
+  everything behaves exactly as it did without a decision model.
 
 ---
 
@@ -342,5 +345,6 @@ key, long hex runs and embedded `data:` URLs.
 - [Laya Provider Guide](laya.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
+- [SubQ Provider Guide](subq.md)
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [XOR on Hugging Face](https://huggingface.co/juspay/xor)

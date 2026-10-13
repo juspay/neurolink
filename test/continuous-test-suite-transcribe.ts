@@ -130,6 +130,7 @@ const BLANKED_ENV = [
   "PERPLEXITY_API_KEY",
   "CLOUDFLARE_API_KEY",
   "CLOUDFLARE_ACCOUNT_ID",
+  "SUBQ_API_KEY",
 ] as const;
 for (const name of BLANKED_ENV) {
   delete process.env[name];

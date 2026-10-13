@@ -104,7 +104,7 @@ pnpm run cli generate "..." --provider cloudflare
 provider, the [Cloudflare Clef provider](cloudflare-clef.md) (`cloudflare-clef`),
 which serves `decide()` and emits no text. It is the last decision provider
 NeuroLink falls back to: built-in features that call `decide()` use the first one
-configured, in the order TypeSafe, Laya, XOR, Perplexity, then Clef. So a host
+configured, in the order TypeSafe, Laya, XOR, SubQ, Perplexity, then Clef. So a host
 that set these two variables only for this text provider, and has no other
 decision provider configured, has Clef as its default decision provider, and no
 switch turns that off while they are set.

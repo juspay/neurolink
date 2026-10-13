@@ -499,22 +499,27 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     setupUrl: "https://console.typesafe.ai/keys",
   },
   // Decision precedence is decideOrder, not position: typesafe 1, laya 2 and
-  // xor 3 (from catalog/laya.json and catalog/xor.json), perplexity-decider 4,
-  // cloudflare-clef 5.
+  // xor 3 (from catalog/laya.json and catalog/xor.json), subq 4 (from
+  // catalog/subq.json), perplexity-decider 5, cloudflare-clef 6.
   // resolveDefaultDecisionProvider() returns the first configured
   // DECISION_PROVIDERS entry in that order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
   // naming them. Renumbering silently changes which model routes, compacts
   // and plans for every such host.
+  // perplexity-decider and cloudflare-clef come last because each shares its
+  // environment key with a text provider: a key set only for that text provider
+  // must not displace a decision provider a host set up on purpose. subq is
+  // ahead of them only because SUBQ_API_KEY belongs to no other provider.
   {
     name: AIProviderName.PERPLEXITY_DECIDER,
     aliases: [],
     credentialsKey: "perplexityDecider",
     envVars: {
       // The same key the `perplexity` text provider reads, so an ambient
-      // PERPLEXITY_API_KEY configures this provider too. Its decideOrder (4)
-      // sits after XOR's (3), which is what keeps that from displacing any other
-      // decision provider a host has configured.
+      // PERPLEXITY_API_KEY configures this provider too. Its decideOrder (5)
+      // sits after XOR's (3) and SubQ's (4), which have keys of their own, which
+      // is what keeps that from displacing any other decision provider a host
+      // has configured.
       apiKey: "PERPLEXITY_API_KEY",
       // Optional: the API is hosted at a public endpoint, so a key alone is
       // enough and there is no extraRequired.
@@ -526,7 +531,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // declaration that keeps it out of every generation code path, and out of
     // the way of the `perplexity` text provider.
     inferenceKinds: ["decide"],
-    decideOrder: 4,
+    decideOrder: 5,
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -594,7 +599,7 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     // declaration that keeps it out of every generation code path, and out of
     // the way of the `cloudflare` text provider.
     inferenceKinds: ["decide"],
-    decideOrder: 5,
+    decideOrder: 6,
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",

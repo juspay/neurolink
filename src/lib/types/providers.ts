@@ -322,6 +322,7 @@ export type NeurolinkCredentials = {
   stackit?: { apiKey?: string; baseURL?: string };
   stepfun?: { apiKey?: string; baseURL?: string };
   subconscious?: { apiKey?: string; baseURL?: string };
+  subq?: { apiKey?: string; baseURL?: string };
   synthetic?: { apiKey?: string; baseURL?: string };
   telnyx?: { apiKey?: string; baseURL?: string };
   thinkingMachines?: { apiKey?: string; baseURL?: string };

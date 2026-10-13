@@ -1,0 +1,59 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "subq",
+  "displayName": "SubQ",
+  "aliases": ["subquadratic", "subq-snap"],
+  "inferenceKinds": ["decide"],
+  "wire": { "baseURL": "https://api.subq.ai" },
+  "models": {
+    "default": "subq-snap-preview",
+    "topModels": ["subq-snap-preview"],
+    "catalog": {
+      "subq-snap-preview": {
+        "contextWindow": 393216,
+        "maxOutputTokens": 1,
+        "vision": false,
+        "status": "preview",
+        "description": "Recommended - SubQ Snap Preview, decision model for boolean, choice and score questions"
+      }
+    }
+  },
+  "decisionLimits": { "maxStateTokens": 376000, "advisory": true },
+  "decide": {
+    "dialect": "system-one",
+    "order": 4,
+    "baseURLNormalize": ["strip-trailing-slash"],
+    "endpoint": "{baseURL}/v1/systemone",
+    "model": { "placement": "body" },
+    "errors": {
+      "rules": [
+        { "status": 401, "kind": "authentication" },
+        { "status": [402, 403, 422], "kind": "invalid_request" },
+        { "status": 429, "kind": "rate_limit" },
+        { "status": 503, "kind": "overloaded" },
+        { "statusMin": 500, "kind": "server" }
+      ],
+      "default": "invalid_request",
+      "bodyShapes": [{ "path": "detail.message" }, { "path": "detail" }]
+    }
+  },
+  "setup": {
+    "url": "https://console.subq.ai",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "description": "API key from the SubQ console",
+    "instructions": [
+      "1. Sign up at https://console.subq.ai and create an API key (the console shows it once)",
+      "2. Set {apiKeyEnvVar} in your .env file",
+      "3. A request made with no credits left returns HTTP 402"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-13",
+      "method": "Checked by the marketing session, not in this change: GET https://api.subq.ai/v1/models without a key listed subq-snap-preview, and docs.subq.ai/using-the-api/models was read the same day. No request was made to SubQ in this change"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1986"
+  }
+}

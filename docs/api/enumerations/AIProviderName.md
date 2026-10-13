@@ -532,6 +532,12 @@ Supported AI Provider Names
 
 ---
 
+### SUBQ
+
+> **SUBQ**: `"subq"`
+
+---
+
 ### SYNTHETIC
 
 > **SYNTHETIC**: `"synthetic"`

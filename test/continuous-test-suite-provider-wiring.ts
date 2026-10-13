@@ -805,6 +805,48 @@ await runSuite(async () => {
       );
     });
 
+    await test("subq is a decide catalog provider with the public enum surface, aliases and credentials slice its file declares", async () => {
+      const enums = await import("../dist/constants/enums.js");
+      const { PROVIDER_ALIAS_INDEX, PROVIDER_DESCRIPTORS_BY_NAME } =
+        await import("../dist/factories/providerDescriptors.js");
+      assert(
+        enums.AIProviderName.SUBQ === "subq",
+        'AIProviderName.SUBQ must be "subq"',
+      );
+      assert(
+        JSON.stringify(Object.entries(enums.SubqModels)) ===
+          JSON.stringify([["SUBQ_SNAP_PREVIEW", "subq-snap-preview"]]),
+        "SubqModels must hold exactly the model its file names",
+      );
+      for (const alias of ["subq", "subquadratic", "subq-snap"]) {
+        assert(
+          PROVIDER_ALIAS_INDEX.get(alias) === enums.AIProviderName.SUBQ,
+          `the name "${alias}" must resolve to subq`,
+        );
+      }
+      const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(
+        enums.AIProviderName.SUBQ,
+      );
+      if (descriptor === undefined) {
+        throw new Error("subq must have a descriptor");
+      }
+      assert(
+        descriptor.credentialsKey === "subq" &&
+          descriptor.envVars.apiKey === "SUBQ_API_KEY" &&
+          descriptor.envVars.baseURL === "SUBQ_BASE_URL" &&
+          descriptor.envVars.model === "SUBQ_MODEL",
+        "the credentials key and env var names derive from the id",
+      );
+      assert(
+        descriptor.envVars.extraRequired === undefined,
+        "a built-in endpoint means the key alone configures it",
+      );
+      assert(
+        descriptor.defaultModel === "subq-snap-preview",
+        "the default model is the one the file names",
+      );
+    });
+
     await test("isImageGenerationModel rejects a substring match that isn't at a boundary", async () => {
       const { isImageGenerationModel } =
         await import("../dist/core/constants.js");

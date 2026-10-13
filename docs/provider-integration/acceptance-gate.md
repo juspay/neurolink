@@ -273,6 +273,7 @@ list):
 | `xor`                | Decide-only, like typesafe and laya — no text surface for any cell.                                                                                                                  |
 | `perplexity-decider` | Decide-only, like typesafe, laya and xor — no text surface for any cell. Distinct from the `perplexity` text provider, which the gate covers.                                        |
 | `cloudflare-clef`    | Decide-only, like typesafe, laya, xor and perplexity-decider — no text surface for any cell. Distinct from the `cloudflare` text provider, though both read the same two variables.  |
+| `subq`               | Decide-only, a decide catalog entry like laya — no text surface for any cell.                                                                                                        |
 
 Cells 4 (tools), 5 (structured output), 6 (thinking) and 7 (embeddings) run
 only where the covered provider's row/catalog descriptor declares that

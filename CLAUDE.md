@@ -115,7 +115,7 @@ failure and is what every internal consumer uses — plus the CLI's
 **Decision providers; descriptor order is precedence.** TypeSafe (Jev,
 hosted), Laya (open weights, at a configured base URL — there is no default),
 XOR (open weights that also reads images and video, likewise at a configured base
-URL), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
+URL), SubQ (`subq`, described below), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
 images, no video, at the public `https://api.perplexity.ai`, so a key alone
 configures it) and Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
 images, no video, at Cloudflare's own API, so a token and an account id configure
@@ -126,15 +126,39 @@ parsing; each provider supplies only its endpoint, headers, body and error
 parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
 entry that is fully configured (a key, plus a base URL for Laya and XOR, which
 have no built-in endpoint), in descriptor order, so TypeSafe's entry sitting before
-Laya's, Laya's before XOR's, XOR's before Perplexity's, and Perplexity's before Clef's, is
+Laya's, Laya's before XOR's, XOR's before SubQ's, SubQ's before Perplexity's and
+Perplexity's before Clef's, is
 what makes TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`,
 `AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY`, `XOR_API_KEY`,
-`PERPLEXITY_API_KEY` or `CLOUDFLARE_API_KEY`. Reordering them changes which model
-every built-in consumer uses.
+`SUBQ_API_KEY`, `PERPLEXITY_API_KEY` or `CLOUDFLARE_API_KEY`. Reordering them
+changes which model every built-in consumer uses. The two providers whose keys
+are shared with a text provider (Perplexity and Clef) stay last, after every
+provider a host sets up on purpose: a provider added after them would be
+displaced by an ambient key, which is why test 18.4 pins `cloudflare-clef` as the
+last entry. SubQ sits ahead of them only because `SUBQ_API_KEY` belongs to no
+other provider.
+
+**SubQ comes after XOR and ahead of Perplexity and Clef, and it is a catalog entry, not a class.**
+`src/lib/providers/catalog/subq.json` describes Subquadratic's hosted SubQ Snap
+(`subq`, aliases `subquadratic` and `subq-snap`; `decide.order` 4) and
+`ConfiguredDecisionProvider` runs it, on the System One wire at
+`https://api.subq.ai/v1/systemone` (`wire.baseURL` is the default base, so
+`SUBQ_BASE_URL` and `credentials.subq.baseURL` replace it). `SUBQ_API_KEY` alone
+configures it, so any test that asserts the "nothing configured" path must blank
+it with the other decision keys. Its `decisionLimits` are `advisory`: 376,000
+estimated state tokens is a margin under the largest request SubQ answered
+(376,180 input tokens), and the entry's `contextWindow: 393216` is the maximum
+model length SubQ's own HTTP 400 response states (both observed live on
+2026-10-13). Both are advisory and neither is a guarantee, and no test or doc may
+word them as what SubQ accepts; an over-length request is refused with a 400 that
+NeuroLink classifies as `invalid_request`. It declares no media, because SubQ wants image objects (`mediaType` plus `base64`)
+that the catalog cannot describe yet. 402 and 403 are `invalid_request`, not
+`authentication`, so a top-up needs no new instance. Its fixture's 200 body was
+captured on 2026-10-13, and one error row (the over-length 400) is a saved live body; every other error body in it is a stand-in.
 
 **Perplexity's key is shared with the `perplexity` text provider.** Both read
 `PERPLEXITY_API_KEY`, so an ambient key set only for Sonar also configures
-`decide`, as the fallback after TypeSafe, Laya and XOR. Any test that asserts the
+`decide`, as the fallback after TypeSafe, Laya, XOR and SubQ. Any test that asserts the
 "nothing configured" path must blank `PERPLEXITY_API_KEY` as well as the other
 decision keys, and docs must say so plainly. `credentials.perplexity` (the text
 provider's slice) does not configure it; `credentials.perplexityDecider` does.
@@ -142,7 +166,7 @@ provider's slice) does not configure it; `credentials.perplexityDecider` does.
 **Clef's token and account id are shared with the `cloudflare` text provider, and
 the Workers AI endpoint ignored state text past about 2,048 tokens until
 2026-10-04 and read far more on 2026-10-07 (hosted service or model: unknown).** `CLOUDFLARE_API_KEY` and
-`CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as the last fallback; a test that
+`CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as the last fallback, after TypeSafe, Laya, XOR, SubQ and Perplexity; a test that
 asserts the "nothing configured" path must blank both (and `CLOUDFLARE_CLEF_*`).
 `credentials.cloudflare` does not configure it; `credentials.cloudflareClef` does,
 and its `accountId` stands in for `CLOUDFLARE_ACCOUNT_ID` through the descriptor's

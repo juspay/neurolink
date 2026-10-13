@@ -73,6 +73,7 @@ import siliconflowJson from "./siliconflow.json" with { type: "json" };
 import stackitJson from "./stackit.json" with { type: "json" };
 import stepfunJson from "./stepfun.json" with { type: "json" };
 import subconsciousJson from "./subconscious.json" with { type: "json" };
+import subqJson from "./subq.json" with { type: "json" };
 import syntheticJson from "./synthetic.json" with { type: "json" };
 import telnyxJson from "./telnyx.json" with { type: "json" };
 import thinkingMachinesJson from "./thinking-machines.json" with { type: "json" };
@@ -287,7 +288,8 @@ export const CATALOG_PROVIDER_IDS = [
 
 export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [
   layaJson,
+  subqJson,
   xorJson,
 ].map(asDecideEntry);
 
-export const DECIDE_CATALOG_PROVIDER_IDS = ["laya", "xor"] as const;
+export const DECIDE_CATALOG_PROVIDER_IDS = ["laya", "subq", "xor"] as const;

@@ -94,6 +94,7 @@ export enum AIProviderName {
   STACKIT = "stackit",
   STEPFUN = "stepfun",
   SUBCONSCIOUS = "subconscious",
+  SUBQ = "subq",
   SYNTHETIC = "synthetic",
   TELNYX = "telnyx",
   THINKING_MACHINES = "thinking-machines",
@@ -2058,6 +2059,10 @@ export enum SubconsciousModels {
   SUBCONSCIOUS_GLM_5_3_MARATHON = "subconscious/glm-5.3-marathon",
   SUBCONSCIOUS_DEEPSEEK_V4_1_FLASH_MARATHON = "subconscious/deepseek-v4.1-flash-marathon",
   SUBCONSCIOUS_TIM_QWEN3_6_27B = "subconscious/tim-qwen3.6-27b",
+}
+
+export enum SubqModels {
+  SUBQ_SNAP_PREVIEW = "subq-snap-preview",
 }
 
 export enum SyntheticModels {

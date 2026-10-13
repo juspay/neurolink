@@ -141,6 +141,13 @@ const HAS_CLOUDFLARE_CLEF =
   REAL_CLOUDFLARE_ACCOUNT_ID.trim() !== "";
 const REAL_CLOUDFLARE_CLEF_BASE_URL = process.env.CLOUDFLARE_CLEF_BASE_URL;
 const REAL_CLOUDFLARE_CLEF_MODEL = process.env.CLOUDFLARE_CLEF_MODEL;
+// SubQ reads SUBQ_API_KEY and has a built-in endpoint, so an ambient key alone
+// configures a decision provider here too (ahead of Perplexity and Clef, which
+// share their keys with text providers) and every "nothing is configured" test
+// must blank it.
+const REAL_SUBQ_KEY = process.env.SUBQ_API_KEY;
+const REAL_SUBQ_BASE_URL = process.env.SUBQ_BASE_URL;
+const REAL_SUBQ_MODEL = process.env.SUBQ_MODEL;
 // Section 19 reads LAYA_MODEL as an input to model resolution, so it is
 // saved and restored like the keys rather than deleted outright.
 const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
@@ -220,6 +227,21 @@ function restoreEnv(): void {
   } else {
     delete process.env.CLOUDFLARE_CLEF_MODEL;
   }
+  if (REAL_SUBQ_KEY !== undefined) {
+    process.env.SUBQ_API_KEY = REAL_SUBQ_KEY;
+  } else {
+    delete process.env.SUBQ_API_KEY;
+  }
+  if (REAL_SUBQ_BASE_URL !== undefined) {
+    process.env.SUBQ_BASE_URL = REAL_SUBQ_BASE_URL;
+  } else {
+    delete process.env.SUBQ_BASE_URL;
+  }
+  if (REAL_SUBQ_MODEL !== undefined) {
+    process.env.SUBQ_MODEL = REAL_SUBQ_MODEL;
+  } else {
+    delete process.env.SUBQ_MODEL;
+  }
   if (REAL_LAYA_MODEL !== undefined) {
     process.env.LAYA_MODEL = REAL_LAYA_MODEL;
   } else {
@@ -248,6 +270,9 @@ function clearDecisionKeys(): void {
   delete process.env.CLOUDFLARE_ACCOUNT_ID;
   delete process.env.CLOUDFLARE_CLEF_BASE_URL;
   delete process.env.CLOUDFLARE_CLEF_MODEL;
+  delete process.env.SUBQ_API_KEY;
+  delete process.env.SUBQ_BASE_URL;
+  delete process.env.SUBQ_MODEL;
   delete process.env.LAYA_MODEL;
 }
 
@@ -2289,6 +2314,9 @@ const NO_PROVIDER_ENV = {
   CLOUDFLARE_ACCOUNT_ID: "",
   CLOUDFLARE_CLEF_BASE_URL: "",
   CLOUDFLARE_CLEF_MODEL: "",
+  SUBQ_API_KEY: "",
+  SUBQ_BASE_URL: "",
+  SUBQ_MODEL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -2309,7 +2337,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or SUBQ_API_KEY for subq, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2715,6 +2743,9 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         CLOUDFLARE_ACCOUNT_ID: "",
         CLOUDFLARE_CLEF_BASE_URL: "",
         CLOUDFLARE_CLEF_MODEL: "",
+        SUBQ_API_KEY: "",
+        SUBQ_BASE_URL: "",
+        SUBQ_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2761,6 +2792,9 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         CLOUDFLARE_ACCOUNT_ID: "",
         CLOUDFLARE_CLEF_BASE_URL: "",
         CLOUDFLARE_CLEF_MODEL: "",
+        SUBQ_API_KEY: "",
+        SUBQ_BASE_URL: "",
+        SUBQ_MODEL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2809,6 +2843,9 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         CLOUDFLARE_ACCOUNT_ID: "",
         CLOUDFLARE_CLEF_BASE_URL: "",
         CLOUDFLARE_CLEF_MODEL: "",
+        SUBQ_API_KEY: "",
+        SUBQ_BASE_URL: "",
+        SUBQ_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -3467,21 +3504,23 @@ await test("18.3 — it declares the limits that were measured: a state window, 
   );
 });
 
-await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, perplexity-decider, and cloudflare-clef last", async () => {
+await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, subq, perplexity-decider, and cloudflare-clef last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   const index = (name: string) => names.indexOf(name);
   assert(
     index("typesafe") !== -1 &&
       index("typesafe") < index("laya") &&
       index("laya") < index("xor") &&
-      index("xor") < index("perplexity-decider") &&
+      index("xor") < index("subq") &&
+      index("subq") < index("perplexity-decider") &&
       index("perplexity-decider") < index("cloudflare-clef"),
-    "the derived decision-provider list must read typesafe, laya, xor, perplexity-decider, cloudflare-clef",
+    "the derived decision-provider list must read typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef",
   );
   // Perplexity and Cloudflare Clef each share an environment key with a text
   // provider, so they must come after every provider a host sets up on purpose.
   // A provider added after them would be displaced by an ambient key, which is
-  // a decision to make deliberately.
+  // a decision to make deliberately. SubQ is ahead of them because its key,
+  // SUBQ_API_KEY, is shared with no other provider.
   assert(
     names[names.length - 1] === "cloudflare-clef",
     "cloudflare-clef must be the last entry in the precedence order",
@@ -3649,7 +3688,7 @@ await test("18.7 — the key is shared through the environment only: the text pr
 
 await test("18.8 — an ambient perplexity key cannot leak into a keyless test", async () => {
   try {
-    // A developer's own TypeSafe, Laya or XOR key outranks this one, and the
+    // A developer's own TypeSafe, Laya, XOR or SubQ key outranks this one, and the
     // suite loads their .env, so start from nothing configured.
     clearDecisionKeys();
     process.env.PERPLEXITY_API_KEY = "pplx-ambient-placeholder";
@@ -4907,12 +4946,13 @@ await test("19.3 — it declares limits chosen from what was measured: a state w
   );
 });
 
-await test("19.4 — it is the last decision provider in the precedence order, after perplexity-decider", async () => {
+await test("19.4 — it is the last decision provider in the precedence order, after subq and perplexity-decider", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   assert(
-    names.indexOf("perplexity-decider") !== -1 &&
+    names.indexOf("subq") !== -1 &&
+      names.indexOf("subq") < names.indexOf("perplexity-decider") &&
       names.indexOf("perplexity-decider") < names.indexOf("cloudflare-clef"),
-    "cloudflare-clef must come after perplexity-decider",
+    "cloudflare-clef must come after subq and perplexity-decider",
   );
   assert(
     names[names.length - 1] === "cloudflare-clef",

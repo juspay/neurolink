@@ -117,7 +117,7 @@ function scaffold(
 
 const HOSTILE_MODEL = 'm"x\\y';
 const SELF_HOSTED_MODEL = "acme-1";
-// The hand-written decide providers hold 1 to 5; a filled-in scaffold needs a free number.
+// The hand-written and built-in decide providers hold 1 to 6; a filled-in scaffold needs a free number.
 const FREE_ORDER = { selfHosted: 91, builtIn: 92 } as const;
 
 const selfHosted = scaffold([
