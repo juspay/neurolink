@@ -179,6 +179,8 @@ const catalogErrorRuleJsonSchema = z
   });
 
 const catalogQuirksSchema = z.strictObject({
+  maxTokensField: z.literal("max_completion_tokens").optional(),
+  omitStreamOptions: z.boolean().optional(),
   timeoutErrorClass: z.literal("provider").optional(),
   messageContentFormat: z.literal("string").optional(),
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),

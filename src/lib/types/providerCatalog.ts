@@ -88,6 +88,12 @@ export type CatalogErrorRuleJson = {
 };
 
 export type CatalogQuirks = {
+  /** Send the caller's fitted maxTokens budget as max_completion_tokens and
+   * omit max_tokens. Omitted preserves the ordinary OpenAI-compatible field. */
+  maxTokensField?: "max_completion_tokens";
+  /** Omit stream_options where the endpoint does not document that extension.
+   * Does not discard usage that the endpoint returns without requesting it. */
+  omitStreamOptions?: boolean;
   timeoutErrorClass?: "provider";
   /** Vendor speaks OpenAI for chat but restricts how message content is
    *  encoded. "string": `messages[].content` must be a plain string —

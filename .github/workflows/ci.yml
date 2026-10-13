@@ -432,6 +432,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract
 
+      - name: MiMo and LongCat overflow budget contracts (owned endpoints, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:mimo-overflow-budget
+
       - name: Agent pricing and unknown-cost contracts (owned vendor endpoint)
         if: matrix.group == 'rest'
         run: pnpm run test:agent:cost

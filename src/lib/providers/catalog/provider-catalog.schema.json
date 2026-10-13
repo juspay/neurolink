@@ -416,6 +416,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "maxTokensField": {
+          "const": "max_completion_tokens",
+          "description": "Send the caller's fitted maxTokens budget as max_completion_tokens and omit max_tokens. Omitted preserves the ordinary field."
+        },
+        "omitStreamOptions": {
+          "type": "boolean",
+          "description": "Omit stream_options for endpoints that do not document that extension. Does not discard usage returned without requesting it."
+        },
         "timeoutErrorClass": {
           "const": "provider"
         },

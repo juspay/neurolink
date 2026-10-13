@@ -9,9 +9,9 @@
  * The vendor documents `MIMO_API_KEY` in its own examples; the catalog reads
  * `XIAOMI_MIMO_API_KEY` first and `MIMO_API_KEY` as a fallback, and the cases
  * below pin which key reaches the wire in each combination.
- * The output budget is pinned as the field the SDK emits today (`max_tokens`).
- * The vendor's API reference lists only `max_completion_tokens`; whether the
- * vendor honors `max_tokens` is NOT established by this suite.
+ * The endpoint enforces the vendor-documented `max_completion_tokens` and
+ * refuses obsolete `max_tokens` and unverified `stream_options` for MiMo.
+ * LongCat controls retain their ordinary max_tokens/stream usage contract.
  * No source runtime imports, vendor calls, account or billing proof.
  * --package-root selects an installed package without changing module graphs.
  */
@@ -26,6 +26,7 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 type PublicSDK = typeof import("../dist/index.js");
 type KeyMode = "primary" | "fallback" | "both" | "none";
+type PilotProvider = "xiaomi-mimo" | "longcat";
 type ActiveCase = {
   prompt: string;
   answer: string;
@@ -33,6 +34,8 @@ type ActiveCase = {
   stream: boolean;
   explicitModel: boolean;
   bearer: string | undefined;
+  provider: PilotProvider;
+  budget: number;
 };
 type Observation = {
   path: string;
@@ -44,6 +47,9 @@ type Observation = {
   validStreamMode: boolean;
   stream: boolean;
   maxTokens: unknown;
+  obsoleteBudgetPresent: boolean;
+  streamOptionsPresent: boolean;
+  includeUsage: unknown;
   toolsPresent: boolean;
   toolChoicePresent: boolean;
   rejection?: "invalid-wire" | "invalid-model";
@@ -52,6 +58,7 @@ type Observation = {
 };
 
 const MODEL = "mimo-v2.6-flash";
+const LONGCAT_MODEL = "LongCat-2.5-Preview";
 const BAD_MODEL = "owned-xiaomi-mimo-invalid-model";
 const PRIMARY_ENV = "XIAOMI_MIMO_API_KEY";
 const FALLBACK_ENV = "MIMO_API_KEY";
@@ -101,11 +108,13 @@ const OWNED_MODEL_REGISTRY = {
   aliases: {},
 };
 
+/** Narrow untrusted wire JSON before reading its observed fields. */
 function object(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
+/** Read textual message content without accepting non-text prompt canaries. */
 function textContent(content: unknown): string {
   if (typeof content === "string") {
     return content;
@@ -122,6 +131,7 @@ function textContent(content: unknown): string {
     })
     .join("");
 }
+/** Set synthetic MiMo key precedence and return the expected Bearer value. */
 function setKeys(mode: KeyMode): string | undefined {
   delete process.env[PRIMARY_ENV];
   delete process.env[FALLBACK_ENV];
@@ -137,20 +147,29 @@ function setKeys(mode: KeyMode): string | undefined {
       ? FALLBACK_KEY
       : PRIMARY_KEY;
 }
+/** Reset observations and pin a unique prompt, model, budget and credential. */
 function beginCase(
   stream: boolean,
   model?: string,
   keys: KeyMode = "primary",
+  provider: PilotProvider = "xiaomi-mimo",
+  budget = 32,
 ): void {
   observations.length = 0;
   active = {
     prompt: `OWNED_PROMPT_${randomUUID()}`,
     answer: `OWNED_ANSWER_${randomUUID()}`,
-    model: model ?? MODEL,
+    model: model ?? (provider === "xiaomi-mimo" ? MODEL : LONGCAT_MODEL),
     explicitModel: model !== undefined,
     stream,
     bearer: setKeys(keys),
+    provider,
+    budget,
   };
+  if (provider === "longcat") {
+    process.env.LONGCAT_API_KEY = "longcat-owned-control-key";
+    active.bearer = process.env.LONGCAT_API_KEY;
+  }
 }
 
 const server = createServer(async (req, res) => {
@@ -205,7 +224,18 @@ const server = createServer(async (req, res) => {
       ? body.stream === true
       : body.stream === false || body.stream === undefined,
     stream: body.stream === true,
-    maxTokens: body.max_tokens,
+    maxTokens:
+      active.provider === "xiaomi-mimo"
+        ? body.max_completion_tokens
+        : body.max_tokens,
+    obsoleteBudgetPresent: Object.hasOwn(
+      body,
+      active.provider === "xiaomi-mimo"
+        ? "max_tokens"
+        : "max_completion_tokens",
+    ),
+    streamOptionsPresent: Object.hasOwn(body, "stream_options"),
+    includeUsage: object(body.stream_options).include_usage,
     toolsPresent: Object.hasOwn(body, "tools"),
     toolChoicePresent: Object.hasOwn(body, "tool_choice"),
   };
@@ -228,11 +258,19 @@ const server = createServer(async (req, res) => {
   if (
     !validBody ||
     row.method !== "POST" ||
-    row.path !== "/v1/chat/completions" ||
+    row.path !==
+      (active.provider === "xiaomi-mimo"
+        ? "/v1/chat/completions"
+        : "/openai/v1/chat/completions") ||
     !row.authMatchesExpected ||
     !row.inputRecognized ||
     !row.validStreamMode ||
-    row.maxTokens !== 32 ||
+    row.maxTokens !== active.budget ||
+    row.obsoleteBudgetPresent ||
+    (active.provider === "xiaomi-mimo" && row.streamOptionsPresent) ||
+    (active.provider === "longcat" &&
+      active.stream &&
+      row.includeUsage !== true) ||
     row.toolsPresent ||
     row.toolChoicePresent
   ) {
@@ -244,12 +282,13 @@ const server = createServer(async (req, res) => {
     );
     return;
   }
-  if (body.model !== MODEL) {
+  const servedModel = active.provider === "xiaomi-mimo" ? MODEL : LONGCAT_MODEL;
+  if (body.model !== servedModel) {
     reject("invalid-model", 400, "owned_invalid_model", "Unsupported model");
     return;
   }
   row.responseStatus = 200;
-  row.servedModel = MODEL;
+  row.servedModel = servedModel;
   if (active.stream) {
     res.writeHead(200, { "Content-Type": "text/event-stream" });
     for (const [delta, finish] of [
@@ -261,7 +300,7 @@ const server = createServer(async (req, res) => {
           id: "xiaomi-mimo-owned-stream",
           object: "chat.completion.chunk",
           created: 0,
-          model: MODEL,
+          model: servedModel,
           choices: [{ index: 0, delta, finish_reason: finish }],
         })}\n\n`,
       );
@@ -274,7 +313,7 @@ const server = createServer(async (req, res) => {
         id: "xiaomi-mimo-owned-generate",
         object: "chat.completion",
         created: 0,
-        model: MODEL,
+        model: servedModel,
         choices: [
           {
             index: 0,
@@ -292,7 +331,9 @@ const address = server.address();
 assert.ok(address && typeof address === "object", "Owned listener missing");
 process.env.MODEL_CONFIG_URL = `http://127.0.0.1:${address.port}/api/v1/models`;
 process.env.XIAOMI_MIMO_BASE_URL = `http://127.0.0.1:${address.port}/v1`;
+process.env.LONGCAT_BASE_URL = `http://127.0.0.1:${address.port}/openai/v1`;
 
+/** Require the owned metadata initialization pair or no metadata traffic. */
 function assertMetadataWire(
   prior: number,
   expectInitialization: boolean,
@@ -308,10 +349,17 @@ function assertMetadataWire(
     "Metadata did not use the expected owned health and registry routes",
   );
 }
+/** Validate every request and refusal against the active provider contract. */
 function assertWire(expectReply: boolean): void {
   assert.ok(observations.length > 0, "Owned endpoint was not reached");
   for (const row of observations) {
-    assert.equal(row.path, "/v1/chat/completions", "Chat route changed");
+    assert.equal(
+      row.path,
+      active.provider === "xiaomi-mimo"
+        ? "/v1/chat/completions"
+        : "/openai/v1/chat/completions",
+      "Chat route changed",
+    );
     assert.equal(row.method, "POST", "Request method changed");
     assert.equal(row.authMatchesExpected, true, "Bearer mapping changed");
     assert.equal(row.validBody, true, "JSON request was malformed");
@@ -319,7 +367,21 @@ function assertWire(expectReply: boolean): void {
     assert.equal(row.inputRecognized, true, "Unique user prompt was dropped");
     assert.equal(row.validStreamMode, true, "Wire stream mode is invalid");
     assert.equal(row.stream, active.stream, "Wire stream mode changed");
-    assert.equal(row.maxTokens, 32, "Explicit output budget was dropped");
+    assert.equal(
+      row.maxTokens,
+      active.budget,
+      "Explicit output budget was dropped",
+    );
+    assert.equal(
+      row.obsoleteBudgetPresent,
+      false,
+      "Obsolete output field was sent",
+    );
+    assert.equal(
+      row.streamOptionsPresent,
+      active.provider === "longcat" && active.stream,
+      "Profile-scoped stream options changed",
+    );
     assert.equal(row.toolsPresent, false, "Tool-free request emitted tools");
     assert.equal(
       row.toolChoicePresent,
@@ -332,9 +394,10 @@ function assertWire(expectReply: boolean): void {
       "Case rejected for the wrong reason",
     );
     assert.equal(row.responseStatus, expectReply ? 200 : 400);
-    assert.equal(row.servedModel, expectReply ? MODEL : undefined);
+    assert.equal(row.servedModel, expectReply ? active.model : undefined);
   }
 }
+/** Drive the built public SDK, checking metadata and always closing its client. */
 async function sdkCall(kind: "generate" | "stream"): Promise<string> {
   const metadataBefore = metadataObservations.length;
   const expectMetadataInitialization =
@@ -345,10 +408,10 @@ async function sdkCall(kind: "generate" | "stream"): Promise<string> {
   });
   try {
     const options = {
-      provider: "xiaomi-mimo",
+      provider: active.provider,
       ...(active.explicitModel ? { model: active.model } : {}),
       input: { text: active.prompt },
-      maxTokens: 32,
+      maxTokens: active.budget,
       disableTools: true,
       disableInternalFallback: true,
     };
@@ -373,6 +436,7 @@ async function sdkCall(kind: "generate" | "stream"): Promise<string> {
     }
   }
 }
+/** Run the built or installed CLI with an isolated home and 60-second limit. */
 async function cliCall(kind: "generate" | "stream") {
   const home = tempDir("xiaomi-mimo-owned-cli-");
   const metadataBefore = metadataObservations.length;
@@ -383,13 +447,13 @@ async function cliCall(kind: "generate" | "stream") {
       kind,
       active.prompt,
       "--provider",
-      "xiaomi-mimo",
+      active.provider,
       ...(active.explicitModel ? ["--model", active.model] : []),
       "--disableTools",
       "--disable-internal-fallback",
       "--quiet",
       "--maxTokens",
-      "32",
+      String(active.budget),
       ...(kind === "generate" && !active.explicitModel
         ? ["--format", "json"]
         : []),
@@ -399,12 +463,15 @@ async function cliCall(kind: "generate" | "stream") {
   assertMetadataWire(metadataBefore, !active.explicitModel);
   return result;
 }
+/** Require a fresh answer and the unchanged requested contract on either API. */
 async function defaultCase(
   surface: "sdk" | "cli",
   kind: "generate" | "stream",
   keys: KeyMode,
+  budget = 32,
+  provider: PilotProvider = "xiaomi-mimo",
 ): Promise<void> {
-  beginCase(kind === "stream", undefined, keys);
+  beginCase(kind === "stream", undefined, keys, provider, budget);
   let output: string;
   if (surface === "sdk") {
     output = await sdkCall(kind);
@@ -468,6 +535,59 @@ try {
       "Keyless diagnostic does not name the catalog key variable",
     );
   });
+  for (const budget of [7, 64]) {
+    for (const kind of ["generate", "stream"] as const) {
+      for (const surface of ["sdk", "cli"] as const) {
+        await test(`${surface}.${kind} carries MiMo's documented output budget ${budget}`, async () => {
+          await defaultCase(surface, kind, "primary", budget);
+        });
+      }
+    }
+  }
+  for (const kind of ["generate", "stream"] as const) {
+    for (const surface of ["sdk", "cli"] as const) {
+      await test(`${surface}.${kind} keeps LongCat's ordinary budget and stream options`, async () => {
+        await defaultCase(surface, kind, "primary", 32, "longcat");
+      });
+    }
+  }
+  for (const obsolete of ["max_tokens", "stream_options"] as const) {
+    await test(`fixture calibration refuses MiMo ${obsolete} before an answer`, async () => {
+      beginCase(obsolete === "stream_options");
+      const body = {
+        model: MODEL,
+        messages: [{ role: "user", content: active.prompt }],
+        stream: active.stream,
+        ...(obsolete === "max_tokens"
+          ? { max_completion_tokens: 32, max_tokens: 32 }
+          : {
+              max_completion_tokens: 32,
+              stream_options: { include_usage: true },
+            }),
+      };
+      const response = await fetch(
+        `${process.env.XIAOMI_MIMO_BASE_URL}/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${active.bearer}`,
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      assert.equal(response.status, 400, "Obsolete wire reached an answer");
+      const result: unknown = await response.json();
+      assert.equal(object(object(result).error).code, "owned_invalid_wire");
+      assert.equal(
+        observations.length,
+        1,
+        "Fixture calibration must send one request",
+      );
+      assert.equal(observations[0].rejection, "invalid-wire");
+      assert.equal(observations[0].servedModel, undefined);
+    });
+  }
 } finally {
   await new Promise<void>((closed, reject) => {
     server.close((error) => (error ? reject(error) : closed()));

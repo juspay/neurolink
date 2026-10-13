@@ -168,6 +168,7 @@ export function getDecideCatalogEntries(): readonly DecideCatalogJson[] {
   return freezeCatalogCopy(DECIDE_CATALOG_JSON_ENTRIES);
 }
 
+/** Build runtime provider entries with only the quirks each catalog opts into. */
 export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
   return CATALOG_JSON_ENTRIES.map((entry) => {
     // Only models whose entry sets `tools` explicitly contribute a row —
@@ -229,6 +230,12 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     } else {
       base.baseURLEnvVar = catalogEnvVar(entry, "baseURL");
       base.defaultBaseURL = entry.wire.baseURL;
+    }
+    if (entry.quirks?.maxTokensField) {
+      base.maxTokensField = entry.quirks.maxTokensField;
+    }
+    if (entry.quirks?.omitStreamOptions !== undefined) {
+      base.omitStreamOptions = entry.quirks.omitStreamOptions;
     }
     if (entry.quirks?.messageContentFormat) {
       base.messageContentFormat = entry.quirks.messageContentFormat;

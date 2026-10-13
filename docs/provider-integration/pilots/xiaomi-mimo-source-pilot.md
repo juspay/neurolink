@@ -62,39 +62,48 @@ product and are out of scope.
 ## Known gaps the local contract cannot close
 
 - **Output-budget field name.** The vendor's request reference lists only
-  `max_completion_tokens`. The SDK's shared chat-completions base sends
-  `max_tokens`, and the suite pins that observed field. Whether the vendor
-  honors `max_tokens`, ignores it (leaving the model's 131072 default) or
-  rejects it is unverified. A catalog entry cannot rename the field; that would
-  need a provider hook or a new catalog quirk, which is an operator decision.
-- **Streaming usage option.** A streaming request carries
-  `stream_options: { "include_usage": true }`. The vendor's reference documents
-  `stream` but not `stream_options`. The suite does not observe how the vendor
-  responds to the extra field.
+  `max_completion_tokens`. The profile's `quirks.maxTokensField` maps the
+  caller's fitted `maxTokens` budget to that field and omits `max_tokens` on
+  generate and stream requests. An owned endpoint refuses the obsolete field
+  and requires the exact requested budget before answering. This proves the
+  emitted local wire contract; actual vendor acceptance and enforcement remain
+  unverified. The parameter includes visible plus reasoning tokens.
+- **Streaming usage option.** The vendor's reference documents `stream` but
+  not `stream_options`. The profile's `quirks.omitStreamOptions` therefore omits
+  that extension, preserving ordinary SSE streaming. Returned usage is still
+  consumed if the vendor supplies it; no streaming usage completeness is claimed.
 - **Environment variable.** The vendor's own examples name `MIMO_API_KEY`. The
   catalog's derived primary variable is `XIAOMI_MIMO_API_KEY`, and `MIMO_API_KEY`
   is read as a fallback through `wire.apiKeyFallbackEnvVars`, the mechanism the
   Sakana AI entry also uses. Removing the fallback is a one-line change if the
   maintainers prefer the pure convention.
-- **Ceilings are source-bound only.** The shared wire builder fits `max_tokens`
-  only to runtime-discovered ceilings, so the catalog's `contextWindow` and
+- **Ceilings are source-bound only.** The shared wire builder fits the output
+  budget only to runtime-discovered ceilings, so the catalog's `contextWindow` and
   `maxOutputTokens` never appear on the wire, and no public CLI command or SDK
   export was found that reads them back. The owned endpoint cannot observe
   them; they rest on the cited source bindings alone.
 
 ## Local public contract
 
-`test/continuous-test-suite-xiaomi-mimo-pilot.ts` runs 12 cases through the
+`test/continuous-test-suite-xiaomi-mimo-pilot.ts` retains its original 12 cases through the
 built public SDK and built CLI, with optional `--package-root` support for a
 later installed consumer:
 
-| Cases                                       | Count | Required observation                                                                                                                    |
-| ------------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------- |
-| SDK/CLI generate/stream default             |     4 | Actual catalog default, route, Bearer header, unique user prompt, `max_tokens: 32`, stream mode, no tools/tool choice, and fresh answer |
-| SDK/CLI generate/stream invalid explicit id |     4 | All wire preconditions pass before HTTP 400 rejection; no fallback or successful reply                                                  |
-| SDK and CLI generate, only `MIMO_API_KEY`   |     2 | The vendor-documented variable alone reaches the wire as the Bearer credential                                                          |
-| SDK generate, both variables set            |     1 | `XIAOMI_MIMO_API_KEY` wins; the fallback's value never reaches the wire                                                                 |
-| SDK generate, no key                        |     1 | Refusal before any request, naming `XIAOMI_MIMO_API_KEY`                                                                                |
+| Cases                                                    | Count | Required observation                                                                                                                                                                    |
+| -------------------------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SDK/CLI generate/stream default                          |     4 | Actual catalog default, route, Bearer header, unique user prompt, `max_completion_tokens: 32`, no `max_tokens` or `stream_options`, stream mode, no tools/tool choice, and fresh answer |
+| SDK/CLI generate/stream invalid explicit id              |     4 | All wire preconditions pass before HTTP 400 rejection; no fallback or successful reply                                                                                                  |
+| SDK and CLI generate, only `MIMO_API_KEY`                |     2 | The vendor-documented variable alone reaches the wire as the Bearer credential                                                                                                          |
+| SDK generate, both variables set                         |     1 | `XIAOMI_MIMO_API_KEY` wins; the fallback's value never reaches the wire                                                                                                                 |
+| SDK generate, no key                                     |     1 | Refusal before any request, naming `XIAOMI_MIMO_API_KEY`                                                                                                                                |
+| SDK/CLI generate/stream, budgets 7 and 64                |     8 | Exact caller budget reaches `max_completion_tokens`, with neither obsolete budget nor unverified stream options                                                                         |
+| SDK/CLI generate/stream LongCat controls                 |     4 | Unrelated profile retains `max_tokens` and its ordinary streaming usage option                                                                                                          |
+| Owned fixture calibration, obsolete budget/stream option |     2 | Direct listener controls refuse wrong fields with HTTP 400 before serving a model; these are fixture controls, not SDK/CLI execution                                                    |
+
+Total: 26 cases, comprising 24 public SDK/CLI cases and two fixture calibration
+controls. The original case identities, credential/model negatives, deadlines and
+caller intent are preserved; output-field assertions are strengthened to the
+documented contract. No other catalog profile opts into the two dialect fields.
 
 The fixture strips real credentials before imports, uses temporary homes and
 sets the provider route to its owned random-port listener. Public

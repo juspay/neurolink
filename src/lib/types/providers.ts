@@ -1003,6 +1003,11 @@ export type OpenAICompatCatalogEntry = {
    * Task 4, so nothing actually mutates it at runtime.
    */
   errorRules: ProviderErrorRule[];
+  /** See CatalogQuirks.maxTokensField. Preserve the fitted output budget while
+   * changing only its wire name; omitted keeps max_tokens. */
+  maxTokensField?: "max_completion_tokens";
+  /** See CatalogQuirks.omitStreamOptions. Omitted preserves stream usage options. */
+  omitStreamOptions?: boolean;
   /**
    * Optional override for the Error subclass a TimeoutError should produce
    * for this entry. classifyProviderError() hard-codes

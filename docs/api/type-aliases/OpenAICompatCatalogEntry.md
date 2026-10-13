@@ -233,6 +233,23 @@ Task 4, so nothing actually mutates it at runtime.
 
 ---
 
+### maxTokensField?
+
+> `optional` **maxTokensField?**: `"max_completion_tokens"`
+
+See CatalogQuirks.maxTokensField. Preserve the fitted output budget while
+changing only its wire name; omitted keeps max_tokens.
+
+---
+
+### omitStreamOptions?
+
+> `optional` **omitStreamOptions?**: `boolean`
+
+See CatalogQuirks.omitStreamOptions. Omitted preserves stream usage options.
+
+---
+
 ### timeoutErrorClass?
 
 > `optional` **timeoutErrorClass?**: (`message`, `provider?`) => [`ProviderError`](../classes/ProviderError.md)

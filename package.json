@@ -164,6 +164,7 @@
     "test:provider-wiring": "pnpm exec tsx test/continuous-test-suite-provider-wiring.ts",
     "test:embedding-response-validation": "pnpm exec tsx test/continuous-test-suite-embedding-response-validation.ts",
     "test:xiaomi-mimo-pilot": "pnpm exec tsx test/continuous-test-suite-xiaomi-mimo-pilot.ts",
+    "test:mimo-overflow-budget": "pnpm exec tsx test/continuous-test-suite-mimo-overflow-budget.ts",
     "test:longcat-pilot": "pnpm exec tsx test/continuous-test-suite-longcat-pilot.ts",
     "test:runinfra-pilot": "pnpm exec tsx test/continuous-test-suite-runinfra-pilot.ts",
     "test:pdf-image-streaming": "pnpm exec tsx test/continuous-test-suite-pdf-image-streaming.ts",

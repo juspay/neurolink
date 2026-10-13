@@ -542,12 +542,16 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
    *    uses the backend's own number — self-healing even when a discovery
    *    endpoint (`/model/info`) is absent or unauthorized;
    *  - when the error also states the real input size (vllm/LiteLLM
-   *    phrasing) and the body carried `max_tokens`, it is re-fit to
-   *    `window − input − margin` and the request retried once.
+   *    phrasing), its output budget is re-fit to `window − input − margin`
+   *    and the request retried once. An explicit `max_completion_tokens`
+   *    takes precedence over legacy `max_tokens`; a server-reported output
+   *    budget is used only when the request carried neither field.
    *
    * Returns undefined when the error is not an overflow, or when no smaller
-   * `max_tokens` can make the request fit (input alone too large) — the
-   * original error then propagates unchanged.
+   * output budget can make the request fit (input alone too large) — the
+   * original error then propagates unchanged. The retry never increases an
+   * explicit caller budget and is normalized through the provider's wire
+   * adjustment hook, including when the initial budget was server-defaulted.
    */
   private correctBodyAfterContextOverflow(
     body: OpenAICompatChatRequest,
@@ -567,12 +571,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       body.model,
       details.budgetTokens,
     );
-    // When the body carried no max_tokens (server-defaulted output), the
-    // vllm/LiteLLM phrasing still states what the backend counted — use it
-    // so those requests get a re-fit retry too instead of propagating.
+    const budgetField =
+      typeof body.max_completion_tokens === "number"
+        ? "max_completion_tokens"
+        : "max_tokens";
+    // A parsed output count is only a fallback for server-defaulted output;
+    // it must not override an explicit cap in either supported dialect.
     const previousMaxTokens =
-      typeof body.max_tokens === "number"
-        ? body.max_tokens
+      typeof body[budgetField] === "number"
+        ? body[budgetField]
         : details.requestedOutputTokens;
     if (previousMaxTokens === undefined || details.actualTokens <= 0) {
       return undefined;
@@ -583,7 +590,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       return undefined;
     }
     logger.warn(
-      `${this.providerName}: ${body.model} rejected the request as over-window — retrying once with max_tokens re-fit from the provider's own numbers`,
+      `${this.providerName}: ${body.model} rejected the request as over-window — retrying once with ${budgetField} re-fit from the provider's own numbers`,
       {
         window: details.budgetTokens,
         inputTokens: details.actualTokens,
@@ -591,7 +598,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         refitMaxTokens: refit,
       },
     );
-    return { ...body, max_tokens: refit };
+    const {
+      max_tokens: _legacyBudget,
+      max_completion_tokens: _completionBudget,
+      ...withoutOutputBudget
+    } = body;
+    return this.adjustRequestBody(
+      { ...withoutOutputBudget, [budgetField]: refit },
+      body.model,
+    );
   }
 
   /**

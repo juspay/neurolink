@@ -198,11 +198,30 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
     return this.entry.supportsStructuredOutputWithTools !== true;
   }
 
+  /**
+   * Apply catalog-scoped budget, streaming and message dialects to the final
+   * request body. Reapplying these adjustments during a retry preserves the
+   * same endpoint contract without changing an already normalized budget.
+   */
   protected adjustRequestBody(
     body: OpenAICompatChatRequest,
     modelId: string,
   ): OpenAICompatChatRequest {
-    const adjusted = super.adjustRequestBody(body, modelId);
+    let adjusted = super.adjustRequestBody(body, modelId);
+    if (this.entry.maxTokensField === "max_completion_tokens") {
+      const { max_tokens, ...withoutLegacyBudget } = adjusted;
+      adjusted = {
+        ...withoutLegacyBudget,
+        ...(max_tokens === undefined
+          ? {}
+          : { max_completion_tokens: max_tokens }),
+      };
+    }
+    if (this.entry.omitStreamOptions === true) {
+      const { stream_options: _streamOptions, ...withoutStreamOptions } =
+        adjusted;
+      adjusted = withoutStreamOptions;
+    }
     if (
       this.entry.rejectRequiredToolChoice === true &&
       adjusted.tool_choice === "required" &&

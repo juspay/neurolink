@@ -33,6 +33,10 @@
     "embeddings": false,
     "thinking": false
   },
+  "quirks": {
+    "maxTokensField": "max_completion_tokens",
+    "omitStreamOptions": true
+  },
   "errorRules": [],
   "setup": {
     "url": "https://platform.xiaomimimo.com/#/console/api-keys",

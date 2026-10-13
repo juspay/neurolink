@@ -10,6 +10,24 @@
 
 ## Properties
 
+### maxTokensField?
+
+> `optional` **maxTokensField?**: `"max_completion_tokens"`
+
+Send the caller's fitted maxTokens budget as max_completion_tokens and
+omit max_tokens. Omitted preserves the ordinary OpenAI-compatible field.
+
+---
+
+### omitStreamOptions?
+
+> `optional` **omitStreamOptions?**: `boolean`
+
+Omit stream_options where the endpoint does not document that extension.
+Does not discard usage that the endpoint returns without requesting it.
+
+---
+
 ### timeoutErrorClass?
 
 > `optional` **timeoutErrorClass?**: `"provider"`
