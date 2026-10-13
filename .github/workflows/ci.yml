@@ -420,6 +420,10 @@ jobs:
         if: matrix.group == 'contract'
         run: pnpm run test:decide-contract
 
+      - name: Image download lookup containment (owned TLS fixture)
+        if: matrix.group == 'contract'
+        run: pnpm run test:image-download-transport
+
       - name: Provider structure tests (registry ↔ filesystem, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:provider-structure

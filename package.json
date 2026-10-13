@@ -146,6 +146,7 @@
     "test:stream-structured-output": "pnpm exec tsx test/continuous-test-suite-stream-structured-output.ts",
     "test:browser-bundle": "pnpm exec tsx test/continuous-test-suite-browser-bundle.ts",
     "test:providers-mocked": "pnpm exec tsx test/continuous-test-suite-providers-mocked.ts",
+    "test:image-download-transport": "pnpm exec tsx test/continuous-test-suite-image-download-transport.ts",
     "test:decide-contract": "pnpm exec tsx test/continuous-test-suite-decide-provider-contract.ts",
     "test:acceptance-gate": "pnpm exec tsx test/continuous-test-suite-acceptance-gate.ts",
     "test:cli-fallback": "pnpm exec tsx test/continuous-test-suite-cli-fallback.ts",

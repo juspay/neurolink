@@ -161,11 +161,17 @@ async function startFixture(): Promise<Fixture> {
   }
 }
 
+/**
+ * Redirect the real downloader to owned TLS while retaining its DNS checks.
+ * Await every lookup validation before returning or restoring the transport.
+ */
 export async function withImageDownloadTransport<T>(
   fn: (probe: { pinnedLookups: number }) => Promise<T>,
 ): Promise<T> {
   const fixture = await startFixture();
   const probe = { pinnedLookups: 0 };
+  const lookupCompletions: Promise<void>[] = [];
+  let lookupFailure: unknown;
   const originalConnect = tls.connect;
   try {
     tls.connect = ((options: tls.ConnectionOptions) => {
@@ -174,15 +180,30 @@ export async function withImageDownloadTransport<T>(
       assert(FIXTURE_HOSTS.includes(host), "unexpected download host");
       const lookup = options.lookup;
       assert(lookup, "download did not supply a pinned DNS lookup");
-      lookup(host, { all: true }, (error, addresses) => {
-        assert.ifError(error);
-        assert.deepEqual(
-          addresses,
-          [{ address: "93.184.215.14", family: 4 }],
-          "download dialed an unvalidated address",
-        );
-        probe.pinnedLookups++;
-      });
+      lookupCompletions.push(
+        new Promise<void>((resolve) => {
+          try {
+            lookup(host, { all: true }, (error, addresses) => {
+              try {
+                assert.ifError(error);
+                assert.deepEqual(
+                  addresses,
+                  [{ address: "93.184.215.14", family: 4 }],
+                  "download dialed an unvalidated address",
+                );
+                probe.pinnedLookups++;
+              } catch (error) {
+                lookupFailure ??= error;
+              } finally {
+                resolve();
+              }
+            });
+          } catch (error) {
+            lookupFailure ??= error;
+            resolve();
+          }
+        }),
+      );
       return originalConnect({
         ...options,
         host: "127.0.0.1",
@@ -192,7 +213,18 @@ export async function withImageDownloadTransport<T>(
         servername: host,
       });
     }) as typeof tls.connect;
-    return await fn(probe);
+    let result: T;
+    try {
+      result = await fn(probe);
+    } finally {
+      // A lookup can finish after fn settles. Keep its assertions inside this
+      // helper's promise and finish it before restoring transport or closing.
+      await Promise.all(lookupCompletions);
+    }
+    if (lookupFailure !== undefined) {
+      throw lookupFailure;
+    }
+    return result;
   } finally {
     tls.connect = originalConnect;
     await fixture.close();
