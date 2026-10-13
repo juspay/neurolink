@@ -6,7 +6,8 @@ settings:
 
 overrides:
   esbuild@<=0.24.2: '>=0.25.0'
-  cookie@<0.7.0: '>=0.7.0'
+  cookie@<0.7.0: ^0.7.2
+  '@types/dom-webcodecs@<0.1.19': ^0.1.19
   '@eslint/plugin-kit@<0.3.4': '>=0.3.4'
   tmp@<0.2.6: '>=0.2.6'
   axios@<1.13.5: '>=1.13.5'
@@ -59,6 +60,9 @@ overrides:
 pnpmfileChecksum: sha256-IOuJacdJrM1DaVu4E0VUU8po5yGx2L7t74wmXJARo8U=
 
 patchedDependencies:
+  hono@4.13.13:
+    hash: 790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c
+    path: patches/hono@4.13.13.patch
   mammoth@1.12.0:
     hash: 08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362
     path: patches/mammoth@1.12.0.patch
@@ -158,8 +162,8 @@ importers:
         specifier: ^10.6.1
         version: 10.6.2
       hono:
-        specifier: ^4.13.5
-        version: 4.13.7
+        specifier: 4.13.13
+        version: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
       iconv-lite:
         specifier: 0.7.2
         version: 0.7.2
@@ -278,6 +282,9 @@ importers:
       '@types/diff':
         specifier: ^8.0.0
         version: 8.0.0
+      '@types/emscripten':
+        specifier: ^1.41.6
+        version: 1.41.6
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
@@ -404,7 +411,7 @@ importers:
         version: 6.4.0
       '@hono/node-server':
         specifier: ^1.19.15
-        version: 1.19.17(hono@4.13.7)
+        version: 1.19.17(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
       '@koa/cors':
         specifier: ^5.0.0
         version: 5.0.0
@@ -2860,8 +2867,11 @@ packages:
   '@types/dom-mediacapture-transform@0.1.11':
     resolution: {integrity: sha512-Y2p+nGf1bF2XMttBnsVPHUWzRRZzqUoJAKmiP10b5umnO6DDrWI0BrGDJy1pOHoOULVmGSfFNkQrAlC5dcj6nQ==}
 
-  '@types/dom-webcodecs@0.1.13':
-    resolution: {integrity: sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==}
+  '@types/dom-webcodecs@0.1.19':
+    resolution: {integrity: sha512-+yFUIDUaASFz0vQpWBErPxun/Lb+F0TdrlTsj50gm7K797YzEx2TmV6fEiwciHyFNghlZYPgQXH5qRcwMHcJFQ==}
+
+  '@types/emscripten@1.41.6':
+    resolution: {integrity: sha512-uN+9i8bFT5CUcZfyIEYDrSueACEyKGbUs5kC/72DGlZZoinh84sJfVV0i8UOJD1asdzkvLPBRrKs41kZ8MdEXg==}
 
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -4346,8 +4356,8 @@ packages:
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  hono@4.13.7:
-    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
 
   hook-std@4.0.0:
@@ -7887,9 +7897,9 @@ snapshots:
   '@hapi/bourne@3.0.0':
     optional: true
 
-  '@hono/node-server@1.19.17(hono@4.13.7)':
+  '@hono/node-server@1.19.17(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))':
     dependencies:
-      hono: 4.13.7
+      hono: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
 
   '@huggingface/hub@2.4.1':
     dependencies:
@@ -8506,7 +8516,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.7)
+      '@hono/node-server': 1.19.17(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -8516,7 +8526,7 @@ snapshots:
       eventsource-parser: 3.0.8
       express: 5.2.1
       express-rate-limit: 8.3.1(express@5.2.1)
-      hono: 4.13.7
+      hono: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
       jose: 6.2.2
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -9836,7 +9846,7 @@ snapshots:
       '@sveltejs/vite-plugin-svelte': 7.0.0(svelte@5.55.7(@typescript-eslint/types@8.57.2))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/cookie': 0.6.0
       acorn: 8.17.0
-      cookie: 1.1.1
+      cookie: 0.7.2
       devalue: 5.8.1
       esm-env: 1.2.2
       kleur: 4.1.5
@@ -9922,11 +9932,13 @@ snapshots:
 
   '@types/dom-mediacapture-transform@0.1.11':
     dependencies:
-      '@types/dom-webcodecs': 0.1.13
+      '@types/dom-webcodecs': 0.1.19
     optional: true
 
-  '@types/dom-webcodecs@0.1.13':
+  '@types/dom-webcodecs@0.1.19':
     optional: true
+
+  '@types/emscripten@1.41.6': {}
 
   '@types/esrecurse@4.3.1': {}
 
@@ -10711,7 +10723,8 @@ snapshots:
 
   cookie@0.7.2: {}
 
-  cookie@1.1.1: {}
+  cookie@1.1.1:
+    optional: true
 
   cookies@0.9.1:
     dependencies:
@@ -11698,7 +11711,7 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.13.7: {}
+  hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c): {}
 
   hook-std@4.0.0: {}
 
@@ -12317,7 +12330,7 @@ snapshots:
   mediabunny@1.40.1:
     dependencies:
       '@types/dom-mediacapture-transform': 0.1.11
-      '@types/dom-webcodecs': 0.1.13
+      '@types/dom-webcodecs': 0.1.19
     optional: true
 
   meow@13.2.0: {}

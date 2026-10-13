@@ -1,0 +1,10 @@
+--- a/dist/types/middleware/secure-headers/index.d.ts
++++ b/dist/types/middleware/secure-headers/index.d.ts
+@@ -1,6 +1,6 @@
+ import { ContentSecurityPolicyOptionHandler, NONCE, SecureHeadersVariables, secureHeaders } from "./secure-headers.js";
+ //#region src/middleware/secure-headers/index.d.ts
+-declare module '../..' {
++declare module '../../context' {
+   interface ContextVariableMap extends SecureHeadersVariables {}
+ }
+ //#endregion
