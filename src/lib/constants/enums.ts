@@ -108,6 +108,7 @@ export enum AIProviderName {
   WANDB_INFERENCE = "wandb-inference",
   XAI = "xai",
   XIAOMI_MIMO = "xiaomi-mimo",
+  XOR = "xor",
   Z_AI = "z-ai",
   // ── END GENERATED(provider-members) ──
   COHERE = "cohere",
@@ -119,8 +120,6 @@ export enum AIProviderName {
   RECRAFT = "recraft",
   /** TypeSafe (Jev) — serves the `decide` inference type only. */
   TYPESAFE = "typesafe",
-  /** XOR (Juspay, open weights) — serves the `decide` inference type only. */
-  XOR = "xor",
   /**
    * Perplexity Decisions API (`pplx-decider-v1-27b`) — serves the `decide`
    * inference type only. Distinct from `PERPLEXITY`, the Sonar text provider.
@@ -2226,6 +2225,10 @@ export enum XiaomiMimoModels {
   MIMO_V2_6_FLASH = "mimo-v2.6-flash",
 }
 
+export enum XorModels {
+  XOR_1_1 = "xor-1.1",
+}
+
 export enum ZAiModels {
   GLM_5_3 = "glm-5.3",
   GLM_5_3_FLASH = "glm-5.3-flash",
@@ -2252,14 +2255,6 @@ export enum ZAiModels {
 export enum TypeSafeModels {
   JEV_LATEST = "jev-latest",
   JEV_PREVIEW = "jev-preview",
-}
-
-/**
- * XOR decision models. Hand-written: XOR is a Tier-3 provider, so it is not in
- * the provider catalog and codegen never touches this.
- */
-export enum XorModels {
-  XOR_1_1 = "xor-1.1",
 }
 
 /**

@@ -30,7 +30,6 @@ import { llamacppManifest } from "./manifests/llamacpp.js";
 import { xaiManifest } from "./manifests/xai.js";
 import { groqManifest } from "./manifests/groq.js";
 import { typesafeManifest } from "./manifests/typesafe.js";
-import { xorManifest } from "./manifests/xor.js";
 import { perplexityDeciderManifest } from "./manifests/perplexityDecider.js";
 import { cloudflareClefManifest } from "./manifests/cloudflareClef.js";
 import { cohereManifest } from "./manifests/cohere.js";
@@ -188,7 +187,6 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   ...Object.fromEntries(
     getDecideCatalogEntries().map((e) => [e.id, buildDecideManifest(e)]),
   ),
-  xor: xorManifest,
   "perplexity-decider": perplexityDeciderManifest,
   "cloudflare-clef": cloudflareClefManifest,
   cerebras: catalogManifest("cerebras"),

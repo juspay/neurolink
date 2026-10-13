@@ -1,0 +1,86 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "xor",
+  "displayName": "XOR",
+  "aliases": [],
+  "inferenceKinds": ["decide"],
+  "wire": {},
+  "models": {
+    "default": "xor-1.1",
+    "topModels": ["xor-1.1"],
+    "catalog": {
+      "xor-1.1": {
+        "contextWindow": 250000,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - XOR 1.1, decision model that also reads images and video"
+      }
+    }
+  },
+  "timeouts": { "decideMs": 5000 },
+  "decisionLimits": {
+    "maxStateTokens": 200000,
+    "nonAsciiTokensPerChar": 1,
+    "media": { "maxImages": 8, "video": true, "maxRequestBytes": 8388608 }
+  },
+  "decide": {
+    "dialect": "system-one",
+    "order": 3,
+    "baseURLRequired": true,
+    "baseURLNormalize": ["strip-trailing-slash", "strip-v1-suffix"],
+    "baseURLShape": "origin",
+    "endpoint": "{baseURL}/v1/systemone",
+    "model": { "placement": "body" },
+    "media": { "imagesKey": "images", "videoKey": "video" },
+    "requestIdHeaders": [
+      "x-request-id",
+      "x-typesafe-request-id",
+      "x-litellm-call-id"
+    ],
+    "errors": {
+      "rules": [
+        { "status": 401, "kind": "authentication" },
+        { "status": 413, "kind": "max_tokens_exceeded" },
+        { "status": 429, "kind": "rate_limit" },
+        { "status": 503, "kind": "overloaded" },
+        {
+          "statusMin": 500,
+          "messagePattern": "(context|prefill|prompt).{0,40}(length|limit|too long|exceed)|(too long|exceeds?).{0,40}(context|tokens)",
+          "kind": "max_tokens_exceeded"
+        },
+        { "statusMin": 500, "kind": "server" }
+      ],
+      "default": "invalid_request",
+      "bodyShapes": [
+        { "path": "error.message" },
+        { "path": "error" },
+        {
+          "path": "detail",
+          "isArray": true,
+          "formatter": "fastapi-validation"
+        },
+        { "path": "detail" }
+      ]
+    }
+  },
+  "setup": {
+    "url": "https://huggingface.co/juspay/xor",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "description": "API key for your XOR endpoint",
+    "instructions": [
+      "1. Reach an XOR deployment, or use a LiteLLM proxy with a pass-through route to one",
+      "2. Set XOR_BASE_URL to its origin (NeuroLink calls <XOR_BASE_URL>/v1/systemone)",
+      "3. Set {apiKeyEnvVar} to the key it accepts (on LiteLLM, a virtual key whose team allows xor-1.1)"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-29",
+      "method": "The single model id xor-1.1 is the roster the hand-written XOR descriptor shipped; 2026-09-29 is the date it was added, not a date it was checked. The roster was never verified against a live XOR endpoint, and no live probe was run in this change"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1984"
+  }
+}

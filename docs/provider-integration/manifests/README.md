@@ -27,6 +27,8 @@ are now JSON-catalog entries, and their onboarding evidence lives in
 
 `laya.json` was removed the same way when Laya moved from a hand-written class onto a decide catalog file: `src/lib/providers/catalog/laya.json` carries its `evidence` block, and the gate checks it with `parseCatalogEntry`, which accepts chat and decide files alike and also requires the file's `id` to match its name.
 
+`xor.json` was removed the same way when XOR moved onto `src/lib/providers/catalog/xor.json`.
+
 ## Tier 3/4 (hand-written) providers still use a manifest here
 
 A provider onboarded outside the JSON catalog — a custom adapter (Tier 3)

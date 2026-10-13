@@ -87,6 +87,7 @@ import waferJson from "./wafer.json" with { type: "json" };
 import wandbInferenceJson from "./wandb-inference.json" with { type: "json" };
 import xaiJson from "./xai.json" with { type: "json" };
 import xiaomiMimoJson from "./xiaomi-mimo.json" with { type: "json" };
+import xorJson from "./xor.json" with { type: "json" };
 import zAiJson from "./z-ai.json" with { type: "json" };
 import { isDecideCatalogEntry, parseCatalogEntry } from "./schema.js";
 import type {
@@ -284,8 +285,9 @@ export const CATALOG_PROVIDER_IDS = [
   "z-ai",
 ] as const;
 
-export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [layaJson].map(
-  asDecideEntry,
-);
+export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [
+  layaJson,
+  xorJson,
+].map(asDecideEntry);
 
-export const DECIDE_CATALOG_PROVIDER_IDS = ["laya"] as const;
+export const DECIDE_CATALOG_PROVIDER_IDS = ["laya", "xor"] as const;

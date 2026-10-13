@@ -60,6 +60,24 @@
         "symbolTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
         "astralTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
         "advisory": { "type": "boolean" },
+        "media": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxImages", "video", "maxRequestBytes"],
+          "description": "What a request may carry besides text. Requires decide.media, which names the body keys the prepared media is written under.",
+          "properties": {
+            "maxImages": { "type": "integer", "minimum": 1 },
+            "video": {
+              "type": "boolean",
+              "description": "Whether one video is accepted. True requires decide.media.videoKey; false forbids it."
+            },
+            "maxRequestBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Ceiling on the encoded request body, in bytes."
+            }
+          }
+        },
         "models": {
           "type": "object",
           "description": "Per-model limits keyed by a models.catalog key (enforced by the zod schema).",
@@ -96,7 +114,12 @@
         },
         "baseURLNormalize": {
           "type": "array",
-          "items": { "enum": ["strip-trailing-slash"] }
+          "items": { "enum": ["strip-trailing-slash", "strip-v1-suffix"] },
+          "description": "Applied to the base URL in list order. strip-v1-suffix removes one trailing /v1, in either case."
+        },
+        "baseURLShape": {
+          "enum": ["origin"],
+          "description": "Refuses a normalised base URL that is not an http(s) URL without userinfo, a query string or a fragment. Omitted means no check."
         },
         "endpoint": {
           "type": "string",
@@ -114,6 +137,16 @@
               "minLength": 1,
               "description": "A models.catalog key that means send no model. Only with placement body-unless-alias."
             }
+          }
+        },
+        "media": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["imagesKey"],
+          "description": "Body keys prepared media is written under, after model, state and questions: imagesKey only when the request carries an image, videoKey only when it carries a video, and the two differ. Requires decisionLimits.media; videoKey is required exactly when that allowance's video is true.",
+          "properties": {
+            "imagesKey": { "$ref": "#/definitions/decideMediaKey" },
+            "videoKey": { "$ref": "#/definitions/decideMediaKey" }
           }
         },
         "requestIdHeaders": {
@@ -156,6 +189,12 @@
                     ]
                   },
                   "statusMin": { "$ref": "#/definitions/httpStatus" },
+                  "messagePattern": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The rule also needs the error message to match this case-insensitive regular expression (first 2,000 characters, key removed). Bounded: outside a character class no unescaped *, + or {n,}, no quantifier on a group, no count above 255, and the counts side by side multiply to at most 4,096 ways (each ? is 2, each {n,m} is m-n+1)."
+                  },
                   "kind": { "$ref": "#/definitions/decisionErrorKind" },
                   "retryable": { "type": "boolean" }
                 }
@@ -587,6 +626,20 @@
   },
   "definitions": {
     "httpStatus": { "type": "integer", "minimum": 100, "maximum": 599 },
+    "decideMediaKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+      "not": {
+        "enum": [
+          "model",
+          "state",
+          "questions",
+          "__proto__",
+          "constructor",
+          "prototype"
+        ]
+      }
+    },
     "decisionErrorKind": {
       "enum": [
         "authentication",

@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { ConfiguredDecisionProvider } from "../../dist/providers/configuredDecision.js";
 import type {
   DecideCatalogJson,
+  DecideFormatterName,
   DecisionQuestionMap,
   DecisionRequest,
   DecisionResult,
@@ -951,15 +952,30 @@ type ErrorRule = DecideCatalogJson["decide"]["errors"]["rules"][number];
 // one no rule matches is sent to prove the default kind.
 const STATUS_PROBES = [400, 404, 409, 418, 422, 451];
 
+const listedStatuses = (rule: ErrorRule): readonly number[] =>
+  typeof rule.status === "number" ? [rule.status] : (rule.status ?? []);
+
+const statusMatches = (rule: ErrorRule, status: number): boolean =>
+  listedStatuses(rule).includes(status) ||
+  (rule.statusMin !== undefined && status >= rule.statusMin);
+
+// A pattern is searched in the start of the message only, so an error body of
+// any length costs the same.
+const MESSAGE_WINDOW = 2000;
+
+const patternMatches = (rule: ErrorRule, message: string): boolean =>
+  rule.messagePattern === undefined ||
+  new RegExp(rule.messagePattern, "i").test(message.slice(0, MESSAGE_WINDOW));
+
 // Written here, not imported: the same matcher on both sides would agree on a
-// mistake.
-function ruleMatches(rule: ErrorRule, status: number): boolean {
-  const listed =
-    typeof rule.status === "number" ? [rule.status] : (rule.status ?? []);
-  return (
-    listed.includes(status) ||
-    (rule.statusMin !== undefined && status >= rule.statusMin)
-  );
+// mistake. A rule matches on its status and, when it has a pattern, on the
+// message the engine classified by.
+function ruleMatches(
+  rule: ErrorRule,
+  status: number,
+  message: string,
+): boolean {
+  return statusMatches(rule, status) && patternMatches(rule, message);
 }
 
 const retriesByDefault = (kind: string): boolean =>
@@ -998,14 +1014,79 @@ function shapeDecides(shapes: readonly BodyShape[], body: unknown): boolean {
   });
 }
 
+// What a body shape with a formatter turns its value into. Written here, not
+// imported, like ruleMatches: the text a pattern is judged against must not
+// come from the code under test. A Record keyed by the type, so a formatter
+// added to DecideFormatterName fails to compile here until it is copied.
+const FORMATTERS: Readonly<
+  Record<DecideFormatterName, (value: unknown) => string>
+> = {
+  "fastapi-validation": (value) => {
+    const items: readonly unknown[] = Array.isArray(value) ? value : [];
+    const fields = items
+      .filter(isRecord)
+      .map((item) => {
+        const loc = Array.isArray(item.loc)
+          ? item.loc
+              .filter((p) => typeof p === "string" || typeof p === "number")
+              .join(".")
+          : "";
+        const msg = typeof item.msg === "string" ? item.msg : "invalid";
+        return loc ? `${loc}: ${msg}` : msg;
+      })
+      .slice(0, 5);
+    return `Request failed validation — ${fields.join("; ") || "unspecified field"}`;
+  },
+};
+
+function shapeText(shape: BodyShape, value: unknown): string | undefined {
+  if (shape.isArray === true) {
+    return Array.isArray(value) && shape.formatter !== undefined
+      ? FORMATTERS[shape.formatter](value)
+      : undefined;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+  return shape.formatter === undefined
+    ? value
+    : FORMATTERS[shape.formatter](value);
+}
+
+// The text the provider classifies a reply by: the first body shape that reads
+// something, with the key hidden, else the fallback sentence naming the
+// provider and the status. The key is the only redaction mirrored (the
+// placeholder stands for the test key). The engine's other scrubs, such as
+// the cut after a "Received API Key =" echo, are not, so a row whose pattern
+// match depends on one fails here rather than passing silently.
+function classifiedMessage(
+  entry: DecideCatalogJson,
+  f: Pick<ErrorFixture, "status" | "body">,
+): string {
+  const fallback = `${entry.displayName} request failed with HTTP ${f.status}`;
+  for (const shape of entry.decide.errors.bodyShapes) {
+    const text = shapeText(shape, readAt(f.body, shape.path));
+    if (text !== undefined) {
+      return text.split("{apiKey}").join("[redacted]").trim() || fallback;
+    }
+  }
+  return fallback;
+}
+
 const describeRule = (rule: ErrorRule): string => {
-  const parts = [
+  const statusParts = [
     ...(rule.status === undefined
       ? []
       : [`status ${JSON.stringify(rule.status)}`]),
     ...(rule.statusMin === undefined ? [] : [`status >= ${rule.statusMin}`]),
   ];
-  return `${parts.join(" or ")} -> ${rule.kind}`;
+  const parts = [
+    ...(statusParts.length === 0 ? [] : [statusParts.join(" or ")]),
+    ...(rule.messagePattern === undefined
+      ? []
+      : [`message matches /${rule.messagePattern}/i`]),
+  ];
+  return `${parts.join(" and ")} -> ${rule.kind}`;
 };
 
 // A reply that echoes the key more than once: a redaction that stops at the
@@ -1018,7 +1099,9 @@ const KEY_TWICE = "{apiKey} and again {apiKey}";
 // Each rule must then be the first match for at least one body whose declared
 // outcome agrees with the rule, so a rule whose kind or status was changed, or
 // that no body reaches, fails by name. A rule that leaves its retry flag to the
-// default is compared against that default.
+// default is compared against that default. A body reaches a rule by its status
+// and, when the rule has a messagePattern, by the message the provider
+// classifies it by (see classifiedMessage).
 //
 // Provider-derived values are judged with `ctx.ok` and a fixed label: a label
 // that printed them would print what a provider read from somewhere else, and
@@ -1029,8 +1112,16 @@ function errorCases(
 ): ContractCase[] {
   const id = entry.id;
   const { rules, default: fallbackKind } = entry.decide.errors;
-  const firstRule = (status: number): number =>
-    rules.findIndex((rule) => ruleMatches(rule, status));
+  // The rule that decides a fixture body: its status and the message the
+  // provider classifies that body by.
+  const firstRule = (f: Pick<ErrorFixture, "status" | "body">): number => {
+    const message = classifiedMessage(entry, f);
+    return rules.findIndex((rule) => ruleMatches(rule, f.status, message));
+  };
+  // A status probed with the empty body {}, which the provider classifies by
+  // its fallback sentence.
+  const firstRuleOfProbe = (status: number): number =>
+    firstRule({ status, body: {} });
   const perFixture = fixture.errors.map(
     (f): ContractCase => ({
       name: `DECIDE ${id}: error "${f.label}" (${f.provenance}) -> ${f.expect.kind}`,
@@ -1067,32 +1158,41 @@ function errorCases(
   );
   // Reads the entry and the fixture only, so it sends nothing. The schema has
   // no upper edge (no statusMax), and the fixture reader takes only 400-599, so
-  // the edges below are the ones a body can carry.
-  const perRule = rules.map(
-    (rule, index): ContractCase => ({
-      name: `DECIDE ${id}: error rule #${index} (${describeRule(rule)}) is exercised by a fixture`,
+  // the edges below are the ones a body can carry. A rule with a messagePattern
+  // also needs a body its pattern rejects, which falls to a later rule or the
+  // default: without it, a harness that read the status alone would pass.
+  const perRule = rules.map((rule, index): ContractCase => {
+    const patterned = rule.messagePattern !== undefined;
+    return {
+      name: `DECIDE ${id}: error rule #${index} (${describeRule(rule)}) is exercised by a fixture${patterned ? ", one that matches the pattern and one that does not" : ""}`,
       static: true,
       run: async (ctx) => {
-        const reaching = fixture.errors.filter(
-          (f) => firstRule(f.status) === index,
-        );
+        const reaching = fixture.errors.filter((f) => firstRule(f) === index);
         const carries = (status: number): boolean =>
           reaching.some((f) => f.status === status);
         const missing: string[] = [];
         if (reaching.length === 0) {
-          missing.push("any status this rule decides first");
+          missing.push(
+            patterned
+              ? "any body whose status and message this rule decides first"
+              : "any status this rule decides first",
+          );
         }
-        const listed =
-          typeof rule.status === "number" ? [rule.status] : (rule.status ?? []);
-        for (const status of listed) {
+        for (const status of listedStatuses(rule)) {
           if (status >= 400 && !carries(status)) {
             missing.push(`the listed status ${status}`);
           }
         }
         if (rule.statusMin !== undefined) {
           const edge = rule.statusMin;
-          // An earlier rule that decides the edge itself leaves nothing to pin.
-          if (edge >= 400 && firstRule(edge) === index && !carries(edge)) {
+          // An earlier rule that decides the edge on its status alone leaves
+          // nothing to pin; one with a pattern decides only some messages.
+          const decidedEarlier = rules
+            .slice(0, index)
+            .some(
+              (r) => r.messagePattern === undefined && statusMatches(r, edge),
+            );
+          if (edge >= 400 && !decidedEarlier && !carries(edge)) {
             missing.push(`the lowest status ${edge}`);
           }
           if (edge < 599 && !reaching.some((f) => f.status > edge)) {
@@ -1101,13 +1201,26 @@ function errorCases(
           if (
             edge - 1 >= 400 &&
             !fixture.errors.some(
-              (f) => f.status === edge - 1 && firstRule(f.status) !== index,
+              (f) => f.status === edge - 1 && firstRule(f) !== index,
             )
           ) {
             missing.push(
               `status ${edge - 1}, just below it (decided by another rule or the default)`,
             );
           }
+        }
+        if (
+          patterned &&
+          !fixture.errors.some(
+            (f) =>
+              statusMatches(rule, f.status) &&
+              !patternMatches(rule, classifiedMessage(entry, f)) &&
+              (firstRule(f) === -1 || firstRule(f) > index),
+          )
+        ) {
+          missing.push(
+            "a body with a status this rule covers and a message the pattern does not match, decided by a later rule or the default",
+          );
         }
         ctx.ok(
           missing.length === 0,
@@ -1126,8 +1239,8 @@ function errorCases(
           );
         }
       },
-    }),
-  );
+    };
+  });
   // The default case below asks the provider about the entry's own default, so
   // it cannot disagree with it. This one is the independent side: a fixture
   // body outside every rule must declare that kind. A body that a body shape
@@ -1137,7 +1250,7 @@ function errorCases(
     name: `DECIDE ${id}: error default kind ${fallbackKind} is pinned by a fixture`,
     static: true,
     run: async (ctx) => {
-      const outside = fixture.errors.filter((f) => firstRule(f.status) === -1);
+      const outside = fixture.errors.filter((f) => firstRule(f) === -1);
       const counted = outside.filter(
         (f) => !shapeDecides(entry.decide.errors.bodyShapes, f.body),
       );
@@ -1280,7 +1393,7 @@ function errorCases(
   const unmatched = [
     ...STATUS_PROBES,
     ...Array.from({ length: 200 }, (_, i) => 400 + i),
-  ].find((status) => firstRule(status) === -1);
+  ].find((status) => firstRuleOfProbe(status) === -1);
   const firstOfEach = <K>(
     bodies: readonly ErrorFixture[],
     keyOf: (f: ErrorFixture) => K,

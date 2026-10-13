@@ -24,7 +24,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assert, assertIncludes, defineSuite } from "./helpers/harness.js";
+import {
+  assert,
+  assertIncludes,
+  assertNotNull,
+  defineSuite,
+} from "./helpers/harness.js";
 import {
   isDecideCatalogEntry,
   parseCatalogEntry,
@@ -213,7 +218,7 @@ const structureRejections: readonly Rejection[] = [
   [["decide", "errors", "surprise"], true, "surprise"],
   [["decide", "errors", "rules", 0, "surprise"], true, "surprise"],
   [["decisionLimits", "surprise"], true, "surprise"],
-  [["decisionLimits", "media"], {}, "media"],
+  [["decisionLimits", "media"], {}, "decisionLimits.media.maxImages"],
   [["capabilities"], {}, "capabilities"],
   [["quirks"], {}, "quirks"],
   [["errorRules"], [], "errorRules"],
@@ -238,6 +243,21 @@ const structureRejections: readonly Rejection[] = [
   [["decide", "dialect"], "other", "dialect"],
   [["decide", "model", "placement"], "sideways", "placement"],
   [["decide", "baseURLNormalize"], ["lowercase"], "baseURLNormalize"],
+  [
+    ["decide", "baseURLNormalize"],
+    ["strip-trailing-slash", "strip-v1"],
+    "baseURLNormalize",
+  ],
+  [
+    ["decide", "baseURLNormalize"],
+    ["strip-v1-suffix", "lowercase"],
+    "baseURLNormalize",
+  ],
+  [["decide", "baseURLNormalize"], "strip-v1-suffix", "baseURLNormalize"],
+  [["decide", "baseURLShape"], "path", "baseURLShape"],
+  [["decide", "baseURLShape"], "Origin", "baseURLShape"],
+  [["decide", "baseURLShape"], ["origin"], "baseURLShape"],
+  [["decide", "baseURLShape"], null, "baseURLShape"],
   // The decide wire drops only the "exactly one URL" rule; the rest still run.
   [
     ["wire", "missingCredentialMessage"],
@@ -313,6 +333,28 @@ async function decideEntrySection(): Promise<void> {
   await test("tier may be absent or the literal 2 on a decide entry", () => {
     parseCatalogEntry(entryWith(["tier"], 2));
     parseCatalogEntry(entryWith(["tier"], undefined));
+  });
+
+  await test("decide.baseURLNormalize accepts strip-v1-suffix and decide.baseURLShape accepts origin, and both survive parsing", () => {
+    for (const transforms of [
+      [],
+      ["strip-v1-suffix"],
+      ["strip-trailing-slash", "strip-v1-suffix"],
+      ["strip-v1-suffix", "strip-trailing-slash"],
+    ]) {
+      const entry = entryWith(["decide", "baseURLNormalize"], transforms);
+      deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+    }
+    const shaped = entryWith(["decide", "baseURLShape"], "origin");
+    deepStrictEqual(parseCatalogEntry(shaped, "laya.json"), shaped);
+    // Omitted still means no check: Laya's own entry carries neither key.
+    const parsed = parseCatalogEntry(structuredClone(LAYA_ENTRY), "laya.json");
+    assert(
+      isDecideCatalogEntry(parsed) &&
+        !("baseURLShape" in parsed.decide) &&
+        parsed.decide.baseURLNormalize?.length === 1,
+      "Laya's entry gained a base URL key or lost its transform",
+    );
   });
 
   await test("a decide entry may use a fixed baseURL when it does not require one", () => {
@@ -470,6 +512,478 @@ async function decideFieldRulesSection(): Promise<void> {
     for (const [path, value] of accepted) {
       parseCatalogEntry(entryWith(path, value), "laya.json");
     }
+  });
+}
+
+const MEDIA_KEYS = { imagesKey: "images", videoKey: "video" };
+const MEDIA_ALLOWANCE = { maxImages: 8, video: true, maxRequestBytes: 8388608 };
+const RESERVED_BODY_KEYS = [
+  "model",
+  "state",
+  "questions",
+  "__proto__",
+  "constructor",
+  "prototype",
+];
+const MEDIA_IMAGES_KEY = ["decide", "media", "imagesKey"] as const;
+const MEDIA_VIDEO_KEY = ["decide", "media", "videoKey"] as const;
+const MEDIA_VIDEO_FLAG = ["decisionLimits", "media", "video"] as const;
+
+// Laya's entry with the two media blocks XOR will carry.
+function mediaBase(): Record<string, unknown> {
+  const entry = entryWith(["decide", "media"], structuredClone(MEDIA_KEYS));
+  setAt(entry, ["decisionLimits", "media"], structuredClone(MEDIA_ALLOWANCE));
+  return entry;
+}
+
+function mediaEntryWith(
+  path: readonly (string | number)[],
+  value: unknown,
+): Record<string, unknown> {
+  const entry = mediaBase();
+  setAt(entry, path, value);
+  return entry;
+}
+
+const keyShape = (path: readonly string[]): string =>
+  `${path.join(".")}: a media key must start with a letter`;
+const keyReserved = (path: readonly string[]): string =>
+  `${path.join(".")}: a media key must not be model, state, questions, __proto__, constructor or prototype`;
+
+const NOT_IDENTIFIERS = [
+  "",
+  "1images",
+  "_images",
+  "my-images",
+  "images key",
+  " images",
+  "a.b",
+  "images\n",
+  "na\u00efve",
+];
+
+const mediaKeyRejections: readonly Rejection[] = [
+  ...[MEDIA_IMAGES_KEY, MEDIA_VIDEO_KEY].flatMap((path) => [
+    ...NOT_IDENTIFIERS.map((name): Rejection => [path, name, keyShape(path)]),
+    ...RESERVED_BODY_KEYS.map(
+      (name): Rejection => [path, name, keyReserved(path)],
+    ),
+    ...[5, null, true, ["images"], {}].map(
+      (value): Rejection => [path, value, path.join(".")],
+    ),
+  ]),
+  [MEDIA_IMAGES_KEY, undefined, "decide.media.imagesKey"],
+  [
+    MEDIA_VIDEO_KEY,
+    "images",
+    "decide.media.videoKey must differ from imagesKey",
+  ],
+  [["decide", "media", "surprise"], true, "surprise"],
+  [["decide", "media"], "images", "decide.media"],
+  [["decide", "media"], null, "decide.media"],
+  [["decide", "media"], [], "decide.media"],
+  [["decide", "media"], {}, "decide.media.imagesKey"],
+];
+
+const mediaLimitRejections: readonly Rejection[] = [
+  ...[0, -1, 1.5, "8", null, undefined].map(
+    (value): Rejection => [
+      ["decisionLimits", "media", "maxImages"],
+      value,
+      "decisionLimits.media.maxImages",
+    ],
+  ),
+  ...[0, -5, 1.5, "8388608", null, undefined].map(
+    (value): Rejection => [
+      ["decisionLimits", "media", "maxRequestBytes"],
+      value,
+      "decisionLimits.media.maxRequestBytes",
+    ],
+  ),
+  ...["true", 1, 0, null, undefined].map(
+    (value): Rejection => [
+      MEDIA_VIDEO_FLAG,
+      value,
+      "decisionLimits.media.video: ",
+    ],
+  ),
+  [["decisionLimits", "media", "surprise"], true, "surprise"],
+  [["decisionLimits", "media"], null, "decisionLimits.media"],
+  [["decisionLimits", "media"], [], "decisionLimits.media"],
+  [["decisionLimits", "media"], "images", "decisionLimits.media"],
+  [["decisionLimits", "media"], {}, "decisionLimits.media.maxImages"],
+];
+
+const mediaCrossRejections: readonly Rejection[] = [
+  [
+    ["decisionLimits", "media"],
+    undefined,
+    "decide.media needs decisionLimits.media",
+  ],
+  [["decisionLimits"], undefined, "decide.media needs decisionLimits.media"],
+  [["decide", "media"], undefined, "decisionLimits.media needs decide.media"],
+  [
+    MEDIA_VIDEO_KEY,
+    undefined,
+    "decide.media.videoKey is required when decisionLimits.media.video is true",
+  ],
+  [
+    MEDIA_VIDEO_FLAG,
+    false,
+    "decide.media.videoKey must be omitted when decisionLimits.media.video is false",
+  ],
+];
+
+function expectAllMediaRejected(rows: readonly Rejection[]): void {
+  for (const [path, value, needle] of rows) {
+    expectRejected(
+      () => parseCatalogEntry(mediaEntryWith(path, value), "xor.json"),
+      needle,
+      `${path.join(".")} = ${JSON.stringify(value)}`,
+    );
+  }
+}
+
+async function mediaSection(): Promise<void> {
+  section("decide entries: media (decide.media with decisionLimits.media)");
+
+  await test("the pair XOR carries parses to itself, and so do images-only and custom key names", () => {
+    const xor = mediaBase();
+    deepStrictEqual(parseCatalogEntry(xor, "xor.json"), xor);
+    const imagesOnly = mediaEntryWith(MEDIA_VIDEO_FLAG, false);
+    setAt(imagesOnly, MEDIA_VIDEO_KEY, undefined);
+    deepStrictEqual(parseCatalogEntry(imagesOnly, "xor.json"), imagesOnly);
+    const renamed = mediaEntryWith(["decide", "media"], {
+      imagesKey: "Image_list2",
+      videoKey: "clip",
+    });
+    deepStrictEqual(parseCatalogEntry(renamed, "xor.json"), renamed);
+  });
+
+  await test("a key that only resembles a reserved body key is accepted, and the smallest allowance parses", () => {
+    for (const name of [
+      "model2",
+      "Model",
+      "states",
+      "questions_",
+      "constructors",
+      "prototype1",
+      "x".repeat(200),
+    ]) {
+      const entry = mediaEntryWith(MEDIA_IMAGES_KEY, name);
+      deepStrictEqual(parseCatalogEntry(entry, "xor.json"), entry);
+    }
+    const smallest = mediaEntryWith(["decisionLimits", "media"], {
+      maxImages: 1,
+      video: true,
+      maxRequestBytes: 1,
+    });
+    deepStrictEqual(parseCatalogEntry(smallest, "xor.json"), smallest);
+  });
+
+  await test("a media key must be an identifier that the body does not already use, and the two must differ", () => {
+    expectAllMediaRejected(mediaKeyRejections);
+  });
+
+  await test("the allowance needs a positive maxImages and maxRequestBytes and a boolean video", () => {
+    expectAllMediaRejected(mediaLimitRejections);
+  });
+
+  await test("decide.media and decisionLimits.media go together, and videoKey follows the allowance's video flag", () => {
+    expectAllMediaRejected(mediaCrossRejections);
+  });
+
+  await test("every media rejection comes from the media rules: the same entry without media parses", () => {
+    // Positive control for the rows above: the helper's base entry is valid, so
+    // a rejection can only come from the one change the row makes.
+    const base = mediaBase();
+    parseCatalogEntry(base, "xor.json");
+    parseCatalogEntry(structuredClone(LAYA_ENTRY), "laya.json");
+    for (const [path, value] of [
+      [["decide", "media"], undefined],
+      [["decisionLimits", "media"], undefined],
+    ] as const) {
+      const entry = structuredClone(base);
+      setAt(entry, path, value);
+      assert(
+        failureOf(() => parseCatalogEntry(entry, "xor.json")) !== undefined,
+        "dropping one half of the pair was accepted",
+      );
+    }
+    const neither = structuredClone(base);
+    setAt(neither, ["decide", "media"], undefined);
+    setAt(neither, ["decisionLimits", "media"], undefined);
+    parseCatalogEntry(neither, "laya.json");
+  });
+}
+
+const XOR_PATTERN =
+  "(context|prefill|prompt).{0,40}(length|limit|too long|exceed)|(too long|exceeds?).{0,40}(context|tokens)";
+const PATTERN_AT = ["decide", "errors", "rules", 4, "messagePattern"] as const;
+const BOUNDED = "must be bounded";
+const COMPILES = "not a valid regular expression";
+
+// Laya's fifth rule is `statusMin: 500`; a pattern on it is a new rule, not a
+// duplicate, so each row below fails on its pattern alone.
+const patternRejections: readonly Rejection[] = [
+  [PATTERN_AT, "(a+)+", BOUNDED],
+  [PATTERN_AT, ".*x", BOUNDED],
+  [PATTERN_AT, "a*", BOUNDED],
+  [PATTERN_AT, "a+", BOUNDED],
+  [PATTERN_AT, "a*?", BOUNDED],
+  [PATTERN_AT, "(?:ab)+", BOUNDED],
+  [PATTERN_AT, "a{2,}", BOUNDED],
+  [PATTERN_AT, "a{0,}", BOUNDED],
+  [PATTERN_AT, "x\\d{10,}y", BOUNDED],
+  [PATTERN_AT, "(a|b){1,}", BOUNDED],
+  // An escaped backslash does not escape the quantifier after it, and an empty
+  // class closes at once.
+  [PATTERN_AT, "\\\\*", BOUNDED],
+  [PATTERN_AT, "[]+", BOUNDED],
+  [PATTERN_AT, "[a]*", BOUNDED],
+  // A "[" inside a class is plain and the first "]" closes it, however the
+  // class starts, so the quantifier after it is outside.
+  [PATTERN_AT, "[[]+", BOUNDED],
+  [PATTERN_AT, "[^]+", BOUNDED],
+  // A quantified group repeats whatever its alternatives match, so
+  // `(a|a){0,30}` backtracks 2^30 ways on a miss and `((a|a){0,9}){0,9}` far
+  // more: no quantifier may follow an unescaped ")", bounded or not.
+  [PATTERN_AT, "(a|a){0,30}", BOUNDED],
+  [PATTERN_AT, "((a|a){0,9}){0,9}", BOUNDED],
+  [PATTERN_AT, "(ab)?", BOUNDED],
+  [PATTERN_AT, "(ab){2}", BOUNDED],
+  [PATTERN_AT, "(?:ab){1,3}", BOUNDED],
+  [PATTERN_AT, "(?=a)?", BOUNDED],
+  // A count is a number of steps: 255 is the most one may take.
+  [PATTERN_AT, "a{0,4294967295}", BOUNDED],
+  [PATTERN_AT, "a{0,256}", BOUNDED],
+  [PATTERN_AT, "a{256}", BOUNDED],
+  [PATTERN_AT, "a{256,300}", BOUNDED],
+  // Bounded counts still multiply when they sit side by side: each `?` is 2
+  // ways, each `{n,m}` is m-n+1, and a pattern whose ways multiply past 4,096
+  // can spend seconds on one miss (three adjacent `.{0,255}` took 38 s).
+  [PATTERN_AT, ".{0,255}.{0,255}.{0,255}!", BOUNDED],
+  [PATTERN_AT, ".{0,64}.{0,64}", BOUNDED],
+  [PATTERN_AT, "a?".repeat(13), BOUNDED],
+  [PATTERN_AT, "[", COMPILES],
+  [PATTERN_AT, "(", COMPILES],
+  [PATTERN_AT, "a)", COMPILES],
+  [PATTERN_AT, "\\", COMPILES],
+  [PATTERN_AT, "a{2,1}", COMPILES],
+  [PATTERN_AT, "", "messagePattern"],
+  [PATTERN_AT, "x".repeat(201), "messagePattern"],
+  [PATTERN_AT, 5, "messagePattern"],
+  [PATTERN_AT, null, "messagePattern"],
+  [PATTERN_AT, true, "messagePattern"],
+  [PATTERN_AT, ["a"], "messagePattern"],
+  [PATTERN_AT, {}, "messagePattern"],
+];
+
+const patternAcceptances: readonly string[] = [
+  XOR_PATTERN,
+  "x",
+  ".{0,40}",
+  "s?",
+  // 41 * 41 = 1,681 ways, and exactly 4,096 (twelve `?`) is the last accepted.
+  ".{0,40}.{0,40}",
+  "a?".repeat(12),
+  // A fixed count and a non-capturing group's own `?` add no ways.
+  "(?:a{255})",
+  "a{2}",
+  "a{2,5}",
+  "(?:ab)",
+  "a|b",
+  "a{0,255}",
+  "a{255}",
+  ".{255,255}",
+  "^start$",
+  // Escaped, and inside a class, the three are plain characters.
+  "\\*",
+  "\\+",
+  "a\\{2,}",
+  "[*+]",
+  "[a+*]{2}",
+  "[\\]+]",
+  "[^*]",
+  "a[+]b",
+  // An escaped or bracketed ")" closes no group, so a quantifier may follow.
+  "a\\)?",
+  "\\(a\\){0,3}",
+  "[)]?",
+  "[()]{2}",
+  "\\\\\\*",
+  "x".repeat(200),
+];
+
+async function messagePatternSection(): Promise<void> {
+  section("decide entries: error rule messagePattern");
+
+  await test("an unbounded, uncompilable, empty, over-long or non-string pattern is rejected, with the key in the message", () => {
+    for (const [path, value, needle] of patternRejections) {
+      const entry = entryWith(path, value);
+      expectRejected(
+        () => parseCatalogEntry(entry, "laya.json"),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+      expectRejected(
+        () => parseCatalogEntry(entry, "laya.json"),
+        "messagePattern",
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("a rejected pattern says why in the message", () => {
+    const unbounded = failureOf(() =>
+      parseCatalogEntry(entryWith(PATTERN_AT, "(a+)+"), "laya.json"),
+    );
+    assertIncludes(unbounded ?? "", "backtrack", "no reason was given");
+    assertIncludes(unbounded ?? "", "{n,}", "the open quantifier is not named");
+    assertIncludes(
+      unbounded ?? "",
+      "group",
+      "the quantified group is not named",
+    );
+    assertIncludes(unbounded ?? "", "255", "the count limit is not named");
+  });
+
+  await test("a bounded pattern is accepted, XOR's among them, and survives parsing unchanged", () => {
+    for (const pattern of patternAcceptances) {
+      const entry = entryWith(PATTERN_AT, pattern);
+      deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+      // Each accepted pattern must also compile with the engine's flags.
+      new RegExp(pattern, "i");
+    }
+  });
+
+  await test("a 200-character pattern is the longest accepted", () => {
+    parseCatalogEntry(entryWith(PATTERN_AT, "x".repeat(200)), "laya.json");
+    expectRejected(
+      () =>
+        parseCatalogEntry(entryWith(PATTERN_AT, "x".repeat(201)), "laya.json"),
+      "messagePattern",
+      "a 201-character pattern",
+    );
+  });
+
+  const xorRules = [
+    { status: 401, kind: "authentication" },
+    { status: 413, kind: "max_tokens_exceeded" },
+    { status: 429, kind: "rate_limit" },
+    { status: 503, kind: "overloaded" },
+    {
+      statusMin: 500,
+      messagePattern: XOR_PATTERN,
+      kind: "max_tokens_exceeded",
+    },
+    { statusMin: 500, kind: "server" },
+  ];
+
+  await test("a pattern rule and a plain rule may share a statusMin or a status, as XOR's list does", () => {
+    const entry = entryWith(["decide", "errors", "rules"], xorRules);
+    deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+    const byStatus = entryWith(
+      ["decide", "errors", "rules"],
+      [
+        { status: [500, 502], messagePattern: "a", kind: "overloaded" },
+        { status: 500, kind: "server" },
+        { statusMin: 400, kind: "invalid_request" },
+      ],
+    );
+    deepStrictEqual(parseCatalogEntry(byStatus, "laya.json"), byStatus);
+  });
+
+  await test("two rules with the same statusMin or status and different patterns are accepted", () => {
+    const entry = entryWith(
+      ["decide", "errors", "rules"],
+      [
+        { statusMin: 500, messagePattern: "a", kind: "overloaded" },
+        { statusMin: 500, messagePattern: "b", kind: "timeout" },
+        { statusMin: 500, messagePattern: "A", kind: "network" },
+        { status: 429, messagePattern: "a", kind: "rate_limit" },
+        { status: [429, 430], messagePattern: "b", kind: "rate_limit" },
+      ],
+    );
+    deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+  });
+
+  await test("two rules with the same statusMin or status and equal patterns are rejected, and two plain ones still are", () => {
+    const rejected: ReadonlyArray<readonly [unknown[], string]> = [
+      [
+        [
+          { statusMin: 500, messagePattern: "a", kind: "overloaded" },
+          { statusMin: 500, messagePattern: "a", kind: "server" },
+        ],
+        "statusMin 500",
+      ],
+      [
+        [
+          { status: 429, messagePattern: "a", kind: "rate_limit" },
+          { status: [429, 430], messagePattern: "a", kind: "overloaded" },
+        ],
+        "status 429",
+      ],
+      [
+        [
+          { statusMin: 500, kind: "overloaded" },
+          { statusMin: 500, kind: "server" },
+        ],
+        "statusMin 500",
+      ],
+      [
+        [
+          { status: 500, kind: "overloaded" },
+          { status: [500], kind: "server" },
+        ],
+        "status 500",
+      ],
+      [
+        [
+          { statusMin: 500, messagePattern: "a", kind: "overloaded" },
+          { statusMin: 500, kind: "server" },
+          { statusMin: 500, messagePattern: "a", kind: "timeout" },
+        ],
+        "statusMin 500",
+      ],
+    ];
+    for (const [rules, needle] of rejected) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            entryWith(["decide", "errors", "rules"], rules),
+            "laya.json",
+          ),
+        `errors.rules lists ${needle} more than once`,
+        JSON.stringify(rules),
+      );
+    }
+  });
+
+  await test("a rule still needs exactly one of status and statusMin, with or without a pattern", () => {
+    for (const rule of [
+      { messagePattern: "a", kind: "server" },
+      { status: 500, statusMin: 500, messagePattern: "a", kind: "server" },
+    ]) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            entryWith(["decide", "errors", "rules"], [rule]),
+            "laya.json",
+          ),
+        ONE_OF,
+        JSON.stringify(rule),
+      );
+    }
+  });
+
+  await test("Laya's entry carries no pattern, and parsing does not add one", () => {
+    const parsed = parseCatalogEntry(structuredClone(LAYA_ENTRY), "laya.json");
+    assert(
+      isDecideCatalogEntry(parsed) &&
+        parsed.decide.errors.rules.every((rule) => !("messagePattern" in rule)),
+      "a Laya rule gained a messagePattern",
+    );
   });
 }
 
@@ -942,6 +1456,190 @@ async function mirrorSection(): Promise<void> {
     }
   });
 
+  await test("declares decide.baseURLShape, and lists the same transforms and shapes the schema accepts", () => {
+    deepStrictEqual(
+      undeclaredKeys(
+        entryWith(["decide", "baseURLShape"], "origin"),
+        mirror,
+        "",
+      ),
+      [],
+    );
+    const { baseURLNormalize, baseURLShape } = (
+      mirror as {
+        properties: {
+          decide: {
+            properties: {
+              baseURLNormalize: { items: { enum: string[] } };
+              baseURLShape: { enum: string[] };
+            };
+          };
+        };
+      }
+    ).properties.decide.properties;
+    // Mirror to schema: every value the editor offers parses.
+    for (const transform of baseURLNormalize.items.enum) {
+      parseCatalogEntry(entryWith(["decide", "baseURLNormalize"], [transform]));
+    }
+    for (const shape of baseURLShape.enum) {
+      parseCatalogEntry(entryWith(["decide", "baseURLShape"], shape));
+    }
+    // Schema to mirror: the values the schema accepts (the two tests above
+    // parse exactly these) are all offered.
+    deepStrictEqual([...baseURLNormalize.items.enum].sort(), [
+      "strip-trailing-slash",
+      "strip-v1-suffix",
+    ]);
+    deepStrictEqual(baseURLShape.enum, ["origin"]);
+  });
+
+  await test("declares the rule messagePattern as a string of 1 to 200 characters, and the schema agrees at both edges", () => {
+    deepStrictEqual(undeclaredKeys(entryWith(PATTERN_AT, "x"), mirror, ""), []);
+    const { properties } = (
+      mirror as {
+        properties: {
+          decide: {
+            properties: {
+              errors: {
+                properties: {
+                  rules: {
+                    items: {
+                      properties: Record<
+                        string,
+                        {
+                          type?: string;
+                          minLength?: number;
+                          maxLength?: number;
+                        }
+                      >;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
+      }
+    ).properties.decide.properties.errors.properties.rules.items;
+    const { type, minLength, maxLength } = properties.messagePattern ?? {};
+    deepStrictEqual([type, minLength, maxLength], ["string", 1, 200]);
+    // Mirror to schema: the edges it offers parse, and one step beyond each is
+    // refused by the schema as well.
+    for (const length of [minLength, maxLength]) {
+      parseCatalogEntry(entryWith(PATTERN_AT, "x".repeat(length ?? 0)));
+    }
+    for (const length of [(minLength ?? 1) - 1, (maxLength ?? 0) + 1]) {
+      expectRejected(
+        () => parseCatalogEntry(entryWith(PATTERN_AT, "x".repeat(length))),
+        "messagePattern",
+        "a length outside the mirror's bounds",
+      );
+    }
+  });
+
+  await test("declares decide.media and decisionLimits.media, and the mirror and the schema agree on a body key's shape and the allowance's bounds", () => {
+    deepStrictEqual(undeclaredKeys(mediaBase(), mirror, ""), []);
+    type MirrorNode = {
+      type?: string;
+      $ref?: string;
+      pattern?: string;
+      minimum?: number;
+      required?: string[];
+      additionalProperties?: boolean;
+      not?: { enum?: string[] };
+      properties?: Record<string, MirrorNode>;
+    };
+    const root = mirror as {
+      properties: {
+        decide: MirrorNode;
+        decisionLimits: MirrorNode;
+      };
+      definitions: Record<string, MirrorNode>;
+    };
+    const keys = root.properties.decide.properties?.media;
+    const allowance = root.properties.decisionLimits.properties?.media;
+    assertNotNull(keys, "the mirror lacks decide.media");
+    assertNotNull(allowance, "the mirror lacks decisionLimits.media");
+    deepStrictEqual(keys.required, ["imagesKey"]);
+    assert(keys.additionalProperties === false, "decide.media is open");
+    deepStrictEqual(Object.keys(keys.properties ?? {}).sort(), [
+      "imagesKey",
+      "videoKey",
+    ]);
+    deepStrictEqual([...(allowance.required ?? [])].sort(), [
+      "maxImages",
+      "maxRequestBytes",
+      "video",
+    ]);
+    assert(
+      allowance.additionalProperties === false,
+      "decisionLimits.media is open",
+    );
+    const bounds = allowance.properties ?? {};
+    for (const name of ["maxImages", "maxRequestBytes"]) {
+      assert(
+        bounds[name]?.type === "integer" && bounds[name]?.minimum === 1,
+        `${name} is not an integer of at least 1 in the mirror`,
+      );
+    }
+    assert(bounds.video?.type === "boolean", "video is not a boolean");
+    // Mirror to schema: the minimum the editor offers parses, one below is refused.
+    parseCatalogEntry(
+      mediaEntryWith(["decisionLimits", "media"], {
+        maxImages: 1,
+        video: true,
+        maxRequestBytes: 1,
+      }),
+    );
+
+    // Both key properties share one definition; the schema must agree with it
+    // on every sample, in both directions.
+    const refs = ["imagesKey", "videoKey"].map(
+      (name) => keys.properties?.[name]?.$ref,
+    );
+    assert(
+      refs[0] !== undefined && refs[0] === refs[1],
+      "the two keys do not share one definition",
+    );
+    const definition = root.definitions[(refs[0] ?? "").split("/").pop() ?? ""];
+    const pattern = new RegExp(definition?.pattern ?? "(?!)");
+    const barred = definition?.not?.enum ?? [];
+    deepStrictEqual([...barred].sort(), [...RESERVED_BODY_KEYS].sort());
+    const samples = [
+      "images",
+      "video",
+      "Image_list2",
+      "a",
+      "x".repeat(200),
+      "",
+      "1a",
+      "_a",
+      "a-b",
+      "a b",
+      "images\n",
+      "na\u00efve",
+      "model2",
+      ...RESERVED_BODY_KEYS,
+    ];
+    for (const sample of samples) {
+      const mirrorAccepts = pattern.test(sample) && !barred.includes(sample);
+      // The video key is moved off the sample, which may be "video" itself.
+      const entry = mediaEntryWith(MEDIA_IMAGES_KEY, sample);
+      setAt(entry, MEDIA_VIDEO_KEY, "clip");
+      const schemaAccepts =
+        failureOf(() => parseCatalogEntry(entry, "xor.json")) === undefined;
+      assert(
+        mirrorAccepts === schemaAccepts,
+        "the mirror and the schema disagree about a media key",
+      );
+    }
+    assert(
+      samples.some((sample) => pattern.test(sample)) &&
+        samples.some((sample) => !pattern.test(sample)),
+      "the samples never separate accepted keys from refused ones",
+    );
+  });
+
   await test("the walker reports an unknown key at every depth", () => {
     const probe = (path: readonly (string | number)[]): string[] =>
       undeclaredKeys(entryWith(path, true), mirror, "");
@@ -1076,6 +1774,8 @@ await runSuite(async () => {
   await layaFixtureSection();
   await decideEntrySection();
   await decideFieldRulesSection();
+  await mediaSection();
+  await messagePatternSection();
   await decideCrossRulesSection();
   await defaultModelWindowSection();
   await unsupportedWireSection();

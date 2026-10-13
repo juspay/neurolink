@@ -447,11 +447,98 @@ const decideErrorKindSchema = z.enum([
   "network",
 ]);
 
+// The most steps one `{n}` or `{n,m}` may stand for.
+const MAX_PATTERN_COUNT = 255;
+
+// The most ways a pattern's counts may multiply: each `?` is 2 and each `{n,m}`
+// is m-n+1. Adjacent bounded counts multiply on a miss (`.{0,255}` three times
+// took 38 s on one 2,000-character message), and a miss on a 5xx is retried.
+// XOR's pattern is 3,362.
+const MAX_PATTERN_WAYS = 4096;
+
+// What can make a pattern backtrack catastrophically on an error message, so
+// that a catalog author cannot write it: `*`, `+` and an open-ended `{n,}` have
+// no upper bound; any quantifier on a group (`(a|a){0,30}`, `(ab)?`) repeats
+// whatever its alternatives match, and quantifiers nested that way multiply; a
+// count above MAX_PATTERN_COUNT is as good as no bound. A quantifier on a plain
+// character, class or escape is fine. Inside a character class all of them are
+// plain characters, and a backslash makes the next one plain everywhere.
+// Counts that sit side by side multiply, so their product has a budget too
+// (MAX_PATTERN_WAYS); within it a pattern is still not a guarantee of linear
+// time, and wants reading.
+function hasRiskyQuantifier(pattern: string): boolean {
+  const count = /\{(\d+)(?:,(\d*))?\}/y;
+  let inClass = false;
+  let afterGroup = false;
+  let ways = 1;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    const onGroup = afterGroup;
+    afterGroup = false;
+    if (char === "\\") {
+      index += 1;
+    } else if (inClass) {
+      inClass = char !== "]";
+    } else if (char === "[") {
+      inClass = true;
+    } else if (char === ")") {
+      afterGroup = true;
+    } else if (char === "*" || char === "+" || (char === "?" && onGroup)) {
+      return true;
+    } else if (char === "?") {
+      // The `?` that opens a group (`(?:`, `(?=`) is not a quantifier.
+      if (pattern[index - 1] !== "(") {
+        ways *= 2;
+      }
+    } else if (char === "{") {
+      count.lastIndex = index;
+      const found = count.exec(pattern);
+      if (
+        found &&
+        (onGroup ||
+          found[2] === "" ||
+          Math.max(Number(found[1]), Number(found[2] ?? 0)) > MAX_PATTERN_COUNT)
+      ) {
+        return true;
+      }
+      if (found && found[2] !== undefined) {
+        ways *= Number(found[2]) - Number(found[1]) + 1;
+      }
+    }
+    if (ways > MAX_PATTERN_WAYS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function compilesAsPattern(pattern: string): boolean {
+  try {
+    new RegExp(pattern, "i");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const decideMessagePatternSchema = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine(compilesAsPattern, {
+    message: "messagePattern is not a valid regular expression",
+  })
+  .refine((pattern) => !hasRiskyQuantifier(pattern), {
+    message:
+      "messagePattern must be bounded: an unescaped * or +, an open-ended {n,}, a {n,m} count above 255, or any quantifier on a group, outside a character class, can backtrack catastrophically on an error message. Put ?, or {n,m} up to 255, only on a plain character, a character class or an escape, and keep the counts side by side to 4096 ways in all (each ? is 2, each {n,m} is m-n+1)",
+  });
+
 const decideErrorRuleSchema = z.strictObject({
   status: z
     .union([decideStatusSchema, z.array(decideStatusSchema).min(1)])
     .optional(),
   statusMin: decideStatusSchema.optional(),
+  messagePattern: decideMessagePatternSchema.optional(),
   kind: decideErrorKindSchema,
   retryable: z.boolean().optional(),
 });
@@ -504,16 +591,53 @@ const decideBodyShapeSchema = z
     },
   );
 
+// The keys the body already uses, and the names an object must not take as an
+// own key from data.
+const RESERVED_MEDIA_KEYS: ReadonlySet<string> = new Set([
+  "model",
+  "state",
+  "questions",
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+const decideMediaKeySchema = z
+  .string()
+  .regex(
+    /^[A-Za-z][A-Za-z0-9_]*$/,
+    "a media key must start with a letter and use only letters, digits and underscores",
+  )
+  .refine((key) => !RESERVED_MEDIA_KEYS.has(key), {
+    message:
+      "a media key must not be model, state, questions, __proto__, constructor or prototype",
+  });
+
+const decideMediaSchema = z
+  .strictObject({
+    imagesKey: decideMediaKeySchema,
+    videoKey: decideMediaKeySchema.optional(),
+  })
+  .refine((media) => media.imagesKey !== media.videoKey, {
+    path: ["videoKey"],
+    message:
+      "decide.media.videoKey must differ from imagesKey: one body key cannot carry both",
+  });
+
 const decideBlockSchema = z.strictObject({
   dialect: z.enum(["system-one"]),
   order: decidePositiveInt,
   baseURLRequired: z.boolean().optional(),
-  baseURLNormalize: z.array(z.enum(["strip-trailing-slash"])).optional(),
+  baseURLNormalize: z
+    .array(z.enum(["strip-trailing-slash", "strip-v1-suffix"]))
+    .optional(),
+  baseURLShape: z.enum(["origin"]).optional(),
   endpoint: decideEndpointSchema,
   model: z.strictObject({
     placement: z.enum(["body", "body-unless-alias"]),
     alias: z.string().min(1).optional(),
   }),
+  media: decideMediaSchema.optional(),
   requestIdHeaders: z.array(decideHeaderNameSchema).optional(),
   response: z
     .strictObject({ modelPaths: z.array(decidePathSchema).optional() })
@@ -560,7 +684,9 @@ const decideModelsSchema = z
     }
   });
 
-// `media` is deliberately absent: no decide provider migrated yet needs it.
+// `media` is the allowance the base class prepares and gates a request's images
+// and video against; `decide.media` names the body keys they go out under, and
+// the entry refinement below requires the two together.
 const decideLimitsSchema = z.strictObject({
   maxStateTokens: decidePositiveInt,
   maxQuestions: decidePositiveInt.optional(),
@@ -576,6 +702,13 @@ const decideLimitsSchema = z.strictObject({
         nonAsciiTokensPerChar: decidePositiveNumber.optional(),
       }),
     )
+    .optional(),
+  media: z
+    .strictObject({
+      maxImages: decidePositiveInt,
+      video: z.boolean(),
+      maxRequestBytes: decidePositiveInt,
+    })
     .optional(),
   advisory: z.boolean().optional(),
 });
@@ -601,8 +734,10 @@ const decideCatalogJsonSchema = z
       ctx.addIssue({ code: "custom", path, message });
     };
 
-    const seenStatus = new Set<number>();
-    const seenStatusMin = new Set<number>();
+    // Two rules collide only on the same status AND the same pattern: XOR
+    // lists a pattern rule and a plain rule at one statusMin.
+    const seenStatus = new Set<string>();
+    const seenStatusMin = new Set<string>();
     decide.errors.rules.forEach((rule, index) => {
       const at = ["decide", "errors", "rules", index];
       if ((rule.status === undefined) === (rule.statusMin === undefined)) {
@@ -613,23 +748,29 @@ const decideCatalogJsonSchema = z
       }
       const statuses =
         typeof rule.status === "number" ? [rule.status] : (rule.status ?? []);
+      const sameAs =
+        rule.messagePattern === undefined
+          ? ""
+          : " with the same messagePattern";
+      const keyOf = (value: number): string =>
+        JSON.stringify([value, rule.messagePattern ?? null]);
       for (const status of statuses) {
-        if (seenStatus.has(status)) {
+        if (seenStatus.has(keyOf(status))) {
           issue(
             [...at, "status"],
-            `errors.rules lists status ${status} more than once`,
+            `errors.rules lists status ${status} more than once${sameAs}`,
           );
         }
-        seenStatus.add(status);
+        seenStatus.add(keyOf(status));
       }
       if (rule.statusMin !== undefined) {
-        if (seenStatusMin.has(rule.statusMin)) {
+        if (seenStatusMin.has(keyOf(rule.statusMin))) {
           issue(
             [...at, "statusMin"],
-            `errors.rules lists statusMin ${rule.statusMin} more than once`,
+            `errors.rules lists statusMin ${rule.statusMin} more than once${sameAs}`,
           );
         }
-        seenStatusMin.add(rule.statusMin);
+        seenStatusMin.add(keyOf(rule.statusMin));
       }
     });
 
@@ -683,6 +824,35 @@ const decideCatalogJsonSchema = z
         issue(
           ["decisionLimits", "models", id],
           "decisionLimits.models key must be a key of models.catalog",
+        );
+      }
+    }
+
+    const mediaKeys = decide.media;
+    const mediaAllowance = entry.decisionLimits?.media;
+    if (mediaKeys !== undefined && mediaAllowance === undefined) {
+      issue(
+        ["decide", "media"],
+        "decide.media needs decisionLimits.media: without an allowance the base class refuses every image and video, so these keys would never be written",
+      );
+    }
+    if (mediaKeys === undefined && mediaAllowance !== undefined) {
+      issue(
+        ["decisionLimits", "media"],
+        "decisionLimits.media needs decide.media: without body keys the engine would prepare a request's media and then leave it out of the body",
+      );
+    }
+    if (mediaKeys !== undefined && mediaAllowance !== undefined) {
+      if (mediaAllowance.video && mediaKeys.videoKey === undefined) {
+        issue(
+          ["decide", "media", "videoKey"],
+          "decide.media.videoKey is required when decisionLimits.media.video is true",
+        );
+      }
+      if (!mediaAllowance.video && mediaKeys.videoKey !== undefined) {
+        issue(
+          ["decide", "media", "videoKey"],
+          "decide.media.videoKey must be omitted when decisionLimits.media.video is false",
         );
       }
     }

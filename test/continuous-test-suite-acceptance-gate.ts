@@ -325,19 +325,14 @@ const PROVIDERS_NOT_COVERED: Array<{ provider: string; reason: string }> = [
       "Decide-only inference (a decide catalog entry served by ConfiguredDecisionProvider) — no text-generation surface for any of cells 1-9.",
   })),
   {
-    provider: "xor",
-    reason:
-      "Decide-only inference (XorProvider extends SystemOneDecisionProvider, like typesafe and the decide catalog entries) — no text-generation surface for any of cells 1-9.",
-  },
-  {
     provider: "perplexity-decider",
     reason:
-      "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe, xor and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
+      "Decide-only inference (PerplexityDeciderProvider extends SystemOneDecisionProvider, like typesafe and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the perplexity text provider, which GATE_ROWS covers.",
   },
   {
     provider: "cloudflare-clef",
     reason:
-      "Decide-only inference (CloudflareClefProvider extends SystemOneDecisionProvider, like typesafe, xor, perplexity-decider and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the cloudflare Workers AI text provider, though both read the same two variables.",
+      "Decide-only inference (CloudflareClefProvider extends SystemOneDecisionProvider, like typesafe, perplexity-decider and the decide catalog entries) — no text-generation surface for any of cells 1-9. Distinct from the cloudflare Workers AI text provider, though both read the same two variables.",
   },
 ];
 

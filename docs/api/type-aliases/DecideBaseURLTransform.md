@@ -6,4 +6,4 @@
 
 # Type Alias: DecideBaseURLTransform
 
-> **DecideBaseURLTransform** = `"strip-trailing-slash"`
+> **DecideBaseURLTransform** = `"strip-trailing-slash"` \| `"strip-v1-suffix"`

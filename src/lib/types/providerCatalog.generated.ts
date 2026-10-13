@@ -87,6 +87,7 @@ export type CatalogProviderName =
   | "wandb-inference"
   | "xai"
   | "xiaomi-mimo"
+  | "xor"
   | "z-ai";
 export type CatalogCredentialKey =
   | "a2agent"
@@ -176,4 +177,5 @@ export type CatalogCredentialKey =
   | "wandbInference"
   | "xai"
   | "xiaomiMimo"
+  | "xor"
   | "zAi";

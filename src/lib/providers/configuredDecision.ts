@@ -3,6 +3,7 @@ import type {
   DecideCatalogJson,
   DecisionDialect,
   DecisionError,
+  DecisionPreparedMedia,
   DecisionState,
   UnknownRecord,
 } from "../types/index.js";
@@ -10,7 +11,7 @@ import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import { catalogCredentialsKey, catalogEnvVar } from "./catalog/loader.js";
-import { normalizeBaseURL } from "./decide/baseUrl.js";
+import { baseURLShapeProblem, normalizeBaseURL } from "./decide/baseUrl.js";
 import { getDecisionDialect } from "./decide/dialects/index.js";
 import { classifyDecisionError } from "./decide/errors.js";
 import { isRecord } from "./decide/guards.js";
@@ -87,8 +88,19 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
   }
 
   protected override missingConfigMessage(): string | undefined {
-    return this.entry.decide.baseURLRequired && !this.baseURL
-      ? `${this.entry.displayName} requires a base URL. Set ${catalogEnvVar(this.entry, "baseURL")} or pass credentials.${catalogCredentialsKey(this.entry)}.baseURL.`
+    const { baseURLRequired, baseURLShape } = this.entry.decide;
+    if (!this.baseURL) {
+      return baseURLRequired
+        ? `${this.entry.displayName} requires a base URL. Set ${catalogEnvVar(this.entry, "baseURL")} or pass credentials.${catalogCredentialsKey(this.entry)}.baseURL.`
+        : undefined;
+    }
+    return baseURLShape
+      ? baseURLShapeProblem(
+          baseURLShape,
+          this.baseURL,
+          this.entry.displayName,
+          `Set ${catalogEnvVar(this.entry, "baseURL")} or pass credentials.${catalogCredentialsKey(this.entry)}.baseURL to the origin, and give the key through ${catalogEnvVar(this.entry, "apiKey")} or credentials.${catalogCredentialsKey(this.entry)}.apiKey.`,
+        )
       : undefined;
   }
 
@@ -107,11 +119,24 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
     state: DecisionState,
     questions: Record<string, Record<string, unknown>>,
     model: string,
+    media?: DecisionPreparedMedia,
   ): Record<string, unknown> {
     const { placement, alias } = this.entry.decide.model;
-    return placement === "body-unless-alias" && model === alias
-      ? { state, questions }
-      : { model, state, questions };
+    const body =
+      placement === "body-unless-alias" && model === alias
+        ? { state, questions }
+        : { model, state, questions };
+    const keys = this.entry.decide.media;
+    if (!keys || !media) {
+      return body;
+    }
+    // A key is written only for media the request carries: a server may refuse
+    // an empty `images`.
+    return {
+      ...body,
+      ...(media.images.length > 0 ? { [keys.imagesKey]: media.images } : {}),
+      ...(media.video && keys.videoKey ? { [keys.videoKey]: media.video } : {}),
+    };
   }
 
   protected parseDecisionError(

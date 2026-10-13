@@ -336,6 +336,7 @@ export type NeurolinkCredentials = {
   wandbInference?: { apiKey?: string; baseURL?: string };
   xai?: { apiKey?: string; baseURL?: string };
   xiaomiMimo?: { apiKey?: string; baseURL?: string };
+  xor?: { apiKey?: string; baseURL?: string };
   zAi?: { apiKey?: string; baseURL?: string };
   // ── END GENERATED(credentials) ──
   cohere?: { apiKey?: string; baseURL?: string };
@@ -376,13 +377,6 @@ export type NeurolinkCredentials = {
      */
     gatewayURL?: string;
   };
-  /**
-   * XOR (Juspay, open weights) — the `decide` inference type. There is no
-   * built-in endpoint: `baseURL` (or XOR_BASE_URL) is required, pointing at the
-   * origin of an XOR deployment or a proxy route to one; requests go to
-   * `<baseURL>/v1/systemone`.
-   */
-  xor?: { apiKey?: string; baseURL?: string };
   /**
    * Perplexity Decisions API — the `decide` inference type. The key is the same
    * `PERPLEXITY_API_KEY` the `perplexity` text provider reads, but this slice

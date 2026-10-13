@@ -23,7 +23,6 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
-  XorModels,
   PerplexityDeciderModels,
   CloudflareClefModels,
   ReplicateModels,
@@ -420,13 +419,6 @@ const TOP_MODELS_CONFIG: Record<
       description: "Preview build of Jev",
     },
   ],
-  [AIProviderName.XOR]: [
-    {
-      model: XorModels.XOR_1_1,
-      description:
-        "Recommended - XOR 1.1, decision model that also reads images and video",
-    },
-  ],
   [AIProviderName.PERPLEXITY_DECIDER]: [
     {
       model: PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
@@ -496,7 +488,6 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels.IDEOGRAM_V3,
   [AIProviderName.RECRAFT]: RecraftModels.RECRAFT_V3,
   [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
-  [AIProviderName.XOR]: XorModels.XOR_1_1,
   [AIProviderName.PERPLEXITY_DECIDER]:
     PerplexityDeciderModels.PPLX_DECIDER_V1_27B,
   [AIProviderName.CLOUDFLARE_CLEF]: CloudflareClefModels.CLEF,
@@ -536,7 +527,6 @@ const MODEL_ENUMS: Record<
   [AIProviderName.IDEOGRAM]: IdeogramModels,
   [AIProviderName.RECRAFT]: RecraftModels,
   [AIProviderName.TYPESAFE]: TypeSafeModels,
-  [AIProviderName.XOR]: XorModels,
   [AIProviderName.PERPLEXITY_DECIDER]: PerplexityDeciderModels,
   [AIProviderName.CLOUDFLARE_CLEF]: CloudflareClefModels,
   [AIProviderName.AUTO]: null,

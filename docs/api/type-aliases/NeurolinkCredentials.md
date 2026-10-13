@@ -1518,6 +1518,20 @@ counts as unset.
 
 ---
 
+### xor?
+
+> `optional` **xor?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### zAi?
 
 > `optional` **zAi?**: `object`
@@ -1680,25 +1694,6 @@ Vercel AI Gateway key. Defaults to `AI_GATEWAY_API_KEY`.
 
 The gateway transport's evaluation-model route. Defaults to
 `TYPESAFE_GATEWAY_URL`, then Vercel's own route.
-
----
-
-### xor?
-
-> `optional` **xor?**: `object`
-
-XOR (Juspay, open weights) — the `decide` inference type. There is no
-built-in endpoint: `baseURL` (or XOR_BASE_URL) is required, pointing at the
-origin of an XOR deployment or a proxy route to one; requests go to
-`<baseURL>/v1/systemone`.
-
-#### apiKey?
-
-> `optional` **apiKey?**: `string`
-
-#### baseURL?
-
-> `optional` **baseURL?**: `string`
 
 ---
 

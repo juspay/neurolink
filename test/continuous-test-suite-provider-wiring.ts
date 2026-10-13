@@ -80,7 +80,6 @@ const KNOWN_CREDENTIAL_KEYS = {
   ideogram: undefined,
   recraft: undefined,
   typesafe: undefined,
-  xor: undefined,
   perplexityDecider: undefined,
   cloudflareClef: undefined,
   // Speech-to-text handlers' slices (credentials.stt.<provider>): not an
@@ -591,11 +590,11 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
   // anthropic, google-ai, vertex, bedrock, sagemaker, azure, ollama,
   // openrouter, litellm, openai-compatible, nvidia-nim, lm-studio, llamacpp,
   // cohere, replicate, voyage, jina, stability, ideogram, recraft, typesafe,
-  // xor, perplexity-decider, cloudflare-clef). Onboarding a new catalog
+  // perplexity-decider, cloudflare-clef). Onboarding a new catalog
   // provider of either kind grows CATALOG_PROVIDER_IDS or
   // DECIDE_CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
   // hand-written provider bumps this literal.
-  const HAND_ONLY_PROVIDER_COUNT = 25;
+  const HAND_ONLY_PROVIDER_COUNT = 24;
   const totalProviderCount =
     CATALOG_PROVIDER_IDS.length +
     DECIDE_CATALOG_PROVIDER_IDS.length +
@@ -636,6 +635,19 @@ await test("laya keeps its public enum surface after moving to a decide catalog 
     JSON.stringify(Object.entries(enums.LayaModels).sort()) ===
       JSON.stringify(Object.entries(expected).sort()),
     `LayaModels drifted: ${JSON.stringify(enums.LayaModels)}`,
+  );
+});
+
+await test("xor keeps its public enum surface after moving to a decide catalog file", async () => {
+  const enums = await import("../dist/constants/enums.js");
+  assert(
+    enums.AIProviderName.XOR === "xor",
+    'AIProviderName.XOR must stay "xor"',
+  );
+  assert(
+    JSON.stringify(Object.entries(enums.XorModels)) ===
+      JSON.stringify([["XOR_1_1", "xor-1.1"]]),
+    `XorModels drifted: ${JSON.stringify(enums.XorModels)}`,
   );
 });
 

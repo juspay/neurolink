@@ -1537,24 +1537,6 @@ export function createTypeSafeConfig(): ProviderConfigOptions {
 }
 
 /**
- * XOR — the `decide` inference type. Not a text provider, and it has no
- * built-in endpoint: XOR_BASE_URL is required alongside the key.
- */
-export function createXorConfig(): ProviderConfigOptions {
-  return {
-    providerName: "XOR",
-    envVarName: "XOR_API_KEY",
-    setupUrl: "https://huggingface.co/juspay/xor",
-    description: "API key for your XOR endpoint",
-    instructions: [
-      "1. Reach an XOR deployment, or use a LiteLLM proxy with a pass-through route to one",
-      "2. Set XOR_BASE_URL to its origin (NeuroLink calls <XOR_BASE_URL>/v1/systemone)",
-      "3. Set XOR_API_KEY to the key it accepts (on LiteLLM, a virtual key whose team allows xor-1.1)",
-    ],
-  };
-}
-
-/**
  * Perplexity Decisions API — the `decide` inference type, not the Sonar text
  * models. It reads the same PERPLEXITY_API_KEY as the `perplexity` text
  * provider and has a public endpoint, so the key alone configures it.

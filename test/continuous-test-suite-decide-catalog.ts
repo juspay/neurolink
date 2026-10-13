@@ -33,12 +33,14 @@ import {
 import {
   CATALOG_JSON_ENTRIES,
   CATALOG_PROVIDER_IDS,
+  DECIDE_CATALOG_JSON_ENTRIES,
 } from "../src/lib/providers/catalog/index.generated.js";
 import {
   snapshotChatDescriptors,
   toStableJson,
 } from "./helpers/descriptorSnapshot.js";
 import { LAYA_ENTRY } from "./helpers/decideFixtures.js";
+import type { DecideCatalogJson } from "../src/lib/types/index.js";
 import { parseCatalogEntry } from "../src/lib/providers/catalog/schema.js";
 import {
   credentialsKeyFor,
@@ -1161,6 +1163,146 @@ await runSuite(async () => {
     );
     // LAYA_ENTRY must carry the same keys, limits, timeout and setup URL as that row.
     deepStrictEqual(buildDecideDescriptor(LAYA_ENTRY), registered);
+  });
+
+  await test("buildDecideDescriptor carries decisionLimits.media to the descriptor, and a reader sees what it sees on the registered XOR row", async () => {
+    const { PROVIDER_DESCRIPTORS, buildDecideDescriptor } =
+      await loadDescriptors();
+    const { resolveDecisionLimitsReading } =
+      await import("../src/lib/utils/decisionLimits.js");
+    const media = { maxImages: 8, video: true, maxRequestBytes: 8388608 };
+    const entry: DecideCatalogJson = {
+      ...LAYA_ENTRY,
+      id: "xor",
+      decisionLimits: {
+        maxStateTokens: 200_000,
+        nonAsciiTokensPerChar: 1,
+        media,
+      },
+      decide: {
+        ...LAYA_ENTRY.decide,
+        media: { imagesKey: "images", videoKey: "video" },
+      },
+    };
+    const built = buildDecideDescriptor(entry);
+    deepStrictEqual(built.decisionLimits, {
+      maxStateTokens: 200_000,
+      nonAsciiTokensPerChar: 1,
+      media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+    });
+    deepStrictEqual(built.decisionLimits?.media, {
+      maxImages: 8,
+      video: true,
+      maxRequestBytes: 8388608,
+    });
+
+    // The same facts as the XOR row registered, which xor.json now builds.
+    const xorRow = PROVIDER_DESCRIPTORS.find((d) => String(d.name) === "xor");
+    assertNotNull(xorRow, "the XOR descriptor is missing");
+    deepStrictEqual(built.decisionLimits?.media, xorRow.decisionLimits?.media);
+    deepStrictEqual(
+      resolveDecisionLimitsReading(built, "xor-1.1"),
+      resolveDecisionLimitsReading(xorRow, "xor-1.1"),
+    );
+
+    // Positive controls: a changed figure is told apart, and an entry without
+    // a media allowance yields a descriptor without one.
+    throws(() =>
+      deepStrictEqual(
+        buildDecideDescriptor({
+          ...entry,
+          decisionLimits: {
+            maxStateTokens: 200_000,
+            nonAsciiTokensPerChar: 1,
+            media: { ...media, maxImages: 7 },
+          },
+        }).decisionLimits?.media,
+        built.decisionLimits?.media,
+      ),
+    );
+    assert(
+      !("media" in (buildDecideDescriptor(LAYA_ENTRY).decisionLimits ?? {})),
+      "Laya's descriptor gained a media allowance",
+    );
+  });
+
+  await test("the shipped xor.json builds the descriptor the hand-written XOR row was, media limits included", async () => {
+    const { PROVIDER_DESCRIPTORS, buildDecideDescriptor } =
+      await loadDescriptors();
+    const { resolveDecisionLimitsReading } =
+      await import("../src/lib/utils/decisionLimits.js");
+    const shipped = DECIDE_CATALOG_JSON_ENTRIES.find(
+      (entry) => entry.id === "xor",
+    );
+    assertNotNull(shipped, "the decide catalog holds no xor entry");
+    const built = buildDecideDescriptor(shipped);
+    // Written out by hand, key for key, as the deleted row had it: the only
+    // guard on the media allowance and the rest of the limits now that no
+    // hand-written row is left to compare against. A key that is absent here
+    // (maxQuestions, advisory) must be absent from the build, not undefined.
+    deepStrictEqual(built, {
+      name: "xor",
+      aliases: [],
+      credentialsKey: "xor",
+      envVars: {
+        apiKey: "XOR_API_KEY",
+        baseURL: "XOR_BASE_URL",
+        extraRequired: ["XOR_BASE_URL"],
+        model: "XOR_MODEL",
+      },
+      defaultModel: "xor-1.1",
+      inferenceKinds: ["decide"],
+      decideOrder: 3,
+      toolSupport: "none",
+      localRuntime: false,
+      healthCheck: "env-only",
+      setupUrl: "https://huggingface.co/juspay/xor",
+      timeouts: { decideMs: 5000 },
+      decisionLimits: {
+        maxStateTokens: 200000,
+        nonAsciiTokensPerChar: 1,
+        media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+      },
+    });
+    deepStrictEqual(built.decisionLimits?.media, {
+      maxImages: 8,
+      video: true,
+      maxRequestBytes: 8388608,
+    });
+    assert(
+      !("maxQuestions" in (built.decisionLimits ?? {})),
+      "XOR has no question cap: the key must be absent",
+    );
+    const registered = PROVIDER_DESCRIPTORS.find(
+      (d) => String(d.name) === "xor",
+    );
+    deepStrictEqual(registered, built);
+    deepStrictEqual(shipped.decide.media, {
+      imagesKey: "images",
+      videoKey: "video",
+    });
+    deepStrictEqual(resolveDecisionLimitsReading(built, "xor-1.1"), {
+      provider: "xor",
+      model: "xor-1.1",
+      maxStateTokens: 200000,
+      nonAsciiTokensPerChar: 1,
+      media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+      enforcedLocally: true,
+    });
+    // Positive control: the comparison tells a changed figure apart.
+    throws(() =>
+      deepStrictEqual(
+        buildDecideDescriptor({
+          ...shipped,
+          decisionLimits: {
+            maxStateTokens: 200000,
+            nonAsciiTokensPerChar: 1,
+            media: { maxImages: 7, video: true, maxRequestBytes: 8388608 },
+          },
+        }).decisionLimits?.media,
+        built.decisionLimits?.media,
+      ),
+    );
   });
 
   await test("buildDecideDescriptor maps baseURLRequired, fallbacks and overrides, and stays out of the generation chains", async () => {

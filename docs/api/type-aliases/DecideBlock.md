@@ -36,6 +36,16 @@ True when the provider has no built-in endpoint and the caller must supply one.
 
 > `optional` **baseURLNormalize?**: readonly [`DecideBaseURLTransform`](DecideBaseURLTransform.md)[]
 
+Applied to the base URL in list order.
+
+---
+
+### baseURLShape?
+
+> `optional` **baseURLShape?**: [`DecideBaseURLShape`](DecideBaseURLShape.md)
+
+Refuses a base URL of another shape before any request. Omitted means no check.
+
 ---
 
 ### endpoint
@@ -49,6 +59,14 @@ Request URL; `{baseURL}` is the only placeholder.
 ### model
 
 > **model**: [`DecideModel`](DecideModel.md)
+
+---
+
+### media?
+
+> `optional` **media?**: [`DecideMedia`](DecideMedia.md)
+
+Body keys for images and video, after `model`, `state` and `questions`. Omitted means the body never carries media.
 
 ---
 

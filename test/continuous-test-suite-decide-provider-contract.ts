@@ -64,6 +64,7 @@ import {
   strayPlaceholder,
   type CaseContext,
   type ContractCase,
+  type DecideContractRun,
   type Failure,
 } from "./helpers/decideProviderContract.js";
 import type { DecideCatalogJson } from "../src/lib/types/index.js";
@@ -1142,6 +1143,26 @@ if (!("fixture" in layaDisk)) {
 const LAYA_DISK: DecideContractFixture = layaDisk.fixture;
 const layaRun = await runDecideProviderContract(LAYA_ENTRY);
 
+// The shipped xor.json, not an in-memory copy: it is the entry whose rule list
+// holds a messagePattern, so it is the one the pattern cases are judged on. The
+// run is quiet because its rows are reported one by one by the tests below.
+const xorSource: unknown = JSON.parse(
+  readFileSync(
+    join(process.cwd(), "src", "lib", "providers", "catalog", "xor.json"),
+    "utf8",
+  ),
+);
+const XOR_ENTRY: DecideCatalogJson = await parseDecideEntry(
+  xorSource,
+  "xor.json",
+);
+const xorDisk = loadContractFixture(XOR_ENTRY, undefined);
+if (!("fixture" in xorDisk)) {
+  throw new Error(`the XOR contract fixture is unusable: ${xorDisk.problem}`);
+}
+const XOR_DISK: DecideContractFixture = xorDisk.fixture;
+const xorRun = await runDecideProviderContract(XOR_ENTRY, { quiet: true });
+
 // Hyphenated id and renamed variables: a loop that guessed the names would
 // blank the wrong variable and fail on this entry.
 const OVERRIDDEN: DecideCatalogJson = {
@@ -2217,21 +2238,32 @@ type Scenario = {
   /** Text the failure reason of the named case must contain. */
   readonly says?: ReadonlyArray<readonly [string, string]>;
   /**
-   * Fragments the unmodified Laya run must hold: each matches at least one case
+   * Fragments the unmodified run (Laya's, or the subject's) must hold: each matches at least one case
    * and every match passes. Default: the red and green fragments; name it when
    * a case exists only in the broken entry or fixture.
    */
   readonly control?: readonly string[];
 };
 
-async function judgeScenarios(list: readonly Scenario[]): Promise<void> {
+// What a scenario is judged against: the fixture its cases default to, and the
+// unmodified run that is its control.
+type Subject = {
+  readonly fixture: DecideContractFixture;
+  readonly run: DecideContractRun;
+};
+const LAYA_SUBJECT: Subject = { fixture: LAYA_INLINE_CONTRACT, run: layaRun };
+
+async function judgeScenarios(
+  list: readonly Scenario[],
+  subject: Subject = LAYA_SUBJECT,
+): Promise<void> {
   for (const scenario of list) {
     const { what, entry } = scenario;
     assert(
       scenario.red.length > 0,
       `${what}: the scenario names no red case, so it judges nothing`,
     );
-    const fixture = scenario.fixture ?? LAYA_INLINE_CONTRACT;
+    const fixture = scenario.fixture ?? subject.fixture;
     const green = scenario.green ?? [];
     const wanted = [...scenario.red, ...green];
     const results: TestRecord[] = [];
@@ -2271,7 +2303,9 @@ async function judgeScenarios(list: readonly Scenario[]): Promise<void> {
     }
     // The control: the same cases on the unmodified entry and fixture pass.
     for (const fragment of scenario.control ?? wanted) {
-      const control = layaRun.recorded.filter((r) => r.name.includes(fragment));
+      const control = subject.run.recorded.filter((r) =>
+        r.name.includes(fragment),
+      );
       assert(
         control.length > 0,
         `${what}: the control "${fragment}" matches no case of the unmodified run, so it controls nothing`,
@@ -2573,6 +2607,245 @@ await test("the latch, default and redaction cases are built only when the entry
     has(allButOne, "status 402 outside every rule is") &&
       has(allButOne, "error default kind"),
     `no default case for the one unmatched status: ${allButOne.join("; ")}`,
+  );
+});
+
+// ---- XOR: the shipped entry through the same loop, and the message pattern ----
+
+function xorPassed(name: string): void {
+  const found = xorRun.recorded.find((r) => r.name === name);
+  if (found === undefined) {
+    throw new Error(`no result named "${name}"`);
+  }
+  assert(found.ok, `${name} failed: ${found.reason ?? ""}`);
+}
+
+await test("the shipped xor.json passes every case of the loop, each planned once", () => {
+  const names = xorRun.recorded.map((r) => r.name);
+  assert(xorRun.planned >= 2, `planned ${xorRun.planned} cases`);
+  assert(
+    xorRun.recorded.length === xorRun.planned,
+    `planned ${xorRun.planned}, recorded ${xorRun.recorded.length}`,
+  );
+  assert(new Set(names).size === names.length, "two results share a name");
+  const failed = xorRun.recorded.filter((r) => !r.ok);
+  assert(
+    failed.length === 0,
+    `failed: ${failed.map((r) => r.name).join("; ")}`,
+  );
+});
+
+for (const f of XOR_DISK.errors) {
+  await test(`xor error body "${f.label}" gives ${f.expect.kind}, retryable ${f.expect.retryable}`, () =>
+    xorPassed(
+      `DECIDE ${XOR_ENTRY.id}: error "${f.label}" (${f.provenance}) -> ${f.expect.kind}`,
+    ));
+}
+
+const XOR_RULES: Rules = XOR_ENTRY.decide.errors.rules;
+const patternedIndex = XOR_RULES.findIndex(
+  (r) => r.messagePattern !== undefined,
+);
+// The rule after it with the same range and no pattern: what a 5xx falls to
+// when its message does not match.
+const plainServerIndex = XOR_RULES.findIndex(
+  (r, i) =>
+    i > patternedIndex &&
+    r.messagePattern === undefined &&
+    r.statusMin === XOR_RULES[patternedIndex]?.statusMin,
+);
+const overloadedIndex = XOR_RULES.findIndex((r) => r.kind === "overloaded");
+
+await test("every xor rule, the message-pattern rule included, is exercised by a fixture that agrees with it", () => {
+  assert(patternedIndex >= 0, "xor.json holds no rule with a messagePattern");
+  assert(
+    plainServerIndex > patternedIndex,
+    "no plain rule with the same range follows the pattern rule",
+  );
+  const ruleResults = xorRun.recorded.filter((r) =>
+    r.name.startsWith(`DECIDE ${XOR_ENTRY.id}: error rule #`),
+  );
+  assert(
+    ruleResults.length === XOR_RULES.length,
+    `one result per rule, got ${ruleResults.length}`,
+  );
+  const failed = ruleResults.filter((r) => !r.ok);
+  assert(
+    failed.length === 0,
+    failed.map((r) => `${r.name}: ${r.reason}`).join("; "),
+  );
+  const patterned = ruleResults.find((r) =>
+    r.name.includes(`error rule #${patternedIndex} (`),
+  );
+  assert(
+    patterned?.name.includes("message matches /") === true &&
+      patterned.name.includes(
+        "one that matches the pattern and one that does not",
+      ),
+    "the pattern rule's case does not name the pattern and the two bodies it needs",
+  );
+});
+
+await test("the xor error cases are exactly the planned ones, and no row claims to have been seen live", () => {
+  const names = xorRun.recorded.map((r) => r.name).filter(isErrorCase);
+  assert(
+    names.length ===
+      XOR_DISK.errors.length + XOR_RULES.length + ERROR_SINGLES.length,
+    `${names.length} error results`,
+  );
+  const once = (fragment: string): boolean =>
+    names.filter((n) => n.includes(fragment)).length === 1;
+  for (const f of XOR_DISK.errors) {
+    assert(once(`: error "${f.label}" (`), `no single case for "${f.label}"`);
+  }
+  XOR_RULES.forEach((_rule, index) => {
+    assert(
+      once(`: error rule #${index} (`),
+      `no single case for rule ${index}`,
+    );
+  });
+  for (const fragment of ERROR_SINGLES) {
+    assert(once(fragment), `no single case for "${fragment}"`);
+  }
+  // No mocked case or comment says a body was captured from a real server or
+  // proxy, so none is labelled as seen.
+  assert(
+    XOR_DISK.errors.every((f) => f.provenance === "stand-in"),
+    "a row is labelled seen-live",
+  );
+});
+
+await test("a status outside every xor rule falls to the default, and a body outside them pins it", () => {
+  const found = xorRun.recorded.filter((r) =>
+    r.name.includes("outside every rule is"),
+  );
+  assert(
+    found.length === 1 && found[0].ok,
+    `expected one passing default-kind result, got ${found.length}`,
+  );
+  xorPassed(
+    `DECIDE ${XOR_ENTRY.id}: error default kind ${XOR_ENTRY.decide.errors.default} is pinned by a fixture`,
+  );
+});
+
+await test("a message-pattern rule is judged on the message as well as the status", async () => {
+  const xorEntryWith = (rules: Rules): DecideCatalogJson => ({
+    ...XOR_ENTRY,
+    decide: {
+      ...XOR_ENTRY.decide,
+      errors: { ...XOR_ENTRY.decide.errors, rules },
+    },
+  });
+  const named = (labels: readonly string[]): readonly string[] => {
+    const known = new Set(XOR_DISK.errors.map((f) => f.label));
+    const unknown = labels.filter((label) => !known.has(label));
+    if (unknown.length > 0) {
+      throw new Error(`the XOR fixture holds no row ${unknown.join(", ")}`);
+    }
+    return labels;
+  };
+  // Rows that decide on the message: a 5xx with a context-length text.
+  const matching = named([
+    "context length on a 500",
+    "context length behind a gateway",
+    "validation array with a context-length message",
+  ]);
+  // Rows that reach the plain rule: a 5xx whose message the pattern rejects.
+  const declining = named([
+    "engine failure",
+    "bad gateway",
+    "gateway text",
+    "upstream connect timeout",
+    "context length after the match window",
+  ]);
+  const withBodies = (
+    bodies: Readonly<Record<string, unknown>>,
+  ): DecideContractFixture => {
+    named(Object.keys(bodies));
+    return {
+      ...XOR_DISK,
+      errors: XOR_DISK.errors.map((f) =>
+        f.label in bodies ? { ...f, body: bodies[f.label] } : f,
+      ),
+    };
+  };
+  const without = (labels: readonly string[]): DecideContractFixture => ({
+    ...XOR_DISK,
+    errors: XOR_DISK.errors.filter((f) => !labels.includes(f.label)),
+  });
+  const swapped = (a: number, b: number): Rules =>
+    XOR_RULES.map((r, i) =>
+      i === a ? XOR_RULES[b] : i === b ? XOR_RULES[a] : r,
+    );
+  const patternRule = XOR_RULES[patternedIndex];
+  const withoutPattern: Rules[number] = {
+    statusMin: patternRule.statusMin,
+    kind: patternRule.kind,
+  };
+  const subject: Subject = { fixture: XOR_DISK, run: xorRun };
+  const patternCase = ruleAt(patternedIndex);
+  await judgeScenarios(
+    [
+      {
+        // The three bodies still declare max_tokens_exceeded, so a harness that
+        // reads the status alone sees the pattern rule reached by them.
+        what: "bodies that reach the pattern rule by status but whose message does not match it",
+        entry: XOR_ENTRY,
+        fixture: withBodies({
+          "context length on a 500": { error: "engine failure" },
+          "context length behind a gateway": {
+            error: { message: "bad gateway" },
+          },
+          "validation array with a context-length message": {
+            detail: [{ loc: ["body", "state"], msg: "invalid" }],
+          },
+        }),
+        red: [patternCase, bodyCase("context length on a 500")],
+        says: [[patternCase, "no fixture status reaches this rule"]],
+      },
+      {
+        what: "no body that the pattern rejects",
+        entry: XOR_ENTRY,
+        fixture: without(declining),
+        red: [patternCase],
+        says: [[patternCase, "message the pattern does not match"]],
+      },
+      {
+        what: "no body that matches the pattern",
+        entry: XOR_ENTRY,
+        fixture: without(matching),
+        red: [patternCase],
+        green: [bodyCase("engine failure")],
+      },
+      {
+        what: "the pattern removed from its rule",
+        entry: xorEntryWith(
+          XOR_RULES.map((r, i) => (i === patternedIndex ? withoutPattern : r)),
+        ),
+        red: [bodyCase("engine failure"), patternCase],
+      },
+      {
+        what: "the pattern rule placed after the plain one",
+        entry: xorEntryWith(swapped(patternedIndex, plainServerIndex)),
+        red: [bodyCase("context length on a 500")],
+      },
+      {
+        what: "the pattern rule placed before the 503 rule",
+        entry: xorEntryWith(swapped(patternedIndex, overloadedIndex)),
+        red: [bodyCase("context length text on a 503")],
+        green: [bodyCase("overloaded")],
+      },
+      {
+        what: "the pattern rule widened below the range",
+        entry: xorEntryWith(
+          XOR_RULES.map((r, i) =>
+            i === patternedIndex ? { ...r, statusMin: 400 } : r,
+          ),
+        ),
+        red: [bodyCase("context length text below the range")],
+      },
+    ],
+    subject,
   );
 });
 

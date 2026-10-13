@@ -1,0 +1,457 @@
+{
+  "version": 1,
+  "id": "xor",
+  "success": {
+    "headers": {
+      "x-request-id": "req-xor-1"
+    },
+    "body": {
+      "model": "xor-1.1",
+      "answers": {
+        "urgent": {
+          "type": "noul",
+          "noul": 0.91
+        },
+        "team": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": {
+            "billing": 0.84,
+            "technical": 0.1,
+            "sales": 0.06
+          },
+          "confidence": 0.79
+        },
+        "mood": {
+          "type": "score",
+          "score": 1.7,
+          "legend": {
+            "0": "calm",
+            "1": "annoyed",
+            "2": "angry"
+          },
+          "probabilities": {
+            "0": 0.1,
+            "1": 0.1,
+            "2": 0.8
+          },
+          "confidence": 0.7
+        }
+      },
+      "usage": {
+        "input_tokens": 96,
+        "output_tokens": 3
+      }
+    },
+    "expected": {
+      "model": "xor-1.1",
+      "requestId": "req-xor-1",
+      "inputTokens": 96,
+      "answers": {
+        "urgent": {
+          "type": "boolean",
+          "probability": 0.91
+        },
+        "team": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": {
+            "billing": 0.84,
+            "technical": 0.1,
+            "sales": 0.06
+          },
+          "confidence": 0.79
+        },
+        "mood": {
+          "type": "score",
+          "score": 1.7,
+          "legend": {
+            "0": "calm",
+            "1": "annoyed",
+            "2": "angry"
+          },
+          "probabilities": {
+            "0": 0.1,
+            "1": 0.1,
+            "2": 0.8
+          },
+          "confidence": 0.7
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "label": "invalid proxy token",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "Authentication Error, Invalid proxy server token passed. Received API Key = sk-...cred, Key Hash (Token) =9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566. Unable to find token in cache or `LiteLLM_VerificationTokenTable`",
+          "type": "token_not_found_in_db",
+          "code": "401"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["Invalid proxy server token"],
+        "messageExcludes": ["Received API Key", "9f2c0e41"]
+      }
+    },
+    {
+      "label": "key echoed by the proxy",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "Authentication Error, the key {apiKey} was not found",
+          "type": "auth_error",
+          "code": "401"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["Authentication Error"],
+        "messageExcludes": ["{apiKey}"]
+      }
+    },
+    {
+      "label": "request body too large",
+      "provenance": "stand-in",
+      "status": 413,
+      "body": {
+        "error": "request body exceeds 8MB"
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["exceeds 8MB"]
+      }
+    },
+    {
+      "label": "rate limit with a key hash",
+      "provenance": "stand-in",
+      "status": 429,
+      "body": {
+        "error": {
+          "message": "Rate limit reached for requests. Hashed API key: 9f2c0e41d3a7b8c6e5f40112233445566778899aabbccddeeff00112233445566.",
+          "type": "throttling_error",
+          "code": "429"
+        }
+      },
+      "expect": {
+        "kind": "rate_limit",
+        "retryable": true,
+        "messageIncludes": ["Rate limit reached"],
+        "messageExcludes": ["9f2c0e41"]
+      }
+    },
+    {
+      "label": "overloaded",
+      "provenance": "stand-in",
+      "status": 503,
+      "body": {
+        "error": {
+          "message": "overloaded",
+          "type": "unavailable",
+          "code": "503"
+        }
+      },
+      "expect": {
+        "kind": "overloaded",
+        "retryable": true,
+        "messageIncludes": ["overloaded"]
+      }
+    },
+    {
+      "label": "context length text on a 503",
+      "provenance": "stand-in",
+      "status": 503,
+      "body": {
+        "error": "Input length exceeds the maximum context length of the model"
+      },
+      "expect": {
+        "kind": "overloaded",
+        "retryable": true,
+        "messageIncludes": ["maximum context length"]
+      }
+    },
+    {
+      "label": "engine failure",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": "engine failure"
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["engine failure"]
+      }
+    },
+    {
+      "label": "context length on a 500",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": "Input length exceeds the maximum context length of the model"
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["maximum context length"]
+      }
+    },
+    {
+      "label": "context length in capitals",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": "CONTEXT LENGTH EXCEEDED"
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["CONTEXT LENGTH EXCEEDED"]
+      }
+    },
+    {
+      "label": "context length after the match window",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": "padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding padding context length exceeded"
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["context length exceeded"]
+      }
+    },
+    {
+      "label": "bad gateway",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": {
+        "error": {
+          "message": "bad gateway",
+          "type": "bad_gateway",
+          "code": "502"
+        }
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["bad gateway"]
+      }
+    },
+    {
+      "label": "context length behind a gateway",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": {
+        "error": {
+          "message": "Upstream said the prompt exceeds the model's context window",
+          "type": "bad_gateway",
+          "code": "502"
+        }
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["context window"]
+      }
+    },
+    {
+      "label": "validation array with a context-length message",
+      "provenance": "stand-in",
+      "status": 504,
+      "body": {
+        "detail": [
+          {
+            "type": "value_error",
+            "loc": ["body", "state"],
+            "msg": "prompt too long for the model",
+            "input": {
+              "secret": "state text must never be logged"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["body.state: prompt too long"],
+        "messageExcludes": ["secret"]
+      }
+    },
+    {
+      "label": "gateway text",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": "Bad Gateway",
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["XOR request failed with HTTP 502"]
+      }
+    },
+    {
+      "label": "upstream connect timeout",
+      "provenance": "stand-in",
+      "status": 599,
+      "body": {
+        "error": "upstream connect timeout"
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["connect timeout"]
+      }
+    },
+    {
+      "label": "forbidden by the team allow-list",
+      "provenance": "stand-in",
+      "status": 403,
+      "body": {
+        "error": {
+          "message": "team not allowed to access model=xor-1.1",
+          "type": "team_model_access_denied",
+          "code": "403"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["team not allowed"]
+      }
+    },
+    {
+      "label": "budget exceeded",
+      "provenance": "stand-in",
+      "status": 402,
+      "body": {
+        "error": {
+          "message": "Budget has been exceeded",
+          "type": "budget_exceeded",
+          "code": "402"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["Budget has been exceeded"]
+      }
+    },
+    {
+      "label": "not found",
+      "provenance": "stand-in",
+      "status": 404,
+      "body": {
+        "error": "not found"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["not found"]
+      }
+    },
+    {
+      "label": "context length text below the range",
+      "provenance": "stand-in",
+      "status": 499,
+      "body": {
+        "error": "Input length exceeds the maximum context length of the model"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["maximum context length"]
+      }
+    },
+    {
+      "label": "detail string",
+      "provenance": "stand-in",
+      "status": 400,
+      "body": {
+        "detail": "questions must be a non-empty map"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["non-empty map"]
+      }
+    },
+    {
+      "label": "flat error string",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "error": "q: 2..255 options, got 1"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["2..255 options"]
+      }
+    },
+    {
+      "label": "error message beside a detail",
+      "provenance": "stand-in",
+      "status": 409,
+      "body": {
+        "error": {
+          "message": "proxy text wins"
+        },
+        "detail": "server text loses"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["proxy text wins"],
+        "messageExcludes": ["server text loses"]
+      }
+    },
+    {
+      "label": "validation array",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "detail": [
+          {
+            "type": "value_error",
+            "loc": ["body", "questions", "team"],
+            "msg": "Value error, 'choice' questions require non-empty `criteria`",
+            "input": {
+              "secret": "state text must never be logged"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["questions.team"],
+        "messageExcludes": ["secret"]
+      }
+    },
+    {
+      "label": "blank everything",
+      "provenance": "stand-in",
+      "status": 400,
+      "body": {
+        "error": {
+          "message": ""
+        },
+        "detail": ""
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["XOR request failed with HTTP 400"]
+      }
+    }
+  ]
+}

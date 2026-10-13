@@ -44,7 +44,6 @@ import {
   createStabilityConfig,
   createVoyageConfig,
   createTypeSafeConfig,
-  createXorConfig,
   createPerplexityDeciderConfig,
   createCloudflareClefConfig,
   satisfiesFallbacks,
@@ -183,9 +182,9 @@ const PROVIDERS: SetupProviderInfo[] = [
  * perplexity, sambanova, together-ai, xai — mistral is the 9th catalog
  * provider but keeps its own handleMistralSetup() flow above, so it's
  * excluded here), spread directly from the catalog JSON via
- * buildCatalogConfigOptions(); decide-kind catalog entries (laya) are spread
- * the same way from getDecideCatalogEntries(). The hand rows listed first
- * reuse the existing createXConfig() factories in providerConfig.ts; the
+ * buildCatalogConfigOptions(); decide-kind catalog entries (laya, xor) are
+ * spread the same way from getDecideCatalogEntries(). The hand rows listed
+ * first reuse the existing createXConfig() factories in providerConfig.ts; the
  * remaining 5 (ollama, litellm, sagemaker, lm-studio, llamacpp) don't have a
  * factory and are defined inline using their real env var names. lm-studio
  * and llamacpp previously
@@ -205,7 +204,6 @@ export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   ideogram: createIdeogramConfig(),
   recraft: createRecraftConfig(),
   typesafe: createTypeSafeConfig(),
-  xor: createXorConfig(),
   "perplexity-decider": createPerplexityDeciderConfig(),
   "cloudflare-clef": createCloudflareClefConfig(),
   ...Object.fromEntries(

@@ -27,7 +27,6 @@ import {
   IdeogramModels,
   RecraftModels,
   TypeSafeModels,
-  XorModels,
   PerplexityDeciderModels,
   CloudflareClefModels,
   ReplicateModels,
@@ -675,27 +674,6 @@ export class ProviderRegistry {
         process.env.TYPESAFE_MODEL || TypeSafeModels.JEV_LATEST,
         ["jev", "typesafe-ai"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TYPESAFE),
-      );
-
-      // Register XOR — the third `decide` provider, reached at whatever base
-      // URL its config names. Its descriptor declares inferenceKinds:
-      // ["decide"], so nothing in the generation fallback chain can reach it.
-      ProviderFactory.registerProvider(
-        AIProviderName.XOR,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const xorCreds = credentials as NeurolinkCredentials["xor"];
-          const { XorProvider } = await import("../providers/xor.js");
-          return new XorProvider(modelName, sdk, undefined, xorCreds);
-        },
-        process.env.XOR_MODEL || XorModels.XOR_1_1,
-        [],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR),
       );
 
       // Register the Perplexity Decisions API — a `decide` provider reached at

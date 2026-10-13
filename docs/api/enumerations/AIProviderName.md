@@ -616,6 +616,12 @@ Supported AI Provider Names
 
 ---
 
+### XOR
+
+> **XOR**: `"xor"`
+
+---
+
 ### Z_AI
 
 > **Z_AI**: `"z-ai"`
@@ -669,14 +675,6 @@ Supported AI Provider Names
 > **TYPESAFE**: `"typesafe"`
 
 TypeSafe (Jev) — serves the `decide` inference type only.
-
----
-
-### XOR
-
-> **XOR**: `"xor"`
-
-XOR (Juspay, open weights) — serves the `decide` inference type only.
 
 ---
 

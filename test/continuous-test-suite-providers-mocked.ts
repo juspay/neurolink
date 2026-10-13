@@ -11317,7 +11317,8 @@ async function runClefMediaHints(): Promise<void> {
   );
   const coveredVideo = new Set<boolean>();
   for (const descriptor of descriptors) {
-    const media = descriptor.decisionLimits!.media!;
+    const limits = descriptor.decisionLimits!;
+    const media = limits.media!;
     coveredVideo.add(media.video);
     await clefCase(
       "DECIDE media limits: request byte hint respects video for " +
@@ -11326,9 +11327,22 @@ async function runClefMediaHints(): Promise<void> {
         setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
         setEnv("XOR_API_KEY", "test-fake-xor-credential");
         setEnv("XOR_BASE_URL", "https://xor.internal.test");
-        const cap = media.maxRequestBytes;
+        // A catalog-built descriptor is deep-frozen, so the case swaps the
+        // registered row for a copy with a small cap instead of assigning to
+        // it, and puts the original back. The map is a Map built at load; only
+        // its declared type is read-only.
+        const registered = PROVIDER_DESCRIPTORS_BY_NAME as Map<
+          typeof descriptor.name,
+          typeof descriptor
+        >;
         try {
-          media.maxRequestBytes = 1_000;
+          registered.set(descriptor.name, {
+            ...descriptor,
+            decisionLimits: {
+              ...limits,
+              media: { ...media, maxRequestBytes: 1_000 },
+            },
+          });
           await withMocks([clefRoute()], async ({ calls }) => {
             const provider = await ProviderFactory.createProvider(
               descriptor.name,
@@ -11357,7 +11371,7 @@ async function runClefMediaHints(): Promise<void> {
             expectEq(calls.length, 0, "refused locally");
           });
         } finally {
-          media.maxRequestBytes = cap;
+          registered.set(descriptor.name, descriptor);
           resetClefEnv();
         }
       },
@@ -11933,7 +11947,7 @@ async function runDecideDialect(): Promise<void> {
 // broken codegen, a deleted laya.json, a generated list that lost its decide
 // entries) fails this section instead of passing it trivially. Raise it when
 // another decide entry joins the catalog; never lower it.
-const MIN_DECIDE_CATALOG_ENTRIES = 1;
+const MIN_DECIDE_CATALOG_ENTRIES = 2;
 
 async function runDecideCatalogSection(): Promise<void> {
   const { DECIDE_CATALOG_JSON_ENTRIES } =
@@ -15384,6 +15398,7 @@ async function main(): Promise<void> {
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
     "--embeddings-only": [runEmbeddingsSection],
     "--catalog-per-model-tools-only": [runCatalogPerModelToolsSection],
+    "--decide-only": [runDecideSection],
   };
   for (const [flag, sections] of Object.entries(FOCUSED_RUNS)) {
     if (!process.argv.includes(flag)) {
