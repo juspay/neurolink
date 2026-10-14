@@ -1,5 +1,7 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 /**
  * Continuous Test Suite for NeuroLink Server Adapters Feature
@@ -19,7 +21,14 @@ import * as fs from "fs";
 import * as http from "http";
 import * as os from "os";
 import * as path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+import {
+  childListenerReady,
+  listenerBoundary,
+  nativeListenerPort,
+  serveReadiness,
+  type ServeReadiness,
+} from "./helpers/serverFixtureReadiness.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,10 +45,10 @@ const TEST_CONFIG = {
 
 // Ports for each framework test
 const FRAMEWORK_PORTS = {
-  hono: 9100,
-  express: 9101,
-  fastify: 9102,
-  koa: 9103,
+  hono: 0,
+  express: 0,
+  fastify: 0,
+  koa: 0,
 };
 
 // ============================================
@@ -398,6 +407,7 @@ async function testAdapterExport(
 
     // Try to create and start a real server with an SDK instance
     if (typeof mod.createServer === "function") {
+      let fixtureStarted = false;
       try {
         logTest(
           `${adapterName} - Live Server`,
@@ -420,6 +430,7 @@ async function testAdapterExport(
           initialize: () => Promise<void>;
           start: () => Promise<void>;
           stop: () => Promise<void>;
+          getNativeServer: () => unknown;
         }>;
 
         const frameworkName =
@@ -429,68 +440,82 @@ async function testAdapterExport(
           config: { port, host: "127.0.0.1" },
         });
 
-        await adapter.initialize();
-        await adapter.start();
-
-        // Hit the health endpoint to verify the server is running
         try {
-          const response = await httpRequest(
-            "GET",
-            `http://127.0.0.1:${port}/api/health`,
+          await adapter.initialize();
+          const boundary = listenerBoundary();
+          await adapter.start();
+          fixtureStarted = true;
+          const listeningPort = await nativeListenerPort(
+            adapter,
+            boundary,
+            TEST_CONFIG.timeout,
           );
-          if (response.status >= 200 && response.status < 500) {
-            logTest(
-              `${adapterName} - Live Server`,
-              "PASS",
-              `Health endpoint responded with status ${response.status}`,
-            );
-          } else {
-            logTest(
-              `${adapterName} - Live Server`,
-              "FAIL",
-              `Health endpoint returned status ${response.status}`,
-            );
-          }
-        } catch (reqErr) {
-          // Server started but health endpoint may not be at /api/health — try /health
+
+          // Hit the health endpoint to verify the server is running
           try {
-            const fallbackResponse = await httpRequest(
+            const response = await httpRequest(
               "GET",
-              `http://127.0.0.1:${port}/health`,
+              `http://127.0.0.1:${listeningPort}/api/health`,
             );
-            if (
-              fallbackResponse.status >= 200 &&
-              fallbackResponse.status < 500
-            ) {
+            if (response.status >= 200 && response.status < 500) {
               logTest(
                 `${adapterName} - Live Server`,
                 "PASS",
-                `Health endpoint (/health) responded with status ${fallbackResponse.status}`,
+                `Health endpoint responded with status ${response.status}`,
               );
             } else {
               logTest(
                 `${adapterName} - Live Server`,
-                "PASS",
-                `Server started (health returned ${fallbackResponse.status})`,
+                "FAIL",
+                `Health endpoint returned status ${response.status}`,
               );
             }
-          } catch {
-            // Server started but no route matched — still a pass for lifecycle
-            logTest(
-              `${adapterName} - Live Server`,
-              "PASS",
-              "Server started successfully (no health route matched, but server is listening)",
-            );
+          } catch (reqErr) {
+            // Server started but health endpoint may not be at /api/health — try /health
+            try {
+              const fallbackResponse = await httpRequest(
+                "GET",
+                `http://127.0.0.1:${listeningPort}/health`,
+              );
+              if (
+                fallbackResponse.status >= 200 &&
+                fallbackResponse.status < 500
+              ) {
+                logTest(
+                  `${adapterName} - Live Server`,
+                  "PASS",
+                  `Health endpoint (/health) responded with status ${fallbackResponse.status}`,
+                );
+              } else {
+                logTest(
+                  `${adapterName} - Live Server`,
+                  "PASS",
+                  `Server started (health returned ${fallbackResponse.status})`,
+                );
+              }
+            } catch {
+              // Server started but no route matched — still a pass for lifecycle
+              logTest(
+                `${adapterName} - Live Server`,
+                "PASS",
+                "Server started successfully (no health route matched, but server is listening)",
+              );
+            }
           }
-        }
-
-        // Stop the server and clean up
-        await adapter.stop();
-        if (
-          typeof (sdk as unknown as { shutdown?: () => Promise<void> })
-            .shutdown === "function"
-        ) {
-          await (sdk as unknown as { shutdown(): Promise<void> }).shutdown();
+        } finally {
+          // Stop the actual fixture even when readiness or a request rejects.
+          try {
+            await adapter.stop();
+          } finally {
+            if (
+              typeof (sdk as unknown as { shutdown?: () => Promise<void> })
+                .shutdown === "function"
+            ) {
+              await (
+                sdk as unknown as { shutdown(): Promise<void> }
+              ).shutdown();
+            }
+          }
         }
         logTest(
           `${adapterName} - Live Lifecycle`,
@@ -500,6 +525,10 @@ async function testAdapterExport(
       } catch (serverErr) {
         const msg =
           serverErr instanceof Error ? serverErr.message : String(serverErr);
+        if (fixtureStarted) {
+          logTest(`${adapterName} - Live Server`, "FAIL", msg);
+          return false;
+        }
         logTest(
           `${adapterName} - Live Server`,
           "SKIP",
@@ -2492,9 +2521,10 @@ async function testLiveServer(): Promise<boolean | null> {
       return skipTest("Live Server", "createServer not exported");
     }
 
-    // Use a dedicated port for the live server integration test (offset from framework ports)
-    const port = FRAMEWORK_PORTS.hono + 10; // 9110
+    // The actual native fixture listener selects its port.
+    const port = 0;
 
+    let fixtureStarted = false;
     try {
       // Create a real NeuroLink SDK instance
       const { NeuroLink } = await import("../dist/index.js");
@@ -2511,6 +2541,7 @@ async function testLiveServer(): Promise<boolean | null> {
         initialize: () => Promise<void>;
         start: () => Promise<void>;
         stop: () => Promise<void>;
+        getNativeServer: () => unknown;
       }>;
 
       const adapter = await createServerFn(sdk, {
@@ -2518,64 +2549,79 @@ async function testLiveServer(): Promise<boolean | null> {
         config: { port, host: "127.0.0.1" },
       });
 
-      await adapter.initialize();
-      await adapter.start();
-
-      // Hit the health endpoint to verify the server is running
       try {
-        const response = await httpRequest(
-          "GET",
-          `http://127.0.0.1:${port}/api/health`,
+        await adapter.initialize();
+        const boundary = listenerBoundary();
+        await adapter.start();
+        fixtureStarted = true;
+        const listeningPort = await nativeListenerPort(
+          adapter,
+          boundary,
+          TEST_CONFIG.timeout,
         );
 
-        if (response.status >= 200 && response.status < 500) {
-          logTest(
-            "Live Server - Health",
-            "PASS",
-            `Health endpoint responded with status ${response.status}`,
-          );
-        } else {
-          logTest(
-            "Live Server - Health",
-            "FAIL",
-            `Health endpoint returned status ${response.status}`,
-          );
-        }
-      } catch (reqErr) {
-        // Try fallback path
+        // Hit the health endpoint to verify the server is running
         try {
-          const fallbackResponse = await httpRequest(
+          const response = await httpRequest(
             "GET",
-            `http://127.0.0.1:${port}/health`,
+            `http://127.0.0.1:${listeningPort}/api/health`,
           );
-          if (fallbackResponse.status >= 200 && fallbackResponse.status < 500) {
+
+          if (response.status >= 200 && response.status < 500) {
             logTest(
               "Live Server - Health",
               "PASS",
-              `Health endpoint (/health) responded with status ${fallbackResponse.status}`,
+              `Health endpoint responded with status ${response.status}`,
             );
           } else {
             logTest(
               "Live Server - Health",
-              "PASS",
-              `Server started (health returned ${fallbackResponse.status})`,
+              "FAIL",
+              `Health endpoint returned status ${response.status}`,
             );
           }
-        } catch {
-          logTest(
-            "Live Server - Health",
-            "PASS",
-            "Server started successfully (no health route matched, but server is listening)",
-          );
+        } catch (reqErr) {
+          // Try fallback path
+          try {
+            const fallbackResponse = await httpRequest(
+              "GET",
+              `http://127.0.0.1:${listeningPort}/health`,
+            );
+            if (
+              fallbackResponse.status >= 200 &&
+              fallbackResponse.status < 500
+            ) {
+              logTest(
+                "Live Server - Health",
+                "PASS",
+                `Health endpoint (/health) responded with status ${fallbackResponse.status}`,
+              );
+            } else {
+              logTest(
+                "Live Server - Health",
+                "PASS",
+                `Server started (health returned ${fallbackResponse.status})`,
+              );
+            }
+          } catch {
+            logTest(
+              "Live Server - Health",
+              "PASS",
+              "Server started successfully (no health route matched, but server is listening)",
+            );
+          }
         }
-      }
-
-      await adapter.stop();
-      if (
-        typeof (sdk as unknown as Record<string, unknown>).shutdown ===
-        "function"
-      ) {
-        await (sdk as { shutdown: () => Promise<void> }).shutdown();
+      } finally {
+        try {
+          await adapter.stop();
+        } finally {
+          if (
+            typeof (sdk as unknown as Record<string, unknown>).shutdown ===
+            "function"
+          ) {
+            await (sdk as { shutdown: () => Promise<void> }).shutdown();
+          }
+        }
       }
       logTest(
         "Live Server - Lifecycle",
@@ -2586,6 +2632,10 @@ async function testLiveServer(): Promise<boolean | null> {
     } catch (adapterErr) {
       const msg =
         adapterErr instanceof Error ? adapterErr.message : String(adapterErr);
+      if (fixtureStarted) {
+        logTest("Live Server", "FAIL", msg);
+        return false;
+      }
       return skipTest("Live Server", `Could not start live server: ${msg}`);
     }
   } catch (error) {
@@ -2605,6 +2655,7 @@ type ServeProcess = {
   proc: ChildProcess;
   home: string;
   exited: Promise<number | null>;
+  readiness: ServeReadiness;
 };
 
 /**
@@ -2621,15 +2672,30 @@ function startServe(
   const inherited = { ...process.env };
   delete inherited.PORT;
   delete inherited.NEUROLINK_SERVER_API_KEY;
+  const readiness = serveReadiness(home);
+  const reporter = pathToFileURL(
+    path.join(__dirname, "helpers", "serverListenerReporter.mjs"),
+  ).href;
+  const nodeOptions = [inherited.NODE_OPTIONS, `--import=${reporter}`]
+    .filter(Boolean)
+    .join(" ");
   const proc = spawn("node", [CLI_ENTRY, "serve", "--quiet", ...args], {
     cwd: home,
-    env: { ...inherited, HOME: home, NEUROLINK_SKIP_MCP: "true", ...env },
+    env: {
+      ...inherited,
+      HOME: home,
+      NEUROLINK_SKIP_MCP: "true",
+      ...env,
+      NODE_OPTIONS: nodeOptions,
+      NEUROLINK_SERVER_TEST_READY_LOG: readiness.journalPath,
+      NEUROLINK_SERVER_TEST_READY_NONCE: readiness.nonce,
+    },
     stdio: "ignore",
   });
   const exited = new Promise<number | null>((resolve) => {
     proc.on("exit", (code) => resolve(code));
   });
-  return { proc, home, exited };
+  return { proc, home, exited, readiness };
 }
 
 /** Poll the liveness probe until it answers 200, or the process exits. */
@@ -2643,6 +2709,10 @@ async function waitForServe(
   });
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline && !exited) {
+    if (!childListenerReady(serve.readiness, serve.proc.pid, port)) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      continue;
+    }
     try {
       const res = await httpRequest(
         "GET",
@@ -2935,6 +3005,7 @@ async function testSdkRegistrationBeforeInitialize(): Promise<boolean | null> {
     initialize: () => Promise<void>;
     start: () => Promise<void>;
     stop: () => Promise<void>;
+    getNativeServer: () => unknown;
   };
   const createServerFn = mod.createServer as (
     neurolink: unknown,
@@ -2945,7 +3016,8 @@ async function testSdkRegistrationBeforeInitialize(): Promise<boolean | null> {
   const failures: string[] = [];
 
   for (const [index, framework] of SERVE_FRAMEWORKS.entries()) {
-    const port = 9140 + index;
+    const port = 0;
+    const canary = `SERVER_REGISTRATION_${framework}_${index}_${randomUUID()}`;
     const sdk = new NeuroLink();
     const adapter = await createServerFn(sdk, {
       framework,
@@ -2962,12 +3034,18 @@ async function testSdkRegistrationBeforeInitialize(): Promise<boolean | null> {
     adapter.registerRoute({
       method: "GET",
       path: "/api/probe",
-      handler: async () => ({ ok: true }),
+      handler: async () => ({ ok: true, canary }),
     });
     try {
       await adapter.initialize();
+      const boundary = listenerBoundary();
       await adapter.start();
-      const url = `http://127.0.0.1:${port}/api/probe`;
+      const listeningPort = await nativeListenerPort(
+        adapter,
+        boundary,
+        TEST_CONFIG.timeout,
+      );
+      const url = `http://127.0.0.1:${listeningPort}/api/probe`;
       const denied = await httpRequest("GET", url);
       const allowed = await httpRequest("GET", url, undefined, {
         "X-API-Key": "sdk-key",
@@ -2977,6 +3055,26 @@ async function testSdkRegistrationBeforeInitialize(): Promise<boolean | null> {
           `${framework}: without key ${denied.status} (want 401), with key ${allowed.status} (want 200)`,
         );
       } else {
+        const payload = allowed.json;
+        assert(
+          payload && typeof payload === "object",
+          "Real route response JSON",
+        );
+        assert("data" in payload, "Genuine SDK response envelope");
+        const data = payload.data;
+        assert(data && typeof data === "object", "Real route result");
+        assert("ok" in data && "canary" in data, "Actual registered route");
+        assert.equal(data.ok, true);
+        assert.equal(data.canary, canary, "Fixture-specific response canary");
+        assert("metadata" in payload, "Real response metadata");
+        const metadata = payload.metadata;
+        assert(metadata && typeof metadata === "object");
+        assert("requestId" in metadata);
+        assert.equal(typeof metadata.requestId, "string");
+        assert.notEqual(metadata.requestId, "");
+        if (framework === "hono") {
+          assert.equal(allowed.headers["x-content-type-options"], "nosniff");
+        }
         logTest(`register before initialize: ${framework}`, "PASS");
       }
     } catch (error) {
