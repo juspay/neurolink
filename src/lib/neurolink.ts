@@ -1,3 +1,13 @@
+import {
+  beginOllamaDiagnostic,
+  captureOllamaDiagnosticContext,
+  completeOllamaDiagnostic,
+  getOllamaDiagnosticErrorMessage,
+} from "./utils/ollamaDiagnostics.js";
+import type {
+  OllamaDiagnosticOutcome,
+  OllamaDiagnosticPermit,
+} from "./types/index.js";
 /**
  * NeuroLink - Unified AI Interface with Real MCP Tool Integration
  *
@@ -579,14 +589,6 @@ const isNonRetryableForPool = sharedIsNonRetryableForPool;
 const MEMORY_WRITE_TIMEOUT_MS = 30_000;
 
 /** Native tags share the health check's endpoint precedence and origin. */
-function getOllamaTagsUrl(): string {
-  const baseUrl =
-    process.env.OLLAMA_BASE_URL ||
-    process.env.OLLAMA_API_BASE ||
-    "http://localhost:11434";
-  // Native /api/tags is at the origin even if the compatible base ends /v1.
-  return new URL("/api/tags", baseUrl).toString();
-}
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -3875,8 +3877,17 @@ Current user's request: ${currentInput}`;
 
       // For Ollama, check if service is running and model is available
       if (route.provider === "ollama") {
+        let ollamaAttempt: OllamaDiagnosticPermit | undefined;
+        let ollamaOutcome: OllamaDiagnosticOutcome = "not-run";
         try {
-          const response = await fetch(getOllamaTagsUrl(), {
+          const ollamaContext = captureOllamaDiagnosticContext();
+          const gate = beginOllamaDiagnostic(ollamaContext);
+          if (gate.kind === "suppressed") {
+            return {};
+          }
+          ollamaAttempt = gate;
+          ollamaOutcome = "transport-failure";
+          const response = await fetch(ollamaContext.url, {
             method: "GET",
             signal: AbortSignal.timeout(2000),
           });
@@ -3892,6 +3903,7 @@ Current user's request: ${currentInput}`;
             return {}; // Return empty object to preserve existing fallback behavior
           }
 
+          ollamaOutcome = "protocol-failure";
           const responseData = await response.json();
           const models = responseData?.models;
 
@@ -3904,6 +3916,7 @@ Current user's request: ${currentInput}`;
             return {}; // Return empty object for fallback behavior
           }
 
+          ollamaOutcome = "success";
           // Filter and validate models before comparison
           const validModels = models.filter(
             (m): m is { name: string } =>
@@ -3952,11 +3965,15 @@ Current user's request: ${currentInput}`;
             routedModel: route.model,
             reason:
               error instanceof Error
-                ? error.message
+                ? getOllamaDiagnosticErrorMessage(error)
                 : "Ollama service check failed",
             orchestrationTime: `${Date.now() - startTime}ms`,
           });
           return {}; // Return empty object to preserve existing fallback behavior
+        } finally {
+          if (ollamaAttempt) {
+            completeOllamaDiagnostic(ollamaAttempt, ollamaOutcome);
+          }
         }
       }
 
@@ -4030,8 +4047,17 @@ Current user's request: ${currentInput}`;
 
       // For Ollama, check if service is running and model is available
       if (route.provider === "ollama") {
+        let ollamaAttempt: OllamaDiagnosticPermit | undefined;
+        let ollamaOutcome: OllamaDiagnosticOutcome = "not-run";
         try {
-          const response = await fetch(getOllamaTagsUrl(), {
+          const ollamaContext = captureOllamaDiagnosticContext();
+          const gate = beginOllamaDiagnostic(ollamaContext);
+          if (gate.kind === "suppressed") {
+            return {};
+          }
+          ollamaAttempt = gate;
+          ollamaOutcome = "transport-failure";
+          const response = await fetch(ollamaContext.url, {
             method: "GET",
             signal: AbortSignal.timeout(2000),
           });
@@ -4047,6 +4073,7 @@ Current user's request: ${currentInput}`;
             return {}; // Return empty object to preserve existing fallback behavior
           }
 
+          ollamaOutcome = "protocol-failure";
           const responseData = await response.json();
           const models = responseData?.models;
 
@@ -4059,6 +4086,7 @@ Current user's request: ${currentInput}`;
             return {}; // Return empty object for fallback behavior
           }
 
+          ollamaOutcome = "success";
           // Filter and validate models before comparison
           const validModels = models.filter(
             (m): m is { name: string } =>
@@ -4107,11 +4135,15 @@ Current user's request: ${currentInput}`;
             routedModel: route.model,
             reason:
               error instanceof Error
-                ? error.message
+                ? getOllamaDiagnosticErrorMessage(error)
                 : "Ollama service check failed",
             orchestrationTime: `${Date.now() - startTime}ms`,
           });
           return {}; // Return empty object to preserve existing fallback behavior
+        } finally {
+          if (ollamaAttempt) {
+            completeOllamaDiagnostic(ollamaAttempt, ollamaOutcome);
+          }
         }
       }
 
@@ -4140,6 +4172,26 @@ Current user's request: ${currentInput}`;
       });
       throw error;
     }
+  }
+
+  /**
+   * Read a nonempty orchestration preference only when provider is absent/auto.
+   * An explicit provider always takes precedence over incoming or generated
+   * context; empty, non-string and auto preferences are ignored.
+   */
+  private getOrchestratedPreferredProvider(options: {
+    provider?: string;
+    context?: Record<string, unknown>;
+  }): string | undefined {
+    if (options.provider && options.provider !== "auto") {
+      return undefined;
+    }
+    const preferred = options.context?.__orchestratedPreferredProvider;
+    return typeof preferred === "string" &&
+      preferred.length > 0 &&
+      preferred !== "auto"
+      ? preferred
+      : undefined;
   }
 
   /**
@@ -5931,6 +5983,7 @@ Current user's request: ${currentInput}`;
    *
    * The router is skipped when:
    *   - no `requestRouter` is configured on this instance, or
+   *   - a valid orchestration preference already owns the provider/model pair, or
    *   - the caller explicitly set both `options.provider` AND `options.model`
    *     (we only skip the router if BOTH are set; a caller setting only one
    *     still lets the router fill in the other field).
@@ -5949,6 +6002,7 @@ Current user's request: ${currentInput}`;
       provider?: string;
       model?: string;
       region?: string;
+      context?: Record<string, unknown>;
     },
     promptText: string,
     hasTools: boolean,
@@ -5960,10 +6014,11 @@ Current user's request: ${currentInput}`;
     }
     // Stand down if the classifier router already selected a provider/model on
     // this turn — one explicit precedence order: classifierRouter wins.
-    if (
-      (options as { context?: Record<string, unknown> }).context
-        ?.__classifierRouted
-    ) {
+    if (options.context?.__classifierRouted) {
+      return;
+    }
+    // Keep an orchestration-selected model with the provider that owns it.
+    if (this.getOrchestratedPreferredProvider(options)) {
       return;
     }
     // Skip if the caller explicitly set both provider AND model — they know
@@ -9077,6 +9132,8 @@ Current user's request: ${currentInput}`;
 
   /**
    * Direct provider generation (no MCP, no recursion)
+   * An explicit provider precedes orchestration context; otherwise a valid
+   * orchestration preference is tried before the existing provider fallback list.
    */
   private async directProviderGeneration(
     options: TextGenerationOptions,
@@ -9099,14 +9156,9 @@ Current user's request: ${currentInput}`;
     const requestedProvider =
       options.provider === "auto" ? undefined : options.provider;
 
-    // Check for orchestrated preferred provider in context
+    // Read the shared preference while keeping an explicit provider first.
     const preferredOrchestrated =
-      options.context &&
-      typeof options.context === "object" &&
-      "__orchestratedPreferredProvider" in options.context
-        ? (options.context as { __orchestratedPreferredProvider?: string })
-            .__orchestratedPreferredProvider
-        : undefined;
+      this.getOrchestratedPreferredProvider(options);
 
     // Build provider list with orchestrated preference first, then fallback to full list
     const tryProviders = preferredOrchestrated
@@ -12788,11 +12840,17 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Create MCP stream
+   * Create the provider-backed MCP stream with the existing tool lifecycle.
+   * An explicit provider precedes a valid orchestration context preference;
+   * absent either, getBestProvider retains its normal automatic selection.
    */
   private async createMCPStream(options: StreamOptions): Promise<StreamResult> {
-    // Simplified placeholder - in the actual implementation this would contain the complex MCP stream logic
-    const providerName = await getBestProvider(options.provider);
+    // Consume the validated orchestration choice after an explicit provider.
+    const requestedProvider =
+      options.provider && options.provider !== "auto"
+        ? options.provider
+        : this.getOrchestratedPreferredProvider(options);
+    const providerName = await getBestProvider(requestedProvider);
     const provider = await AIProviderFactory.createProvider(
       providerName,
       options.model,
@@ -16153,8 +16211,17 @@ Current user's request: ${currentInput}`;
 
           // Special handling for Ollama
           if (providerName === "ollama") {
+            let ollamaAttempt: OllamaDiagnosticPermit | undefined;
+            let ollamaOutcome: OllamaDiagnosticOutcome = "not-run";
             try {
-              const response = await fetch(getOllamaTagsUrl(), {
+              const ollamaContext = captureOllamaDiagnosticContext();
+              const gate = beginOllamaDiagnostic(ollamaContext);
+              if (gate.kind === "suppressed") {
+                throw new Error(gate.reason);
+              }
+              ollamaAttempt = gate;
+              ollamaOutcome = "transport-failure";
+              const response = await fetch(ollamaContext.url, {
                 method: "GET",
                 signal: AbortSignal.timeout(PROVIDER_TIMEOUTS.AUTH_MS),
               });
@@ -16163,6 +16230,7 @@ Current user's request: ${currentInput}`;
                 throw new Error("Ollama service not responding");
               }
 
+              ollamaOutcome = "protocol-failure";
               const responseData = await response.json();
               const models = responseData?.models;
 
@@ -16178,6 +16246,7 @@ Current user's request: ${currentInput}`;
                 throw new Error("Invalid models format from Ollama API");
               }
 
+              ollamaOutcome = "success";
               // Filter and validate models before comparison
               const validModels = models.filter(
                 (m): m is { name: string } =>
@@ -16211,10 +16280,14 @@ Current user's request: ${currentInput}`;
                 authenticated: false,
                 error:
                   error instanceof Error
-                    ? error.message
+                    ? getOllamaDiagnosticErrorMessage(error)
                     : "Ollama service not running",
                 responseTime: Date.now() - startTime,
               };
+            } finally {
+              if (ollamaAttempt) {
+                completeOllamaDiagnostic(ollamaAttempt, ollamaOutcome);
+              }
             }
           }
 

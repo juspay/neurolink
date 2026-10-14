@@ -627,6 +627,15 @@ export default [
             // states the exception.
             "test/continuous-test-suite-transcribe-stream.ts",
 
+            // Deterministic native HTTP, barriers/clock and captured policy state
+            // make concurrency/cache/backoff distinguishable without live secrets.
+            // Real public status/generate/stream remain on one shipped DIST graph.
+            "test/continuous-test-suite-ollama-diagnostics.ts",
+            // The documented ModelRouter decision seam selects retained Ollama
+            // branches when its configured model is absent; discovery, wire and
+            // returned public content stay real. No SDK/provider/fetch stubs.
+            "test/continuous-test-suite-orchestrated-provider-selection.ts",
+
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`
             // paths as well as `src/`.

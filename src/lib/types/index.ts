@@ -134,3 +134,5 @@ export * from "./proxyBudget.js";
 
 // `decide` inference-type contracts (TypeSafe Jev is the first provider)
 export * from "./decision.js";
+
+export * from "./ollamaDiagnostics.js";

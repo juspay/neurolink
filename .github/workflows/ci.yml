@@ -428,6 +428,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:provider-structure
 
+      - name: Ollama native diagnostic contracts (owned HTTP, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:ollama-diagnostics
+
       - name: MCP egress and recovery contracts (owned endpoints, no credentials)
         if: matrix.group == 'rest'
         run: pnpm run test:mcp:egress && pnpm run test:mcp:deadline-health && pnpm run test:mcp:timeout-compat && pnpm run test:mcp:startup-readiness
@@ -435,6 +439,10 @@ jobs:
       - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract
+
+      - name: Orchestrated provider selection contracts (owned JSON/SSE, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:orchestrated-provider-selection
 
       - name: MiMo and LongCat overflow budget contracts (owned endpoints, no credentials)
         if: matrix.group == 'rest'

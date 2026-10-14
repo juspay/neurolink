@@ -1,8 +1,24 @@
 /**
- * Provider Health Checking System
- * Prevents 500 errors by validating provider availability and configuration
+ * Provider health checking with captured native diagnostics for Ollama.
+ * Configuration/model availability and transport failures remain separate.
  */
-
+import {
+  beginOllamaDiagnostic,
+  captureOllamaDiagnosticContext,
+  clearOllamaDiagnostics,
+  completeOllamaDiagnostic,
+  getOllamaDiagnosticErrorMessage,
+  getOllamaDiagnosticSnapshot,
+  getOllamaHealthCacheKey,
+  getValidatedProviderFailureThreshold,
+  OllamaProtocolError,
+  readOllamaTagsModels,
+  resolveOllamaNativeTagsUrl,
+} from "./ollamaDiagnostics.js";
+import type {
+  OllamaDiagnosticContext,
+  OllamaDiagnosticOutcome,
+} from "../types/index.js";
 import { logger } from "./logger.js";
 import {
   AIProviderName,
@@ -29,26 +45,24 @@ export class ProviderHealthChecker {
     {
       status: ProviderHealthStatusOptions;
       timestamp: number;
+      ollamaRevision?: number;
+      ollamaGeneration?: number;
     }
   >();
   private static readonly DEFAULT_TIMEOUT = 5000; // 5 seconds
   private static readonly DEFAULT_CACHE_AGE = 300000; // 5 minutes
   /**
-   * Fixed backoff window for the circuit breaker below, in milliseconds.
-   * Deliberately NOT the per-call `maxCacheAge` option: `consecutiveFailures`
-   * is a single process-wide map keyed only by provider name, shared by every
-   * caller (e.g. `checkFallbackProviderAvailability` hard-codes a 15s
-   * `maxCacheAge` for its own health-status cache). Evicting the breaker
-   * entry using whichever caller happens to read it next would let a
-   * short-TTL caller silently erase a backoff another caller is relying on
-   * — see `checkProviderHealth`. This constant governs breaker expiry alone
-   * and is intentionally independent of `maxCacheAge`/`DEFAULT_CACHE_AGE`.
+   * Fixed backoff for the existing non-Ollama provider breaker. Ollama uses
+   * the same fixed window in ollamaDiagnostics, shared by every native caller.
+   * Neither window depends on a caller's maxCacheAge: expiring a health cache
+   * must not silently erase a transport backoff owned by another caller.
    */
   private static readonly CIRCUIT_BREAKER_RESET_MS = 300000; // 5 minutes
   private static readonly CONSECUTIVE_FAILURE_THRESHOLD =
     ProviderHealthChecker.getValidatedFailureThreshold();
   /**
-   * Circuit breaker state, keyed by provider.
+   * Non-Ollama circuit breaker state, keyed by provider. Ollama's separate
+   * native policy captures the actual endpoint and records aggregate outcomes.
    *
    * `count` is a count of consecutive failed CONNECTIVITY PROBES (plus the
    * rare case of the check itself throwing) — never of "the provider is
@@ -86,28 +100,17 @@ export class ProviderHealthChecker {
   private static readonly MAX_CONCURRENT_HEALTH_CHECKS = 8;
 
   /**
-   * Validate and return a safe failure threshold value
+   * Preserve the validated threshold's original first-use initialization.
    */
   private static getValidatedFailureThreshold(): number {
-    const envValue = process.env.PROVIDER_FAILURE_THRESHOLD;
-
-    if (!envValue) {
-      return 3; // default
-    }
-
-    const parsed = Number(envValue);
-    if (isNaN(parsed) || parsed <= 0 || parsed > 10) {
-      logger.warn(
-        `Invalid PROVIDER_FAILURE_THRESHOLD: ${envValue} (must be between 1 and 10), using default: 3`,
-      );
-      return 3;
-    }
-
-    return parsed;
+    return getValidatedProviderFailureThreshold();
   }
 
   /**
-   * Comprehensive health check for a provider
+   * Check configuration and optional connectivity/model availability.
+   * Ollama captures its endpoint/model once and records only probes that run;
+   * a cache hit or missing configured model does not invent a transport failure.
+   * Its cached result must match the current diagnostic revision/generation.
    */
   static async checkProviderHealth(
     providerName: AIProviderName,
@@ -121,9 +124,26 @@ export class ProviderHealthChecker {
       maxCacheAge = this.DEFAULT_CACHE_AGE,
     } = options;
 
-    // Check cache first
-    if (cacheResults) {
-      const cached = this.getCachedHealth(providerName, maxCacheAge);
+    const isOllama = providerName === AIProviderName.OLLAMA;
+    let ollamaContext: OllamaDiagnosticContext | undefined;
+    if (isOllama) {
+      try {
+        ollamaContext = captureOllamaDiagnosticContext();
+      } catch {
+        // The local configuration path below reports the invalid URL without
+        // fabricating an outbound transport failure or reusing old cached health.
+      }
+    }
+    let ollamaProbeRan = false;
+    let ollamaProbeFailed = false;
+
+    // Cache hits remain observations: they neither begin nor complete a probe.
+    if (cacheResults && (!isOllama || ollamaContext)) {
+      const cached = this.getCachedHealth(
+        providerName,
+        maxCacheAge,
+        ollamaContext,
+      );
       if (cached) {
         logger.debug(`Using cached health status for ${providerName}`);
         return cached;
@@ -153,26 +173,28 @@ export class ProviderHealthChecker {
     // down, so a dead local proxy still gets backed off instead of eating a
     // full timeout on every call forever.
     //
-    // A run of failures older than CIRCUIT_BREAKER_RESET_MS is forgotten,
-    // which is what makes the "will be retried after cache TTL expires"
-    // warning below true. Nothing else could clear it, because the
-    // breaker's whole effect is to suppress the probe that would disprove
-    // it. This is deliberately the fixed CIRCUIT_BREAKER_RESET_MS window,
-    // not this call's own `maxCacheAge` — `consecutiveFailures` is a single
-    // shared map keyed only by provider name, so reusing whichever caller
-    // happens to invoke `checkProviderHealth` next (some call sites pass a
-    // much shorter `maxCacheAge` for their own unrelated caching needs)
-    // would let that caller silently evict a backoff a different caller is
-    // relying on.
+    // Ollama consults its captured endpoint policy; other providers retain
+    // their existing provider-keyed map. Both expire at the fixed reset window,
+    // independently of this caller's health-cache TTL.
     const breaker = this.consecutiveFailures.get(providerName);
     if (
+      !isOllama &&
       breaker !== undefined &&
       Date.now() - breaker.lastFailureAt >= this.CIRCUIT_BREAKER_RESET_MS
     ) {
       this.consecutiveFailures.delete(providerName);
     }
-    const failureCount = this.consecutiveFailures.get(providerName)?.count ?? 0;
-    const blacklisted = failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD;
+    const ollamaGate = ollamaContext
+      ? beginOllamaDiagnostic(ollamaContext)
+      : undefined;
+    const failureCount = isOllama
+      ? ollamaContext
+        ? getOllamaDiagnosticSnapshot(ollamaContext).count
+        : 0
+      : (this.consecutiveFailures.get(providerName)?.count ?? 0);
+    const blacklisted = isOllama
+      ? ollamaGate?.kind === "suppressed"
+      : failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD;
     if (blacklisted) {
       logger.warn(
         `Provider ${providerName} blacklisted due to consecutive failures`,
@@ -200,7 +222,10 @@ export class ProviderHealthChecker {
         healthStatus,
         timeout,
         !blacklisted,
+        ollamaContext,
       );
+      ollamaProbeRan = runtimeProbe.ran;
+      ollamaProbeFailed = runtimeProbe.failed;
 
       // 2. Check API key validity (basic format validation)
       await this.checkApiKeyValidity(providerName, healthStatus);
@@ -209,7 +234,12 @@ export class ProviderHealthChecker {
       const issuesBeforeProbe = healthStatus.configurationIssues.length;
       const probed = includeConnectivityTest && !blacklisted;
       if (probed) {
-        await this.checkConnectivity(providerName, healthStatus, timeout);
+        await this.checkConnectivity(
+          providerName,
+          healthStatus,
+          timeout,
+          ollamaContext,
+        );
       }
       const probeFailed =
         probed && healthStatus.configurationIssues.length > issuesBeforeProbe;
@@ -221,6 +251,8 @@ export class ProviderHealthChecker {
       // requests).
       const anyProbeRan = probed || runtimeProbe.ran;
       const anyProbeFailed = probeFailed || runtimeProbe.failed;
+      ollamaProbeRan = anyProbeRan;
+      ollamaProbeFailed = anyProbeFailed;
 
       // 4. Optional: Model validation
       if (includeModelValidation) {
@@ -248,7 +280,7 @@ export class ProviderHealthChecker {
       healthStatus.responseTime = Date.now() - startTime;
 
       // Cache results
-      if (cacheResults) {
+      if (cacheResults && !isOllama) {
         this.healthCache.set(providerName, {
           status: healthStatus,
           timestamp: Date.now(),
@@ -258,13 +290,39 @@ export class ProviderHealthChecker {
       // Only a probe that actually ran moves the breaker. A check that
       // issued no request is not evidence either way: it neither proves the
       // provider is failing nor that it has recovered.
-      if (anyProbeFailed) {
-        this.consecutiveFailures.set(providerName, {
-          count: failureCount + 1,
-          lastFailureAt: Date.now(),
-        });
-      } else if (anyProbeRan) {
-        this.consecutiveFailures.delete(providerName);
+      if (isOllama) {
+        if (ollamaGate?.kind === "allowed") {
+          completeOllamaDiagnostic(
+            ollamaGate,
+            anyProbeFailed
+              ? "transport-failure"
+              : anyProbeRan
+                ? "success"
+                : "not-run",
+          );
+        }
+        if (cacheResults && ollamaContext) {
+          const snapshot = getOllamaDiagnosticSnapshot(ollamaContext);
+          if (ollamaGate && snapshot.generation === ollamaGate.generation) {
+            // Bind the FINAL recorded revision, never the pre-request revision.
+            // Clearing also invalidates a suppressed call's pending cache write.
+            this.healthCache.set(getOllamaHealthCacheKey(ollamaContext), {
+              status: healthStatus,
+              timestamp: Date.now(),
+              ollamaRevision: snapshot.revision,
+              ollamaGeneration: snapshot.generation,
+            });
+          }
+        }
+      } else {
+        if (anyProbeFailed) {
+          this.consecutiveFailures.set(providerName, {
+            count: failureCount + 1,
+            lastFailureAt: Date.now(),
+          });
+        } else if (anyProbeRan) {
+          this.consecutiveFailures.delete(providerName);
+        }
       }
 
       logger.debug(`Health check completed for ${providerName}`, {
@@ -273,24 +331,44 @@ export class ProviderHealthChecker {
         issues: healthStatus.configurationIssues.length,
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = isOllama
+        ? getOllamaDiagnosticErrorMessage(error)
+        : error instanceof Error
+          ? error.message
+          : String(error);
       healthStatus.error = errorMessage;
       healthStatus.configurationIssues.push(
         `Health check failed: ${errorMessage}`,
       );
       healthStatus.responseTime = Date.now() - startTime;
 
-      // A check that threw failed to answer at all, which is a failure in
-      // the sense the breaker is for — unlike an answered "not configured".
-      this.consecutiveFailures.set(providerName, {
-        count: failureCount + 1,
-        lastFailureAt: Date.now(),
-      });
+      // Keep legacy error accounting for other providers. Ollama records only
+      // probes that actually ran, so a local exception cannot invent an outage.
+      if (isOllama) {
+        if (ollamaGate?.kind === "allowed") {
+          completeOllamaDiagnostic(
+            ollamaGate,
+            ollamaProbeFailed
+              ? "transport-failure"
+              : ollamaProbeRan
+                ? "success"
+                : "not-run",
+          );
+        }
+      } else {
+        this.consecutiveFailures.set(providerName, {
+          count: failureCount + 1,
+          lastFailureAt: Date.now(),
+        });
+      }
 
       logger.warn(`Health check failed for ${providerName}`, {
         error: errorMessage,
-        consecutiveFailures: failureCount + 1,
+        consecutiveFailures: isOllama
+          ? ollamaContext
+            ? getOllamaDiagnosticSnapshot(ollamaContext).count
+            : 0
+          : failureCount + 1,
       });
     }
 
@@ -305,6 +383,7 @@ export class ProviderHealthChecker {
     healthStatus: ProviderHealthStatusOptions,
     timeout: number,
     allowRuntimeProbe: boolean,
+    ollamaContext?: OllamaDiagnosticContext,
   ): Promise<ProviderRuntimeProbeOutcome> {
     const requiredEnvVars = this.getRequiredEnvironmentVariables(providerName);
 
@@ -360,6 +439,7 @@ export class ProviderHealthChecker {
       healthStatus,
       timeout,
       allowRuntimeProbe,
+      ollamaContext,
     );
   }
 
@@ -472,8 +552,12 @@ export class ProviderHealthChecker {
     providerName: AIProviderName,
     healthStatus: ProviderHealthStatusOptions,
     timeout: number,
+    ollamaContext?: OllamaDiagnosticContext,
   ): Promise<void> {
-    const endpoint = this.getProviderHealthEndpoint(providerName);
+    const endpoint =
+      providerName === AIProviderName.OLLAMA
+        ? (ollamaContext?.url ?? null)
+        : this.getProviderHealthEndpoint(providerName);
 
     if (!endpoint) {
       healthStatus.warning = "No connectivity test available for this provider";
@@ -734,6 +818,7 @@ export class ProviderHealthChecker {
     healthStatus: ProviderHealthStatusOptions,
     timeout: number,
     allowRuntimeProbe: boolean,
+    ollamaContext?: OllamaDiagnosticContext,
   ): Promise<ProviderRuntimeProbeOutcome> {
     switch (providerName) {
       case AIProviderName.VERTEX:
@@ -752,7 +837,12 @@ export class ProviderHealthChecker {
           allowRuntimeProbe,
         );
       case AIProviderName.OLLAMA:
-        return this.checkOllamaConfig(healthStatus, timeout, allowRuntimeProbe);
+        return this.checkOllamaConfig(
+          healthStatus,
+          timeout,
+          allowRuntimeProbe,
+          ollamaContext,
+        );
     }
     // Every other provider's config check above is local (env vars, file
     // existence) — never a network request, so there is no probe to report.
@@ -1056,8 +1146,9 @@ export class ProviderHealthChecker {
     );
   }
 
+  /** Resolve the shared native tags URL rather than the compatible models URL. */
   private static getOllamaTagsUrl(): string {
-    return new URL("/api/tags", this.getOllamaBaseUrl()).toString();
+    return resolveOllamaNativeTagsUrl();
   }
 
   private static getConfiguredOllamaModel(): string {
@@ -1138,13 +1229,16 @@ export class ProviderHealthChecker {
     );
   }
 
+  /**
+   * Fetch native tags from the captured endpoint and normalize its models.
+   * A malformed envelope rejects; a valid empty list remains an empty result.
+   */
   private static async getOllamaAvailableModels(
     timeout: number = 2000,
+    endpoint: string = this.getOllamaTagsUrl(),
   ): Promise<string[]> {
-    const payload = (await this.fetchJsonWithTimeout(this.getOllamaTagsUrl(), {
-      timeout,
-    })) as { models?: unknown[] };
-    return this.normalizeModelList(payload.models ?? []);
+    const payload = await this.fetchJsonWithTimeout(endpoint, { timeout });
+    return this.normalizeModelList(readOllamaTagsModels(payload));
   }
 
   private static async getLiteLLMAvailableModels(
@@ -1163,27 +1257,82 @@ export class ProviderHealthChecker {
     return this.normalizeModelList(payload.data ?? []);
   }
 
+  /**
+   * Check a requested model against native tags while keeping diagnostic outcome
+   * separate from model availability. An answered valid list is diagnostic
+   * success even if that model is absent; malformed JSON/envelopes are protocol
+   * failures. A caller recording an aggregate health probe disables recording
+   * here so its admitted permit is completed only once at the outer boundary.
+   */
   private static async checkOllamaAvailability(options: {
     model: string;
     timeout?: number;
-  }): Promise<{ available: boolean; reason?: string; models: string[] }> {
+    context?: OllamaDiagnosticContext;
+    recordDiagnostic?: boolean;
+  }): Promise<{
+    available: boolean;
+    reason?: string;
+    models: string[];
+    diagnosticOutcome:
+      | OllamaDiagnosticOutcome
+      | "suppressed"
+      | "configuration-failure";
+  }> {
+    let context: OllamaDiagnosticContext;
     try {
-      const models = await this.getOllamaAvailableModels(options.timeout);
+      context =
+        options.context ?? captureOllamaDiagnosticContext(options.model);
+    } catch (error) {
+      return {
+        available: false,
+        reason: getOllamaDiagnosticErrorMessage(error),
+        models: [],
+        diagnosticOutcome: "configuration-failure",
+      };
+    }
+    const gate =
+      options.recordDiagnostic === false
+        ? undefined
+        : beginOllamaDiagnostic(context);
+    if (gate?.kind === "suppressed") {
+      return {
+        available: false,
+        reason: gate.reason,
+        models: [],
+        diagnosticOutcome: "suppressed",
+      };
+    }
+    let outcome: OllamaDiagnosticOutcome | undefined;
+    try {
+      const models = await this.getOllamaAvailableModels(
+        options.timeout,
+        context.url,
+      );
+      outcome = "success";
       if (!this.hasRequestedModel(models, options.model)) {
         return {
           available: false,
           reason: `Configured Ollama model '${options.model}' is not installed`,
           models,
+          diagnosticOutcome: outcome,
         };
       }
-
-      return { available: true, models };
+      return { available: true, models, diagnosticOutcome: outcome };
     } catch (error) {
+      outcome =
+        error instanceof OllamaProtocolError || error instanceof SyntaxError
+          ? "protocol-failure"
+          : "transport-failure";
       return {
         available: false,
-        reason: error instanceof Error ? error.message : String(error),
+        reason: getOllamaDiagnosticErrorMessage(error),
         models: [],
+        diagnosticOutcome: outcome,
       };
+    } finally {
+      if (gate?.kind === "allowed") {
+        completeOllamaDiagnostic(gate, outcome ?? "not-run");
+      }
     }
   }
 
@@ -1287,14 +1436,18 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Check Ollama configuration
+   * Report Ollama configuration and model availability using the captured context.
+   * Backoff can suppress native work; a missing installed model is a configuration
+   * issue after a successful probe. Return actual probe activity/failure for the
+   * enclosing health check to record, without completing a second policy permit.
    */
   private static async checkOllamaConfig(
     healthStatus: ProviderHealthStatusOptions,
     timeout: number = this.DEFAULT_TIMEOUT,
     allowRuntimeProbe: boolean = true,
+    ollamaContext?: OllamaDiagnosticContext,
   ): Promise<ProviderRuntimeProbeOutcome> {
-    const ollamaBase = this.getOllamaBaseUrl();
+    const ollamaBase = ollamaContext?.url ?? this.getOllamaBaseUrl();
     if (!ollamaBase.startsWith("http")) {
       healthStatus.isConfigured = false;
       healthStatus.configurationIssues.push(
@@ -1317,8 +1470,10 @@ export class ProviderHealthChecker {
     }
 
     const availability = await this.checkOllamaAvailability({
-      model: this.getConfiguredOllamaModel(),
+      model: ollamaContext?.model ?? this.getConfiguredOllamaModel(),
       timeout,
+      context: ollamaContext,
+      recordDiagnostic: false,
     });
 
     if (!availability.available) {
@@ -1329,7 +1484,15 @@ export class ProviderHealthChecker {
       healthStatus.recommendations.push(
         "Start Ollama and install the configured model before using Ollama as a fallback provider",
       );
-      return { ran: true, failed: true };
+      return {
+        ran:
+          availability.diagnosticOutcome === "success" ||
+          availability.diagnosticOutcome === "transport-failure" ||
+          availability.diagnosticOutcome === "protocol-failure",
+        failed:
+          availability.diagnosticOutcome === "transport-failure" ||
+          availability.diagnosticOutcome === "protocol-failure",
+      };
     }
 
     healthStatus.isConfigured = true;
@@ -1404,22 +1567,38 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Get cached health status if still valid
+   * Return health within the caller's TTL and, for Ollama, the captured identity.
+   * Ollama revision/generation changes invalidate cached status; reading the
+   * snapshot may apply timed expiry but never records a probe outcome.
    */
   private static getCachedHealth(
     providerName: AIProviderName,
     maxAge: number,
+    ollamaContext?: OllamaDiagnosticContext,
   ): ProviderHealthStatusOptions | null {
-    const cached = this.healthCache.get(providerName);
+    const key = ollamaContext
+      ? getOllamaHealthCacheKey(ollamaContext)
+      : providerName;
+    const cached = this.healthCache.get(key);
 
     if (!cached) {
       return null;
     }
 
+    if (ollamaContext) {
+      const snapshot = getOllamaDiagnosticSnapshot(ollamaContext);
+      if (
+        cached.ollamaRevision !== snapshot.revision ||
+        cached.ollamaGeneration !== snapshot.generation
+      ) {
+        this.healthCache.delete(key);
+        return null;
+      }
+    }
     const age = Date.now() - cached.timestamp;
 
     if (age > maxAge) {
-      this.healthCache.delete(providerName);
+      this.healthCache.delete(key);
       return null;
     }
 
@@ -2018,15 +2197,27 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Clear health cache for a provider or all providers
+   * Clear cached health and failure state for one provider or every provider.
+   * Clearing Ollama removes all endpoint/model cache entries and explicitly
+   * advances diagnostic generation so older in-flight permits cannot commit.
    */
   static clearHealthCache(providerName?: AIProviderName): void {
     if (providerName) {
-      this.healthCache.delete(providerName);
+      if (providerName === AIProviderName.OLLAMA) {
+        for (const [key, cached] of this.healthCache) {
+          if (cached.status.provider === providerName) {
+            this.healthCache.delete(key);
+          }
+        }
+        clearOllamaDiagnostics();
+      } else {
+        this.healthCache.delete(providerName);
+      }
       this.consecutiveFailures.delete(providerName);
     } else {
       this.healthCache.clear();
       this.consecutiveFailures.clear();
+      clearOllamaDiagnostics();
     }
   }
 
